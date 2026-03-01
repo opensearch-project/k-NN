@@ -52,7 +52,7 @@ public final class DerivedSourceReaders implements Cloneable, Closeable {
         assert knnVectorsReader != null || docValuesProducer != null : "At least one reader must be non-null";
         this.knnVectorsReader = knnVectorsReader;
         this.docValuesProducer = docValuesProducer;
-        this.onClose = () -> IOUtils.closeWhileHandlingException(knnVectorsReader, docValuesProducer);
+        this.onClose = () -> IOUtils.close(knnVectorsReader, docValuesProducer);
     }
 
     private DerivedSourceReaders(KnnVectorsReader knnVectorsReader, DocValuesProducer docValuesProducer, Closeable onClose) {
