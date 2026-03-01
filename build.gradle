@@ -500,7 +500,8 @@ dependencies {
     api "net.java.dev.jna:jna-platform:${versions.jna}"
     implementation "org.slf4j:slf4j-api:${versions.slf4j}"
     zipArchive group: 'org.opensearch.plugin', name:'opensearch-security', version: "${opensearch_build}"
-    zipArchive group: 'org.opensearch.plugin', name:'opensearch-custom-codecs', version: "${opensearch_build}"
+    // Commenting this out till CustomCodec plugin is ready after Lucene 10.4.0 upgrade in OS Core.
+    //zipArchive group: 'org.opensearch.plugin', name:'opensearch-custom-codecs', version: "${opensearch_build}"
 }
 
 task windowsPatches(type:Exec) {
@@ -653,6 +654,7 @@ integTest {
     commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes)
     filter {
         excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
+        excludeTestsMatching "org.opensearch.knn.integ.codecs.CustomCodecsIT"
     }
     mustRunAfter test
 }
@@ -688,7 +690,8 @@ def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
     // Optionally install security
     if (System.getProperty("security.enabled") != null) {
         configureSecurityPlugin(cluster)
-    } else {
+    }
+    /*else {
         // Only install custom codecs plugin
         configurations.zipArchive.asFileTree.filter(f -> f.name.contains("custom-codecs")).each {
             cluster.plugin(provider(new Callable<RegularFile>() {
@@ -703,7 +706,7 @@ def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
             }
           }))
        }
-    }
+    }*/
 
     cluster.plugin(project.tasks.bundlePlugin.archiveFile)
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
