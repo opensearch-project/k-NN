@@ -42,6 +42,7 @@ import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.TENAN
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.VECTOR_BLOB_FILE_EXTENSION;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.VECTOR_PATH;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.GRAPH_ONLY;
 
 public class RemoteBuildRequestTests extends OpenSearchSingleNodeTestCase {
     public static final String MOCK_FULL_PATH = "vectors/1_1_25/SIRKos4rOWlMA62PX2p75m_vectors/SIRKos4rOWlMA62PX2p75m_target_field__3l";
@@ -190,7 +191,10 @@ public class RemoteBuildRequestTests extends OpenSearchSingleNodeTestCase {
             + METHOD_PARAMETER_M
             + "\":14"
             + "}"
-            + "}"
+            + "},"
+            + "\""
+            + GRAPH_ONLY
+            + "\":false"
             + "}";
     }
 }

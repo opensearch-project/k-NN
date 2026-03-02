@@ -22,6 +22,7 @@ import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.REPOS
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.TENANT_ID;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.VECTOR_PATH;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.GRAPH_ONLY;
 
 /**
  * Request object for sending build requests to the remote build service, encapsulating all the required parameters
@@ -40,6 +41,7 @@ public class RemoteBuildRequest implements ToXContentObject {
     protected String vectorDataType;
     protected String engine;
     protected RemoteIndexParameters indexParameters;
+    protected boolean graphOnly;
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
@@ -54,6 +56,7 @@ public class RemoteBuildRequest implements ToXContentObject {
         builder.field(VECTOR_DATA_TYPE_FIELD, vectorDataType);
         builder.field(KNN_ENGINE, engine);
         builder.field(INDEX_PARAMETERS, indexParameters);
+        builder.field(GRAPH_ONLY, graphOnly);
         builder.endObject();
         return builder;
     }
