@@ -166,7 +166,6 @@ public class NativeIndexWriter {
                 knnVectorValuesSupplier.get(),
                 nativeIndexParams
             );
-            System.out.println(indexBuilder.getClass());
             indexBuilder.buildAndWriteIndex(nativeIndexParams);
             CodecUtil.writeFooter(output);
         }
