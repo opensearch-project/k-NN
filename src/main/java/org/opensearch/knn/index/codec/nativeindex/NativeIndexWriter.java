@@ -132,6 +132,7 @@ public class NativeIndexWriter {
             throw new MergePolicy.MergeAbortedException("KNN Merge aborted.");
         } catch (Exception ex) {
             log.error("Merge exception happened for field {}", fieldInfo.name, ex);
+            throw new IOException("Merge exception happened for field: " + fieldInfo.name, ex);
         }
     }
 
@@ -165,6 +166,7 @@ public class NativeIndexWriter {
                 knnVectorValuesSupplier.get(),
                 nativeIndexParams
             );
+            System.out.println(indexBuilder.getClass());
             indexBuilder.buildAndWriteIndex(nativeIndexParams);
             CodecUtil.writeFooter(output);
         }
