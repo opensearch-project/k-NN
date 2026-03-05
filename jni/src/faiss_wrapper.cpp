@@ -460,6 +460,16 @@ jlong knn_jni::faiss_wrapper::LoadIndexWithStream(faiss::IOReader* ioReader) {
                         | faiss::IO_FLAG_PQ_SKIP_SDC_TABLE
                         | faiss::IO_FLAG_SKIP_PRECOMPUTE_TABLE);
 
+    // Graph-only indexes have null flat storage and cannot be searched via JNI.
+    auto* idMap = dynamic_cast<faiss::IndexIDMap*>(indexReader);
+    if (idMap != nullptr) {
+        auto* hnsw = dynamic_cast<faiss::IndexHNSW*>(idMap->index);
+        if (hnsw != nullptr && hnsw->storage == nullptr) {
+            delete indexReader;
+            throw std::runtime_error("Cannot load a graph-only index: flat vector storage is null");
+        }
+    }
+
     return (jlong) indexReader;
 }
 jlong knn_jni::faiss_wrapper::LoadIndexWithStreamADCParams(faiss::IOReader* ioReader, knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jobject methodParamsJ) {

@@ -17,7 +17,10 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.common.exception.TerminalIOException;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.RepositoryMissingException;
@@ -196,6 +199,32 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         assertEquals(TEST_CLUSTER, request.getTenantId());
         assertEquals(3, request.getDocCount());
         assertEquals(2, request.getDimension());
+        assertFalse(request.isGraphOnly());
+    }
+
+    public void testBuildRequestGraphOnly() throws IOException {
+        // Build params with BINARY vectorDataType + quantizationState to trigger graph-only
+        BuildIndexParams bqBuildParams = BuildIndexParams.builder()
+            .indexOutputWithBuffer(indexOutputWithBuffer)
+            .knnEngine(KNNEngine.FAISS)
+            .vectorDataType(VectorDataType.BINARY)
+            .parameters(Map.of("index", "param"))
+            .knnVectorValuesSupplier(knnVectorValuesSupplier)
+            .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
+            .segmentWriteState(segmentWriteState)
+            .quantizationState(mock(QuantizationState.class))
+            .isFlush(randomBoolean())
+            .build();
+
+        RemoteBuildRequest request = RemoteIndexBuildStrategy.buildRemoteBuildRequest(
+            createTestIndexSettings(),
+            bqBuildParams,
+            createTestRepositoryMetadata(),
+            MOCK_FULL_PATH,
+            getMockParameterMap()
+        );
+        assertTrue(request.isGraphOnly());
+        assertEquals(VectorDataType.FLOAT.getValue(), request.getVectorDataType());
     }
 
     public Map<String, Object> getMockParameterMap() {

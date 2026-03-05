@@ -24,7 +24,6 @@ import org.opensearch.knn.index.engine.faiss.FaissHNSWMethod;
 import org.opensearch.knn.index.remote.RemoteIndexWaiter;
 import org.opensearch.knn.index.remote.RemoteIndexWaiterFactory;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
-import org.opensearch.knn.index.vectorvalues.QuantizedKNNBinaryVectorValues;
 import org.opensearch.remoteindexbuild.client.RemoteIndexClient;
 import org.opensearch.remoteindexbuild.client.RemoteIndexClientFactory;
 import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
@@ -186,12 +185,14 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     private void writeToRepository(RepositoryContext repositoryContext, BuildIndexParams indexInfo) {
         VectorRepositoryAccessor vectorRepositoryAccessor = repositoryContext.vectorRepositoryAccessor;
         boolean success = false;
+        // For the BQ quantization path, send raw fp32 vectors instead of quantized binary
+        final VectorDataType writeDataType = isGraphOnlyBuild(indexInfo) ? VectorDataType.FLOAT : indexInfo.getVectorDataType();
         metrics.startRepositoryWriteMetrics();
         try {
             vectorRepositoryAccessor.writeToRepository(
                 repositoryContext.blobName,
                 indexInfo.getTotalLiveDocs(),
-                indexInfo.getVectorDataType(),
+                writeDataType,
                 decorateVectorValuesSupplier(indexInfo)
             );
             success = true;
@@ -203,11 +204,17 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     }
 
     private static Supplier<KNNVectorValues<?>> decorateVectorValuesSupplier(final BuildIndexParams indexInfo) {
-        if (indexInfo.getVectorDataType() == VectorDataType.BINARY && indexInfo.getQuantizationState() != null) {
-            return () -> new QuantizedKNNBinaryVectorValues(indexInfo.getKnnVectorValuesSupplier().get(), indexInfo);
-        }
-
+        // When quantization is present, skip wrapping — send raw fp32 vectors for graph-only build
         return indexInfo.getKnnVectorValuesSupplier();
+    }
+
+    /**
+     * Returns true when the build should produce a graph-only index (no flat vector storage).
+     * Currently applies to the binary quantization path where fp32 vectors are quantized to binary.
+     * TODO: Add integration tests for graph-only build once search-side support is implemented.
+     */
+    private static boolean isGraphOnlyBuild(final BuildIndexParams indexInfo) {
+        return indexInfo.getVectorDataType() == VectorDataType.BINARY && indexInfo.getQuantizationState() != null;
     }
 
     /**
@@ -364,6 +371,15 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
 
         final String vectorDataType = determineVectorDataType(indexInfo.getVectorDataType(), parameters);
 
+        // For the binary quantization path (fp32 vectors quantized to binary), skip quantization
+        // and send raw fp32 vectors with graph_only=true. The GPU builds the CAGRA graph from fp32
+        // and returns only the graph structure without flat vector storage.
+        final boolean graphOnly = isGraphOnlyBuild(indexInfo);
+        final String resolvedVectorDataType = graphOnly ? VectorDataType.FLOAT.getValue() : vectorDataType;
+        if (graphOnly) {
+            log.info("Graph-only build: sending fp32 vectors with graph_only=true for field [{}]", indexInfo.getFieldName());
+        }
+
         KNNVectorValues<?> vectorValues = decorateVectorValuesSupplier(indexInfo).get();
         initializeVectorValues(vectorValues);
         assert (vectorValues.dimension() > 0);
@@ -376,9 +392,10 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             .tenantId(indexSettings.getSettings().get(ClusterName.CLUSTER_NAME_SETTING.getKey()))
             .dimension(vectorValues.dimension())
             .docCount(indexInfo.getTotalLiveDocs())
-            .vectorDataType(vectorDataType)
+            .vectorDataType(resolvedVectorDataType)
             .engine(indexInfo.getKnnEngine().getName())
             .indexParameters(indexInfo.getKnnEngine().createRemoteIndexingParameters(parameters))
+            .graphOnly(graphOnly)
             .build();
     }
 }

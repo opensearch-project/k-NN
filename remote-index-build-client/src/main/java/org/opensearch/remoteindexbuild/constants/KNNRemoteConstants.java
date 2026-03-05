@@ -50,4 +50,5 @@ public class KNNRemoteConstants {
     public static final String DIMENSION = "dimension";
     public static final String VECTOR_DATA_TYPE_FIELD = "data_type";
     public static final String KNN_ENGINE = "engine";
+    public static final String GRAPH_ONLY = "graph_only";
 }

@@ -45,6 +45,19 @@ public class IndexInputWithBuffer {
         return contentLength - indexInput.getFilePointer();
     }
 
+    /**
+     * Reads the first 4 bytes (fourcc) of the index file and resets the read position.
+     * Used to determine the index file type (binary vs non-binary) at load time,
+     * rather than relying on index metadata which may not reflect the actual file contents
+     * (e.g. graph-only builds produce non-binary files for binary-quantized indexes).
+     */
+    public String peekFourcc() throws IOException {
+        byte[] fourcc = new byte[4];
+        indexInput.readBytes(fourcc, 0, 4);
+        indexInput.seek(0);
+        return new String(fourcc);
+    }
+
     @Override
     public String toString() {
         return "{indexInput=" + indexInput + ", len(buffer)=" + buffer.length + "}";

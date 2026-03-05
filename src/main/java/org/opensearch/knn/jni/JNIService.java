@@ -20,6 +20,7 @@ import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.util.IndexUtil;
 
+import java.io.IOException;
 import java.util.Locale;
 import java.util.Map;
 
@@ -195,8 +196,16 @@ public class JNIService {
      */
     public static long loadIndex(IndexInputWithBuffer readStream, Map<String, Object> parameters, KNNEngine knnEngine) {
         if (KNNEngine.FAISS == knnEngine) {
-            if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
-                return FaissService.loadBinaryIndexWithStream(readStream);
+            // Use the file's fourcc to determine binary vs non-binary loader.
+            // Graph-only builds for binary quantization produce fp32 index files,
+            // so we can't rely on index metadata to make this decision.
+            try {
+                String fourcc = readStream.peekFourcc();
+                if (isBinaryFourcc(fourcc)) {
+                    return FaissService.loadBinaryIndexWithStream(readStream);
+                }
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to peek at index file fourcc", e);
             }
 
             if (IndexUtil.isADCEnabled(knnEngine, parameters)) {
@@ -211,6 +220,10 @@ public class JNIService {
         throw new IllegalArgumentException(
             String.format(Locale.ROOT, "LoadIndex not supported for provided engine : %s", knnEngine.getName())
         );
+    }
+
+    private static boolean isBinaryFourcc(String fourcc) {
+        return fourcc != null && fourcc.startsWith("IB");
     }
 
     /**
