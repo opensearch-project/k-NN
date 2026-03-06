@@ -10,3 +10,6 @@ coverage:
       default:
         target: 70%    # the required coverage value
         threshold: 1%  # the leniency in hitting the target
+
+ignore:
+  - "src/main/java/org/apache/lucene/backward_codecs/**"

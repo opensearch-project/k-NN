@@ -6,10 +6,10 @@
 package org.opensearch.knn.index.codec;
 
 import org.apache.lucene.codecs.FilterCodec;
-import org.apache.lucene.codecs.lucene103.Lucene103Codec;
+import org.apache.lucene.codecs.lucene104.Lucene104Codec;
 
 public class CustomCodecNoStoredFields extends FilterCodec {
     public CustomCodecNoStoredFields() {
-        super("CustomCodecNoStoredFields", new Lucene103Codec());
+        super("CustomCodecNoStoredFields", new Lucene104Codec());
     }
 }
