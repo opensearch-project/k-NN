@@ -36,6 +36,7 @@ jobs:
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
       AWS_SESSION_TOKEN: test
+      AWS_DEFAULT_REGION: us-east-1
 
     name: Remote-Index-Build-IT-Tests on Linux
     runs-on:
@@ -77,7 +78,7 @@ jobs:
 
       - name: Pull Remote Index Build Docker Image from Docker Hub
         run: |
-          docker pull opensearchstaging/remote-vector-index-builder:api-latest
+          docker pull opensearchstaging/remote-vector-index-builder:api-snapshot
 
       - name: Pull LocalStack Docker image
         run: |
@@ -100,7 +101,7 @@ jobs:
 
       - name: Run Docker container
         run: |
-          docker run --rm -d --name remote-index-builder-container --gpus all -p 80:1025 -e S3_ENDPOINT_URL=http://172.17.0.1:4566 -e AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }} -e AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }} -e AWS_SESSION_TOKEN=${{ env.AWS_SESSION_TOKEN}} opensearchstaging/remote-vector-index-builder:api-snapshot
+          docker run --rm -d --name remote-index-builder-container --gpus all -p 80:1025 -e S3_ENDPOINT_URL=http://172.17.0.1:4566 -e AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }} -e AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }} -e AWS_DEFAULT_REGION=${{env.AWS_DEFAULT_REGION}} -e AWS_SESSION_TOKEN=${{env.AWS_SESSION_TOKEN}} opensearchstaging/remote-vector-index-builder:api-snapshot
           sleep 5
 
       - name: Run tests

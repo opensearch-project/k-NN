@@ -8,7 +8,6 @@ package org.opensearch.knn.index.codec.nativeindex;
 import lombok.Setter;
 import org.apache.lucene.index.FieldInfo;
 import org.opensearch.index.IndexSettings;
-import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
@@ -19,6 +18,7 @@ import java.io.IOException;
 import java.util.function.Supplier;
 
 import static org.opensearch.knn.common.FieldInfoExtractor.extractKNNEngine;
+import static org.opensearch.knn.common.KNNConstants.MIN_DOCS_FOR_REMOTE_INDEX_BUILD;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.index.KNNSettings.isKNNRemoteVectorBuildEnabled;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
@@ -47,15 +47,13 @@ public final class NativeIndexBuildStrategyFactory {
      * @param totalLiveDocs     Number of documents with the vector field. This values comes from {@link org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsWriter#flush}
      *                          and {@link org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsWriter#mergeOneField}
      * @param knnVectorValues   An instance of {@link KNNVectorValues} which is used to evaluate the size threshold KNN_REMOTE_VECTOR_BUILD_THRESHOLD
-     * @param indexInfo  An instance of {@link BuildIndexParams} containing relevant index info
      * @return The {@link NativeIndexBuildStrategy} to be used. Intended to be used by {@link NativeIndexWriter}
      * @throws IOException
      */
     public NativeIndexBuildStrategy getBuildStrategy(
         final FieldInfo fieldInfo,
         final int totalLiveDocs,
-        final KNNVectorValues<?> knnVectorValues,
-        BuildIndexParams indexInfo
+        final KNNVectorValues<?> knnVectorValues
     ) throws IOException {
         final KNNEngine knnEngine = extractKNNEngine(fieldInfo);
         boolean isTemplate = fieldInfo.attributes().containsKey(MODEL_ID);
@@ -68,7 +66,8 @@ public final class NativeIndexBuildStrategyFactory {
         initializeVectorValues(knnVectorValues);
         long vectorBlobLength = ((long) knnVectorValues.bytesPerVector()) * totalLiveDocs;
 
-        if (isKNNRemoteVectorBuildEnabled()
+        if (totalLiveDocs > MIN_DOCS_FOR_REMOTE_INDEX_BUILD
+            && isKNNRemoteVectorBuildEnabled()
             && repositoriesServiceSupplier != null
             && indexSettings != null
             && knnEngine.supportsRemoteIndexBuild(knnLibraryIndexingContext)
