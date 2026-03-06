@@ -12,6 +12,7 @@ import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
+import org.opensearch.knn.index.codec.scorer.PrefetchHelper;
 
 import java.io.IOException;
 import java.util.Map;
@@ -81,39 +82,43 @@ public class FaissIndexFloatFlat extends FaissIndex {
 
     @Override
     public FloatVectorValues getFloatValues(final IndexInput indexInput) {
-        @RequiredArgsConstructor
-        class FloatVectorValuesImpl extends FloatVectorValues {
-            final IndexInput indexInput;
-            final float[] buffer = new float[dimension];
-
-            @Override
-            public float[] vectorValue(int internalVectorId) throws IOException {
-                indexInput.seek(floatVectors.getBaseOffset() + internalVectorId * oneVectorByteSize);
-                indexInput.readFloats(buffer, 0, buffer.length);
-                return buffer;
-            }
-
-            @Override
-            public FloatVectorValues copy() {
-                return new FloatVectorValuesImpl(indexInput.clone());
-            }
-
-            @Override
-            public int dimension() {
-                return dimension;
-            }
-
-            @Override
-            public int size() {
-                return totalNumberOfVectors;
-            }
-        }
-
         return new FloatVectorValuesImpl(indexInput);
     }
 
     @Override
     public ByteVectorValues getByteValues(IndexInput indexInput) {
         throw new UnsupportedOperationException(getClass().getSimpleName() + " does not support " + ByteVectorValues.class.getSimpleName());
+    }
+
+    @RequiredArgsConstructor
+    public class FloatVectorValuesImpl extends FloatVectorValues {
+        final IndexInput indexInput;
+        final float[] buffer = new float[dimension];
+
+        @Override
+        public float[] vectorValue(int internalVectorId) throws IOException {
+            indexInput.seek(floatVectors.getBaseOffset() + internalVectorId * oneVectorByteSize);
+            indexInput.readFloats(buffer, 0, buffer.length);
+            return buffer;
+        }
+
+        public void prefetch(final int[] ordsToPrefetch, int numOrds) throws IOException {
+            PrefetchHelper.prefetch(indexInput, floatVectors.getBaseOffset(), oneVectorByteSize, ordsToPrefetch, numOrds);
+        }
+
+        @Override
+        public FloatVectorValues copy() {
+            return new FloatVectorValuesImpl(indexInput.clone());
+        }
+
+        @Override
+        public int dimension() {
+            return dimension;
+        }
+
+        @Override
+        public int size() {
+            return totalNumberOfVectors;
+        }
     }
 }

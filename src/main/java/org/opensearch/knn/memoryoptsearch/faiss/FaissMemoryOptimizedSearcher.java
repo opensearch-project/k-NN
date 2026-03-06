@@ -60,7 +60,8 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     private boolean isAdc;
     private SimdVectorComputeService.SimilarityFunctionType nativeSimilarityFunctionType;
 
-    public FaissMemoryOptimizedSearcher(final IndexInput indexInput, final FieldInfo fieldInfo) throws IOException {
+    public FaissMemoryOptimizedSearcher(final IndexInput indexInput, final FieldInfo fieldInfo, final FlatVectorsScorer flatVectorsScorer)
+        throws IOException {
         this.indexInput = indexInput;
         this.fileSize = indexInput.length();
         this.faissIndex = FaissIndex.load(indexInput);
@@ -81,7 +82,12 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
             spaceType = isAdc ? SpaceType.getSpace(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)) : null;
         }
 
-        this.flatVectorsScorer = FlatVectorsScorerProvider.getFlatVectorsScorer(knnVectorSimilarityFunction, isAdc, spaceType);
+        this.flatVectorsScorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
+            knnVectorSimilarityFunction,
+            isAdc,
+            spaceType,
+            flatVectorsScorer
+        );
 
         this.hnsw = extractFaissHnsw(faissIndex);
         this.nativeSimilarityFunctionType = determineNativeFunctionType();
