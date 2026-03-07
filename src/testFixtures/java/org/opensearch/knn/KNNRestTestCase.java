@@ -356,7 +356,11 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     @Deprecated
     protected Response searchKNNIndex(String index, KNNQueryBuilder knnQueryBuilder, int resultSize) throws IOException {
-        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("query");
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
+        builder.startObject("_source");
+        builder.array("includes", new String[] { knnQueryBuilder.fieldName() });
+        builder.endObject();
+        builder.startObject("query");
         knnQueryBuilder.doXContent(builder, ToXContent.EMPTY_PARAMS);
         builder.endObject().endObject();
         return searchKNNIndex(index, builder, resultSize);

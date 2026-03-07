@@ -118,7 +118,6 @@ public class OpenSearchIT extends KNNRestTestCase {
 
         int k = 10;
         for (int i = 0; i < testData.queries.length; i++) {
-            // Search the single FAISS field
             Response response = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName, testData.queries[i], k), k);
             String responseBody = EntityUtils.toString(response.getEntity());
             List<KNNResult> knnResults = parseSearchResponse(responseBody, fieldName);
@@ -529,7 +528,6 @@ public class OpenSearchIT extends KNNRestTestCase {
 
         int k = 10;
         for (int i = 0; i < testData.queries.length; i++) {
-            // Search the first field
             Response response = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName1, testData.queries[i], k), k);
             String responseBody = EntityUtils.toString(response.getEntity());
             List<KNNResult> knnResults = parseSearchResponse(responseBody, fieldName1);
@@ -545,8 +543,7 @@ public class OpenSearchIT extends KNNRestTestCase {
                 );
             }
 
-            // Search the second field
-            response = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName2, testData.queries[i], k), k);
+            response = searchKNNIndex(indexName,  new KNNQueryBuilder(fieldName2, testData.queries[i], k), k);
             responseBody = EntityUtils.toString(response.getEntity());
             knnResults = parseSearchResponse(responseBody, fieldName2);
             assertEquals(k, knnResults.size());

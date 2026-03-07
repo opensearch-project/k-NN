@@ -681,9 +681,6 @@ task integTestMultiNode(type: RestIntegTestTask) {
     }
 }
 
-// Make integTest run integTestMultiNode after completion
-integTest.finalizedBy integTestMultiNode
-
 def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
     cluster.testDistribution = "ARCHIVE"
 
