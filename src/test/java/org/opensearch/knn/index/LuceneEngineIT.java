@@ -716,6 +716,29 @@ public class LuceneEngineIT extends KNNRestTestCase {
         validateQueryResultsWithFilters(searchVector, 5, 1, expectedDocIdsKGreaterThanFilterResult, expectedDocIdsKLimitsFilterResult);
     }
 
+    @SneakyThrows
+    private XContentBuilder buildSearchQueryWithSourceIncludes(String fieldName, int k, float[] vector, Map<String, ?> methodParams) {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("_source")
+            .array("includes", new String[] { fieldName })
+            .endObject()
+            .startObject("query")
+            .startObject("knn")
+            .startObject(fieldName)
+            .field("vector", vector)
+            .field("k", k);
+        if (methodParams != null) {
+            builder.startObject("method_parameters");
+            for (Map.Entry<String, ?> entry : methodParams.entrySet()) {
+                builder.field(entry.getKey(), entry.getValue());
+            }
+            builder.endObject();
+        }
+        builder.endObject().endObject().endObject().endObject();
+        return builder;
+    }
+
     private void createKnnIndexMappingWithLuceneEngineAndSQEncoder(
         int dimension,
         SpaceType spaceType,
@@ -980,7 +1003,11 @@ public class LuceneEngineIT extends KNNRestTestCase {
 
         int k = LuceneEngineIT.TEST_INDEX_VECTORS.length;
         for (float[] queryVector : TEST_QUERY_VECTORS) {
-            Response response = searchKNNIndex(INDEX_NAME, buildSearchQuery(fieldName, k, queryVector, methodParameters), k);
+            Response response = searchKNNIndex(
+                INDEX_NAME,
+                buildSearchQueryWithSourceIncludes(fieldName, k, queryVector, methodParameters),
+                k
+            );
             String responseBody = EntityUtils.toString(response.getEntity());
             List<KNNResult> knnResults = parseSearchResponse(responseBody, fieldName);
             assertEquals(k, knnResults.size());
@@ -1121,7 +1148,11 @@ public class LuceneEngineIT extends KNNRestTestCase {
         @Nullable final Map<String, ?> methodParameters
     ) throws Exception {
         for (int i = 0; i < searchVectors.length; i++) {
-            XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("query");
+            XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
+            builder.startObject("_source");
+            builder.array("includes", new String[] { FIELD_NAME });
+            builder.endObject();
+            builder.startObject("query");
             builder.startObject("knn");
             builder.startObject(FIELD_NAME);
             builder.field("vector", searchVectors[i]);
@@ -1150,7 +1181,9 @@ public class LuceneEngineIT extends KNNRestTestCase {
             builder.endObject();
             builder.endObject().endObject();
 
-            final String responseBody = EntityUtils.toString(searchKNNIndex(INDEX_NAME, builder, expectedResults[i]).getEntity());
+            final String responseBody = EntityUtils.toString(
+                searchKNNIndex(INDEX_NAME, builder, expectedResults[i]).getEntity()
+            );
             final List<KNNResult> radiusResults = parseSearchResponse(responseBody, FIELD_NAME);
 
             assertEquals(expectedResults[i], radiusResults.size());
