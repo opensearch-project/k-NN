@@ -573,3 +573,18 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_setMergeInterrup
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
 }
+
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_initFaissBBQIndex(
+    JNIEnv * env, jclass cls, jint totalLiveDocs, jint dimension, jobject indexParameters, jfloat centroidDp, jint quantizedVecBytes) {
+    // TODO
+}
+
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_addDocsToBBQIndex(
+    JNIEnv * env, jclass cls, jlong indexMemoryAddress, jintArray docIds, jint numDocs, jint numAdded) {
+    // TODO
+}
+
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_passBBQVectorsWithCorrectionFactors(
+    JNIEnv * env, jclass cls, jlong indexMemoryAddress, jbyteArray buffer, jint numElements) {
+    // TODO
+}
