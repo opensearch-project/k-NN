@@ -140,7 +140,8 @@ void IndexService::insertToIndex(
 
 void IndexService::writeIndex(
     faiss::IOWriter* writer,
-    jlong idMapAddress
+    jlong idMapAddress,
+    bool skipFlat
 ) {
     std::unique_ptr<faiss::IndexIDMap> idMap (reinterpret_cast<faiss::IndexIDMap *> (idMapAddress));
 
@@ -280,13 +281,14 @@ void BinaryIndexService::insertToIndex(
 
 void BinaryIndexService::writeIndex(
     faiss::IOWriter* writer,
-    jlong idMapAddress
+    jlong idMapAddress,
+    bool skipFlat
 ) {
     std::unique_ptr<faiss::IndexBinaryIDMap> idMap (reinterpret_cast<faiss::IndexBinaryIDMap *> (idMapAddress));
 
     try {
         // Write the index to disk
-        faissMethods->writeIndexBinary(idMap.get(), writer);
+        faissMethods->writeIndexBinary(idMap.get(), writer, skipFlat);
         if (auto openSearchIOWriter = dynamic_cast<knn_jni::stream::FaissOpenSearchIOWriter*>(writer)) {
             openSearchIOWriter->flush();
         }
@@ -397,7 +399,8 @@ void ByteIndexService::insertToIndex(
 
 void ByteIndexService::writeIndex(
     faiss::IOWriter* writer,
-    jlong idMapAddress
+    jlong idMapAddress,
+    bool skipFlat
 ) {
     std::unique_ptr<faiss::IndexIDMap> idMap (reinterpret_cast<faiss::IndexIDMap *> (idMapAddress));
 

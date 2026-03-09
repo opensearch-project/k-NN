@@ -1,0 +1,78 @@
+From 74540b63c648e8e0c638ebb69118785e69e337ec Mon Sep 17 00:00:00 2001
+From: Dooyong Kim <kdooyong@amazon.com>
+Date: Mon, 9 Mar 2026 14:27:01 -0700
+Subject: [PATCH] Added skipping flat storage availability in
+ write_index_binary.
+
+Signed-off-by: Dooyong Kim <kdooyong@amazon.com>
+---
+ faiss/impl/index_write.cpp | 17 +++++++++++------
+ faiss/index_io.h           |  6 +++---
+ 2 files changed, 14 insertions(+), 9 deletions(-)
+
+diff --git a/faiss/impl/index_write.cpp b/faiss/impl/index_write.cpp
+index def7dcd2b..116662eb2 100644
+--- a/faiss/impl/index_write.cpp
++++ b/faiss/impl/index_write.cpp
+@@ -982,7 +982,7 @@ static void write_binary_multi_hash_map(
+     WRITEVECTOR(buf);
+ }
+ 
+-void write_index_binary(const IndexBinary* idx, IOWriter* f) {
++void write_index_binary(const IndexBinary* idx, IOWriter* f, int io_flags) {
+     if (const IndexBinaryFlat* idxf =
+                 dynamic_cast<const IndexBinaryFlat*>(idx)) {
+         uint32_t h = fourcc("IBxF");
+@@ -1021,7 +1021,12 @@ void write_index_binary(const IndexBinary* idx, IOWriter* f) {
+         }
+ 
+         write_HNSW(&idxhnsw->hnsw, f);
+-        write_index_binary(idxhnsw->storage, f);
++        if (io_flags & IO_FLAG_SKIP_STORAGE) {
++            uint32_t n4 = fourcc("null");
++            WRITE1(n4);
++        } else {
++            write_index_binary(idxhnsw->storage, f, io_flags);
++        }
+     } else if (
+             const IndexBinaryIDMap* idxmap =
+                     dynamic_cast<const IndexBinaryIDMap*>(idx)) {
+@@ -1061,14 +1066,14 @@ void write_index_binary(const IndexBinary* idx, IOWriter* f) {
+     }
+ }
+ 
+-void write_index_binary(const IndexBinary* idx, FILE* f) {
++void write_index_binary(const IndexBinary* idx, FILE* f, int io_flags) {
+     FileIOWriter writer(f);
+-    write_index_binary(idx, &writer);
++    write_index_binary(idx, &writer, io_flags);
+ }
+ 
+-void write_index_binary(const IndexBinary* idx, const char* fname) {
++void write_index_binary(const IndexBinary* idx, const char* fname, int io_flags) {
+     FileIOWriter writer(fname);
+-    write_index_binary(idx, &writer);
++    write_index_binary(idx, &writer, io_flags);
+ }
+ 
+ } // namespace faiss
+diff --git a/faiss/index_io.h b/faiss/index_io.h
+index 79c013dff..4766190a9 100644
+--- a/faiss/index_io.h
++++ b/faiss/index_io.h
+@@ -37,9 +37,9 @@ void write_index(const Index* idx, const char* fname, int io_flags = 0);
+ void write_index(const Index* idx, FILE* f, int io_flags = 0);
+ void write_index(const Index* idx, IOWriter* writer, int io_flags = 0);
+ 
+-void write_index_binary(const IndexBinary* idx, const char* fname);
+-void write_index_binary(const IndexBinary* idx, FILE* f);
+-void write_index_binary(const IndexBinary* idx, IOWriter* writer);
++void write_index_binary(const IndexBinary* idx, const char* fname, int io_flags = 0);
++void write_index_binary(const IndexBinary* idx, FILE* f, int io_flags = 0);
++void write_index_binary(const IndexBinary* idx, IOWriter* writer, int io_flags = 0);
+ 
+ // The read_index flags are implemented only for a subset of index types.
+ const int IO_FLAG_READ_ONLY = 2;
+-- 
+2.50.1 (Apple Git-155)
+

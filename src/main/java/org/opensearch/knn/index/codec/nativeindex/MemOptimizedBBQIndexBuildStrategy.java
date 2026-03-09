@@ -248,7 +248,7 @@ public class MemOptimizedBBQIndexBuildStrategy implements NativeIndexBuildStrate
         // section triggers FaissIndex.load to call a Supplier<FaissIndex> that returns a
         // FaissBBQFlatIndex backed by Lucene's BinaryQuantizedVectorsReader.
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            JNIService.writeIndex(indexInfo.getIndexOutputWithBuffer(), indexMemoryAddress, indexInfo.getKnnEngine(), indexParameters);
+            JNIService.writeIndex(indexInfo.getIndexOutputWithBuffer(), indexMemoryAddress, indexInfo.getKnnEngine(), indexParameters, true);
             return null;
         });
     }
