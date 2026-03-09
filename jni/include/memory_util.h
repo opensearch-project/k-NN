@@ -36,4 +36,22 @@
 #define BUILTIN_ASSUME_ALIGNED(ptr, align) (ptr)
 #endif
 
+namespace knn_jni {
+
+    template <typename T>
+    struct FourBytesAlignedAllocator {
+        using value_type = T;
+
+        T* allocate(std::size_t n) {
+            void* p = ::operator new(n * sizeof(T), std::align_val_t(4));
+            return static_cast<T*>(p);
+        }
+
+        void deallocate(T* p, std::size_t) noexcept {
+            ::operator delete(p, std::align_val_t(4));
+        }
+    };
+
+}
+
 #endif //KNNPLUGIN_JNI_INCLUDE_MEMORY_UTIL_H_
