@@ -4,6 +4,7 @@
  */
 package org.opensearch.lucene.lucene102;
 
+import lombok.Getter;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
@@ -43,7 +44,7 @@ import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsReader.readVe
 import static org.apache.lucene.util.quantization.OptimizedScalarQuantizer.discretize;
 
 /** Reader for binary quantized vectors in the Lucene 10.2 format. */
-class Lucene102BinaryQuantizedVectorsReader extends FlatVectorsReader {
+public class Lucene102BinaryQuantizedVectorsReader extends FlatVectorsReader {
 
     private static final long SHALLOW_SIZE = RamUsageEstimator.shallowSizeOfInstance(Lucene102BinaryQuantizedVectorsReader.class);
 
@@ -52,7 +53,7 @@ class Lucene102BinaryQuantizedVectorsReader extends FlatVectorsReader {
     private final FlatVectorsReader rawVectorsReader;
     private final Lucene102BinaryFlatVectorsScorer vectorScorer;
 
-    Lucene102BinaryQuantizedVectorsReader(
+    public Lucene102BinaryQuantizedVectorsReader(
         SegmentReadState state,
         FlatVectorsReader rawVectorsReader,
         Lucene102BinaryFlatVectorsScorer vectorsScorer
@@ -330,8 +331,9 @@ class Lucene102BinaryQuantizedVectorsReader extends FlatVectorsReader {
     }
 
     /** Binarized vector values holding row and quantized vector values */
-    protected static final class BinarizedVectorValues extends FloatVectorValues {
+    public static final class BinarizedVectorValues extends FloatVectorValues {
         private final FloatVectorValues rawVectorValues;
+        @Getter
         private final BinarizedByteVectorValues quantizedVectorValues;
 
         BinarizedVectorValues(FloatVectorValues rawVectorValues, BinarizedByteVectorValues quantizedVectorValues) {
@@ -377,10 +379,6 @@ class Lucene102BinaryQuantizedVectorsReader extends FlatVectorsReader {
         @Override
         public VectorScorer scorer(float[] query) throws IOException {
             return quantizedVectorValues.scorer(query);
-        }
-
-        BinarizedByteVectorValues getQuantizedVectorValues() throws IOException {
-            return quantizedVectorValues;
         }
     }
 }
