@@ -109,7 +109,7 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
             throw indexBuildAbortedException;
         } catch (Exception exception) {
             throw new RuntimeException(
-                "Failed to build index, field name " + indexInfo.getFieldName() + ", parameters " + indexInfo,
+                "Failed to build index, field name " + indexInfo.getFieldInfo().getName() + ", parameters " + indexInfo,
                 exception
             );
         }
