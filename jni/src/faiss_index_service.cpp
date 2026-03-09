@@ -16,6 +16,7 @@
 #include "faiss/IndexIVFFlat.h"
 #include "faiss/IndexBinaryIVF.h"
 #include "faiss/IndexIDMap.h"
+#include "bbq/faiss_bbq_hnsw.h"
 
 #include <string>
 #include <vector>
@@ -42,7 +43,6 @@ void SetExtraParameters(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env,
     }
 
     if (auto * indexHnsw = dynamic_cast<HNSW*>(index)) {
-
         if ((value = parametersCpp.find(knn_jni::EF_CONSTRUCTION)) != parametersCpp.end()) {
             indexHnsw->hnsw.efConstruction = jniUtil->ConvertJavaObjectToCppInteger(env, value->second);
         }
@@ -200,6 +200,49 @@ jlong BinaryIndexService::initIndex(
     //Release the ownership so as to make sure not delete the underlying index that is created. The index is needed later
     //in insert and write operations
     index.release();
+    return reinterpret_cast<jlong>(idMap.release());
+}
+
+jlong BinaryIndexService::initFaissBBQIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric,
+                                            std::string indexDescription, int dim, int numVectors, int threadCount,
+                                            std::unordered_map<std::string, jobject> parameters, float centroidDp, int quantizedVectorBytes) {
+    // Extract `m` from the binary index
+    int32_t m;
+    {
+        // Create binary index first
+        std::unique_ptr<faiss::IndexBinary> originalIndexBinaryHNSW(faissMethods->indexBinaryFactory(dim, indexDescription.c_str()));
+        if (auto indexBinaryHNSW = dynamic_cast<faiss::IndexBinaryHNSW*>(originalIndexBinaryHNSW.get())) {
+            m = indexBinaryHNSW->hnsw.m;
+        } else {
+            std::string actualType = "nullptr";
+            if (originalIndexBinaryHNSW) {
+                // Dereferencing a simple pointer variable is technically a "side effect"
+                // in the eyes of the warning, but this is the standard way to use it.
+                actualType = typeid(*originalIndexBinaryHNSW).name();
+            }
+
+            throw std::runtime_error("Failed to cast " + actualType + " to faiss::IndexBinaryHNSW*");
+        }
+    }
+
+    // Create Faiss BBQ HNSW Index
+    std::unique_ptr<knn_jni::FaissBBQHnsw> faissBBQHnsw (new knn_jni::FaissBBQHnsw(
+        m, new knn_jni::FaissBBQFlat(numVectors, quantizedVectorBytes, centroidDp, dim, metric)));
+
+    // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
+    if (threadCount != 0) {
+        omp_set_num_threads(threadCount);
+    }
+
+    // Add extra parameters that cant be configured with the index factory
+    SetExtraParameters<faiss::IndexBinary, faiss::IndexBinaryIVF, faiss::IndexBinaryHNSW>(jniUtil, env, parameters, faissBBQHnsw.get());
+
+    // Creating id-mapping top layer
+    std::unique_ptr<faiss::IndexBinaryIDMap> idMap (faissMethods->indexBinaryIdMap(faissBBQHnsw.release()));
+
+    // Makes sure the index is deleted when the destructor is called, this cannot be passed in the constructor
+    idMap->own_fields = true;
+
     return reinterpret_cast<jlong>(idMap.release());
 }
 

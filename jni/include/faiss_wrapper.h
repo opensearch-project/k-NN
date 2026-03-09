@@ -21,6 +21,15 @@ namespace knn_jni {
     namespace faiss_wrapper {
         jlong InitIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jlong numDocs, jint dimJ, jobject parametersJ, IndexService *indexService);
 
+        jlong InitFaissBBQIndex(knn_jni::JNIUtilInterface *jniUtil,
+                                JNIEnv *env,
+                                jlong numDocs,
+                                jint dimJ,
+                                jobject parametersJ,
+                                BinaryIndexService *indexService,
+                                jfloat centroidDp,
+                                jint quantizedVecBytes);
+
         void InsertToIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jintArray idsJ, jlong vectorsAddressJ, jint dimJ, jlong indexAddr, jint threadCount, IndexService *indexService);
 
         void WriteIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jobject output, jlong indexAddr, IndexService *indexService);
