@@ -35,9 +35,11 @@ public final class KNNSearchPipelineInitializer {
     public static final String KNN_DEFAULT_SEARCH_PIPELINE_NAME = "_knn_default_search_pipeline";
 
     private static final String PIPELINE_DEFINITION = "{"
-            + "\"description\": \"Default search pipeline for KNN indices that excludes vector fields from _source\","
-            + "\"request_processors\": [{\"" + KNNDefaultExcludesProcessor.TYPE + "\": {}}]"
-            + "}";
+        + "\"description\": \"Default search pipeline for KNN indices that excludes vector fields from _source\","
+        + "\"request_processors\": [{\""
+        + KNNDefaultExcludesProcessor.TYPE
+        + "\": {}}]"
+        + "}";
 
     /**
      * Registers a ClusterStateListener that creates the default KNN search pipeline the first time
@@ -56,11 +58,13 @@ public final class KNNSearchPipelineInitializer {
                 clusterService.removeListener(listenerRef[0]);
                 return;
             }
-            client.admin().cluster().putSearchPipeline(
+            client.admin()
+                .cluster()
+                .putSearchPipeline(
                     new PutSearchPipelineRequest(
-                            KNN_DEFAULT_SEARCH_PIPELINE_NAME,
-                            new BytesArray(PIPELINE_DEFINITION.getBytes(StandardCharsets.UTF_8)),
-                            MediaTypeRegistry.JSON
+                        KNN_DEFAULT_SEARCH_PIPELINE_NAME,
+                        new BytesArray(PIPELINE_DEFINITION.getBytes(StandardCharsets.UTF_8)),
+                        MediaTypeRegistry.JSON
                     ),
                     new ActionListener<>() {
                         @Override
@@ -71,9 +75,14 @@ public final class KNNSearchPipelineInitializer {
 
                         @Override
                         public void onFailure(Exception e) {
-                            log.warn("Failed to create default KNN search pipeline [{}]: {}", KNN_DEFAULT_SEARCH_PIPELINE_NAME, e.getMessage());
+                            log.warn(
+                                "Failed to create default KNN search pipeline [{}]: {}",
+                                KNN_DEFAULT_SEARCH_PIPELINE_NAME,
+                                e.getMessage()
+                            );
                         }
-                    });
+                    }
+                );
         };
 
         if (isClusterManagerNode(clusterService.getSettings())) {

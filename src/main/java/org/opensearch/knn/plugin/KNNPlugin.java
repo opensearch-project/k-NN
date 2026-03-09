@@ -299,8 +299,7 @@ public class KNNPlugin extends Plugin
                             KNNSearchPipelineInitializer.KNN_DEFAULT_SEARCH_PIPELINE_NAME
                         );
                     }
-                    return builder
-                        .put(KNN_DERIVED_SOURCE_ENABLED, true)
+                    return builder.put(KNN_DERIVED_SOURCE_ENABLED, true)
                         // Aggressive merges for k-NN can hogg CPU which can degrade search performance
                         // These settings are being overridden to make it less aggressive
                         // Core has max_merge_at_once default as 30, which can make merges more aggressive

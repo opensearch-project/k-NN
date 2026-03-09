@@ -10,7 +10,6 @@ import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -70,10 +69,7 @@ public class DefaultExcludesBWCIT extends AbstractRestartUpgradeTestCase {
             createKnnIndex(newIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSION));
             addKnnDocWithAttributes(newIndex, "0", TEST_FIELD, new Float[] { 2.0f, 2.0f, 2.0f, 2.0f, 2.0f }, Map.of(NON_KNN_FIELD, "blue"));
 
-            assertNotNull(
-                "New index should have default search pipeline",
-                getIndexSettingByName(newIndex, DEFAULT_PIPELINE_SETTING)
-            );
+            assertNotNull("New index should have default search pipeline", getIndexSettingByName(newIndex, DEFAULT_PIPELINE_SETTING));
 
             // New index: vectors excluded from _source
             Map<String, Object> newSource = searchAndGetFirstSource(newIndex);

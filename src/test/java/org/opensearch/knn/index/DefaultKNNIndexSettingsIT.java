@@ -77,7 +77,6 @@ public class DefaultKNNIndexSettingsIT extends KNNRestTestCase {
         deleteKNNIndex(indexName);
     }
 
-
     public void testUserSpecifiedPipelineNotOverridden() throws IOException {
         String indexName = "default-settings-user-pipeline";
         String userPipeline = "my_custom_pipeline";

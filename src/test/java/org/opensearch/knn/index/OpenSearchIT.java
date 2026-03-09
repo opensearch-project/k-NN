@@ -543,7 +543,7 @@ public class OpenSearchIT extends KNNRestTestCase {
                 );
             }
 
-            response = searchKNNIndex(indexName,  new KNNQueryBuilder(fieldName2, testData.queries[i], k), k);
+            response = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName2, testData.queries[i], k), k);
             responseBody = EntityUtils.toString(response.getEntity());
             knnResults = parseSearchResponse(responseBody, fieldName2);
             assertEquals(k, knnResults.size());
