@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.index.codec;
 
-import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
@@ -29,11 +28,11 @@ import java.util.function.Supplier;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 
 /**
  * Base class for PerFieldKnnVectorsFormat, builds KnnVectorsFormat based on specific Lucene version
  */
-@AllArgsConstructor
 @Log4j2
 public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFormat {
 
@@ -42,7 +41,8 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
     private final int defaultBeamWidth;
     private final Supplier<KnnVectorsFormat> defaultFormatSupplier;
     private final Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier;
-    private Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier;
+    private final Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier;
+    private final Supplier<KnnVectorsFormat> flatVectorsFormatSupplier;
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
     private static final String MAX_CONNECTIONS = "max_connections";
     private static final String BEAM_WIDTH = "beam_width";
@@ -54,7 +54,7 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         Supplier<KnnVectorsFormat> defaultFormatSupplier,
         Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier
     ) {
-        this(mapperService, defaultMaxConnections, defaultBeamWidth, defaultFormatSupplier, vectorsFormatSupplier, null);
+        this(mapperService, defaultMaxConnections, defaultBeamWidth, defaultFormatSupplier, vectorsFormatSupplier, null, null, new NativeIndexBuildStrategyFactory());
     }
 
     public BasePerFieldKnnVectorsFormat(
@@ -65,6 +65,18 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier,
         Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier
     ) {
+        this(mapperService, defaultMaxConnections, defaultBeamWidth, defaultFormatSupplier, vectorsFormatSupplier, scalarQuantizedVectorsFormatSupplier, null, new NativeIndexBuildStrategyFactory());
+    }
+
+    public BasePerFieldKnnVectorsFormat(
+        Optional<MapperService> mapperService,
+        int defaultMaxConnections,
+        int defaultBeamWidth,
+        Supplier<KnnVectorsFormat> defaultFormatSupplier,
+        Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier,
+        Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier,
+        Supplier<KnnVectorsFormat> flatVectorsFormatSupplier
+    ) {
         this(
             mapperService,
             defaultMaxConnections,
@@ -72,8 +84,29 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             defaultFormatSupplier,
             vectorsFormatSupplier,
             scalarQuantizedVectorsFormatSupplier,
+            flatVectorsFormatSupplier,
             new NativeIndexBuildStrategyFactory()
         );
+    }
+
+    public BasePerFieldKnnVectorsFormat(
+        Optional<MapperService> mapperService,
+        int defaultMaxConnections,
+        int defaultBeamWidth,
+        Supplier<KnnVectorsFormat> defaultFormatSupplier,
+        Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier,
+        Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier,
+        Supplier<KnnVectorsFormat> flatVectorsFormatSupplier,
+        NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
+    ) {
+        this.mapperService = mapperService;
+        this.defaultMaxConnections = defaultMaxConnections;
+        this.defaultBeamWidth = defaultBeamWidth;
+        this.defaultFormatSupplier = defaultFormatSupplier;
+        this.vectorsFormatSupplier = vectorsFormatSupplier;
+        this.scalarQuantizedVectorsFormatSupplier = scalarQuantizedVectorsFormatSupplier;
+        this.flatVectorsFormatSupplier = flatVectorsFormatSupplier;
+        this.nativeIndexBuildStrategyFactory = nativeIndexBuildStrategyFactory;
     }
 
     @Override
@@ -107,6 +140,11 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         final Map<String, Object> params = knnMethodContext.getMethodComponentContext().getParameters();
 
         if (engine == KNNEngine.LUCENE) {
+            if (METHOD_FLAT.equals(knnMethodContext.getMethodComponentContext().getName())) {
+                log.debug("Initialize KNN vector format for field [{}] with Lucene BBQ flat format", field);
+                return flatVectorsFormatSupplier.get();
+            }
+
             if (params != null && params.containsKey(METHOD_ENCODER_PARAMETER)) {
                 KNNScalarQuantizedVectorsFormatParams knnScalarQuantizedVectorsFormatParams = new KNNScalarQuantizedVectorsFormatParams(
                     params,

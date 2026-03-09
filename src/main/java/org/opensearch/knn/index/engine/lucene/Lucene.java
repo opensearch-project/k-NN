@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
 /**
@@ -28,7 +29,7 @@ public class Lucene extends JVMLibrary {
 
     Map<SpaceType, Function<Float, Float>> distanceTransform;
 
-    final static Map<String, KNNMethod> METHODS = ImmutableMap.of(METHOD_HNSW, new LuceneHNSWMethod());
+    final static Map<String, KNNMethod> METHODS = ImmutableMap.of(METHOD_HNSW, new LuceneHNSWMethod(), METHOD_FLAT, new LuceneFlatMethod());
 
     // Map that overrides the default distance translations for Lucene, check more details in knn documentation:
     // https://opensearch.org/docs/latest/search-plugins/knn/approximate-knn/#spaces

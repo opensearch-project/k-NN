@@ -7,6 +7,7 @@ package org.opensearch.knn.index.codec.KNN9120Codec;
 
 import org.apache.lucene.backward_codecs.lucene99.Lucene99RWHnswScalarQuantizedVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
+import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
@@ -76,6 +77,9 @@ public class KNN9120PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsForma
                     mergeThreadCountAndExecutorService.v2()
                 );
             },
+            () -> new Lucene104ScalarQuantizedVectorsFormat(
+                Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE
+            ),
             nativeIndexBuildStrategyFactory
         );
     }

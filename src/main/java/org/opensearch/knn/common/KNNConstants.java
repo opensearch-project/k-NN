@@ -17,6 +17,7 @@ public class KNNConstants {
     public static final String NAME = "name";
     public static final String PARAMETERS = "parameters";
     public static final String METHOD_HNSW = "hnsw";
+    public static final String METHOD_FLAT = "flat";
     public static final String TYPE = "type";
     public static final String TYPE_NESTED = "nested";
     public static final String PATH = "path";
