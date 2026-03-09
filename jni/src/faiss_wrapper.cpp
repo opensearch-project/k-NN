@@ -241,7 +241,8 @@ void knn_jni::faiss_wrapper::InsertToIndex(knn_jni::JNIUtilInterface * jniUtil, 
 }
 
 void knn_jni::faiss_wrapper::WriteIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env,
-                                        jobject output, jlong index_ptr, IndexService* indexService) {
+                                        jobject output, jlong index_ptr, IndexService* indexService,
+                                        bool skipFlat) {
 
     if (output == nullptr) {
         throw std::runtime_error("Index output stream cannot be null");
@@ -252,7 +253,7 @@ void knn_jni::faiss_wrapper::WriteIndex(knn_jni::JNIUtilInterface * jniUtil, JNI
     knn_jni::stream::FaissOpenSearchIOWriter writer {&mediator};
 
     // Create index.
-    indexService->writeIndex(&writer, index_ptr);
+    indexService->writeIndex(&writer, index_ptr, skipFlat);
 }
 
 void knn_jni::faiss_wrapper::CreateIndexFromTemplate(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,

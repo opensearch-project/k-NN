@@ -83,7 +83,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_writeIndex(JNIEn
  * Method:    writeBinaryIndex
  * Signature: (JLorg/opensearch/knn/index/store/IndexOutputWithBuffer;)V
  */
-JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_writeBinaryIndex(JNIEnv *, jclass, jlong, jobject);
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_writeBinaryIndex(JNIEnv *, jclass, jlong, jobject, jboolean);
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService

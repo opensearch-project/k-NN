@@ -98,11 +98,12 @@ public class JNIService {
      * @param indexAddress address of native memory where index is stored
      * @param knnEngine    knn engine
      * @param parameters   parameters to build index
+     * @param skipFlat     Control flag that skipping flushing flat storage.
      */
-    public static void writeIndex(IndexOutputWithBuffer output, long indexAddress, KNNEngine knnEngine, Map<String, Object> parameters) {
+    public static void writeIndex(IndexOutputWithBuffer output, long indexAddress, KNNEngine knnEngine, Map<String, Object> parameters, boolean skipFlat) {
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
-                FaissService.writeBinaryIndex(indexAddress, output);
+                FaissService.writeBinaryIndex(indexAddress, output, skipFlat);
             } else if (IndexUtil.isByteIndex(parameters)) {
                 FaissService.writeByteIndex(indexAddress, output);
             } else {

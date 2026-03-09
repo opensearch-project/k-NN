@@ -131,8 +131,9 @@ class FaissService {
      *
      * @param indexAddress address of native memory where index is stored
      * @param output       Index output wrapper having Lucene's IndexOutput to be used to flush bytes in native engines.
+     * @param skipFlat     Control flag that skipping flushing the bottom storage layer into disk.
      */
-    public static native void writeBinaryIndex(long indexAddress, IndexOutputWithBuffer output);
+    public static native void writeBinaryIndex(long indexAddress, IndexOutputWithBuffer output, boolean skipFlat);
 
     /**
      * Writes a faiss index.
