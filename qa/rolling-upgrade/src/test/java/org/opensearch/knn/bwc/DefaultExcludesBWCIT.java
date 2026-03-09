@@ -91,11 +91,7 @@ public class DefaultExcludesBWCIT extends AbstractRollingUpgradeTestCase {
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> searchAndGetFirstSource(String index) throws Exception {
-        String body = String.format(
-            "{\"query\": {\"knn\": {\"%s\": {\"vector\": [1.0, 1.0, 1.0, 1.0, 1.0], \"k\": %d}}}}",
-            TEST_FIELD,
-            K
-        );
+        String body = String.format("{\"query\": {\"knn\": {\"%s\": {\"vector\": [1.0, 1.0, 1.0, 1.0, 1.0], \"k\": %d}}}}", TEST_FIELD, K);
         Request request = new Request("POST", "/" + index + "/_search");
         request.setJsonEntity(body);
         Response response = client().performRequest(request);

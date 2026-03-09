@@ -2555,8 +2555,7 @@ public class FaissIT extends KNNRestTestCase {
             XContentBuilder queryBuilder = XContentFactory.jsonBuilder().startObject();
             queryBuilder.startObject("_source");
             queryBuilder.array("includes", new String[] { fieldName });
-            queryBuilder.endObject()
-                    .startObject("query");
+            queryBuilder.endObject().startObject("query");
             queryBuilder.startObject("knn");
             queryBuilder.startObject(fieldName);
             queryBuilder.field("vector", queryVector);

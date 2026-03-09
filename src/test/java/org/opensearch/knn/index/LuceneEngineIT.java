@@ -996,9 +996,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             builder.endObject();
             builder.endObject().endObject();
 
-            final String responseBody = EntityUtils.toString(
-                searchKNNIndex(INDEX_NAME, builder, expectedResults[i]).getEntity()
-            );
+            final String responseBody = EntityUtils.toString(searchKNNIndex(INDEX_NAME, builder, expectedResults[i]).getEntity());
             final List<KNNResult> radiusResults = parseSearchResponse(responseBody, FIELD_NAME);
 
             assertEquals(expectedResults[i], radiusResults.size());
