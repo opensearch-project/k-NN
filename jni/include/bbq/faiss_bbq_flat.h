@@ -45,16 +45,6 @@ namespace knn_jni {
 
         void set_query(const float* x) final {
             query = (uint64_t*) x;
-            // TMP : TODO remove it
-            if (uint64_t(query) >= uint64_t(data + numVectors * oneElementByteSize)) {
-                std::cout << "_____________ query=" << uint64_t(query)
-                          << ", data=" << uint64_t(data)
-                          << ", end=" << uint64_t(data + numVectors * oneElementByteSize)
-                          << std::endl;
-                std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-                throw std::runtime_error("Query address is out of range.");
-            }
-            // TMP
             setCorrectionFactors(query, ay, ly, queryAdditional, y1);
         }
 

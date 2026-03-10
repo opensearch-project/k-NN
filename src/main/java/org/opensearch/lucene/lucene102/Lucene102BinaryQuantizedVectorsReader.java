@@ -118,15 +118,24 @@ public class Lucene102BinaryQuantizedVectorsReader extends FlatVectorsReader {
         int dimension = info.getVectorDimension();
         if (dimension != fieldEntry.dimension) {
             throw new IllegalStateException(
-                "Inconsistent vector dimension for field=\"" + info.name + "\"; " + dimension + " != " + fieldEntry.dimension);
+                "Inconsistent vector dimension for field=\"" + info.name + "\"; " + dimension + " != " + fieldEntry.dimension
+            );
         }
 
         int binaryDims = discretize(dimension, 64) / 8;
         long numQuantizedVectorBytes = Math.multiplyExact((binaryDims + (Float.BYTES * 3) + Short.BYTES), (long) fieldEntry.size);
         if (numQuantizedVectorBytes != fieldEntry.vectorDataLength) {
             throw new IllegalStateException(
-                "Binarized vector data length " + fieldEntry.vectorDataLength + " not matching size = " + fieldEntry.size
-                + " * (binaryBytes=" + binaryDims + " + 14" + ") = " + numQuantizedVectorBytes);
+                "Binarized vector data length "
+                    + fieldEntry.vectorDataLength
+                    + " not matching size = "
+                    + fieldEntry.size
+                    + " * (binaryBytes="
+                    + binaryDims
+                    + " + 14"
+                    + ") = "
+                    + numQuantizedVectorBytes
+            );
         }
     }
 
@@ -137,7 +146,8 @@ public class Lucene102BinaryQuantizedVectorsReader extends FlatVectorsReader {
             return null;
         }
         return vectorScorer.getRandomVectorScorer(
-            fi.similarityFunction, OffHeapBinarizedVectorValues.load(
+            fi.similarityFunction,
+            OffHeapBinarizedVectorValues.load(
                 fi.ordToDocDISIReaderConfiguration,
                 fi.dimension,
                 fi.size,
@@ -149,7 +159,8 @@ public class Lucene102BinaryQuantizedVectorsReader extends FlatVectorsReader {
                 fi.vectorDataOffset,
                 fi.vectorDataLength,
                 quantizedVectorData
-            ), target
+            ),
+            target
         );
     }
 
@@ -172,7 +183,8 @@ public class Lucene102BinaryQuantizedVectorsReader extends FlatVectorsReader {
         }
         if (fi.vectorEncoding != VectorEncoding.FLOAT32) {
             throw new IllegalArgumentException(
-                "field=\"" + field + "\" is encoded as: " + fi.vectorEncoding + " expected: " + VectorEncoding.FLOAT32);
+                "field=\"" + field + "\" is encoded as: " + fi.vectorEncoding + " expected: " + VectorEncoding.FLOAT32
+            );
         }
         OffHeapBinarizedVectorValues bvv = OffHeapBinarizedVectorValues.load(
             fi.ordToDocDISIReaderConfiguration,
@@ -271,7 +283,7 @@ public class Lucene102BinaryQuantizedVectorsReader extends FlatVectorsReader {
             if (versionMeta != versionVectorData) {
                 throw new CorruptIndexException(
                     "Format versions mismatch: meta=" + versionMeta + ", " + codecName + "=" + versionVectorData,
-                                                in
+                    in
                 );
             }
             CodecUtil.retrieveChecksum(in);
@@ -289,15 +301,20 @@ public class Lucene102BinaryQuantizedVectorsReader extends FlatVectorsReader {
         VectorSimilarityFunction similarityFunction = readSimilarityFunction(input);
         if (similarityFunction != info.getVectorSimilarityFunction()) {
             throw new IllegalStateException(
-                "Inconsistent vector similarity function for field=\"" + info.name + "\"; " + similarityFunction + " != "
-                + info.getVectorSimilarityFunction());
+                "Inconsistent vector similarity function for field=\""
+                    + info.name
+                    + "\"; "
+                    + similarityFunction
+                    + " != "
+                    + info.getVectorSimilarityFunction()
+            );
         }
         return FieldEntry.create(input, vectorEncoding, info.getVectorSimilarityFunction());
     }
 
     private record FieldEntry(VectorSimilarityFunction similarityFunction, VectorEncoding vectorEncoding, int dimension,
-                              int descritizedDimension, long vectorDataOffset, long vectorDataLength, int size, float[] centroid,
-                              float centroidDP, OrdToDocDISIReaderConfiguration ordToDocDISIReaderConfiguration) {
+        int descritizedDimension, long vectorDataOffset, long vectorDataLength, int size, float[] centroid, float centroidDP,
+        OrdToDocDISIReaderConfiguration ordToDocDISIReaderConfiguration) {
 
         static FieldEntry create(IndexInput input, VectorEncoding vectorEncoding, VectorSimilarityFunction similarityFunction)
             throws IOException {

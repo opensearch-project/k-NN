@@ -35,350 +35,339 @@ import static org.apache.lucene.util.quantization.OptimizedScalarQuantizer.discr
 
 /**
  * Binarized vector values loaded from off-heap
- *
- * @lucene.internal
+
  */
 public abstract class OffHeapBinarizedVectorValues extends BinarizedByteVectorValues {
 
-  final int dimension;
-  final int size;
-  final int numBytes;
-  final VectorSimilarityFunction similarityFunction;
-  final FlatVectorsScorer vectorsScorer;
+    final int dimension;
+    final int size;
+    final int numBytes;
+    final VectorSimilarityFunction similarityFunction;
+    final FlatVectorsScorer vectorsScorer;
 
-  final IndexInput slice;
-  final byte[] binaryValue;
-  final ByteBuffer byteBuffer;
-  final int byteSize;
-  private int lastOrd = -1;
-  final float[] correctiveValues;
-  int quantizedComponentSum;
-  final OptimizedScalarQuantizer binaryQuantizer;
-  final float[] centroid;
-  final float centroidDp;
-  private final int discretizedDimensions;
+    final IndexInput slice;
+    final byte[] binaryValue;
+    final ByteBuffer byteBuffer;
+    final int byteSize;
+    private int lastOrd = -1;
+    final float[] correctiveValues;
+    int quantizedComponentSum;
+    final OptimizedScalarQuantizer binaryQuantizer;
+    final float[] centroid;
+    final float centroidDp;
+    private final int discretizedDimensions;
 
-  OffHeapBinarizedVectorValues(
-      int dimension,
-      int size,
-      float[] centroid,
-      float centroidDp,
-      OptimizedScalarQuantizer quantizer,
-      VectorSimilarityFunction similarityFunction,
-      FlatVectorsScorer vectorsScorer,
-      IndexInput slice) {
-    this.dimension = dimension;
-    this.size = size;
-    this.similarityFunction = similarityFunction;
-    this.vectorsScorer = vectorsScorer;
-    this.slice = slice;
-    this.centroid = centroid;
-    this.centroidDp = centroidDp;
-    this.numBytes = discretize(dimension, 64) / 8;
-    this.correctiveValues = new float[3];
-    this.byteSize = numBytes + (Float.BYTES * 3) + Short.BYTES;
-    this.byteBuffer = ByteBuffer.allocate(numBytes);
-    this.binaryValue = byteBuffer.array();
-    this.binaryQuantizer = quantizer;
-    this.discretizedDimensions = discretize(dimension, 64);
-  }
-
-  @Override
-  public int dimension() {
-    return dimension;
-  }
-
-  @Override
-  public int size() {
-    return size;
-  }
-
-  @Override
-  public byte[] vectorValue(int targetOrd) throws IOException {
-    if (lastOrd == targetOrd) {
-      return binaryValue;
-    }
-    slice.seek((long) targetOrd * byteSize);
-    slice.readBytes(byteBuffer.array(), byteBuffer.arrayOffset(), numBytes);
-    slice.readFloats(correctiveValues, 0, 3);
-    quantizedComponentSum = Short.toUnsignedInt(slice.readShort());
-    lastOrd = targetOrd;
-    return binaryValue;
-  }
-
-  @Override
-  public int discretizedDimensions() {
-    return discretizedDimensions;
-  }
-
-  @Override
-  public float getCentroidDP() {
-    return centroidDp;
-  }
-
-  @Override
-  public OptimizedScalarQuantizer.QuantizationResult getCorrectiveTerms(int targetOrd)
-      throws IOException {
-    if (lastOrd == targetOrd) {
-      return new OptimizedScalarQuantizer.QuantizationResult(
-          correctiveValues[0], correctiveValues[1], correctiveValues[2], quantizedComponentSum);
-    }
-    slice.seek(((long) targetOrd * byteSize) + numBytes);
-    slice.readFloats(correctiveValues, 0, 3);
-    quantizedComponentSum = Short.toUnsignedInt(slice.readShort());
-    return new OptimizedScalarQuantizer.QuantizationResult(
-        correctiveValues[0], correctiveValues[1], correctiveValues[2], quantizedComponentSum);
-  }
-
-  @Override
-  public OptimizedScalarQuantizer getQuantizer() {
-    return binaryQuantizer;
-  }
-
-  @Override
-  public float[] getCentroid() {
-    return centroid;
-  }
-
-  @Override
-  public int getVectorByteLength() {
-    return numBytes;
-  }
-
-  static OffHeapBinarizedVectorValues load(
-      OrdToDocDISIReaderConfiguration configuration,
-      int dimension,
-      int size,
-      OptimizedScalarQuantizer binaryQuantizer,
-      VectorSimilarityFunction similarityFunction,
-      FlatVectorsScorer vectorsScorer,
-      float[] centroid,
-      float centroidDp,
-      long quantizedVectorDataOffset,
-      long quantizedVectorDataLength,
-      IndexInput vectorData)
-      throws IOException {
-    if (configuration.isEmpty()) {
-      return new EmptyOffHeapVectorValues(dimension, similarityFunction, vectorsScorer);
-    }
-    assert centroid != null;
-    IndexInput bytesSlice =
-        vectorData.slice(
-            "quantized-vector-data", quantizedVectorDataOffset, quantizedVectorDataLength);
-    if (configuration.isDense()) {
-      return new DenseOffHeapVectorValues(
-          dimension,
-          size,
-          centroid,
-          centroidDp,
-          binaryQuantizer,
-          similarityFunction,
-          vectorsScorer,
-          bytesSlice);
-    } else {
-      return new SparseOffHeapVectorValues(
-          configuration,
-          dimension,
-          size,
-          centroid,
-          centroidDp,
-          binaryQuantizer,
-          vectorData,
-          similarityFunction,
-          vectorsScorer,
-          bytesSlice);
-    }
-  }
-
-  /** Dense off-heap binarized vector values */
-  static class DenseOffHeapVectorValues extends OffHeapBinarizedVectorValues {
-    DenseOffHeapVectorValues(
+    OffHeapBinarizedVectorValues(
         int dimension,
         int size,
         float[] centroid,
         float centroidDp,
-        OptimizedScalarQuantizer binaryQuantizer,
+        OptimizedScalarQuantizer quantizer,
         VectorSimilarityFunction similarityFunction,
         FlatVectorsScorer vectorsScorer,
-        IndexInput slice) {
-      super(
-          dimension,
-          size,
-          centroid,
-          centroidDp,
-          binaryQuantizer,
-          similarityFunction,
-          vectorsScorer,
-          slice);
+        IndexInput slice
+    ) {
+        this.dimension = dimension;
+        this.size = size;
+        this.similarityFunction = similarityFunction;
+        this.vectorsScorer = vectorsScorer;
+        this.slice = slice;
+        this.centroid = centroid;
+        this.centroidDp = centroidDp;
+        this.numBytes = discretize(dimension, 64) / 8;
+        this.correctiveValues = new float[3];
+        this.byteSize = numBytes + (Float.BYTES * 3) + Short.BYTES;
+        this.byteBuffer = ByteBuffer.allocate(numBytes);
+        this.binaryValue = byteBuffer.array();
+        this.binaryQuantizer = quantizer;
+        this.discretizedDimensions = discretize(dimension, 64);
     }
 
     @Override
-    public DenseOffHeapVectorValues copy() throws IOException {
-      return new DenseOffHeapVectorValues(
-          dimension,
-          size,
-          centroid,
-          centroidDp,
-          binaryQuantizer,
-          similarityFunction,
-          vectorsScorer,
-          slice.clone());
+    public int dimension() {
+        return dimension;
     }
 
     @Override
-    public Bits getAcceptOrds(Bits acceptDocs) {
-      return acceptDocs;
+    public int size() {
+        return size;
     }
 
     @Override
-    public VectorScorer scorer(float[] target) throws IOException {
-      DenseOffHeapVectorValues copy = copy();
-      DocIndexIterator iterator = copy.iterator();
-      RandomVectorScorer scorer =
-          vectorsScorer.getRandomVectorScorer(similarityFunction, copy, target);
-      return new VectorScorer() {
-        @Override
-        public float score() throws IOException {
-          return scorer.score(iterator.index());
+    public byte[] vectorValue(int targetOrd) throws IOException {
+        if (lastOrd == targetOrd) {
+            return binaryValue;
         }
-
-        @Override
-        public DocIdSetIterator iterator() {
-          return iterator;
-        }
-      };
+        slice.seek((long) targetOrd * byteSize);
+        slice.readBytes(byteBuffer.array(), byteBuffer.arrayOffset(), numBytes);
+        slice.readFloats(correctiveValues, 0, 3);
+        quantizedComponentSum = Short.toUnsignedInt(slice.readShort());
+        lastOrd = targetOrd;
+        return binaryValue;
     }
 
     @Override
-    public DocIndexIterator iterator() {
-      return createDenseIterator();
+    public int discretizedDimensions() {
+        return discretizedDimensions;
     }
-  }
 
-  /** Sparse off-heap binarized vector values */
-  private static class SparseOffHeapVectorValues extends OffHeapBinarizedVectorValues {
-    private final DirectMonotonicReader ordToDoc;
-    private final IndexedDISI disi;
-    // dataIn was used to init a new IndexedDIS for #randomAccess()
-    private final IndexInput dataIn;
-    private final OrdToDocDISIReaderConfiguration configuration;
+    @Override
+    public float getCentroidDP() {
+        return centroidDp;
+    }
 
-    SparseOffHeapVectorValues(
+    @Override
+    public OptimizedScalarQuantizer.QuantizationResult getCorrectiveTerms(int targetOrd) throws IOException {
+        if (lastOrd == targetOrd) {
+            return new OptimizedScalarQuantizer.QuantizationResult(
+                correctiveValues[0],
+                correctiveValues[1],
+                correctiveValues[2],
+                quantizedComponentSum
+            );
+        }
+        slice.seek(((long) targetOrd * byteSize) + numBytes);
+        slice.readFloats(correctiveValues, 0, 3);
+        quantizedComponentSum = Short.toUnsignedInt(slice.readShort());
+        return new OptimizedScalarQuantizer.QuantizationResult(
+            correctiveValues[0],
+            correctiveValues[1],
+            correctiveValues[2],
+            quantizedComponentSum
+        );
+    }
+
+    @Override
+    public OptimizedScalarQuantizer getQuantizer() {
+        return binaryQuantizer;
+    }
+
+    @Override
+    public float[] getCentroid() {
+        return centroid;
+    }
+
+    @Override
+    public int getVectorByteLength() {
+        return numBytes;
+    }
+
+    static OffHeapBinarizedVectorValues load(
         OrdToDocDISIReaderConfiguration configuration,
         int dimension,
         int size,
-        float[] centroid,
-        float centroidDp,
         OptimizedScalarQuantizer binaryQuantizer,
-        IndexInput dataIn,
         VectorSimilarityFunction similarityFunction,
         FlatVectorsScorer vectorsScorer,
-        IndexInput slice)
-        throws IOException {
-      super(
-          dimension,
-          size,
-          centroid,
-          centroidDp,
-          binaryQuantizer,
-          similarityFunction,
-          vectorsScorer,
-          slice);
-      this.configuration = configuration;
-      this.dataIn = dataIn;
-      this.ordToDoc = configuration.getDirectMonotonicReader(dataIn);
-      this.disi = configuration.getIndexedDISI(dataIn);
+        float[] centroid,
+        float centroidDp,
+        long quantizedVectorDataOffset,
+        long quantizedVectorDataLength,
+        IndexInput vectorData
+    ) throws IOException {
+        if (configuration.isEmpty()) {
+            return new EmptyOffHeapVectorValues(dimension, similarityFunction, vectorsScorer);
+        }
+        assert centroid != null;
+        IndexInput bytesSlice = vectorData.slice("quantized-vector-data", quantizedVectorDataOffset, quantizedVectorDataLength);
+        if (configuration.isDense()) {
+            return new DenseOffHeapVectorValues(
+                dimension,
+                size,
+                centroid,
+                centroidDp,
+                binaryQuantizer,
+                similarityFunction,
+                vectorsScorer,
+                bytesSlice
+            );
+        } else {
+            return new SparseOffHeapVectorValues(
+                configuration,
+                dimension,
+                size,
+                centroid,
+                centroidDp,
+                binaryQuantizer,
+                vectorData,
+                similarityFunction,
+                vectorsScorer,
+                bytesSlice
+            );
+        }
     }
 
-    @Override
-    public SparseOffHeapVectorValues copy() throws IOException {
-      return new SparseOffHeapVectorValues(
-          configuration,
-          dimension,
-          size,
-          centroid,
-          centroidDp,
-          binaryQuantizer,
-          dataIn,
-          similarityFunction,
-          vectorsScorer,
-          slice.clone());
-    }
-
-    @Override
-    public int ordToDoc(int ord) {
-      return (int) ordToDoc.get(ord);
-    }
-
-    @Override
-    public Bits getAcceptOrds(Bits acceptDocs) {
-      if (acceptDocs == null) {
-        return null;
-      }
-      return new Bits() {
-        @Override
-        public boolean get(int index) {
-          return acceptDocs.get(ordToDoc(index));
+    /** Dense off-heap binarized vector values */
+    static class DenseOffHeapVectorValues extends OffHeapBinarizedVectorValues {
+        DenseOffHeapVectorValues(
+            int dimension,
+            int size,
+            float[] centroid,
+            float centroidDp,
+            OptimizedScalarQuantizer binaryQuantizer,
+            VectorSimilarityFunction similarityFunction,
+            FlatVectorsScorer vectorsScorer,
+            IndexInput slice
+        ) {
+            super(dimension, size, centroid, centroidDp, binaryQuantizer, similarityFunction, vectorsScorer, slice);
         }
 
         @Override
-        public int length() {
-          return size;
-        }
-      };
-    }
-
-    @Override
-    public DocIndexIterator iterator() {
-      return IndexedDISI.asDocIndexIterator(disi);
-    }
-
-    @Override
-    public VectorScorer scorer(float[] target) throws IOException {
-      SparseOffHeapVectorValues copy = copy();
-      DocIndexIterator iterator = copy.iterator();
-      RandomVectorScorer scorer =
-          vectorsScorer.getRandomVectorScorer(similarityFunction, copy, target);
-      return new VectorScorer() {
-        @Override
-        public float score() throws IOException {
-          return scorer.score(iterator.index());
+        public DenseOffHeapVectorValues copy() throws IOException {
+            return new DenseOffHeapVectorValues(
+                dimension,
+                size,
+                centroid,
+                centroidDp,
+                binaryQuantizer,
+                similarityFunction,
+                vectorsScorer,
+                slice.clone()
+            );
         }
 
         @Override
-        public DocIdSetIterator iterator() {
-          return iterator;
+        public Bits getAcceptOrds(Bits acceptDocs) {
+            return acceptDocs;
         }
-      };
-    }
-  }
 
-  private static class EmptyOffHeapVectorValues extends OffHeapBinarizedVectorValues {
-    EmptyOffHeapVectorValues(
-        int dimension,
-        VectorSimilarityFunction similarityFunction,
-        FlatVectorsScorer vectorsScorer) {
-      super(dimension, 0, null, Float.NaN, null, similarityFunction, vectorsScorer, null);
-    }
+        @Override
+        public VectorScorer scorer(float[] target) throws IOException {
+            DenseOffHeapVectorValues copy = copy();
+            DocIndexIterator iterator = copy.iterator();
+            RandomVectorScorer scorer = vectorsScorer.getRandomVectorScorer(similarityFunction, copy, target);
+            return new VectorScorer() {
+                @Override
+                public float score() throws IOException {
+                    return scorer.score(iterator.index());
+                }
 
-    @Override
-    public DocIndexIterator iterator() {
-      return createDenseIterator();
-    }
+                @Override
+                public DocIdSetIterator iterator() {
+                    return iterator;
+                }
+            };
+        }
 
-    @Override
-    public DenseOffHeapVectorValues copy() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Bits getAcceptOrds(Bits acceptDocs) {
-      return null;
+        @Override
+        public DocIndexIterator iterator() {
+            return createDenseIterator();
+        }
     }
 
-    @Override
-    public VectorScorer scorer(float[] target) {
-      return null;
+    /** Sparse off-heap binarized vector values */
+    private static class SparseOffHeapVectorValues extends OffHeapBinarizedVectorValues {
+        private final DirectMonotonicReader ordToDoc;
+        private final IndexedDISI disi;
+        // dataIn was used to init a new IndexedDIS for #randomAccess()
+        private final IndexInput dataIn;
+        private final OrdToDocDISIReaderConfiguration configuration;
+
+        SparseOffHeapVectorValues(
+            OrdToDocDISIReaderConfiguration configuration,
+            int dimension,
+            int size,
+            float[] centroid,
+            float centroidDp,
+            OptimizedScalarQuantizer binaryQuantizer,
+            IndexInput dataIn,
+            VectorSimilarityFunction similarityFunction,
+            FlatVectorsScorer vectorsScorer,
+            IndexInput slice
+        ) throws IOException {
+            super(dimension, size, centroid, centroidDp, binaryQuantizer, similarityFunction, vectorsScorer, slice);
+            this.configuration = configuration;
+            this.dataIn = dataIn;
+            this.ordToDoc = configuration.getDirectMonotonicReader(dataIn);
+            this.disi = configuration.getIndexedDISI(dataIn);
+        }
+
+        @Override
+        public SparseOffHeapVectorValues copy() throws IOException {
+            return new SparseOffHeapVectorValues(
+                configuration,
+                dimension,
+                size,
+                centroid,
+                centroidDp,
+                binaryQuantizer,
+                dataIn,
+                similarityFunction,
+                vectorsScorer,
+                slice.clone()
+            );
+        }
+
+        @Override
+        public int ordToDoc(int ord) {
+            return (int) ordToDoc.get(ord);
+        }
+
+        @Override
+        public Bits getAcceptOrds(Bits acceptDocs) {
+            if (acceptDocs == null) {
+                return null;
+            }
+            return new Bits() {
+                @Override
+                public boolean get(int index) {
+                    return acceptDocs.get(ordToDoc(index));
+                }
+
+                @Override
+                public int length() {
+                    return size;
+                }
+            };
+        }
+
+        @Override
+        public DocIndexIterator iterator() {
+            return IndexedDISI.asDocIndexIterator(disi);
+        }
+
+        @Override
+        public VectorScorer scorer(float[] target) throws IOException {
+            SparseOffHeapVectorValues copy = copy();
+            DocIndexIterator iterator = copy.iterator();
+            RandomVectorScorer scorer = vectorsScorer.getRandomVectorScorer(similarityFunction, copy, target);
+            return new VectorScorer() {
+                @Override
+                public float score() throws IOException {
+                    return scorer.score(iterator.index());
+                }
+
+                @Override
+                public DocIdSetIterator iterator() {
+                    return iterator;
+                }
+            };
+        }
     }
-  }
+
+    private static class EmptyOffHeapVectorValues extends OffHeapBinarizedVectorValues {
+        EmptyOffHeapVectorValues(int dimension, VectorSimilarityFunction similarityFunction, FlatVectorsScorer vectorsScorer) {
+            super(dimension, 0, null, Float.NaN, null, similarityFunction, vectorsScorer, null);
+        }
+
+        @Override
+        public DocIndexIterator iterator() {
+            return createDenseIterator();
+        }
+
+        @Override
+        public DenseOffHeapVectorValues copy() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Bits getAcceptOrds(Bits acceptDocs) {
+            return null;
+        }
+
+        @Override
+        public VectorScorer scorer(float[] target) {
+            return null;
+        }
+    }
 }

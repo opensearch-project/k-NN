@@ -581,4 +581,16 @@ class FaissService {
      * @param numElements number of vector blocks (quantized vector + correction factors) in this batch to transfer
      */
     public static native void passBBQVectorsWithCorrectionFactors(long indexMemoryAddress, byte[] buffer, int numElements);
+
+    /**
+     * Releases a Faiss BBQ index that was allocated via {@link #initFaissBBQIndex}.
+     *
+     * <p>This should be called when an error occurs during index construction to prevent
+     * off-heap memory leaks. The address points to a {@code faiss::IndexBinaryIDMap*} which
+     * owns the entire index hierarchy (IndexBinaryIDMap → FaissBBQHnsw → FaissBBQFlat).
+     * Deleting the top-level object cascades destruction through {@code own_fields = true}.
+     *
+     * @param indexMemoryAddress pointer to the native Faiss BBQ index (returned by {@link #initFaissBBQIndex})
+     */
+    public static native void releaseFaissBBQIndex(long indexMemoryAddress);
 }

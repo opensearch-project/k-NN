@@ -19,4 +19,9 @@ public class Lucene102BinaryQuantizedVectorsFormatConstants {
     static final String VECTOR_DATA_CODEC_NAME = "Lucene102BinaryQuantizedVectorsFormatData";
     static final String META_EXTENSION = "vemb";
     static final String VECTOR_DATA_EXTENSION = "veb";
+
+    static final String BINARIZED_VECTOR_COMPONENT = "BVEC";
+
+    static final byte INDEX_BITS = 1;
+    static final int DIRECT_MONOTONIC_BLOCK_SHIFT = 16;
 }
