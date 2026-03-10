@@ -26,7 +26,8 @@ import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
-
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.Mode;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -92,6 +93,8 @@ public class LuceneEngineIT extends KNNRestTestCase {
     private static final String KNN_VECTOR_TYPE = "knn_vector";
     private static final String PROPERTIES_FIELD_NAME = "properties";
     private static final String TYPE_FIELD_NAME = "type";
+    private static final String COMPRESSION_LEVEL_FIELD_NAME = "compression_level";
+    private static final String MODE_FIELD_NAME = "mode";
     private static final String INTEGER_FIELD_NAME = "int_field";
     private static final String FILED_TYPE_INTEGER = "integer";
     private static final String NON_EXISTENT_INTEGER_FIELD_NAME = "nonexistent_int_field";
@@ -752,6 +755,34 @@ public class LuceneEngineIT extends KNNRestTestCase {
         createKnnIndex(INDEX_NAME, mapping);
     }
 
+    private void addSearchDeleteToCurrentKNNIndex() throws Exception {
+        Float[] vector = { 6.0f, 6.0f, 7.0f };
+        addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
+        refreshIndex(INDEX_NAME);
+        assertEquals(1, getDocCount(INDEX_NAME));
+
+        Response searchResponse = searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, new float[] { 6.0f, 6.0f, 7.0f }, 1), 1);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), FIELD_NAME);
+        assertEquals(1, results.size());
+        assertEquals(DOC_ID, results.get(0).getDocId());
+
+        deleteKnnDoc(INDEX_NAME, DOC_ID);
+        refreshIndex(INDEX_NAME);
+        assertEquals(0, getDocCount(INDEX_NAME));
+    }
+
+    @SneakyThrows
+    public void testAddSearchDeleteWithCompressionLevelImpliedBBQ() {
+        createKnnIndexMappingWithLuceneEngineWithModeAndCompression(CompressionLevel.x32, DIMENSION, Mode.NOT_CONFIGURED);
+        addSearchDeleteToCurrentKNNIndex();
+    }
+
+    @SneakyThrows
+    public void testAddSearchDeleteWithModeImpliedBBQ() {
+        createKnnIndexMappingWithLuceneEngineWithModeAndCompression(CompressionLevel.NOT_CONFIGURED, DIMENSION, Mode.ON_DISK);
+        addSearchDeleteToCurrentKNNIndex();
+    }
+
     @SneakyThrows
     public void testBBQ_withInvalidParams_thenThrowException() {
         // Use "byte" data_type with bbq encoder which throws an exception
@@ -839,6 +870,27 @@ public class LuceneEngineIT extends KNNRestTestCase {
         List<String> expectedDocIdsKGreaterThanFilterResult = Arrays.asList(DOC_ID, DOC_ID_3);
         List<String> expectedDocIdsKLimitsFilterResult = Arrays.asList(DOC_ID);
         validateQueryResultsWithFilters(searchVector, 5, 1, expectedDocIdsKGreaterThanFilterResult, expectedDocIdsKLimitsFilterResult);
+    }
+
+    private void createKnnIndexMappingWithLuceneEngineWithModeAndCompression(CompressionLevel compressionLevel, int dimension, Mode mode)
+        throws Exception {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES_FIELD_NAME)
+            .startObject(FIELD_NAME)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension);
+
+        if (compressionLevel != CompressionLevel.NOT_CONFIGURED) {
+            builder.field(COMPRESSION_LEVEL_FIELD_NAME, compressionLevel.getName());
+        }
+        if (mode != Mode.NOT_CONFIGURED) {
+            builder.field(MODE_FIELD_NAME, mode.getName());
+        }
+        builder.endObject().endObject().endObject();
+
+        String mapping = builder.toString();
+        createKnnIndex(INDEX_NAME, mapping);
     }
 
     private void createKnnIndexMappingWithLuceneEngineAndBBQEncoder(int dimension, SpaceType spaceType, VectorDataType vectorDataType)

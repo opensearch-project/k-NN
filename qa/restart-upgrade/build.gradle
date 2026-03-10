@@ -111,10 +111,12 @@ task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
     }
 
     // excludes: 1.any; 2.x where x < 17
-    def validPrefixesForQFrameBitEncoderBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
-    if (validPrefixesForQFrameBitEncoderBWCChecks.any { knn_bwc_version.startsWith(it) }
+    def invalidPrefixesForQFrameBitEncoderAndLuceneBBQBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
+    if (invalidPrefixesForQFrameBitEncoderAndLuceneBBQBWCChecks.any { knn_bwc_version.startsWith(it) }
             ) {
         filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLucene4xBWC"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneOnDiskNoCompressionBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testDiskBasedMergeBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testRandomRotationBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testADC_BWC"
@@ -271,9 +273,11 @@ task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
         }
     }
 
-    def validPrefixesForQFrameBitEncoderBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
-    if (validPrefixesForQFrameBitEncoderBWCChecks.any { knn_bwc_version.startsWith(it) }) {
+    def invalidPrefixesForQFrameBitEncoderAndLuceneBBQBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
+    if (invalidPrefixesForQFrameBitEncoderAndLuceneBBQBWCChecks.any { knn_bwc_version.startsWith(it) }) {
         filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLucene4xBWC"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneOnDiskNoCompressionBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testDiskBasedMergeBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testRandomRotationBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testADC_BWC"
@@ -340,11 +344,12 @@ task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
         }
     }
 
-        if (knn_bwc_version.startsWith("1.") || knn_bwc_version.startsWith("2.") || knn_bwc_version.startsWith("3.0")) {
-            filter {
-                excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneBBQ"
-            }
+    def invalidPrefixesForLuceneBBQChecks = ['1.', '2.'] + ((0..5).collect { "3.${it}." } as Collection<String>)
+    if (invalidPrefixesForLuceneBBQChecks.any { knn_bwc_version.startsWith(it) }) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneBBQ"
         }
+    }
 
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
