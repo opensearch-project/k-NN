@@ -8,7 +8,11 @@ package org.opensearch.knn.index.codec.backward_codecs.KNN940Codec;
 import org.apache.lucene.backward_codecs.lucene94.Lucene94HnswVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.BasePerFieldKnnVectorsFormat;
+import org.opensearch.knn.index.codec.LuceneVectorsFormatType;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
+import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
 
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -18,14 +22,17 @@ public class KNN940PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat
 
     public KNN940PerFieldKnnVectorsFormat(final Optional<MapperService> mapperService) {
         super(
-            mapperService,
-            Lucene94HnswVectorsFormat.DEFAULT_MAX_CONN,
-            Lucene94HnswVectorsFormat.DEFAULT_BEAM_WIDTH,
-            () -> new Lucene94HnswVectorsFormat(),
-            knnVectorsFormatParams -> new Lucene94HnswVectorsFormat(
-                knnVectorsFormatParams.getMaxConnections(),
-                knnVectorsFormatParams.getBeamWidth()
-            )
-        );
+                mapperService,
+                Lucene94HnswVectorsFormat.DEFAULT_MAX_CONN,
+                Lucene94HnswVectorsFormat.DEFAULT_BEAM_WIDTH,
+                () -> new Lucene94HnswVectorsFormat(),
+                Map.of(
+                        LuceneVectorsFormatType.HNSW, ctx -> {
+                            final KNNVectorsFormatParams p = new KNNVectorsFormatParams(
+                                    ctx.getParams(), ctx.getDefaultMaxConnections(), ctx.getDefaultBeamWidth(),
+                                    ctx.getMethodContext().getSpaceType());
+                            return new Lucene94HnswVectorsFormat(p.getMaxConnections(), p.getBeamWidth());
+                        }),
+                new NativeIndexBuildStrategyFactory());
     }
 }
