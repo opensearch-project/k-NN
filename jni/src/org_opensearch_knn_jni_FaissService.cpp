@@ -602,12 +602,10 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_addDocsToBBQInde
 
         // Copy docs : int32_t -> int64_t
         jint* docIdsPtr = static_cast<jint*>(env->GetPrimitiveArrayCritical(docIdsJ, nullptr));
-        knn_jni::JNIReleaseElements release([=]{
-            env->ReleasePrimitiveArrayCritical(docIdsJ, docIdsPtr, 0);
-        });
         for (int32_t i = 0 ; i < numDocs; ++i) {
             docIds[i] = docIdsPtr[i];
         }
+        env->ReleasePrimitiveArrayCritical(docIdsJ, docIdsPtr, 0);
 
         // Get the next batch of vectors to be added to HNSW
         // Note that we've already inserted quantized vectors in storage, just that it's not visible yet.
@@ -642,6 +640,16 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_passBBQVectorsWi
             reinterpret_cast<uint8_t*>(jb),
             reinterpret_cast<uint8_t*>(jb) + numElements * faissBBQFlat->oneElementSize
         );
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+}
+
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_releaseFaissBBQIndex(
+    JNIEnv * env, jclass cls, jlong indexMemoryAddress) {
+    try {
+        auto* binaryIdMap = reinterpret_cast<faiss::IndexBinaryIDMap*>(indexMemoryAddress);
+        delete binaryIdMap;
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }

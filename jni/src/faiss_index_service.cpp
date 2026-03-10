@@ -152,7 +152,7 @@ void IndexService::writeIndex(
             openSearchIOWriter->flush();
         }
     } catch(std::exception &e) {
-        throw std::runtime_error("Failed to write index to disk");
+        throw std::runtime_error(std::string("Failed to write index to disk, error=") + e.what());
     }
 }
 

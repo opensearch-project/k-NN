@@ -100,7 +100,13 @@ public class JNIService {
      * @param parameters   parameters to build index
      * @param skipFlat     Control flag that skipping flushing flat storage.
      */
-    public static void writeIndex(IndexOutputWithBuffer output, long indexAddress, KNNEngine knnEngine, Map<String, Object> parameters, boolean skipFlat) {
+    public static void writeIndex(
+        IndexOutputWithBuffer output,
+        long indexAddress,
+        KNNEngine knnEngine,
+        Map<String, Object> parameters,
+        boolean skipFlat
+    ) {
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
                 FaissService.writeBinaryIndex(indexAddress, output, skipFlat);
@@ -490,7 +496,8 @@ public class JNIService {
         final int[] docIds,
         final int numDocs,
         final int numAdded,
-        final KNNEngine knnEngine) {
+        final KNNEngine knnEngine
+    ) {
 
         if (KNNEngine.FAISS == knnEngine) {
             FaissService.addDocsToBBQIndex(indexMemoryAddress, docIds, numDocs, numAdded);
@@ -506,7 +513,8 @@ public class JNIService {
         final long indexMemoryAddress,
         final byte[] buffer,
         final int loopSize,
-        final KNNEngine knnEngine) {
+        final KNNEngine knnEngine
+    ) {
 
         Objects.requireNonNull(buffer);
 
@@ -517,6 +525,17 @@ public class JNIService {
 
         throw new IllegalArgumentException(
             String.format(Locale.ROOT, "passBBQVectorsWithCorrectionFactors not supported for provided engine : %s", knnEngine.getName())
+        );
+    }
+
+    public static void releaseFaissBBQIndex(final long indexMemoryAddress, final KNNEngine knnEngine) {
+        if (KNNEngine.FAISS == knnEngine) {
+            FaissService.releaseFaissBBQIndex(indexMemoryAddress);
+            return;
+        }
+
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "releaseFaissBBQIndex not supported for provided engine : %s", knnEngine.getName())
         );
     }
 }

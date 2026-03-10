@@ -210,7 +210,13 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
             );
 
             mockedJNIService.verify(
-                () -> JNIService.writeIndex(eq(indexOutputWithBuffer), eq(100L), eq(KNNEngine.FAISS), eq(Map.of("index", "param")), false)
+                () -> JNIService.writeIndex(
+                    eq(indexOutputWithBuffer),
+                    eq(100L),
+                    eq(KNNEngine.FAISS),
+                    eq(Map.of("index", "param")),
+                    eq(false)
+                )
             );
             assertEquals(200L, vectorAddressCaptor.getValue().longValue());
             assertEquals(vectorAddressCaptor.getValue().longValue(), vectorAddressCaptor.getAllValues().get(0).longValue());

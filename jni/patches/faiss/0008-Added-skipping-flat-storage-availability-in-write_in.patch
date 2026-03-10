@@ -1,17 +1,17 @@
-From 74540b63c648e8e0c638ebb69118785e69e337ec Mon Sep 17 00:00:00 2001
+From 7cecc2b2f29b98af750178ec051adb308e0503ee Mon Sep 17 00:00:00 2001
 From: Dooyong Kim <kdooyong@amazon.com>
-Date: Mon, 9 Mar 2026 14:27:01 -0700
+Date: Tue, 10 Mar 2026 11:04:13 -0700
 Subject: [PATCH] Added skipping flat storage availability in
  write_index_binary.
 
 Signed-off-by: Dooyong Kim <kdooyong@amazon.com>
 ---
- faiss/impl/index_write.cpp | 17 +++++++++++------
+ faiss/impl/index_write.cpp | 19 ++++++++++++-------
  faiss/index_io.h           |  6 +++---
- 2 files changed, 14 insertions(+), 9 deletions(-)
+ 2 files changed, 15 insertions(+), 10 deletions(-)
 
 diff --git a/faiss/impl/index_write.cpp b/faiss/impl/index_write.cpp
-index def7dcd2b..116662eb2 100644
+index def7dcd2b..6946f0bc2 100644
 --- a/faiss/impl/index_write.cpp
 +++ b/faiss/impl/index_write.cpp
 @@ -982,7 +982,7 @@ static void write_binary_multi_hash_map(
@@ -37,6 +37,15 @@ index def7dcd2b..116662eb2 100644
      } else if (
              const IndexBinaryIDMap* idxmap =
                      dynamic_cast<const IndexBinaryIDMap*>(idx)) {
+@@ -1031,7 +1036,7 @@ void write_index_binary(const IndexBinary* idx, IOWriter* f) {
+         // no need to store additional info for IndexIDMap2
+         WRITE1(h);
+         write_index_binary_header(idxmap, f);
+-        write_index_binary(idxmap->index, f);
++        write_index_binary(idxmap->index, f, io_flags);
+         WRITEVECTOR(idxmap->id_map);
+     } else if (
+             const IndexBinaryHash* idxh =
 @@ -1061,14 +1066,14 @@ void write_index_binary(const IndexBinary* idx, IOWriter* f) {
      }
  }

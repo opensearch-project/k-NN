@@ -307,6 +307,14 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_addDocsToBBQInde
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_passBBQVectorsWithCorrectionFactors
   (JNIEnv *, jclass, jlong, jbyteArray, jint);
 
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    releaseFaissBBQIndex
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_releaseFaissBBQIndex
+  (JNIEnv *, jclass, jlong);
+
 
 #ifdef __cplusplus
 }
