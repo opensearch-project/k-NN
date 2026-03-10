@@ -14,6 +14,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
+import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
@@ -24,6 +25,8 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 
@@ -49,14 +52,34 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
     private final Supplier<KnnVectorsFormat> defaultFormatSupplier;
     private final Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> luceneFormatResolvers;
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
+    private static final String MAX_CONNECTIONS = "max_connections";
+    private static final String BEAM_WIDTH = "beam_width";
 
     protected BasePerFieldKnnVectorsFormat(
-            Optional<MapperService> mapperService,
-            int defaultMaxConnections,
-            int defaultBeamWidth,
-            Supplier<KnnVectorsFormat> defaultFormatSupplier,
-            Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> luceneFormatResolvers,
-            NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory) {
+        Optional<MapperService> mapperService,
+        int defaultMaxConnections,
+        int defaultBeamWidth,
+        Supplier<KnnVectorsFormat> defaultFormatSupplier,
+        Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> luceneFormatResolvers
+    ) {
+        this(
+            mapperService,
+            defaultMaxConnections,
+            defaultBeamWidth,
+            defaultFormatSupplier,
+            luceneFormatResolvers,
+            new NativeIndexBuildStrategyFactory()
+        );
+    }
+
+    protected BasePerFieldKnnVectorsFormat(
+        Optional<MapperService> mapperService,
+        int defaultMaxConnections,
+        int defaultBeamWidth,
+        Supplier<KnnVectorsFormat> defaultFormatSupplier,
+        Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> luceneFormatResolvers,
+        NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
+    ) {
         this.mapperService = mapperService;
         this.defaultMaxConnections = defaultMaxConnections;
         this.defaultBeamWidth = defaultBeamWidth;
@@ -69,15 +92,20 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
     public KnnVectorsFormat getKnnVectorsFormatForField(final String field) {
         if (isKnnVectorFieldType(field) == false) {
             log.debug(
-                    "Initialize KNN vector format for field [{}] with default format",
-                    field);
+                "Initialize KNN vector format for field [{}] with default params [{}] = \"{}\" and [{}] = \"{}\"",
+                field,
+                MAX_CONNECTIONS,
+                defaultMaxConnections,
+                BEAM_WIDTH,
+                defaultBeamWidth
+            );
             return defaultFormatSupplier.get();
         }
         KNNVectorFieldType mappedFieldType = (KNNVectorFieldType) mapperService.orElseThrow(
-                () -> new IllegalStateException(
-                        String.format("Cannot read field type for field [%s] because mapper service is not available",
-                                field)))
-                .fieldType(field);
+            () -> new IllegalStateException(
+                String.format("Cannot read field type for field [%s] because mapper service is not available", field)
+            )
+        ).fieldType(field);
 
         final KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
         if (knnMappingConfig.getModelId().isPresent()) {
@@ -85,7 +113,7 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         }
 
         final KNNMethodContext knnMethodContext = knnMappingConfig.getKnnMethodContext()
-                .orElseThrow(() -> new IllegalArgumentException("KNN method context cannot be empty"));
+            .orElseThrow(() -> new IllegalArgumentException("KNN method context cannot be empty"));
         nativeIndexBuildStrategyFactory.setKnnLibraryIndexingContext(knnMappingConfig.getKnnLibraryIndexingContext());
         final KNNEngine engine = knnMethodContext.getKnnEngine();
         final Map<String, Object> params = knnMethodContext.getMethodComponentContext().getParameters();
@@ -103,22 +131,29 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
      * then resolves it via the registered format factory.
      */
     private KnnVectorsFormat resolveLuceneFormat(
-            final String field,
-            final KNNMethodContext methodContext,
-            final Map<String, Object> params) {
-        final LuceneVectorsFormatType formatType = determineLuceneFormatType(methodContext, params);
+        final String field,
+        final KNNMethodContext methodContext,
+        final Map<String, Object> params
+    ) {
+        final LuceneVectorsFormatType formatType = determineLuceneFormatType(field, methodContext, params);
 
         final Function<KnnVectorsFormatContext, KnnVectorsFormat> factory = luceneFormatResolvers.get(formatType);
         if (factory == null) {
             throw new IllegalStateException(
-                    String.format("No Lucene vectors format registered for type [%s] in codec [%s]", formatType,
-                            getClass().getSimpleName()));
+                String.format("No Lucene vectors format registered for type [%s] in codec [%s]", formatType, getClass().getSimpleName())
+            );
         }
 
         log.debug("Initialize KNN vector format for field [{}] with Lucene format type [{}]", field, formatType);
 
         final KnnVectorsFormatContext context = new KnnVectorsFormatContext(
-                field, methodContext, params, defaultMaxConnections, defaultBeamWidth);
+            field,
+            methodContext,
+            params,
+            defaultMaxConnections,
+            defaultBeamWidth
+        );
+
         return factory.apply(context);
     }
 
@@ -126,35 +161,70 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
      * Routes the method context to the appropriate {@link LuceneVectorsFormatType}.
      */
     private LuceneVectorsFormatType determineLuceneFormatType(
-            final KNNMethodContext methodContext,
-            final Map<String, Object> params) {
+        final String field,
+        final KNNMethodContext methodContext,
+        final Map<String, Object> params
+    ) {
         if (METHOD_FLAT.equals(methodContext.getMethodComponentContext().getName())) {
+            log.debug("Initialize KNN vector format for field [{}] with Lucene BBQ flat format", field);
             return LuceneVectorsFormatType.FLAT;
         }
 
         if (params != null && params.containsKey(METHOD_ENCODER_PARAMETER)) {
             KNNScalarQuantizedVectorsFormatParams sqParams = new KNNScalarQuantizedVectorsFormatParams(
-                    params, defaultMaxConnections, defaultBeamWidth);
+                params,
+                defaultMaxConnections,
+                defaultBeamWidth
+            );
             if (sqParams.validate(params)) {
+                log.debug(
+                    "Initialize KNN vector format for field [{}] with params [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\"",
+                    field,
+                    MAX_CONNECTIONS,
+                    sqParams.getMaxConnections(),
+                    BEAM_WIDTH,
+                    sqParams.getBeamWidth(),
+                    LUCENE_SQ_CONFIDENCE_INTERVAL,
+                    sqParams.getConfidenceInterval(),
+                    LUCENE_SQ_BITS,
+                    sqParams.getBits()
+                );
                 return LuceneVectorsFormatType.SCALAR_QUANTIZED;
             }
         }
 
+        KNNVectorsFormatParams hnswParams = new KNNVectorsFormatParams(
+            params,
+            defaultMaxConnections,
+            defaultBeamWidth,
+            methodContext.getSpaceType()
+        );
+        log.debug(
+            "Initialize KNN vector format for field [{}] with params [{}] = \"{}\" and [{}] = \"{}\"",
+            field,
+            MAX_CONNECTIONS,
+            hnswParams.getMaxConnections(),
+            BEAM_WIDTH,
+            hnswParams.getBeamWidth()
+        );
         return LuceneVectorsFormatType.HNSW;
     }
 
     private NativeEngines990KnnVectorsFormat nativeEngineVectorsFormat() {
+        // mapperService is already checked for null or valid instance type at caller, hence we don't need
+        // addition isPresent check here.
         final int approximateThreshold = getApproximateThresholdValue();
         return new NativeEngines990KnnVectorsFormat(approximateThreshold, nativeIndexBuildStrategyFactory);
     }
 
     private int getApproximateThresholdValue() {
+        // This is private method and mapperService is already checked for null or valid instance type before this call
+        // at caller, hence we don't need additional isPresent check here.
         final IndexSettings indexSettings = mapperService.get().getIndexSettings();
-        final Integer approximateThresholdValue = indexSettings
-                .getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING);
+        final Integer approximateThresholdValue = indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING);
         return approximateThresholdValue != null
-                ? approximateThresholdValue
-                : KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE;
+            ? approximateThresholdValue
+            : KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE;
     }
 
     @Override

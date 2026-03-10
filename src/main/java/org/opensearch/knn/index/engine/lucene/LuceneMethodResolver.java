@@ -24,6 +24,7 @@ import java.util.Set;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
+import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.index.engine.lucene.LuceneFlatMethod.FLAT_METHOD_COMPONENT;
 import static org.opensearch.knn.index.engine.lucene.LuceneHNSWMethod.HNSW_METHOD_COMPONENT;
@@ -79,6 +80,7 @@ public class LuceneMethodResolver extends AbstractMethodResolver {
         SpaceType spaceType
     ) {
         validateFlatMethodParameters(knnMethodContext);
+        validateFlatMode(knnMethodConfigContext);
         validateFlatCompressionLevel(knnMethodConfigContext);
 
         KNNMethodContext resolvedKNNMethodContext = initResolvedKNNMethodContext(
@@ -105,6 +107,16 @@ public class LuceneMethodResolver extends AbstractMethodResolver {
             ValidationException validationException = new ValidationException();
             validationException.addValidationError(
                 String.format(Locale.ROOT, "Parameters are not supported for the \"%s\" method", METHOD_FLAT)
+            );
+            throw validationException;
+        }
+    }
+
+    private void validateFlatMode(KNNMethodConfigContext knnMethodConfigContext) {
+        if (Mode.isConfigured(knnMethodConfigContext.getMode())) {
+            ValidationException validationException = new ValidationException();
+            validationException.addValidationError(
+                String.format(Locale.ROOT, "\"%s\" is not supported for the \"%s\" method", MODE_PARAMETER, METHOD_FLAT)
             );
             throw validationException;
         }

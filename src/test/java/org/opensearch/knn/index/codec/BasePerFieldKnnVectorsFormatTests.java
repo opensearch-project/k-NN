@@ -47,280 +47,291 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
  */
 public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
 
-        private static final String TEST_FIELD = "test_vector";
-        private static final int DEFAULT_MAX_CONN = 16;
-        private static final int DEFAULT_BEAM_WIDTH = 100;
+    private static final String TEST_FIELD = "test_vector";
+    private static final int DEFAULT_MAX_CONN = 16;
+    private static final int DEFAULT_BEAM_WIDTH = 100;
 
-        // Sentinel format instances used to verify correct resolution
-        private static final KnnVectorsFormat HNSW_FORMAT = mock(KnnVectorsFormat.class);
-        private static final KnnVectorsFormat SQ_FORMAT = mock(KnnVectorsFormat.class);
-        private static final KnnVectorsFormat FLAT_FORMAT = mock(KnnVectorsFormat.class);
-        private static final KnnVectorsFormat DEFAULT_FORMAT = mock(KnnVectorsFormat.class);
+    // Sentinel format instances used to verify correct resolution
+    private static final KnnVectorsFormat HNSW_FORMAT = mock(KnnVectorsFormat.class);
+    private static final KnnVectorsFormat SQ_FORMAT = mock(KnnVectorsFormat.class);
+    private static final KnnVectorsFormat FLAT_FORMAT = mock(KnnVectorsFormat.class);
+    private static final KnnVectorsFormat DEFAULT_FORMAT = mock(KnnVectorsFormat.class);
 
-        /**
-         * Concrete subclass for testing the abstract base class.
-         */
-        private static class TestPerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat {
-                TestPerFieldKnnVectorsFormat(
-                                Optional<MapperService> mapperService,
-                                Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers) {
-                        super(
-                                        mapperService,
-                                        DEFAULT_MAX_CONN,
-                                        DEFAULT_BEAM_WIDTH,
-                                        () -> DEFAULT_FORMAT,
-                                        resolvers,
-                                        new NativeIndexBuildStrategyFactory());
-                }
-
-                @Override
-                public int getMaxDimensions(String fieldName) {
-                        return KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE);
-                }
+    /**
+     * Concrete subclass for testing the abstract base class.
+     */
+    private static class TestPerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat {
+        TestPerFieldKnnVectorsFormat(
+            Optional<MapperService> mapperService,
+            Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers
+        ) {
+            super(
+                mapperService,
+                DEFAULT_MAX_CONN,
+                DEFAULT_BEAM_WIDTH,
+                () -> DEFAULT_FORMAT,
+                resolvers,
+                new NativeIndexBuildStrategyFactory()
+            );
         }
 
-        /**
-         * When the field is not a KNN vector type, the default format should be
-         * returned.
-         */
-        public void testGetKnnVectorsFormatForField_whenNotKnnField_thenReturnDefaultFormat() {
-                // Empty mapperService means isKnnVectorFieldType returns false
-                TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(
-                                Optional.empty(),
-                                Map.of());
-
-                KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
-                assertSame(DEFAULT_FORMAT, result);
+        @Override
+        public int getMaxDimensions(String fieldName) {
+            return KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE);
         }
+    }
 
-        /**
-         * When the Lucene engine is used with the HNSW method, the HNSW resolver should
-         * be called.
-         */
-        public void testGetKnnVectorsFormatForField_whenLuceneHnsw_thenReturnHnswFormat() {
-                KNNMethodContext hnswMethodContext = new KNNMethodContext(
-                                KNNEngine.LUCENE,
-                                SpaceType.L2,
-                                new MethodComponentContext(METHOD_HNSW,
-                                                Map.of(METHOD_PARAMETER_M, 32, METHOD_PARAMETER_EF_CONSTRUCTION, 256)));
+    /**
+     * When the field is not a KNN vector type, the default format should be
+     * returned.
+     */
+    public void testGetKnnVectorsFormatForField_whenNotKnnField_thenReturnDefaultFormat() {
+        // Empty mapperService means isKnnVectorFieldType returns false
+        TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.empty(), Map.of());
 
-                MapperService mapperService = mockMapperService(TEST_FIELD, hnswMethodContext);
+        KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
+        assertSame(DEFAULT_FORMAT, result);
+    }
 
-                Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
-                                LuceneVectorsFormatType.HNSW, ctx -> HNSW_FORMAT);
+    /**
+     * When the Lucene engine is used with the HNSW method, the HNSW resolver should
+     * be called.
+     */
+    public void testGetKnnVectorsFormatForField_whenLuceneHnsw_thenReturnHnswFormat() {
+        KNNMethodContext hnswMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_PARAMETER_M, 32, METHOD_PARAMETER_EF_CONSTRUCTION, 256))
+        );
 
-                TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.of(mapperService),
-                                resolvers);
-                KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
-                assertSame(HNSW_FORMAT, result);
-        }
+        MapperService mapperService = mockMapperService(TEST_FIELD, hnswMethodContext);
 
-        /**
-         * When the Lucene engine is used with the flat method, the FLAT resolver should
-         * be called.
-         */
-        public void testGetKnnVectorsFormatForField_whenLuceneFlat_thenReturnFlatFormat() {
-                KNNMethodContext flatMethodContext = new KNNMethodContext(
-                                KNNEngine.LUCENE,
-                                SpaceType.L2,
-                                new MethodComponentContext(METHOD_FLAT, Collections.emptyMap()));
+        Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
+            LuceneVectorsFormatType.HNSW,
+            ctx -> HNSW_FORMAT
+        );
 
-                MapperService mapperService = mockMapperService(TEST_FIELD, flatMethodContext);
+        TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.of(mapperService), resolvers);
+        KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
+        assertSame(HNSW_FORMAT, result);
+    }
 
-                Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
-                                LuceneVectorsFormatType.FLAT, ctx -> FLAT_FORMAT,
-                                LuceneVectorsFormatType.HNSW, ctx -> HNSW_FORMAT);
+    /**
+     * When the Lucene engine is used with the flat method, the FLAT resolver should
+     * be called.
+     */
+    public void testGetKnnVectorsFormatForField_whenLuceneFlat_thenReturnFlatFormat() {
+        KNNMethodContext flatMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_FLAT, Collections.emptyMap())
+        );
 
-                TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.of(mapperService),
-                                resolvers);
-                KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
-                assertSame(FLAT_FORMAT, result);
-        }
+        MapperService mapperService = mockMapperService(TEST_FIELD, flatMethodContext);
 
-        /**
-         * When the Lucene engine is used with an SQ encoder, the SCALAR_QUANTIZED
-         * resolver should be called.
-         */
-        public void testGetKnnVectorsFormatForField_whenLuceneSQ_thenReturnSQFormat() {
-                Map<String, Object> encoderParams = new HashMap<>();
-                MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, encoderParams);
+        Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
+            LuceneVectorsFormatType.FLAT,
+            ctx -> FLAT_FORMAT,
+            LuceneVectorsFormatType.HNSW,
+            ctx -> HNSW_FORMAT
+        );
 
-                Map<String, Object> params = new HashMap<>();
-                params.put(METHOD_ENCODER_PARAMETER, encoderContext);
-                params.put(METHOD_PARAMETER_M, 16);
-                params.put(METHOD_PARAMETER_EF_CONSTRUCTION, 100);
+        TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.of(mapperService), resolvers);
+        KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
+        assertSame(FLAT_FORMAT, result);
+    }
 
-                KNNMethodContext sqMethodContext = new KNNMethodContext(
-                                KNNEngine.LUCENE,
-                                SpaceType.L2,
-                                new MethodComponentContext(METHOD_HNSW, params));
+    /**
+     * When the Lucene engine is used with an SQ encoder, the SCALAR_QUANTIZED
+     * resolver should be called.
+     */
+    public void testGetKnnVectorsFormatForField_whenLuceneSQ_thenReturnSQFormat() {
+        Map<String, Object> encoderParams = new HashMap<>();
+        MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, encoderParams);
 
-                MapperService mapperService = mockMapperService(TEST_FIELD, sqMethodContext);
+        Map<String, Object> params = new HashMap<>();
+        params.put(METHOD_ENCODER_PARAMETER, encoderContext);
+        params.put(METHOD_PARAMETER_M, 16);
+        params.put(METHOD_PARAMETER_EF_CONSTRUCTION, 100);
 
-                Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
-                                LuceneVectorsFormatType.SCALAR_QUANTIZED, ctx -> SQ_FORMAT,
-                                LuceneVectorsFormatType.HNSW, ctx -> HNSW_FORMAT);
+        KNNMethodContext sqMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, params)
+        );
 
-                TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.of(mapperService),
-                                resolvers);
-                KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
-                assertSame(SQ_FORMAT, result);
-        }
+        MapperService mapperService = mockMapperService(TEST_FIELD, sqMethodContext);
 
-        /**
-         * When the Lucene engine requests a format type that is not registered, an
-         * exception should be thrown.
-         */
-        public void testGetKnnVectorsFormatForField_whenFormatNotRegistered_thenThrowException() {
-                KNNMethodContext flatMethodContext = new KNNMethodContext(
-                                KNNEngine.LUCENE,
-                                SpaceType.L2,
-                                new MethodComponentContext(METHOD_FLAT, Collections.emptyMap()));
+        Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
+            LuceneVectorsFormatType.SCALAR_QUANTIZED,
+            ctx -> SQ_FORMAT,
+            LuceneVectorsFormatType.HNSW,
+            ctx -> HNSW_FORMAT
+        );
 
-                MapperService mapperService = mockMapperService(TEST_FIELD, flatMethodContext);
+        TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.of(mapperService), resolvers);
+        KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
+        assertSame(SQ_FORMAT, result);
+    }
 
-                // Register only HNSW, but flat method will request FLAT
-                Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
-                                LuceneVectorsFormatType.HNSW, ctx -> HNSW_FORMAT);
+    /**
+     * When the Lucene engine requests a format type that is not registered, an
+     * exception should be thrown.
+     */
+    public void testGetKnnVectorsFormatForField_whenFormatNotRegistered_thenThrowException() {
+        KNNMethodContext flatMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_FLAT, Collections.emptyMap())
+        );
 
-                TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.of(mapperService),
-                                resolvers);
-                expectThrows(IllegalStateException.class, () -> format.getKnnVectorsFormatForField(TEST_FIELD));
-        }
+        MapperService mapperService = mockMapperService(TEST_FIELD, flatMethodContext);
 
-        /**
-         * Verify that the context passed to resolvers contains the correct field name
-         * and params.
-         */
-        public void testResolveLuceneFormat_contextContainsCorrectValues() {
-                int customM = 64;
-                int customEf = 512;
-                Map<String, Object> params = new HashMap<>();
-                params.put(METHOD_PARAMETER_M, customM);
-                params.put(METHOD_PARAMETER_EF_CONSTRUCTION, customEf);
+        // Register only HNSW, but flat method will request FLAT
+        Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
+            LuceneVectorsFormatType.HNSW,
+            ctx -> HNSW_FORMAT
+        );
 
-                KNNMethodContext methodContext = new KNNMethodContext(
-                                KNNEngine.LUCENE,
-                                SpaceType.COSINESIMIL,
-                                new MethodComponentContext(METHOD_HNSW, params));
+        TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.of(mapperService), resolvers);
+        expectThrows(IllegalStateException.class, () -> format.getKnnVectorsFormatForField(TEST_FIELD));
+    }
 
-                MapperService mapperService = mockMapperService(TEST_FIELD, methodContext);
+    /**
+     * Verify that the context passed to resolvers contains the correct field name
+     * and params.
+     */
+    public void testResolveLuceneFormat_contextContainsCorrectValues() {
+        int customM = 64;
+        int customEf = 512;
+        Map<String, Object> params = new HashMap<>();
+        params.put(METHOD_PARAMETER_M, customM);
+        params.put(METHOD_PARAMETER_EF_CONSTRUCTION, customEf);
 
-                // Capture the context via the resolver
-                final KnnVectorsFormatContext[] capturedContext = new KnnVectorsFormatContext[1];
-                Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
-                                LuceneVectorsFormatType.HNSW, ctx -> {
-                                        capturedContext[0] = ctx;
-                                        return HNSW_FORMAT;
-                                });
+        KNNMethodContext methodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.COSINESIMIL,
+            new MethodComponentContext(METHOD_HNSW, params)
+        );
 
-                TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.of(mapperService),
-                                resolvers);
-                format.getKnnVectorsFormatForField(TEST_FIELD);
+        MapperService mapperService = mockMapperService(TEST_FIELD, methodContext);
 
-                assertNotNull(capturedContext[0]);
-                assertEquals(TEST_FIELD, capturedContext[0].getField());
-                assertEquals(DEFAULT_MAX_CONN, capturedContext[0].getDefaultMaxConnections());
-                assertEquals(DEFAULT_BEAM_WIDTH, capturedContext[0].getDefaultBeamWidth());
-                assertSame(methodContext, capturedContext[0].getMethodContext());
-                assertSame(params, capturedContext[0].getParams());
-        }
+        // Capture the context via the resolver
+        final KnnVectorsFormatContext[] capturedContext = new KnnVectorsFormatContext[1];
+        Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
+            LuceneVectorsFormatType.HNSW,
+            ctx -> {
+                capturedContext[0] = ctx;
+                return HNSW_FORMAT;
+            }
+        );
 
-        /**
-         * When the field has a model ID, the native engine format should be returned.
-         */
-        public void testGetKnnVectorsFormatForField_whenModelIdPresent_thenReturnNativeFormat() {
-                MapperService mapperService = mockMapperServiceWithModelId(TEST_FIELD, "test-model-id");
+        TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.of(mapperService), resolvers);
+        format.getKnnVectorsFormatForField(TEST_FIELD);
 
-                TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.of(mapperService),
-                                Map.of());
-                KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
-                assertTrue(
-                                "Expected NativeEngines990KnnVectorsFormat but got "
-                                                + result.getClass().getSimpleName(),
-                                result instanceof NativeEngines990KnnVectorsFormat);
-        }
+        assertNotNull(capturedContext[0]);
+        assertEquals(TEST_FIELD, capturedContext[0].getField());
+        assertEquals(DEFAULT_MAX_CONN, capturedContext[0].getDefaultMaxConnections());
+        assertEquals(DEFAULT_BEAM_WIDTH, capturedContext[0].getDefaultBeamWidth());
+        assertSame(methodContext, capturedContext[0].getMethodContext());
+        assertSame(params, capturedContext[0].getParams());
+    }
 
-        /**
-         * When the engine is not Lucene (e.g., FAISS), the native engine format should
-         * be returned.
-         */
-        public void testGetKnnVectorsFormatForField_whenNativeEngine_thenReturnNativeFormat() {
-                KNNMethodContext faissMethodContext = new KNNMethodContext(
-                                KNNEngine.FAISS,
-                                SpaceType.L2,
-                                new MethodComponentContext(METHOD_HNSW,
-                                                Map.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 256)));
+    /**
+     * When the field has a model ID, the native engine format should be returned.
+     */
+    public void testGetKnnVectorsFormatForField_whenModelIdPresent_thenReturnNativeFormat() {
+        MapperService mapperService = mockMapperServiceWithModelId(TEST_FIELD, "test-model-id");
 
-                MapperService mapperService = mockMapperService(TEST_FIELD, faissMethodContext);
+        TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.of(mapperService), Map.of());
+        KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
+        assertTrue(
+            "Expected NativeEngines990KnnVectorsFormat but got " + result.getClass().getSimpleName(),
+            result instanceof NativeEngines990KnnVectorsFormat
+        );
+    }
 
-                // Even though we register Lucene resolvers, FAISS should bypass them entirely
-                Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
-                                LuceneVectorsFormatType.HNSW, ctx -> HNSW_FORMAT);
+    /**
+     * When the engine is not Lucene (e.g., FAISS), the native engine format should
+     * be returned.
+     */
+    public void testGetKnnVectorsFormatForField_whenNativeEngine_thenReturnNativeFormat() {
+        KNNMethodContext faissMethodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 256))
+        );
 
-                TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.of(mapperService),
-                                resolvers);
-                KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
-                assertTrue(
-                                "Expected NativeEngines990KnnVectorsFormat but got "
-                                                + result.getClass().getSimpleName(),
-                                result instanceof NativeEngines990KnnVectorsFormat);
-        }
+        MapperService mapperService = mockMapperService(TEST_FIELD, faissMethodContext);
 
-        /**
-         * Helper to create a mocked MapperService that returns a KNNVectorFieldType
-         * with the given method context.
-         */
-        private MapperService mockMapperService(String fieldName, KNNMethodContext knnMethodContext) {
-                MapperService mapperService = mock(MapperService.class);
-                KNNVectorFieldType fieldType = new KNNVectorFieldType(
-                                fieldName,
-                                Collections.emptyMap(),
-                                org.opensearch.knn.index.VectorDataType.FLOAT,
-                                getMappingConfigForMethodMapping(knnMethodContext, 3));
-                when(mapperService.fieldType(eq(fieldName))).thenReturn(fieldType);
+        // Even though we register Lucene resolvers, FAISS should bypass them entirely
+        Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
+            LuceneVectorsFormatType.HNSW,
+            ctx -> HNSW_FORMAT
+        );
 
-                // Mock IndexSettings for the approximate threshold
-                IndexSettings indexSettings = mock(IndexSettings.class);
-                when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING))
-                                .thenReturn(null);
-                when(mapperService.getIndexSettings()).thenReturn(indexSettings);
+        TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.of(mapperService), resolvers);
+        KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
+        assertTrue(
+            "Expected NativeEngines990KnnVectorsFormat but got " + result.getClass().getSimpleName(),
+            result instanceof NativeEngines990KnnVectorsFormat
+        );
+    }
 
-                return mapperService;
-        }
+    /**
+     * Helper to create a mocked MapperService that returns a KNNVectorFieldType
+     * with the given method context.
+     */
+    private MapperService mockMapperService(String fieldName, KNNMethodContext knnMethodContext) {
+        MapperService mapperService = mock(MapperService.class);
+        KNNVectorFieldType fieldType = new KNNVectorFieldType(
+            fieldName,
+            Collections.emptyMap(),
+            org.opensearch.knn.index.VectorDataType.FLOAT,
+            getMappingConfigForMethodMapping(knnMethodContext, 3)
+        );
+        when(mapperService.fieldType(eq(fieldName))).thenReturn(fieldType);
 
-        /**
-         * Helper to create a mocked MapperService that returns a KNNVectorFieldType
-         * with a model ID (triggers native engine format).
-         */
-        private MapperService mockMapperServiceWithModelId(String fieldName, String modelId) {
-                MapperService mapperService = mock(MapperService.class);
+        // Mock IndexSettings for the approximate threshold
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING)).thenReturn(null);
+        when(mapperService.getIndexSettings()).thenReturn(indexSettings);
 
-                KNNMappingConfig modelMappingConfig = new KNNMappingConfig() {
-                        @Override
-                        public Optional<String> getModelId() {
-                                return Optional.of(modelId);
-                        }
+        return mapperService;
+    }
 
-                        @Override
-                        public int getDimension() {
-                                return 3;
-                        }
-                };
+    /**
+     * Helper to create a mocked MapperService that returns a KNNVectorFieldType
+     * with a model ID (triggers native engine format).
+     */
+    private MapperService mockMapperServiceWithModelId(String fieldName, String modelId) {
+        MapperService mapperService = mock(MapperService.class);
 
-                KNNVectorFieldType fieldType = new KNNVectorFieldType(
-                                fieldName,
-                                Collections.emptyMap(),
-                                org.opensearch.knn.index.VectorDataType.FLOAT,
-                                modelMappingConfig);
-                when(mapperService.fieldType(eq(fieldName))).thenReturn(fieldType);
+        KNNMappingConfig modelMappingConfig = new KNNMappingConfig() {
+            @Override
+            public Optional<String> getModelId() {
+                return Optional.of(modelId);
+            }
 
-                // Mock IndexSettings for the approximate threshold
-                IndexSettings indexSettings = mock(IndexSettings.class);
-                when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING))
-                                .thenReturn(null);
-                when(mapperService.getIndexSettings()).thenReturn(indexSettings);
+            @Override
+            public int getDimension() {
+                return 3;
+            }
+        };
 
-                return mapperService;
-        }
+        KNNVectorFieldType fieldType = new KNNVectorFieldType(
+            fieldName,
+            Collections.emptyMap(),
+            org.opensearch.knn.index.VectorDataType.FLOAT,
+            modelMappingConfig
+        );
+        when(mapperService.fieldType(eq(fieldName))).thenReturn(fieldType);
+
+        // Mock IndexSettings for the approximate threshold
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING)).thenReturn(null);
+        when(mapperService.getIndexSettings()).thenReturn(indexSettings);
+
+        return mapperService;
+    }
 }

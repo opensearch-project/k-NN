@@ -25,12 +25,11 @@ public class LuceneFlatMethod extends AbstractKNNMethod {
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
 
     public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
-            SpaceType.UNDEFINED,
-            SpaceType.L2,
-            SpaceType.COSINESIMIL,
-            SpaceType.INNER_PRODUCT
+        SpaceType.UNDEFINED,
+        SpaceType.L2,
+        SpaceType.COSINESIMIL,
+        SpaceType.INNER_PRODUCT
     );
-
 
     final static MethodComponent FLAT_METHOD_COMPONENT = initMethodComponent();
 
@@ -44,9 +43,7 @@ public class LuceneFlatMethod extends AbstractKNNMethod {
     }
 
     private static MethodComponent initMethodComponent() {
-        return MethodComponent.Builder.builder(METHOD_FLAT)
-                .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
-                .build();
+        return MethodComponent.Builder.builder(METHOD_FLAT).addSupportedDataTypes(SUPPORTED_DATA_TYPES).build();
     }
 
 }

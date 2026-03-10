@@ -12,7 +12,6 @@ import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.BasePerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KnnVectorsFormatContext;
 import org.opensearch.knn.index.codec.LuceneVectorsFormatType;
-import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -29,29 +28,39 @@ public class KNN990PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat
 
     public KNN990PerFieldKnnVectorsFormat(final Optional<MapperService> mapperService) {
         super(
-                mapperService,
-                Lucene99HnswVectorsFormat.DEFAULT_MAX_CONN,
-                Lucene99HnswVectorsFormat.DEFAULT_BEAM_WIDTH,
-                Lucene99HnswVectorsFormat::new,
-                buildLuceneFormatResolvers(),
-                new NativeIndexBuildStrategyFactory());
+            mapperService,
+            Lucene99HnswVectorsFormat.DEFAULT_MAX_CONN,
+            Lucene99HnswVectorsFormat.DEFAULT_BEAM_WIDTH,
+            Lucene99HnswVectorsFormat::new,
+            buildLuceneFormatResolvers()
+        );
     }
 
     private static Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> buildLuceneFormatResolvers() {
-        return Map.of(
-                LuceneVectorsFormatType.HNSW, ctx -> {
-                    final KNNVectorsFormatParams p = new KNNVectorsFormatParams(
-                            ctx.getParams(), ctx.getDefaultMaxConnections(), ctx.getDefaultBeamWidth(),
-                            ctx.getMethodContext().getSpaceType());
-                    return new Lucene99HnswVectorsFormat(p.getMaxConnections(), p.getBeamWidth());
-                },
-                LuceneVectorsFormatType.SCALAR_QUANTIZED, ctx -> {
-                    final KNNScalarQuantizedVectorsFormatParams p = new KNNScalarQuantizedVectorsFormatParams(
-                            ctx.getParams(), ctx.getDefaultMaxConnections(), ctx.getDefaultBeamWidth());
-                    return new Lucene99HnswScalarQuantizedVectorsFormat(
-                            p.getMaxConnections(), p.getBeamWidth(), NUM_MERGE_WORKERS, p.getBits(), p.isCompressFlag(),
-                            p.getConfidenceInterval(), null);
-                });
+        return Map.of(LuceneVectorsFormatType.HNSW, ctx -> {
+            final KNNVectorsFormatParams p = new KNNVectorsFormatParams(
+                ctx.getParams(),
+                ctx.getDefaultMaxConnections(),
+                ctx.getDefaultBeamWidth(),
+                ctx.getMethodContext().getSpaceType()
+            );
+            return new Lucene99HnswVectorsFormat(p.getMaxConnections(), p.getBeamWidth());
+        }, LuceneVectorsFormatType.SCALAR_QUANTIZED, ctx -> {
+            final KNNScalarQuantizedVectorsFormatParams p = new KNNScalarQuantizedVectorsFormatParams(
+                ctx.getParams(),
+                ctx.getDefaultMaxConnections(),
+                ctx.getDefaultBeamWidth()
+            );
+            return new Lucene99HnswScalarQuantizedVectorsFormat(
+                p.getMaxConnections(),
+                p.getBeamWidth(),
+                NUM_MERGE_WORKERS,
+                p.getBits(),
+                p.isCompressFlag(),
+                p.getConfidenceInterval(),
+                null
+            );
+        });
     }
 
     @Override
