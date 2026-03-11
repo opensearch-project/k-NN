@@ -24,6 +24,7 @@ import org.apache.lucene.util.hnsw.OrdinalTranslatedKnnCollector;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.common.RobustUniqueRandomIterator;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
@@ -32,7 +33,6 @@ import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.faiss.cagra.FaissCagraHNSW;
 
 import java.io.IOException;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * This searcher directly reads FAISS index file via the provided {@link IndexInput} then perform vector search on it.
@@ -212,7 +212,9 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     private KnnCollector createKnnCollector(final KnnCollector knnCollector, final RandomVectorScorer scorer) {
         final KnnCollector ordinalTranslatedKnnCollector = new OrdinalTranslatedKnnCollector(knnCollector, scorer::ordToDoc);
 
-        if (hnsw instanceof FaissCagraHNSW cagraHNSW) {
+        if (hnsw instanceof FaissCagraHNSW cagraHNSW && (knnCollector.getSearchStrategy() instanceof KnnSearchStrategy.Seeded) == false) {
+            // If there are provided entry points, then we should honor it and ensure searching to start based on them instead of
+            // search with randomly selected points.
             return new KnnCollector.Decorator(ordinalTranslatedKnnCollector) {
                 @Override
                 public KnnSearchStrategy getSearchStrategy() {
@@ -223,9 +225,9 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
                     );
                 }
             };
-        } else {
-            return ordinalTranslatedKnnCollector;
         }
+
+        return ordinalTranslatedKnnCollector;
     }
 
     /**
@@ -248,7 +250,10 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
 
         private static DocIdSetIterator generateRandomEntryPoints(final int numberOfEntryPoints, int totalNumberOfVectors) {
             return new DocIdSetIterator() {
-                int numPopulatedVectors = 0;
+                final RobustUniqueRandomIterator robustUniqueRandomIterator = new RobustUniqueRandomIterator(
+                    totalNumberOfVectors,
+                    numberOfEntryPoints
+                );
 
                 @Override
                 public int docID() {
@@ -257,13 +262,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
 
                 @Override
                 public int nextDoc() {
-                    if (numPopulatedVectors < numberOfEntryPoints) {
-                        ++numPopulatedVectors;
-                        // It is fine to populate the same doc ids here, the same vectors will not be visited more than once with bitset.
-                        return ThreadLocalRandom.current().nextInt(totalNumberOfVectors);
-                    }
-
-                    return NO_MORE_DOCS;
+                    return robustUniqueRandomIterator.next();
                 }
 
                 @Override
