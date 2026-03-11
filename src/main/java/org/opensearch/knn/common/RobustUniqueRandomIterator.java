@@ -13,12 +13,12 @@ import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
  * An iterator that provides unique random integers in the range [0, maxValExclusive)
  * using O(1) memory and O(1) complexity (amortized).
  *
- * <h3>Theory of Operation</h3>
+ * <h2>Theory of Operation</h2>
  * This class utilizes a <b>Linear Congruential Generator (LCG)</b> configured to produce
- * a "Full Period" (or Full Cycle). A standard LCG follows the recurrence relation:
- * <center>X_{n+1} = (a * X_n + c) mod M</center>
+ * a "Full Period" (or Full Cycle). A standard LCG follows the recurrence relation.
+ * Formula: X_{n+1} = (a * X_n + c) mod M
  *
- * <h4>1. The Hull-Dobell Theorem</h4>
+ * <h3>1. The Hull-Dobell Theorem</h3>
  * To ensure the generator visits every single number in the range [0, M) exactly once
  * before repeating (uniqueness), the parameters must satisfy:
  * <ul>
@@ -27,7 +27,7 @@ import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
  * <li>If M is a multiple of 4, a - 1 must be a multiple of 4 (satisfied by a = 4k + 1).</li>
  * </ul>
  *
- * <h4>2. The "Sandbox" & Rejection Sampling</h4>
+ * <h3>2. The "Sandbox" &amp; Rejection Sampling</h3>
  * LCGs are most efficient when M is a power of two, as the modulo operation becomes a
  * bitwise {@code & (M - 1)}. However, the user's requested {@code maxValExclusive} might not
  * be a power of two.
@@ -35,10 +35,9 @@ import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
  * This class solves this by finding the smallest power of two (M) that is greater than or
  * equal to the requested range. When the LCG generates a value X such that
  * {@code maxValExclusive <= X < M}, the value is "rejected," and the next value in the
- * sequence is generated. Because M < 2 * maxValExclusive, the expected number of
+ * sequence is generated. Because M &lt; 2 * maxValExclusive, the expected number of
  * iterations is less than 2, preserving O(1) amortized time.
  * </p>
- *
  */
 public final class RobustUniqueRandomIterator {
     /** The user's requested max value (exclusive). */
@@ -62,6 +61,12 @@ public final class RobustUniqueRandomIterator {
      * @throws IllegalArgumentException if numPopulate > maxValExclusive.
      */
     public RobustUniqueRandomIterator(int maxValExclusive, int numPopulate) {
+        if (maxValExclusive <= 0) {
+            throw new IllegalArgumentException(String.format("maxValExclusive[%d] must be positive", maxValExclusive));
+        }
+        if (numPopulate < 0) {
+            throw new IllegalArgumentException(String.format("numPopulate[%d] must be non-negative", numPopulate));
+        }
         if (numPopulate > maxValExclusive) {
             throw new IllegalArgumentException(String.format("numPopulate[%d] > maxValExclusive[%d]", numPopulate, maxValExclusive));
         }
