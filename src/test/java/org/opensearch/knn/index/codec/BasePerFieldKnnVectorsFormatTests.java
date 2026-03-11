@@ -12,10 +12,15 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
+import org.opensearch.knn.index.codec.backward_codecs.BasePerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
+import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
+import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.faiss.FaissCodecFormatResolver;
+import org.opensearch.knn.index.engine.lucene.LuceneCodecFormatResolver;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
@@ -25,11 +30,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static org.apache.lucene.tests.util.LuceneTestCase.expectThrows;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -58,9 +58,9 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
     private static final KnnVectorsFormat DEFAULT_FORMAT = mock(KnnVectorsFormat.class);
 
     /**
-     * Concrete subclass for testing the abstract base class.
+     * Concrete subclass for testing the registry-based path via KNN1040BasePerFieldKnnVectorsFormat.
      */
-    private static class TestPerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat {
+    private static class TestPerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVectorsFormat {
         TestPerFieldKnnVectorsFormat(
             Optional<MapperService> mapperService,
             Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers
@@ -70,8 +70,54 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
                 DEFAULT_MAX_CONN,
                 DEFAULT_BEAM_WIDTH,
                 () -> DEFAULT_FORMAT,
-                resolvers,
+                new LuceneCodecFormatResolver(resolvers),
+                new FaissCodecFormatResolver(mapperService, new NativeIndexBuildStrategyFactory()),
                 new NativeIndexBuildStrategyFactory()
+            );
+        }
+
+        @Override
+        public int getMaxDimensions(String fieldName) {
+            return KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE);
+        }
+    }
+
+    /**
+     * Legacy concrete subclass for testing the legacy constructor path
+     * (backward codecs KNN920–KNN9120) that uses vectorsFormatSupplier.
+     */
+    private static class LegacyTestPerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat {
+        LegacyTestPerFieldKnnVectorsFormat(
+            Optional<MapperService> mapperService,
+            Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier
+        ) {
+            super(mapperService, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, () -> DEFAULT_FORMAT, vectorsFormatSupplier);
+        }
+
+        @Override
+        public int getMaxDimensions(String fieldName) {
+            return KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE);
+        }
+    }
+
+    /**
+     * Legacy concrete subclass for testing the legacy constructor path with SQ support
+     * (backward codecs like KNN990–KNN9120) that uses both vectorsFormatSupplier
+     * and scalarQuantizedVectorsFormatSupplier.
+     */
+    private static class LegacySQTestPerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat {
+        LegacySQTestPerFieldKnnVectorsFormat(
+            Optional<MapperService> mapperService,
+            Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier,
+            Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier
+        ) {
+            super(
+                mapperService,
+                DEFAULT_MAX_CONN,
+                DEFAULT_BEAM_WIDTH,
+                () -> DEFAULT_FORMAT,
+                vectorsFormatSupplier,
+                scalarQuantizedVectorsFormatSupplier
             );
         }
 
@@ -276,6 +322,211 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
             "Expected NativeEngines990KnnVectorsFormat but got " + result.getClass().getSimpleName(),
             result instanceof NativeEngines990KnnVectorsFormat
         );
+    }
+
+    /**
+     * When a legacy-style format (with vectorsFormatSupplier) resolves a field
+     * with HNSW parameters and no encoder, the unified routing path should
+     * determine HNSW format type and delegate to the vectorsFormatSupplier.
+     */
+    public void testGetKnnVectorsFormatForField_legacyHnswWithoutEncoder_thenReturnHnswFormat() {
+        KNNMethodContext hnswMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_PARAMETER_M, 32, METHOD_PARAMETER_EF_CONSTRUCTION, 256))
+        );
+
+        MapperService mapperService = mockMapperService(TEST_FIELD, hnswMethodContext);
+
+        // Capture the params passed to the legacy supplier to verify correct routing
+        final KNNVectorsFormatParams[] capturedParams = new KNNVectorsFormatParams[1];
+        Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier = params -> {
+            capturedParams[0] = params;
+            return HNSW_FORMAT;
+        };
+
+        LegacyTestPerFieldKnnVectorsFormat format = new LegacyTestPerFieldKnnVectorsFormat(
+            Optional.of(mapperService),
+            vectorsFormatSupplier
+        );
+        KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
+
+        assertSame(HNSW_FORMAT, result);
+        assertNotNull(capturedParams[0]);
+        assertEquals(32, capturedParams[0].getMaxConnections());
+        assertEquals(256, capturedParams[0].getBeamWidth());
+    }
+
+    /**
+     * When a legacy-style format (with both vectorsFormatSupplier and
+     * scalarQuantizedVectorsFormatSupplier) resolves a field with SQ encoder
+     * parameters, the unified routing path should determine SCALAR_QUANTIZED
+     * format type and delegate to the scalarQuantizedVectorsFormatSupplier.
+     */
+    public void testGetKnnVectorsFormatForField_legacySQWithEncoder_thenReturnSQFormat() {
+        Map<String, Object> encoderParams = new HashMap<>();
+        MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, encoderParams);
+
+        Map<String, Object> params = new HashMap<>();
+        params.put(METHOD_ENCODER_PARAMETER, encoderContext);
+        params.put(METHOD_PARAMETER_M, 16);
+        params.put(METHOD_PARAMETER_EF_CONSTRUCTION, 100);
+
+        KNNMethodContext sqMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, params)
+        );
+
+        MapperService mapperService = mockMapperService(TEST_FIELD, sqMethodContext);
+
+        // Capture the params passed to the legacy SQ supplier to verify correct routing
+        final KNNScalarQuantizedVectorsFormatParams[] capturedSQParams = new KNNScalarQuantizedVectorsFormatParams[1];
+        Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> sqSupplier = sqParams -> {
+            capturedSQParams[0] = sqParams;
+            return SQ_FORMAT;
+        };
+
+        // The HNSW supplier should NOT be called for SQ routing
+        Function<KNNVectorsFormatParams, KnnVectorsFormat> hnswSupplier = hnswParams -> {
+            fail("HNSW supplier should not be called when SQ encoder is present");
+            return HNSW_FORMAT;
+        };
+
+        LegacySQTestPerFieldKnnVectorsFormat format = new LegacySQTestPerFieldKnnVectorsFormat(
+            Optional.of(mapperService),
+            hnswSupplier,
+            sqSupplier
+        );
+        KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
+
+        assertSame(SQ_FORMAT, result);
+        assertNotNull(capturedSQParams[0]);
+        assertEquals(16, capturedSQParams[0].getMaxConnections());
+        assertEquals(100, capturedSQParams[0].getBeamWidth());
+    }
+
+    /**
+     *
+     * Parameterized property test verifying that non-Lucene fields (non-KNN, model-based, native engine)
+     * are correctly routed by the legacy BasePerFieldKnnVectorsFormat.
+     *
+     */
+    public void testLegacyRoutingCorrectness_nonLuceneFields() {
+        Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsSupplier = params -> {
+            fail("vectorsFormatSupplier should not be called for non-Lucene fields");
+            return HNSW_FORMAT;
+        };
+
+        // 1. Non-KNN field → default format
+        LegacyTestPerFieldKnnVectorsFormat defaultFormat = new LegacyTestPerFieldKnnVectorsFormat(Optional.empty(), vectorsSupplier);
+        KnnVectorsFormat result = defaultFormat.getKnnVectorsFormatForField(TEST_FIELD);
+        assertSame("Non-KNN field should return default format", DEFAULT_FORMAT, result);
+
+        // 2. Model-based field → NativeEngines990KnnVectorsFormat
+        MapperService modelMapper = mockMapperServiceWithModelId(TEST_FIELD, "test-model-1");
+        LegacyTestPerFieldKnnVectorsFormat modelFormat = new LegacyTestPerFieldKnnVectorsFormat(Optional.of(modelMapper), vectorsSupplier);
+        result = modelFormat.getKnnVectorsFormatForField(TEST_FIELD);
+        assertTrue("Model-based field should return NativeEngines990KnnVectorsFormat", result instanceof NativeEngines990KnnVectorsFormat);
+
+        // 3. Another model-based field with different model ID
+        MapperService modelMapper2 = mockMapperServiceWithModelId(TEST_FIELD, "another-model-id");
+        LegacyTestPerFieldKnnVectorsFormat modelFormat2 = new LegacyTestPerFieldKnnVectorsFormat(
+            Optional.of(modelMapper2),
+            vectorsSupplier
+        );
+        result = modelFormat2.getKnnVectorsFormatForField(TEST_FIELD);
+        assertTrue(
+            "Model-based field (different model) should return NativeEngines990KnnVectorsFormat",
+            result instanceof NativeEngines990KnnVectorsFormat
+        );
+
+        // 4. FAISS engine → NativeEngines990KnnVectorsFormat
+        KNNMethodContext faissContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 256))
+        );
+        MapperService faissMapper = mockMapperService(TEST_FIELD, faissContext);
+        LegacyTestPerFieldKnnVectorsFormat faissFormat = new LegacyTestPerFieldKnnVectorsFormat(Optional.of(faissMapper), vectorsSupplier);
+        result = faissFormat.getKnnVectorsFormatForField(TEST_FIELD);
+        assertTrue("FAISS engine should return NativeEngines990KnnVectorsFormat", result instanceof NativeEngines990KnnVectorsFormat);
+
+        // 5. FAISS engine with different params
+        KNNMethodContext faissContext2 = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.INNER_PRODUCT,
+            new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_PARAMETER_M, 32, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
+        );
+        MapperService faissMapper2 = mockMapperService(TEST_FIELD, faissContext2);
+        LegacyTestPerFieldKnnVectorsFormat faissFormat2 = new LegacyTestPerFieldKnnVectorsFormat(
+            Optional.of(faissMapper2),
+            vectorsSupplier
+        );
+        result = faissFormat2.getKnnVectorsFormatForField(TEST_FIELD);
+        assertTrue(
+            "FAISS engine (different params) should return NativeEngines990KnnVectorsFormat",
+            result instanceof NativeEngines990KnnVectorsFormat
+        );
+    }
+
+    /**
+     *
+     * Verifies that non-Lucene fields (non-KNN, model-based, native engine) bypass the registry
+     * entirely in KNN1040BasePerFieldKnnVectorsFormat.
+     *
+     */
+    public void testRegistryRoutingCorrectness_nonLuceneFields() {
+        Function<KnnVectorsFormatContext, KnnVectorsFormat> failResolver = ctx -> {
+            fail("Registry resolver should not be called for non-Lucene fields");
+            return HNSW_FORMAT;
+        };
+
+        Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
+            LuceneVectorsFormatType.HNSW,
+            failResolver,
+            LuceneVectorsFormatType.SCALAR_QUANTIZED,
+            failResolver,
+            LuceneVectorsFormatType.FLAT,
+            failResolver
+        );
+
+        // 1. Non-KNN field → default format
+        TestPerFieldKnnVectorsFormat defaultFormat = new TestPerFieldKnnVectorsFormat(Optional.empty(), resolvers);
+        KnnVectorsFormat result = defaultFormat.getKnnVectorsFormatForField(TEST_FIELD);
+        assertSame("Non-KNN field should return default format", DEFAULT_FORMAT, result);
+
+        // 2. Model-based field → NativeEngines990KnnVectorsFormat
+        MapperService modelMapper = mockMapperServiceWithModelId(TEST_FIELD, "test-model-registry");
+        TestPerFieldKnnVectorsFormat modelFormat = new TestPerFieldKnnVectorsFormat(Optional.of(modelMapper), resolvers);
+        result = modelFormat.getKnnVectorsFormatForField(TEST_FIELD);
+        assertTrue("Model-based field should return NativeEngines990KnnVectorsFormat", result instanceof NativeEngines990KnnVectorsFormat);
+
+        // 3. FAISS engine → NativeEngines990KnnVectorsFormat
+        KNNMethodContext faissContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 256))
+        );
+        MapperService faissMapper = mockMapperService(TEST_FIELD, faissContext);
+        TestPerFieldKnnVectorsFormat faissFormat = new TestPerFieldKnnVectorsFormat(Optional.of(faissMapper), resolvers);
+        result = faissFormat.getKnnVectorsFormatForField(TEST_FIELD);
+        assertTrue("FAISS engine should return NativeEngines990KnnVectorsFormat", result instanceof NativeEngines990KnnVectorsFormat);
+    }
+
+    /**
+     * Helper to create a KNNMethodContext with SQ encoder parameters for the legacy routing tests.
+     */
+    private static KNNMethodContext createSQMethodContext(int m, int efConstruction, Map<String, Object> extraEncoderParams) {
+        Map<String, Object> encoderParams = new HashMap<>(extraEncoderParams);
+        MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, encoderParams);
+
+        Map<String, Object> params = new HashMap<>();
+        params.put(METHOD_ENCODER_PARAMETER, encoderContext);
+        params.put(METHOD_PARAMETER_M, m);
+        params.put(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction);
+
+        return new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, new MethodComponentContext(METHOD_HNSW, params));
     }
 
     /**

@@ -8,7 +8,7 @@ package org.opensearch.knn.index.codec;
 /**
  * Enum representing the types of Lucene KNN vectors formats that can be
  * resolved
- * by {@link BasePerFieldKnnVectorsFormat}. Each codec subclass registers the
+ * by {@link KNN1040BasePerFieldKnnVectorsFormat}. Each codec subclass registers the
  * format
  * types it supports in a map, and the base class routes to the appropriate
  * factory

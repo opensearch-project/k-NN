@@ -7,12 +7,9 @@ package org.opensearch.knn.index.codec.backward_codecs.KNN950Codec;
 
 import org.apache.lucene.backward_codecs.lucene95.Lucene95HnswVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
-import org.opensearch.knn.index.codec.BasePerFieldKnnVectorsFormat;
-import org.opensearch.knn.index.codec.LuceneVectorsFormatType;
-import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
+import org.opensearch.knn.index.codec.backward_codecs.BasePerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.engine.KNNEngine;
 
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -26,22 +23,16 @@ public class KNN950PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat
             Lucene95HnswVectorsFormat.DEFAULT_MAX_CONN,
             Lucene95HnswVectorsFormat.DEFAULT_BEAM_WIDTH,
             () -> new Lucene95HnswVectorsFormat(),
-            Map.of(LuceneVectorsFormatType.HNSW, ctx -> {
-                final KNNVectorsFormatParams p = new KNNVectorsFormatParams(
-                    ctx.getParams(),
-                    ctx.getDefaultMaxConnections(),
-                    ctx.getDefaultBeamWidth(),
-                    ctx.getMethodContext().getSpaceType()
-                );
-                return new Lucene95HnswVectorsFormat(p.getMaxConnections(), p.getBeamWidth());
-            })
+            knnVectorsFormatParams -> new Lucene95HnswVectorsFormat(
+                knnVectorsFormatParams.getMaxConnections(),
+                knnVectorsFormatParams.getBeamWidth()
+            )
         );
     }
 
     @Override
     /**
-     * This method returns the maximum dimension allowed from KNNEngine for Lucene
-     * codec
+     * This method returns the maximum dimension allowed from KNNEngine for Lucene codec
      *
      * @param fieldName Name of the field, ignored
      * @return Maximum constant dimension set by KNNEngine

@@ -18,11 +18,8 @@ import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Optional;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertSame;
 import static org.mockito.Mockito.mock;
 import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 
@@ -43,37 +40,40 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
     }
 
     public void testResolveRescoreContext_whenFlatMethod_thenReturnOversampleFactor2() {
-        KNNMethodContext flatMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
-            SpaceType.L2,
-            new MethodComponentContext(METHOD_FLAT, Map.of())
-        );
-        KNNVectorFieldType knnVectorFieldType = new KNNVectorFieldType(
-            FIELD_NAME,
-            Collections.emptyMap(),
-            VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(flatMethodContext, 128)
-        );
-        RescoreContext rescoreContext = knnVectorFieldType.resolveRescoreContext(null);
+        RescoreContext rescoreContext = buildFlatFieldType().resolveRescoreContext(null);
         assertNotNull(rescoreContext);
         assertEquals(2.0f, rescoreContext.getOversampleFactor(), 0.001f);
         assertFalse(rescoreContext.isUserProvided());
     }
 
     public void testResolveRescoreContext_whenFlatMethodWithUserProvidedContext_thenReturnUserContext() {
+        RescoreContext userContext = RescoreContext.builder().oversampleFactor(5.0f).userProvided(true).build();
+        assertSame(userContext, buildFlatFieldType().resolveRescoreContext(userContext));
+    }
+
+    // After resolution, flat method always has x32 compression set in the mapping config
+    private KNNVectorFieldType buildFlatFieldType() {
         KNNMethodContext flatMethodContext = new KNNMethodContext(
             KNNEngine.LUCENE,
             SpaceType.L2,
             new MethodComponentContext(METHOD_FLAT, Map.of())
         );
-        KNNVectorFieldType knnVectorFieldType = new KNNVectorFieldType(
-            FIELD_NAME,
-            Collections.emptyMap(),
-            VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(flatMethodContext, 128)
-        );
-        RescoreContext userContext = RescoreContext.builder().oversampleFactor(5.0f).userProvided(true).build();
-        RescoreContext rescoreContext = knnVectorFieldType.resolveRescoreContext(userContext);
-        assertSame(userContext, rescoreContext);
+        KNNMappingConfig mappingConfig = new KNNMappingConfig() {
+            @Override
+            public Optional<KNNMethodContext> getKnnMethodContext() {
+                return Optional.of(flatMethodContext);
+            }
+
+            @Override
+            public int getDimension() {
+                return 128;
+            }
+
+            @Override
+            public CompressionLevel getCompressionLevel() {
+                return CompressionLevel.x32;
+            }
+        };
+        return new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.FLOAT, mappingConfig);
     }
 }

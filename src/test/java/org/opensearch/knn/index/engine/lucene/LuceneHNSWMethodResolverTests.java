@@ -23,11 +23,10 @@ import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
-public class LuceneMethodResolverTests extends KNNTestCase {
-    MethodResolver TEST_RESOLVER = new LuceneMethodResolver();
+public class LuceneHNSWMethodResolverTests extends KNNTestCase {
+    MethodResolver TEST_RESOLVER = new LuceneHNSWMethodResolver();
 
     public void testResolveMethod_whenValid_thenResolve() {
         ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
@@ -211,135 +210,4 @@ public class LuceneMethodResolverTests extends KNNTestCase {
         );
     }
 
-    public void testResolveMethod_whenFlatMethod_thenResolveWithX32Compression() {
-        KNNMethodContext flatMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
-            SpaceType.L2,
-            new MethodComponentContext(METHOD_FLAT, Map.of())
-        );
-        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
-            flatMethodContext,
-            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build(),
-            false,
-            SpaceType.L2
-        );
-        assertEquals(METHOD_FLAT, resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getName());
-        assertEquals(KNNEngine.LUCENE, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
-        assertEquals(SpaceType.L2, resolvedMethodContext.getKnnMethodContext().getSpaceType());
-        assertEquals(CompressionLevel.x32, resolvedMethodContext.getCompressionLevel());
-    }
-
-    public void testResolveMethod_whenFlatMethodWithExplicitX32Compression_thenResolve() {
-        KNNMethodContext flatMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
-            SpaceType.COSINESIMIL,
-            new MethodComponentContext(METHOD_FLAT, Map.of())
-        );
-        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
-            flatMethodContext,
-            KNNMethodConfigContext.builder()
-                .vectorDataType(VectorDataType.FLOAT)
-                .compressionLevel(CompressionLevel.x32)
-                .versionCreated(Version.CURRENT)
-                .build(),
-            false,
-            SpaceType.COSINESIMIL
-        );
-        assertEquals(METHOD_FLAT, resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getName());
-        assertEquals(CompressionLevel.x32, resolvedMethodContext.getCompressionLevel());
-    }
-
-    public void testResolveMethod_whenFlatMethodWithUnsupportedCompression_thenThrow() {
-        for (CompressionLevel level : CompressionLevel.values()) {
-            if (level == CompressionLevel.x32 || level == CompressionLevel.NOT_CONFIGURED) {
-                continue;
-            }
-            KNNMethodContext flatMethodContext = new KNNMethodContext(
-                KNNEngine.LUCENE,
-                SpaceType.L2,
-                new MethodComponentContext(METHOD_FLAT, Map.of())
-            );
-            expectThrows(
-                ValidationException.class,
-                () -> TEST_RESOLVER.resolveMethod(
-                    flatMethodContext,
-                    KNNMethodConfigContext.builder()
-                        .vectorDataType(VectorDataType.FLOAT)
-                        .compressionLevel(level)
-                        .versionCreated(Version.CURRENT)
-                        .build(),
-                    false,
-                    SpaceType.L2
-                )
-            );
-        }
-    }
-
-    public void testResolveMethod_whenFlatMethodWithParameters_thenThrow() {
-        KNNMethodContext flatMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
-            SpaceType.L2,
-            new MethodComponentContext(METHOD_FLAT, Map.of("some_param", 10))
-        );
-        expectThrows(
-            ValidationException.class,
-            () -> TEST_RESOLVER.resolveMethod(
-                flatMethodContext,
-                KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build(),
-                false,
-                SpaceType.L2
-            )
-        );
-    }
-
-    public void testResolveMethod_whenFlatMethodWithMode_thenThrow() {
-        KNNMethodContext flatMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
-            SpaceType.L2,
-            new MethodComponentContext(METHOD_FLAT, Map.of())
-        );
-        expectThrows(
-            ValidationException.class,
-            () -> TEST_RESOLVER.resolveMethod(
-                flatMethodContext,
-                KNNMethodConfigContext.builder()
-                    .vectorDataType(VectorDataType.FLOAT)
-                    .mode(Mode.ON_DISK)
-                    .versionCreated(Version.CURRENT)
-                    .build(),
-                false,
-                SpaceType.L2
-            )
-        );
-        expectThrows(
-            ValidationException.class,
-            () -> TEST_RESOLVER.resolveMethod(
-                flatMethodContext,
-                KNNMethodConfigContext.builder()
-                    .vectorDataType(VectorDataType.FLOAT)
-                    .mode(Mode.IN_MEMORY)
-                    .versionCreated(Version.CURRENT)
-                    .build(),
-                false,
-                SpaceType.L2
-            )
-        );
-    }
-
-    public void testResolveMethod_whenFlatMethodWithTraining_thenThrow() {
-        KNNMethodContext flatMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
-            SpaceType.L2,
-            new MethodComponentContext(METHOD_FLAT, Map.of())
-        );
-        expectThrows(
-            ValidationException.class,
-            () -> TEST_RESOLVER.resolveMethod(
-                flatMethodContext,
-                KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build(),
-                true,
-                SpaceType.L2
-            )
-        );
-    }
 }

@@ -42,7 +42,8 @@ public class Lucene extends JVMLibrary {
 
     public final static Lucene INSTANCE = new Lucene(METHODS, Version.LATEST.toString(), DISTANCE_TRANSLATIONS);
 
-    private final MethodResolver methodResolver;
+    private final MethodResolver hnswMethodResolver;
+    private final MethodResolver flatMethodResolver;
 
     /**
      * Constructor
@@ -54,7 +55,8 @@ public class Lucene extends JVMLibrary {
     Lucene(Map<String, KNNMethod> methods, String version, Map<SpaceType, Function<Float, Float>> distanceTransform) {
         super(methods, version);
         this.distanceTransform = distanceTransform;
-        this.methodResolver = new LuceneMethodResolver();
+        this.hnswMethodResolver = new LuceneHNSWMethodResolver();
+        this.flatMethodResolver = new LuceneFlatMethodResolver();
     }
 
     @Override
@@ -102,6 +104,8 @@ public class Lucene extends JVMLibrary {
         boolean shouldRequireTraining,
         final SpaceType spaceType
     ) {
-        return methodResolver.resolveMethod(knnMethodContext, knnMethodConfigContext, shouldRequireTraining, spaceType);
+        boolean isFlatMethod = knnMethodContext != null && METHOD_FLAT.equals(knnMethodContext.getMethodComponentContext().getName());
+        MethodResolver resolver = isFlatMethod ? flatMethodResolver : hnswMethodResolver;
+        return resolver.resolveMethod(knnMethodContext, knnMethodConfigContext, shouldRequireTraining, spaceType);
     }
 }

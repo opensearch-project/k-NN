@@ -142,23 +142,17 @@ public class KNNVectorFieldType extends MappedFieldType {
      * @param userProvidedContext {@link RescoreContext} user passed; if null, the default should be configured
      * @return resolved {@link RescoreContext}
      */
-    private static final float FLAT_OVERSAMPLE_FACTOR = 2.0f;
-
     public RescoreContext resolveRescoreContext(RescoreContext userProvidedContext) {
         if (userProvidedContext != null) {
             return userProvidedContext;
         }
         KNNMappingConfig knnMappingConfig = getKnnMappingConfig();
         Optional<KNNMethodContext> methodContext = knnMappingConfig.getKnnMethodContext();
-
-        // Flat method uses BBQ (1-bit quantization) without an HNSW graph, set a default oversample factor of 2.0
-        if (methodContext.isPresent() && METHOD_FLAT.equals(methodContext.get().getMethodComponentContext().getName())) {
-            return RescoreContext.builder().oversampleFactor(FLAT_OVERSAMPLE_FACTOR).userProvided(false).build();
-        }
+        boolean isFlatMethod = methodContext.isPresent() && METHOD_FLAT.equals(methodContext.get().getMethodComponentContext().getName());
         int dimension = knnMappingConfig.getDimension();
         CompressionLevel compressionLevel = knnMappingConfig.getCompressionLevel();
         Mode mode = knnMappingConfig.getMode();
-        return compressionLevel.getDefaultRescoreContext(mode, dimension, knnMappingConfig.getIndexCreatedVersion());
+        return compressionLevel.getDefaultRescoreContext(mode, dimension, knnMappingConfig.getIndexCreatedVersion(), isFlatMethod);
     }
 
     /**

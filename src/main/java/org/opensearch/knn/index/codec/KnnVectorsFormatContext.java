@@ -12,7 +12,7 @@ import java.util.Map;
 
 /**
  * Immutable context object passed to Lucene format factories registered in
- * {@link BasePerFieldKnnVectorsFormat}. Contains everything a factory needs
+ * {@link KNN1040BasePerFieldKnnVectorsFormat}. Contains everything a factory needs
  * to construct the appropriate
  * {@link org.apache.lucene.codecs.KnnVectorsFormat}.
  */

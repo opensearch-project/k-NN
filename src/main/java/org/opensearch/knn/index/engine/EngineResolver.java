@@ -97,7 +97,7 @@ public final class EngineResolver {
         }
 
         // Flat method is only supported by Lucene
-        if (knnMethodContext != null && METHOD_FLAT.equals(knnMethodContext.getMethodComponentContext().getName())) {
+        if (knnMethodContext != null && METHOD_FLAT.equalsIgnoreCase(knnMethodContext.getMethodComponentContext().getName())) {
             return KNNEngine.LUCENE;
         }
 
