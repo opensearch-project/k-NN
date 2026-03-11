@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.memoryoptsearch.faiss;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
@@ -209,7 +210,8 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         return indexInput.slice("FaissMemoryOptimizedSearcher", 0, fileSize);
     }
 
-    private KnnCollector createKnnCollector(final KnnCollector knnCollector, final RandomVectorScorer scorer) {
+    @VisibleForTesting
+    KnnCollector createKnnCollector(final KnnCollector knnCollector, final RandomVectorScorer scorer) {
         final KnnCollector ordinalTranslatedKnnCollector = new OrdinalTranslatedKnnCollector(knnCollector, scorer::ordToDoc);
 
         if (hnsw instanceof FaissCagraHNSW cagraHNSW && (knnCollector.getSearchStrategy() instanceof KnnSearchStrategy.Seeded) == false) {
