@@ -9,6 +9,9 @@ import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
+import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorScorer;
+import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsReader;
+import org.apache.lucene.codecs.lucene104.QuantizedByteVectorValues;
 import org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
@@ -20,10 +23,9 @@ import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.jni.JNIService;
-import org.opensearch.lucene.lucene102.Lucene102BinaryFlatVectorsScorer;
-import org.opensearch.lucene.lucene102.Lucene102BinaryQuantizedVectorsReader;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Map;
@@ -36,7 +38,7 @@ import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorV
  *
  * <h2>Architecture Overview</h2>
  * This strategy builds a Faiss HNSW graph on top of 1-bit binary quantized vectors produced by
- * Lucene's {@link Lucene102BinaryQuantizedVectorsReader}. By the time this strategy is invoked,
+ * Lucene's {@link Lucene104ScalarQuantizedVectorsReader}. By the time this strategy is invoked,
  * Lucene has already written the quantized vectors to flat vector files (.vec and .veb) during
  * the flush/merge phase of {@code FaissBBQ990KnnVectorsWriter}. This strategy then:
  * <ol>
@@ -64,7 +66,7 @@ import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorV
  * The resulting .faiss file contains only the HNSW graph structure (adjacency lists, levels, etc.)
  * with a "null" storage section placeholder. At search time, {@code FaissBBQFlatIndex} is plugged
  * in as a virtual storage layer that reads quantized vectors from Lucene's
- * {@link Lucene102BinaryQuantizedVectorsReader} instead of from the .faiss file
+ * {@link Lucene104ScalarQuantizedVectorsReader} instead of from the .faiss file
  * (see docs/4_faiss_mos_bbq_storage_plugin.md).
  *
  * <h2>SIMD-Accelerated Search</h2>
@@ -92,7 +94,7 @@ public class MemOptimizedBBQIndexBuildStrategy implements NativeIndexBuildStrate
      *   <li>Construct a {@link SegmentReadState} to read back the already-flushed .vec and .veb files
      *       containing full-precision and binary quantized vectors respectively</li>
      *   <li>Open readers for both full-precision vectors ({@link Lucene99FlatVectorsFormat}) and
-     *       binary quantized vectors ({@link Lucene102BinaryQuantizedVectorsReader})</li>
+     *       binary quantized vectors ({@link Lucene104ScalarQuantizedVectorsReader})</li>
      *   <li>Extract the centroid dot-product and quantized vector byte size from the binarized values,
      *       which are needed to initialize the native Faiss BBQ index structure</li>
      *   <li>Initialize the Faiss BBQ index in C++ via JNI, allocating off-heap memory for the
@@ -136,38 +138,40 @@ public class MemOptimizedBBQIndexBuildStrategy implements NativeIndexBuildStrate
         // - BinarizedVectorValues: the 1-bit quantized binary codes
         // - Correction factors (lowerInterval, upperInterval, additionalCorrection, quantizedComponentSum)
         // - Centroid dot-product: a precomputed term used in the ADC scoring formula
-        // The Lucene102BinaryFlatVectorsScorer wraps the full-precision scorer to support
+        // The Lucene104ScalarQuantizedVectorScorer wraps the full-precision scorer to support
         // scoring with binarized representations.
         // Note: faissBBQVectorsReader takes ownership of fullPrecisionVectorsReader and closes it
         // in its own close(). We guard fullPrecisionVectorsReader with try-with-resources so that
-        // if the Lucene102BinaryQuantizedVectorsReader constructor throws, it still gets closed.
-        final Lucene102BinaryQuantizedVectorsReader faissBBQVectorsReader;
+        // if the Lucene104ScalarQuantizedVectorsReader constructor throws, it still gets closed.
+        final Lucene104ScalarQuantizedVectorsReader faissBBQVectorsReader;
         try {
-            faissBBQVectorsReader = new Lucene102BinaryQuantizedVectorsReader(
+            faissBBQVectorsReader = new Lucene104ScalarQuantizedVectorsReader(
                 readState,
                 fullPrecisionVectorsReader,
-                new Lucene102BinaryFlatVectorsScorer(fullPrecisionVectorsReader.getFlatVectorScorer())
+                new Lucene104ScalarQuantizedVectorScorer(fullPrecisionVectorsReader.getFlatVectorScorer())
             );
         } catch (final Exception e) {
             fullPrecisionVectorsReader.close();
             throw e;
         }
+
         try (faissBBQVectorsReader) {
             // Retrieve the binarized vector values for this field. The returned FloatVectorValues
             // is actually a BinarizedVectorValues instance that provides both the quantized binary
             // codes and their associated correction factors.
             final FloatVectorValues floatVectorValues = faissBBQVectorsReader.getFloatVectorValues(indexInfo.getFieldInfo().getName());
-            final Lucene102BinaryQuantizedVectorsReader.BinarizedVectorValues binarizedVectorValues =
-                (Lucene102BinaryQuantizedVectorsReader.BinarizedVectorValues) floatVectorValues;
+            final Field f = floatVectorValues.getClass().getDeclaredField("quantizedVectorValues");
+            f.setAccessible(true);
+            final QuantizedByteVectorValues binarizedVectorValues = (QuantizedByteVectorValues) f.get(floatVectorValues);
 
             // The byte length of a single quantized vector. For 1-bit quantization of D dimensions,
             // this is ceil(D/8) bytes, padded to 64-bit alignment: ((D + 63) / 64) * 64 / 8.
-            final int quantizedVecBytes = binarizedVectorValues.getQuantizedVectorValues().vectorValue(0).length;
+            final int quantizedVecBytes = binarizedVectorValues.vectorValue(0).length;
 
             // The centroid dot-product is a precomputed scalar used in the ADC scoring formula.
             // It appears as a correction term: score += additionalCorrection + indexCorrection - centroidDp
             // (see the quantizedScore function in docs/5_bulk_simd_bbq_adc.md).
-            final float centroidDp = binarizedVectorValues.getQuantizedVectorValues().getCentroidDP();
+            final float centroidDp = binarizedVectorValues.getCentroidDP();
             final Map<String, Object> indexParameters = indexInfo.getParameters();
 
             // Initialize the Faiss BBQ index in native (C++) memory. This allocates:
@@ -198,9 +202,11 @@ public class MemOptimizedBBQIndexBuildStrategy implements NativeIndexBuildStrate
                 // Release the native Faiss BBQ index to prevent off-heap memory leaks.
                 // The indexMemoryAddress points to faiss::IndexBinaryIDMap* which owns the entire
                 // hierarchy (IndexBinaryIDMap → FaissBBQHnsw → FaissBBQFlat) via own_fields = true.
-                JNIService.releaseFaissBBQIndex(indexMemoryAddress, indexInfo.getKnnEngine());
+                JNIService.releaseBBQIndex(indexMemoryAddress, indexInfo.getKnnEngine());
                 throw e;
             }
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -231,7 +237,7 @@ public class MemOptimizedBBQIndexBuildStrategy implements NativeIndexBuildStrate
      */
     private void doBuildAndWriteIndex(
         final long indexMemoryAddress,
-        final Lucene102BinaryQuantizedVectorsReader.BinarizedVectorValues binarizedVectorValues,
+        final QuantizedByteVectorValues binarizedVectorValues,
         final KNNVectorValues<?> knnVectorValues,
         final BuildIndexParams indexInfo,
         final Map<String, Object> indexParameters,
@@ -327,7 +333,7 @@ public class MemOptimizedBBQIndexBuildStrategy implements NativeIndexBuildStrate
      */
     private void passQuantizedVectorsAndCorrectionFactors(
         final long indexMemoryAddress,
-        final Lucene102BinaryQuantizedVectorsReader.BinarizedVectorValues binarizedVectorValues,
+        final QuantizedByteVectorValues binarizedVectorValues,
         final int quantizedVecBytes,
         final KNNEngine knnEngine
     ) throws IOException {
@@ -346,7 +352,7 @@ public class MemOptimizedBBQIndexBuildStrategy implements NativeIndexBuildStrate
                 // Read the 1-bit quantized binary code for vector at ordinal (i + j).
                 // The binary code length is ((dimension + 63) / 64) * 64 / 8 bytes,
                 // ensuring 64-bit alignment for efficient SIMD processing.
-                final byte[] binaryVector = binarizedVectorValues.getQuantizedVectorValues().vectorValue(i + j);
+                final byte[] binaryVector = binarizedVectorValues.vectorValue(i + j);
                 if (buffer == null) {
                     // Lazily allocate the buffer on first access, sized for a full batch.
                     // Layout per vector: [binaryCode | lowerInterval | upperInterval |
@@ -356,8 +362,7 @@ public class MemOptimizedBBQIndexBuildStrategy implements NativeIndexBuildStrate
 
                 // Read the correction factors for this vector. These are computed during
                 // quantization by OptimizedScalarQuantizer and stored alongside the binary codes.
-                final OptimizedScalarQuantizer.QuantizationResult quantizationResult = binarizedVectorValues.getQuantizedVectorValues()
-                    .getCorrectiveTerms(i + j);
+                final OptimizedScalarQuantizer.QuantizationResult quantizationResult = binarizedVectorValues.getCorrectiveTerms(i + j);
 
                 // Copy the quantized binary code into the buffer
                 System.arraycopy(binaryVector, 0, buffer, o, binaryVector.length);

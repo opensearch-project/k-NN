@@ -528,7 +528,7 @@ public class JNIService {
         );
     }
 
-    public static void releaseFaissBBQIndex(final long indexMemoryAddress, final KNNEngine knnEngine) {
+    public static void releaseBBQIndex(final long indexMemoryAddress, final KNNEngine knnEngine) {
         if (KNNEngine.FAISS == knnEngine) {
             FaissService.releaseFaissBBQIndex(indexMemoryAddress);
             return;
