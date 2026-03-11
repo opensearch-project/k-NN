@@ -8,6 +8,7 @@ package org.opensearch.knn.index.codec.nativeindex;
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.hnsw.FlatFieldVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
+import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
 import org.apache.lucene.index.DocValuesSkipIndexType;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.DocsWithFieldSet;
@@ -31,12 +32,13 @@ import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
-import org.opensearch.lucene.lucene102.Lucene102RWBinaryQuantizedVectorsFormat;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+
+import static org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE;
 
 /**
  * Tests for {@link MemOptimizedBBQIndexBuildStrategy}.
@@ -137,7 +139,7 @@ public class MemOptimizedBBQIndexBuildStrategyTests extends KNNTestCase {
                 FIELD_NAME
             );
 
-            final Lucene102RWBinaryQuantizedVectorsFormat bbqFormat = new Lucene102RWBinaryQuantizedVectorsFormat();
+            final Lucene104ScalarQuantizedVectorsFormat bbqFormat = new Lucene104ScalarQuantizedVectorsFormat(SINGLE_BIT_QUERY_NIBBLE);
             final DocsWithFieldSet docsWithFieldSet;
             final Map<Integer, float[]> docIdToVector = new HashMap<>();
             try (FlatVectorsWriter flatWriter = bbqFormat.fieldsWriter(writeState)) {

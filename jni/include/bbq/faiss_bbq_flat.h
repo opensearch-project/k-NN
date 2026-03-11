@@ -198,9 +198,12 @@ namespace knn_jni {
 
             // Just changing the size, not shrinking.
             quantizedVectorsAndCorrectionFactors.resize(0);
-            // Rewriting code_size, refer below memory layout per each element.
+            // Rewriting code_size to the full element size so that hnsw_add_vertices
+            // strides correctly through the packed buffer when computing:
+            //   x + (pt_id - n0) * index_hnsw.code_size
+            // Memory layout per element:
             // [Quantized Vector | lowerInterval (float) | upperInterval (float) | additionalCorrection (float) | quantizedComponentSum (int)]
-            code_size = _quantizedVectorBytes;
+            code_size = oneElementSize;
         }
 
         faiss::DistanceComputer* get_distance_computer() const {
