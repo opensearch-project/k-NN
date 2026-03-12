@@ -22,6 +22,7 @@ import org.opensearch.knn.index.util.IndexUtil;
 
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Service to distribute requests to the proper engine jni service
@@ -97,11 +98,18 @@ public class JNIService {
      * @param indexAddress address of native memory where index is stored
      * @param knnEngine    knn engine
      * @param parameters   parameters to build index
+     * @param skipFlat     Control flag that skipping flushing flat storage.
      */
-    public static void writeIndex(IndexOutputWithBuffer output, long indexAddress, KNNEngine knnEngine, Map<String, Object> parameters) {
+    public static void writeIndex(
+        IndexOutputWithBuffer output,
+        long indexAddress,
+        KNNEngine knnEngine,
+        Map<String, Object> parameters,
+        boolean skipFlat
+    ) {
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
-                FaissService.writeBinaryIndex(indexAddress, output);
+                FaissService.writeBinaryIndex(indexAddress, output, skipFlat);
             } else if (IndexUtil.isByteIndex(parameters)) {
                 FaissService.writeByteIndex(indexAddress, output);
             } else {
@@ -464,5 +472,70 @@ public class JNIService {
             return FaissService.rangeSearchIndex(indexPointer, queryVector, radius, methodParameters, indexMaxResultWindow, parentIds);
         }
         throw new IllegalArgumentException(String.format(Locale.ROOT, "RadiusQueryIndex not supported for provided engine"));
+    }
+
+    public static long initFaissBBQIndex(
+        final int totalLiveDocs,
+        final int dimension,
+        final Map<String, Object> indexParameters,
+        final float centroidDp,
+        final int quantizedVecBytes,
+        final KNNEngine knnEngine
+    ) {
+        if (KNNEngine.FAISS == knnEngine) {
+            return FaissService.initFaissBBQIndex(totalLiveDocs, dimension, indexParameters, centroidDp, quantizedVecBytes);
+        }
+
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "initFaissBBQIndex not supported for provided engine : %s", knnEngine.getName())
+        );
+    }
+
+    public static void addDocsToBBQIndex(
+        final long indexMemoryAddress,
+        final int[] docIds,
+        final int numDocs,
+        final int numAdded,
+        final KNNEngine knnEngine
+    ) {
+
+        if (KNNEngine.FAISS == knnEngine) {
+            FaissService.addDocsToBBQIndex(indexMemoryAddress, docIds, numDocs, numAdded);
+            return;
+        }
+
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "addDocsToBBQIndex not supported for provided engine : %s", knnEngine.getName())
+        );
+    }
+
+    public static void passBBQVectorsWithCorrectionFactors(
+        final long indexMemoryAddress,
+        final byte[] buffer,
+        final int loopSize,
+        final KNNEngine knnEngine
+    ) {
+
+        Objects.requireNonNull(buffer);
+
+        if (KNNEngine.FAISS == knnEngine) {
+            FaissService.passBBQVectorsWithCorrectionFactors(indexMemoryAddress, buffer, loopSize);
+            return;
+        }
+
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "passBBQVectorsWithCorrectionFactors not supported for provided engine : %s", knnEngine.getName())
+        );
+    }
+
+    public static void releaseBBQIndex(final long indexMemoryAddress, final KNNEngine knnEngine) {
+        if (KNNEngine.FAISS == knnEngine) {
+            FaissService.releaseFaissBBQIndex(indexMemoryAddress);
+            return;
+        }
+
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "releaseFaissBBQIndex not supported for provided engine : %s", knnEngine.getName())
+        );
     }
 }

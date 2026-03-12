@@ -79,7 +79,7 @@ public final class KNNVectorValuesFactory {
         final DocsWithFieldSet docIdWithFieldSet,
         final Map<Integer, T> vectors
     ) {
-        return getVectorValues(vectorDataType, new KNNVectorValuesIterator.FieldWriterIteratorValues<T>(docIdWithFieldSet, vectors));
+        return getVectorValues(vectorDataType, new KNNVectorValuesIterator.FieldWriterIteratorValues<>(docIdWithFieldSet, vectors));
     }
 
     /**

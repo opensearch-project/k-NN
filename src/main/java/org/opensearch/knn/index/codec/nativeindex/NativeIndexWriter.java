@@ -195,7 +195,7 @@ public class NativeIndexWriter {
         }
 
         return BuildIndexParams.builder()
-            .fieldName(fieldInfo.name)
+            .fieldInfo(fieldInfo)
             .parameters(parameters)
             .vectorDataType(vectorDataType)
             .knnEngine(knnEngine)
