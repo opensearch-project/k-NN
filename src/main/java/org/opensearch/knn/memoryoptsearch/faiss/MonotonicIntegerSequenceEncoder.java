@@ -33,6 +33,10 @@ public class MonotonicIntegerSequenceEncoder {
      * @throws IOException
      */
     public static DirectMonotonicReader encode(final int numElements, final IndexInput input) throws IOException {
+        return encode(numElements, input, true);
+    }
+
+    public static DirectMonotonicReader encode(final int numElements, final IndexInput input, final boolean isInteger) throws IOException {
         // Prepare a buffer for meta
         ByteBuffersDataOutput dataOutput = new ByteBuffersDataOutput();
         ByteBuffersIndexOutput dataIndexOutput = new ByteBuffersIndexOutput(
@@ -57,14 +61,12 @@ public class MonotonicIntegerSequenceEncoder {
             DIRECT_MONOTONIC_BLOCK_SHIFT
         );
 
-        // Encode integer sequence.
+        // Encode integer or long sequence.
         boolean isIdenticalMapping = true;
-        for (long i = 0; i < numElements; i++) {
-            final long value = Math.toIntExact(input.readLong());
-            if (value != i) {
-                isIdenticalMapping = false;
-            }
-            encoder.add(value);
+        if (isInteger) {
+            isIdenticalMapping = encodeInteger(encoder, numElements, input);
+        } else {
+            isIdenticalMapping = encodeLong(encoder, numElements, input);
         }
 
         encoder.finish();
@@ -91,5 +93,29 @@ public class MonotonicIntegerSequenceEncoder {
             DIRECT_MONOTONIC_BLOCK_SHIFT
         );
         return DirectMonotonicReader.getInstance(encodingMeta, dataInput);
+    }
+
+    private static boolean encodeInteger(DirectMonotonicWriter encoder, final int numElements, final IndexInput input) throws IOException {
+        boolean isIdenticalMapping = true;
+        for (long i = 0; i < numElements; i++) {
+            final long value = Math.toIntExact(input.readLong());
+            if (value != i) {
+                isIdenticalMapping = false;
+            }
+            encoder.add(value);
+        }
+        return isIdenticalMapping;
+    }
+
+    private static boolean encodeLong(DirectMonotonicWriter encoder, final int numElements, final IndexInput input) throws IOException {
+        boolean isIdenticalMapping = true;
+        for (long i = 0; i < numElements; i++) {
+            final long value = input.readLong();
+            if (value != i) {
+                isIdenticalMapping = false;
+            }
+            encoder.add(value);
+        }
+        return isIdenticalMapping;
     }
 }
