@@ -112,6 +112,24 @@ public class MonotonicIntegerSequenceEncoderTests extends KNNTestCase {
         }
     }
 
+    @SneakyThrows
+    public void testIncreasingSequenceWithLongEncoder() {
+        // Create a sequence
+        final int size = 100000;
+        final IndexInput input = createSequence((i) -> i / 5, size);
+
+        // Call encode
+        DirectMonotonicReader reader = MonotonicIntegerSequenceEncoder.encode(size, input, false);
+
+        // It should not be null
+        assertNotNull(reader);
+
+        // Validate values
+        for (int i = 0; i < size; ++i) {
+            assertEquals(i / 5, reader.get(i));
+        }
+    }
+
     private static IndexInput createSequence(Function<Long, Long> mapping, int length) throws IOException {
         ByteBuffersDataOutput dataOutput = new ByteBuffersDataOutput();
         ByteBuffersIndexOutput dataIndexOutput = new ByteBuffersIndexOutput(
