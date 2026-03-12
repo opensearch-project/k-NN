@@ -20,6 +20,8 @@ import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.Weight;
+import org.apache.lucene.search.join.DiversifyingNearestChildrenKnnCollectorManager;
+import org.apache.lucene.search.knn.KnnCollectorManager;
 import org.apache.lucene.search.knn.TopKnnCollectorManager;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOSupplier;
@@ -413,8 +415,12 @@ public class NativeEngineKnnVectorQuery extends Query {
 
         // Kick off 2nd search tasks
         if (secondDeepDiveTasks.isEmpty() == false) {
+            final KnnCollectorManager collectorManager = knnQuery.getParentsFilter() == null
+                ? new TopKnnCollectorManager(k, indexSearcher)
+                : new DiversifyingNearestChildrenKnnCollectorManager(k, knnQuery.getParentsFilter(), indexSearcher);
+
             final ReentrantKnnCollectorManager reentrantCollectorManager = new ReentrantKnnCollectorManager(
-                new TopKnnCollectorManager(k, indexSearcher),
+                collectorManager,
                 segmentOrdToResults,
                 knnQuery.getVectorDataType() == VectorDataType.FLOAT ? knnQuery.getQueryVector() : knnQuery.getByteQueryVector(),
                 knnQuery.getField()
