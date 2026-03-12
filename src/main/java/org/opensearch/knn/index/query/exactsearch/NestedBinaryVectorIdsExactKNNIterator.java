@@ -33,6 +33,17 @@ class NestedBinaryVectorIdsExactKNNIterator extends BinaryVectorIdsExactKNNItera
     }
 
     public NestedBinaryVectorIdsExactKNNIterator(
+        @Nullable final DocIdSetIterator filterIdsIterator,
+        final float[] queryVector,
+        final KNNBinaryVectorValues binaryVectorValues,
+        final SpaceType spaceType,
+        final BitSet parentBitSet
+    ) throws IOException {
+        super(filterIdsIterator, queryVector, binaryVectorValues, spaceType);
+        this.parentBitSet = parentBitSet;
+    }
+
+    public NestedBinaryVectorIdsExactKNNIterator(
         final byte[] queryVector,
         final KNNBinaryVectorValues binaryVectorValues,
         final SpaceType spaceType,

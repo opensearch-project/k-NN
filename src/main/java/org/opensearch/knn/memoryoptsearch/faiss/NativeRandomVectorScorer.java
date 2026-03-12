@@ -67,8 +67,13 @@ public class NativeRandomVectorScorer implements RandomVectorScorer {
      * @param numVectors        the number of vectors to process
      */
     @Override
-    public void bulkScore(final int[] internalVectorIds, final float[] scores, final int numVectors) {
+    public float bulkScore(final int[] internalVectorIds, final float[] scores, final int numVectors) {
         SimdVectorComputeService.scoreSimilarityInBulk(internalVectorIds, scores, numVectors);
+        float max = scores[0];
+        for (float v : scores) {
+            if (v > max) max = v;
+        }
+        return max;
     }
 
     /**
