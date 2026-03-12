@@ -74,7 +74,7 @@ public class FaissHNSW {
 
         // Load `offsets` into memory.
         size = input.readLong();
-        offsetsReader = MonotonicIntegerSequenceEncoder.encode(Math.toIntExact(size), input);
+        offsetsReader = MonotonicIntegerSequenceEncoder.encode(Math.toIntExact(size), input, false);
         Objects.requireNonNull(offsetsReader);
 
         // Mark neighbor list section.
