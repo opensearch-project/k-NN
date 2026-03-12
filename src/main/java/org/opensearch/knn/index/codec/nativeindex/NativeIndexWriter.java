@@ -162,8 +162,7 @@ public class NativeIndexWriter {
             NativeIndexBuildStrategy indexBuilder = indexBuilderFactory.getBuildStrategy(
                 fieldInfo,
                 totalLiveDocs,
-                knnVectorValuesSupplier.get(),
-                nativeIndexParams
+                knnVectorValuesSupplier.get()
             );
             indexBuilder.buildAndWriteIndex(nativeIndexParams);
             CodecUtil.writeFooter(output);

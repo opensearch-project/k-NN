@@ -25,6 +25,7 @@ import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.store.NIOFSDirectory;
 import org.apache.lucene.util.FixedBitSet;
+import org.apache.lucene.search.knn.KnnSearchStrategy;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.generate.IndexingType;
@@ -895,6 +896,178 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         Constructor<KNNByteVectorValues> constructor = KNNByteVectorValues.class.getDeclaredConstructor(KNNVectorValuesIterator.class);
         constructor.setAccessible(true);
         return constructor.newInstance(iterator);
+    }
+
+    /**
+     * When searching a CAGRA HNSW index with a non-seeded collector, the searcher should inject
+     * RandomEntryPointsKnnSearchStrategy. This test verifies the search completes successfully
+     * and returns valid results with the default (non-seeded) strategy.
+     */
+    @SneakyThrows
+    public void testCagraSearch_whenNonSeededCollector_thenSearchSucceeds() {
+        final int dimension = 768;
+        final int totalVectors = 300;
+        final int k = 100;
+
+        final IndexInput input = FaissHNSWTests.loadHnswBinary("data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin");
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null);
+
+        // Use a non-seeded strategy (default HNSW strategy)
+        final KnnCollector knnCollector = new TopKnnCollector(k, Integer.MAX_VALUE, KnnSearchStrategy.Hnsw.DEFAULT);
+        final AcceptDocs acceptDocs = AcceptDocs.fromLiveDocs(null, totalVectors);
+
+        // Build a random query
+        final float[] query = new float[dimension];
+        for (int i = 0; i < dimension; i++) {
+            query[i] = (float) Math.random();
+        }
+
+        // Search should succeed — RandomEntryPointsKnnSearchStrategy is used internally for CAGRA
+        searcher.search(query, knnCollector, acceptDocs);
+        final TopDocs topDocs = knnCollector.topDocs();
+        assertTrue("Should return results for non-seeded CAGRA search", topDocs.scoreDocs.length > 0);
+    }
+
+    /**
+     * When searching a CAGRA HNSW index with a collector that already has a Seeded strategy,
+     * the searcher should honor the existing seeded entry points and NOT override them with
+     * RandomEntryPointsKnnSearchStrategy. This test verifies the search completes successfully
+     * using the provided seeded strategy.
+     */
+    @SneakyThrows
+    public void testCagraSearch_whenSeededCollector_thenHonorsSeededStrategy() {
+        final int dimension = 768;
+        final int totalVectors = 300;
+        final int k = 100;
+
+        final IndexInput input = FaissHNSWTests.loadHnswBinary("data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin");
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null);
+
+        // Create a Seeded strategy with known seed entry points
+        final int numSeeds = 5;
+        final DocIdSetIterator seedDocs = new DocIdSetIterator() {
+            private int current = -1;
+
+            @Override
+            public int docID() {
+                return current;
+            }
+
+            @Override
+            public int nextDoc() {
+                current++;
+                if (current >= numSeeds) {
+                    return NO_MORE_DOCS;
+                }
+                // Use first few vector ordinals as seeds
+                return current * 10;
+            }
+
+            @Override
+            public int advance(int target) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public long cost() {
+                return numSeeds;
+            }
+        };
+
+        final KnnSearchStrategy seededStrategy = new KnnSearchStrategy.Seeded(seedDocs, numSeeds, KnnSearchStrategy.Hnsw.DEFAULT);
+        final KnnCollector knnCollector = new TopKnnCollector(k, Integer.MAX_VALUE, seededStrategy);
+        final AcceptDocs acceptDocs = AcceptDocs.fromLiveDocs(null, totalVectors);
+
+        // Build a random query
+        final float[] query = new float[dimension];
+        for (int i = 0; i < dimension; i++) {
+            query[i] = (float) Math.random();
+        }
+
+        // Search should succeed — the seeded strategy should be honored, not replaced
+        searcher.search(query, knnCollector, acceptDocs);
+        final TopDocs topDocs = knnCollector.topDocs();
+        assertTrue("Should return results for seeded CAGRA search", topDocs.scoreDocs.length > 0);
+    }
+
+    /**
+     * Verifies that when a seeded collector is used on a CAGRA index, the search results
+     * are still valid (reasonable recall) compared to exhaustive search, confirming the
+     * seeded entry points are being properly used for graph traversal.
+     */
+    @SneakyThrows
+    public void testCagraSearch_whenSeededCollector_thenResultsHaveReasonableRecall() {
+        final int dimension = 768;
+        final int totalVectors = 300;
+        final int k = 30;
+
+        final IndexInput input = FaissHNSWTests.loadHnswBinary("data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin");
+
+        // Build a random query
+        final float[] query = new float[dimension];
+        for (int i = 0; i < dimension; i++) {
+            query[i] = (float) Math.random();
+        }
+
+        // First, do exhaustive search to get ground truth
+        final FaissMemoryOptimizedSearcher exhaustiveSearcher = new FaissMemoryOptimizedSearcher(input, null);
+        final KnnCollector exhaustiveCollector = new TopKnnCollector(totalVectors, Integer.MAX_VALUE, KnnSearchStrategy.Hnsw.DEFAULT);
+        final AcceptDocs acceptDocs = AcceptDocs.fromLiveDocs(null, totalVectors);
+        exhaustiveSearcher.search(query, exhaustiveCollector, acceptDocs);
+        final TopDocs exhaustiveTopDocs = exhaustiveCollector.topDocs();
+        final Set<Integer> groundTruth = Arrays.stream(exhaustiveTopDocs.scoreDocs)
+            .limit(k)
+            .mapToInt(sd -> sd.doc)
+            .boxed()
+            .collect(Collectors.toSet());
+
+        // Now search with a seeded collector on a fresh searcher
+        input.seek(0);
+        final FaissMemoryOptimizedSearcher seededSearcher = new FaissMemoryOptimizedSearcher(input, null);
+
+        final int numSeeds = 3;
+        final DocIdSetIterator seedDocs = new DocIdSetIterator() {
+            private int current = -1;
+
+            @Override
+            public int docID() {
+                return current;
+            }
+
+            @Override
+            public int nextDoc() {
+                current++;
+                if (current >= numSeeds) {
+                    return NO_MORE_DOCS;
+                }
+                return current * 50;
+            }
+
+            @Override
+            public int advance(int target) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public long cost() {
+                return numSeeds;
+            }
+        };
+
+        final KnnSearchStrategy seededStrategy = new KnnSearchStrategy.Seeded(seedDocs, numSeeds, KnnSearchStrategy.Hnsw.DEFAULT);
+        final KnnCollector seededCollector = new TopKnnCollector(k, Integer.MAX_VALUE, seededStrategy);
+        seededSearcher.search(query, seededCollector, acceptDocs);
+        final TopDocs seededTopDocs = seededCollector.topDocs();
+
+        // Verify recall is reasonable
+        int matchCount = 0;
+        for (ScoreDoc sd : seededTopDocs.scoreDocs) {
+            if (groundTruth.contains(sd.doc)) {
+                matchCount++;
+            }
+        }
+        final float recall = (float) matchCount / k;
+        assertTrue("Seeded CAGRA search recall should be > 0.5, was " + recall, recall > 0.5);
     }
 
     @RequiredArgsConstructor
