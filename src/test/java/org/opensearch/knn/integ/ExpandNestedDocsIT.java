@@ -82,6 +82,7 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
             $$(
                 $("Lucene with byte format and in memory mode", KNNEngine.LUCENE, VectorDataType.BYTE, Mode.NOT_CONFIGURED, dimension),
                 $("Lucene with float format and in memory mode", KNNEngine.LUCENE, VectorDataType.FLOAT, Mode.NOT_CONFIGURED, dimension),
+                $("Lucene with float format and on_disk mode", KNNEngine.LUCENE, VectorDataType.FLOAT, Mode.ON_DISK, dimension),
                 $(
                     "Faiss with binary format and in memory mode",
                     KNNEngine.FAISS,
