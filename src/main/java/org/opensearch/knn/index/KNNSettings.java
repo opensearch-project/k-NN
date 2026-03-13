@@ -118,6 +118,8 @@ public class KNNSettings {
     public static final String KNN_REMOTE_BUILD_SERVICE_PASSWORD = "knn.remote_index_build.service.password";
     public static final String INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH =
         "index.knn.faiss.efficient_filter.disable_exact_search";
+    public static final String INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH_THRESHOLD =
+        "index.knn.faiss.efficient_filter.disable_exact_search_threshold";
 
     /**
      * For more details on supported engines, refer to {@link MemoryOptimizedSearchSupportSpec}
@@ -498,6 +500,16 @@ public class KNNSettings {
     );
 
     /**
+     * Index level setting which indicates the threshold above which exact search will be disabled after ANN search.
+     */
+    public static final Setting<Integer> INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH_THRESHOLD_SETTING = Setting.intSetting(
+        INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH_THRESHOLD,
+        -1,
+        IndexScope,
+        Dynamic
+    );
+
+    /**
      * Keystore settings for build service HTTP authorization
      */
     public static final Setting<SecureString> KNN_REMOTE_BUILD_SERVER_USERNAME_SETTING = SecureSetting.secureString(
@@ -727,6 +739,10 @@ public class KNNSettings {
             return INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH_SETTING;
         }
 
+        if (INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH_THRESHOLD.equals(key)) {
+            return INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH_THRESHOLD_SETTING;
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -763,7 +779,8 @@ public class KNNSettings {
             KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING,
             KNN_REMOTE_BUILD_SERVER_USERNAME_SETTING,
             KNN_REMOTE_BUILD_SERVER_PASSWORD_SETTING,
-            INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH_SETTING
+            INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH_SETTING,
+            INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH_THRESHOLD_SETTING
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
             .collect(Collectors.toList());
@@ -885,6 +902,10 @@ public class KNNSettings {
             .index(indexName)
             .getSettings()
             .getAsBoolean(INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH, false);
+    }
+
+    public static Integer getKnnIndexFaissEfficientFilterDisableExactSearchThreshold(String indexName) {
+        return getIndexSettings(indexName).getAsInt(INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH_THRESHOLD, -1);
     }
 
     /**
