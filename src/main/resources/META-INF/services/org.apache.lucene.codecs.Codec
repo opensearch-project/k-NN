@@ -7,4 +7,3 @@ org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec.KNN9120Codec
 org.opensearch.knn.index.codec.backward_codecs.KNN10010Codec.KNN10010Codec
 org.opensearch.knn.index.codec.backward_codecs.KNN1030Codec.KNN1030Codec
 org.opensearch.knn.index.codec.KNN1040Codec.KNN1040Codec
-org.opensearch.knn.index.codec.util.UnitTestCodec
