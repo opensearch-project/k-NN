@@ -36,4 +36,29 @@ public class DerivedSourceStoredFieldVisitor extends StoredFieldVisitor {
     public Status needsField(FieldInfo fieldInfo) throws IOException {
         return delegate.needsField(fieldInfo);
     }
+
+    @Override
+    public void stringField(FieldInfo fieldInfo, String value) throws IOException {
+        delegate.stringField(fieldInfo, value);
+    }
+
+    @Override
+    public void intField(FieldInfo fieldInfo, int value) throws IOException {
+        delegate.intField(fieldInfo, value);
+    }
+
+    @Override
+    public void longField(FieldInfo fieldInfo, long value) throws IOException {
+        delegate.longField(fieldInfo, value);
+    }
+
+    @Override
+    public void floatField(FieldInfo fieldInfo, float value) throws IOException {
+        delegate.floatField(fieldInfo, value);
+    }
+
+    @Override
+    public void doubleField(FieldInfo fieldInfo, double value) throws IOException {
+        delegate.doubleField(fieldInfo, value);
+    }
 }
