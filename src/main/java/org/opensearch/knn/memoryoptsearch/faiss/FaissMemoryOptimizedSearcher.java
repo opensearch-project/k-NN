@@ -251,6 +251,9 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         }
 
         private static DocIdSetIterator generateRandomEntryPoints(final int numberOfEntryPoints, int totalNumberOfVectors) {
+            if (numberOfEntryPoints >= totalNumberOfVectors) {
+                return DocIdSetIterator.all(totalNumberOfVectors);
+            }
             return new DocIdSetIterator() {
                 final RobustUniqueRandomIterator robustUniqueRandomIterator = new RobustUniqueRandomIterator(
                     totalNumberOfVectors,
