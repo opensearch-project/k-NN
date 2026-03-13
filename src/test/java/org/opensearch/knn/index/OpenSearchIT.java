@@ -1769,6 +1769,66 @@ public class OpenSearchIT extends KNNRestTestCase {
         deleteKNNIndex(INDEX_NAME);
     }
 
+    @SneakyThrows
+    public void testCopyTo_whenSearchOnTargetField_thenSuccess() {
+        String indexName = "test_copy_to_search";
+        String sourceField = "source_vector";
+        String targetField1 = "target_vector_1";
+        String targetField2 = "target_vector_2";
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(sourceField)
+            .field("type", "knn_vector")
+            .field("dimension", 2)
+            .startObject("method")
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .field("copy_to", new String[] { targetField1, targetField2 })
+            .endObject()
+            .startObject(targetField1)
+            .field("type", "knn_vector")
+            .field("dimension", 2)
+            .startObject("method")
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject()
+            .startObject(targetField1)
+            .field("type", "knn_vector")
+            .field("dimension", 2)
+            .startObject("method")
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(indexName, mapping);
+
+        addKnnDoc(indexName, "1", sourceField, new Float[] { 1.0f, 1.0f });
+        addKnnDoc(indexName, "2", sourceField, new Float[] { 10.0f, 10.0f });
+        refreshAllIndices();
+
+        float[] queryVector = { 1.0f, 1.0f };
+        List<KNNResult> results1 = getResults(indexName, targetField1, queryVector, 1);
+        assertEquals(1, results1.size());
+        assertEquals("1", results1.get(0).getDocId());
+
+        List<KNNResult> results2 = getResults(indexName, targetField2, queryVector, 1);
+        assertEquals(1, results2.size());
+        assertEquals("1", results2.get(0).getDocId());
+
+        deleteKNNIndex(indexName);
+    }
+
     private List<KNNResult> getResults(final String indexName, final String fieldName, final float[] vector, final int k)
         throws IOException, ParseException {
         final Response searchResponseField = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName, vector, k), k);
