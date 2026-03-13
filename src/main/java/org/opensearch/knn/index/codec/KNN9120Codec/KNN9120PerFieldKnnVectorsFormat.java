@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec.KNN9120Codec;
 
+import org.apache.lucene.codecs.lucene104.Lucene104HnswScalarQuantizedVectorsFormat;
+import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
 import org.apache.lucene.backward_codecs.lucene99.Lucene99RWHnswScalarQuantizedVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
 import org.opensearch.common.collect.Tuple;
@@ -73,6 +75,16 @@ public class KNN9120PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsForma
                     knnScalarQuantizedVectorsFormatParams.isCompressFlag(),
                     knnScalarQuantizedVectorsFormatParams.getConfidenceInterval(),
                     // Executor service
+                    mergeThreadCountAndExecutorService.v2()
+                );
+            },
+            knnBBQVectorsFormatParams -> {
+                final Tuple<Integer, ExecutorService> mergeThreadCountAndExecutorService = getMergeThreadCountAndExecutorService();
+                return new Lucene104HnswScalarQuantizedVectorsFormat(
+                    Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE,
+                    knnBBQVectorsFormatParams.getMaxConnections(),
+                    knnBBQVectorsFormatParams.getBeamWidth(),
+                    mergeThreadCountAndExecutorService.v1(),
                     mergeThreadCountAndExecutorService.v2()
                 );
             },

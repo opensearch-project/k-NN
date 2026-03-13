@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.engine.lucene;
 
+import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.AbstractMethodResolver;
@@ -24,11 +25,14 @@ import java.util.Set;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.index.engine.lucene.LuceneHNSWMethod.HNSW_METHOD_COMPONENT;
-import static org.opensearch.knn.index.engine.lucene.LuceneHNSWMethod.SQ_ENCODER;
 
 public class LuceneMethodResolver extends AbstractMethodResolver {
 
-    private static final Set<CompressionLevel> SUPPORTED_COMPRESSION_LEVELS = Set.of(CompressionLevel.x1, CompressionLevel.x4);
+    private static final Set<CompressionLevel> SUPPORTED_COMPRESSION_LEVELS = Set.of(
+        CompressionLevel.x1,
+        CompressionLevel.x4,
+        CompressionLevel.x32
+    );
 
     @Override
     public ResolvedMethodContext resolveMethod(
@@ -69,10 +73,21 @@ public class LuceneMethodResolver extends AbstractMethodResolver {
         }
 
         MethodComponentContext methodComponentContext = resolvedKNNMethodContext.getMethodComponentContext();
-        MethodComponentContext encoderComponentContext = new MethodComponentContext(SQ_ENCODER.getName(), new HashMap<>());
+
+        String encoderName;
+        MethodComponent encoderComponent;
+        if (resolvedCompressionLevel == CompressionLevel.x32) {
+            encoderName = LuceneHNSWMethod.BBQ_ENCODER.getName();
+            encoderComponent = LuceneHNSWMethod.BBQ_ENCODER.getMethodComponent();
+        } else {
+            encoderName = LuceneHNSWMethod.SQ_ENCODER.getName();
+            encoderComponent = LuceneHNSWMethod.SQ_ENCODER.getMethodComponent();
+        }
+
+        MethodComponentContext encoderComponentContext = new MethodComponentContext(encoderName, new HashMap<>());
         Map<String, Object> resolvedParams = MethodComponent.getParameterMapWithDefaultsAdded(
             encoderComponentContext,
-            SQ_ENCODER.getMethodComponent(),
+            encoderComponent,
             knnMethodConfigContext
         );
         encoderComponentContext.getParameters().putAll(resolvedParams);
@@ -99,6 +114,10 @@ public class LuceneMethodResolver extends AbstractMethodResolver {
             return knnMethodConfigContext.getCompressionLevel();
         }
         if (knnMethodConfigContext.getMode() == Mode.ON_DISK) {
+            // Starting with version 3.6, supporting BBQ by default
+            if (knnMethodConfigContext.getVersionCreated().onOrAfter(Version.V_3_6_0)) {
+                return CompressionLevel.x32;
+            }
             return CompressionLevel.x4;
         }
         return CompressionLevel.x1;

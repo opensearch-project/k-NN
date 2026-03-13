@@ -33,6 +33,7 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_S
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
@@ -665,6 +666,59 @@ public class RecallTestsIT extends KNNRestTestCase {
 
             // Delete the model
             deleteModel(TEST_MODEL_ID);
+        }
+    }
+
+    /**
+     * {
+     * 	"properties": {
+     *     {
+     *      "type": "knn_vector",
+     *      "dimension": {TEST_DIMENSION},
+     *      "method": {
+     *          "name":"hnsw",
+     *          "engine":"lucene",
+     *          "space_type": "{SPACE_TYPE}",
+     *          "parameters":{
+     *              "m":{HNSW_M},
+     *              "ef_construction": {HNSW_EF_CONSTRUCTION},
+     *              "encoder": {
+     *                  "name": "binary",
+     *              }
+     *          }
+     *       }
+     *     }
+     *   }
+     * }
+     */
+    @SneakyThrows
+    public void testRecall_whenBBQ_thenRecallAbove60percent() {
+        List<SpaceType> spaceTypes = List.of(SpaceType.L2, SpaceType.COSINESIMIL);
+        for (SpaceType spaceType : spaceTypes) {
+            String indexName = createIndexName(KNNEngine.LUCENE, spaceType) + "_binary";
+            XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject(PROPERTIES_FIELD)
+                .startObject(TEST_FIELD_NAME)
+                .field(TYPE, TYPE_KNN_VECTOR)
+                .field(DIMENSION, TEST_DIMENSION)
+                .startObject(KNN_METHOD)
+                .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+                .field(KNN_ENGINE, LUCENE_NAME)
+                .field(NAME, METHOD_HNSW)
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_EF_CONSTRUCTION, HNSW_EF_CONSTRUCTION)
+                .field(METHOD_PARAMETER_M, HNSW_M)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, "binary")
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+            createIndexAndIngestDocs(indexName, TEST_FIELD_NAME, getSettings(), builder.toString());
+            assertRecall(indexName, spaceType, 0.4f);
         }
     }
 

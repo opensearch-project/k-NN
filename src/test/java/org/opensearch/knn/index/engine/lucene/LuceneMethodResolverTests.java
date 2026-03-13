@@ -58,7 +58,7 @@ public class LuceneMethodResolverTests extends KNNTestCase {
         );
         assertEquals(KNNEngine.LUCENE, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
         assertEquals(SpaceType.INNER_PRODUCT, resolvedMethodContext.getKnnMethodContext().getSpaceType());
-        assertEquals(CompressionLevel.x4, resolvedMethodContext.getCompressionLevel());
+        assertEquals(CompressionLevel.x32, resolvedMethodContext.getCompressionLevel());
 
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             null,
@@ -101,7 +101,7 @@ public class LuceneMethodResolverTests extends KNNTestCase {
         );
         assertEquals(KNNEngine.LUCENE, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
         assertEquals(SpaceType.INNER_PRODUCT, resolvedMethodContext.getKnnMethodContext().getSpaceType());
-        assertEquals(CompressionLevel.x4, resolvedMethodContext.getCompressionLevel());
+        assertEquals(CompressionLevel.x32, resolvedMethodContext.getCompressionLevel());
         assertNotEquals(knnMethodContext, resolvedMethodContext.getKnnMethodContext());
 
         knnMethodContext = new KNNMethodContext(
@@ -178,14 +178,14 @@ public class LuceneMethodResolverTests extends KNNTestCase {
             )
         );
 
-        // Invalid compression
+        // Changed from 32x to 16x, Lucene 32x compression was added
         expectThrows(
             ValidationException.class,
             () -> TEST_RESOLVER.resolveMethod(
                 null,
                 KNNMethodConfigContext.builder()
                     .vectorDataType(VectorDataType.FLOAT)
-                    .compressionLevel(CompressionLevel.x32)
+                    .compressionLevel(CompressionLevel.x16)
                     .versionCreated(Version.CURRENT)
                     .build(),
                 false,
