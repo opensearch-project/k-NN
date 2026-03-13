@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased 3.6](https://github.com/opensearch-project/k-NN/compare/main...HEAD)
 ### Features
+* Add MUVERA ingest and search request processors for multi-vector FDE encoding [#3163](https://github.com/opensearch-project/k-NN/issues/3163)
 
 ### Maintenance
 * Improve unit tests by tightening asserts [#3112](https://github.com/opensearch-project/k-NN/pull/3112)
