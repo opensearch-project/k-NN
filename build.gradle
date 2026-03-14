@@ -585,6 +585,27 @@ tasks.register('buildJniTest', Test) {
     }
 }
 
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += [
+            "--add-modules", "jdk.incubator.vector",
+            "--enable-preview"
+    ]
+}
+
+tasks.withType(Test).configureEach {
+    jvmArgs += [
+            "--add-modules=jdk.incubator.vector",
+            "--enable-preview"
+    ]
+}
+
+tasks.withType(JavaExec).configureEach {
+    jvmArgs += [
+            "--add-modules=jdk.incubator.vector",
+            "--enable-preview"
+    ]
+}
+
 test {
     dependsOn buildJniTest
     // This will ensure that Unit test also uses optimized Vector Scorers and Pananma APIs
