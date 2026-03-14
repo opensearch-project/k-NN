@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 3.6](https://github.com/opensearch-project/k-NN/compare/main...HEAD)
 ### Features
 * Add MUVERA ingest and search request processors for multi-vector FDE encoding [#3163](https://github.com/opensearch-project/k-NN/issues/3163)
+* Support Lucene BBQ Flat for 1 bit [#3154](https://github.com/opensearch-project/k-NN/pull/3154)
 
 ### Maintenance
 * Improve unit tests by tightening asserts [#3112](https://github.com/opensearch-project/k-NN/pull/3112)
@@ -14,7 +15,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Bug Fixes
 * The KNN1030Codec does not properly support delegation for non-default codec(s). [#3093](https://github.com/opensearch-project/k-NN/pull/3093)
 * Fix score conversion logic for radial exact search [#3110](https://github.com/opensearch-project/k-NN/pull/3110)
+* Fix lucene reduce to topK when rescoring is enabled [#3124](https://github.com/opensearch-project/k-NN/pull/3124)
 * Fix bugs in optimistic search for nested Cagra index [#3155](https://github.com/opensearch-project/k-NN/pull/3155)
+* Fixed generating random entry points for CagraIndex in MOS when numVectors < entryPoints [#3161](https://github.com/opensearch-project/k-NN/pull/3161)
 * Fix integer overflow for memory optimized search [#3130](https://github.com/opensearch-project/k-NN/pull/3130)
 
 ### Refactoring

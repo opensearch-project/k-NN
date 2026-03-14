@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec;
+package org.opensearch.knn.index.codec.backward_codecs;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -12,6 +12,7 @@ import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.codec.KNN1040BasePerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
@@ -31,7 +32,14 @@ import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERV
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 
 /**
- * Base class for PerFieldKnnVectorsFormat, builds KnnVectorsFormat based on specific Lucene version
+ * Base class for PerFieldKnnVectorsFormat used by backward codecs (KNN920 through KNN9120).
+ *
+ * <p>
+ * Uses the legacy supplier-based constructor path with {@code vectorsFormatSupplier},
+ * {@code scalarQuantizedVectorsFormatSupplier}, and {@code flatVectorsFormatSupplier} for
+ * Lucene format resolution. Current and future codecs (KNN1040+) should use
+ * {@link KNN1040BasePerFieldKnnVectorsFormat} instead.
+ * </p>
  */
 @AllArgsConstructor
 @Log4j2
@@ -42,7 +50,7 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
     private final int defaultBeamWidth;
     private final Supplier<KnnVectorsFormat> defaultFormatSupplier;
     private final Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier;
-    private Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier;
+    private final Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier;
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
     private static final String MAX_CONNECTIONS = "max_connections";
     private static final String BEAM_WIDTH = "beam_width";

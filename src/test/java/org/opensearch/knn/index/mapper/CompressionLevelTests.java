@@ -8,6 +8,7 @@ package org.opensearch.knn.index.mapper;
 import org.opensearch.core.common.Strings;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
+import org.opensearch.Version;
 
 public class CompressionLevelTests extends KNNTestCase {
 
@@ -115,6 +116,23 @@ public class CompressionLevelTests extends KNNTestCase {
         assertNull(rescoreContext);
         // NOT_CONFIGURED with dimension <= 1000 should return a RescoreContext with an oversample factor of 5.0f
         rescoreContext = CompressionLevel.NOT_CONFIGURED.getDefaultRescoreContext(mode, belowThresholdDimension);
+        assertNull(rescoreContext);
+    }
+
+    public void testGetDefaultRescoreContext_whenFlatMethod_thenReturnFlatOversampleFactor() {
+        // flat method uses x32 compression — mode is NOT_CONFIGURED since flat doesn't support mode
+        RescoreContext rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(
+            Mode.NOT_CONFIGURED,
+            500,
+            org.opensearch.Version.CURRENT,
+            true
+        );
+        assertNotNull(rescoreContext);
+        assertEquals(2.0f, rescoreContext.getOversampleFactor(), 0.0f);
+        assertFalse(rescoreContext.isUserProvided());
+
+        // isFlatMethod=false on x32 with NOT_CONFIGURED mode should return null (no mode for rescore)
+        rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(Mode.NOT_CONFIGURED, 500, Version.CURRENT, false);
         assertNull(rescoreContext);
     }
 }

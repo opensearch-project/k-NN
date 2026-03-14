@@ -25,8 +25,8 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
-public class LuceneMethodResolverTests extends KNNTestCase {
-    MethodResolver TEST_RESOLVER = new LuceneMethodResolver();
+public class LuceneHNSWMethodResolverTests extends KNNTestCase {
+    MethodResolver TEST_RESOLVER = new LuceneHNSWMethodResolver();
 
     public void testResolveMethod_whenValid_thenResolve() {
         ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
@@ -178,7 +178,7 @@ public class LuceneMethodResolverTests extends KNNTestCase {
             )
         );
 
-        // Invalid compression
+        // Invalid compression for HNSW
         expectThrows(
             ValidationException.class,
             () -> TEST_RESOLVER.resolveMethod(
@@ -209,4 +209,5 @@ public class LuceneMethodResolverTests extends KNNTestCase {
             )
         );
     }
+
 }
