@@ -99,10 +99,17 @@ public class KNNConstants {
 
     // Lucene specific constants
     public static final String LUCENE_NAME = "lucene";
+    @Deprecated(since = "3.6.0", forRemoval = true)
     public static final String LUCENE_SQ_CONFIDENCE_INTERVAL = "confidence_interval";
+    @Deprecated(since = "3.6.0", forRemoval = true)
     public static final int DYNAMIC_CONFIDENCE_INTERVAL = 0;
+    @Deprecated(since = "3.6.0", forRemoval = true)
     public static final double MINIMUM_CONFIDENCE_INTERVAL = 0.9;
+    @Deprecated(since = "3.6.0", forRemoval = true)
     public static final double MAXIMUM_CONFIDENCE_INTERVAL = 1.0;
+    @Deprecated(since = "3.6.0", forRemoval = true)
+    public static final String CONFIDENCE_INTERVAL_DEPRECATION_MSG =
+        "[Deprecation] The [{}] parameter for the [{}] encoder is deprecated and will be removed in a future release.";
     public static final String LUCENE_SQ_BITS = "bits";
     public static final int LUCENE_SQ_DEFAULT_BITS = 7;
     public static final String MAX_CONNECTIONS = "max_connections";
