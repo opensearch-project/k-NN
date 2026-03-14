@@ -220,7 +220,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
             return new KnnCollector.Decorator(ordinalTranslatedKnnCollector) {
                 @Override
                 public KnnSearchStrategy getSearchStrategy() {
-                    return new RandomEntryPointsKnnSearchStrategy(
+                    return RandomEntryPointsKnnSearchStrategy.getInstance(
                         cagraHNSW.getNumBaseLevelSearchEntryPoints(),
                         cagraHNSW.getTotalNumberOfVectors(),
                         knnCollector.getSearchStrategy()
@@ -238,16 +238,30 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
      * Note that doc-id-iterator returns a random ids in `nextDoc` method without sorting, and might return duplicated ids.
      */
     static class RandomEntryPointsKnnSearchStrategy extends KnnSearchStrategy.Seeded {
-        public RandomEntryPointsKnnSearchStrategy(
+
+        public static RandomEntryPointsKnnSearchStrategy getInstance(
             final int numberOfEntryPoints,
             final long totalNumberOfVectors,
             final KnnSearchStrategy originalStrategy
         ) {
-            super(
-                generateRandomEntryPoints(numberOfEntryPoints, Math.toIntExact(totalNumberOfVectors)),
-                numberOfEntryPoints,
-                originalStrategy
-            );
+
+            int entryPoints = getTotalNumberOfEntryPoints(numberOfEntryPoints, Math.toIntExact(totalNumberOfVectors));
+
+            final DocIdSetIterator docIdSetIterator = generateRandomEntryPoints(entryPoints, Math.toIntExact(totalNumberOfVectors));
+
+            return new RandomEntryPointsKnnSearchStrategy(docIdSetIterator, entryPoints, originalStrategy);
+        }
+
+        private RandomEntryPointsKnnSearchStrategy(
+            final DocIdSetIterator entryPoints,
+            final int numberOfEntryPoints,
+            final KnnSearchStrategy originalStrategy
+        ) {
+            super(entryPoints, numberOfEntryPoints, originalStrategy);
+        }
+
+        private static int getTotalNumberOfEntryPoints(int numberOfEntryPoints, int totalVectors) {
+            return numberOfEntryPoints >= totalVectors ? totalVectors : numberOfEntryPoints;
         }
 
         private static DocIdSetIterator generateRandomEntryPoints(final int numberOfEntryPoints, int totalNumberOfVectors) {

@@ -23,7 +23,11 @@ public class RandomEntryPointsKnnSearchStrategyTests {
 
         // Create strategy
         final FaissMemoryOptimizedSearcher.RandomEntryPointsKnnSearchStrategy strategy =
-            new FaissMemoryOptimizedSearcher.RandomEntryPointsKnnSearchStrategy(numEntries, numVectors, mock(KnnSearchStrategy.class));
+            FaissMemoryOptimizedSearcher.RandomEntryPointsKnnSearchStrategy.getInstance(
+                numEntries,
+                numVectors,
+                mock(KnnSearchStrategy.class)
+            );
 
         // Validate #entry points
         assertEquals(numEntries, strategy.numberOfEntryPoints());
@@ -45,10 +49,14 @@ public class RandomEntryPointsKnnSearchStrategyTests {
 
         // Create strategy
         final FaissMemoryOptimizedSearcher.RandomEntryPointsKnnSearchStrategy strategy =
-            new FaissMemoryOptimizedSearcher.RandomEntryPointsKnnSearchStrategy(numEntries, numVectors, mock(KnnSearchStrategy.class));
+            FaissMemoryOptimizedSearcher.RandomEntryPointsKnnSearchStrategy.getInstance(
+                numEntries,
+                numVectors,
+                mock(KnnSearchStrategy.class)
+            );
 
         // Validate #entry points
-        assertEquals(numEntries, strategy.numberOfEntryPoints());
+        assertEquals(numVectors, strategy.numberOfEntryPoints());
 
         // We should get exactly `numEntries` vector ids.
         final DocIdSetIterator iterator = strategy.entryPoints();

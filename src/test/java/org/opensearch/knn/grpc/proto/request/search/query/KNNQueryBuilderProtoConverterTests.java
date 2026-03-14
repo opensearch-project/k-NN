@@ -78,10 +78,7 @@ public class KNNQueryBuilderProtoConverterTests extends OpenSearchTestCase {
         when(queryContainer.getQueryContainerCase()).thenReturn(QueryContainer.QueryContainerCase.BOOL);
 
         // Test
-        IllegalArgumentException exception = expectThrows(
-            IllegalArgumentException.class,
-            () -> converter.fromProto(queryContainer)
-        );
+        IllegalArgumentException exception = expectThrows(IllegalArgumentException.class, () -> converter.fromProto(queryContainer));
 
         // Verify
         assertEquals("QueryContainer does not contain a KNN query", exception.getMessage());

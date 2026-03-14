@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.KNN9120Codec;
+package org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec;
 
 import org.apache.lucene.backward_codecs.lucene99.Lucene99RWHnswScalarQuantizedVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
@@ -11,7 +11,8 @@ import org.opensearch.common.collect.Tuple;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.codec.BasePerFieldKnnVectorsFormat;
+import org.opensearch.knn.index.codec.backward_codecs.BasePerFieldKnnVectorsFormat;
+import org.opensearch.knn.index.codec.KNN9120Codec.KNN9120HnswBinaryVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
 
