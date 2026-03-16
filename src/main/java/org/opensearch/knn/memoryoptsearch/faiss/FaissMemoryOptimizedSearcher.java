@@ -60,11 +60,19 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     private boolean isAdc;
     private SimdVectorComputeService.SimilarityFunctionType nativeSimilarityFunctionType;
 
-    public FaissMemoryOptimizedSearcher(final IndexInput indexInput, final FieldInfo fieldInfo, final FlatVectorsScorer flatVectorsScorer)
-        throws IOException {
+    /**
+     * Constructor that accepts a pre-loaded {@link FaissIndex}. The factory is responsible for
+     * loading the index and applying any transformations (e.g., replacing null flat storage for BBQ).
+     */
+    public FaissMemoryOptimizedSearcher(
+        final IndexInput indexInput,
+        final FieldInfo fieldInfo,
+        final FaissIndex faissIndex,
+        final FlatVectorsScorer flatVectorsScorer
+    ) throws IOException {
         this.indexInput = indexInput;
         this.fileSize = indexInput.length();
-        this.faissIndex = FaissIndex.load(indexInput);
+        this.faissIndex = faissIndex;
         final KNNVectorSimilarityFunction knnVectorSimilarityFunction = faissIndex.getVectorSimilarityFunction();
 
         if (knnVectorSimilarityFunction != KNNVectorSimilarityFunction.HAMMING) {

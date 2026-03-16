@@ -32,7 +32,8 @@ public class CagraKnnCollectorCreationTests extends KNNTestCase {
     @SneakyThrows
     public void testCreateKnnCollector_whenNonSeeded_thenWrapsWithRandomEntryPoints() {
         final IndexInput input = FaissHNSWTests.loadHnswBinary("data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin");
-        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null, SCORER);
+        final FaissIndex faissIndex = FaissIndex.load(input);
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null, faissIndex, SCORER);
 
         // Create a non-seeded collector
         final KnnCollector originalCollector = new TopKnnCollector(100, Integer.MAX_VALUE, KnnSearchStrategy.Hnsw.DEFAULT);
@@ -59,7 +60,8 @@ public class CagraKnnCollectorCreationTests extends KNNTestCase {
     @SneakyThrows
     public void testCreateKnnCollector_whenSeeded_thenPreservesOriginalStrategy() {
         final IndexInput input = FaissHNSWTests.loadHnswBinary("data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin");
-        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null, SCORER);
+        final FaissIndex faissIndex = FaissIndex.load(input);
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null, faissIndex, SCORER);
 
         // Create a seeded strategy
         final DocIdSetIterator seedDocs = new DocIdSetIterator() {

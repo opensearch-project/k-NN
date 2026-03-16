@@ -359,7 +359,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
                 fileName,
                 fieldInfo,
                 ioContext,
-                flatVectorsReader.getFlatVectorScorer()
+                flatVectorsReader
             );
         }
 

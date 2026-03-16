@@ -53,6 +53,12 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
 import org.opensearch.knn.index.vectorvalues.VectorValueExtractorStrategy;
 import org.opensearch.knn.jni.JNIService;
+import org.opensearch.knn.memoryoptsearch.faiss.AbstractFaissHNSWIndex;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissBBQFlatIndex;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissHNSW;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissHNSWIndex;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissIdMapIndex;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
@@ -319,6 +325,37 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         assertThrows(FaissMemoryOptimizedSearcher.WarmupInitializationException.class, () -> {
             throw new FaissMemoryOptimizedSearcher.WarmupInitializationException("Null vector supplied for warmup");
         });
+    }
+
+    @SneakyThrows
+    public void testConstructor_whenBBQFieldInfo_thenUsesBBQScorer() {
+        // Set up mocks for the BBQ flat index hierarchy
+        FlatVectorsScorer mockScorer = mock(FlatVectorsScorer.class);
+        FlatVectorsReader mockBbqReader = mock(FlatVectorsReader.class);
+        when(mockBbqReader.getFlatVectorScorer()).thenReturn(mockScorer);
+        FaissBBQFlatIndex bbqFlatIndex = new FaissBBQFlatIndex(mockBbqReader, TARGET_FIELD);
+
+        // Build the index hierarchy: FaissIdMapIndex -> FaissHNSWIndex -> FaissBBQFlatIndex
+        AbstractFaissHNSWIndex mockHnswIndex = mock(FaissHNSWIndex.class);
+        when(mockHnswIndex.getFlatVectors()).thenReturn(bbqFlatIndex);
+
+        FaissHNSW mockHnsw = mock(FaissHNSW.class);
+        FaissIdMapIndex mockIdMapIndex = mock(FaissIdMapIndex.class);
+        when(mockIdMapIndex.getVectorSimilarityFunction()).thenReturn(KNNVectorSimilarityFunction.EUCLIDEAN);
+        when(mockIdMapIndex.getNestedIndex()).thenReturn(mockHnswIndex);
+        when(mockIdMapIndex.getFaissHnsw()).thenReturn(mockHnsw);
+
+        // Build a FieldInfo — BBQ is determined by the index hierarchy, not a FieldInfo attribute
+        FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder(TARGET_FIELD)
+            .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+            .addAttribute(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .build();
+
+        IndexInput mockInput = mock(IndexInput.class);
+        when(mockInput.length()).thenReturn(100L);
+
+        FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(mockInput, fieldInfo, mockIdMapIndex, mockScorer);
+        assertNotNull(searcher);
     }
 
     @SneakyThrows
@@ -912,7 +949,8 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final int k = 100;
 
         final IndexInput input = FaissHNSWTests.loadHnswBinary("data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin");
-        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null, SCORER);
+        final FaissIndex faissIndex = FaissIndex.load(input);
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null, faissIndex, SCORER);
 
         // Use a non-seeded strategy (default HNSW strategy)
         final KnnCollector knnCollector = new TopKnnCollector(k, Integer.MAX_VALUE, KnnSearchStrategy.Hnsw.DEFAULT);
@@ -943,7 +981,8 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final int k = 100;
 
         final IndexInput input = FaissHNSWTests.loadHnswBinary("data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin");
-        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null, SCORER);
+        final FaissIndex faissIndex = FaissIndex.load(input);
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null, faissIndex, SCORER);
 
         // Create a Seeded strategy with known seed entry points
         final int numSeeds = 5;
@@ -1012,7 +1051,8 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         }
 
         // First, do exhaustive search to get ground truth
-        final FaissMemoryOptimizedSearcher exhaustiveSearcher = new FaissMemoryOptimizedSearcher(input, null, SCORER);
+        final FaissIndex faissIndex = FaissIndex.load(input);
+        final FaissMemoryOptimizedSearcher exhaustiveSearcher = new FaissMemoryOptimizedSearcher(input, null, faissIndex, SCORER);
         final KnnCollector exhaustiveCollector = new TopKnnCollector(totalVectors, Integer.MAX_VALUE, KnnSearchStrategy.Hnsw.DEFAULT);
         final AcceptDocs acceptDocs = AcceptDocs.fromLiveDocs(null, totalVectors);
         exhaustiveSearcher.search(query, exhaustiveCollector, acceptDocs);
@@ -1025,7 +1065,8 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
 
         // Now search with a seeded collector on a fresh searcher
         input.seek(0);
-        final FaissMemoryOptimizedSearcher seededSearcher = new FaissMemoryOptimizedSearcher(input, null, SCORER);
+        final FaissIndex faissIndex2 = FaissIndex.load(input);
+        final FaissMemoryOptimizedSearcher seededSearcher = new FaissMemoryOptimizedSearcher(input, null, faissIndex2, SCORER);
 
         final int numSeeds = 3;
         final DocIdSetIterator seedDocs = new DocIdSetIterator() {

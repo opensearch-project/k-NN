@@ -54,9 +54,11 @@ public abstract class AbstractFaissCagraHnswIndexTests extends KNNTestCase {
     ) {
         doTestWithIndexInput(input -> {
             // Instantiate memory optimized searcher
+            final FaissIndex faissIndex = FaissIndex.load(input);
             final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
                 input,
                 NO_ADC_NEEDED,
+                faissIndex,
                 FlatVectorScorerUtil.getLucene99FlatVectorsScorer()
             );
 
@@ -98,12 +100,12 @@ public abstract class AbstractFaissCagraHnswIndexTests extends KNNTestCase {
 
             // Get answer
             input.seek(0);
-            final FaissIndex faissIndex = FaissIndex.load(input);
+            final FaissIndex answerIndex = FaissIndex.load(input);
             final Set<Integer> answerScoreDocs;
             if (vectorDataType == VectorDataType.FLOAT) {
-                answerScoreDocs = calculateFloatAnswer((float[]) query, faissIndex.getFloatValues(input), k, similarityFunction);
+                answerScoreDocs = calculateFloatAnswer((float[]) query, answerIndex.getFloatValues(input), k, similarityFunction);
             } else {
-                answerScoreDocs = calculateByteOrBinaryAnswer((byte[]) query, faissIndex.getByteValues(input), k, similarityFunction);
+                answerScoreDocs = calculateByteOrBinaryAnswer((byte[]) query, answerIndex.getByteValues(input), k, similarityFunction);
             }
 
             // Validate search result

@@ -47,9 +47,11 @@ public class FaissCagraHnswIndexTests extends KNNTestCase {
         doTestWithIndexInput(input -> {
             // Instantiate memory optimized searcher
             // TODO: adc placeholder. isAdc false and SpaceType L2 are noops for the MemoryOptimizedSearcher here.
+            final FaissIndex faissIndex = FaissIndex.load(input);
             final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
                 input,
                 null,
+                faissIndex,
                 FlatVectorScorerUtil.getLucene99FlatVectorsScorer()
             );
 
@@ -71,8 +73,8 @@ public class FaissCagraHnswIndexTests extends KNNTestCase {
 
             // Get answer
             input.seek(0);
-            final FaissIndex faissIndex = FaissIndex.load(input);
-            final Set<Integer> answerScoreDocs = calculateAnswer(query, faissIndex.getFloatValues(input), k);
+            final FaissIndex answerIndex = FaissIndex.load(input);
+            final Set<Integer> answerScoreDocs = calculateAnswer(query, answerIndex.getFloatValues(input), k);
 
             // Validate search result
             int matchCount = 0;
