@@ -59,13 +59,13 @@ public class Faiss1040ScalarQuantizedKnnVectorsReader extends NativeEngines990Kn
      */
     @Override
     public void search(String field, float[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
-        // Null target is the warmup signal — handle before attempting searcher load
+        final FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(field);
+        final VectorSearcher memoryOptimizedSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfo);
+
+        // Null target is the warmup signal — searcher is loaded first so warmup triggers initialization
         if (target == null) {
             throw new FaissMemoryOptimizedSearcher.WarmupInitializationException("Null vector supplied for warmup");
         }
-
-        final FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(field);
-        final VectorSearcher memoryOptimizedSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfo);
 
         if (memoryOptimizedSearcher == null) {
             throw new IllegalStateException(

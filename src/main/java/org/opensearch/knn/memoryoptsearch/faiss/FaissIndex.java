@@ -6,7 +6,9 @@
 package org.opensearch.knn.memoryoptsearch.faiss;
 
 import lombok.Getter;
+import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexInput;
@@ -25,6 +27,9 @@ import java.io.IOException;
  */
 @Getter
 public abstract class FaissIndex {
+    // Section name written by Faiss when IO_FLAG_SKIP_STORAGE is set (e.g., BBQ skips flat vector storage).
+    public static final String NULL_INDEX_TYPE = "null";
+
     // Index type name
     protected String indexType;
     // Vector dimension
@@ -44,16 +49,56 @@ public abstract class FaissIndex {
      * The first four bytes of each section represent an index type name. The index type is read first,
      * and {@link IndexTypeToFaissIndexMapping} is then used to delegate section loading to the corresponding {@link FaissIndex} subtype
      * implementation.
+     * When a "null" section name is encountered (e.g., Faiss BBQ where storage was skipped via IO_FLAG_SKIP_STORAGE),
+     * this method returns {@code null}. The caller is responsible for handling the null case
+     * (e.g., by wiring in a {@code FaissBBQFlatIndex} backed by Lucene's quantized reader).
      *
      * @param input Input stream to a FAISS index
-     * @return Top level {@link FaissIndex}.
+     * @return Top level {@link FaissIndex}, or {@code null} if a "null" section is encountered.
      * @throws IOException
      */
     public static FaissIndex load(IndexInput input) throws IOException {
         final String indexType = FaissIndexLoadUtils.readIndexType(input);
+        if (NULL_INDEX_TYPE.equals(indexType)) {
+            return null;
+        }
         final FaissIndex faissIndex = IndexTypeToFaissIndexMapping.getFaissIndex(indexType);
         faissIndex.doLoad(input);
         return faissIndex;
+    }
+
+    /**
+     * Loads a FAISS index and, if required based on the field's configuration, wires in the appropriate
+     * flat vector storage via {@link FaissFlatIndexFactory}.
+     *
+     * @param input             Input stream to a FAISS index
+     * @param fieldInfo         Field metadata used to determine the flat index type
+     * @param flatVectorsReader Reader providing both the scorer and, for certain index types (e.g. BBQ),
+     *                          the backing flat vector storage
+     * @return Top level {@link FaissIndex}
+     * @throws IOException
+     */
+    public static FaissIndex load(IndexInput input, FieldInfo fieldInfo, FlatVectorsReader flatVectorsReader) throws IOException {
+        final FaissIndex faissIndex = load(input);
+        maybeSetFlatIndex(faissIndex, fieldInfo, flatVectorsReader);
+        return faissIndex;
+    }
+
+    // If the HNSW index has no flat storage (e.g. BBQ skips it via IO_FLAG_SKIP_STORAGE), wire in the appropriate flat index.
+    private static void maybeSetFlatIndex(
+        final FaissIndex faissIndex,
+        final FieldInfo fieldInfo,
+        final FlatVectorsReader flatVectorsReader
+    ) {
+        if (faissIndex instanceof FaissIdMapIndex idMapIndex) {
+            final FaissIndex nested = idMapIndex.getNestedIndex();
+            if (nested instanceof AbstractFaissHNSWIndex hnswIndex && hnswIndex.getFlatVectors() == null) {
+                final FaissIndex flatIndex = FaissFlatIndexFactory.create(fieldInfo, flatVectorsReader);
+                if (flatIndex != null) {
+                    hnswIndex.flatVectors = flatIndex;
+                }
+            }
+        }
     }
 
     protected abstract void doLoad(IndexInput input) throws IOException;

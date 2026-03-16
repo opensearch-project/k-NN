@@ -17,13 +17,19 @@ import java.io.IOException;
  * Provided parameters will have {@link Directory} and a file name where implementation can rely on it to open an input stream.
  */
 public interface VectorSearcherFactory {
+
     /**
      * Create a non-null {@link VectorSearcher} with given Lucene's {@link Directory}.
+     * <p>
+     * The {@code flatVectorsReader} provides access to Lucene's flat vector storage. For BBQ indices
+     * where Faiss skips flat storage via {@code IO_FLAG_SKIP_STORAGE}, the reader is used to wire in
+     * a {@code FaissBBQFlatIndex} backed by Lucene's quantized reader.
      *
      * @param directory Lucene's Directory.
      * @param fileName Logical file name to load.
      * @param fieldInfo Field info containing metadata for ADC extraction
      * @param ioContext IOContext to use when opening the file
+     * @param flatVectorsReader Reader providing flat vector scoring and storage
      * @return Null instance if it is not supported, otherwise return {@link VectorSearcher}
      * @throws IOException
      */
