@@ -9,13 +9,18 @@ import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.codec.KNN1040Codec.FaissBBQ1040KnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.CodecFormatResolver;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 
 import java.util.Map;
 import java.util.Optional;
+
+import static org.opensearch.knn.common.KNNConstants.ENCODER_FAISS_BBQ;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 
 /**
  * {@link CodecFormatResolver} implementation for native engines (FAISS, NMSLIB).
@@ -38,6 +43,10 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
         this.nativeIndexBuildStrategyFactory = nativeIndexBuildStrategyFactory;
     }
 
+    /**
+     * Resolves the format for a specific field. Returns {@link FaissBBQ1040KnnVectorsFormat} when
+     * the encoder is {@code faiss_bbq}, otherwise falls back to the default native format.
+     */
     @Override
     public KnnVectorsFormat resolve(
         String field,
@@ -46,9 +55,11 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
         int defaultMaxConnections,
         int defaultBeamWidth
     ) {
-        throw new UnsupportedOperationException(
-            String.format("%s does not require field context, use resolve() instead", getClass().getSimpleName())
-        );
+        if (isFaissBBQEncoder(params)) {
+            final int approximateThreshold = getApproximateThresholdValue();
+            return new FaissBBQ1040KnnVectorsFormat(approximateThreshold);
+        }
+        return resolve();
     }
 
     @Override
@@ -62,12 +73,21 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
      * Falls back to the default value when the setting is not explicitly configured.
      */
     private int getApproximateThresholdValue() {
-        // mapperService is already checked for null or valid instance type at caller,
-        // hence we don't need additional isPresent check here.
         final IndexSettings indexSettings = mapperService.get().getIndexSettings();
         final Integer approximateThresholdValue = indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING);
         return approximateThresholdValue != null
             ? approximateThresholdValue
             : KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE;
+    }
+
+    private static boolean isFaissBBQEncoder(Map<String, Object> params) {
+        if (params == null || !params.containsKey(METHOD_ENCODER_PARAMETER)) {
+            return false;
+        }
+        Object encoderObj = params.get(METHOD_ENCODER_PARAMETER);
+        if (encoderObj instanceof MethodComponentContext encoderContext) {
+            return ENCODER_FAISS_BBQ.equals(encoderContext.getName());
+        }
+        return false;
     }
 }

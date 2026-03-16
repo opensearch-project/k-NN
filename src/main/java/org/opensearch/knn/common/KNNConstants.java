@@ -134,6 +134,7 @@ public class KNNConstants {
     public static final String FAISS_FLAT_DESCRIPTION = "Flat";
     public static final String FAISS_PQ_DESCRIPTION = "PQ";
     public static final String ENCODER_SQ = "sq";
+    public static final String ENCODER_FAISS_BBQ = "faiss_bbq";
     public static final String FAISS_SQ_DESCRIPTION = "SQ";
     public static final String FAISS_SQ_TYPE = "type";
     public static final String FAISS_SQ_ENCODER_FP16 = "fp16";
