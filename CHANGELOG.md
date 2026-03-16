@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix bugs in optimistic search for nested Cagra index [#3155](https://github.com/opensearch-project/k-NN/pull/3155)
 * Fixed generating random entry points for CagraIndex in MOS when numVectors < entryPoints [#3161](https://github.com/opensearch-project/k-NN/pull/3161)
 * Fix integer overflow for memory optimized search [#3130](https://github.com/opensearch-project/k-NN/pull/3130)
+* Fix derived source returning incorrect vector value during indexing with dynamic templates [#3035](https://github.com/opensearch-project/k-NN/pull/3035)
 
 ### Refactoring
 
