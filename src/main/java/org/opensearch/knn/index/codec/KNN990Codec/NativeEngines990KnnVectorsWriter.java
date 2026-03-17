@@ -108,7 +108,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
             );
             final QuantizationState quantizationState = train(field.getFieldInfo(), knnVectorValuesSupplier, totalLiveDocs);
             // should skip graph building only for non quantization use case and if threshold is met
-            if (quantizationState == null && shouldSkipBuildingVectorDataStructure(totalLiveDocs)) {
+            if (quantizationState == null && shouldSkipBuildingVectorDataStructure(totalLiveDocs, approximateThreshold)) {
                 log.debug(
                     "Skip building vector data structure for field: {}, as liveDoc: {} is less than the threshold {} during flush",
                     fieldInfo.name,
@@ -151,7 +151,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
 
         final QuantizationState quantizationState = train(fieldInfo, knnVectorValuesSupplier, totalLiveDocs);
         // should skip graph building only for non quantization use case and if threshold is met
-        if (quantizationState == null && shouldSkipBuildingVectorDataStructure(totalLiveDocs)) {
+        if (quantizationState == null && shouldSkipBuildingVectorDataStructure(totalLiveDocs, approximateThreshold)) {
             log.debug(
                 "Skip building vector data structure for field: {}, as liveDoc: {} is less than the threshold {} during merge",
                 fieldInfo.name,
@@ -244,7 +244,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
      * The {@link KNNVectorValues} will be exhausted after this function run. So make sure that you are not sending the
      * vectorsValues object which you plan to use later
      */
-    private int getLiveDocs(KNNVectorValues<?> vectorValues) throws IOException {
+    public static int getLiveDocs(KNNVectorValues<?> vectorValues) throws IOException {
         // Count all the live docs as there vectorValues.totalLiveDocs() just gives the cost for the FloatVectorValues,
         // and doesn't tell the correct number of docs, if there are deleted docs in the segment. So we are counting
         // the total live docs here.
@@ -262,7 +262,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         }
     }
 
-    private boolean shouldSkipBuildingVectorDataStructure(final long docCount) {
+    public static boolean shouldSkipBuildingVectorDataStructure(final long docCount, final int approximateThreshold) {
         if (approximateThreshold < 0) {
             return true;
         }
