@@ -619,7 +619,9 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             // Set up basic parameters
             try (final IndexOutput indexOutput = directory.createOutput(fileName, IOContext.DEFAULT)) {
                 final BuildIndexParams.BuildIndexParamsBuilder builder = BuildIndexParams.builder();
-                builder.fieldName(TARGET_FIELD)
+                FieldInfo fieldInfo = mock(FieldInfo.class);
+                when(fieldInfo.getName()).thenReturn(TARGET_FIELD);
+                builder.fieldInfo(fieldInfo)
                     .knnEngine(KNNEngine.FAISS)
                     .vectorDataType(testingSpec.dataType)
                     .indexOutputWithBuffer(new IndexOutputWithBuffer(indexOutput));
