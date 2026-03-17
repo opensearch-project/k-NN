@@ -43,7 +43,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-public class FaissBBQ1040KnnVectorsWriterTests extends KNNTestCase {
+public class Faiss104ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
 
     @Mock
     private FlatVectorsWriter flatVectorsWriter;
@@ -55,7 +55,7 @@ public class FaissBBQ1040KnnVectorsWriterTests extends KNNTestCase {
     private SegmentInfo segmentInfo;
 
     private FlatFieldVectorsWriter mockedFlatFieldVectorsWriter;
-    private FaissBBQ1040KnnVectorsWriter objectUnderTest;
+    private Faiss104ScalarQuantizedKnnVectorsWriter objectUnderTest;
 
     private static final int BUILD_GRAPH_ALWAYS_THRESHOLD = 0;
     private static final int BUILD_GRAPH_NEVER_THRESHOLD = -1;
@@ -64,7 +64,7 @@ public class FaissBBQ1040KnnVectorsWriterTests extends KNNTestCase {
     public void setUp() throws Exception {
         super.setUp();
         MockitoAnnotations.openMocks(this);
-        objectUnderTest = new FaissBBQ1040KnnVectorsWriter(segmentWriteState, flatVectorsWriter, BUILD_GRAPH_ALWAYS_THRESHOLD);
+        objectUnderTest = new Faiss104ScalarQuantizedKnnVectorsWriter(segmentWriteState, flatVectorsWriter, BUILD_GRAPH_ALWAYS_THRESHOLD);
         mockedFlatFieldVectorsWriter = mock(FlatFieldVectorsWriter.class);
         Mockito.doNothing().when(mockedFlatFieldVectorsWriter).addValue(Mockito.anyInt(), Mockito.any());
         when(flatVectorsWriter.addField(any())).thenReturn(mockedFlatFieldVectorsWriter);
@@ -127,7 +127,7 @@ public class FaissBBQ1040KnnVectorsWriterTests extends KNNTestCase {
 
     @SneakyThrows
     public void testFlush_whenBelowThreshold_thenSkipsBuild() {
-        FaissBBQ1040KnnVectorsWriter w = new FaissBBQ1040KnnVectorsWriter(segmentWriteState, flatVectorsWriter, 100);
+        Faiss104ScalarQuantizedKnnVectorsWriter w = new Faiss104ScalarQuantizedKnnVectorsWriter(segmentWriteState, flatVectorsWriter, 100);
         final FieldInfo fi = fieldInfo(0, VectorEncoding.FLOAT32, Map.of(KNNConstants.VECTOR_DATA_TYPE_FIELD, "float"));
         NativeEngineFieldVectorsWriter field = nativeEngineFieldVectorsWriter(fi, Map.of(0, new float[] { 1, 2, 3 }));
         try (MockedStatic<NativeEngineFieldVectorsWriter> ms = mockStatic(NativeEngineFieldVectorsWriter.class)) {
@@ -141,7 +141,7 @@ public class FaissBBQ1040KnnVectorsWriterTests extends KNNTestCase {
 
     @SneakyThrows
     public void testFlush_whenNegativeThreshold_thenSkipsBuild() {
-        FaissBBQ1040KnnVectorsWriter w = new FaissBBQ1040KnnVectorsWriter(
+        Faiss104ScalarQuantizedKnnVectorsWriter w = new Faiss104ScalarQuantizedKnnVectorsWriter(
             segmentWriteState,
             flatVectorsWriter,
             BUILD_GRAPH_NEVER_THRESHOLD
@@ -225,7 +225,7 @@ public class FaissBBQ1040KnnVectorsWriterTests extends KNNTestCase {
 
     @SneakyThrows
     public void testMergeOneField_whenBelowThreshold_thenSkipsBuild() {
-        FaissBBQ1040KnnVectorsWriter w = new FaissBBQ1040KnnVectorsWriter(segmentWriteState, flatVectorsWriter, 100);
+        Faiss104ScalarQuantizedKnnVectorsWriter w = new Faiss104ScalarQuantizedKnnVectorsWriter(segmentWriteState, flatVectorsWriter, 100);
         final FieldInfo fi = fieldInfo(
             0,
             VectorEncoding.FLOAT32,

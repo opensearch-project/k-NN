@@ -13,12 +13,12 @@ import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.Sorter;
-import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.RamUsageEstimator;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngineFieldVectorsWriter;
+import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsWriter;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
@@ -44,8 +44,8 @@ import static org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory.getVe
  * <p>No quantization training is needed — Lucene's flat format handles quantization internally.
  */
 @Log4j2
-class FaissBBQ1040KnnVectorsWriter extends KnnVectorsWriter {
-    private static final long SHALLOW_SIZE = RamUsageEstimator.shallowSizeOfInstance(FaissBBQ1040KnnVectorsWriter.class);
+class Faiss104ScalarQuantizedKnnVectorsWriter extends KnnVectorsWriter {
+    private static final long SHALLOW_SIZE = RamUsageEstimator.shallowSizeOfInstance(Faiss104ScalarQuantizedKnnVectorsWriter.class);
 
     private final SegmentWriteState segmentWriteState;
     private final FlatVectorsWriter flatVectorsWriter;
@@ -54,7 +54,11 @@ class FaissBBQ1040KnnVectorsWriter extends KnnVectorsWriter {
     private NativeEngineFieldVectorsWriter<?> field;
     private boolean finished;
 
-    FaissBBQ1040KnnVectorsWriter(SegmentWriteState segmentWriteState, FlatVectorsWriter flatVectorsWriter, int approximateThreshold) {
+    Faiss104ScalarQuantizedKnnVectorsWriter(
+        SegmentWriteState segmentWriteState,
+        FlatVectorsWriter flatVectorsWriter,
+        int approximateThreshold
+    ) {
         this.segmentWriteState = segmentWriteState;
         this.flatVectorsWriter = flatVectorsWriter;
         this.approximateThreshold = approximateThreshold;
@@ -67,7 +71,8 @@ class FaissBBQ1040KnnVectorsWriter extends KnnVectorsWriter {
     public KnnFieldVectorsWriter<?> addField(FieldInfo fieldInfo) throws IOException {
         if (this.field != null) {
             throw new IllegalStateException(
-                "FaissBBQ1040KnnVectorsWriter supports only a single field, but addField was called for ["
+                Faiss104ScalarQuantizedKnnVectorsWriter.class.getSimpleName()
+                    + " supports only a single field, but addField was called for ["
                     + fieldInfo.name
                     + "] after ["
                     + this.field.getFieldInfo().name
@@ -99,7 +104,7 @@ class FaissBBQ1040KnnVectorsWriter extends KnnVectorsWriter {
         }
 
         // Skip HNSW graph building when below threshold; flat vectors are still available for exact search
-        if (shouldSkipBuildingVectorDataStructure(totalLiveDocs)) {
+        if (NativeEngines990KnnVectorsWriter.shouldSkipBuildingVectorDataStructure(totalLiveDocs, approximateThreshold)) {
             log.debug(
                 "Skip building vector data structure for field: {}, as liveDoc: {} is less than the threshold {} during flush",
                 fieldInfo.name,
@@ -120,9 +125,9 @@ class FaissBBQ1040KnnVectorsWriter extends KnnVectorsWriter {
 
         StopWatch stopWatch = new StopWatch().start();
         writer.flushIndex(knnVectorValuesSupplier, totalLiveDocs);
-        long time_in_millis = stopWatch.stop().totalTime().millis();
-        KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.incrementBy(time_in_millis);
-        log.debug("Flush took {} ms for vector field [{}]", time_in_millis, fieldInfo.getName());
+        long timeInMillis = stopWatch.stop().totalTime().millis();
+        KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.incrementBy(timeInMillis);
+        log.debug("Flush took {} ms for vector field [{}]", timeInMillis, fieldInfo.getName());
     }
 
     /**
@@ -139,13 +144,13 @@ class FaissBBQ1040KnnVectorsWriter extends KnnVectorsWriter {
             fieldInfo,
             mergeState
         );
-        int totalLiveDocs = getLiveDocs(knnVectorValuesSupplier.get());
+        int totalLiveDocs = NativeEngines990KnnVectorsWriter.getLiveDocs(knnVectorValuesSupplier.get());
         if (totalLiveDocs == 0) {
             log.debug("[Merge] No live docs for field {}", fieldInfo.getName());
             return;
         }
 
-        if (shouldSkipBuildingVectorDataStructure(totalLiveDocs)) {
+        if (NativeEngines990KnnVectorsWriter.shouldSkipBuildingVectorDataStructure(totalLiveDocs, approximateThreshold)) {
             log.debug(
                 "Skip building vector data structure for field: {}, as liveDoc: {} is less than the threshold {} during merge",
                 fieldInfo.name,
@@ -159,15 +164,15 @@ class FaissBBQ1040KnnVectorsWriter extends KnnVectorsWriter {
 
         StopWatch stopWatch = new StopWatch().start();
         writer.mergeIndex(knnVectorValuesSupplier, totalLiveDocs);
-        long time_in_millis = stopWatch.stop().totalTime().millis();
-        KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS.incrementBy(time_in_millis);
-        log.debug("Merge took {} ms for vector field [{}]", time_in_millis, fieldInfo.getName());
+        long timeInMillis = stopWatch.stop().totalTime().millis();
+        KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS.incrementBy(timeInMillis);
+        log.debug("Merge took {} ms for vector field [{}]", timeInMillis, fieldInfo.getName());
     }
 
     @Override
     public void finish() throws IOException {
         if (finished) {
-            throw new IllegalStateException("FaissBBQ1040KnnVectorsWriter is already finished");
+            throw new IllegalStateException(Faiss104ScalarQuantizedKnnVectorsWriter.class.getSimpleName() + " is already finished");
         }
         finished = true;
         // No quantizationStateWriter to finalize — BBQ doesn't use the k-NN quantization framework
@@ -182,21 +187,5 @@ class FaissBBQ1040KnnVectorsWriter extends KnnVectorsWriter {
     @Override
     public long ramBytesUsed() {
         return SHALLOW_SIZE + flatVectorsWriter.ramBytesUsed() + (field != null ? field.ramBytesUsed() : 0);
-    }
-
-    /**
-     * Counts live docs by iterating. Needed because totalLiveDocs() on the values object
-     * doesn't account for deleted docs in the segment.
-     */
-    private int getLiveDocs(KNNVectorValues<?> vectorValues) throws IOException {
-        int liveDocs = 0;
-        while (vectorValues.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
-            liveDocs++;
-        }
-        return liveDocs;
-    }
-
-    private boolean shouldSkipBuildingVectorDataStructure(long docCount) {
-        return approximateThreshold < 0 || docCount < approximateThreshold;
     }
 }

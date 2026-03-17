@@ -28,13 +28,13 @@ import org.opensearch.knn.index.codec.util.UnitTestCodec;
 import java.io.IOException;
 
 /**
- * Codec-level integration tests for {@link FaissBBQ1040KnnVectorsFormat}.
+ * Codec-level integration tests for {@link Faiss104ScalarQuantizedKnnVectorsFormat}.
  * Tests the write path (index + flush) and flat vector readback through a real Lucene index.
  *
  * <p>Uses a high approximateThreshold to skip native HNSW graph building (which requires
  * the Faiss JNI library), focusing on the Lucene BBQ flat vector storage path.
  */
-public class FaissBBQ1040KnnVectorsFormatCodecTests extends KNNTestCase {
+public class Faiss104ScalarQuantizedKnnVectorsFormatCodecTests extends KNNTestCase {
 
     // High threshold so graph building is skipped — we're testing the flat vector write/read path
     private static final int SKIP_GRAPH_THRESHOLD = Integer.MAX_VALUE;
@@ -124,8 +124,8 @@ public class FaissBBQ1040KnnVectorsFormatCodecTests extends KNNTestCase {
      * Verify that the format name is correctly reported.
      */
     public void testBBQFormat_formatName_thenCorrect() {
-        final FaissBBQ1040KnnVectorsFormat format = new FaissBBQ1040KnnVectorsFormat(SKIP_GRAPH_THRESHOLD);
-        assertEquals("FaissBBQ1040KnnVectorsFormat", format.getName());
+        final Faiss104ScalarQuantizedKnnVectorsFormat format = new Faiss104ScalarQuantizedKnnVectorsFormat(SKIP_GRAPH_THRESHOLD);
+        assertEquals("Faiss104ScalarQuantizedKnnVectorsFormat", format.getName());
     }
 
     private void setup() throws IOException {
@@ -133,7 +133,7 @@ public class FaissBBQ1040KnnVectorsFormatCodecTests extends KNNTestCase {
         // Disable index checking on close — BBQ codec search isn't fully wired up yet,
         // and Lucene's check-index would attempt searches that would fail.
         ((BaseDirectoryWrapper) dir).setCheckIndexOnClose(false);
-        final Codec codec = new UnitTestCodec(() -> new FaissBBQ1040KnnVectorsFormat(SKIP_GRAPH_THRESHOLD));
+        final Codec codec = new UnitTestCodec(() -> new Faiss104ScalarQuantizedKnnVectorsFormat(SKIP_GRAPH_THRESHOLD));
         IndexWriterConfig iwc = newIndexWriterConfig();
         iwc.setMergeScheduler(new SerialMergeScheduler());
         iwc.setCodec(codec);

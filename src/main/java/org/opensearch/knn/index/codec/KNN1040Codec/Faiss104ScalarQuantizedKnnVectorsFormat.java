@@ -31,13 +31,13 @@ import java.io.IOException;
  *
  * <p>Uses Lucene's max dimension limit since the flat storage is Lucene-managed.
  *
- * @see FaissBBQ1040KnnVectorsWriter
- * @see FaissBBQ1040KnnVectorsReader
+ * @see Faiss104ScalarQuantizedKnnVectorsWriter
+ * @see Faiss104ScalarQuantizedKnnVectorsReader
  */
 @Log4j2
-public class FaissBBQ1040KnnVectorsFormat extends KnnVectorsFormat {
+public class Faiss104ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
 
-    private static final String FORMAT_NAME = "FaissBBQ1040KnnVectorsFormat";
+    private static final String FORMAT_NAME = "Faiss104ScalarQuantizedKnnVectorsFormat";
 
     // Shared across all format instances; Lucene104ScalarQuantizedVectorsFormat is stateless.
     private static final Lucene104ScalarQuantizedVectorsFormat bbqFlatFormat = new Lucene104ScalarQuantizedVectorsFormat(
@@ -46,7 +46,7 @@ public class FaissBBQ1040KnnVectorsFormat extends KnnVectorsFormat {
 
     private final int approximateThreshold;
 
-    public FaissBBQ1040KnnVectorsFormat() {
+    public Faiss104ScalarQuantizedKnnVectorsFormat() {
         this(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE);
     }
 
@@ -54,32 +54,33 @@ public class FaissBBQ1040KnnVectorsFormat extends KnnVectorsFormat {
      * @param approximateThreshold if the number of vectors in a segment is below this threshold,
      *                             HNSW graph building is skipped. A negative value always skips.
      */
-    public FaissBBQ1040KnnVectorsFormat(int approximateThreshold) {
+    public Faiss104ScalarQuantizedKnnVectorsFormat(int approximateThreshold) {
         super(FORMAT_NAME);
         this.approximateThreshold = approximateThreshold;
     }
 
     @Override
     public KnnVectorsWriter fieldsWriter(SegmentWriteState state) throws IOException {
-        return new FaissBBQ1040KnnVectorsWriter(state, bbqFlatFormat.fieldsWriter(state), approximateThreshold);
+        return new Faiss104ScalarQuantizedKnnVectorsWriter(state, bbqFlatFormat.fieldsWriter(state), approximateThreshold);
     }
 
     @Override
     public KnnVectorsReader fieldsReader(SegmentReadState state) throws IOException {
-        return new FaissBBQ1040KnnVectorsReader(state, bbqFlatFormat.fieldsReader(state));
+        return new Faiss104ScalarQuantizedKnnVectorsReader(state, bbqFlatFormat.fieldsReader(state));
     }
 
     /**
-     * Uses Lucene's max dimension since flat vector storage is Lucene-managed.
+     * Uses Faiss max dimension since the HNSW graph is built by native Faiss.
      */
     @Override
     public int getMaxDimensions(String fieldName) {
-        return KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE);
+        return KNNEngine.getMaxDimensionByEngine(KNNEngine.FAISS);
     }
 
     @Override
     public String toString() {
-        return "FaissBBQ1040KnnVectorsFormat(name="
+        return this.getClass().getSimpleName()
+            + "(name="
             + this.getClass().getSimpleName()
             + ", approximateThreshold="
             + approximateThreshold

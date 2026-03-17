@@ -37,7 +37,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-public class FaissBBQ1040KnnVectorsReaderTests extends KNNTestCase {
+public class Faiss104ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
 
     @SneakyThrows
     public void testCheckIntegrity_thenDelegatesToFlatReader() {
@@ -75,7 +75,7 @@ public class FaissBBQ1040KnnVectorsReaderTests extends KNNTestCase {
         try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
             ms.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
             ms.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
-            final FaissBBQ1040KnnVectorsReader reader = createReader(
+            final Faiss104ScalarQuantizedKnnVectorsReader reader = createReader(
                 new FieldInfos(new FieldInfo[] { fi }),
                 Set.of("_0_165_field1.faiss"),
                 mock(FlatVectorsReader.class)
@@ -96,7 +96,7 @@ public class FaissBBQ1040KnnVectorsReaderTests extends KNNTestCase {
         try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
             ms.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
             ms.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
-            final FaissBBQ1040KnnVectorsReader reader = createReader(
+            final Faiss104ScalarQuantizedKnnVectorsReader reader = createReader(
                 new FieldInfos(new FieldInfo[] { fi }),
                 Set.of("_0_165_field1.faiss"),
                 mock(FlatVectorsReader.class)
@@ -116,7 +116,7 @@ public class FaissBBQ1040KnnVectorsReaderTests extends KNNTestCase {
         try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
             ms.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
             ms.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
-            final FaissBBQ1040KnnVectorsReader reader = createReader(
+            final Faiss104ScalarQuantizedKnnVectorsReader reader = createReader(
                 new FieldInfos(new FieldInfo[] { fi }),
                 Collections.emptySet(),
                 mock(FlatVectorsReader.class)
@@ -151,7 +151,7 @@ public class FaissBBQ1040KnnVectorsReaderTests extends KNNTestCase {
         try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
             ms.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
             ms.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
-            final FaissBBQ1040KnnVectorsReader reader = createReader(
+            final Faiss104ScalarQuantizedKnnVectorsReader reader = createReader(
                 new FieldInfos(new FieldInfo[] { fi }),
                 Set.of("_0_165_field1.faiss"),
                 fvr
@@ -172,12 +172,12 @@ public class FaissBBQ1040KnnVectorsReaderTests extends KNNTestCase {
 
     @SneakyThrows
     public void testVectorSearcherHolder_initiallyNotSet() {
-        final FaissBBQ1040KnnVectorsReader reader = createReader(
+        final Faiss104ScalarQuantizedKnnVectorsReader reader = createReader(
             new FieldInfos(new FieldInfo[0]),
             Collections.emptySet(),
             mock(FlatVectorsReader.class)
         );
-        final Field f = FaissBBQ1040KnnVectorsReader.class.getDeclaredField("vectorSearcherHolder");
+        final Field f = NativeEngines990KnnVectorsReader.class.getDeclaredField("vectorSearcherHolder");
         f.setAccessible(true);
         assertFalse(((NativeEngines990KnnVectorsReader.VectorSearcherHolder) f.get(reader)).isSet());
     }
@@ -193,12 +193,12 @@ public class FaissBBQ1040KnnVectorsReaderTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    private static FaissBBQ1040KnnVectorsReader createReader(FieldInfos fieldInfos, Set<String> files, FlatVectorsReader fvr) {
+    private static Faiss104ScalarQuantizedKnnVectorsReader createReader(FieldInfos fieldInfos, Set<String> files, FlatVectorsReader fvr) {
         Directory dir = mock(Directory.class);
         when(dir.openInput(any(), any())).thenReturn(mock(IndexInput.class));
         SegmentInfo si = mock(SegmentInfo.class);
         when(si.files()).thenReturn(files);
         when(si.getId()).thenReturn((si.hashCode() + "").getBytes());
-        return new FaissBBQ1040KnnVectorsReader(new SegmentReadState(dir, si, fieldInfos, IOContext.DEFAULT), fvr);
+        return new Faiss104ScalarQuantizedKnnVectorsReader(new SegmentReadState(dir, si, fieldInfos, IOContext.DEFAULT), fvr);
     }
 }
