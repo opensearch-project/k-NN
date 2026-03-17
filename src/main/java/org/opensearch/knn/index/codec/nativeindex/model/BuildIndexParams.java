@@ -8,6 +8,7 @@ package org.opensearch.knn.index.codec.nativeindex.model;
 import lombok.Builder;
 import lombok.ToString;
 import lombok.Value;
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.SegmentWriteState;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.VectorDataType;
@@ -23,7 +24,7 @@ import java.util.function.Supplier;
 @Builder
 @ToString
 public class BuildIndexParams {
-    String fieldName;
+    FieldInfo fieldInfo;
     KNNEngine knnEngine;
     IndexOutputWithBuffer indexOutputWithBuffer;
     VectorDataType vectorDataType;
