@@ -26,7 +26,13 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.index.engine.lucene.LuceneHNSWMethod.HNSW_METHOD_COMPONENT;
 import static org.opensearch.knn.index.engine.lucene.LuceneHNSWMethod.SQ_ENCODER;
 
-public class LuceneMethodResolver extends AbstractMethodResolver {
+/**
+ * Resolves method configuration for the Lucene HNSW method. Supports optional scalar quantization
+ * encoding and {@link org.opensearch.knn.index.mapper.Mode}-based compression resolution, with
+ * supported compression levels of {@link org.opensearch.knn.index.mapper.CompressionLevel#x1} and
+ * {@link org.opensearch.knn.index.mapper.CompressionLevel#x4}.
+ */
+public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
 
     private static final Set<CompressionLevel> SUPPORTED_COMPRESSION_LEVELS = Set.of(CompressionLevel.x1, CompressionLevel.x4);
 

@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.deserializeStoredVector;
 
 /**
@@ -146,10 +147,12 @@ public class KNNVectorFieldType extends MappedFieldType {
             return userProvidedContext;
         }
         KNNMappingConfig knnMappingConfig = getKnnMappingConfig();
+        Optional<KNNMethodContext> methodContext = knnMappingConfig.getKnnMethodContext();
+        boolean isFlatMethod = methodContext.isPresent() && METHOD_FLAT.equals(methodContext.get().getMethodComponentContext().getName());
         int dimension = knnMappingConfig.getDimension();
         CompressionLevel compressionLevel = knnMappingConfig.getCompressionLevel();
         Mode mode = knnMappingConfig.getMode();
-        return compressionLevel.getDefaultRescoreContext(mode, dimension, knnMappingConfig.getIndexCreatedVersion());
+        return compressionLevel.getDefaultRescoreContext(mode, dimension, knnMappingConfig.getIndexCreatedVersion(), isFlatMethod);
     }
 
     /**
