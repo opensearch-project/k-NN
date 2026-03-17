@@ -9,6 +9,7 @@
 
 #include "faiss_methods.h"
 #include "faiss/index_factory.h"
+#include "faiss/index_io.h"
 
 namespace knn_jni {
 namespace faiss_wrapper {
@@ -33,8 +34,8 @@ void FaissMethods::writeIndex(const faiss::Index* idx, faiss::IOWriter* writer) 
     faiss::write_index(idx, writer);
 }
 
-void FaissMethods::writeIndexBinary(const faiss::IndexBinary* idx, faiss::IOWriter* writer) {
-    faiss::write_index_binary(idx, writer);
+void FaissMethods::writeIndexBinary(const faiss::IndexBinary* idx, faiss::IOWriter* writer, bool skipFlat) {
+    faiss::write_index_binary(idx, writer, skipFlat ? faiss::IO_FLAG_SKIP_STORAGE : 0);
 }
 
 } // namespace faiss_wrapper
