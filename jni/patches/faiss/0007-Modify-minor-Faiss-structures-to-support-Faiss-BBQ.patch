@@ -1,0 +1,55 @@
+From ad39469117ff1f45525f8fa78b457f088a097b6b Mon Sep 17 00:00:00 2001
+From: Dooyong Kim <kdooyong@amazon.com>
+Date: Mon, 9 Mar 2026 13:33:02 -0700
+Subject: [PATCH] Modify minor Faiss structures to support Faiss BBQ.
+
+Signed-off-by: Dooyong Kim <kdooyong@amazon.com>
+---
+ faiss/IndexBinaryHNSW.h | 2 +-
+ faiss/impl/HNSW.cpp     | 2 +-
+ faiss/impl/HNSW.h       | 3 +++
+ 3 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/faiss/IndexBinaryHNSW.h b/faiss/IndexBinaryHNSW.h
+index 8b90ef0bb..a72f06bc6 100644
+--- a/faiss/IndexBinaryHNSW.h
++++ b/faiss/IndexBinaryHNSW.h
+@@ -46,7 +46,7 @@ struct IndexBinaryHNSW : IndexBinary {
+ 
+     ~IndexBinaryHNSW() override;
+ 
+-    DistanceComputer* get_distance_computer() const;
++    virtual DistanceComputer* get_distance_computer() const;
+ 
+     void add(idx_t n, const uint8_t* x) override;
+     void add(idx_t n, const void* x, NumericType numeric_type) override;
+diff --git a/faiss/impl/HNSW.cpp b/faiss/impl/HNSW.cpp
+index 6fc392dd9..d30e3cf4e 100644
+--- a/faiss/impl/HNSW.cpp
++++ b/faiss/impl/HNSW.cpp
+@@ -53,7 +53,7 @@ void HNSW::neighbor_range(idx_t no, int layer_no, size_t* begin, size_t* end)
+     *end = o + cum_nb_neighbors(layer_no + 1);
+ }
+ 
+-HNSW::HNSW(int M) : rng(12345) {
++HNSW::HNSW(int M) : rng(12345), m(M) {
+     set_default_probas(M, 1.0 / log(M));
+     offsets.push_back(0);
+ }
+diff --git a/faiss/impl/HNSW.h b/faiss/impl/HNSW.h
+index 5a3b7f93f..f6f3c1333 100644
+--- a/faiss/impl/HNSW.h
++++ b/faiss/impl/HNSW.h
+@@ -146,6 +146,9 @@ struct HNSW {
+     /// use bounded queue during exploration
+     bool search_bounded_queue = true;
+ 
++    /// Size of the maximum neighbors. Note that the bottom graph can have 2 * m neighbors.
++    int m;
++
+     // methods that initialize the tree sizes
+ 
+     /// initialize the assign_probas and cum_nneighbor_per_level to
+-- 
+2.50.1 (Apple Git-155)
+

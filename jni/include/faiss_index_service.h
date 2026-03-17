@@ -67,8 +67,9 @@ public:
      * @param writer IOWriter implementation doing IO processing.
      *               In most cases, it is expected to have underlying Lucene's IndexOuptut.
      * @param idMapAddress memory address of the native index object
+     * @param skipFlat a boolean to indicate whether to skip writing flat index
      */
-    virtual void writeIndex(faiss::IOWriter* writer, jlong idMapAddress);
+    virtual void writeIndex(faiss::IOWriter* writer, jlong idMapAddress, bool skipFlat);
 
     virtual ~IndexService() = default;
 
@@ -103,6 +104,10 @@ public:
      */
     jlong initIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric, std::string indexDescription, int dim, int numVectors, int threadCount, std::unordered_map<std::string, jobject> parameters) final;
 
+    jlong initFaissBBQIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric,
+                            std::string indexDescription, int dim, int numVectors, int threadCount,
+                            std::unordered_map<std::string, jobject> parameters, float centroidDp, int quantizedVectorBytes);
+
     /**
      * Add vectors to index
      *
@@ -131,7 +136,7 @@ public:
      * @param idMap a map of document id and vector id
      * @param parameters parameters to be applied to faiss index
      */
-    void writeIndex(faiss::IOWriter* writer, jlong idMapAddress) final;
+    void writeIndex(faiss::IOWriter* writer, jlong idMapAddress, bool skipFlat) final;
 
 protected:
     void allocIndex(faiss::Index * index, size_t dim, size_t numVectors) final;
@@ -190,7 +195,7 @@ public:
      * @param idMap a map of document id and vector id
      * @param parameters parameters to be applied to faiss index
      */
-    void writeIndex(faiss::IOWriter* writer, jlong idMapAddress) final;
+    void writeIndex(faiss::IOWriter* writer, jlong idMapAddress, bool skipFlat) final;
 
  protected:
     void allocIndex(faiss::Index * index, size_t dim, size_t numVectors) final;
