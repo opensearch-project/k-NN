@@ -55,10 +55,7 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             refreshIndex(INDEX_NAME);
 
             // Search with script_score + lateInteractionScore through the search pipeline
-            String searchBody = buildMuveraSearchBody(
-                new double[][] { { 1.0, 0.0 }, { 0.0, 1.0 } },
-                5
-            );
+            String searchBody = buildMuveraSearchBody(new double[][] { { 1.0, 0.0 }, { 0.0, 1.0 } }, 5);
             Response response = performSearchWithPipeline(INDEX_NAME, searchBody, SEARCH_PIPELINE_NAME);
             assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
@@ -68,7 +65,7 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             List<Double> scores = parseScores(responseBody);
             assertFalse("Should have at least one result", scores.isEmpty());
         } finally {
-            deleteIndex(INDEX_NAME);
+            deleteTestIndex(INDEX_NAME);
             deleteIngestPipeline(INGEST_PIPELINE_NAME);
             deleteSearchPipeline(SEARCH_PIPELINE_NAME);
         }
@@ -91,7 +88,7 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             // Original multi-vector field should also be preserved
             assertTrue("Document should preserve multi-vector field", body.contains(MULTI_VECTOR_FIELD));
         } finally {
-            deleteIndex(INDEX_NAME);
+            deleteTestIndex(INDEX_NAME);
             deleteIngestPipeline(INGEST_PIPELINE_NAME);
         }
     }
@@ -104,13 +101,27 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             + "\"description\": \"test muvera pipeline\","
             + "\"processors\": [{"
             + "  \"muvera\": {"
-            + "    \"source_field\": \"" + MULTI_VECTOR_FIELD + "\","
-            + "    \"target_field\": \"" + FDE_FIELD + "\","
-            + "    \"dim\": " + DIM + ","
-            + "    \"k_sim\": " + K_SIM + ","
-            + "    \"dim_proj\": " + DIM_PROJ + ","
-            + "    \"r_reps\": " + R_REPS + ","
-            + "    \"seed\": " + SEED + ","
+            + "    \"source_field\": \""
+            + MULTI_VECTOR_FIELD
+            + "\","
+            + "    \"target_field\": \""
+            + FDE_FIELD
+            + "\","
+            + "    \"dim\": "
+            + DIM
+            + ","
+            + "    \"k_sim\": "
+            + K_SIM
+            + ","
+            + "    \"dim_proj\": "
+            + DIM_PROJ
+            + ","
+            + "    \"r_reps\": "
+            + R_REPS
+            + ","
+            + "    \"seed\": "
+            + SEED
+            + ","
             + "    \"fde_dimension\": 999"
             + "  }"
             + "}]"
@@ -132,12 +143,24 @@ public class MuveraProcessorIT extends KNNRestTestCase {
         String pipelineBody = "{"
             + "\"request_processors\": [{"
             + "  \"muvera_query\": {"
-            + "    \"target_field\": \"" + FDE_FIELD + "\","
-            + "    \"dim\": " + DIM + ","
-            + "    \"k_sim\": " + K_SIM + ","
-            + "    \"dim_proj\": " + DIM_PROJ + ","
-            + "    \"r_reps\": " + R_REPS + ","
-            + "    \"seed\": " + SEED + ","
+            + "    \"target_field\": \""
+            + FDE_FIELD
+            + "\","
+            + "    \"dim\": "
+            + DIM
+            + ","
+            + "    \"k_sim\": "
+            + K_SIM
+            + ","
+            + "    \"dim_proj\": "
+            + DIM_PROJ
+            + ","
+            + "    \"r_reps\": "
+            + R_REPS
+            + ","
+            + "    \"seed\": "
+            + SEED
+            + ","
             + "    \"fde_dimension\": 999"
             + "  }"
             + "}]"
@@ -172,7 +195,7 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             List<Double> scores = parseScores(responseBody);
             assertFalse("match_all should return results", scores.isEmpty());
         } finally {
-            deleteIndex(INDEX_NAME);
+            deleteTestIndex(INDEX_NAME);
             deleteIngestPipeline(INGEST_PIPELINE_NAME);
             deleteSearchPipeline(SEARCH_PIPELINE_NAME);
         }
@@ -190,10 +213,7 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             refreshIndex(INDEX_NAME);
 
             // Query vectors with dim=3 but processor expects dim=2
-            String searchBody = buildMuveraSearchBody(
-                new double[][] { { 1.0, 0.0, 0.5 } },
-                5
-            );
+            String searchBody = buildMuveraSearchBody(new double[][] { { 1.0, 0.0, 0.5 } }, 5);
             ResponseException e = expectThrows(
                 ResponseException.class,
                 () -> performSearchWithPipeline(INDEX_NAME, searchBody, SEARCH_PIPELINE_NAME)
@@ -201,7 +221,7 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             String errorBody = EntityUtils.toString(e.getResponse().getEntity());
             assertTrue("Error should mention dimension mismatch", errorBody.contains("dimension"));
         } finally {
-            deleteIndex(INDEX_NAME);
+            deleteTestIndex(INDEX_NAME);
             deleteIngestPipeline(INGEST_PIPELINE_NAME);
             deleteSearchPipeline(SEARCH_PIPELINE_NAME);
         }
@@ -216,16 +236,14 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             createIndex();
 
             // Index a document with dim=3 vectors but processor expects dim=2
-            String docBody = "{"
-                + "\"" + MULTI_VECTOR_FIELD + "\": [[1.0, 0.0, 0.5], [0.0, 1.0, 0.5]]"
-                + "}";
+            String docBody = "{" + "\"" + MULTI_VECTOR_FIELD + "\": [[1.0, 0.0, 0.5], [0.0, 1.0, 0.5]]" + "}";
             Request request = new Request("POST", "/" + INDEX_NAME + "/_doc/bad_doc?pipeline=" + INGEST_PIPELINE_NAME);
             request.setJsonEntity(docBody);
             ResponseException e = expectThrows(ResponseException.class, () -> client().performRequest(request));
             String errorBody = EntityUtils.toString(e.getResponse().getEntity());
             assertTrue("Error should mention dimension mismatch", errorBody.contains("dimension"));
         } finally {
-            deleteIndex(INDEX_NAME);
+            deleteTestIndex(INDEX_NAME);
             deleteIngestPipeline(INGEST_PIPELINE_NAME);
         }
     }
@@ -237,13 +255,26 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             + "\"description\": \"MUVERA ingest pipeline for IT\","
             + "\"processors\": [{"
             + "  \"muvera\": {"
-            + "    \"source_field\": \"" + MULTI_VECTOR_FIELD + "\","
-            + "    \"target_field\": \"" + FDE_FIELD + "\","
-            + "    \"dim\": " + DIM + ","
-            + "    \"k_sim\": " + K_SIM + ","
-            + "    \"dim_proj\": " + DIM_PROJ + ","
-            + "    \"r_reps\": " + R_REPS + ","
-            + "    \"seed\": " + SEED
+            + "    \"source_field\": \""
+            + MULTI_VECTOR_FIELD
+            + "\","
+            + "    \"target_field\": \""
+            + FDE_FIELD
+            + "\","
+            + "    \"dim\": "
+            + DIM
+            + ","
+            + "    \"k_sim\": "
+            + K_SIM
+            + ","
+            + "    \"dim_proj\": "
+            + DIM_PROJ
+            + ","
+            + "    \"r_reps\": "
+            + R_REPS
+            + ","
+            + "    \"seed\": "
+            + SEED
             + "  }"
             + "}]"
             + "}";
@@ -258,12 +289,24 @@ public class MuveraProcessorIT extends KNNRestTestCase {
         String pipelineBody = "{"
             + "\"request_processors\": [{"
             + "  \"muvera_query\": {"
-            + "    \"target_field\": \"" + FDE_FIELD + "\","
-            + "    \"dim\": " + DIM + ","
-            + "    \"k_sim\": " + K_SIM + ","
-            + "    \"dim_proj\": " + DIM_PROJ + ","
-            + "    \"r_reps\": " + R_REPS + ","
-            + "    \"seed\": " + SEED + ","
+            + "    \"target_field\": \""
+            + FDE_FIELD
+            + "\","
+            + "    \"dim\": "
+            + DIM
+            + ","
+            + "    \"k_sim\": "
+            + K_SIM
+            + ","
+            + "    \"dim_proj\": "
+            + DIM_PROJ
+            + ","
+            + "    \"r_reps\": "
+            + R_REPS
+            + ","
+            + "    \"seed\": "
+            + SEED
+            + ","
             + "    \"oversample_factor\": 2"
             + "  }"
             + "}]"
@@ -278,11 +321,16 @@ public class MuveraProcessorIT extends KNNRestTestCase {
     private void createIndex() throws IOException {
         String mapping = "{"
             + "\"properties\": {"
-            + "  \"" + FDE_FIELD + "\": {"
+            + "  \""
+            + FDE_FIELD
+            + "\": {"
             + "    \"type\": \"knn_vector\","
-            + "    \"dimension\": " + FDE_DIM
+            + "    \"dimension\": "
+            + FDE_DIM
             + "  },"
-            + "  \"" + MULTI_VECTOR_FIELD + "\": {"
+            + "  \""
+            + MULTI_VECTOR_FIELD
+            + "\": {"
             + "    \"type\": \"object\","
             + "    \"enabled\": false"
             + "  }"
@@ -334,15 +382,19 @@ public class MuveraProcessorIT extends KNNRestTestCase {
         qvBuilder.append("]");
 
         return "{"
-            + "\"size\": " + size + ","
+            + "\"size\": "
+            + size
+            + ","
             + "\"query\": {"
             + "  \"script_score\": {"
             + "    \"query\": {\"match_all\": {}},"
             + "    \"script\": {"
             + "      \"source\": \"lateInteractionScore(params.query_vectors, '"
-            + MULTI_VECTOR_FIELD + "', params._source)\","
+            + MULTI_VECTOR_FIELD
+            + "', params._source)\","
             + "      \"params\": {"
-            + "        \"query_vectors\": " + qvBuilder.toString()
+            + "        \"query_vectors\": "
+            + qvBuilder.toString()
             + "      }"
             + "    }"
             + "  }"
@@ -356,7 +408,7 @@ public class MuveraProcessorIT extends KNNRestTestCase {
         return client().performRequest(request);
     }
 
-    private void deleteIndex(String index) {
+    private void deleteTestIndex(String index) {
         try {
             deleteKNNIndex(index);
         } catch (Exception e) {
