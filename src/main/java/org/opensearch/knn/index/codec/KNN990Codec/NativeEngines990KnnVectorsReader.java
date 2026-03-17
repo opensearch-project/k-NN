@@ -64,16 +64,16 @@ import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
 @Log4j2
 public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
 
-    private final FlatVectorsReader flatVectorsReader;
+    protected final FlatVectorsReader flatVectorsReader;
     private Map<String, String> quantizationStateCacheKeyPerField;
-    private final SegmentReadState segmentReadState;
+    protected final SegmentReadState segmentReadState;
     private final List<String> cacheKeys;
-    private volatile VectorSearcherHolder vectorSearcherHolder;
+    protected volatile VectorSearcherHolder vectorSearcherHolder;
     // This lock object ensure that only one thread can initialize vectorSearcherHolder object.
     // This is needed since we are mappings graphs to memory for memory optimized search lazily. But once we make it eager
     // the lock object will not be needed
-    private final Object vectorSearcherHolderLockObject;
-    private final IOContext ioContext;
+    protected final Object vectorSearcherHolderLockObject;
+    protected final IOContext ioContext;
 
     public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) {
         this.flatVectorsReader = flatVectorsReader;
@@ -305,7 +305,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         return cacheKeys;
     }
 
-    private VectorSearcher loadMemoryOptimizedSearcherIfRequired(final FieldInfo fieldInfo) {
+    protected VectorSearcher loadMemoryOptimizedSearcherIfRequired(final FieldInfo fieldInfo) {
         if (vectorSearcherHolder.isSet()) {
             return vectorSearcherHolder.getVectorSearcher();
         }
@@ -330,7 +330,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         }
     }
 
-    private IOSupplier<VectorSearcher> getVectorSearcherSupplier(final FieldInfo fieldInfo) {
+    protected IOSupplier<VectorSearcher> getVectorSearcherSupplier(final FieldInfo fieldInfo) {
         // Skip non-knn fields.
         final Map<String, String> attributes = fieldInfo.attributes();
         if (attributes == null || attributes.containsKey(KNN_FIELD) == false) {
