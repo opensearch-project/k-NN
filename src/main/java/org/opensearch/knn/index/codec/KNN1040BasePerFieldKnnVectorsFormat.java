@@ -95,8 +95,8 @@ public abstract class KNN1040BasePerFieldKnnVectorsFormat extends PerFieldKnnVec
             return luceneFormatResolver.resolve(field, knnMethodContext, params, defaultMaxConnections, defaultBeamWidth);
         }
 
-        // All native engines to use nativeFormatResolver
-        return nativeFormatResolver.resolve();
+        // Native engines — pass params so the resolver can detect BBQ encoder
+        return nativeFormatResolver.resolve(field, knnMethodContext, params, defaultMaxConnections, defaultBeamWidth);
     }
 
     @Override
