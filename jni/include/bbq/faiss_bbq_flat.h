@@ -42,7 +42,7 @@ namespace knn_jni {
     }
 
     template <bool IsMaxIP, bool IsBytesMultipleOf8>
-    struct FaissBBQDistanceComputer final : faiss::DistanceComputer {
+    struct FaissSQDistanceComputer final : faiss::DistanceComputer {
         const int64_t oneElementByteSize;
         const uint64_t quantizedVectorBytes;
         const uint8_t* data;
@@ -55,7 +55,7 @@ namespace knn_jni {
         int32_t dimension;
         int32_t numVectors;
 
-        FaissBBQDistanceComputer(int32_t _oneElementByteSize, const void* _data, float _centroidDp, int32_t _dimension, int32_t _numVectors)
+        FaissSQDistanceComputer(int32_t _oneElementByteSize, const void* _data, float _centroidDp, int32_t _dimension, int32_t _numVectors)
           : faiss::DistanceComputer(),
             oneElementByteSize(_oneElementByteSize),
             // Memory layout : [Quantized Vector | lowerInterval (float) | upperInterval (float) | additionalCorrection (float) | quantizedComponentSum (int)]
@@ -72,7 +72,7 @@ namespace knn_jni {
         }
 
         void set_query(const float* x) final {
-            // The query pointer comes from FaissBBQFlat::quantizedVectorsAndCorrectionFactors
+            // The query pointer comes from FaissSQFlat::quantizedVectorsAndCorrectionFactors
             // which uses NBytesAlignedAllocator<uint8_t, 8> (8-byte aligned base) with a
             // stride of oneElementByteSize that is always a multiple of 8 (quantizedVectorBytes
             // is a multiple of 8 by formula, plus 16 bytes of correction factors).
@@ -106,13 +106,15 @@ namespace knn_jni {
 
             if constexpr (IsMaxIP) {
                 score += queryAdditional + additional - centroidDp;
+                // Negate: Faiss HNSW always minimizes distance (CMax comparator).
+                // For IP, higher score = more similar, so we negate so that
+                // minimizing -score = maximizing score.
+                return -score;
             } else {
                 // L2: squared distance = ||q||² + ||x||² - 2*dot(q,x)
                 // additionalCorrection values carry the squared norms of centroid-centered vectors.
-                score = queryAdditional + additional - 2.0f * score;
+                return queryAdditional + additional - 2.0f * score;
             }
-
-            return score;
         }
 
         /// compute distance of vector i to current query
@@ -236,16 +238,18 @@ namespace knn_jni {
                    + lx * lz * dp;
 
             if constexpr (IsMaxIP) {
+                // Negate: Faiss HNSW always minimizes distance (CMax comparator).
+                // For IP, higher score = more similar, so we negate so that
+                // minimizing -score = maximizing score.
                 score += additional + additionalz - centroidDp;
+                return -score;
             } else {
-                score = additional + additionalz - 2 * score;
+                return additional + additionalz - 2 * score;
             }
-
-            return score;
         }
     };
 
-    struct FaissBBQFlat final : faiss::IndexBinary {
+    struct FaissSQFlat final : faiss::IndexBinary {
         int64_t numVectors;
         int32_t quantizedVectorBytes;
         float centroidDp;
@@ -254,7 +258,7 @@ namespace knn_jni {
         std::vector<uint8_t, knn_jni::NBytesAlignedAllocator<uint8_t, 8>> quantizedVectorsAndCorrectionFactors;
         int32_t dimension;
 
-        FaissBBQFlat(int64_t _numVectors, int32_t _quantizedVectorBytes, float _centroidDp, int32_t _dimension, faiss::MetricType _metric)
+        FaissSQFlat(int64_t _numVectors, int32_t _quantizedVectorBytes, float _centroidDp, int32_t _dimension, faiss::MetricType _metric)
           : faiss::IndexBinary(_dimension, _metric),
             numVectors(_numVectors),
             quantizedVectorBytes(_quantizedVectorBytes),
@@ -279,15 +283,15 @@ namespace knn_jni {
             const bool aligned = (oneElementSize % 8) == 0;
             if (metric_type == faiss::MetricType::METRIC_L2) {
                 if (aligned) {
-                    return new FaissBBQDistanceComputer<false, true>(oneElementSize, quantizedVectorsAndCorrectionFactors.data(), centroidDp, dimension, numVectors);
+                    return new FaissSQDistanceComputer<false, true>(oneElementSize, quantizedVectorsAndCorrectionFactors.data(), centroidDp, dimension, numVectors);
                 } else {
-                    return new FaissBBQDistanceComputer<false, false>(oneElementSize, quantizedVectorsAndCorrectionFactors.data(), centroidDp, dimension, numVectors);
+                    return new FaissSQDistanceComputer<false, false>(oneElementSize, quantizedVectorsAndCorrectionFactors.data(), centroidDp, dimension, numVectors);
                 }
             } else if (metric_type == faiss::MetricType::METRIC_INNER_PRODUCT) {
                 if (aligned) {
-                    return new FaissBBQDistanceComputer<true, true>(oneElementSize, quantizedVectorsAndCorrectionFactors.data(), centroidDp, dimension, numVectors);
+                    return new FaissSQDistanceComputer<true, true>(oneElementSize, quantizedVectorsAndCorrectionFactors.data(), centroidDp, dimension, numVectors);
                 } else {
-                    return new FaissBBQDistanceComputer<true, false>(oneElementSize, quantizedVectorsAndCorrectionFactors.data(), centroidDp, dimension, numVectors);
+                    return new FaissSQDistanceComputer<true, false>(oneElementSize, quantizedVectorsAndCorrectionFactors.data(), centroidDp, dimension, numVectors);
                 }
             }
 
@@ -300,15 +304,15 @@ namespace knn_jni {
                     int32_t* distances,
                     faiss::idx_t* labels,
                     const faiss::SearchParameters* params = nullptr) const final {
-            throw std::runtime_error("FaissBBQFlat does not support search");
+            throw std::runtime_error("FaissSQFlat does not support search");
         }
 
         void reset() final {
-            throw std::runtime_error("FaissBBQFlat does not support reset");
+            throw std::runtime_error("FaissSQFlat does not support reset");
         }
 
         void merge_from(faiss::IndexBinary& otherIndex, faiss::idx_t add_id = 0) final {
-            throw std::runtime_error("FaissBBQFlat does not support merge_from");
+            throw std::runtime_error("FaissSQFlat does not support merge_from");
         };
 
         void add(faiss::idx_t n, const uint8_t* x) final {

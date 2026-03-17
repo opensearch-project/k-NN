@@ -77,6 +77,12 @@ public class NativeIndexWriter {
     /**
      * Gets the correct writer type for the specified field, using a given QuantizationModel.
      *
+     * This method returns a NativeIndexWriter instance that is tailored to the specific characteristics
+     * of the field described by the provided FieldInfo. It determines whether to use a template-based
+     * writer or an iterative approach based on the engine type and whether the field is associated with a template.
+     *
+     * If quantization is required, the QuantizationModel is passed to the writer to facilitate the quantization process.
+     *
      * @param fieldInfo          The FieldInfo object containing metadata about the field for which the writer is needed.
      * @param state              The SegmentWriteState representing the current segment's writing context.
      * @param quantizationState  The QuantizationState that contains quantization state required for quantization

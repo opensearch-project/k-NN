@@ -25,6 +25,8 @@ if(NOT DEFINED APPLY_LIB_PATCHES OR "${APPLY_LIB_PATCHES}" STREQUAL true)
     list(APPEND PATCH_FILE_LIST "${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss/0007-Modify-minor-Faiss-structures-to-support-Faiss-BBQ.patch")
     list(APPEND PATCH_FILE_LIST "${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss/0008-Added-skipping-flat-storage-availability-in-write_in.patch")
     list(APPEND PATCH_FILE_LIST "${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss/0009-Fixing-radial-search-for-IndexHNSWCagra.patch")
+    list(APPEND PATCH_FILE_LIST "${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss/0010-Modify-minor-Faiss-structures-to-support-Faiss-BBQ.patch")
+    list(APPEND PATCH_FILE_LIST "${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss/0011-Added-skipping-flat-storage-availability-in-write_in.patch")
 
     # Get patch id of the last commit
     execute_process(COMMAND sh -c "git --no-pager show HEAD | git patch-id --stable" OUTPUT_VARIABLE PATCH_ID_OUTPUT_FROM_COMMIT WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss)
