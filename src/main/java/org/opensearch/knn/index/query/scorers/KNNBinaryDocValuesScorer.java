@@ -3,14 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.query.exactsearch.scorers;
+package org.opensearch.knn.index.query.scorers;
 
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.VectorScorer;
 import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.BytesRef;
-import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 
@@ -19,11 +18,12 @@ import java.io.IOException;
 /**
  * A {@link VectorScorer} backed by {@link BinaryDocValues}.
  *
- * <p>Document vectors stored as serialized bytes in Lucene's {@link BinaryDocValues} format are
- * deserialized on the fly and compared against the query vector using the provided
- * {@link KNNVectorSimilarityFunction}.
+ * <p>This scorer is used in the exact search path to score documents whose vectors are stored
+ * as serialized bytes in {@link BinaryDocValues}. Document vectors are deserialized on the fly
+ * and compared against the query vector using the similarity function derived from the
+ * configured {@link SpaceType}.
  *
- * <p>Two overloaded factory methods are provided:
+ * <p>Use the static factory methods to create an instance:
  * <ul>
  *   <li>{@link #create(float[], BinaryDocValues, SpaceType)}
  *       — for float[] query vectors. Document vectors are deserialized from {@link BytesRef} to
@@ -38,6 +38,15 @@ public class KNNBinaryDocValuesScorer implements VectorScorer {
     private final BinaryDocValues binaryDocValues;
     private final ScoreFunction scoreFunction;
 
+    /**
+     * Strategy for computing a similarity score from a serialized document vector.
+     *
+     * <p>A functional interface is used here because the two factory methods ({@link #create(float[], BinaryDocValues, SpaceType)}
+     * and {@link #create(byte[], BinaryDocValues, SpaceType)}) require different deserialization
+     * and comparison logic. Each factory method captures its specific query vector type and
+     * deserialization strategy in a lambda at construction time, avoiding runtime type checks
+     * or branching in {@link #score()} on every call.
+     */
     @FunctionalInterface
     private interface ScoreFunction {
         float score(BytesRef bytesRef) throws IOException;

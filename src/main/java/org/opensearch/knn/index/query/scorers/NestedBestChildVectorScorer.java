@@ -3,12 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.query.exactsearch.scorers;
+package org.opensearch.knn.index.query.scorers;
 
+import org.apache.lucene.search.ConjunctionUtils;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.VectorScorer;
 import org.apache.lucene.util.BitSet;
 import org.opensearch.common.Nullable;
+
+import java.util.Arrays;
 
 import java.io.IOException;
 
@@ -40,11 +43,11 @@ import java.io.IOException;
  * <h2>Filtered vs Unfiltered</h2>
  * <ul>
  *   <li><b>Unfiltered</b> ({@code acceptedChildrenIterator == null}): every vector document is
- *       considered. The underlying {@code vectorIterator} drives iteration directly.</li>
- *   <li><b>Filtered</b>: only children present in the {@code acceptedChildrenIterator} are
- *       visited. The {@code vectorIterator} is advanced to each accepted child to compute its
- *       score, ensuring that {@code vectorIterator.advance()} is never called for filtered-out
- *       children.</li>
+ *       considered. The underlying vector iterator drives iteration directly.</li>
+ *   <li><b>Filtered</b>: the {@code filterIdsIterator} is intersected with the vector
+ *       iterator via {@link #maybeIntersectWithFilter}, producing a single iterator
+ *       that yields only doc ids present in both. This keeps the two iterators in lockstep
+ *       so the vector scorer is always positioned correctly when {@link #score()} is called.</li>
  * </ul>
  *
  * <h2>Example</h2>
@@ -62,9 +65,8 @@ import java.io.IOException;
  * @see org.apache.lucene.search.VectorScorer
  * @see org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery
  */
-public class NestedBestChildVectorScorer implements VectorScorer {
-    private final VectorScorer vectorScorer;
-    private final DocIdSetIterator vectorIterator;
+class NestedBestChildVectorScorer implements VectorScorer {
+    private final VectorScorer childrenVectorScorer;
     private final DocIdSetIterator childIterator;
     private final BitSet parentBitSet;
     private final DocIdSetIterator iterator;
@@ -75,41 +77,33 @@ public class NestedBestChildVectorScorer implements VectorScorer {
      * Creates a scorer that finds the best-scoring child per parent, optionally restricted to a
      * subset of accepted children.
      *
-     * @param acceptedChildrenIterator iterator over the accepted child doc ids (i.e. children that
+     * <p>When {@code filterIdsIterator} is {@code null} (unfiltered), the scorer's own
+     * vector iterator is used to drive child iteration, matching the behavior of Lucene's
+     * {@code DiversifyingChildrenVectorScorer} but without requiring a separate filter iterator.
+     *
+     * @param filterIdsIterator iterator over the accepted child doc ids (i.e. children that
      *                                 pass the filter). Pass {@code null} for the unfiltered case
      *                                 where all vector documents are considered.
      * @param parentBitSet             a {@link BitSet} with bits set at every parent doc id.
      *                                 Used to determine parent boundaries for grouping children.
-     * @param vectorScorer             the underlying scorer that computes similarity scores for
+     * @param childrenVectorScorer             the underlying scorer that computes similarity scores for
      *                                 individual child documents against the query vector.
      */
     public NestedBestChildVectorScorer(
-        @Nullable DocIdSetIterator acceptedChildrenIterator,
+        @Nullable DocIdSetIterator filterIdsIterator,
         BitSet parentBitSet,
-        VectorScorer vectorScorer
+        VectorScorer childrenVectorScorer
     ) {
-        this.vectorScorer = vectorScorer;
-        this.vectorIterator = vectorScorer.iterator();
-        this.childIterator = acceptedChildrenIterator;
+        this.childrenVectorScorer = childrenVectorScorer;
         this.parentBitSet = parentBitSet;
+        DocIdSetIterator vectorIterator = childrenVectorScorer.iterator();
+        this.childIterator = maybeIntersectWithFilter(vectorIterator, filterIdsIterator);
         this.iterator = createIterator();
-    }
-
-    /**
-     * Convenience constructor for the unfiltered case where all child documents are considered.
-     *
-     * @param parentBitSet  a {@link BitSet} with bits set at every parent doc id.
-     * @param vectorScorer  the underlying scorer for computing similarity scores.
-     */
-    public NestedBestChildVectorScorer(BitSet parentBitSet, VectorScorer vectorScorer) {
-        this(null, parentBitSet, vectorScorer);
     }
 
     /**
      * Returns the score of the best-scoring child for the current parent group.
      * Only valid after a successful call to {@code iterator().nextDoc()}.
-     *
-     * @return the highest similarity score among the children of the current parent.
      */
     @Override
     public float score() throws IOException {
@@ -119,14 +113,31 @@ public class NestedBestChildVectorScorer implements VectorScorer {
     /**
      * Returns a {@link DocIdSetIterator} whose {@code nextDoc()} yields the doc id of the
      * best-scoring child for each successive parent. The same instance is returned on every call.
-     *
-     * @return the iterator over best-child doc ids.
      */
     @Override
     public DocIdSetIterator iterator() {
         return iterator;
     }
 
+    /**
+     * Returns the vector iterator directly if no filter is provided, otherwise intersects
+     * it with the filter so that only doc ids present in both are yielded.
+     */
+    private static DocIdSetIterator maybeIntersectWithFilter(
+        DocIdSetIterator vectorIterator,
+        @Nullable DocIdSetIterator filterIdsIterator
+    ) {
+        if (filterIdsIterator == null) {
+            return vectorIterator;
+        }
+        return ConjunctionUtils.intersectIterators(Arrays.asList(filterIdsIterator, vectorIterator));
+    }
+
+    /**
+     * Creates a {@link DocIdSetIterator} that groups children by parent and yields the
+     * best-scoring child per parent. Each {@code nextDoc()} call advances through one
+     * parent group and returns the doc id of the highest-scoring child within that group.
+     */
     private DocIdSetIterator createIterator() {
         return new DocIdSetIterator() {
             @Override
@@ -136,7 +147,10 @@ public class NestedBestChildVectorScorer implements VectorScorer {
 
             @Override
             public int nextDoc() throws IOException {
-                int nextChild = nextChildDoc();
+                int nextChild = childIterator.docID();
+                if (nextChild == -1) {
+                    nextChild = childIterator.nextDoc();
+                }
                 if (nextChild == NO_MORE_DOCS) {
                     bestChild = NO_MORE_DOCS;
                     return NO_MORE_DOCS;
@@ -144,42 +158,25 @@ public class NestedBestChildVectorScorer implements VectorScorer {
 
                 currentScore = Float.NEGATIVE_INFINITY;
                 int currentParent = parentBitSet.nextSetBit(nextChild);
-                if (currentParent == -1) {
-                    bestChild = NO_MORE_DOCS;
-                    return NO_MORE_DOCS;
-                }
 
                 do {
-                    advanceVectorIterator(nextChild);
-                    float score = vectorScorer.score();
+                    float score = childrenVectorScorer.score();
                     if (score > currentScore) {
                         bestChild = nextChild;
                         currentScore = score;
                     }
-                } while ((nextChild = nextChildDoc()) != NO_MORE_DOCS && nextChild < currentParent);
+                } while ((nextChild = childIterator.nextDoc()) != NO_MORE_DOCS && nextChild < currentParent);
 
                 return bestChild;
             }
 
-            private int nextChildDoc() throws IOException {
-                if (childIterator == null) {
-                    int docId = vectorIterator.docID();
-                    return docId == -1 ? vectorIterator.nextDoc() : docId;
-                }
-                int docId = childIterator.docID();
-                return docId == -1 ? childIterator.nextDoc() : docId;
-            }
-
-            private void advanceVectorIterator(int target) throws IOException {
-                if (childIterator == null) {
-                    // Unfiltered: vectorIterator is already positioned via nextChildDoc
-                    vectorIterator.nextDoc();
-                } else {
-                    vectorIterator.advance(target);
-                    childIterator.nextDoc();
-                }
-            }
-
+            /**
+             * Not supported. This iterator returns the best-scoring child per parent group,
+             * which requires evaluating <em>all</em> children within a group. Advancing to an
+             * arbitrary target could land in the middle of a parent group, making it impossible
+             * to consider earlier (potentially higher-scoring) children without backtracking
+             * — violating the forward-only iterator contract.
+             */
             @Override
             public int advance(int target) {
                 throw new UnsupportedOperationException();
@@ -187,7 +184,7 @@ public class NestedBestChildVectorScorer implements VectorScorer {
 
             @Override
             public long cost() {
-                return childIterator != null ? childIterator.cost() : vectorIterator.cost();
+                return childIterator.cost();
             }
         };
     }

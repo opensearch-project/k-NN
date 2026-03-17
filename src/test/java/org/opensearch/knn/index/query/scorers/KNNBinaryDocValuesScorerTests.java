@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.query.exactsearch.scorers;
+package org.opensearch.knn.index.query.scorers;
 
 import junit.framework.TestCase;
 import lombok.SneakyThrows;
