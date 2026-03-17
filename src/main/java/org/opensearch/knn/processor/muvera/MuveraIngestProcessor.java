@@ -12,6 +12,7 @@ import org.opensearch.ingest.ConfigurationUtils;
 import org.opensearch.ingest.IngestDocument;
 import org.opensearch.ingest.Processor;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -116,7 +117,7 @@ public class MuveraIngestProcessor extends AbstractProcessor {
         }
 
         // Convert float[] to List<Float> for IngestDocument compatibility
-        List<Float> fdeList = new java.util.ArrayList<>(fde.length);
+        List<Float> fdeList = new ArrayList<>(fde.length);
         for (float v : fde) {
             fdeList.add(v);
         }

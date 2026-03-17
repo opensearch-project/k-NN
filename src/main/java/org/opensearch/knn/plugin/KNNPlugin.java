@@ -91,6 +91,7 @@ import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
 import org.opensearch.knn.search.extension.MMRSearchExtBuilder;
 
+import org.opensearch.ingest.Processor;
 import org.opensearch.knn.processor.muvera.MuveraIngestProcessor;
 import org.opensearch.knn.processor.muvera.MuveraSearchRequestProcessor;
 import org.opensearch.knn.search.processor.mmr.MMRKnnQueryTransformer;
@@ -510,7 +511,7 @@ public class KNNPlugin extends Plugin
     }
 
     @Override
-    public Map<String, org.opensearch.ingest.Processor.Factory> getProcessors(org.opensearch.ingest.Processor.Parameters parameters) {
+    public Map<String, Processor.Factory> getProcessors(Processor.Parameters parameters) {
         return Map.of(MuveraIngestProcessor.TYPE, new MuveraIngestProcessor.Factory());
     }
 
