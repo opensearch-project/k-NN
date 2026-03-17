@@ -20,7 +20,7 @@ import java.io.IOException;
  */
 class ByteVectorIdsExactKNNIterator implements ExactKNNIterator {
     protected final DocIdSetIterator filterIdsIterator;
-    protected final float[] queryVector;
+    protected final byte[] byteQueryVector;
     protected final KNNByteVectorValues byteVectorValues;
     protected final SpaceType spaceType;
     protected float currentScore = Float.NEGATIVE_INFINITY;
@@ -33,7 +33,7 @@ class ByteVectorIdsExactKNNIterator implements ExactKNNIterator {
         final SpaceType spaceType
     ) throws IOException {
         this.filterIdsIterator = filterIdsIterator;
-        this.queryVector = queryVector;
+        this.byteQueryVector = convertToByteArray(queryVector);
         this.byteVectorValues = byteVectorValues;
         this.spaceType = spaceType;
         // This cannot be moved inside nextDoc() method since it will break when we have nested field, where
@@ -73,16 +73,6 @@ class ByteVectorIdsExactKNNIterator implements ExactKNNIterator {
         final byte[] vector = byteVectorValues.getVector();
         // Calculates a similarity score between the two vectors with a specified function. Higher similarity
         // scores correspond to closer vectors.
-
-        // The query vector of Faiss byte vector is a Float array because ScalarQuantizer accepts it as float array.
-        // To compute the score between this query vector and each vector in KNNByteVectorValues we are casting this query vector into byte
-        // array directly.
-        // This is safe to do so because float query vector already has validated byte values. Do not reuse this direct cast at any other
-        // place.
-        final byte[] byteQueryVector = new byte[queryVector.length];
-        for (int i = 0; i < queryVector.length; i++) {
-            byteQueryVector[i] = (byte) queryVector[i];
-        }
         return spaceType.getKnnVectorSimilarityFunction().compare(byteQueryVector, vector);
     }
 
@@ -96,5 +86,18 @@ class ByteVectorIdsExactKNNIterator implements ExactKNNIterator {
             byteVectorValues.advance(nextDocID);
         }
         return nextDocID;
+    }
+
+    private byte[] convertToByteArray(final float[] queryVector) {
+        // The query vector of Faiss byte vector is a Float array because ScalarQuantizer accepts it as float array.
+        // To compute the score between this query vector and each vector in KNNByteVectorValues we are casting this query vector into byte
+        // array directly.
+        // This is safe to do so because float query vector already has validated byte values. Do not reuse this direct cast at any other
+        // place.
+        final byte[] byteQueryVector = new byte[queryVector.length];
+        for (int i = 0; i < queryVector.length; i++) {
+            byteQueryVector[i] = (byte) queryVector[i];
+        }
+        return byteQueryVector;
     }
 }
