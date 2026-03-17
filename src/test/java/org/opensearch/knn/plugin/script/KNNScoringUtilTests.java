@@ -29,8 +29,7 @@ import java.util.function.BiFunction;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.plugin.script.KNNScoringUtil.innerProductADC;
-import static org.opensearch.knn.plugin.script.KNNScoringUtil.l2SquaredADC;
+import static org.opensearch.knn.plugin.script.KNNScoringUtil.*;
 
 public class KNNScoringUtilTests extends KNNTestCase {
 
@@ -372,6 +371,37 @@ public class KNNScoringUtilTests extends KNNTestCase {
         expectThrows(IllegalArgumentException.class, () ->
                 innerProductADC(new float[8], new byte[2]) // 8 != 2*8=16
         );
+    }
+
+    public void testADCRandomizedSIMDvsScalar() {
+        // Test various sizes, including non-multiples of vector lanes.
+        int[] dimensions = { 16, 32, 64, 128, 256, 512, 1024, 1032, 1040, 2048 };
+
+        for (int dim : dimensions) {
+            float[] queryVector = new float[dim];
+            byte[] inputVector = new byte[dim / 8];
+
+            // Fill query vector with random floats between -10.0 and 10.0.
+            for (int i = 0; i < dim; i++) {
+                queryVector[i] = (random().nextFloat() * 20.0f) - 10.0f;
+            }
+            // Fill input vector with random bytes.
+            random().nextBytes(inputVector);
+
+            // L2 distance consistency.
+            float expectedL2 = l2SquaredADCScalar(queryVector, inputVector);
+            float actualL2 = l2SquaredADC(queryVector, inputVector);
+
+            // Delta 1.0f allows for floating-point errors in high dimensions.
+            assertEquals("L2 Mismatch at dimension " + dim, expectedL2, actualL2, 1.0f);
+
+            // Check Inner Product consistency.
+            float expectedInnerProduct = innerProductADCScalar(queryVector, inputVector);
+            float actualInnerProduct = innerProductADC(queryVector, inputVector);
+
+            // Delta 1.0f allows for floating-point errors in high dimensions.
+            assertEquals("Inner Product Mismatch at dimension " + dim, expectedInnerProduct, actualInnerProduct, 1.0f);
+        }
     }
 
     public void testCalculateHammingBit_whenByte_thenSuccess() {

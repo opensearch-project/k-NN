@@ -289,7 +289,8 @@ publishing {
 }
 
 compileJava {
-    options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
+    options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor',
+                                 "--add-modules", "jdk.incubator.vector"])
 
     // Since MemorySegment is not available until JDK22, exclude it when packaging and only include it for Java22+.
     def javaExt = project.extensions.getByType(JavaPluginExtension)
@@ -298,7 +299,8 @@ compileJava {
     }
 }
 compileTestJava {
-    options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
+    options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor',
+                                 "--add-modules", "jdk.incubator.vector"])
 }
 javadoc {
     // Block generating Java doc as it will complain MemorySegment is under preview for Java21.
@@ -583,27 +585,6 @@ tasks.register('buildJniTest', Test) {
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         environment('PATH', System.getenv('PATH') + ";$rootDir/jni/build/release" + ";$rootDir/src/main/resources/windowsDependencies")
     }
-}
-
-tasks.withType(JavaCompile).configureEach {
-    options.compilerArgs += [
-            "--add-modules", "jdk.incubator.vector",
-            "--enable-preview"
-    ]
-}
-
-tasks.withType(Test).configureEach {
-    jvmArgs += [
-            "--add-modules=jdk.incubator.vector",
-            "--enable-preview"
-    ]
-}
-
-tasks.withType(JavaExec).configureEach {
-    jvmArgs += [
-            "--add-modules=jdk.incubator.vector",
-            "--enable-preview"
-    ]
 }
 
 test {

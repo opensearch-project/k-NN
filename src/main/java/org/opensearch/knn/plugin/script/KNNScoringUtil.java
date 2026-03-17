@@ -12,11 +12,9 @@ import org.opensearch.knn.index.KNNVectorScriptDocValues;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 
-import jdk.incubator.vector.FloatVector;
-import jdk.incubator.vector.IntVector;
-import jdk.incubator.vector.VectorOperators;
-import jdk.incubator.vector.VectorSpecies;
-
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Locale;
@@ -26,60 +24,39 @@ import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValu
 
 public class KNNScoringUtil {
     private static Logger logger = LogManager.getLogger(KNNScoringUtil.class);
-    private static final VectorSpecies<Float> SPECIES = FloatVector.SPECIES_PREFERRED;
-    private static final VectorSpecies<Integer> INTEGER_VECTOR_SPECIES = IntVector.SPECIES_PREFERRED;
+    private static final MethodHandle L2_SQUARED_ADC_SIMD;
+    private static final MethodHandle INNER_PRODUCT_ADC_SIMD;
+    private static volatile boolean SIMD_ENABLED = true;
 
-    // SHIFT_VECTOR is used to extract individual bits from packed bytes.
-    // It holds the shift offsets required to move each bit to the least significant bit (LSB) position.
-    // Shift vector [7, 6, 5, 4, 3, 2, 1, 0, 15, 14...]
-    private static final IntVector SHIFT_VECTOR;
     static {
-        // Calculate shift offset combining byte's starting bit and its relative reverse bit position
-        int lanes = INTEGER_VECTOR_SPECIES.length();
-        int[] shiftOffsets = new int[lanes];
-        for (int i = 0; i < lanes; i++) {
-            int byteBaseOffset = (i / 8) * 8;
-            int bitOffset = 7 - (i % 8);
-            shiftOffsets[i] = byteBaseOffset + bitOffset;
+        MethodHandle l2Squared = null;
+        MethodHandle innerProduct = null;
+        try {
+            // Check if the Vector API module is available at runtime.
+            Class.forName("jdk.incubator.vector.FloatVector");
+
+            // Use reflection to load SIMD class to avoid direct dependency and ClassLoader errors when Vector API is disabled.
+            Class<?> simdClass = Class.forName("org.opensearch.knn.plugin.script.KNNScoringUtilSIMD");
+            MethodHandles.Lookup lookup = MethodHandles.lookup();
+
+            l2Squared = lookup.findStatic(
+                    simdClass,
+                    "l2SquaredADC",
+                    MethodType.methodType(float.class, float[].class, byte[].class)
+            );
+            innerProduct = lookup.findStatic(
+                    simdClass,
+                    "innerProductADC",
+                    MethodType.methodType(float.class, float[].class, byte[].class)
+            );
+        } catch (Throwable t) {
+            // Fallback to scalar implementation if Vector API module or SIMD class is unavailable.
+            logger.debug("SIMD Vector API not available, falling back to scalar ADC computation");
         }
-        SHIFT_VECTOR = IntVector.fromArray(INTEGER_VECTOR_SPECIES, shiftOffsets, 0);
+        L2_SQUARED_ADC_SIMD = l2Squared;
+        INNER_PRODUCT_ADC_SIMD = innerProduct;
     }
 
-    /**
-     * Unpacks bits from inputVector starting at dimension i into a FloatVector.
-     * Packs (step/8) consecutive bytes into a single int, broadcasts across all lanes,
-     * then isolates each bit via shift and mask before converting to float (0.0f or 1.0f).
-     *
-     * Example
-     *      lanes=8:  packedBits = [byte0]
-     *      lanes=16: packedBits = [byte1 | byte0]
-     *      lanes=32: packedBits = [byte3 | byte2 | byte1 | byte0]
-     *
-     * @param inputVector The compressed binary vector where each bit represents a dimension
-     * @param i           The current dimension index (must be a multiple of step)
-     * @param step        The number of dimensions processed per SIMD iteration (equals SPECIES.length())
-     * @return FloatVector where each lane contains 0.0f or 1.0f corresponding to the extracted bit
-     */
-    private static FloatVector unpackBitsToFloatVector(byte[] inputVector, int i, int step){
-        int byteIndex  = i / 8;
-        int packedBits = 0;
-        for (int j = 0; j < (step / 8); j++) {
-            // Extract an unsigned byte and merge it into packedBits
-            // at the correct 8-bit offset (0, 8, 16...).
-            int byteValue = inputVector[byteIndex + j] & 0xFF;
-            int bitOffset = j * 8;
-            packedBits |= byteValue << bitOffset;
-        }
-
-        // 1. Broadcast packedBits to all lanes
-        // 2. LSHR by SHIFT_VECTOR to move each target bit to position 0
-        // 3. AND with 1 to isolate the bit (0 or 1)
-        // 4. Convert int 0/1 to float 0.0f/1.0f
-        return (FloatVector) IntVector.broadcast(INTEGER_VECTOR_SPECIES, packedBits)
-                .lanewise(VectorOperators.LSHR, SHIFT_VECTOR)
-                .lanewise(VectorOperators.AND, 1)
-                .convert(VectorOperators.I2F, 0);
-    }
 
     /**
      * checks both query vector and input vector has equal dimension
@@ -172,10 +149,9 @@ public class KNNScoringUtil {
     }
 
     /**
-     * Calculates the L2 squared distance between a float query vector and a binary document vector using ADC (Asymmetric Distance Computation).
-     * This method implements a specialized version of L2 distance calculation where one vector is in binary format (compressed)
-     * and the other is in float format (uncompressed).
-     * Uses SIMD (FloatVector.SPECIES_PREFERRED) for vectorized processing with reduceLanes().
+     * Calculates the L2 squared distance between a float query vector and a binary document vector using ADC.
+     * Attempts to use SIMD (FloatVector.SPECIES_PREFERRED) for vectorized processing.
+     * If SIMD is unavailable, disabled, or fails at runtime, it falls back to a scalar implementation.
      *
      * @param queryVector The uncompressed query vector in float format
      * @param inputVector The compressed document vector in binary format, where each bit represents a dimension
@@ -183,34 +159,28 @@ public class KNNScoringUtil {
      * @throws IllegalArgumentException if queryVector length is not compatible with inputVector length (queryVector.length != inputVector.length * 8)
      */
     public static float l2SquaredADC(float[] queryVector, byte[] inputVector) {
-        if(queryVector.length != inputVector.length * 8){
+        if (queryVector.length != inputVector.length * 8) {
             throw new IllegalArgumentException("queryVector.length must equal inputVector.length * 8");
         }
 
-        final int length = queryVector.length;
-        final int step = SPECIES.length();
-        final int loopBound = SPECIES.loopBound(length);
-
-        FloatVector distanceAccumulator = FloatVector.zero(SPECIES);
-        int i = 0;
-
-        for (; i < loopBound; i += step) {
-            FloatVector queryFloatVector = FloatVector.fromArray(SPECIES, queryVector, i);
-            FloatVector floatedBits = unpackBitsToFloatVector(inputVector, i, step);
-
-            // Compute squared difference and accumulate: acc += (bit - query)^2
-            FloatVector diff = floatedBits.sub(queryFloatVector);
-            distanceAccumulator = diff.fma(diff, distanceAccumulator);
+        if (SIMD_ENABLED && L2_SQUARED_ADC_SIMD != null) {
+            try{
+                return (float) L2_SQUARED_ADC_SIMD.invokeExact(queryVector, inputVector);
+            } catch (Throwable t) {
+                SIMD_ENABLED = false;
+                logger.warn("SIMD ADC failed unexpectedly. Permanent fallback to scalar enabled.", t);
+            }
         }
+        return l2SquaredADCScalar(queryVector, inputVector);
+    }
 
-        // Horizontal sum of all SIMD lanes
-        float score = distanceAccumulator.reduceLanes(VectorOperators.ADD);
+    public static float l2SquaredADCScalar(float[] queryVector, byte[] inputVector) {
+        float score = 0;
 
-        // Tail loop for any remaining dimensions that didn't fit into the SIMD lanes
-        for (; i < queryVector.length; i++) {
+        for (int i = 0; i < queryVector.length; ++i) {
             int byteIndex = i / 8;
             int bitOffset = 7 - (i % 8);
-            float bitValue = (inputVector[byteIndex] >> bitOffset) & 1;
+            int bitValue = (inputVector[byteIndex] >> bitOffset) & 1;
 
             // Calculate squared difference
             float diff = bitValue - queryVector[i];
@@ -220,10 +190,9 @@ public class KNNScoringUtil {
     }
 
     /**
-     * Calculates the inner product similarity between a float query vector and a binary document vector using ADC
-     * (Asymmetric Distance Computation). This method is useful for similarity searches where one vector is compressed
-     * in binary format and the other remains in float format.
-     * Uses SIMD (FloatVector.SPECIES_PREFERRED) for vectorized processing with reduceLanes().
+     * Calculates the inner product similarity between a float query vector and a binary document vector using ADC.
+     * Attempts to use SIMD (FloatVector.SPECIES_PREFERRED) for vectorized processing.
+     * If SIMD is unavailable, disabled, or fails at runtime, it falls back to a scalar implementation.
      *
      * The inner product is calculated by summing the products of corresponding elements, where the binary vector's
      * elements are interpreted as 0 or 1.
@@ -238,25 +207,21 @@ public class KNNScoringUtil {
             throw new IllegalArgumentException("queryVector.length must equal inputVector.length * 8");
         }
 
-        final int length = queryVector.length;
-        final int step = SPECIES.length();
-        final int loopBound = SPECIES.loopBound(length);
-        FloatVector distanceAccumulator = FloatVector.zero(SPECIES);
-        int i = 0;
-
-        for (; i < loopBound; i += step) {
-            FloatVector queryFloatVector = FloatVector.fromArray(SPECIES, queryVector, i);
-            FloatVector floatedBits = unpackBitsToFloatVector(inputVector, i, step);
-
-            // Compute product and accumulate: acc += (bit * query)
-            distanceAccumulator = floatedBits.fma(queryFloatVector, distanceAccumulator);
+        if (SIMD_ENABLED && INNER_PRODUCT_ADC_SIMD != null) {
+            try{
+                return (float) INNER_PRODUCT_ADC_SIMD.invokeExact(queryVector, inputVector);
+            } catch (Throwable t) {
+                SIMD_ENABLED = false;
+                logger.warn("SIMD ADC failed unexpectedly. Permanent fallback to scalar enabled.", t);
+            }
         }
+        return innerProductADCScalar(queryVector, inputVector);
+    }
 
-        // Horizontal sum of all SIMD lanes
-        float score = distanceAccumulator.reduceLanes(VectorOperators.ADD);
+    public static float innerProductADCScalar(float[] queryVector, byte[] inputVector) {
+        float score = 0;
 
-        // Tail loop for any remaining dimensions that didn't fit into the SIMD lanes
-        for (; i < queryVector.length; i++) {
+        for (int i = 0; i < queryVector.length; ++i) {
             // Extract the bit for this dimension
             int byteIndex = i / 8;
             int bitOffset = 7 - (i % 8);
