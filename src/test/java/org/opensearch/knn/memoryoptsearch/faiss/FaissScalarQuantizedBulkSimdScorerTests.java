@@ -38,6 +38,7 @@ import org.junit.Test;
 import org.opensearch.knn.KNNTestCase;
 
 import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -53,27 +54,25 @@ import java.util.concurrent.ThreadLocalRandom;
  * 3. {@link Lucene104ScalarQuantizedVectorsReader} with {@link Faiss104ScalerQuantizedVectorScorer} → test subject.
  * 4. Compare scores.
  */
-public class FaissBBQBulkSimdScorerTests extends KNNTestCase {
+public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
 
     private static final String FIELD_NAME = "vector";
     private static final int NUM_VECTORS = 500;
 
     @Test
     public void testBBQEuclideanScoring() {
-        // TODO : Remove this once generic version of bulk simd is added
-        // for (int dim : Arrays.asList(1, 7, 77, 128, 512, 777, 1024, 10240, 30000, 65535)) {
-        // System.out.println("Dimension=" + dim);
-        // doTest(VectorSimilarityFunction.EUCLIDEAN, dim);
-        // }
+        for (int dim : Arrays.asList(1, 7, 77, 128, 512, 777, 1024, 10240, 30000, 65535)) {
+            System.out.println("Dimension=" + dim);
+            doTest(VectorSimilarityFunction.EUCLIDEAN, dim);
+        }
     }
 
     @Test
     public void testBBQMaxInnerProductScoring() {
-        // TODO : Remove this once generic version of bulk simd is added
-        // for (int dim : Arrays.asList(1, 7, 77, 128, 512, 777, 1024, 10240, 30000, 65535)) {
-        // System.out.println("Dimension=" + dim);
-        // doTest(VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT, dim);
-        // }
+        for (int dim : Arrays.asList(1, 7, 77, 128, 512, 777, 1024, 10240, 30000, 65535)) {
+            System.out.println("Dimension=" + dim);
+            doTest(VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT, dim);
+        }
     }
 
     @SneakyThrows
@@ -123,14 +122,8 @@ public class FaissBBQBulkSimdScorerTests extends KNNTestCase {
                 null
             );
 
-            final SegmentWriteState writeState = new SegmentWriteState(
-                InfoStream.NO_OUTPUT,
-                dir,
-                segmentInfo,
-                fieldInfos,
-                null,
-                IOContext.DEFAULT
-            );
+            final SegmentWriteState writeState =
+                new SegmentWriteState(InfoStream.NO_OUTPUT, dir, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
 
             // ---- Step 1: Write vectors using Lucene104ScalarQuantizedVectorsWriter ----
             final Lucene104ScalarQuantizedVectorScorer luceneVectorScorer = new Lucene104ScalarQuantizedVectorScorer(defaultScorer);
@@ -138,9 +131,9 @@ public class FaissBBQBulkSimdScorerTests extends KNNTestCase {
             try (
                 FlatVectorsWriter writer = new Lucene104ScalarQuantizedVectorsWriter(
                     writeState,
-                    encoding,
-                    rawVectorFormat.fieldsWriter(writeState),
-                    luceneVectorScorer
+                                                                                     encoding,
+                                                                                     rawVectorFormat.fieldsWriter(writeState),
+                                                                                     luceneVectorScorer
                 )
             ) {
                 @SuppressWarnings("unchecked")
@@ -162,8 +155,8 @@ public class FaissBBQBulkSimdScorerTests extends KNNTestCase {
             try (
                 FlatVectorsReader truthReader = new Lucene104ScalarQuantizedVectorsReader(
                     readState,
-                    rawVectorFormat.fieldsReader(readState),
-                    luceneVectorScorer
+                                                                                          rawVectorFormat.fieldsReader(readState),
+                                                                                          luceneVectorScorer
                 )
             ) {
                 truthScorer = truthReader.getRandomVectorScorer(FIELD_NAME, queryVector);
@@ -175,8 +168,8 @@ public class FaissBBQBulkSimdScorerTests extends KNNTestCase {
                 try (
                     FlatVectorsReader testReader = new Lucene104ScalarQuantizedVectorsReader(
                         readState,
-                        rawVectorFormat.fieldsReader(readState),
-                        simdFlatScorer
+                                                                                             rawVectorFormat.fieldsReader(readState),
+                                                                                             simdFlatScorer
                     )
                 ) {
                     RandomVectorScorer testScorer = testReader.getRandomVectorScorer(FIELD_NAME, queryVector);
