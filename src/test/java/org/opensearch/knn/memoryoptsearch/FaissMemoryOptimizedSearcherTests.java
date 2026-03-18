@@ -7,7 +7,9 @@ package org.opensearch.knn.memoryoptsearch;
 
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
+import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentInfo;
@@ -113,6 +115,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
     private static final int TOTAL_NUM_DOCS_IN_SEGMENT = 300;
     private static final int TOP_K = 30;
     private static final float NO_FILTERING = Float.NaN;
+    private static final FlatVectorsScorer SCORER = FlatVectorScorerUtil.getLucene99FlatVectorsScorer();
 
     public void test32xQuantizedBinaryIndexType() {
         final TestingSpec testingSpec = new TestingSpec(
@@ -575,12 +578,9 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         // Make SegmentReadState and do search
         try (final Directory directory = directoryClass.getConstructor(Path.class).newInstance(buildInfo.tempDirPath)) {
             final SegmentReadState readState = new SegmentReadState(directory, segmentInfo, fieldInfos, IOContext.DEFAULT);
-            try (
-                NativeEngines990KnnVectorsReader vectorsReader = new NativeEngines990KnnVectorsReader(
-                    readState,
-                    mock(FlatVectorsReader.class)
-                )
-            ) {
+            FlatVectorsReader mockedFlatVectorReader = mock(FlatVectorsReader.class);
+            when(mockedFlatVectorReader.getFlatVectorScorer()).thenReturn(SCORER);
+            try (NativeEngines990KnnVectorsReader vectorsReader = new NativeEngines990KnnVectorsReader(readState, mockedFlatVectorReader)) {
                 if (vectorDataType == VectorDataType.FLOAT) {
                     vectorsReader.search(TARGET_FIELD, (float[]) query, knnCollector, acceptDocs);
                 } else if (vectorDataType == VectorDataType.BYTE || vectorDataType == VectorDataType.BINARY) {
@@ -910,7 +910,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final int k = 100;
 
         final IndexInput input = FaissHNSWTests.loadHnswBinary("data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin");
-        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null);
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null, SCORER);
 
         // Use a non-seeded strategy (default HNSW strategy)
         final KnnCollector knnCollector = new TopKnnCollector(k, Integer.MAX_VALUE, KnnSearchStrategy.Hnsw.DEFAULT);
@@ -941,7 +941,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final int k = 100;
 
         final IndexInput input = FaissHNSWTests.loadHnswBinary("data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin");
-        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null);
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null, SCORER);
 
         // Create a Seeded strategy with known seed entry points
         final int numSeeds = 5;
@@ -1010,7 +1010,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         }
 
         // First, do exhaustive search to get ground truth
-        final FaissMemoryOptimizedSearcher exhaustiveSearcher = new FaissMemoryOptimizedSearcher(input, null);
+        final FaissMemoryOptimizedSearcher exhaustiveSearcher = new FaissMemoryOptimizedSearcher(input, null, SCORER);
         final KnnCollector exhaustiveCollector = new TopKnnCollector(totalVectors, Integer.MAX_VALUE, KnnSearchStrategy.Hnsw.DEFAULT);
         final AcceptDocs acceptDocs = AcceptDocs.fromLiveDocs(null, totalVectors);
         exhaustiveSearcher.search(query, exhaustiveCollector, acceptDocs);
@@ -1023,7 +1023,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
 
         // Now search with a seeded collector on a fresh searcher
         input.seek(0);
-        final FaissMemoryOptimizedSearcher seededSearcher = new FaissMemoryOptimizedSearcher(input, null);
+        final FaissMemoryOptimizedSearcher seededSearcher = new FaissMemoryOptimizedSearcher(input, null, SCORER);
 
         final int numSeeds = 3;
         final DocIdSetIterator seedDocs = new DocIdSetIterator() {

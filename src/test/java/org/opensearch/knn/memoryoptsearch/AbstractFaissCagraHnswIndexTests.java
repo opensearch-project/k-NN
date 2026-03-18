@@ -6,6 +6,7 @@
 package org.opensearch.knn.memoryoptsearch;
 
 import lombok.SneakyThrows;
+import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FloatVectorValues;
@@ -53,7 +54,11 @@ public abstract class AbstractFaissCagraHnswIndexTests extends KNNTestCase {
     ) {
         doTestWithIndexInput(input -> {
             // Instantiate memory optimized searcher
-            final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, NO_ADC_NEEDED);
+            final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
+                input,
+                NO_ADC_NEEDED,
+                FlatVectorScorerUtil.getLucene99FlatVectorsScorer()
+            );
 
             // Make collector
             final int k = isApproximateSearch ? EF_SEARCH : TOTAL_NUMBER_OF_VECTORS;

@@ -6,6 +6,7 @@
 package org.opensearch.knn.memoryoptsearch;
 
 import lombok.SneakyThrows;
+import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
@@ -27,7 +28,12 @@ public class FlatVectorsScorerProviderTests extends KNNTestCase {
     @SneakyThrows
     public void testHammingScoring() {
         // Get hamming scorer
-        final FlatVectorsScorer scorer = FlatVectorsScorerProvider.getFlatVectorsScorer(KNNVectorSimilarityFunction.HAMMING);
+        final FlatVectorsScorer scorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
+            KNNVectorSimilarityFunction.HAMMING,
+            false,
+            null,
+            null
+        );
 
         // Test byte[] vector and query
         final ByteVectorValues byteVectorValues = mock(ByteVectorValues.class);
@@ -77,7 +83,12 @@ public class FlatVectorsScorerProviderTests extends KNNTestCase {
 
     @SneakyThrows
     private void doTest(final KNNVectorSimilarityFunction knnVectorSimilarityFunction, final boolean isFloat) {
-        final FlatVectorsScorer scorer = FlatVectorsScorerProvider.getFlatVectorsScorer(knnVectorSimilarityFunction);
+        final FlatVectorsScorer scorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
+            knnVectorSimilarityFunction,
+            false,
+            null,
+            FlatVectorScorerUtil.getLucene99FlatVectorsScorer()
+        );
 
         if (isFloat) {
             final FloatVectorValues vectorValues = mock(FloatVectorValues.class);

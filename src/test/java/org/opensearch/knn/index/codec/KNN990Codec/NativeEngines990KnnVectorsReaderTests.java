@@ -7,6 +7,7 @@ package org.opensearch.knn.index.codec.KNN990Codec;
 
 import com.google.common.collect.ImmutableSet;
 import lombok.SneakyThrows;
+import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
@@ -89,7 +90,7 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
         VectorSearcher mockSearcher = mock(VectorSearcher.class);
         when(mockSearcher.getByteVectorValues()).thenReturn(mock(ByteVectorValues.class));
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
-        when(mockFactory.createVectorSearcher(any(), any(), any(), any())).thenReturn(mockSearcher);
+        when(mockFactory.createVectorSearcher(any(), any(), any(), any(), any())).thenReturn(mockSearcher);
 
         final FlatVectorsReader flatVectorsReader = mock(FlatVectorsReader.class);
         try (MockedStatic<KNNEngine> mockedStatic = mockStatic(KNNEngine.class)) {
@@ -124,7 +125,7 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
     public void testWhenMemoryOptimizedSearchIsEnabled_mixedCase() {
         KNNEngine mockFaiss = spy(KNNEngine.FAISS);
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
-        when(mockFactory.createVectorSearcher(any(), any(), any(), any())).thenReturn(mock(VectorSearcher.class));
+        when(mockFactory.createVectorSearcher(any(), any(), any(), any(), any())).thenReturn(mock(VectorSearcher.class));
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
         try (MockedStatic<KNNEngine> mockedStatic = mockStatic(KNNEngine.class)) {
             // Prepare field infos
@@ -154,10 +155,11 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
             });
 
             mockedStatic.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
-
-            final NativeEngines990KnnVectorsReader reader_field_2 = createReader(fieldInfos, filesInSegment, null);
-            final NativeEngines990KnnVectorsReader reader_field_3 = createReader(fieldInfos, filesInSegment, null);
-            final NativeEngines990KnnVectorsReader reader_field_4 = createReader(fieldInfos, filesInSegment, null);
+            FlatVectorsReader flatVectorsReader = mock(FlatVectorsReader.class);
+            when(flatVectorsReader.getFlatVectorScorer()).thenReturn(FlatVectorScorerUtil.getLucene99FlatVectorsScorer());
+            final NativeEngines990KnnVectorsReader reader_field_2 = createReader(fieldInfos, filesInSegment, flatVectorsReader);
+            final NativeEngines990KnnVectorsReader reader_field_3 = createReader(fieldInfos, filesInSegment, flatVectorsReader);
+            final NativeEngines990KnnVectorsReader reader_field_4 = createReader(fieldInfos, filesInSegment, flatVectorsReader);
 
             assertFalse(getVectorSearcherHolders(reader_field_2).isSet());
             assertFalse(getVectorSearcherHolders(reader_field_3).isSet());

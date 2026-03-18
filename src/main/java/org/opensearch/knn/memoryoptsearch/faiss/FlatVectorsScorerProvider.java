@@ -6,7 +6,6 @@
 package org.opensearch.knn.memoryoptsearch.faiss;
 
 import lombok.experimental.UtilityClass;
-import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.KnnVectorValues;
@@ -23,7 +22,6 @@ import java.util.Map;
 
 @UtilityClass
 public class FlatVectorsScorerProvider {
-    private static final FlatVectorsScorer DELEGATE_VECTOR_SCORER = FlatVectorScorerUtil.getLucene99FlatVectorsScorer();
     private static final FlatVectorsScorer HAMMING_VECTOR_SCORER = new HammingFlatVectorsScorer();
     private static final Map<SpaceType, FlatVectorsScorer> ADC_FLAT_SCORERS = initializeAdcFlatScorers();
 
@@ -39,15 +37,6 @@ public class FlatVectorsScorerProvider {
     }
 
     /**
-     * Returns the FlatVectorsScorer based on the similarity function.
-     * @param similarityFunction the vector similarity function to use
-     * @return FlatVectorsScorer instance
-     */
-    public static FlatVectorsScorer getFlatVectorsScorer(final KNNVectorSimilarityFunction similarityFunction) {
-        return getFlatVectorsScorer(similarityFunction, false, null);
-    }
-
-    /**
      * Returns the FlatVectorsScorer based on the similarity function, or if adc is enabled based on the SpaceType.
      * @param similarityFunction the vector similarity function to use
      * @param isAdc whether ADC (Asymmetric Distance Computation) is enabled
@@ -57,7 +46,8 @@ public class FlatVectorsScorerProvider {
     public static FlatVectorsScorer getFlatVectorsScorer(
         final KNNVectorSimilarityFunction similarityFunction,
         final boolean isAdc,
-        final SpaceType spaceType
+        final SpaceType spaceType,
+        final FlatVectorsScorer delegateScorer
     ) {
         if (isAdc) {
             // Note: we cannot leverage KNNVectorSimilarityFunction here as it is HAMMING for ADC, so we must use SpaceType.
@@ -67,10 +57,10 @@ public class FlatVectorsScorerProvider {
             return HAMMING_VECTOR_SCORER;
         }
 
-        return DELEGATE_VECTOR_SCORER;
+        return delegateScorer;
     }
 
-    public static class ADCFlatVectorsScorer implements FlatVectorsScorer {
+    private static class ADCFlatVectorsScorer implements FlatVectorsScorer {
         private final KNNVectorSimilarityFunction knnSimilarityFunction;
         private final SpaceType spaceType;
 
