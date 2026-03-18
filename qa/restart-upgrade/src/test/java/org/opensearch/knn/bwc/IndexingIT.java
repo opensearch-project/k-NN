@@ -674,6 +674,88 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    private void testKNNAfterBBQIntegrationBWCRunner(String mapping) throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        int k = 4;
+        int dimension = 8;
+
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+        int[] expectedOrder = { 1, 2, 3, 4 }; // Using Inner product
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+
+            Float[] vector1 = { 1.0f, 2.0f, 3.0f, 12.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+            Float[] vector2 = { 1.0f, 2.0f, 7.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+            Float[] vector3 = { 1.0f, 4.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+            Float[] vector4 = { 2.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+            addKnnDoc(testIndex, "1", TEST_FIELD, vector1);
+            addKnnDoc(testIndex, "2", TEST_FIELD, vector2);
+            addKnnDoc(testIndex, "3", TEST_FIELD, vector3);
+            addKnnDoc(testIndex, "4", TEST_FIELD, vector4);
+
+            Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
+            List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
+            assertEquals(k, results.size());
+            for (int i = 0; i < k; i++) {
+                assertEquals(expectedOrder[i], Integer.parseInt(results.get(i).getDocId()));
+            }
+        } else {
+            Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
+            List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
+            assertEquals(k, results.size());
+            for (int i = 0; i < k; i++) {
+                assertEquals(expectedOrder[i], Integer.parseInt(results.get(i).getDocId()));
+            }
+            deleteKNNIndex(testIndex);
+        }
+    }
+
+    public void testKNNIndexLucene4xBWC() throws Exception {
+        // Verify that old lucene indices with compression level
+        // specified still work
+        int dimension = 8;
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(TEST_FIELD)
+            .field(VECTOR_TYPE, KNN_VECTOR)
+            .field(DIMENSION, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x4.getName())
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+            .field(KNN_ENGINE, LUCENE_NAME)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+        testKNNAfterBBQIntegrationBWCRunner(mapping);
+    }
+
+    public void testKNNIndexLuceneOnDiskNoCompressionBWC() throws Exception {
+        // Pre-3.6, Lucene with ON_DISK defaults to 4x. Post-3.6, default
+        // is now 32x. Verify old indices still work
+        int dimension = 8;
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(TEST_FIELD)
+            .field(VECTOR_TYPE, KNN_VECTOR)
+            .field(DIMENSION, dimension)
+            .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+            .field(KNN_ENGINE, LUCENE_NAME)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+        testKNNAfterBBQIntegrationBWCRunner(mapping);
+    }
+
     public void testKNNIndexLuceneBBQ() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
 
@@ -738,7 +820,6 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             deleteKNNIndex(testIndex);
         }
     }
-
 
     /**
      * Tests merge flow from 2.x version 2.17 and up against version >3.2 to validate merges with old/new

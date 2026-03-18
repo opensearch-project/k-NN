@@ -15,7 +15,6 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNN1040BasePerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
-import org.opensearch.knn.index.codec.params.KNNBBQVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -51,8 +50,7 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
     private final int defaultBeamWidth;
     private final Supplier<KnnVectorsFormat> defaultFormatSupplier;
     private final Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier;
-    private final final Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier;
-    private final Function<KNNBBQVectorsFormatParams, KnnVectorsFormat> bbqVectorsFormatSupplier;
+    private final Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier;
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
     private static final String MAX_CONNECTIONS = "max_connections";
     private static final String BEAM_WIDTH = "beam_width";
@@ -64,7 +62,7 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         Supplier<KnnVectorsFormat> defaultFormatSupplier,
         Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier
     ) {
-        this(mapperService, defaultMaxConnections, defaultBeamWidth, defaultFormatSupplier, vectorsFormatSupplier, null, null);
+        this(mapperService, defaultMaxConnections, defaultBeamWidth, defaultFormatSupplier, vectorsFormatSupplier, null);
     }
 
     public BasePerFieldKnnVectorsFormat(
@@ -73,8 +71,7 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         int defaultBeamWidth,
         Supplier<KnnVectorsFormat> defaultFormatSupplier,
         Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier,
-        Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier,
-        Function<KNNBBQVectorsFormatParams, KnnVectorsFormat> bbqVectorsFormatSupplier
+        Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier
     ) {
         this(
             mapperService,
@@ -83,7 +80,6 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             defaultFormatSupplier,
             vectorsFormatSupplier,
             scalarQuantizedVectorsFormatSupplier,
-            bbqVectorsFormatSupplier,
             new NativeIndexBuildStrategyFactory()
         );
     }
@@ -120,19 +116,6 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
 
         if (engine == KNNEngine.LUCENE) {
             if (params != null && params.containsKey(METHOD_ENCODER_PARAMETER)) {
-                KNNBBQVectorsFormatParams bbqParams = new KNNBBQVectorsFormatParams(params, defaultMaxConnections, defaultBeamWidth);
-                if (bbqParams.validate(params)) {
-                    log.debug(
-                        "Initialize KNN vector format for field [{}] with binary quantization, params [{}] = \"{}\", [{}] = \"{}\"",
-                        field,
-                        MAX_CONNECTIONS,
-                        bbqParams.getMaxConnections(),
-                        BEAM_WIDTH,
-                        bbqParams.getBeamWidth()
-                    );
-                    return bbqVectorsFormatSupplier.apply(bbqParams);
-                }
-
                 KNNScalarQuantizedVectorsFormatParams knnScalarQuantizedVectorsFormatParams = new KNNScalarQuantizedVectorsFormatParams(
                     params,
                     defaultMaxConnections,
@@ -140,7 +123,7 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
                 );
                 if (knnScalarQuantizedVectorsFormatParams.validate(params)) {
                     log.debug(
-                        "Initialize KNN vector format for field [{}] with scalar quantization, params [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\"",
+                        "Initialize KNN vector format for field [{}] with params [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\"",
                         field,
                         MAX_CONNECTIONS,
                         knnScalarQuantizedVectorsFormatParams.getMaxConnections(),

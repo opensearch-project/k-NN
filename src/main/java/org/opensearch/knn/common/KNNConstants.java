@@ -106,7 +106,7 @@ public class KNNConstants {
     public static final double MAXIMUM_CONFIDENCE_INTERVAL = 1.0;
     public static final String LUCENE_SQ_BITS = "bits";
     public static final int LUCENE_SQ_DEFAULT_BITS = 7;
-    public static final String ENCODER_BBQ = "binary";
+    public static final String ENCODER_BBQ = "bbq";
     public static final int LUCENE_BBQ_DEFAULT_BITS = 1;
     public static final String LUCENE_BBQ_BITS = "bits";
     public static final String MAX_CONNECTIONS = "max_connections";

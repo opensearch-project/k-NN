@@ -21,6 +21,7 @@ import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.Map;
 
+import static org.opensearch.knn.common.KNNConstants.ENCODER_BBQ;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -58,7 +59,7 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
         );
         assertEquals(KNNEngine.LUCENE, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
         assertEquals(SpaceType.INNER_PRODUCT, resolvedMethodContext.getKnnMethodContext().getSpaceType());
-        assertEquals(CompressionLevel.x4, resolvedMethodContext.getCompressionLevel());
+        assertEquals(CompressionLevel.x32, resolvedMethodContext.getCompressionLevel());
 
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             null,
@@ -101,7 +102,7 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
         );
         assertEquals(KNNEngine.LUCENE, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
         assertEquals(SpaceType.INNER_PRODUCT, resolvedMethodContext.getKnnMethodContext().getSpaceType());
-        assertEquals(CompressionLevel.x4, resolvedMethodContext.getCompressionLevel());
+        assertEquals(CompressionLevel.x32, resolvedMethodContext.getCompressionLevel());
         assertNotEquals(knnMethodContext, resolvedMethodContext.getKnnMethodContext());
 
         knnMethodContext = new KNNMethodContext(
@@ -128,6 +129,31 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
         assertEquals(SpaceType.INNER_PRODUCT, resolvedMethodContext.getKnnMethodContext().getSpaceType());
         assertEquals(CompressionLevel.x4, resolvedMethodContext.getCompressionLevel());
         assertNotEquals(knnMethodContext, resolvedMethodContext.getKnnMethodContext());
+
+        // Verify Lucene BBQ encoder resolves properly
+        knnMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.INNER_PRODUCT,
+            new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_BBQ, Map.of())))
+        );
+        resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            knnMethodContext,
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build(),
+            false,
+            SpaceType.INNER_PRODUCT
+        );
+        assertEquals(METHOD_HNSW, resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getName());
+        assertFalse(resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getParameters().isEmpty());
+        assertEquals(
+            ENCODER_BBQ,
+            ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER)).getName()
+        );
+        assertEquals(KNNEngine.LUCENE, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
+        assertEquals(SpaceType.INNER_PRODUCT, resolvedMethodContext.getKnnMethodContext().getSpaceType());
+        assertEquals(CompressionLevel.x32, resolvedMethodContext.getCompressionLevel());
 
         knnMethodContext = new KNNMethodContext(
             KNNEngine.LUCENE,

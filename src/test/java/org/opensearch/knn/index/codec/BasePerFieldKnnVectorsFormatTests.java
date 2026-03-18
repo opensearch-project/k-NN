@@ -35,6 +35,7 @@ import java.util.function.Function;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_BBQ;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
@@ -57,6 +58,7 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
     // Sentinel format instances used to verify correct resolution
     private static final KnnVectorsFormat HNSW_FORMAT = mock(KnnVectorsFormat.class);
     private static final KnnVectorsFormat SQ_FORMAT = mock(KnnVectorsFormat.class);
+    private static final KnnVectorsFormat BBQ_FORMAT = mock(KnnVectorsFormat.class);
     private static final KnnVectorsFormat FLAT_FORMAT = mock(KnnVectorsFormat.class);
     private static final KnnVectorsFormat DEFAULT_FORMAT = mock(KnnVectorsFormat.class);
 
@@ -221,6 +223,39 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
         TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.of(mapperService), resolvers);
         KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
         assertSame(SQ_FORMAT, result);
+    }
+
+    /**
+     * When the Lucene engine is used with a BBQ encoder
+     * resolver should be called.
+     */
+    public void testGetKnnVectorsFormatForField_whenLuceneBBQ_thenReturnBBQFormat() {
+        Map<String, Object> encoderParams = new HashMap<>();
+        MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_BBQ, encoderParams);
+
+        Map<String, Object> params = new HashMap<>();
+        params.put(METHOD_ENCODER_PARAMETER, encoderContext);
+        params.put(METHOD_PARAMETER_M, 16);
+        params.put(METHOD_PARAMETER_EF_CONSTRUCTION, 100);
+
+        KNNMethodContext bbqMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, params)
+        );
+
+        MapperService mapperService = mockMapperService(TEST_FIELD, bbqMethodContext);
+
+        Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
+            LuceneVectorsFormatType.BBQ,
+            ctx -> BBQ_FORMAT,
+            LuceneVectorsFormatType.HNSW,
+            ctx -> HNSW_FORMAT
+        );
+
+        TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.of(mapperService), resolvers);
+        KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
+        assertSame(BBQ_FORMAT, result);
     }
 
     /**

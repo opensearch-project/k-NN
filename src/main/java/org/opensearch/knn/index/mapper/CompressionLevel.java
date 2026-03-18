@@ -151,7 +151,15 @@ public enum CompressionLevel {
             return RescoreContext.builder().oversampleFactor(FLAT_OVERSAMPLE_FACTOR).userProvided(false).build();
         }
         if (modesForRescore.contains(mode)) {
-            if (this == x4 && version != null && version.before(Version.V_3_1_0)) {
+            // Special handling for Lucene BBQ (x32 compression)
+            if (this == x32 && engine == KNNEngine.LUCENE && version.onOrAfter(Version.V_3_6_0)) {
+                return RescoreContext.builder()
+                    .oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_DEFAULT_FOR_BBQ)
+                    .userProvided(false)
+                    .build();
+            }
+
+            if (this == x4 && version.before(Version.V_3_1_0)) {
                 // For index created before 3.1, context was always null and mode is empty
                 return null;
             }
@@ -165,21 +173,6 @@ public enum CompressionLevel {
                     .build();
             }
             return defaultRescoreContext;
-        }
-
-        // Special handling for Lucene BBQ (x32 compression)
-        if (this == x32 && engine == KNNEngine.LUCENE && (version == null || version.onOrAfter(Version.V_3_3_0))) {
-            if (dimension <= RescoreContext.DIMENSION_THRESHOLD) {
-                return RescoreContext.builder()
-                    .oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD)
-                    .userProvided(false)
-                    .build();
-            } else {
-                return RescoreContext.builder()
-                    .oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_ABOVE_DIMENSION_THRESHOLD)
-                    .userProvided(false)
-                    .build();
-            }
         }
         return null;
     }

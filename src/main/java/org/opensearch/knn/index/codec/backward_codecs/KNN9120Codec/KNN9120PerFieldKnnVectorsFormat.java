@@ -77,15 +77,6 @@ public class KNN9120PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsForma
                     mergeThreadCountAndExecutorService.v2()
                 );
             },
-            knnBBQVectorsFormatParams -> {
-                final Tuple<Integer, ExecutorService> mergeThreadCountAndExecutorService = getMergeThreadCountAndExecutorService();
-                return new Lucene102HnswBinaryQuantizedVectorsFormat(
-                    knnBBQVectorsFormatParams.getMaxConnections(),
-                    knnBBQVectorsFormatParams.getBeamWidth(),
-                    mergeThreadCountAndExecutorService.v1(),
-                    mergeThreadCountAndExecutorService.v2()
-                );
-            },
             nativeIndexBuildStrategyFactory
         );
     }

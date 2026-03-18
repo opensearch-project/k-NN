@@ -29,6 +29,7 @@ import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_BBQ;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
@@ -710,7 +711,7 @@ public class RecallTestsIT extends KNNRestTestCase {
                 .field(METHOD_PARAMETER_EF_CONSTRUCTION, HNSW_EF_CONSTRUCTION)
                 .field(METHOD_PARAMETER_M, HNSW_M)
                 .startObject(METHOD_ENCODER_PARAMETER)
-                .field(NAME, "binary")
+                .field(NAME, ENCODER_BBQ)
                 .endObject()
                 .endObject()
                 .endObject()

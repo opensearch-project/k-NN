@@ -9,6 +9,7 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.opensearch.knn.index.codec.KnnVectorsFormatContext;
 import org.opensearch.knn.index.codec.LuceneVectorsFormatType;
+import org.opensearch.knn.index.codec.params.KNN1040ScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.engine.CodecFormatResolver;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -105,6 +106,24 @@ public class LuceneCodecFormatResolver implements CodecFormatResolver {
                     sqParams.getBits()
                 );
                 return LuceneVectorsFormatType.SCALAR_QUANTIZED;
+            } else {
+                // Temporary route for BBQ - eventually this should be used for SQ as well
+                KNN1040ScalarQuantizedVectorsFormatParams sqBBQParams = new KNN1040ScalarQuantizedVectorsFormatParams(
+                    params,
+                    defaultMaxConnections,
+                    defaultBeamWidth
+                );
+                if (sqBBQParams.validate(params)) {
+                    log.debug(
+                        "Initialize KNN vector format for field [{}] with scalar/binary quantization, params [{}] = \"{}\", [{}] = \"{}\"",
+                        field,
+                        MAX_CONNECTIONS,
+                        sqBBQParams.getMaxConnections(),
+                        BEAM_WIDTH,
+                        sqBBQParams.getBeamWidth()
+                    );
+                    return LuceneVectorsFormatType.BBQ;
+                }
             }
         }
 

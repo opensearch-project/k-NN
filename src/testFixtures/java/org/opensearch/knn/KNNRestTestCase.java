@@ -2801,7 +2801,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
-     * BBQ encoder is only supported on or after V_3_3_0
+     * BBQ encoder is only supported on or after V_3_6_0
      */
     protected boolean isBBQEncoderSupported(final Optional<String> bwcVersion) {
         if (bwcVersion.isEmpty()) {
@@ -2812,7 +2812,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
             versionString = versionString.substring(0, versionString.length() - 9);
         }
         final Version version = Version.fromString(versionString);
-        return version.onOrAfter(Version.V_3_3_0);
+        return version.onOrAfter(Version.V_3_6_0);
     }
 
     /**

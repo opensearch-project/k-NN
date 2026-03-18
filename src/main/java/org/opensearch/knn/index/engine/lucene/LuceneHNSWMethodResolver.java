@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.engine.lucene;
 
+import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.AbstractMethodResolver;
@@ -81,7 +82,9 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
 
         String encoderName;
         MethodComponent encoderComponent;
-        if (resolvedCompressionLevel == CompressionLevel.x32) {
+
+        // Use BBQ for ON_DISK by default (since compression level resolves to x32 by default for ON_DISK)
+        if (knnMethodConfigContext.getVersionCreated().onOrAfter(Version.V_3_6_0) && resolvedCompressionLevel == CompressionLevel.x32) {
             encoderName = LuceneHNSWMethod.BBQ_ENCODER.getName();
             encoderComponent = LuceneHNSWMethod.BBQ_ENCODER.getMethodComponent();
         } else {
@@ -119,6 +122,10 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
             return knnMethodConfigContext.getCompressionLevel();
         }
         if (knnMethodConfigContext.getMode() == Mode.ON_DISK) {
+            // Starting with version 3.6, supporting BBQ by default
+            if (knnMethodConfigContext.getVersionCreated().onOrAfter(Version.V_3_6_0)) {
+                return CompressionLevel.x32;
+            }
             return CompressionLevel.x4;
         }
         return CompressionLevel.x1;
