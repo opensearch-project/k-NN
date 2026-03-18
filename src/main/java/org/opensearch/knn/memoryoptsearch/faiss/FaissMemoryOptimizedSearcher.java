@@ -9,7 +9,6 @@ import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
@@ -29,7 +28,6 @@ import org.opensearch.knn.common.RobustUniqueRandomIterator;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
-import org.opensearch.knn.jni.SimdVectorComputeService;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.faiss.cagra.FaissCagraHNSW;
 
@@ -58,7 +56,6 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     private final VectorSimilarityFunction vectorSimilarityFunction;
     private final long fileSize;
     private boolean isAdc;
-    private SimdVectorComputeService.SimilarityFunctionType nativeSimilarityFunctionType;
 
     public FaissMemoryOptimizedSearcher(final IndexInput indexInput, final FieldInfo fieldInfo, final FlatVectorsScorer flatVectorsScorer)
         throws IOException {
@@ -90,7 +87,6 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         );
 
         this.hnsw = extractFaissHnsw(faissIndex);
-        this.nativeSimilarityFunctionType = determineNativeFunctionType();
     }
 
     private static FaissHNSW extractFaissHnsw(final FaissIndex faissIndex) {
@@ -106,35 +102,13 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         final KnnVectorValues knnVectorValues = isAdc
             ? faissIndex.getByteValues(getSlicedIndexInput())
             : faissIndex.getFloatValues(getSlicedIndexInput());
-        final FloatVectorValues bottomKnnVectorValues = WrappedFloatVectorValues.getBottomFloatVectorValues(knnVectorValues);
-        final boolean useNativeScoring = bottomKnnVectorValues instanceof MMapVectorValues;
-        final IOSupplier<RandomVectorScorer> scorerSupplier;
 
-        if (useNativeScoring) {
-            // We can use native scoring.
-            scorerSupplier = () -> new NativeRandomVectorScorer(
-                target,
-                knnVectorValues,
-                (MMapVectorValues) bottomKnnVectorValues,
-                nativeSimilarityFunctionType
-            );
-        } else {
-            // Falling back to default scoring using pure Java.
-            scorerSupplier = () -> flatVectorsScorer.getRandomVectorScorer(vectorSimilarityFunction, knnVectorValues, target);
-        }
-
-        search(VectorEncoding.FLOAT32, scorerSupplier, knnCollector, acceptDocs);
-    }
-
-    private SimdVectorComputeService.SimilarityFunctionType determineNativeFunctionType() {
-        if (vectorSimilarityFunction == VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT) {
-            return SimdVectorComputeService.SimilarityFunctionType.FP16_MAXIMUM_INNER_PRODUCT;
-        } else if (vectorSimilarityFunction == VectorSimilarityFunction.EUCLIDEAN) {
-            return SimdVectorComputeService.SimilarityFunctionType.FP16_L2;
-        }
-
-        // At the moment, we only support FP16, it's fine to return null.
-        return null;
+        search(
+            VectorEncoding.FLOAT32,
+            () -> flatVectorsScorer.getRandomVectorScorer(vectorSimilarityFunction, knnVectorValues, target),
+            knnCollector,
+            acceptDocs
+        );
     }
 
     @Override
