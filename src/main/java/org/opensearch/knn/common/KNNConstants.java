@@ -76,6 +76,7 @@ public class KNNConstants {
     public static final String SEARCH_SIZE_PARAMETER = "search_size";
 
     public static final String QFRAMEWORK_CONFIG = "qframe_config";
+    public static final String FAISS_BBQ_CONFIG = "faiss_bbq_config";
 
     public static final String VECTOR_DATA_TYPE_FIELD = "data_type";
     public static final String EXPAND_NESTED = "expand_nested_docs";

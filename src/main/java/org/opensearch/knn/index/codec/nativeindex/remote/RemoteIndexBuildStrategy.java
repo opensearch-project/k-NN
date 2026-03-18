@@ -196,10 +196,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             );
             success = true;
         } catch (InterruptedException | IOException e) {
-            throw new RuntimeException(
-                String.format("Repository write failed for vector field [%s]", indexInfo.getFieldInfo().getName()),
-                e
-            );
+            throw new RuntimeException(String.format("Repository write failed for vector field [%s]", indexInfo.getField()), e);
         } finally {
             metrics.endRepositoryWriteMetrics(success);
         }
@@ -233,10 +230,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             success = true;
             return remoteBuildResponse;
         } catch (IOException e) {
-            throw new RuntimeException(
-                String.format("Submit vector build failed for vector field [%s]", indexInfo.getFieldInfo().getName()),
-                e
-            );
+            throw new RuntimeException(String.format("Submit vector build failed for vector field [%s]", indexInfo.getField()), e);
         } finally {
             metrics.endBuildRequestMetrics(success);
         }
@@ -262,10 +256,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             remoteBuildStatusResponse = waiter.awaitVectorBuild(remoteBuildStatusRequest);
             return remoteBuildStatusResponse;
         } catch (InterruptedException | IOException e) {
-            throw new RuntimeException(
-                String.format("Await index build failed for vector field [%s]", indexInfo.getFieldInfo().getName()),
-                e
-            );
+            throw new RuntimeException(String.format("Await index build failed for vector field [%s]", indexInfo.getField()), e);
         } finally {
             metrics.endWaitingMetrics();
         }
@@ -290,10 +281,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         } catch (TerminalIOException e) {
             throw e;
         } catch (Exception e) {
-            throw new RuntimeException(
-                String.format("Repository read failed for vector field [%s]", indexInfo.getFieldInfo().getName()),
-                e
-            );
+            throw new RuntimeException(String.format("Repository read failed for vector field [%s]", indexInfo.getField()), e);
         } finally {
             metrics.endRepositoryReadMetrics(success);
         }
@@ -331,11 +319,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     RepositoryContext getRepositoryContext(BuildIndexParams indexInfo) throws TerminalIOException {
         BlobStoreRepository repository = getRepository();
         BlobPath blobPath = repository.basePath().add(indexSettings.getUUID() + VECTORS_PATH);
-        String blobName = UUIDs.base64UUID()
-            + "_"
-            + indexInfo.getFieldInfo().getName()
-            + "_"
-            + indexInfo.getSegmentWriteState().segmentInfo.name;
+        String blobName = UUIDs.base64UUID() + "_" + indexInfo.getField() + "_" + indexInfo.getSegmentWriteState().segmentInfo.name;
         VectorRepositoryAccessor vectorRepositoryAccessor = new DefaultVectorRepositoryAccessor(
             repository.blobStore().blobContainer(blobPath)
         );
