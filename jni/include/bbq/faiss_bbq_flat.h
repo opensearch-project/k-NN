@@ -8,17 +8,45 @@
 #include "memory_util.h"
 
 #include <cstdint>
+#include <cstring>
 #include <stdexcept>
 #include <iostream>
 
 namespace knn_jni {
 
-    template <bool IsMaxIP>
+    // Reads correction factors from a potentially unaligned address using std::memcpy.
+    // Layout at ptr: [lowerInterval(f32)][upperInterval(f32)][additionalCorrection(f32)][quantizedComponentSum(i32)]
+    static inline void readCorrectionFactorsSafe(const uint8_t* ptr, float& lowerInterval,
+        float& intervalLength, float& additionalCorrection, float& quantizedComponentSum) {
+        float lower, upper;
+        std::memcpy(&lower, ptr, sizeof(float));
+        std::memcpy(&upper, ptr + 4, sizeof(float));
+        std::memcpy(&additionalCorrection, ptr + 8, sizeof(float));
+        int32_t componentSum;
+        std::memcpy(&componentSum, ptr + 12, sizeof(int32_t));
+        lowerInterval = lower;
+        intervalLength = upper - lower;
+        quantizedComponentSum = static_cast<float>(componentSum);
+    }
+
+    // Reads correction factors via direct pointer cast (only safe when ptr is 4-byte aligned).
+    static inline void readCorrectionFactorsAligned(const uint8_t* ptr, float& lowerInterval,
+        float& intervalLength, float& additionalCorrection, float& quantizedComponentSum) {
+        const auto* correctionFactors = reinterpret_cast<const float*>(ptr);
+        lowerInterval = correctionFactors[0];
+        intervalLength = correctionFactors[1] - correctionFactors[0];
+        additionalCorrection = correctionFactors[2];
+        int32_t componentSum;
+        std::memcpy(&componentSum, ptr + 12, sizeof(int32_t));
+        quantizedComponentSum = static_cast<float>(componentSum);
+    }
+
+    template <bool IsMaxIP, bool IsBytesMultipleOf8>
     struct FaissBBQDistanceComputer final : faiss::DistanceComputer {
         const int64_t oneElementByteSize;
         const uint64_t quantizedVectorBytes;
         const uint8_t* data;
-        const uint64_t* query;
+        const uint8_t* query;
         const float centroidDp;
         float ay;
         float ly;
@@ -44,17 +72,22 @@ namespace knn_jni {
         }
 
         void set_query(const float* x) final {
-            query = (uint64_t*) x;
+            // The query pointer comes from FaissBBQFlat::quantizedVectorsAndCorrectionFactors
+            // which uses NBytesAlignedAllocator<uint8_t, 8> (8-byte aligned base) with a
+            // stride of oneElementByteSize that is always a multiple of 8 (quantizedVectorBytes
+            // is a multiple of 8 by formula, plus 16 bytes of correction factors).
+            // Therefore x is guaranteed 8-byte aligned when IsBytesMultipleOf8 is true.
+            query = reinterpret_cast<const uint8_t*>(x);
             setCorrectionFactors(query, ay, ly, queryAdditional, y1);
         }
 
         void setCorrectionFactors(const void* target, float& lowerInterval, float& intervalLength, float& additionalCorrection, float& quantizedComponentSum) {
-            // [Quantized Vector | lowerInterval (float) | upperInterval (float) | additionalCorrection (float) | quantizedComponentSum (int)]
-            const auto* correctionFactors = (const float*) ((const uint8_t*) target + quantizedVectorBytes);
-            lowerInterval = correctionFactors[0];
-            intervalLength = correctionFactors[1] - correctionFactors[0];
-            additionalCorrection = correctionFactors[2];
-            quantizedComponentSum = *((const int32_t*) (&correctionFactors[3]));
+            const uint8_t* ptr = static_cast<const uint8_t*>(target) + quantizedVectorBytes;
+            if constexpr (IsBytesMultipleOf8) {
+                readCorrectionFactorsAligned(ptr, lowerInterval, intervalLength, additionalCorrection, quantizedComponentSum);
+            } else {
+                readCorrectionFactorsSafe(ptr, lowerInterval, intervalLength, additionalCorrection, quantizedComponentSum);
+            }
         }
 
         float scoringSecondPart(const void* target, const float dp) {
@@ -84,23 +117,34 @@ namespace knn_jni {
 
         /// compute distance of vector i to current query
         float operator()(faiss::idx_t i) final {
-            const uint64_t* target = reinterpret_cast<const uint64_t*>(data + i * oneElementByteSize);
-
+            const uint8_t* target = data + i * oneElementByteSize;
+            // quantizedVectorBytes is always a multiple of 8 per the Java-side contract
+            // (FaissService.java: "byte length of a single 1-bit quantized vector, always
+            // 64-bit aligned"). The IsBytesMultipleOf8=false path is a safety fallback to
+            // avoid UB on unaligned pointer reads, not to handle non-multiple-of-8 sizes.
             const uint64_t words = quantizedVectorBytes >> 3; // divide by 8
-
             uint32_t dp = 0;
 
-            for (size_t j = 0; j < words; ++j) {
-                dp += __builtin_popcountll(query[j] & target[j]);
+            if constexpr (IsBytesMultipleOf8) {
+                const auto* q = reinterpret_cast<const uint64_t*>(query);
+                const auto* t = reinterpret_cast<const uint64_t*>(target);
+                for (size_t j = 0; j < words; ++j) {
+                    dp += __builtin_popcountll(q[j] & t[j]);
+                }
+            } else {
+                // Slower
+                for (size_t j = 0; j < words; ++j) {
+                    uint64_t queryWord, targetWord;
+                    std::memcpy(&queryWord, query + j * 8, sizeof(uint64_t));
+                    std::memcpy(&targetWord, target + j * 8, sizeof(uint64_t));
+                    dp += __builtin_popcountll(queryWord & targetWord);
+                }
             }
 
-            const float score = scoringSecondPart(target, dp);
-            return score;
+            return scoringSecondPart(target, dp);
         }
 
         /// compute distances of current query to 4 stored vectors.
-        /// certain DistanceComputer implementations may benefit
-        /// heavily from this.
         void distances_batch_4(
                 const faiss::idx_t idx0,
                 const faiss::idx_t idx1,
@@ -110,23 +154,42 @@ namespace knn_jni {
                 float& dis1,
                 float& dis2,
                 float& dis3) final {
-            const uint64_t* target1 = reinterpret_cast<const uint64_t*>(data + idx0 * oneElementByteSize);
-            const uint64_t* target2 = reinterpret_cast<const uint64_t*>(data + idx1 * oneElementByteSize);
-            const uint64_t* target3 = reinterpret_cast<const uint64_t*>(data + idx2 * oneElementByteSize);
-            const uint64_t* target4 = reinterpret_cast<const uint64_t*>(data + idx3 * oneElementByteSize);
+            const uint8_t* target1 = data + idx0 * oneElementByteSize;
+            const uint8_t* target2 = data + idx1 * oneElementByteSize;
+            const uint8_t* target3 = data + idx2 * oneElementByteSize;
+            const uint8_t* target4 = data + idx3 * oneElementByteSize;
 
             const uint64_t words = quantizedVectorBytes >> 3; // divide by 8
 
-            uint32_t dp1 = 0;
-            uint32_t dp2 = 0;
-            uint32_t dp3 = 0;
-            uint32_t dp4 = 0;
+            uint32_t dp1 = 0, dp2 = 0, dp3 = 0, dp4 = 0;
 
-            for (size_t i = 0; i < words; ++i) {
-                dp1 += __builtin_popcountll(query[i] & target1[i]);
-                dp2 += __builtin_popcountll(query[i] & target2[i]);
-                dp3 += __builtin_popcountll(query[i] & target3[i]);
-                dp4 += __builtin_popcountll(query[i] & target4[i]);
+            if constexpr (IsBytesMultipleOf8) {
+                const auto* q = reinterpret_cast<const uint64_t*>(query);
+                const auto* t1 = reinterpret_cast<const uint64_t*>(target1);
+                const auto* t2 = reinterpret_cast<const uint64_t*>(target2);
+                const auto* t3 = reinterpret_cast<const uint64_t*>(target3);
+                const auto* t4 = reinterpret_cast<const uint64_t*>(target4);
+                for (size_t i = 0; i < words; ++i) {
+                    dp1 += __builtin_popcountll(q[i] & t1[i]);
+                    dp2 += __builtin_popcountll(q[i] & t2[i]);
+                    dp3 += __builtin_popcountll(q[i] & t3[i]);
+                    dp4 += __builtin_popcountll(q[i] & t4[i]);
+                }
+            } else {
+                // Slower
+                for (size_t i = 0; i < words; ++i) {
+                    uint64_t queryWord;
+                    std::memcpy(&queryWord, query + i * 8, sizeof(uint64_t));
+                    uint64_t w1, w2, w3, w4;
+                    std::memcpy(&w1, target1 + i * 8, sizeof(uint64_t));
+                    std::memcpy(&w2, target2 + i * 8, sizeof(uint64_t));
+                    std::memcpy(&w3, target3 + i * 8, sizeof(uint64_t));
+                    std::memcpy(&w4, target4 + i * 8, sizeof(uint64_t));
+                    dp1 += __builtin_popcountll(queryWord & w1);
+                    dp2 += __builtin_popcountll(queryWord & w2);
+                    dp3 += __builtin_popcountll(queryWord & w3);
+                    dp4 += __builtin_popcountll(queryWord & w4);
+                }
             }
 
             dis0 = scoringSecondPart(target1, dp1);
@@ -137,28 +200,33 @@ namespace knn_jni {
 
         /// compute distance between two stored vectors
         float symmetric_dis(faiss::idx_t i, faiss::idx_t j) {
-            const uint64_t* target1 = reinterpret_cast<const uint64_t*>(data + i * oneElementByteSize);
-            const uint64_t* target2 = reinterpret_cast<const uint64_t*>(data + j * oneElementByteSize);
+            const uint8_t* target1 = data + i * oneElementByteSize;
+            const uint8_t* target2 = data + j * oneElementByteSize;
 
             const uint64_t words = quantizedVectorBytes >> 3; // divide by 8
-
             uint32_t dp = 0;
 
-            for (size_t k = 0; k < words; ++k) {
-                dp += __builtin_popcountll(target1[k] & target2[k]);
+            if constexpr (IsBytesMultipleOf8) {
+                const auto* t1 = reinterpret_cast<const uint64_t*>(target1);
+                const auto* t2 = reinterpret_cast<const uint64_t*>(target2);
+                for (size_t k = 0; k < words; ++k) {
+                    dp += __builtin_popcountll(t1[k] & t2[k]);
+                }
+            } else {
+                // Slower
+                for (size_t k = 0; k < words; ++k) {
+                    uint64_t w1, w2;
+                    std::memcpy(&w1, target1 + k * 8, sizeof(uint64_t));
+                    std::memcpy(&w2, target2 + k * 8, sizeof(uint64_t));
+                    dp += __builtin_popcountll(w1 & w2);
+                }
             }
 
             // Get correction factors
-            float ax;
-            float lx;
-            float additional;
-            float x1;
+            float ax, lx, additional, x1;
             setCorrectionFactors(target1, ax, lx, additional, x1);
 
-            float az;
-            float lz;
-            float additionalz;
-            float z1;
+            float az, lz, additionalz, z1;
             setCorrectionFactors(target2, az, lz, additionalz, z1);
 
             // Scoring
@@ -182,8 +250,8 @@ namespace knn_jni {
         int32_t quantizedVectorBytes;
         float centroidDp;
         int32_t oneElementSize;
-        // For safely casting uint8_t* to float*, we should enforce 4-byte alignment for the vector.
-        std::vector<uint8_t, knn_jni::FourBytesAlignedAllocator<uint8_t>> quantizedVectorsAndCorrectionFactors;
+        // For safely casting uint8_t* to float*, we should enforce 8-byte alignment for the vector.
+        std::vector<uint8_t, knn_jni::NBytesAlignedAllocator<uint8_t, 8>> quantizedVectorsAndCorrectionFactors;
         int32_t dimension;
 
         FaissBBQFlat(int64_t _numVectors, int32_t _quantizedVectorBytes, float _centroidDp, int32_t _dimension, faiss::MetricType _metric)
@@ -207,10 +275,19 @@ namespace knn_jni {
         }
 
         faiss::DistanceComputer* get_distance_computer() const {
+            const bool aligned = (oneElementSize % 8) == 0;
             if (metric_type == faiss::MetricType::METRIC_L2) {
-                return new FaissBBQDistanceComputer<false>(oneElementSize, quantizedVectorsAndCorrectionFactors.data(), centroidDp, dimension, numVectors);
+                if (aligned) {
+                    return new FaissBBQDistanceComputer<false, true>(oneElementSize, quantizedVectorsAndCorrectionFactors.data(), centroidDp, dimension, numVectors);
+                } else {
+                    return new FaissBBQDistanceComputer<false, false>(oneElementSize, quantizedVectorsAndCorrectionFactors.data(), centroidDp, dimension, numVectors);
+                }
             } else if (metric_type == faiss::MetricType::METRIC_INNER_PRODUCT) {
-                return new FaissBBQDistanceComputer<true>(oneElementSize, quantizedVectorsAndCorrectionFactors.data(), centroidDp, dimension, numVectors);
+                if (aligned) {
+                    return new FaissBBQDistanceComputer<true, true>(oneElementSize, quantizedVectorsAndCorrectionFactors.data(), centroidDp, dimension, numVectors);
+                } else {
+                    return new FaissBBQDistanceComputer<true, false>(oneElementSize, quantizedVectorsAndCorrectionFactors.data(), centroidDp, dimension, numVectors);
+                }
             }
 
             throw std::runtime_error("Unsupported metric type - " + std::to_string(metric_type));

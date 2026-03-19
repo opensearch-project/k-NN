@@ -38,18 +38,27 @@
 
 namespace knn_jni {
 
-    template <typename T>
-    struct FourBytesAlignedAllocator {
+    template <typename T, int NBytes>
+    struct NBytesAlignedAllocator {
         using value_type = T;
 
+        template <typename U>
+        struct rebind { using other = NBytesAlignedAllocator<U, NBytes>; };
+
         T* allocate(std::size_t n) {
-            void* p = ::operator new(n * sizeof(T), std::align_val_t(4));
+            void* p = ::operator new(n * sizeof(T), std::align_val_t(NBytes));
             return static_cast<T*>(p);
         }
 
         void deallocate(T* p, std::size_t) noexcept {
-            ::operator delete(p, std::align_val_t(4));
+            ::operator delete(p, std::align_val_t(NBytes));
         }
+
+        template <typename U>
+        bool operator==(const NBytesAlignedAllocator<U, NBytes>&) const noexcept { return true; }
+
+        template <typename U>
+        bool operator!=(const NBytesAlignedAllocator<U, NBytes>&) const noexcept { return false; }
     };
 
 }
