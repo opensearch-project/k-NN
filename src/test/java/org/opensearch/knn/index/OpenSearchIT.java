@@ -1776,40 +1776,11 @@ public class OpenSearchIT extends KNNRestTestCase {
         String targetField1 = "target_vector_1";
         String targetField2 = "target_vector_2";
 
-        String mapping = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("properties")
-            .startObject(sourceField)
-            .field("type", "knn_vector")
-            .field("dimension", 2)
-            .startObject("method")
-            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .endObject()
-            .field("copy_to", new String[] { targetField1, targetField2 })
-            .endObject()
-            .startObject(targetField1)
-            .field("type", "knn_vector")
-            .field("dimension", 2)
-            .startObject("method")
-            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .endObject()
-            .endObject()
-            .startObject(targetField2)
-            .field("type", "knn_vector")
-            .field("dimension", 2)
-            .startObject("method")
-            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject()
-            .toString();
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("properties");
+        buildKnnVectorFieldMapping(builder, sourceField, 2, SpaceType.L2, KNNEngine.FAISS, new String[] { targetField1, targetField2 });
+        buildKnnVectorFieldMapping(builder, targetField1, 2, SpaceType.L2, KNNEngine.FAISS, null);
+        buildKnnVectorFieldMapping(builder, targetField2, 2, SpaceType.L2, KNNEngine.LUCENE, null);
+        String mapping = builder.endObject().endObject().toString();
 
         createKnnIndex(indexName, mapping);
 
@@ -1835,31 +1806,10 @@ public class OpenSearchIT extends KNNRestTestCase {
         String sourceField = "source_vector";
         String targetField = "target_vector";
 
-        String mapping = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("properties")
-            .startObject(sourceField)
-            .field("type", "knn_vector")
-            .field("dimension", 2)
-            .startObject("method")
-            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .endObject()
-            .field("copy_to", targetField)
-            .endObject()
-            .startObject(targetField)
-            .field("type", "knn_vector")
-            .field("dimension", 2)
-            .startObject("method")
-            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject()
-            .toString();
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("properties");
+        buildKnnVectorFieldMapping(builder, sourceField, 2, SpaceType.L2, KNNEngine.FAISS, targetField);
+        buildKnnVectorFieldMapping(builder, targetField, 2, SpaceType.L2, KNNEngine.FAISS, null);
+        String mapping = builder.endObject().endObject().toString();
 
         createKnnIndex(indexName, mapping);
 
@@ -1892,31 +1842,10 @@ public class OpenSearchIT extends KNNRestTestCase {
         String sourceField = "source_vector";
         String targetField = "target_vector";
 
-        String mapping = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("properties")
-            .startObject(sourceField)
-            .field("type", "knn_vector")
-            .field("dimension", 2)
-            .startObject("method")
-            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .endObject()
-            .field("copy_to", targetField)
-            .endObject()
-            .startObject(targetField)
-            .field("type", "knn_vector")
-            .field("dimension", 2)
-            .startObject("method")
-            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject()
-            .toString();
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("properties");
+        buildKnnVectorFieldMapping(builder, sourceField, 2, SpaceType.L2, KNNEngine.FAISS, targetField);
+        buildKnnVectorFieldMapping(builder, targetField, 2, SpaceType.L2, KNNEngine.FAISS, null);
+        String mapping = builder.endObject().endObject().toString();
 
         createKnnIndex(indexName, mapping);
 
@@ -1944,31 +1873,10 @@ public class OpenSearchIT extends KNNRestTestCase {
         String sourceField = "source_vector";
         String targetField = "target_vector";
 
-        String mapping = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("properties")
-            .startObject(sourceField)
-            .field("type", "knn_vector")
-            .field("dimension", 2)
-            .startObject("method")
-            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .endObject()
-            .field("copy_to", targetField)
-            .endObject()
-            .startObject(targetField)
-            .field("type", "knn_vector")
-            .field("dimension", 2)
-            .startObject("method")
-            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject()
-            .toString();
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("properties");
+        buildKnnVectorFieldMapping(builder, sourceField, 2, SpaceType.L2, KNNEngine.FAISS, targetField);
+        buildKnnVectorFieldMapping(builder, targetField, 2, SpaceType.L2, KNNEngine.FAISS, null);
+        String mapping = builder.endObject().endObject().toString();
 
         createKnnIndex(indexName, mapping);
 
@@ -1993,31 +1901,10 @@ public class OpenSearchIT extends KNNRestTestCase {
         String sourceField = "source_vector";
         String targetField = "target_vector";
 
-        String mapping = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("properties")
-            .startObject(sourceField)
-            .field("type", "knn_vector")
-            .field("dimension", 2)
-            .startObject("method")
-            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .endObject()
-            .field("copy_to", targetField)
-            .endObject()
-            .startObject(targetField)
-            .field("type", "knn_vector")
-            .field("dimension", 2)
-            .startObject("method")
-            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject()
-            .toString();
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("properties");
+        buildKnnVectorFieldMapping(builder, sourceField, 2, SpaceType.L2, KNNEngine.FAISS, targetField);
+        buildKnnVectorFieldMapping(builder, targetField, 2, SpaceType.L2, KNNEngine.FAISS, null);
+        String mapping = builder.endObject().endObject().toString();
 
         createKnnIndex(indexName, mapping);
 
@@ -2036,6 +1923,50 @@ public class OpenSearchIT extends KNNRestTestCase {
         assertEquals(sourceResults.get(0).getDocId(), targetResults.get(0).getDocId());
 
         deleteKNNIndex(indexName);
+    }
+
+    @SneakyThrows
+    public void testCopyTo_whenTargetFieldHasDifferentDimension_thenFail() {
+        String indexName = "test_copy_to_dim_mismatch";
+        String sourceField = "source_vector";
+        String targetField = "target_vector";
+
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("properties");
+        buildKnnVectorFieldMapping(builder, sourceField, 2, SpaceType.L2, KNNEngine.FAISS, targetField);
+        buildKnnVectorFieldMapping(builder, targetField, 3, SpaceType.L2, KNNEngine.FAISS, null);
+        String mapping = builder.endObject().endObject().toString();
+
+        createKnnIndex(indexName, mapping);
+
+        ResponseException ex = expectThrows(
+            ResponseException.class,
+            () -> addKnnDoc(indexName, "1", sourceField, new Float[] { 1.0f, 1.0f })
+        );
+        assertThat(EntityUtils.toString(ex.getResponse().getEntity()), containsString("Vector dimension mismatch"));
+
+        deleteKNNIndex(indexName);
+    }
+
+    private static XContentBuilder buildKnnVectorFieldMapping(
+        XContentBuilder builder,
+        String fieldName,
+        int dimension,
+        SpaceType spaceType,
+        KNNEngine engine,
+        Object copyTo
+    ) throws IOException {
+        builder.startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject("method")
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNNConstants.KNN_ENGINE, engine.getName())
+            .endObject();
+        if (copyTo != null) {
+            builder.field("copy_to", copyTo);
+        }
+        return builder.endObject();
     }
 
     private List<KNNResult> getResults(final String indexName, final String fieldName, final float[] vector, final int k)

@@ -6,6 +6,7 @@
 package org.opensearch.knn.integ;
 
 import lombok.SneakyThrows;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.Before;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
@@ -19,6 +20,8 @@ import org.opensearch.knn.DerivedSourceUtils;
 import org.opensearch.knn.Pair;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
+import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.io.IOException;
@@ -28,6 +31,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.opensearch.knn.DerivedSourceUtils.DERIVED_ENABLED_WITH_SEGREP_SETTINGS;
 import static org.opensearch.knn.DerivedSourceUtils.TEST_DIMENSION;
 import static org.opensearch.knn.DerivedSourceUtils.randomVectorSupplier;
@@ -295,6 +299,164 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
         assertEquals("Vector 1 should have correct dimension", dimension, retrievedVector1.size());
         assertEquals("Vector 2 should have correct dimension", dimension, retrievedVector2.size());
         assertEquals("Vector 3 should have correct dimension", dimension, retrievedVector3.size());
+
+        deleteKNNIndex(indexName);
+    }
+
+    @SneakyThrows
+    public void testDerivedSource_withCopyTo_thenTargetFieldSearchable() {
+        String indexName = "test-derived-copy-to";
+        String sourceField = "source_vector";
+        String targetField = "target_vector";
+        int dimension = 3;
+
+        Settings settings = Settings.builder()
+            .put("number_of_shards", 1)
+            .put("number_of_replicas", 0)
+            .put("index.knn", true)
+            .put("index.knn.derived_source.enabled", true)
+            .build();
+
+        XContentBuilder mappingBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(KNNConstants.PROPERTIES)
+            .startObject(sourceField)
+            .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
+            .field(DIMENSION, dimension)
+            .field("copy_to", targetField)
+            .endObject()
+            .startObject(targetField)
+            .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
+            .field(DIMENSION, dimension)
+            .endObject()
+            .endObject()
+            .endObject();
+
+        createKnnIndex(indexName, settings, mappingBuilder.toString());
+
+        addKnnDoc(indexName, "1", sourceField, new Float[] { 1.0f, 2.0f, 3.0f });
+        addKnnDoc(indexName, "2", sourceField, new Float[] { 10.0f, 20.0f, 30.0f });
+        refreshIndex(indexName);
+
+        // Verify _source is correctly reconstructed with derived source
+        Map<String, Object> doc1Source = getKnnDoc(indexName, "1");
+        assertNotNull("Source vector should be reconstructed from derived source", doc1Source.get(sourceField));
+        List<?> sourceVector = (List<?>) doc1Source.get(sourceField);
+        assertEquals(dimension, sourceVector.size());
+        assertEquals(1.0, ((Number) sourceVector.get(0)).doubleValue(), 0.01);
+
+        // Verify search on target (copy_to) field returns correct results
+        float[] queryVector = { 1.0f, 2.0f, 3.0f };
+        Response searchResponse = searchKNNIndex(indexName, new KNNQueryBuilder(targetField, queryVector, 1), 1);
+        String searchResponseBody = EntityUtils.toString(searchResponse.getEntity());
+        List<KNNResult> results = parseSearchResponse(searchResponseBody, targetField);
+        assertEquals(1, results.size());
+        assertEquals("1", results.get(0).getDocId());
+
+        deleteKNNIndex(indexName);
+    }
+
+    @SneakyThrows
+    public void testDerivedSource_withCopyTo_thenSourceMatchesNonDerived() {
+        String sourceField = "source_vector";
+        String targetField = "target_vector";
+        int dimension = 3;
+        String derivedIndex = "test-derived-copy-to-enabled";
+        String baselineIndex = "test-derived-copy-to-disabled";
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(KNNConstants.PROPERTIES)
+            .startObject(sourceField)
+            .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
+            .field(DIMENSION, dimension)
+            .field("copy_to", targetField)
+            .endObject()
+            .startObject(targetField)
+            .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
+            .field(DIMENSION, dimension)
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(
+            derivedIndex,
+            Settings.builder()
+                .put("number_of_shards", 1)
+                .put("number_of_replicas", 0)
+                .put("index.knn", true)
+                .put("index.knn.derived_source.enabled", true)
+                .build(),
+            mapping
+        );
+        createKnnIndex(
+            baselineIndex,
+            Settings.builder()
+                .put("number_of_shards", 1)
+                .put("number_of_replicas", 0)
+                .put("index.knn", true)
+                .put("index.knn.derived_source.enabled", false)
+                .build(),
+            mapping
+        );
+
+        Float[][] vectors = { { 1.0f, 2.0f, 3.0f }, { 10.0f, 20.0f, 30.0f }, { 5.0f, 5.0f, 5.0f } };
+        for (int i = 0; i < vectors.length; i++) {
+            String docId = String.valueOf(i + 1);
+            addKnnDoc(derivedIndex, docId, sourceField, vectors[i]);
+            addKnnDoc(baselineIndex, docId, sourceField, vectors[i]);
+        }
+        refreshIndex(derivedIndex);
+        refreshIndex(baselineIndex);
+
+        // Verify _source matches between derived and non-derived indices
+        for (int i = 0; i < vectors.length; i++) {
+            String docId = String.valueOf(i + 1);
+            Map<String, Object> derivedDoc = getKnnDoc(derivedIndex, docId);
+            Map<String, Object> baselineDoc = getKnnDoc(baselineIndex, docId);
+            assertEquals("Source field _source mismatch for doc " + docId, baselineDoc.get(sourceField), derivedDoc.get(sourceField));
+        }
+
+        deleteKNNIndex(derivedIndex);
+        deleteKNNIndex(baselineIndex);
+    }
+
+    @SneakyThrows
+    public void testDerivedSource_withCopyTo_whenDimensionMismatch_thenFail() {
+        String indexName = "test-derived-copy-to-dim-mismatch";
+        String sourceField = "source_vector";
+        String targetField = "target_vector";
+
+        Settings settings = Settings.builder()
+            .put("number_of_shards", 1)
+            .put("number_of_replicas", 0)
+            .put("index.knn", true)
+            .put("index.knn.derived_source.enabled", true)
+            .build();
+
+        XContentBuilder mappingBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(KNNConstants.PROPERTIES)
+            .startObject(sourceField)
+            .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
+            .field(DIMENSION, 2)
+            .field("copy_to", targetField)
+            .endObject()
+            .startObject(targetField)
+            .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
+            .field(DIMENSION, 3)
+            .endObject()
+            .endObject()
+            .endObject();
+
+        createKnnIndex(indexName, settings, mappingBuilder.toString());
+
+        ResponseException ex = expectThrows(
+            ResponseException.class,
+            () -> addKnnDoc(indexName, "1", sourceField, new Float[] { 1.0f, 1.0f })
+        );
+        assertThat(EntityUtils.toString(ex.getResponse().getEntity()), containsString("Vector dimension mismatch"));
 
         deleteKNNIndex(indexName);
     }
