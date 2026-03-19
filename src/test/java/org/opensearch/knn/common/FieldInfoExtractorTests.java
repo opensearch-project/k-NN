@@ -66,6 +66,38 @@ public class FieldInfoExtractorTests extends KNNTestCase {
         assertEquals(VectorDataType.DEFAULT, FieldInfoExtractor.extractVectorDataType(fieldInfo));
     }
 
+    public void testIsAdc_whenNoQFrameworkConfig_thenReturnsFalse() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(KNNConstants.QFRAMEWORK_CONFIG)).thenReturn(null);
+        Assert.assertFalse(FieldInfoExtractor.isAdc(fieldInfo));
+    }
+
+    public void testIsAdc_whenEmptyQFrameworkConfig_thenReturnsFalse() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(KNNConstants.QFRAMEWORK_CONFIG)).thenReturn("");
+        Assert.assertFalse(FieldInfoExtractor.isAdc(fieldInfo));
+    }
+
+    public void testIsAdc_whenAdcEnabled_thenReturnsTrue() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(KNNConstants.QFRAMEWORK_CONFIG)).thenReturn("type=binary,bits=2,random_rotation=false,enable_adc=true");
+        Assert.assertTrue(FieldInfoExtractor.isAdc(fieldInfo));
+    }
+
+    public void testIsAdc_whenAdcDisabled_thenReturnsFalse() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(KNNConstants.QFRAMEWORK_CONFIG)).thenReturn(
+            "type=binary,bits=2,random_rotation=false,enable_adc=false"
+        );
+        Assert.assertFalse(FieldInfoExtractor.isAdc(fieldInfo));
+    }
+
+    public void testIsAdc_whenOldFormatWithoutAdcField_thenReturnsFalse() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(KNNConstants.QFRAMEWORK_CONFIG)).thenReturn("type=binary,bits=2");
+        Assert.assertFalse(FieldInfoExtractor.isAdc(fieldInfo));
+    }
+
     public void testGetFieldInfo_whenDifferentInput_thenSuccess() {
         LeafReader leafReader = Mockito.mock(LeafReader.class);
         FieldInfos fieldInfos = Mockito.mock(FieldInfos.class);

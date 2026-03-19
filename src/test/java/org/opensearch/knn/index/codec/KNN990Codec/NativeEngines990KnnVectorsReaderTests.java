@@ -78,7 +78,7 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
         FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("field1")
             .fieldNumber(0)
             .addAttribute(KNN_ENGINE, KNNEngine.FAISS.getName())
-            .addAttribute(QFRAMEWORK_CONFIG, "some-value")
+            .addAttribute(QFRAMEWORK_CONFIG, "type=binary,bits=2")
             .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
             .build();
 

@@ -5,7 +5,7 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
-import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
+import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
@@ -32,6 +32,6 @@ public interface VectorSearcherFactory {
         String fileName,
         FieldInfo fieldInfo,
         IOContext ioContext,
-        FlatVectorsScorer vectorScorer
+        FlatVectorsReader flatVectorsReader
     ) throws IOException;
 }

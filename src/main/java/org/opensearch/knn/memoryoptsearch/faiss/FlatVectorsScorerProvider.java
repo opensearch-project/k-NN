@@ -8,10 +8,12 @@ package org.opensearch.knn.memoryoptsearch.faiss;
 import lombok.experimental.UtilityClass;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.apache.lucene.util.hnsw.RandomVectorScorerSupplier;
+import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
@@ -37,27 +39,28 @@ public class FlatVectorsScorerProvider {
     }
 
     /**
-     * Returns the FlatVectorsScorer based on the similarity function, or if adc is enabled based on the SpaceType.
-     * @param similarityFunction the vector similarity function to use
-     * @param isAdc whether ADC (Asymmetric Distance Computation) is enabled
-     * @param spaceType the space type for vector comparison
-     * @return FlatVectorsScorer instance
+     * Returns the appropriate {@link FlatVectorsScorer} for the given field.
+     * Selects an ADC, Hamming, or delegate scorer based on the field's quantization config and space type.
+     *
+     * @param fieldInfo       the field info containing space type and quantization attributes
+     * @param delegateScorer  the default scorer to fall back to when no specialized scorer applies
+     * @return the resolved {@link FlatVectorsScorer}
      */
     public static FlatVectorsScorer getFlatVectorsScorer(
+        final FieldInfo fieldInfo,
         final KNNVectorSimilarityFunction similarityFunction,
-        final boolean isAdc,
-        final SpaceType spaceType,
         final FlatVectorsScorer delegateScorer
     ) {
-        if (isAdc) {
-            // Note: we cannot leverage KNNVectorSimilarityFunction here as it is HAMMING for ADC, so we must use SpaceType.
-            return ADC_FLAT_SCORERS.get(spaceType);
-        }
-        if (similarityFunction == KNNVectorSimilarityFunction.HAMMING) {
+        // Handle Special case of ADC first.
+        if (FieldInfoExtractor.isAdc(fieldInfo)) {
+            return ADC_FLAT_SCORERS.get(FieldInfoExtractor.getSpaceType(null, fieldInfo));
+        } else if (KNNVectorSimilarityFunction.HAMMING == similarityFunction) {
+            // Since Lucene doesn't provide hamming distance scorer, we return our own hamming distance scorer
             return HAMMING_VECTOR_SCORER;
+        } else {
+            // For all other cases just return the delegate scorer.
+            return delegateScorer;
         }
-
-        return delegateScorer;
     }
 
     private static class ADCFlatVectorsScorer implements FlatVectorsScorer {

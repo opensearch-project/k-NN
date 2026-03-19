@@ -18,16 +18,12 @@ import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.knn.KnnSearchStrategy;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.Bits;
-import org.apache.lucene.util.IOSupplier;
 import org.apache.lucene.util.hnsw.HnswGraphSearcher;
 import org.apache.lucene.util.hnsw.OrdinalTranslatedKnnCollector;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.opensearch.knn.common.FieldInfoExtractor;
-import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.common.RobustUniqueRandomIterator;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.faiss.cagra.FaissCagraHNSW;
 
@@ -57,11 +53,15 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     private final long fileSize;
     private boolean isAdc;
 
-    public FaissMemoryOptimizedSearcher(final IndexInput indexInput, final FieldInfo fieldInfo, final FlatVectorsScorer flatVectorsScorer)
-        throws IOException {
+    public FaissMemoryOptimizedSearcher(
+        final IndexInput indexInput,
+        final FaissIndex faissIndex,
+        final FieldInfo fieldInfo,
+        final FlatVectorsScorer flatVectorsScorer
+    ) {
         this.indexInput = indexInput;
         this.fileSize = indexInput.length();
-        this.faissIndex = FaissIndex.load(indexInput);
+        this.faissIndex = faissIndex;
         final KNNVectorSimilarityFunction knnVectorSimilarityFunction = faissIndex.getVectorSimilarityFunction();
 
         if (knnVectorSimilarityFunction != KNNVectorSimilarityFunction.HAMMING) {
@@ -70,21 +70,8 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
             vectorSimilarityFunction = null;
         }
 
-        this.isAdc = false;
-        SpaceType spaceType = null;
-        if (fieldInfo != null) {
-            // Extract ADC info from fieldInfo to determine scorer.
-            final QuantizationConfig quantizationConfig = FieldInfoExtractor.extractQuantizationConfig(fieldInfo);
-            this.isAdc = quantizationConfig.isEnableADC();
-            spaceType = isAdc ? SpaceType.getSpace(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)) : null;
-        }
-
-        this.flatVectorsScorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
-            knnVectorSimilarityFunction,
-            isAdc,
-            spaceType,
-            flatVectorsScorer
-        );
+        this.isAdc = FieldInfoExtractor.isAdc(fieldInfo);
+        this.flatVectorsScorer = flatVectorsScorer;
 
         this.hnsw = extractFaissHnsw(faissIndex);
     }
@@ -105,7 +92,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
 
         search(
             VectorEncoding.FLOAT32,
-            () -> flatVectorsScorer.getRandomVectorScorer(vectorSimilarityFunction, knnVectorValues, target),
+            flatVectorsScorer.getRandomVectorScorer(vectorSimilarityFunction, knnVectorValues, target),
             knnCollector,
             acceptDocs
         );
@@ -115,11 +102,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     public void search(byte[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
         search(
             VectorEncoding.BYTE,
-            () -> flatVectorsScorer.getRandomVectorScorer(
-                vectorSimilarityFunction,
-                faissIndex.getByteValues(getSlicedIndexInput()),
-                target
-            ),
+            flatVectorsScorer.getRandomVectorScorer(vectorSimilarityFunction, faissIndex.getByteValues(getSlicedIndexInput()), target),
             knnCollector,
             acceptDocs
         );
@@ -143,7 +126,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
 
     private void search(
         final VectorEncoding vectorEncoding,
-        final IOSupplier<RandomVectorScorer> scorerSupplier,
+        final RandomVectorScorer scorer,
         final KnnCollector knnCollector,
         final AcceptDocs acceptDocs
     ) throws IOException {
@@ -163,7 +146,6 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         }
 
         // Set up required components for vector search
-        final RandomVectorScorer scorer = scorerSupplier.get();
         final KnnCollector collector = createKnnCollector(knnCollector, scorer);
         final Bits acceptedOrds = scorer.getAcceptOrds(acceptDocs.bits());
 
