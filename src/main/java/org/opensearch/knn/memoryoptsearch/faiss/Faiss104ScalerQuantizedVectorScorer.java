@@ -13,7 +13,6 @@ import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.ArrayUtil;
-import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.apache.lucene.util.quantization.OptimizedScalarQuantizer;
 import org.opensearch.knn.jni.SimdVectorComputeService;
@@ -146,7 +145,6 @@ public class Faiss104ScalerQuantizedVectorScorer extends Lucene104ScalarQuantize
         // Return Bulk SIMD scorer
         return new BulkSimdRandomVectorScorer(
             targetQuantized,
-            quantizedByteVectorValues.size(),
             targetCorrectiveTerms,
             addressAndSize,
             quantizedByteVectorValues,
@@ -166,28 +164,23 @@ public class Faiss104ScalerQuantizedVectorScorer extends Lucene104ScalarQuantize
      * <p>The query is preprocessed (quantized + transformed) once during construction,
      * and reused across all scoring calls.
      */
-    private static class BulkSimdRandomVectorScorer implements RandomVectorScorer {
-        private final int maxOrd;
-        private final QuantizedByteVectorValues knnVectorValues;
-
+    private static class BulkSimdRandomVectorScorer extends RandomVectorScorer.AbstractRandomVectorScorer {
         /**
          * Constructs a SIMD-backed scorer and initializes the native search context.
          *
          * <p>This constructor pushes all necessary query state into native memory,
          * including quantized query values and correction terms required for accurate scoring.
          *
-         * @param targetQuantized        quantized query vector
-         * @param maxOrd                 total number of vectors
-         * @param targetCorrectiveTerms  correction terms from quantization
-         * @param addressAndSize         raw memory location of vector data
-         * @param knnVectorValues        vector storage abstraction
-         * @param similarityFunction     similarity function (IP or L2)
-         * @param dimension              vector dimensionality
-         * @param centroidDp             centroid dot-product correction
+         * @param targetQuantized       quantized query vector
+         * @param targetCorrectiveTerms correction terms from quantization
+         * @param addressAndSize        raw memory location of vector data
+         * @param knnVectorValues       vector storage abstraction
+         * @param similarityFunction    similarity function (IP or L2)
+         * @param dimension             vector dimensionality
+         * @param centroidDp            centroid dot-product correction
          */
         public BulkSimdRandomVectorScorer(
             final byte[] targetQuantized,
-            final int maxOrd,
             final OptimizedScalarQuantizer.QuantizationResult targetCorrectiveTerms,
             final long[] addressAndSize,
             final QuantizedByteVectorValues knnVectorValues,
@@ -195,9 +188,7 @@ public class Faiss104ScalerQuantizedVectorScorer extends Lucene104ScalarQuantize
             final int dimension,
             final float centroidDp
         ) {
-
-            this.maxOrd = maxOrd;
-            this.knnVectorValues = knnVectorValues;
+            super(knnVectorValues);
 
             // Initialize native SIMD search context
             SimdVectorComputeService.saveBBQSearchContext(
@@ -239,40 +230,8 @@ public class Faiss104ScalerQuantizedVectorScorer extends Lucene104ScalarQuantize
          * @throws IOException if the native scoring operation fails
          */
         @Override
-        public float score(final int internalVectorId) throws IOException {
+        public float score(final int internalVectorId) {
             return SimdVectorComputeService.scoreSimilarity(internalVectorId);
-        }
-
-        /**
-         * Returns the maximum vector id for scoring.
-         *
-         * @return the maximum vector id
-         */
-        @Override
-        public int maxOrd() {
-            return maxOrd;
-        }
-
-        /**
-         * Maps an internal vector ordinal to its corresponding document ID.
-         *
-         * @param ord the internal vector id
-         * @return the document ID associated with the given vector id
-         */
-        @Override
-        public int ordToDoc(int ord) {
-            return knnVectorValues.ordToDoc(ord);
-        }
-
-        /**
-         * Returns a filtered {@link Bits} view representing accepted documents.
-         *
-         * @param acceptDocs the bit set of accepted documents
-         * @return a {@link Bits} object describing acceptable vector ids for scoring
-         */
-        @Override
-        public Bits getAcceptOrds(Bits acceptDocs) {
-            return knnVectorValues.getAcceptOrds(acceptDocs);
         }
     }
 }
