@@ -188,16 +188,20 @@ static FORCE_INLINE void readDataCorrections(const uint8_t* ptr, float& ax, floa
 
 // Scalar fallback for int4BitDotProduct
 // q has 4 * binaryCodeBytes bytes (4 bit planes), d has binaryCodeBytes bytes
+// Uses std::memcpy for uint64_t loads to avoid undefined behavior from unaligned
+// reinterpret_cast when binaryCodeBytes is not a multiple of 8. Compilers optimize
+// the 8-byte memcpy into a single mov instruction — zero runtime cost.
 static FORCE_INLINE int64_t int4BitDotProduct(const uint8_t* q, const uint8_t* d, const int32_t binaryCodeBytes) {
     int64_t result = 0;
     for (int32_t bitPlane = 0 ; bitPlane < 4 ; ++bitPlane) {
-        const auto* qPlane = reinterpret_cast<const uint64_t*>(q + bitPlane * binaryCodeBytes);
-        const auto* dPtr = reinterpret_cast<const uint64_t*>(d);
         const int32_t words = binaryCodeBytes >> 3;
 
         int64_t subResult = 0;
         for (int32_t w = 0 ; w < words ; ++w) {
-            subResult += __builtin_popcountll(qPlane[w] & dPtr[w]);
+            uint64_t qWord, dWord;
+            std::memcpy(&qWord, q + bitPlane * binaryCodeBytes + w * 8, sizeof(uint64_t));
+            std::memcpy(&dWord, d + w * 8, sizeof(uint64_t));
+            subResult += __builtin_popcountll(qWord & dWord);
         }
 
         const int32_t remainStart = words * 8;

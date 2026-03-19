@@ -70,7 +70,7 @@ public class Faiss104ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
         KNNEngine mockFaiss = spy(KNNEngine.FAISS);
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
-        when(mockFactory.createVectorSearcher(any(), any(), any(), any())).thenReturn(mock(VectorSearcher.class));
+        when(mockFactory.createVectorSearcher(any(), any(), any(), any(), any())).thenReturn(mock(VectorSearcher.class));
 
         try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
             ms.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
@@ -91,7 +91,7 @@ public class Faiss104ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
         VectorSearcher mockSearcher = mock(VectorSearcher.class);
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
-        when(mockFactory.createVectorSearcher(any(), any(), any(), any())).thenReturn(mockSearcher);
+        when(mockFactory.createVectorSearcher(any(), any(), any(), any(), any())).thenReturn(mockSearcher);
 
         try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
             ms.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
@@ -145,7 +145,7 @@ public class Faiss104ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
         VectorSearcher mockSearcher = mock(VectorSearcher.class);
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
-        when(mockFactory.createVectorSearcher(any(), any(), any(), any())).thenReturn(mockSearcher);
+        when(mockFactory.createVectorSearcher(any(), any(), any(), any(), any())).thenReturn(mockSearcher);
         final FlatVectorsReader fvr = mock(FlatVectorsReader.class);
 
         try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
