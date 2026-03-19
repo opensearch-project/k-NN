@@ -35,6 +35,7 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
+import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -717,6 +718,76 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
                 () -> knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true)
             );
             mergeHelper.verify(MergeAbortChecker::isMergeAborted, atLeastOnce());
+        }
+    }
+
+    public void testAddKNNBinaryField_fromScratch_faiss_merge_with_ThrowIOException() throws IOException {
+        String segmentName = String.format("test_segment%s", randomAlphaOfLength(4));
+        int docsInSegment = 100;
+        String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
+
+        KNNEngine knnEngine = KNNEngine.FAISS;
+        SpaceType spaceType = SpaceType.INNER_PRODUCT;
+        int dimension = 16;
+
+        SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
+            .directory(directory)
+            .segmentName(segmentName)
+            .docsInSegment(docsInSegment)
+            .codec(codec)
+            .build();
+
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .versionCreated(Version.CURRENT)
+            .build();
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            knnEngine,
+            spaceType,
+            new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
+        );
+
+        String parameterString = XContentFactory.jsonBuilder()
+            .map(knnEngine.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext).getLibraryParameters())
+            .toString();
+
+        FieldInfo[] fieldInfoArray = new FieldInfo[] {
+            KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
+                .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+                .addAttribute(KNNConstants.KNN_ENGINE, knnEngine.getName())
+                .addAttribute(KNNConstants.SPACE_TYPE, spaceType.getValue())
+                .addAttribute(KNNConstants.PARAMETERS, parameterString)
+                .build() };
+
+        FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
+        SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
+
+        long initialRefreshOperations = KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue();
+
+        // Add documents to the field
+        KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
+        TestVectorValues.RandomVectorDocValuesProducer randomVectorDocValuesProducer = new TestVectorValues.RandomVectorDocValuesProducer(
+            docsInSegment,
+            dimension
+        );
+
+        try (MockedStatic<JNIService> mockjniService = mockStatic(JNIService.class);) {
+            mockjniService.when(
+                () -> JNIService.createIndex(
+                    any(int[].class),
+                    any(long.class),
+                    any(int.class),
+                    any(IndexOutputWithBuffer.class),
+                    any(Map.class),
+                    any(KNNEngine.class)
+                )
+            ).thenThrow(new RuntimeException("IO exception"));
+            mockjniService.when(() -> JNIService.initIndex(any(long.class), any(int.class), any(Map.class), any(KNNEngine.class)))
+                .thenThrow(new RuntimeException("IO exception"));
+            expectThrows(
+                IOException.class,
+                () -> knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true)
+            );
         }
     }
 }
