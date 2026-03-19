@@ -122,8 +122,14 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
                 null
             );
 
-            final SegmentWriteState writeState =
-                new SegmentWriteState(InfoStream.NO_OUTPUT, dir, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
+            final SegmentWriteState writeState = new SegmentWriteState(
+                InfoStream.NO_OUTPUT,
+                dir,
+                segmentInfo,
+                fieldInfos,
+                null,
+                IOContext.DEFAULT
+            );
 
             // ---- Step 1: Write vectors using Lucene104ScalarQuantizedVectorsWriter ----
             final Lucene104ScalarQuantizedVectorScorer luceneVectorScorer = new Lucene104ScalarQuantizedVectorScorer(defaultScorer);
@@ -131,9 +137,9 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
             try (
                 FlatVectorsWriter writer = new Lucene104ScalarQuantizedVectorsWriter(
                     writeState,
-                                                                                     encoding,
-                                                                                     rawVectorFormat.fieldsWriter(writeState),
-                                                                                     luceneVectorScorer
+                    encoding,
+                    rawVectorFormat.fieldsWriter(writeState),
+                    luceneVectorScorer
                 )
             ) {
                 @SuppressWarnings("unchecked")
@@ -155,8 +161,8 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
             try (
                 FlatVectorsReader truthReader = new Lucene104ScalarQuantizedVectorsReader(
                     readState,
-                                                                                          rawVectorFormat.fieldsReader(readState),
-                                                                                          luceneVectorScorer
+                    rawVectorFormat.fieldsReader(readState),
+                    luceneVectorScorer
                 )
             ) {
                 truthScorer = truthReader.getRandomVectorScorer(FIELD_NAME, queryVector);
@@ -168,8 +174,8 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
                 try (
                     FlatVectorsReader testReader = new Lucene104ScalarQuantizedVectorsReader(
                         readState,
-                                                                                             rawVectorFormat.fieldsReader(readState),
-                                                                                             simdFlatScorer
+                        rawVectorFormat.fieldsReader(readState),
+                        simdFlatScorer
                     )
                 ) {
                     RandomVectorScorer testScorer = testReader.getRandomVectorScorer(FIELD_NAME, queryVector);

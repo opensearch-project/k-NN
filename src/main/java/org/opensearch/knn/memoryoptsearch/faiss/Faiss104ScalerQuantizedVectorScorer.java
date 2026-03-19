@@ -132,8 +132,12 @@ public class Faiss104ScalerQuantizedVectorScorer extends Lucene104ScalarQuantize
         final float[] targetCopy = ArrayUtil.copyOfSubArray(target, 0, target.length);
 
         // Perform scalar quantization
-        final OptimizedScalarQuantizer.QuantizationResult targetCorrectiveTerms =
-            quantizer.scalarQuantize(targetCopy, scratch, scalarEncoding.getQueryBits(), quantizedByteVectorValues.getCentroid());
+        final OptimizedScalarQuantizer.QuantizationResult targetCorrectiveTerms = quantizer.scalarQuantize(
+            targetCopy,
+            scratch,
+            scalarEncoding.getQueryBits(),
+            quantizedByteVectorValues.getCentroid()
+        );
 
         // Transpose half-bytes (nibbles) for SIMD-friendly layout
         OptimizedScalarQuantizer.transposeHalfByte(scratch, targetQuantized);
@@ -195,8 +199,8 @@ public class Faiss104ScalerQuantizedVectorScorer extends Lucene104ScalarQuantize
                 targetCorrectiveTerms.quantizedComponentSum(),
                 addressAndSize,
                 similarityFunction == VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT
-                ? SimdVectorComputeService.SimilarityFunctionType.BBQ_IP.ordinal()
-                : SimdVectorComputeService.SimilarityFunctionType.BBQ_L2.ordinal(),
+                    ? SimdVectorComputeService.SimilarityFunctionType.BBQ_IP.ordinal()
+                    : SimdVectorComputeService.SimilarityFunctionType.BBQ_L2.ordinal(),
                 dimension,
                 centroidDp
             );
