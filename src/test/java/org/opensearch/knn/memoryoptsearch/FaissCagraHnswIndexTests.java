@@ -7,6 +7,7 @@ package org.opensearch.knn.memoryoptsearch;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.AcceptDocs;
@@ -18,6 +19,7 @@ import org.apache.lucene.search.knn.KnnSearchStrategy;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOConsumer;
+import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
@@ -49,7 +51,8 @@ public class FaissCagraHnswIndexTests extends KNNTestCase {
             // TODO: adc placeholder. isAdc false and SpaceType L2 are noops for the MemoryOptimizedSearcher here.
             final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
                 input,
-                null,
+                FaissIndex.load(input),
+                Mockito.mock(FieldInfo.class),
                 FlatVectorScorerUtil.getLucene99FlatVectorsScorer()
             );
 

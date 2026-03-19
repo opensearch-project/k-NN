@@ -28,6 +28,7 @@ import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.store.NIOFSDirectory;
 import org.apache.lucene.util.FixedBitSet;
 import org.apache.lucene.search.knn.KnnSearchStrategy;
+import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.generate.IndexingType;
@@ -53,7 +54,9 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
 import org.opensearch.knn.index.vectorvalues.VectorValueExtractorStrategy;
 import org.opensearch.knn.jni.JNIService;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
+import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
@@ -910,7 +913,14 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final int k = 100;
 
         final IndexInput input = FaissHNSWTests.loadHnswBinary("data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin");
-        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null, SCORER);
+        FieldInfo fieldInfo = mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
+            input,
+            FaissIndex.load(input),
+            fieldInfo,
+            FlatVectorsScorerProvider.getFlatVectorsScorer(fieldInfo, KNNVectorSimilarityFunction.EUCLIDEAN, SCORER)
+        );
 
         // Use a non-seeded strategy (default HNSW strategy)
         final KnnCollector knnCollector = new TopKnnCollector(k, Integer.MAX_VALUE, KnnSearchStrategy.Hnsw.DEFAULT);
@@ -941,7 +951,14 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final int k = 100;
 
         final IndexInput input = FaissHNSWTests.loadHnswBinary("data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin");
-        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null, SCORER);
+        FieldInfo mockedFieldInfo = mock(FieldInfo.class);
+        Mockito.when(mockedFieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
+            input,
+            FaissIndex.load(input),
+            mockedFieldInfo,
+            FlatVectorsScorerProvider.getFlatVectorsScorer(mockedFieldInfo, KNNVectorSimilarityFunction.EUCLIDEAN, SCORER)
+        );
 
         // Create a Seeded strategy with known seed entry points
         final int numSeeds = 5;
@@ -1010,7 +1027,14 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         }
 
         // First, do exhaustive search to get ground truth
-        final FaissMemoryOptimizedSearcher exhaustiveSearcher = new FaissMemoryOptimizedSearcher(input, null, SCORER);
+        FieldInfo mockedFieldInfo = mock(FieldInfo.class);
+        Mockito.when(mockedFieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+        final FaissMemoryOptimizedSearcher exhaustiveSearcher = new FaissMemoryOptimizedSearcher(
+            input,
+            FaissIndex.load(input),
+            mockedFieldInfo,
+            FlatVectorsScorerProvider.getFlatVectorsScorer(mockedFieldInfo, KNNVectorSimilarityFunction.EUCLIDEAN, SCORER)
+        );
         final KnnCollector exhaustiveCollector = new TopKnnCollector(totalVectors, Integer.MAX_VALUE, KnnSearchStrategy.Hnsw.DEFAULT);
         final AcceptDocs acceptDocs = AcceptDocs.fromLiveDocs(null, totalVectors);
         exhaustiveSearcher.search(query, exhaustiveCollector, acceptDocs);
@@ -1023,7 +1047,12 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
 
         // Now search with a seeded collector on a fresh searcher
         input.seek(0);
-        final FaissMemoryOptimizedSearcher seededSearcher = new FaissMemoryOptimizedSearcher(input, null, SCORER);
+        final FaissMemoryOptimizedSearcher seededSearcher = new FaissMemoryOptimizedSearcher(
+            input,
+            FaissIndex.load(input),
+            mockedFieldInfo,
+            FlatVectorsScorerProvider.getFlatVectorsScorer(mockedFieldInfo, KNNVectorSimilarityFunction.EUCLIDEAN, SCORER)
+        );
 
         final int numSeeds = 3;
         final DocIdSetIterator seedDocs = new DocIdSetIterator() {
