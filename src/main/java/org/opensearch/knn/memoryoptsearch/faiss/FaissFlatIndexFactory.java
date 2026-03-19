@@ -23,7 +23,7 @@ public class FaissFlatIndexFactory {
      */
     public static FaissIndex create(final FieldInfo fieldInfo, final FlatVectorsReader flatVectorsReader) {
         if (FieldInfoExtractor.isFaissBBQ(fieldInfo)) {
-            return new FaissBBQFlatIndex(flatVectorsReader, fieldInfo.getName());
+            return new FaissScalarQuantizedFlatIndex(flatVectorsReader, fieldInfo.getName());
         }
         return null;
     }

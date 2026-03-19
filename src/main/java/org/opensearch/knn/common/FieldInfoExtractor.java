@@ -123,16 +123,6 @@ public class FieldInfoExtractor {
 
     }
 
-    /**
-     * Check if the field is configured for Faiss BBQ.
-     *
-     * @param fieldInfo {@link FieldInfo}
-     * @return true if the field has faiss_bbq_config attribute
-     */
-    public static boolean isFaissBBQ(final FieldInfo fieldInfo) {
-        return StringUtils.isNotEmpty(fieldInfo.getAttribute(FAISS_BBQ_CONFIG));
-    }
-
     private static SpaceType getSpaceTypeFromModel(final ModelDao modelDao, final String modelId) {
         final ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
         if (modelMetadata == null) {

@@ -54,7 +54,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
 
     /**
      * Constructor that accepts a pre-loaded {@link FaissIndex}. The factory is responsible for
-     * loading the index and applying any transformations (e.g., replacing null flat storage for BBQ).
+     * loading the index and applying any transformations (e.g., replacing null flat storage for Faiss SQ (for 1 bit)).
      */
     public FaissMemoryOptimizedSearcher(
         final IndexInput indexInput,

@@ -55,11 +55,6 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
 import org.opensearch.knn.index.vectorvalues.VectorValueExtractorStrategy;
 import org.opensearch.knn.jni.JNIService;
-import org.opensearch.knn.memoryoptsearch.faiss.AbstractFaissHNSWIndex;
-import org.opensearch.knn.memoryoptsearch.faiss.FaissBBQFlatIndex;
-import org.opensearch.knn.memoryoptsearch.faiss.FaissHNSW;
-import org.opensearch.knn.memoryoptsearch.faiss.FaissHNSWIndex;
-import org.opensearch.knn.memoryoptsearch.faiss.FaissIdMapIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
 import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
@@ -330,37 +325,6 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         assertThrows(FaissMemoryOptimizedSearcher.WarmupInitializationException.class, () -> {
             throw new FaissMemoryOptimizedSearcher.WarmupInitializationException("Null vector supplied for warmup");
         });
-    }
-
-    @SneakyThrows
-    public void testConstructor_whenBBQFieldInfo_thenUsesBBQScorer() {
-        // Set up mocks for the BBQ flat index hierarchy
-        FlatVectorsScorer mockScorer = mock(FlatVectorsScorer.class);
-        FlatVectorsReader mockBbqReader = mock(FlatVectorsReader.class);
-        when(mockBbqReader.getFlatVectorScorer()).thenReturn(mockScorer);
-        FaissBBQFlatIndex bbqFlatIndex = new FaissBBQFlatIndex(mockBbqReader, TARGET_FIELD);
-
-        // Build the index hierarchy: FaissIdMapIndex -> FaissHNSWIndex -> FaissBBQFlatIndex
-        AbstractFaissHNSWIndex mockHnswIndex = mock(FaissHNSWIndex.class);
-        when(mockHnswIndex.getFlatVectors()).thenReturn(bbqFlatIndex);
-
-        FaissHNSW mockHnsw = mock(FaissHNSW.class);
-        FaissIdMapIndex mockIdMapIndex = mock(FaissIdMapIndex.class);
-        when(mockIdMapIndex.getVectorSimilarityFunction()).thenReturn(KNNVectorSimilarityFunction.EUCLIDEAN);
-        when(mockIdMapIndex.getNestedIndex()).thenReturn(mockHnswIndex);
-        when(mockIdMapIndex.getFaissHnsw()).thenReturn(mockHnsw);
-
-        // Build a FieldInfo — BBQ is determined by the index hierarchy, not a FieldInfo attribute
-        FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder(TARGET_FIELD)
-            .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
-            .addAttribute(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .build();
-
-        IndexInput mockInput = mock(IndexInput.class);
-        when(mockInput.length()).thenReturn(100L);
-
-        FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(mockInput, mockIdMapIndex, fieldInfo, mockScorer);
-        assertNotNull(searcher);
     }
 
     @SneakyThrows

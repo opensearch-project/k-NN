@@ -25,10 +25,10 @@ import java.nio.file.Path;
 import java.util.UUID;
 
 import static org.mockito.Mockito.mock;
-
 import static org.mockito.Mockito.when;
 
 public class FaissMemoryOptimizedSearcherFactoryTests extends KNNTestCase {
+
     private static final FlatVectorsScorer SCORER = FlatVectorScorerUtil.getLucene99FlatVectorsScorer();
 
     @SneakyThrows

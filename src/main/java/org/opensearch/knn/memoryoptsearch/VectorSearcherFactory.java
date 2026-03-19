@@ -21,9 +21,9 @@ public interface VectorSearcherFactory {
     /**
      * Create a non-null {@link VectorSearcher} with given Lucene's {@link Directory}.
      * <p>
-     * The {@code flatVectorsReader} provides access to Lucene's flat vector storage. For BBQ indices
+     * The {@code flatVectorsReader} provides access to Lucene's flat vector storage. For Faiss SQ (for 1 bit) indices
      * where Faiss skips flat storage via {@code IO_FLAG_SKIP_STORAGE}, the reader is used to wire in
-     * a {@code FaissBBQFlatIndex} backed by Lucene's quantized reader.
+     * a {@code FaissScalarQuantizedFlatIndex} backed by Lucene's quantized reader.
      *
      * @param directory Lucene's Directory.
      * @param fileName Logical file name to load.

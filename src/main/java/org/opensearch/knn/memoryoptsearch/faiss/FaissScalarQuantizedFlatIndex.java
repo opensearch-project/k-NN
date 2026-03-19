@@ -16,27 +16,27 @@ import java.io.IOException;
 
 /**
  * A virtual FaissIndex that serves as a proxy for Lucene's BinaryQuantized vectors reader.
- * When Faiss BBQ is used, the HNSW graph is stored in the .faiss file without storage (IO_FLAG_SKIP_STORAGE),
+ * When Faiss SQ (for 1 bit) is used, the HNSW graph is stored in the .faiss file without storage (IO_FLAG_SKIP_STORAGE),
  * and quantized vectors are stored separately via Lucene's format. This class bridges the two by installing
  * itself as the flat storage under FaissHNSWIndex, providing access to the quantized vectors reader for scoring.
  */
-public class FaissBBQFlatIndex extends FaissIndex {
-    static final String FAISS_BBQ_FLAT_INDEX = "FaissBBQFlatIndex";
+public class FaissScalarQuantizedFlatIndex extends FaissIndex {
+    static final String FAISS_SCALAR_QUANTIZED_FLAT_INDEX = "FaissScalarQuantizedFlatIndex";
 
     @Getter
-    private final FlatVectorsReader bbqFlatReader;
+    private final FlatVectorsReader flatVectorsReader;
     @Getter
     private final String fieldName;
 
-    public FaissBBQFlatIndex(final FlatVectorsReader bbqFlatReader, final String fieldName) {
-        super(FAISS_BBQ_FLAT_INDEX);
-        this.bbqFlatReader = bbqFlatReader;
+    public FaissScalarQuantizedFlatIndex(final FlatVectorsReader flatVectorsReader, final String fieldName) {
+        super(FAISS_SCALAR_QUANTIZED_FLAT_INDEX);
+        this.flatVectorsReader = flatVectorsReader;
         this.fieldName = fieldName;
     }
 
     @Override
     protected void doLoad(IndexInput input) throws IOException {
-        // No-op: quantized vectors are managed by bbqFlatReader, not loaded from the faiss file.
+        // No-op: quantized vectors are managed by LuceneSQFlatReader, not loaded from the faiss file.
     }
 
     @Override
@@ -44,13 +44,20 @@ public class FaissBBQFlatIndex extends FaissIndex {
         return VectorEncoding.FLOAT32;
     }
 
+    /**
+     * Returns a {@code ScalarQuantizedVectorValues} containing both raw and quantized vector values.
+     * Raw vectors are stored in Lucene's segment files and provide full-precision floats via
+     * {@code vectorValue(ord)}, while quantized vectors are used for scoring via {@code scorer()}.
+     */
     @Override
     public FloatVectorValues getFloatValues(IndexInput indexInput) throws IOException {
-        return bbqFlatReader.getFloatVectorValues(fieldName);
+        return flatVectorsReader.getFloatVectorValues(fieldName);
     }
 
     @Override
     public ByteVectorValues getByteValues(IndexInput indexInput) throws IOException {
-        throw new UnsupportedOperationException("FaissBBQFlatIndex does not support byte vector values.");
+        throw new UnsupportedOperationException(
+            String.format("%s does not support byte vector values.", FAISS_SCALAR_QUANTIZED_FLAT_INDEX)
+        );
     }
 }
