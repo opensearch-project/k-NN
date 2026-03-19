@@ -35,7 +35,7 @@ import java.util.function.Function;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_BBQ;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_OPTIMIZED_SCALAR_QUANTIZER;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
@@ -58,7 +58,7 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
     // Sentinel format instances used to verify correct resolution
     private static final KnnVectorsFormat HNSW_FORMAT = mock(KnnVectorsFormat.class);
     private static final KnnVectorsFormat SQ_FORMAT = mock(KnnVectorsFormat.class);
-    private static final KnnVectorsFormat BBQ_FORMAT = mock(KnnVectorsFormat.class);
+    private static final KnnVectorsFormat OPTIMIZED_SCALAR_QUANTIZER_FORMAT = mock(KnnVectorsFormat.class);
     private static final KnnVectorsFormat FLAT_FORMAT = mock(KnnVectorsFormat.class);
     private static final KnnVectorsFormat DEFAULT_FORMAT = mock(KnnVectorsFormat.class);
 
@@ -226,36 +226,36 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
     }
 
     /**
-     * When the Lucene engine is used with a BBQ encoder
+     * When the Lucene engine is used with a Optimized Scalar Quantizer encoder
      * resolver should be called.
      */
-    public void testGetKnnVectorsFormatForField_whenLuceneBBQ_thenReturnBBQFormat() {
+    public void testGetKnnVectorsFormatForField_whenLuceneSQ_thenReturnLuceneSQFormat() {
         Map<String, Object> encoderParams = new HashMap<>();
-        MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_BBQ, encoderParams);
+        MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_OPTIMIZED_SCALAR_QUANTIZER, encoderParams);
 
         Map<String, Object> params = new HashMap<>();
         params.put(METHOD_ENCODER_PARAMETER, encoderContext);
         params.put(METHOD_PARAMETER_M, 16);
         params.put(METHOD_PARAMETER_EF_CONSTRUCTION, 100);
 
-        KNNMethodContext bbqMethodContext = new KNNMethodContext(
+        KNNMethodContext OptimizedScalarQuantizerMethodContext = new KNNMethodContext(
             KNNEngine.LUCENE,
             SpaceType.L2,
             new MethodComponentContext(METHOD_HNSW, params)
         );
 
-        MapperService mapperService = mockMapperService(TEST_FIELD, bbqMethodContext);
+        MapperService mapperService = mockMapperService(TEST_FIELD, OptimizedScalarQuantizerMethodContext);
 
         Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
-            LuceneVectorsFormatType.BBQ,
-            ctx -> BBQ_FORMAT,
+            LuceneVectorsFormatType.OPTIMIZED_SCALAR_QUANTIZER,
+            ctx -> OPTIMIZED_SCALAR_QUANTIZER_FORMAT,
             LuceneVectorsFormatType.HNSW,
             ctx -> HNSW_FORMAT
         );
 
         TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.of(mapperService), resolvers);
         KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
-        assertSame(BBQ_FORMAT, result);
+        assertSame(OPTIMIZED_SCALAR_QUANTIZER_FORMAT, result);
     }
 
     /**

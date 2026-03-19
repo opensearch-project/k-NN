@@ -151,10 +151,11 @@ public enum CompressionLevel {
             return RescoreContext.builder().oversampleFactor(FLAT_OVERSAMPLE_FACTOR).userProvided(false).build();
         }
         if (modesForRescore.contains(mode)) {
-            // Special handling for Lucene BBQ (x32 compression)
+            // Special handling for Optimized Scalar Quantizer (x32 compression)
+            // Engine check is temporary until optimized scalar quantizer is finalized for FAISS as well
             if (this == x32 && engine == KNNEngine.LUCENE && version.onOrAfter(Version.V_3_6_0)) {
                 return RescoreContext.builder()
-                    .oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_DEFAULT_FOR_BBQ)
+                    .oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_DEFAULT_FOR_OPTIMIZED_SCALAR_QUANTIZER)
                     .userProvided(false)
                     .build();
             }

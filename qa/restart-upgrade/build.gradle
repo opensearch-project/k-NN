@@ -111,8 +111,8 @@ task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
     }
 
     // excludes: 1.any; 2.x where x < 17
-    def invalidPrefixesForQFrameBitEncoderAndLuceneBBQBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
-    if (invalidPrefixesForQFrameBitEncoderAndLuceneBBQBWCChecks.any { knn_bwc_version.startsWith(it) }
+    def invalidPrefixesForQFrameBitEncoderAndOptimizedScalarQuantizerBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
+    if (invalidPrefixesForQFrameBitEncoderAndOptimizedScalarQuantizerBWCChecks.any { knn_bwc_version.startsWith(it) }
             ) {
         filter {
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLucene4xBWC"
@@ -273,8 +273,8 @@ task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
         }
     }
 
-    def invalidPrefixesForQFrameBitEncoderAndLuceneBBQBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
-    if (invalidPrefixesForQFrameBitEncoderAndLuceneBBQBWCChecks.any { knn_bwc_version.startsWith(it) }) {
+    def invalidPrefixesForQFrameBitEncoderAndOptimizedScalarQuantizerBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
+    if (invalidPrefixesForQFrameBitEncoderAndOptimizedScalarQuantizerBWCChecks.any { knn_bwc_version.startsWith(it) }) {
         filter {
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLucene4xBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneOnDiskNoCompressionBWC"
@@ -344,10 +344,10 @@ task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
         }
     }
 
-    def invalidPrefixesForLuceneBBQChecks = ['1.', '2.'] + ((0..5).collect { "3.${it}." } as Collection<String>)
-    if (invalidPrefixesForLuceneBBQChecks.any { knn_bwc_version.startsWith(it) }) {
+    def invalidPrefixesForOptimizedScalarQuantizerChecks = ['1.', '2.'] + ((0..5).collect { "3.${it}." } as Collection<String>)
+    if (invalidPrefixesForOptimizedScalarQuantizerChecks.any { knn_bwc_version.startsWith(it) }) {
         filter {
-            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneBBQ"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexOptimizedScalarQuantizer"
         }
     }
 

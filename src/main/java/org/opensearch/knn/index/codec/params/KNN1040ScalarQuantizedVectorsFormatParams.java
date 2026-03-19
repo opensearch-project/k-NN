@@ -12,9 +12,9 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import java.util.Map;
 import java.util.Set;
 
-import static org.opensearch.knn.common.KNNConstants.ENCODER_BBQ;
-import static org.opensearch.knn.common.KNNConstants.LUCENE_BBQ_BITS;
-import static org.opensearch.knn.common.KNNConstants.LUCENE_BBQ_DEFAULT_BITS;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_OPTIMIZED_SCALAR_QUANTIZER;
+import static org.opensearch.knn.common.KNNConstants.OPTIMIZED_SCALAR_QUANTIZER_BITS;
+import static org.opensearch.knn.common.KNNConstants.OPTIMIZED_SCALAR_QUANTIZER_DEFAULT_BITS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 
 /**
@@ -22,34 +22,33 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
  */
 @Getter
 public class KNN1040ScalarQuantizedVectorsFormatParams extends KNNVectorsFormatParams {
-    private static final Set<String> SUPPORTED_ENCODERS = Set.of(ENCODER_BBQ);
+    private static final Set<String> SUPPORTED_ENCODERS = Set.of(ENCODER_OPTIMIZED_SCALAR_QUANTIZER);
     private String encoderName;
     private ScalarEncoding bitEncoding;
 
     public KNN1040ScalarQuantizedVectorsFormatParams(Map<String, Object> params, int defaultMaxConnections, int defaultBeamWidth) {
         super(params, defaultMaxConnections, defaultBeamWidth);
-        MethodComponentContext encoderMethodComponentContext = (MethodComponentContext) params.get(METHOD_ENCODER_PARAMETER);
-        Map<String, Object> encoderParams = encoderMethodComponentContext.getParameters();
-        this.encoderName = this.resolveEncoderName(params);
-        if (this.encoderName != null) this.initBits(encoderParams);
+        initFields(params);
     }
 
-    private String resolveEncoderName(Map<String, Object> params) {
+    private void initFields(Map<String, Object> params) {
         if (params.get(METHOD_ENCODER_PARAMETER) == null) {
-            return null;
+            return;
         }
 
         if ((params.get(METHOD_ENCODER_PARAMETER) instanceof MethodComponentContext) == false) {
-            return null;
+            return;
         }
 
         MethodComponentContext encoderMethodComponentContext = (MethodComponentContext) params.get(METHOD_ENCODER_PARAMETER);
-        return encoderMethodComponentContext.getName();
+        this.encoderName = encoderMethodComponentContext.getName();
+        Map<String, Object> encoderParams = encoderMethodComponentContext.getParameters();
+        if (this.encoderName != null) this.initBits(encoderParams);
     }
 
     @Override
     public boolean validate(final Map<String, Object> params) {
-        return encoderName != null && SUPPORTED_ENCODERS.contains(encoderName);
+        return this.encoderName != null && SUPPORTED_ENCODERS.contains(this.encoderName);
     }
 
     private ScalarEncoding getOrDefaultBitsForEncoder(final Map<String, Object> params, String bitsKey, int defaultBits) {
@@ -60,6 +59,6 @@ public class KNN1040ScalarQuantizedVectorsFormatParams extends KNNVectorsFormatP
     }
 
     private void initBits(final Map<String, Object> params) {
-        this.bitEncoding = getOrDefaultBitsForEncoder(params, LUCENE_BBQ_BITS, LUCENE_BBQ_DEFAULT_BITS);
+        this.bitEncoding = getOrDefaultBitsForEncoder(params, OPTIMIZED_SCALAR_QUANTIZER_BITS, OPTIMIZED_SCALAR_QUANTIZER_DEFAULT_BITS);
     }
 }

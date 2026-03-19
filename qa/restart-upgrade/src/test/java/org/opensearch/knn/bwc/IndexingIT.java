@@ -51,7 +51,7 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_BBQ;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_OPTIMIZED_SCALAR_QUANTIZER;
 
 public class IndexingIT extends AbstractRestartUpgradeTestCase {
     private static final String TEST_FIELD = "test-field";
@@ -204,7 +204,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
     public void testKNNIndexLuceneQuantization() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
         int k = 4;
-        int dimension = 2;
+        int dimension = 8;
 
         if (isRunningAgainstOldCluster()) {
             String mapping = XContentFactory.jsonBuilder()
@@ -231,16 +231,16 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 .toString();
             createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
 
-            Float[] vector1 = { -10.6f, 25.48f };
-            Float[] vector2 = { -10.8f, 25.48f };
-            Float[] vector3 = { -11.0f, 25.48f };
-            Float[] vector4 = { -11.2f, 25.48f };
+            Float[] vector1 = { -10.6f, 25.48f, 1.2f, 3.4f, -5.6f, 7.8f, -9.0f, 11.2f };
+            Float[] vector2 = { -10.8f, 25.48f, 1.4f, 3.6f, -5.8f, 8.0f, -9.2f, 11.4f };
+            Float[] vector3 = { -11.0f, 25.48f, 1.6f, 3.8f, -6.0f, 8.2f, -9.4f, 11.6f };
+            Float[] vector4 = { -11.2f, 25.48f, 1.8f, 4.0f, -6.2f, 8.4f, -9.6f, 11.8f };
             addKnnDoc(testIndex, "1", TEST_FIELD, vector1);
             addKnnDoc(testIndex, "2", TEST_FIELD, vector2);
             addKnnDoc(testIndex, "3", TEST_FIELD, vector3);
             addKnnDoc(testIndex, "4", TEST_FIELD, vector4);
 
-            float[] queryVector = { -10.5f, 25.48f };
+            float[] queryVector = { -10.5f, 25.48f, 1.0f, 3.2f, -5.4f, 7.6f, -8.8f, 11.0f };
             Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
             List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
             assertEquals(k, results.size());
@@ -248,7 +248,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 assertEquals(k - i, Integer.parseInt(results.get(i).getDocId()));
             }
         } else {
-            float[] queryVector = { -10.5f, 25.48f };
+            float[] queryVector = { -10.5f, 25.48f, 1.0f, 3.2f, -5.4f, 7.6f, -8.8f, 11.0f };
             Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
             List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
             assertEquals(k, results.size());
@@ -674,7 +674,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
-    private void testKNNAfterBBQIntegrationBWCRunner(String mapping) throws Exception {
+    private void testKNNAfterOptimizedScalarQuantizerIntegrationBWCRunner(String mapping) throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
         int k = 4;
         int dimension = 8;
@@ -730,7 +730,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             .endObject()
             .endObject()
             .toString();
-        testKNNAfterBBQIntegrationBWCRunner(mapping);
+        testKNNAfterOptimizedScalarQuantizerIntegrationBWCRunner(mapping);
     }
 
     public void testKNNIndexLuceneOnDiskNoCompressionBWC() throws Exception {
@@ -753,20 +753,23 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             .endObject()
             .endObject()
             .toString();
-        testKNNAfterBBQIntegrationBWCRunner(mapping);
+        testKNNAfterOptimizedScalarQuantizerIntegrationBWCRunner(mapping);
     }
 
-    public void testKNNIndexLuceneBBQ() throws Exception {
+    public void testKNNIndexOptimizedScalarQuantizer() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
 
-        // Skip test if BBQ encoder is not supported in the old cluster version
-        if (isBBQEncoderSupported(getBWCVersion()) == false) {
-            logger.info("Skipping testKNNIndexLuceneBBQ as BBQ encoder is not supported in version: {}", getBWCVersion());
+        // Skip test if OptimizedScalarQuantizer encoder is not supported in the old cluster version
+        if (isOptimizedScalarQuantizerEncoderSupported(getBWCVersion()) == false) {
+            logger.info(
+                "Skipping testKNNIndexOptimizedScalarQuantizer as OptimizedScalarQuantizer encoder is not supported in version: {}",
+                getBWCVersion()
+            );
             return;
         }
 
         int k = 4;
-        int dimension = 2;
+        int dimension = 8;
 
         if (isRunningAgainstOldCluster()) {
             String mapping = XContentFactory.jsonBuilder()
@@ -781,7 +784,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 .field(KNN_ENGINE, LUCENE_NAME)
                 .startObject(PARAMETERS)
                 .startObject(METHOD_ENCODER_PARAMETER)
-                .field(NAME, ENCODER_BBQ)
+                .field(NAME, ENCODER_OPTIMIZED_SCALAR_QUANTIZER)
                 .endObject()
                 .field(METHOD_PARAMETER_EF_CONSTRUCTION, 256)
                 .field(METHOD_PARAMETER_M, 16)
@@ -793,16 +796,16 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 .toString();
             createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
 
-            Float[] vector1 = { -10.6f, 25.48f };
-            Float[] vector2 = { -10.8f, 25.48f };
-            Float[] vector3 = { -11.0f, 25.48f };
-            Float[] vector4 = { -11.2f, 25.48f };
+            Float[] vector1 = { -10.6f, 25.48f, 1.2f, 3.4f, -5.6f, 7.8f, -9.0f, 11.2f };
+            Float[] vector2 = { -10.8f, 25.48f, 1.4f, 3.6f, -5.8f, 8.0f, -9.2f, 11.4f };
+            Float[] vector3 = { -11.0f, 25.48f, 1.6f, 3.8f, -6.0f, 8.2f, -9.4f, 11.6f };
+            Float[] vector4 = { -11.2f, 25.48f, 1.8f, 4.0f, -6.2f, 8.4f, -9.6f, 11.8f };
             addKnnDoc(testIndex, "1", TEST_FIELD, vector1);
             addKnnDoc(testIndex, "2", TEST_FIELD, vector2);
             addKnnDoc(testIndex, "3", TEST_FIELD, vector3);
             addKnnDoc(testIndex, "4", TEST_FIELD, vector4);
 
-            float[] queryVector = { -10.5f, 25.48f };
+            float[] queryVector = { -10.5f, 25.48f, 1.0f, 3.2f, -5.4f, 7.6f, -8.8f, 11.0f };
             Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
             List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
             assertEquals(k, results.size());
@@ -810,7 +813,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 assertEquals(k - i, Integer.parseInt(results.get(i).getDocId()));
             }
         } else {
-            float[] queryVector = { -10.5f, 25.48f };
+            float[] queryVector = { -10.5f, 25.48f, 1.0f, 3.2f, -5.4f, 7.6f, -8.8f, 11.0f };
             Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
             List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
             assertEquals(k, results.size());

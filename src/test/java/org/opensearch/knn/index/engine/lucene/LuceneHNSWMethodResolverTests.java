@@ -21,7 +21,7 @@ import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.Map;
 
-import static org.opensearch.knn.common.KNNConstants.ENCODER_BBQ;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_OPTIMIZED_SCALAR_QUANTIZER;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -130,11 +130,14 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
         assertEquals(CompressionLevel.x4, resolvedMethodContext.getCompressionLevel());
         assertNotEquals(knnMethodContext, resolvedMethodContext.getKnnMethodContext());
 
-        // Verify Lucene BBQ encoder resolves properly
+        // Verify Optimized Scalar Quantizer encoder resolves properly
         knnMethodContext = new KNNMethodContext(
             KNNEngine.LUCENE,
             SpaceType.INNER_PRODUCT,
-            new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_BBQ, Map.of())))
+            new MethodComponentContext(
+                METHOD_HNSW,
+                Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_OPTIMIZED_SCALAR_QUANTIZER, Map.of()))
+            )
         );
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             knnMethodContext,
@@ -145,7 +148,7 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
         assertEquals(METHOD_HNSW, resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getName());
         assertFalse(resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getParameters().isEmpty());
         assertEquals(
-            ENCODER_BBQ,
+            ENCODER_OPTIMIZED_SCALAR_QUANTIZER,
             ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
                 .getMethodComponentContext()
                 .getParameters()

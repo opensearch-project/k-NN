@@ -16,18 +16,22 @@ import java.util.Set;
 import static org.opensearch.knn.common.KNNConstants.*;
 
 /**
- * Lucene BBQ (Better Binary Quantization) encoder
+ * Optimized Scalar Quantizer encoder
  */
-public class LuceneBBQEncoder implements Encoder {
+public class OptimizedScalarQuantizerEncoder implements Encoder {
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
 
-    private final static List<Integer> LUCENE_BBQ_BITS_SUPPORTED = List.of(1);
+    private final static List<Integer> OPTIMIZED_SCALAR_QUANTIZER_BITS_SUPPORTED = List.of(1);
 
-    private final static MethodComponent METHOD_COMPONENT = MethodComponent.Builder.builder(ENCODER_BBQ)
+    private final static MethodComponent METHOD_COMPONENT = MethodComponent.Builder.builder(ENCODER_OPTIMIZED_SCALAR_QUANTIZER)
         .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
         .addParameter(
-            LUCENE_BBQ_BITS,
-            new Parameter.IntegerParameter(LUCENE_BBQ_BITS, LUCENE_BBQ_DEFAULT_BITS, (v, context) -> LUCENE_BBQ_BITS_SUPPORTED.contains(v))
+            OPTIMIZED_SCALAR_QUANTIZER_BITS,
+            new Parameter.IntegerParameter(
+                OPTIMIZED_SCALAR_QUANTIZER_BITS,
+                OPTIMIZED_SCALAR_QUANTIZER_DEFAULT_BITS,
+                (v, context) -> OPTIMIZED_SCALAR_QUANTIZER_BITS_SUPPORTED.contains(v)
+            )
         )
         .build();
 

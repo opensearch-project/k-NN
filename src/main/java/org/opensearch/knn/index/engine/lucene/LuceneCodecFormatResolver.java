@@ -107,22 +107,22 @@ public class LuceneCodecFormatResolver implements CodecFormatResolver {
                 );
                 return LuceneVectorsFormatType.SCALAR_QUANTIZED;
             } else {
-                // Temporary route for BBQ - eventually this should be used for SQ as well
-                KNN1040ScalarQuantizedVectorsFormatParams sqBBQParams = new KNN1040ScalarQuantizedVectorsFormatParams(
+                // Temporary route for OptimizedScalarQuantizer - eventually this should be used for SQ as well
+                KNN1040ScalarQuantizedVectorsFormatParams optimizedScalarQuantizerParams = new KNN1040ScalarQuantizedVectorsFormatParams(
                     params,
                     defaultMaxConnections,
                     defaultBeamWidth
                 );
-                if (sqBBQParams.validate(params)) {
+                if (optimizedScalarQuantizerParams.validate(params)) {
                     log.debug(
                         "Initialize KNN vector format for field [{}] with scalar/binary quantization, params [{}] = \"{}\", [{}] = \"{}\"",
                         field,
                         MAX_CONNECTIONS,
-                        sqBBQParams.getMaxConnections(),
+                        optimizedScalarQuantizerParams.getMaxConnections(),
                         BEAM_WIDTH,
-                        sqBBQParams.getBeamWidth()
+                        optimizedScalarQuantizerParams.getBeamWidth()
                     );
-                    return LuceneVectorsFormatType.BBQ;
+                    return LuceneVectorsFormatType.OPTIMIZED_SCALAR_QUANTIZER;
                 }
             }
         }

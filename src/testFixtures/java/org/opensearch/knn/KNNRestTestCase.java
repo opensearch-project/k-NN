@@ -2801,9 +2801,9 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
-     * BBQ encoder is only supported on or after V_3_6_0
+     * Optimized Scalar Quantizer encoder is only supported on or after V_3_6_0
      */
-    protected boolean isBBQEncoderSupported(final Optional<String> bwcVersion) {
+    protected boolean isOptimizedScalarQuantizerEncoderSupported(final Optional<String> bwcVersion) {
         if (bwcVersion.isEmpty()) {
             return false;
         }

@@ -91,7 +91,7 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
                 p.getConfidenceInterval(),
                 merge.v2()
             );
-        }, LuceneVectorsFormatType.BBQ, ctx -> {
+        }, LuceneVectorsFormatType.OPTIMIZED_SCALAR_QUANTIZER, ctx -> {
             final KNN1040ScalarQuantizedVectorsFormatParams p = new KNN1040ScalarQuantizedVectorsFormatParams(
                 ctx.getParams(),
                 ctx.getDefaultMaxConnections(),

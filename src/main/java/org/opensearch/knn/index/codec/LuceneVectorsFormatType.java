@@ -32,9 +32,9 @@ public enum LuceneVectorsFormatType {
     SCALAR_QUANTIZED,
 
     /**
-     * HNSW format with scalar quantization (SQ) and BBQ encoding.
+     * HNSW format for the optimized scalar quantizer.
      */
-    BBQ,
+    OPTIMIZED_SCALAR_QUANTIZER,
 
     /**
      * Flat vector format (e.g., BBQ flat via Lucene).
