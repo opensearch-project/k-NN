@@ -7,10 +7,10 @@ package org.opensearch.knn.index.engine;
 
 import org.opensearch.Version;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
-import org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
@@ -21,7 +21,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_BINARY;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_FAISS_BBQ;
+
+import static org.opensearch.knn.common.KNNConstants.ENCODER_BINARY;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
@@ -35,7 +36,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
  */
 public class MemoryOptimizedSearchSupportSpec {
     private static final Version MIN_VERSION_SUPPORTS_MEM_OPT_SEARCH = Version.V_2_17_0;
-    private static final Set<String> SUPPORTED_HNSW_ENCODING = Set.of(ENCODER_FLAT, ENCODER_SQ, ENCODER_BINARY, ENCODER_FAISS_BBQ);
+    private static final Set<String> SUPPORTED_HNSW_ENCODING = Set.of(ENCODER_FLAT, ENCODER_SQ, ENCODER_BINARY);
 
     /**
      * Determines whether a memory optimized searching should be applied during search.
@@ -152,13 +153,14 @@ public class MemoryOptimizedSearchSupportSpec {
     /**
      * Determines whether memory-optimized search must always be used for the given KNN method context,
      * regardless of the cluster-level memory-optimized search setting. Currently, this returns {@code true}
-     * only when the encoder is {@code ENCODER_FAISS_BBQ}, as BBQ-encoded indices always require
+     * only when the encoder is sq with bits=1 (1-bit quantization), as these indices always require
      * memory-optimized search for correctness.
      *
      * @param knnMethodContext Optional method context containing engine, space type, and encoder information.
      * @return {@code true} if memory-optimized search should always be enabled, {@code false} otherwise.
      */
     public static boolean isAlwaysUseMemoryOptimizedSearch(final Optional<KNNMethodContext> knnMethodContext) {
-        return knnMethodContext.isPresent() && ENCODER_FAISS_BBQ.equals(KNNVectorFieldMapperUtil.getEncoderName(knnMethodContext.get()));
+        return knnMethodContext.isPresent()
+            && FaissSQEncoder.isSQOneBit(knnMethodContext.get().getMethodComponentContext().getParameters());
     }
 }

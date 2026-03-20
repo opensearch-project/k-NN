@@ -60,7 +60,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
         + "\"ef_search\":256,"
         + "\"ef_construction\":256,"
         + "\"m\":16,"
-        + "\"encoder\":{}"
+        + "\"encoder\":{\"name\":\"sq\",\"bits\":1}"
         + "}"
         + "}";
 
@@ -423,8 +423,8 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
                 "float",
                 KNNConstants.KNN_ENGINE,
                 "faiss",
-                KNNConstants.FAISS_BBQ_CONFIG,
-                "true"
+                KNNConstants.SQ_CONFIG,
+                "bits=1"
             ),
             0,
             0,

@@ -23,6 +23,7 @@ import org.opensearch.index.query.QueryShardException;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.indices.ModelDao;
@@ -169,7 +170,8 @@ public class KNNVectorFieldType extends MappedFieldType {
         final Optional<KNNMethodContext> methodContext = knnMappingConfig.getKnnMethodContext();
         final boolean isFlatMethod = methodContext.isPresent()
             && METHOD_FLAT.equals(methodContext.get().getMethodComponentContext().getName());
-        final String encoderName = methodContext.map(KNNVectorFieldMapperUtil::getEncoderName).orElse(null);
+        final boolean isSQOneBit = methodContext.map(mc -> FaissSQEncoder.isSQOneBit(mc.getMethodComponentContext().getParameters()))
+            .orElse(false);
         final int dimension = knnMappingConfig.getDimension();
         final CompressionLevel compressionLevel = knnMappingConfig.getCompressionLevel();
         final Mode mode = knnMappingConfig.getMode();
@@ -178,7 +180,7 @@ public class KNNVectorFieldType extends MappedFieldType {
             dimension,
             knnMappingConfig.getIndexCreatedVersion(),
             isFlatMethod,
-            encoderName
+            isSQOneBit
         );
     }
 

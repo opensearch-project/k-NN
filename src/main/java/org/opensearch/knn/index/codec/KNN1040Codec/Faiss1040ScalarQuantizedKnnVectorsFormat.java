@@ -25,7 +25,7 @@ import java.io.IOException;
  * while HNSW graph construction is delegated to the native Faiss engine (.faiss files).
  *
  * <p>A field is routed to this format when its method parameters contain
- * {@code "encoder": {"name": "faiss_bbq"}}. See {@code FaissCodecFormatResolver} for the
+ * {@code "encoder": {"name": "sq", "bits": 1}}. See {@code FaissCodecFormatResolver} for the
  * routing logic in {@code BasePerFieldKnnVectorsFormat.getKnnVectorsFormatForField}.
  *
  * @see Faiss1040ScalarQuantizedKnnVectorsWriter
