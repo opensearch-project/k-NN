@@ -14,13 +14,9 @@ import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsForm
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.CodecFormatResolver;
 import org.opensearch.knn.index.engine.KNNMethodContext;
-import org.opensearch.knn.index.engine.MethodComponentContext;
 
 import java.util.Map;
 import java.util.Optional;
-
-import static org.opensearch.knn.common.KNNConstants.ENCODER_FAISS_BBQ;
-import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 
 /**
  * {@link CodecFormatResolver} implementation for native engines (FAISS, NMSLIB).
@@ -45,7 +41,7 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
 
     /**
      * Resolves the format for a specific field. Returns {@link Faiss1040ScalarQuantizedKnnVectorsFormat} when
-     * the encoder is {@code faiss_bbq}, otherwise falls back to the default native format.
+     * the encoder is sq with bits=1, otherwise falls back to the default native format.
      */
     @Override
     public KnnVectorsFormat resolve(
@@ -55,7 +51,7 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
         int defaultMaxConnections,
         int defaultBeamWidth
     ) {
-        if (isFaissBBQEncoder(params)) {
+        if (isSQOneBitEncoder(params)) {
             return new Faiss1040ScalarQuantizedKnnVectorsFormat();
         }
         return resolve();
@@ -79,14 +75,7 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
             : KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE;
     }
 
-    private static boolean isFaissBBQEncoder(Map<String, Object> params) {
-        if (params == null || !params.containsKey(METHOD_ENCODER_PARAMETER)) {
-            return false;
-        }
-        Object encoderObj = params.get(METHOD_ENCODER_PARAMETER);
-        if (encoderObj instanceof MethodComponentContext encoderContext) {
-            return ENCODER_FAISS_BBQ.equals(encoderContext.getName());
-        }
-        return false;
+    private static boolean isSQOneBitEncoder(Map<String, Object> params) {
+        return FaissSQEncoder.isSQOneBit(params);
     }
 }

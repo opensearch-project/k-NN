@@ -32,9 +32,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_BINARY;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_FAISS_BBQ;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
@@ -287,19 +286,19 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
         );
     }
 
-    public void testIsAlwaysUseMemoryOptimizedSearch_whenBBQEncoder_thenReturnsTrue() {
+    public void testIsAlwaysUseMemoryOptimizedSearch_whenSQOneBitEncoder_thenReturnsTrue() {
         KNNMethodContext methodContext = new KNNMethodContext(
             KNNEngine.FAISS,
             SpaceType.L2,
             new MethodComponentContext(
                 METHOD_HNSW,
-                Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_FAISS_BBQ, Collections.emptyMap()))
+                Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Map.of("bits", 1)))
             )
         );
         assertTrue(MemoryOptimizedSearchSupportSpec.isAlwaysUseMemoryOptimizedSearch(Optional.of(methodContext)));
     }
 
-    public void testIsAlwaysUseMemoryOptimizedSearch_whenNonBBQEncoder_thenReturnsFalse() {
+    public void testIsAlwaysUseMemoryOptimizedSearch_whenNonSQOneBitEncoder_thenReturnsFalse() {
         for (String encoder : Arrays.asList(ENCODER_FLAT, ENCODER_SQ, ENCODER_BINARY)) {
             KNNMethodContext methodContext = new KNNMethodContext(
                 KNNEngine.FAISS,

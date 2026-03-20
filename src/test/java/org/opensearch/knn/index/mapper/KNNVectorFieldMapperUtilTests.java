@@ -29,9 +29,8 @@ import java.util.Map;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_FAISS_BBQ;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
@@ -114,7 +113,7 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
     }
 
     public void testGetEncoderName_whenEncoderPresent_thenReturnsName() {
-        for (String encoder : Arrays.asList(ENCODER_FLAT, ENCODER_SQ, ENCODER_FAISS_BBQ)) {
+        for (String encoder : Arrays.asList(ENCODER_FLAT, ENCODER_SQ, ENCODER_SQ)) {
             KNNMethodContext methodContext = new KNNMethodContext(
                 KNNEngine.FAISS,
                 SpaceType.L2,

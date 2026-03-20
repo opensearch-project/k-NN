@@ -11,6 +11,7 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.repositories.RepositoriesService;
@@ -59,11 +60,12 @@ public final class NativeIndexBuildStrategyFactory {
         final KNNEngine knnEngine = extractKNNEngine(fieldInfo);
         final boolean isTemplate = fieldInfo.attributes().containsKey(MODEL_ID);
         final boolean iterative = !isTemplate && KNNEngine.FAISS == knnEngine;
-        final boolean isFaissScalarQuantizedField = FieldInfoExtractor.isFaissBBQ(fieldInfo);
+        final boolean isFaissSQOneBitField = FieldInfoExtractor.isSQField(fieldInfo)
+            && FieldInfoExtractor.extractSQConfig(fieldInfo).getBits() == FaissSQEncoder.Bits.ONE.getValue();
 
         // Determine build strategy
         final NativeIndexBuildStrategy strategy;
-        if (isFaissScalarQuantizedField) {
+        if (isFaissSQOneBitField) {
             strategy = MemOptimizedScalarQuantizedIndexBuildStrategy.getInstance();
         } else if (iterative) {
             strategy = MemOptimizedNativeIndexBuildStrategy.getInstance();

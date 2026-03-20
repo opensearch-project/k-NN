@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 3.6](https://github.com/opensearch-project/k-NN/compare/main...HEAD)
 ### Features
 * Support Lucene BBQ Flat for 1 bit [#3154](https://github.com/opensearch-project/k-NN/pull/3154)
+* Add 32x support for SQ encoder on Faiss [#3193](https://github.com/opensearch-project/k-NN/pull/3193)
 
 ### Maintenance
 * Improve unit tests by tightening asserts [#3112](https://github.com/opensearch-project/k-NN/pull/3112)

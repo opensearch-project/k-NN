@@ -14,10 +14,12 @@ import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.faiss.SQConfig;
+import org.opensearch.knn.index.engine.faiss.SQConfigParser;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 
-import static org.opensearch.knn.common.KNNConstants.FAISS_BBQ_CONFIG;
+import static org.opensearch.knn.common.KNNConstants.SQ_CONFIG;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.indices.ModelUtil.getModelMetadata;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
@@ -141,12 +143,26 @@ public class FieldInfoExtractor {
     }
 
     /**
-     * Check if the field is configured for Faiss BBQ.
+     * Check if the field has an SQ encoder config attribute.
      *
      * @param fieldInfo {@link FieldInfo}
-     * @return true if the field has faiss_bbq_config attribute
+     * @return true if the field has an sq_config attribute
      */
-    public static boolean isFaissBBQ(final FieldInfo fieldInfo) {
-        return StringUtils.isNotEmpty(fieldInfo.getAttribute(FAISS_BBQ_CONFIG));
+    public static boolean isSQField(final FieldInfo fieldInfo) {
+        return StringUtils.isNotEmpty(fieldInfo.getAttribute(SQ_CONFIG));
+    }
+
+    /**
+     * Extract the SQ config from the field attribute.
+     *
+     * @param fieldInfo {@link FieldInfo}
+     * @return {@link SQConfig}, or {@link SQConfig#EMPTY} if not present
+     */
+    public static SQConfig extractSQConfig(final FieldInfo fieldInfo) {
+        String configString = fieldInfo.getAttribute(SQ_CONFIG);
+        if (StringUtils.isEmpty(configString)) {
+            return SQConfig.EMPTY;
+        }
+        return SQConfigParser.fromCsv(configString);
     }
 }
