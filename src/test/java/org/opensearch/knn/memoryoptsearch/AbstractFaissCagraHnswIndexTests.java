@@ -6,6 +6,7 @@
 package org.opensearch.knn.memoryoptsearch;
 
 import lombok.SneakyThrows;
+import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FloatVectorValues;
@@ -20,11 +21,15 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.IOConsumer;
+import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
+import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,11 +40,10 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.memoryoptsearch.FaissHNSWTests.loadHnswBinary;
 
 public abstract class AbstractFaissCagraHnswIndexTests extends KNNTestCase {
-    private static final FieldInfo NO_ADC_NEEDED = null;
-
     private static final int EF_SEARCH = 100;
     private static final int DIMENSION = 768;
     // Applying 32x quantization, one float will be quantized to 1 bit. As a result, one vector have 768 bits, which becomes 96 bytes.
@@ -51,9 +55,29 @@ public abstract class AbstractFaissCagraHnswIndexTests extends KNNTestCase {
         final VectorDataType vectorDataType,
         final KNNVectorSimilarityFunction similarityFunction
     ) {
+        FieldInfo noADC = Mockito.mock(FieldInfo.class);
+        Mockito.when(noADC.getAttribute(KNNConstants.QFRAMEWORK_CONFIG)).thenReturn(null);
+        if (similarityFunction == KNNVectorSimilarityFunction.HAMMING) {
+            Mockito.when(noADC.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.HAMMING.getValue());
+        } else if (similarityFunction == KNNVectorSimilarityFunction.EUCLIDEAN) {
+            Mockito.when(noADC.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+        } else if (similarityFunction == KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT) {
+            Mockito.when(noADC.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.INNER_PRODUCT.getValue());
+        } else {
+            throw new IllegalArgumentException("Unsupported similarity function: " + similarityFunction);
+        }
         doTestWithIndexInput(input -> {
             // Instantiate memory optimized searcher
-            final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, NO_ADC_NEEDED);
+            final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
+                input,
+                FaissIndex.load(input),
+                noADC,
+                FlatVectorsScorerProvider.getFlatVectorsScorer(
+                    noADC,
+                    similarityFunction,
+                    FlatVectorScorerUtil.getLucene99FlatVectorsScorer()
+                )
+            );
 
             // Make collector
             final int k = isApproximateSearch ? EF_SEARCH : TOTAL_NUMBER_OF_VECTORS;

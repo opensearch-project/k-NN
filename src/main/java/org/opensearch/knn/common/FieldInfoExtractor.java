@@ -85,6 +85,16 @@ public class FieldInfoExtractor {
     }
 
     /**
+     * Check for a field to be ADC or not
+     * @param fieldInfo {@link FieldInfo}
+     * @return true if the field is ADC, false otherwise
+     */
+    public static boolean isAdc(final FieldInfo fieldInfo) {
+        final QuantizationConfig quantizationConfig = FieldInfoExtractor.extractQuantizationConfig(fieldInfo);
+        return quantizationConfig.isEnableADC();
+    }
+
+    /**
      * Get the space type for the given field info.
      *
      * @param modelDao ModelDao instance to retrieve model metadata

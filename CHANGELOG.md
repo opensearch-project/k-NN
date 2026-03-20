@@ -29,4 +29,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Use pre-quantized vectors for ADC [#3113](https://github.com/opensearch-project/k-NN/pull/3113)
 * Adjusting the merge policy setting to make merges less aggressive [#3128](https://github.com/opensearch-project/k-NN/pull/3128)
 * Upgrade Lucene to 10.4.0 [#3135](https://github.com/opensearch-project/k-NN/pull/3135)
+* Speedup FP16 bulk similarity by precomputing the tail mask [#3172](https://github.com/opensearch-project/k-NN/pull/3172)
+* Add Prefetch functionality to prefetch vectors during ANN Search for MemoryOptimizedSearch. [#3173](https://github.com/opensearch-project/k-NN/pull/3173)
 * Optimize ByteVectorIdsExactKNNIterator by moving array conversion to constructor [#3171](https://github.com/opensearch-project/k-NN/pull/3171)
+* Add VectorScorers for BinaryDocValues and nested best child scoring [#3179](https://github.com/opensearch-project/k-NN/pull/3179)
+* Introduce NativeEngines990KnnVectorsScorer to decouple native SIMD scoring selection from FaissMemoryOptimizedSearcher [#3184](https://github.com/opensearch-project/k-NN/pull/3184)

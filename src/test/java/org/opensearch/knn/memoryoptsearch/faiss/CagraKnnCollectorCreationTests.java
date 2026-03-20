@@ -6,12 +6,16 @@
 package org.opensearch.knn.memoryoptsearch.faiss;
 
 import lombok.SneakyThrows;
+import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
+import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.TopKnnCollector;
 import org.apache.lucene.search.knn.KnnSearchStrategy;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
+import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.memoryoptsearch.FaissHNSWTests;
 
@@ -21,6 +25,7 @@ import org.opensearch.knn.memoryoptsearch.FaissHNSWTests;
  */
 public class CagraKnnCollectorCreationTests extends KNNTestCase {
     private static final int TOTAL_VECTORS = 300;
+    private static final FlatVectorsScorer SCORER = FlatVectorScorerUtil.getLucene99FlatVectorsScorer();
 
     /**
      * When the collector has a non-seeded strategy and the index is CAGRA HNSW,
@@ -29,7 +34,12 @@ public class CagraKnnCollectorCreationTests extends KNNTestCase {
     @SneakyThrows
     public void testCreateKnnCollector_whenNonSeeded_thenWrapsWithRandomEntryPoints() {
         final IndexInput input = FaissHNSWTests.loadHnswBinary("data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin");
-        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null);
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
+            input,
+            FaissIndex.load(input),
+            Mockito.mock(FieldInfo.class),
+            SCORER
+        );
 
         // Create a non-seeded collector
         final KnnCollector originalCollector = new TopKnnCollector(100, Integer.MAX_VALUE, KnnSearchStrategy.Hnsw.DEFAULT);
@@ -56,7 +66,12 @@ public class CagraKnnCollectorCreationTests extends KNNTestCase {
     @SneakyThrows
     public void testCreateKnnCollector_whenSeeded_thenPreservesOriginalStrategy() {
         final IndexInput input = FaissHNSWTests.loadHnswBinary("data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin");
-        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, null);
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
+            input,
+            FaissIndex.load(input),
+            Mockito.mock(FieldInfo.class),
+            SCORER
+        );
 
         // Create a seeded strategy
         final DocIdSetIterator seedDocs = new DocIdSetIterator() {

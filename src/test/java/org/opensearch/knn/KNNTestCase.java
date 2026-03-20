@@ -6,6 +6,7 @@
 package org.opensearch.knn;
 
 import lombok.SneakyThrows;
+import org.apache.lucene.store.IndexInput;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.cluster.service.ClusterService;
@@ -33,8 +34,10 @@ import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -196,5 +199,72 @@ public class KNNTestCase extends OpenSearchTestCase {
      */
     protected int adjustDimensionForSearch(final int dimension, final VectorDataType vectorDataType) {
         return VectorDataType.BINARY == vectorDataType ? dimension / Byte.SIZE : dimension;
+    }
+
+    /**
+     * IndexInput wrapper that tracks prefetch calls for testing.
+     */
+    protected static class TrackingIndexInput extends IndexInput {
+        private final IndexInput delegate;
+        public final List<PrefetchCall> prefetchCalls = new ArrayList<>();
+
+        public TrackingIndexInput(IndexInput delegate) {
+            super(delegate.toString());
+            this.delegate = delegate;
+        }
+
+        @Override
+        public void prefetch(long offset, long length) throws IOException {
+            prefetchCalls.add(new PrefetchCall(offset, length));
+            delegate.prefetch(offset, length);
+        }
+
+        @Override
+        public void close() throws IOException {
+            delegate.close();
+        }
+
+        @Override
+        public long getFilePointer() {
+            return delegate.getFilePointer();
+        }
+
+        @Override
+        public void seek(long pos) throws IOException {
+            delegate.seek(pos);
+        }
+
+        @Override
+        public long length() {
+            return delegate.length();
+        }
+
+        @Override
+        public IndexInput slice(String sliceDescription, long offset, long length) throws IOException {
+            return delegate.slice(sliceDescription, offset, length);
+        }
+
+        @Override
+        public byte readByte() throws IOException {
+            return delegate.readByte();
+        }
+
+        @Override
+        public void readBytes(byte[] b, int offset, int len) throws IOException {
+            delegate.readBytes(b, offset, len);
+        }
+
+        @Override
+        public void readFloats(float[] floats, int offset, int len) throws IOException {
+            delegate.readFloats(floats, offset, len);
+        }
+
+        @Override
+        public IndexInput clone() {
+            return new TrackingIndexInput(delegate.clone());
+        }
+
+        public record PrefetchCall(long offset, long length) {
+        }
     }
 }
