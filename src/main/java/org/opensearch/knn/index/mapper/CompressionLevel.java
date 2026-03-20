@@ -16,8 +16,6 @@ import java.util.Collections;
 import java.util.Locale;
 import java.util.Set;
 
-import static org.opensearch.knn.common.KNNConstants.ENCODER_FAISS_BBQ;
-
 /**
  * Enum representing the compression level for float vectors. Compression in this sense refers to compressing a
  * full precision value into a smaller number of bits. For instance. "16x" compression would mean that 2 bits would
@@ -120,7 +118,7 @@ public enum CompressionLevel {
         final Version version,
         final boolean isFlatMethod
     ) {
-        return getDefaultRescoreContext(mode, dimension, version, isFlatMethod, null);
+        return getDefaultRescoreContext(mode, dimension, version, isFlatMethod, false);
     }
 
     public RescoreContext getDefaultRescoreContext(
@@ -128,10 +126,10 @@ public enum CompressionLevel {
         final int dimension,
         final Version version,
         final boolean isFlatMethod,
-        final String encoderName
+        final boolean isSQOneBit
     ) {
-        // For scalar quantized index, it just uses FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR.
-        if (encoderName != null && encoderName.equals(ENCODER_FAISS_BBQ)) {
+        // For sq(bits=1) encoder, use fixed oversample factor.
+        if (isSQOneBit) {
             return RescoreContext.builder()
                 .oversampleFactor(RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR)
                 .allowOverrideOversampleFactor(false)
