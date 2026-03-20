@@ -17,17 +17,14 @@ import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.opensearch.common.Nullable;
-import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.derivedsource.DerivedFieldInfo;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceReaders;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceReadersSupplier;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceSegmentAttributeParser;
-import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.util.IndexUtil;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -105,34 +102,8 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
         if (IndexUtil.isDerivedEnabledForIndex(mapperService) == false) {
             return delegateWriter;
         }
-        List<String> vectorFieldTypes = new ArrayList<>();
-        List<String> nestedVectorFieldTypes = new ArrayList<>();
-        for (MappedFieldType fieldType : mapperService.fieldTypes()) {
-            if (fieldType instanceof KNNVectorFieldType knnVectorFieldType) {
-                if (IndexUtil.isDerivedEnabledForField(knnVectorFieldType, mapperService) == false) {
-                    continue;
-                }
 
-                boolean isNested = mapperService.documentMapper().mappers().getNestedScope(fieldType.name()) != null;
-                if (isNested) {
-                    nestedVectorFieldTypes.add(fieldType.name());
-                } else {
-                    vectorFieldTypes.add(fieldType.name());
-                }
-            }
-        }
-        if (vectorFieldTypes.isEmpty() && nestedVectorFieldTypes.isEmpty()) {
-            return delegateWriter;
-        }
-
-        // Store nested fields separately from non-nested for easy handling on read
-        if (vectorFieldTypes.isEmpty() == false) {
-            DerivedSourceSegmentAttributeParser.addDerivedVectorFieldsSegmentInfoAttribute(segmentInfo, vectorFieldTypes, false);
-        }
-        if (nestedVectorFieldTypes.isEmpty() == false) {
-            vectorFieldTypes.addAll(nestedVectorFieldTypes);
-            DerivedSourceSegmentAttributeParser.addDerivedVectorFieldsSegmentInfoAttribute(segmentInfo, nestedVectorFieldTypes, true);
-        }
-        return new KNN10010DerivedSourceStoredFieldsWriter(name, delegateWriter, vectorFieldTypes);
+        // Just pass mapperService - we'll query for fields in finish() when all mappings exist
+        return new KNN10010DerivedSourceStoredFieldsWriter(name, delegateWriter, segmentInfo, mapperService);
     }
 }

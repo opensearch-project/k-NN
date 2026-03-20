@@ -23,7 +23,11 @@ public class RandomEntryPointsKnnSearchStrategyTests {
 
         // Create strategy
         final FaissMemoryOptimizedSearcher.RandomEntryPointsKnnSearchStrategy strategy =
-            new FaissMemoryOptimizedSearcher.RandomEntryPointsKnnSearchStrategy(numEntries, numVectors, mock(KnnSearchStrategy.class));
+            FaissMemoryOptimizedSearcher.RandomEntryPointsKnnSearchStrategy.getInstance(
+                numEntries,
+                numVectors,
+                mock(KnnSearchStrategy.class)
+            );
 
         // Validate #entry points
         assertEquals(numEntries, strategy.numberOfEntryPoints());
@@ -31,6 +35,32 @@ public class RandomEntryPointsKnnSearchStrategyTests {
         // We should get exactly `numEntries` vector ids.
         final DocIdSetIterator iterator = strategy.entryPoints();
         for (int i = 0; i < numEntries; ++i) {
+            final int internalVectorId = iterator.nextDoc();
+            assertTrue(internalVectorId >= 0);
+            assertTrue(internalVectorId < numVectors);
+        }
+    }
+
+    @Test
+    @SneakyThrows
+    public void testRandomEntryPointsGeneration_whenNumVectorsIsLessThanNumEntries_thenSuccess() {
+        final int numEntries = 100;
+        final long numVectors = 10;
+
+        // Create strategy
+        final FaissMemoryOptimizedSearcher.RandomEntryPointsKnnSearchStrategy strategy =
+            FaissMemoryOptimizedSearcher.RandomEntryPointsKnnSearchStrategy.getInstance(
+                numEntries,
+                numVectors,
+                mock(KnnSearchStrategy.class)
+            );
+
+        // Validate #entry points
+        assertEquals(numVectors, strategy.numberOfEntryPoints());
+
+        // We should get exactly `numEntries` vector ids.
+        final DocIdSetIterator iterator = strategy.entryPoints();
+        for (int i = 0; i < numVectors; ++i) {
             final int internalVectorId = iterator.nextDoc();
             assertTrue(internalVectorId >= 0);
             assertTrue(internalVectorId < numVectors);
