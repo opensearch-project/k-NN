@@ -104,22 +104,43 @@ public class FaissIdMapIndexTests extends KNNTestCase {
         Bits bitsFromByteVectors = byteVectorValues.getAcceptOrds(null);
         assertNull(bitsFromByteVectors);
 
-        bitsFromByteVectors = byteVectorValues.getAcceptOrds(mock(Bits.class));
+        // Verify that getAcceptOrds correctly maps vector ordinal -> doc ID via acceptDocs
+        final Bits mockAcceptDocsForBytes = mock(Bits.class);
+        final AtomicInteger byteIdx = new AtomicInteger(0);
+        doAnswer((Answer<Boolean>) invocation -> {
+            final int docId = invocation.getArgument(0);
+            assertEquals(mappingTable[byteIdx.getAndIncrement()], docId);
+            return true;
+        }).when(mockAcceptDocsForBytes).get(anyInt());
+
+        bitsFromByteVectors = byteVectorValues.getAcceptOrds(mockAcceptDocsForBytes);
+        assertEquals(totalNumberOfVectors, bitsFromByteVectors.length());
         for (int i = 0; i < totalNumberOfVectors; ++i) {
-            // Internally, it will intercept the argument then compare the converted doc id to the expected one.
             bitsFromByteVectors.get(i);
+            assertEquals(mappingTable[i], byteVectorValues.ordToDoc(i));
         }
+        assertEquals(totalNumberOfVectors, byteIdx.get());
 
         // Sparse float vectors
         final FloatVectorValues floatVectorValues = index.getFloatValues(null);
         Bits bitsFromFloatVectors = floatVectorValues.getAcceptOrds(null);
         assertNull(bitsFromFloatVectors);
 
-        bitsFromFloatVectors = floatVectorValues.getAcceptOrds(mock(Bits.class));
+        final Bits mockAcceptDocsForFloats = mock(Bits.class);
+        final AtomicInteger floatIdx = new AtomicInteger(0);
+        doAnswer((Answer<Boolean>) invocation -> {
+            final int docId = invocation.getArgument(0);
+            assertEquals(mappingTable[floatIdx.getAndIncrement()], docId);
+            return true;
+        }).when(mockAcceptDocsForFloats).get(anyInt());
+
+        bitsFromFloatVectors = floatVectorValues.getAcceptOrds(mockAcceptDocsForFloats);
+        assertEquals(totalNumberOfVectors, bitsFromFloatVectors.length());
         for (int i = 0; i < totalNumberOfVectors; ++i) {
-            // Internally, it will intercept the argument then compare the converted doc id to the expected one.
             bitsFromFloatVectors.get(i);
+            assertEquals(mappingTable[i], floatVectorValues.ordToDoc(i));
         }
+        assertEquals(totalNumberOfVectors, floatIdx.get());
     }
 
     public void testParentChildNestedCase() {
@@ -157,22 +178,42 @@ public class FaissIdMapIndexTests extends KNNTestCase {
         Bits bitsFromByteVectors = byteVectorValues.getAcceptOrds(null);
         assertNull(bitsFromByteVectors);
 
-        bitsFromByteVectors = byteVectorValues.getAcceptOrds(mock(Bits.class));
+        final Bits mockAcceptDocsForBytes = mock(Bits.class);
+        final AtomicInteger byteIdx = new AtomicInteger(0);
+        doAnswer((Answer<Boolean>) invocation -> {
+            final int docId = invocation.getArgument(0);
+            assertEquals(mappingTable[byteIdx.getAndIncrement()], docId);
+            return true;
+        }).when(mockAcceptDocsForBytes).get(anyInt());
+
+        bitsFromByteVectors = byteVectorValues.getAcceptOrds(mockAcceptDocsForBytes);
+        assertEquals(totalNumberOfVectors, bitsFromByteVectors.length());
         for (int i = 0; i < totalNumberOfVectors; ++i) {
-            // Internally, it will intercept the argument then compare the converted doc id to the expected one.
             bitsFromByteVectors.get(i);
+            assertEquals(mappingTable[i], byteVectorValues.ordToDoc(i));
         }
+        assertEquals(totalNumberOfVectors, byteIdx.get());
 
         // Sparse float vectors
         final FloatVectorValues floatVectorValues = index.getFloatValues(null);
         Bits bitsFromFloatVectors = floatVectorValues.getAcceptOrds(null);
         assertNull(bitsFromFloatVectors);
 
-        bitsFromFloatVectors = floatVectorValues.getAcceptOrds(mock(Bits.class));
+        final Bits mockAcceptDocsForFloats = mock(Bits.class);
+        final AtomicInteger floatIdx = new AtomicInteger(0);
+        doAnswer((Answer<Boolean>) invocation -> {
+            final int docId = invocation.getArgument(0);
+            assertEquals(mappingTable[floatIdx.getAndIncrement()], docId);
+            return true;
+        }).when(mockAcceptDocsForFloats).get(anyInt());
+
+        bitsFromFloatVectors = floatVectorValues.getAcceptOrds(mockAcceptDocsForFloats);
+        assertEquals(totalNumberOfVectors, bitsFromFloatVectors.length());
         for (int i = 0; i < totalNumberOfVectors; ++i) {
-            // Internally, it will intercept the argument then compare the converted doc id to the expected one.
             bitsFromFloatVectors.get(i);
+            assertEquals(mappingTable[i], floatVectorValues.ordToDoc(i));
         }
+        assertEquals(totalNumberOfVectors, floatIdx.get());
     }
 
     @SneakyThrows
@@ -221,28 +262,14 @@ public class FaissIdMapIndexTests extends KNNTestCase {
             mockStaticFaissIndex.when(() -> FaissIndex.load(any())).thenReturn(nestedIndex);
 
             // Byte vectors
-            final Bits mockBitsFromByteVectors = mock(Bits.class);
-            final AtomicInteger idx1 = new AtomicInteger(0);
-            doAnswer((Answer<Void>) invocation -> {
-                final int convertedDocId = invocation.getArgument(0);
-                assertEquals(mappingTable[idx1.getAndIncrement()], convertedDocId);
-                return null;
-            }).when(mockBitsFromByteVectors).get(anyInt());
             final ByteVectorValues mockByteValues = mock(ByteVectorValues.class);
             when(nestedIndex.getByteValues(any())).thenReturn(mockByteValues);
-            when(mockByteValues.getAcceptOrds(any())).thenReturn(mockBitsFromByteVectors);
+            when(mockByteValues.size()).thenReturn(Math.toIntExact(totalNumberOfVectors));
 
             // Float vectors
-            final Bits mockBitsFromFloatVectors = mock(Bits.class);
-            final AtomicInteger idx2 = new AtomicInteger(0);
-            doAnswer((Answer<Void>) invocation -> {
-                final int convertedDocId = invocation.getArgument(0);
-                assertEquals(mappingTable[idx2.getAndIncrement()], convertedDocId);
-                return null;
-            }).when(mockBitsFromFloatVectors).get(anyInt());
             final FloatVectorValues mockFloatValues = mock(FloatVectorValues.class);
             when(nestedIndex.getFloatValues(any())).thenReturn(mockFloatValues);
-            when(mockFloatValues.getAcceptOrds(any())).thenReturn(mockBitsFromFloatVectors);
+            when(mockFloatValues.size()).thenReturn(Math.toIntExact(totalNumberOfVectors));
 
             // Trigger load
             final IndexInput input = prepareBytes(dimension, totalNumberOfVectors, useL2Metric, mappingTable, indexType);
