@@ -27,6 +27,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.scorer.NativeEngines990KnnVectorsScorer;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
 import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
@@ -75,7 +76,7 @@ public abstract class AbstractFaissCagraHnswIndexTests extends KNNTestCase {
                 FlatVectorsScorerProvider.getFlatVectorsScorer(
                     noADC,
                     similarityFunction,
-                    FlatVectorScorerUtil.getLucene99FlatVectorsScorer()
+                    new NativeEngines990KnnVectorsScorer(FlatVectorScorerUtil.getLucene99FlatVectorsScorer())
                 )
             );
 

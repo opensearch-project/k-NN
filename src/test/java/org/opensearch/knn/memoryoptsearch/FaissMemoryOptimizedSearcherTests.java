@@ -40,6 +40,7 @@ import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsRead
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.codec.nativeindex.MemoryOptimizedSearchIndexingSupport;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
+import org.opensearch.knn.index.codec.scorer.NativeEngines990KnnVectorsScorer;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
@@ -118,7 +119,9 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
     private static final int TOTAL_NUM_DOCS_IN_SEGMENT = 300;
     private static final int TOP_K = 30;
     private static final float NO_FILTERING = Float.NaN;
-    private static final FlatVectorsScorer SCORER = FlatVectorScorerUtil.getLucene99FlatVectorsScorer();
+    private static final FlatVectorsScorer SCORER = new NativeEngines990KnnVectorsScorer(
+        FlatVectorScorerUtil.getLucene99FlatVectorsScorer()
+    );
 
     public void test32xQuantizedBinaryIndexType() {
         final TestingSpec testingSpec = new TestingSpec(
