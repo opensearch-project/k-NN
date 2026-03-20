@@ -12,8 +12,9 @@ import org.apache.lucene.store.IndexInput;
 import org.mockito.MockedStatic;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndexScalarQuantizedFlat;
-import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissIndexBinaryFlat;
+import org.opensearch.knn.memoryoptsearch.faiss.vectorvalues.FaissByteVectorValues;
 import org.opensearch.knn.memoryoptsearch.faiss.vectorvalues.FaissFloatVectorValues;
+import org.opensearch.knn.memoryoptsearch.faiss.vectorvalues.FaissFloatVectorValues.SparseFloatVectorValuesImpl;
 
 import java.io.IOException;
 
@@ -63,12 +64,28 @@ public class PrefetchableVectorValuesHelperTests extends KNNTestCase {
         when(mockSlice.length()).thenReturn(200L * 1024);
         int vectorByteLength = 64;
 
-        FaissIndexBinaryFlat.ByteVectorValuesImpl binaryImpl = mock(FaissIndexBinaryFlat.ByteVectorValuesImpl.class);
+        FaissByteVectorValues binaryImpl = mock(FaissByteVectorValues.class);
         when(binaryImpl.getSlice()).thenReturn(mockSlice);
         when(binaryImpl.getVectorByteLength()).thenReturn(vectorByteLength);
 
         try (MockedStatic<PrefetchHelper> mockedPrefetchHelper = mockStatic(PrefetchHelper.class)) {
             PrefetchableVectorValuesHelper.mayBeDoPrefetch(binaryImpl, nodes, numNodes);
+
+            mockedPrefetchHelper.verify(() -> PrefetchHelper.prefetch(mockSlice, 0, vectorByteLength, nodes, numNodes));
+        }
+    }
+
+    public void testMayBeDoPrefetch_whenSparseFloatVectorValuesImpl_thenPrefetchesViaHasIndexSlice() throws IOException {
+        IndexInput mockSlice = mock(IndexInput.class);
+        when(mockSlice.length()).thenReturn(200L * 1024);
+        int vectorByteLength = 512;
+
+        SparseFloatVectorValuesImpl sparseImpl = mock(SparseFloatVectorValuesImpl.class);
+        when(sparseImpl.getSlice()).thenReturn(mockSlice);
+        when(sparseImpl.getVectorByteLength()).thenReturn(vectorByteLength);
+
+        try (MockedStatic<PrefetchHelper> mockedPrefetchHelper = mockStatic(PrefetchHelper.class)) {
+            PrefetchableVectorValuesHelper.mayBeDoPrefetch(sparseImpl, nodes, numNodes);
 
             mockedPrefetchHelper.verify(() -> PrefetchHelper.prefetch(mockSlice, 0, vectorByteLength, nodes, numNodes));
         }
@@ -105,7 +122,7 @@ public class PrefetchableVectorValuesHelperTests extends KNNTestCase {
         when(mockSlice.length()).thenReturn(200L * 1024);
         int vectorByteLength = 64;
 
-        FaissIndexBinaryFlat.ByteVectorValuesImpl binaryImpl = mock(FaissIndexBinaryFlat.ByteVectorValuesImpl.class);
+        FaissByteVectorValues binaryImpl = mock(FaissByteVectorValues.class);
         when(binaryImpl.getSlice()).thenReturn(mockSlice);
         when(binaryImpl.getVectorByteLength()).thenReturn(vectorByteLength);
 

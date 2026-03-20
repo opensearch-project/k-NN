@@ -5,13 +5,12 @@
 
 package org.opensearch.knn.memoryoptsearch.faiss.binary;
 
-import lombok.RequiredArgsConstructor;
-import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissSection;
+import org.opensearch.knn.memoryoptsearch.faiss.vectorvalues.FaissByteVectorValues;
 
 import java.io.IOException;
 
@@ -59,47 +58,11 @@ public class FaissIndexBinaryFlat extends FaissBinaryIndex {
 
     @Override
     public ByteVectorValues getByteValues(final IndexInput indexInput) throws IOException {
-        return new ByteVectorValuesImpl(binaryFlatVectorSection.slice(indexInput, VECTOR_VALUES_SLICE_NAME));
-    }
-
-    @RequiredArgsConstructor
-    public class ByteVectorValuesImpl extends ByteVectorValues implements HasIndexSlice {
-        final IndexInput indexInput;
-        final byte[] buffer = new byte[codeSize];
-
-        @Override
-        public byte[] vectorValue(int internalVectorId) throws IOException {
-            final long offset = (long) internalVectorId * codeSize;
-            indexInput.seek(offset);
-            indexInput.readBytes(buffer, 0, codeSize);
-            return buffer;
-        }
-
-        @Override
-        public int dimension() {
-            return dimension;
-        }
-
-        public int getVectorByteLength() {
-            return codeSize;
-        }
-
-        @Override
-        public int size() {
-            return totalNumberOfVectors;
-        }
-
-        @Override
-        public ByteVectorValues copy() {
-            return new ByteVectorValuesImpl(indexInput.clone());
-        }
-
-        /**
-         * Returns an IndexInput from which to read this instance's values, or null if not available.
-         */
-        @Override
-        public IndexInput getSlice() {
-            return indexInput;
-        }
+        return new FaissByteVectorValues(
+            binaryFlatVectorSection.slice(indexInput, VECTOR_VALUES_SLICE_NAME),
+            codeSize,
+            dimension,
+            totalNumberOfVectors
+        );
     }
 }
