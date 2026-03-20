@@ -138,18 +138,16 @@ public class FaissIdMapIndex extends FaissBinaryIndex implements FaissHNSWProvid
             @Override
             public Bits getAcceptOrds(final Bits acceptDocs) {
                 if (acceptDocs != null) {
-                    final Bits internalBits = vectorValues.getAcceptOrds(acceptDocs);
-
                     return new Bits() {
                         @Override
                         public boolean get(int internalVectorId) {
-                            // Apply filtering with a converted Lucene document id.
-                            return internalBits.get((int) idMappingReader.get(internalVectorId));
+                            // Convert internal vector ordinal to Lucene document id, then check acceptDocs directly.
+                            return acceptDocs.get((int) idMappingReader.get(internalVectorId));
                         }
 
                         @Override
                         public int length() {
-                            return internalBits.length();
+                            return vectorValues.size();
                         }
                     };
                 }
@@ -205,18 +203,16 @@ public class FaissIdMapIndex extends FaissBinaryIndex implements FaissHNSWProvid
             @Override
             public Bits getAcceptOrds(final Bits acceptDocs) {
                 if (acceptDocs != null) {
-                    final Bits internalBits = floatVectorValues.getAcceptOrds(acceptDocs);
-
                     return new Bits() {
                         @Override
                         public boolean get(int internalVectorId) {
-                            // Apply filtering with a converted Lucene document id.
-                            return internalBits.get((int) idMappingReader.get(internalVectorId));
+                            // Convert internal vector ordinal to Lucene document id, then check acceptDocs directly.
+                            return acceptDocs.get((int) idMappingReader.get(internalVectorId));
                         }
 
                         @Override
                         public int length() {
-                            return internalBits.length();
+                            return floatVectorValues.size();
                         }
                     };
                 }
