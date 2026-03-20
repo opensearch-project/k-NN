@@ -7,28 +7,21 @@ package org.opensearch.knn.index.codec.nativeindex;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
-import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
-import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
-import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorScorer;
-import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsReader;
 import org.apache.lucene.codecs.lucene104.QuantizedByteVectorValues;
-import org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat;
-import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.FieldInfos;
-import org.apache.lucene.index.FloatVectorValues;
-import org.apache.lucene.index.SegmentReadState;
-import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.util.quantization.OptimizedScalarQuantizer;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.jni.JNIService;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
@@ -37,12 +30,13 @@ import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorV
  * Memory-optimized build strategy for Faiss BBQ (Binary Quantized) HNSW indexes.
  *
  * <h2>Architecture Overview</h2>
- * This strategy builds a Faiss HNSW graph on top of 1-bit binary quantized vectors produced by
- * Lucene's {@link Lucene104ScalarQuantizedVectorsReader}. By the time this strategy is invoked,
- * Lucene has already written the quantized vectors to flat vector files (.vec and .veb) during
- * the flush/merge phase of {@code FaissBBQ990KnnVectorsWriter}. This strategy then:
+ * This strategy builds a Faiss HNSW graph on top of 1-bit binary quantized vectors.
+ * By the time this strategy is invoked, the caller (Faiss104ScalarQuantizedKnnVectorsWriter)
+ * has already written the quantized vectors to flat vector files (.vec and .veb), opened a
+ * reader, and extracted the {@link QuantizedByteVectorValues}. This strategy then:
  * <ol>
- *   <li>Reads back the quantized vectors and their correction factors from Lucene's on-disk format</li>
+ *   <li>Reads the quantized vectors and their correction factors from the provided
+ *       {@link QuantizedByteVectorValues}</li>
  *   <li>Transfers them to off-heap (native) memory via JNI</li>
  *   <li>Delegates to Faiss C++ to build the HNSW graph over those quantized vectors</li>
  *   <li>Writes only the HNSW graph to disk (using {@code IO_FLAG_SKIP_STORAGE}), without
@@ -60,28 +54,28 @@ import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorV
  *       asymmetric distance computation (ADC)</li>
  * </ul>
  * These correction factors enable accurate approximate distance calculations between a 4-bit
- * quantized query and 1-bit quantized data vectors during search (see docs/5_bulk_simd_bbq_adc.md).
+ * quantized query and 1-bit quantized data vectors during search.
  *
  * <h2>Storage Separation</h2>
  * The resulting .faiss file contains only the HNSW graph structure (adjacency lists, levels, etc.)
  * with a "null" storage section placeholder. At search time, {@code FaissBBQFlatIndex} is plugged
- * in as a virtual storage layer that reads quantized vectors from Lucene's
- * {@link Lucene104ScalarQuantizedVectorsReader} instead of from the .faiss file
- * (see docs/4_faiss_mos_bbq_storage_plugin.md).
+ * in as a virtual storage layer that reads quantized vectors from Lucene's flat files instead of
+ * from the .faiss file.
  *
  * <h2>SIMD-Accelerated Search</h2>
  * During search, the ADC distance computation between 4-bit query vectors and 1-bit data vectors
  * is offloaded to native SIMD code (AVX512 / ARM NEON) via {@code FaissBBQNativeRandomVectorScorer}
- * for maximum throughput (see docs/5_bulk_simd_bbq_adc.md).
+ * for maximum throughput.
  *
  * @see NativeIndexBuildStrategy
  * @see NativeIndexBuildStrategyFactory — returns this strategy when field info contains faiss_bbq_config
  */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
-public class MemOptimizedBBQIndexBuildStrategy implements NativeIndexBuildStrategy {
-    private static MemOptimizedBBQIndexBuildStrategy INSTANCE = new MemOptimizedBBQIndexBuildStrategy();
+public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeIndexBuildStrategy {
 
-    public static MemOptimizedBBQIndexBuildStrategy getInstance() {
+    private static MemOptimizedScalarQuantizedIndexBuildStrategy INSTANCE = new MemOptimizedScalarQuantizedIndexBuildStrategy();
+
+    public static MemOptimizedScalarQuantizedIndexBuildStrategy getInstance() {
         return INSTANCE;
     }
 
@@ -91,11 +85,9 @@ public class MemOptimizedBBQIndexBuildStrategy implements NativeIndexBuildStrate
      * <p>The high-level flow is:
      * <ol>
      *   <li>Initialize vector values to determine dimensionality</li>
-     *   <li>Construct a {@link SegmentReadState} to read back the already-flushed .vec and .veb files
-     *       containing full-precision and binary quantized vectors respectively</li>
-     *   <li>Open readers for both full-precision vectors ({@link Lucene99FlatVectorsFormat}) and
-     *       binary quantized vectors ({@link Lucene104ScalarQuantizedVectorsReader})</li>
-     *   <li>Extract the centroid dot-product and quantized vector byte size from the binarized values,
+     *   <li>Retrieve the {@link QuantizedByteVectorValues} from the build strategy params
+     *       (provided by the writer, which handles the FlatVectorsReader lifecycle)</li>
+     *   <li>Extract the centroid dot-product and quantized vector byte size from the quantized values,
      *       which are needed to initialize the native Faiss BBQ index structure</li>
      *   <li>Initialize the Faiss BBQ index in C++ via JNI, allocating off-heap memory for the
      *       HNSW graph and quantized vector storage</li>
@@ -114,99 +106,47 @@ public class MemOptimizedBBQIndexBuildStrategy implements NativeIndexBuildStrate
         // Without this, dimension() may return 0 since no vector has been loaded yet.
         initializeVectorValues(knnVectorValues);
 
-        // Construct a SegmentReadState scoped to only this field so we can open readers
-        // for the .vec (full-precision) and .veb (binary quantized) files that were already
-        // written during the flush/merge phase by FaissBBQ990KnnVectorsWriter.
-        final SegmentWriteState writeState = indexInfo.getSegmentWriteState();
-        final SegmentReadState readState = new SegmentReadState(
-            writeState.directory,
-            writeState.segmentInfo,
-            // Wrap only this single field — we don't need other fields' metadata
-            new FieldInfos(new FieldInfo[] { indexInfo.getFieldInfo() }),
-            writeState.context,
-            indexInfo.getFieldInfo().getName()
+        // Retrieve the QuantizedByteVectorValues passed by the writer.
+        // The writer is responsible for opening the FlatVectorsReader and extracting the
+        // quantized values. The writer closes the reader after this method returns.
+        final QuantizedByteVectorValues binarizedVectorValues = indexInfo.getQuantizedByteVectorValues();
+        Objects.requireNonNull(binarizedVectorValues, "QuantizedByteVectorValues was null in BuildIndexParams");
+
+        // The byte length of a single quantized vector. For 1-bit quantization of D dimensions,
+        // this is ceil(D/8) bytes, padded to 64-bit alignment: ((D + 63) / 64) * 64 / 8.
+        // TODO : This needs to be made generic for other quantization.
+        final int quantizedVecBytes = binarizedVectorValues.vectorValue(0).length;
+
+        // The centroid dot-product is a precomputed scalar used in the ADC scoring formula.
+        // It appears as a correction term: score += additionalCorrection + indexCorrection - centroidDp
+        final float centroidDp = binarizedVectorValues.getCentroidDP();
+        final Map<String, Object> indexParameters = new HashMap<>(indexInfo.getIndexParameters());
+        // Force override vector data type as binary so that Faiss can treat it as binary index.
+        indexParameters.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.BINARY.getValue());
+
+        // Initialize the Faiss BBQ index in native (C++) memory. This allocates:
+        // - The HNSW graph structure (adjacency lists, entry point, max level)
+        // - Off-heap storage for quantized vectors and correction factors
+        // The index is identified by a memory address (pointer) returned from C++.
+        final long indexMemoryAddress = AccessController.doPrivileged(
+            (PrivilegedAction<Long>) () -> JNIService.initFaissBBQIndex(
+                indexInfo.getTotalLiveDocs(),
+                knnVectorValues.dimension(),
+                indexParameters,
+                centroidDp,
+                quantizedVecBytes,
+                indexInfo.getKnnEngine()
+            )
         );
 
-        // Open the full-precision flat vectors reader (.vec file) — this is required as a
-        // dependency for the binary quantized reader, which needs access to the original
-        // vectors for centroid computation and corrective term derivation.
-        final FlatVectorsReader fullPrecisionVectorsReader = new Lucene99FlatVectorsFormat(
-            FlatVectorScorerUtil.getLucene99FlatVectorsScorer()
-        ).fieldsReader(readState);
-
-        // Open the binary quantized vectors reader (.veb file). This reader provides access to:
-        // - BinarizedVectorValues: the 1-bit quantized binary codes
-        // - Correction factors (lowerInterval, upperInterval, additionalCorrection, quantizedComponentSum)
-        // - Centroid dot-product: a precomputed term used in the ADC scoring formula
-        // The Lucene104ScalarQuantizedVectorScorer wraps the full-precision scorer to support
-        // scoring with binarized representations.
-        // Note: faissBBQVectorsReader takes ownership of fullPrecisionVectorsReader and closes it
-        // in its own close(). We guard fullPrecisionVectorsReader with try-with-resources so that
-        // if the Lucene104ScalarQuantizedVectorsReader constructor throws, it still gets closed.
-        final Lucene104ScalarQuantizedVectorsReader faissBBQVectorsReader;
         try {
-            faissBBQVectorsReader = new Lucene104ScalarQuantizedVectorsReader(
-                readState,
-                fullPrecisionVectorsReader,
-                new Lucene104ScalarQuantizedVectorScorer(fullPrecisionVectorsReader.getFlatVectorScorer())
-            );
+            doBuildAndWriteIndex(indexMemoryAddress, binarizedVectorValues, knnVectorValues, indexInfo, indexParameters, quantizedVecBytes);
         } catch (final Exception e) {
-            fullPrecisionVectorsReader.close();
+            // Release the native Faiss BBQ index to prevent off-heap memory leaks.
+            // The indexMemoryAddress points to faiss::IndexBinaryIDMap* which owns the entire
+            // hierarchy (IndexBinaryIDMap → FaissBBQHnsw → FaissBBQFlat) via own_fields = true.
+            JNIService.releaseBBQIndex(indexMemoryAddress, indexInfo.getKnnEngine());
             throw e;
-        }
-
-        try (faissBBQVectorsReader) {
-            // Retrieve the binarized vector values for this field. The returned FloatVectorValues
-            // is actually a BinarizedVectorValues instance that provides both the quantized binary
-            // codes and their associated correction factors.
-            final FloatVectorValues floatVectorValues = faissBBQVectorsReader.getFloatVectorValues(indexInfo.getFieldInfo().getName());
-            final Field f = floatVectorValues.getClass().getDeclaredField("quantizedVectorValues");
-            f.setAccessible(true);
-            final QuantizedByteVectorValues binarizedVectorValues = (QuantizedByteVectorValues) f.get(floatVectorValues);
-
-            // The byte length of a single quantized vector. For 1-bit quantization of D dimensions,
-            // this is ceil(D/8) bytes, padded to 64-bit alignment: ((D + 63) / 64) * 64 / 8.
-            final int quantizedVecBytes = binarizedVectorValues.vectorValue(0).length;
-
-            // The centroid dot-product is a precomputed scalar used in the ADC scoring formula.
-            // It appears as a correction term: score += additionalCorrection + indexCorrection - centroidDp
-            // (see the quantizedScore function in docs/5_bulk_simd_bbq_adc.md).
-            final float centroidDp = binarizedVectorValues.getCentroidDP();
-            final Map<String, Object> indexParameters = indexInfo.getParameters();
-
-            // Initialize the Faiss BBQ index in native (C++) memory. This allocates:
-            // - The HNSW graph structure (adjacency lists, entry point, max level)
-            // - Off-heap storage for quantized vectors and correction factors
-            // The index is identified by a memory address (pointer) returned from C++.
-            final long indexMemoryAddress = AccessController.doPrivileged(
-                (PrivilegedAction<Long>) () -> JNIService.initFaissBBQIndex(
-                    indexInfo.getTotalLiveDocs(),
-                    knnVectorValues.dimension(),
-                    indexParameters,
-                    centroidDp,
-                    quantizedVecBytes,
-                    indexInfo.getKnnEngine()
-                )
-            );
-
-            try {
-                doBuildAndWriteIndex(
-                    indexMemoryAddress,
-                    binarizedVectorValues,
-                    knnVectorValues,
-                    indexInfo,
-                    indexParameters,
-                    quantizedVecBytes
-                );
-            } catch (final Exception e) {
-                // Release the native Faiss BBQ index to prevent off-heap memory leaks.
-                // The indexMemoryAddress points to faiss::IndexBinaryIDMap* which owns the entire
-                // hierarchy (IndexBinaryIDMap → FaissBBQHnsw → FaissBBQFlat) via own_fields = true.
-                JNIService.releaseBBQIndex(indexMemoryAddress, indexInfo.getKnnEngine());
-                throw e;
-            }
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            throw new RuntimeException(e);
         }
     }
 
@@ -216,8 +156,9 @@ public class MemOptimizedBBQIndexBuildStrategy implements NativeIndexBuildStrate
      * <p>The process has three distinct phases:
      * <ol>
      *   <li><b>Quantized vector transfer</b>: Copies all binary quantized vectors and their
-     *       correction factors from Lucene's on-disk format into the native Faiss index's
-     *       off-heap memory via {@link #passQuantizedVectorsAndCorrectionFactors}</li>
+     *       correction factors from the provided {@link QuantizedByteVectorValues} into the
+     *       native Faiss index's off-heap memory via
+     *       {@link #passQuantizedVectorsAndCorrectionFactors}</li>
      *   <li><b>HNSW graph construction</b>: Streams document IDs in batches of 1024 to the
      *       native layer, which uses them to build the HNSW graph. The quantized vectors
      *       are already in off-heap memory from phase 1, so Faiss can access them directly
@@ -289,10 +230,10 @@ public class MemOptimizedBBQIndexBuildStrategy implements NativeIndexBuildStrate
     }
 
     /**
-     * Transfers all quantized vectors and their correction factors from Lucene's on-disk
-     * binary quantized format into the native Faiss index's off-heap memory.
+     * Transfers all quantized vectors and their correction factors from the provided
+     * {@link QuantizedByteVectorValues} into the native Faiss index's off-heap memory.
      *
-     * <h3>On-disk layout per vector</h3>
+     * <h3>Buffer layout per vector</h3>
      * Each vector block in the byte buffer has the following layout:
      * <pre>
      * [binaryCode (quantizedVecBytes)] [lowerInterval (4B)] [upperInterval (4B)]
@@ -300,8 +241,8 @@ public class MemOptimizedBBQIndexBuildStrategy implements NativeIndexBuildStrate
      * </pre>
      * Total bytes per vector = quantizedVecBytes + 16 bytes of correction factors.
      *
-     * <p>Note: The on-disk format used during index build stores quantizedComponentSum as a
-     * 4-byte int. However, the native SIMD search layer (see docs/5_bulk_simd_bbq_adc.md)
+     * <p>Note: The quantizedComponentSum is stored as a
+     * 4-byte int. However, the native SIMD search layer.
      * stores it as a 2-byte uint16_t to optimize memory layout for cache-friendly SIMD access.
      * This difference is handled by the native code during the transfer.
      *

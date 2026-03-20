@@ -26,7 +26,6 @@ import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.Iterator;
@@ -38,30 +37,19 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 
 @Log4j2
-public class Faiss104ScalarQuantizedKnnVectorsFormatTests extends KNNTestCase {
+public class Faiss1040ScalarQuantizedKnnVectorsFormatTests extends KNNTestCase {
 
     public void testFormatName_thenSuccess() {
         assertEquals(
-            Faiss104ScalarQuantizedKnnVectorsFormat.class.getSimpleName(),
-            new Faiss104ScalarQuantizedKnnVectorsFormat().getName()
+            Faiss1040ScalarQuantizedKnnVectorsFormat.class.getSimpleName(),
+            new Faiss1040ScalarQuantizedKnnVectorsFormat().getName()
         );
-    }
-
-    public void testDefaultConstructor_thenUsesDefaultThreshold() {
-        assertTrue(
-            new Faiss104ScalarQuantizedKnnVectorsFormat().toString()
-                .contains("approximateThreshold=" + KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE)
-        );
-    }
-
-    public void testParameterizedConstructor_thenUsesProvidedThreshold() {
-        assertTrue(new Faiss104ScalarQuantizedKnnVectorsFormat(42).toString().contains("approximateThreshold=42"));
     }
 
     public void testGetMaxDimensions_thenUsesLuceneEngine() {
         try (MockedStatic<KNNEngine> mockedKNNEngine = Mockito.mockStatic(KNNEngine.class)) {
             mockedKNNEngine.when(() -> KNNEngine.getMaxDimensionByEngine(KNNEngine.FAISS)).thenReturn(16000);
-            assertEquals(16000, new Faiss104ScalarQuantizedKnnVectorsFormat().getMaxDimensions("test-field"));
+            assertEquals(16000, new Faiss1040ScalarQuantizedKnnVectorsFormat().getMaxDimensions("test-field"));
             mockedKNNEngine.verify(() -> KNNEngine.getMaxDimensionByEngine(KNNEngine.FAISS));
         }
     }
@@ -121,7 +109,7 @@ public class Faiss104ScalarQuantizedKnnVectorsFormatTests extends KNNTestCase {
             mock(IOContext.class)
         );
 
-        final Faiss104ScalarQuantizedKnnVectorsFormat format = new Faiss104ScalarQuantizedKnnVectorsFormat(0);
+        final Faiss1040ScalarQuantizedKnnVectorsFormat format = new Faiss1040ScalarQuantizedKnnVectorsFormat();
         try (MockedStatic<CodecUtil> mockedCodecUtil = Mockito.mockStatic(CodecUtil.class)) {
             mockedCodecUtil.when(
                 () -> CodecUtil.writeIndexHeader(any(IndexOutput.class), anyString(), anyInt(), any(byte[].class), anyString())
@@ -129,23 +117,17 @@ public class Faiss104ScalarQuantizedKnnVectorsFormatTests extends KNNTestCase {
             mockedCodecUtil.when(() -> CodecUtil.retrieveChecksum(any(IndexInput.class))).thenAnswer((Answer<Void>) invocation -> null);
 
             KnnVectorsReader reader = format.fieldsReader(mockedSegmentReadState);
-            assertTrue(reader instanceof Faiss104ScalarQuantizedKnnVectorsReader);
+            assertTrue(reader instanceof Faiss1040ScalarQuantizedKnnVectorsReader);
             reader.close();
 
             KnnVectorsWriter writer = format.fieldsWriter(mockedSegmentWriteState);
-            assertTrue(writer instanceof Faiss104ScalarQuantizedKnnVectorsWriter);
+            assertTrue(writer instanceof Faiss1040ScalarQuantizedKnnVectorsWriter);
             writer.close();
         }
     }
 
-    public void testApproximateThreshold_whenMultipleInstances_thenIndependent() {
-        assertTrue(new Faiss104ScalarQuantizedKnnVectorsFormat(100).toString().contains("approximateThreshold=100"));
-        assertTrue(new Faiss104ScalarQuantizedKnnVectorsFormat(200).toString().contains("approximateThreshold=200"));
-    }
-
     public void testToString_thenContainsFormatInfo() {
-        final String str = new Faiss104ScalarQuantizedKnnVectorsFormat(50).toString();
-        assertTrue(str.contains(Faiss104ScalarQuantizedKnnVectorsFormat.class.getSimpleName()));
-        assertTrue(str.contains("approximateThreshold=50"));
+        final String str = new Faiss1040ScalarQuantizedKnnVectorsFormat().toString();
+        assertTrue(str.contains(Faiss1040ScalarQuantizedKnnVectorsFormat.class.getSimpleName()));
     }
 }

@@ -47,15 +47,15 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
      * enabled, the vectors are quantized before being transferred off-heap. Once all vectors are transferred, they are
      * flushed and used to build the index. The index is then written to the specified path using JNI calls.</p>
      *
-     * @param indexInfo        The {@link BuildIndexParams} containing the parameters and configuration for building the index.
-     * @throws IOException     If an I/O error occurs during the process of building and writing the index.
+     * @param indexInfo The {@link BuildIndexParams} containing the parameters and configuration for building the index.
+     * @throws IOException If an I/O error occurs during the process of building and writing the index.
      */
     public void buildAndWriteIndex(final BuildIndexParams indexInfo) throws IOException {
         final KNNVectorValues<?> knnVectorValues = indexInfo.getKnnVectorValuesSupplier().get();
         // Needed to make sure we don't get 0 dimensions while initializing index
         initializeVectorValues(knnVectorValues);
         KNNEngine engine = indexInfo.getKnnEngine();
-        Map<String, Object> indexParameters = indexInfo.getParameters();
+        Map<String, Object> indexParameters = indexInfo.getIndexParameters();
         IndexBuildSetup indexBuildSetup = QuantizationIndexUtils.prepareIndexBuild(knnVectorValues, indexInfo);
 
         // Initialize the index
@@ -130,7 +130,7 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
             throw indexBuildAbortedException;
         } catch (Exception exception) {
             throw new RuntimeException(
-                "Failed to build index, field name [" + indexInfo.getFieldInfo().getName() + "], parameters " + indexInfo,
+                "Failed to build index, field name [" + indexInfo.getField() + "], parameters " + indexInfo,
                 exception
             );
         }
