@@ -38,7 +38,8 @@ public class FaissMemoryOptimizedSearcherFactory implements VectorSearcherFactor
         final IndexInput indexInput = directory.openInput(fileName, ioContext);
         try {
             // Try load it. Not all FAISS index types are currently supported at the moment.
-            final FaissIndex faissIndex = FaissIndex.load(indexInput, fieldInfo, flatVectorsReader);
+            final FaissIndex faissIndex = FaissIndex.load(indexInput);
+            FaissFlatIndexFactory.maybeSetFlatIndex(faissIndex, fieldInfo, flatVectorsReader);
             final FlatVectorsScorer vectorScorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
                 fieldInfo,
                 faissIndex.getVectorSimilarityFunction(),

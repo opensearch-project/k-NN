@@ -35,7 +35,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -205,49 +204,6 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
         final Field f = AbstractNativeEnginesKnnVectorsReader.class.getDeclaredField("vectorSearcherHolder");
         f.setAccessible(true);
         assertFalse(((AbstractNativeEnginesKnnVectorsReader.VectorSearcherHolder) f.get(reader)).isSet());
-    }
-
-    @SneakyThrows
-    public void testSearchFloat_fieldInfoIsCachedAfterFirstCall() {
-        final FieldInfo fi = createFieldInfo("field1", KNNEngine.FAISS, 0);
-        KNNEngine mockFaiss = spy(KNNEngine.FAISS);
-        VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
-        VectorSearcher mockSearcher = mock(VectorSearcher.class);
-        when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
-        when(
-            mockFactory.createVectorSearcher(
-                any(Directory.class),
-                anyString(),
-                any(FieldInfo.class),
-                any(IOContext.class),
-                any(FlatVectorsReader.class)
-            )
-        ).thenReturn(mockSearcher);
-
-        try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
-            ms.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
-            ms.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
-            final FieldInfos fieldInfos = mock(FieldInfos.class);
-            when(fieldInfos.fieldInfo("field1")).thenReturn(fi);
-            when(fieldInfos.iterator()).thenReturn(Collections.<FieldInfo>emptyList().iterator());
-
-            Directory dir = mock(Directory.class);
-            when(dir.openInput(any(), any())).thenReturn(mock(IndexInput.class));
-            SegmentInfo si = mock(SegmentInfo.class);
-            when(si.files()).thenReturn(Set.of("_0_165_field1.faiss"));
-            when(si.getId()).thenReturn((si.hashCode() + "").getBytes());
-            final Faiss1040ScalarQuantizedKnnVectorsReader reader = new Faiss1040ScalarQuantizedKnnVectorsReader(
-                new SegmentReadState(dir, si, fieldInfos, IOContext.DEFAULT),
-                mock(FlatVectorsReader.class)
-            );
-
-            float[] target = { 1, 2, 3 };
-            reader.search("field1", target, null, null);
-            reader.search("field1", target, null, null);
-
-            // fieldInfos.fieldInfo() should only be called once due to caching
-            verify(fieldInfos, times(1)).fieldInfo("field1");
-        }
     }
 
     // --- helpers ---

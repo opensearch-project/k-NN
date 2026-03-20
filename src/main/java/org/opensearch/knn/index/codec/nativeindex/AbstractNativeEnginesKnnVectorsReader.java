@@ -11,6 +11,7 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.store.DataAccessHint;
@@ -49,6 +50,7 @@ public abstract class AbstractNativeEnginesKnnVectorsReader extends KnnVectorsRe
     // This is needed since we are mappings graphs to memory for memory optimized search lazily. But once we make it eager
     // the lock object will not be needed
     protected final Object vectorSearcherHolderLockObject;
+    protected final FieldInfos fieldInfos;
 
     protected AbstractNativeEnginesKnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) {
         this.flatVectorsReader = flatVectorsReader;
@@ -56,6 +58,7 @@ public abstract class AbstractNativeEnginesKnnVectorsReader extends KnnVectorsRe
         this.ioContext = state.context.withHints(FileTypeHint.DATA, FileDataHint.KNN_VECTORS, DataAccessHint.RANDOM);
         this.vectorSearcherHolder = new VectorSearcherHolder();
         this.vectorSearcherHolderLockObject = new Object();
+        this.fieldInfos = state.fieldInfos;
     }
 
     /**

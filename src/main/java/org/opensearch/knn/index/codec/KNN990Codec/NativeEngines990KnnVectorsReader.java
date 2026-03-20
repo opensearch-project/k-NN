@@ -70,7 +70,7 @@ public class NativeEngines990KnnVectorsReader extends AbstractNativeEnginesKnnVe
      */
     @Override
     public ByteVectorValues getByteVectorValues(final String field) throws IOException {
-        final FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(field);
+        final FieldInfo fieldInfo = fieldInfos.fieldInfo(field);
         if (fieldInfo.getVectorEncoding() == VectorEncoding.FLOAT32) {
             final ByteVectorValues quantizedVectorValues = getQuantizedVectorValues(fieldInfo);
             if (quantizedVectorValues != null) {
@@ -111,7 +111,7 @@ public class NativeEngines990KnnVectorsReader extends AbstractNativeEnginesKnnVe
         // TODO: This is a temporary hack where we are using KNNCollector to initialize the quantization state.
         if (knnCollector instanceof QuantizationConfigKNNCollector) {
             String cacheKey = quantizationStateCacheKeyPerField.get(field);
-            FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(field);
+            FieldInfo fieldInfo = fieldInfos.fieldInfo(field);
             QuantizationState quantizationState = QuantizationStateCacheManager.getInstance()
                 .getQuantizationState(
                     new QuantizationStateReadConfig(
@@ -124,7 +124,7 @@ public class NativeEngines990KnnVectorsReader extends AbstractNativeEnginesKnnVe
             ((QuantizationConfigKNNCollector) knnCollector).setQuantizationState(quantizationState);
             return;
         }
-        final FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(field);
+        final FieldInfo fieldInfo = fieldInfos.fieldInfo(field);
         if (trySearchWithMemoryOptimizedSearch(fieldInfo, target, knnCollector, acceptDocs, true)) {
             return;
         }
@@ -159,7 +159,7 @@ public class NativeEngines990KnnVectorsReader extends AbstractNativeEnginesKnnVe
      */
     @Override
     public void search(String field, byte[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
-        final FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(field);
+        final FieldInfo fieldInfo = fieldInfos.fieldInfo(field);
         // searching with byte vector is not supported by ADC.
         if (trySearchWithMemoryOptimizedSearch(fieldInfo, target, knnCollector, acceptDocs, false)) {
             return;
@@ -226,7 +226,7 @@ public class NativeEngines990KnnVectorsReader extends AbstractNativeEnginesKnnVe
 
     private void loadCacheKeyMap() {
         quantizationStateCacheKeyPerField = new HashMap<>();
-        for (FieldInfo fieldInfo : segmentReadState.fieldInfos) {
+        for (FieldInfo fieldInfo : fieldInfos) {
             String cacheKey = UUIDs.base64UUID();
             quantizationStateCacheKeyPerField.put(fieldInfo.getName(), cacheKey);
         }

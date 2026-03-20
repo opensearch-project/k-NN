@@ -6,9 +6,7 @@
 package org.opensearch.knn.memoryoptsearch.faiss;
 
 import lombok.Getter;
-import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.ByteVectorValues;
-import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexInput;
@@ -65,43 +63,6 @@ public abstract class FaissIndex {
         final FaissIndex faissIndex = IndexTypeToFaissIndexMapping.getFaissIndex(indexType);
         faissIndex.doLoad(input);
         return faissIndex;
-    }
-
-    /**
-     * Loads a FAISS index and, if required based on the field's configuration, wires in the appropriate
-     * flat vector storage via {@link FaissFlatIndexFactory}.
-     *
-     * @param input             Input stream to a FAISS index
-     * @param fieldInfo         Field metadata used to determine the flat index type
-     * @param flatVectorsReader Reader providing both the scorer and, for certain index types (e.g. SQ (with 1 bit)),
-     *                          the backing flat vector storage
-     * @return Top level {@link FaissIndex}
-     * @throws IOException
-     */
-    public static FaissIndex load(IndexInput input, FieldInfo fieldInfo, FlatVectorsReader flatVectorsReader) throws IOException {
-        final FaissIndex faissIndex = load(input);
-        maybeSetFlatIndex(faissIndex, fieldInfo, flatVectorsReader);
-        return faissIndex;
-    }
-
-    // If the HNSW index has no flat storage (e.g. SQ (with 1 bit) skips it via IO_FLAG_SKIP_STORAGE), wire in the appropriate flat index.
-    static void maybeSetFlatIndex(final FaissIndex faissIndex, final FieldInfo fieldInfo, final FlatVectorsReader flatVectorsReader) {
-        if (!(faissIndex instanceof FaissIdMapIndex idMapIndex)) return;
-        final FaissIndex nested = idMapIndex.getNestedIndex();
-        if (!(nested instanceof AbstractFaissHNSWIndex hnswIndex) || !(hnswIndex.getFlatVectors() instanceof FaissEmptyIndex)) return;
-
-        final FaissIndex flatIndex = FaissFlatIndexFactory.create(fieldInfo, flatVectorsReader);
-        if (flatIndex == null) {
-            throw new IllegalStateException(
-                String.format(
-                    "%s found for field [%s] but %s returned null — cannot wire flat storage.",
-                    FaissEmptyIndex.class.getName(),
-                    fieldInfo.getName(),
-                    FaissFlatIndexFactory.class.getName()
-                )
-            );
-        }
-        hnswIndex.flatVectors = flatIndex;
     }
 
     protected abstract void doLoad(IndexInput input) throws IOException;

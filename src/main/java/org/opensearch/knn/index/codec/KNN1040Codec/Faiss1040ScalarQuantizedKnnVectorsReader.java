@@ -8,7 +8,6 @@ package org.opensearch.knn.index.codec.KNN1040Codec;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.ByteVectorValues;
-import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.index.FloatVectorValues;
@@ -38,8 +37,6 @@ import java.io.IOException;
  */
 @Log4j2
 public class Faiss1040ScalarQuantizedKnnVectorsReader extends AbstractNativeEnginesKnnVectorsReader {
-    private volatile FieldInfo fieldInfo;
-
     Faiss1040ScalarQuantizedKnnVectorsReader(SegmentReadState state, FlatVectorsReader flatVectorsReader) {
         super(state, flatVectorsReader);
     }
@@ -56,14 +53,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsReader extends AbstractNativeEngi
      */
     @Override
     public void search(String field, float[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
-        if (this.fieldInfo == null) {
-            synchronized (vectorSearcherHolderLockObject) {
-                if (this.fieldInfo == null) {
-                    this.fieldInfo = segmentReadState.fieldInfos.fieldInfo(field);
-                }
-            }
-        }
-        final VectorSearcher memoryOptimizedSearcher = loadMemoryOptimizedSearcherIfRequired(this.fieldInfo);
+        final VectorSearcher memoryOptimizedSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfos.fieldInfo(field));
 
         // On warmup, target is null. We load the searcher first to trigger memory-mapping of vectors(partial load),
         // then throw instead of returning silently so the warmup call is detectable and can be validated in tests.
