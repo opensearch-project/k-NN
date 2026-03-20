@@ -627,7 +627,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                 final BuildIndexParams.BuildIndexParamsBuilder builder = BuildIndexParams.builder();
                 FieldInfo fieldInfo = mock(FieldInfo.class);
                 when(fieldInfo.getName()).thenReturn(TARGET_FIELD);
-                builder.fieldInfo(fieldInfo)
+                builder.field(fieldInfo.getName())
                     .knnEngine(KNNEngine.FAISS)
                     .vectorDataType(testingSpec.dataType)
                     .indexOutputWithBuffer(new IndexOutputWithBuffer(indexOutput));
@@ -652,7 +652,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                     parameters.put(QFRAMEWORK_CONFIG, "type=binary,bits=1,random_rotation=false,enable_adc=true");
                 }
 
-                builder.parameters(parameters);
+                builder.indexParameters(parameters);
 
                 // Set up vectors
                 final List<Integer> documentIds = indexingType.generateDocumentIds(numberOfTotalDocsInSegment);

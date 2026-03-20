@@ -72,7 +72,7 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
                 .indexOutputWithBuffer(indexOutputWithBuffer)
                 .knnEngine(KNNEngine.FAISS)
                 .vectorDataType(VectorDataType.FLOAT)
-                .parameters(Map.of("index", "param"))
+                .indexParameters(Map.of("index", "param"))
                 .knnVectorValuesSupplier(() -> knnVectorValues)
                 .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
                 .build();
@@ -197,7 +197,7 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
                 .indexOutputWithBuffer(indexOutputWithBuffer)
                 .knnEngine(KNNEngine.FAISS)
                 .vectorDataType(VectorDataType.FLOAT)
-                .parameters(Map.of("index", "param"))
+                .indexParameters(Map.of("index", "param"))
                 .quantizationState(quantizationState)
                 .knnVectorValuesSupplier(() -> knnVectorValues)
                 .totalLiveDocs((int) knnVectorValues.totalLiveDocs())

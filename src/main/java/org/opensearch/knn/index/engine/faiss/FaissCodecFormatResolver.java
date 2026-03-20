@@ -9,7 +9,7 @@ import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.codec.KNN1040Codec.Faiss104ScalarQuantizedKnnVectorsFormat;
+import org.opensearch.knn.index.codec.KNN1040Codec.Faiss1040ScalarQuantizedKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.CodecFormatResolver;
@@ -44,7 +44,7 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
     }
 
     /**
-     * Resolves the format for a specific field. Returns {@link Faiss104ScalarQuantizedKnnVectorsFormat} when
+     * Resolves the format for a specific field. Returns {@link Faiss1040ScalarQuantizedKnnVectorsFormat} when
      * the encoder is {@code faiss_bbq}, otherwise falls back to the default native format.
      */
     @Override
@@ -56,8 +56,7 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
         int defaultBeamWidth
     ) {
         if (isFaissBBQEncoder(params)) {
-            final int approximateThreshold = getApproximateThresholdValue();
-            return new Faiss104ScalarQuantizedKnnVectorsFormat(approximateThreshold);
+            return new Faiss1040ScalarQuantizedKnnVectorsFormat();
         }
         return resolve();
     }

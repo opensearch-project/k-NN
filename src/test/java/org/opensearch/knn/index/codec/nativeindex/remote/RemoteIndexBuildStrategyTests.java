@@ -169,7 +169,7 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         when(mockBlobStore.blobContainer(blobPath)).thenReturn(blobContainer);
         when(blobContainer.path()).thenReturn(blobPath);
 
-        String blobName = MOCK_UUID + "_" + buildIndexParams.getFieldInfo().getName() + "_" + MOCK_SEGMENT_STATE;
+        String blobName = MOCK_UUID + "_" + buildIndexParams.getField() + "_" + MOCK_SEGMENT_STATE;
 
         // example: VectorRepositoryAccessor vectorAccessor = new DefaultVectorRepositoryAccessor(blobContainer);
         // vectorAccessor.writeToRepository(blobName...)

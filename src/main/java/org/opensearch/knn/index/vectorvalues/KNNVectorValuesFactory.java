@@ -25,6 +25,7 @@ import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.VectorDataType;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -82,6 +83,14 @@ public final class KNNVectorValuesFactory {
         return getVectorValues(vectorDataType, new KNNVectorValuesIterator.FieldWriterIteratorValues<>(docIdWithFieldSet, vectors));
     }
 
+    public static <T> KNNVectorValues<T> getVectorValues(
+        final VectorDataType vectorDataType,
+        final DocsWithFieldSet docIdWithFieldSet,
+        final List<T> vectors
+    ) {
+        return getVectorValues(vectorDataType, new KNNVectorValuesIterator.FieldWriterIteratorValues<>(docIdWithFieldSet, vectors));
+    }
+
     /**
      * Returns a {@link Supplier} for {@link #getVectorValuesSupplier(VectorDataType, DocsWithFieldSet, Map)}.
      * Note: This class is public static so that it can be mocked for testing.
@@ -94,6 +103,14 @@ public final class KNNVectorValuesFactory {
         final VectorDataType vectorDataType,
         final DocsWithFieldSet docIdWithFieldSet,
         final Map<Integer, T> vectors
+    ) {
+        return () -> getVectorValues(vectorDataType, docIdWithFieldSet, vectors);
+    }
+
+    public static <T> Supplier<KNNVectorValues<?>> getVectorValuesSupplier(
+        final VectorDataType vectorDataType,
+        final DocsWithFieldSet docIdWithFieldSet,
+        final List<T> vectors
     ) {
         return () -> getVectorValues(vectorDataType, docIdWithFieldSet, vectors);
     }

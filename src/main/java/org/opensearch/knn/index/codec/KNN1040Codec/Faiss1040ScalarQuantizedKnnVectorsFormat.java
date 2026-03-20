@@ -13,7 +13,6 @@ import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
@@ -29,44 +28,32 @@ import java.io.IOException;
  * {@code "encoder": {"name": "faiss_bbq"}}. See {@code FaissCodecFormatResolver} for the
  * routing logic in {@code BasePerFieldKnnVectorsFormat.getKnnVectorsFormatForField}.
  *
- * <p>Uses Lucene's max dimension limit since the flat storage is Lucene-managed.
- *
- * @see Faiss104ScalarQuantizedKnnVectorsWriter
- * @see Faiss104ScalarQuantizedKnnVectorsReader
+ * @see Faiss1040ScalarQuantizedKnnVectorsWriter
+ * @see Faiss1040ScalarQuantizedKnnVectorsReader
  */
 @Log4j2
-public class Faiss104ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
+public class Faiss1040ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
 
-    private static final String FORMAT_NAME = "Faiss104ScalarQuantizedKnnVectorsFormat";
+    private static final String FORMAT_NAME = "Faiss1040ScalarQuantizedKnnVectorsFormat";
 
     // Shared across all format instances; Lucene104ScalarQuantizedVectorsFormat is stateless.
+    // TODO : We have to make it scalable for other encoding types, not limit this on `ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE`.
     private static final Lucene104ScalarQuantizedVectorsFormat bbqFlatFormat = new Lucene104ScalarQuantizedVectorsFormat(
         ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE
     );
 
-    private final int approximateThreshold;
-
-    public Faiss104ScalarQuantizedKnnVectorsFormat() {
-        this(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE);
-    }
-
-    /**
-     * @param approximateThreshold if the number of vectors in a segment is below this threshold,
-     *                             HNSW graph building is skipped. A negative value always skips.
-     */
-    public Faiss104ScalarQuantizedKnnVectorsFormat(int approximateThreshold) {
+    public Faiss1040ScalarQuantizedKnnVectorsFormat() {
         super(FORMAT_NAME);
-        this.approximateThreshold = approximateThreshold;
     }
 
     @Override
     public KnnVectorsWriter fieldsWriter(SegmentWriteState state) throws IOException {
-        return new Faiss104ScalarQuantizedKnnVectorsWriter(state, bbqFlatFormat.fieldsWriter(state), approximateThreshold);
+        return new Faiss1040ScalarQuantizedKnnVectorsWriter(state, bbqFlatFormat.fieldsWriter(state), bbqFlatFormat::fieldsReader);
     }
 
     @Override
     public KnnVectorsReader fieldsReader(SegmentReadState state) throws IOException {
-        return new Faiss104ScalarQuantizedKnnVectorsReader(state, bbqFlatFormat.fieldsReader(state));
+        return new Faiss1040ScalarQuantizedKnnVectorsReader(state, bbqFlatFormat.fieldsReader(state));
     }
 
     /**
@@ -79,11 +66,6 @@ public class Faiss104ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
 
     @Override
     public String toString() {
-        return this.getClass().getSimpleName()
-            + "(name="
-            + this.getClass().getSimpleName()
-            + ", approximateThreshold="
-            + approximateThreshold
-            + ")";
+        return this.getClass().getSimpleName() + "(name=" + this.getClass().getSimpleName() + ")";
     }
 }

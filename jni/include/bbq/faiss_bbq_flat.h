@@ -264,7 +264,8 @@ namespace knn_jni {
             quantizedVectorsAndCorrectionFactors(_numVectors * oneElementSize),
             dimension(_dimension) {
 
-            // Just changing the size, not shrinking.
+            // Just changing the size, not shrinking, thus allocated memory capacity remains the same.
+            // This is to avoid reallocations when adding elements later on since we know the exact required memory space upfront.
             quantizedVectorsAndCorrectionFactors.resize(0);
             // Rewriting code_size to the full element size so that hnsw_add_vertices
             // strides correctly through the packed buffer when computing:

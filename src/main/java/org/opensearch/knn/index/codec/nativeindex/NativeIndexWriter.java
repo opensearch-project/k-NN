@@ -8,6 +8,7 @@ package org.opensearch.knn.index.codec.nativeindex;
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.CodecUtil;
+import org.apache.lucene.codecs.lucene104.QuantizedByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.SegmentWriteState;
@@ -55,13 +56,13 @@ import static org.opensearch.knn.index.engine.faiss.Faiss.FAISS_BINARY_INDEX_DES
 @AllArgsConstructor
 @Log4j2
 public class NativeIndexWriter {
-    private static final Long CRC32_CHECKSUM_SANITY = 0xFFFFFFFF00000000L;
-
     private final SegmentWriteState state;
     private final FieldInfo fieldInfo;
     private final NativeIndexBuildStrategyFactory indexBuilderFactory;
     @Nullable
     private final QuantizationState quantizationState;
+    @Nullable
+    private final QuantizedByteVectorValues quantizedByteVectorValues;
 
     /**
      * Gets the correct writer type from fieldInfo
@@ -70,22 +71,17 @@ public class NativeIndexWriter {
      * @return correct NativeIndexWriter to make index specified in fieldInfo
      */
     public static NativeIndexWriter getWriter(final FieldInfo fieldInfo, SegmentWriteState state) {
-        return createWriter(fieldInfo, state, null, new NativeIndexBuildStrategyFactory());
+        return createWriter(fieldInfo, state, null, new NativeIndexBuildStrategyFactory(), null);
     }
 
     /**
      * Gets the correct writer type for the specified field, using a given QuantizationModel.
      *
-     * This method returns a NativeIndexWriter instance that is tailored to the specific characteristics
-     * of the field described by the provided FieldInfo. It determines whether to use a template-based
-     * writer or an iterative approach based on the engine type and whether the field is associated with a template.
-     *
-     * If quantization is required, the QuantizationModel is passed to the writer to facilitate the quantization process.
-     *
      * @param fieldInfo          The FieldInfo object containing metadata about the field for which the writer is needed.
      * @param state              The SegmentWriteState representing the current segment's writing context.
-     * @param quantizationState  The QuantizationState that contains  quantization state required for quantization
-     * @return                   A NativeIndexWriter instance appropriate for the specified field, configured with or without quantization.
+     * @param quantizationState  The QuantizationState that contains quantization state required for quantization
+     * @param nativeIndexBuildStrategyFactory The factory which will return the correct build strategy
+     * @return                   A NativeIndexWriter instance appropriate for the specified field.
      */
     public static NativeIndexWriter getWriter(
         final FieldInfo fieldInfo,
@@ -93,7 +89,27 @@ public class NativeIndexWriter {
         final QuantizationState quantizationState,
         final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
     ) {
-        return createWriter(fieldInfo, state, quantizationState, nativeIndexBuildStrategyFactory);
+        return createWriter(fieldInfo, state, quantizationState, nativeIndexBuildStrategyFactory, null);
+    }
+
+    /**
+     * Gets the correct writer type for the specified field, with optional BBQ quantized vector values.
+     *
+     * @param fieldInfo                    The FieldInfo object containing metadata about the field.
+     * @param state                        The SegmentWriteState representing the current segment's writing context.
+     * @param quantizationState            The QuantizationState for k-NN quantization, or null.
+     * @param nativeIndexBuildStrategyFactory The factory which will return the correct build strategy.
+     * @param quantizedByteVectorValues    The BBQ quantized vector values, or null for non-BBQ fields.
+     * @return                             A NativeIndexWriter instance appropriate for the specified field.
+     */
+    public static NativeIndexWriter getWriter(
+        final FieldInfo fieldInfo,
+        final SegmentWriteState state,
+        final QuantizationState quantizationState,
+        final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory,
+        @Nullable final QuantizedByteVectorValues quantizedByteVectorValues
+    ) {
+        return createWriter(fieldInfo, state, quantizationState, nativeIndexBuildStrategyFactory, quantizedByteVectorValues);
     }
 
     /**
@@ -195,8 +211,8 @@ public class NativeIndexWriter {
         }
 
         return BuildIndexParams.builder()
-            .fieldInfo(fieldInfo)
-            .parameters(parameters)
+            .field(fieldInfo.getName())
+            .indexParameters(parameters)
             .vectorDataType(vectorDataType)
             .knnEngine(knnEngine)
             .indexOutputWithBuffer(indexOutputWithBuffer)
@@ -205,6 +221,7 @@ public class NativeIndexWriter {
             .totalLiveDocs(totalLiveDocs)
             .segmentWriteState(state)
             .isFlush(isFlush)
+            .quantizedByteVectorValues(quantizedByteVectorValues)
             .build();
     }
 
@@ -332,8 +349,9 @@ public class NativeIndexWriter {
         final FieldInfo fieldInfo,
         final SegmentWriteState state,
         @Nullable final QuantizationState quantizationState,
-        NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
+        NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory,
+        @Nullable final QuantizedByteVectorValues quantizedByteVectorValues
     ) {
-        return new NativeIndexWriter(state, fieldInfo, nativeIndexBuildStrategyFactory, quantizationState);
+        return new NativeIndexWriter(state, fieldInfo, nativeIndexBuildStrategyFactory, quantizationState, quantizedByteVectorValues);
     }
 }
