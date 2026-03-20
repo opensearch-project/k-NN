@@ -50,7 +50,6 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     private final FlatVectorsScorer flatVectorsScorer;
     private final FaissHNSW hnsw;
     private final VectorSimilarityFunction vectorSimilarityFunction;
-    private final long fileSize;
     private boolean isAdc;
 
     public FaissMemoryOptimizedSearcher(
@@ -60,7 +59,6 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         final FlatVectorsScorer flatVectorsScorer
     ) {
         this.indexInput = indexInput;
-        this.fileSize = indexInput.length();
         this.faissIndex = faissIndex;
         final KNNVectorSimilarityFunction knnVectorSimilarityFunction = faissIndex.getVectorSimilarityFunction();
 
@@ -87,8 +85,8 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     @Override
     public void search(float[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
         final KnnVectorValues knnVectorValues = isAdc
-            ? faissIndex.getByteValues(getSlicedIndexInput())
-            : faissIndex.getFloatValues(getSlicedIndexInput());
+            ? faissIndex.getByteValues(indexInput.clone())
+            : faissIndex.getFloatValues(indexInput.clone());
 
         search(
             VectorEncoding.FLOAT32,
@@ -102,7 +100,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     public void search(byte[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
         search(
             VectorEncoding.BYTE,
-            flatVectorsScorer.getRandomVectorScorer(vectorSimilarityFunction, faissIndex.getByteValues(getSlicedIndexInput()), target),
+            flatVectorsScorer.getRandomVectorScorer(vectorSimilarityFunction, faissIndex.getByteValues(indexInput.clone()), target),
             knnCollector,
             acceptDocs
         );
@@ -116,7 +114,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
      */
     @Override
     public ByteVectorValues getByteVectorValues() throws IOException {
-        return faissIndex.getByteValues(getSlicedIndexInput());
+        return faissIndex.getByteValues(indexInput.clone());
     }
 
     @Override
@@ -151,7 +149,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
 
         if (knnCollector.k() < scorer.maxOrd()) {
             // Do ANN search with Lucene's HNSW graph searcher.
-            HnswGraphSearcher.search(scorer, collector, new FaissHnswGraph(hnsw, getSlicedIndexInput()), acceptedOrds);
+            HnswGraphSearcher.search(scorer, collector, new FaissHnswGraph(hnsw, indexInput.clone()), acceptedOrds);
         } else {
             // If k is larger than the number of vectors, we can just iterate over all vectors
             // and collect them.
@@ -166,10 +164,6 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
                 }
             }
         }
-    }
-
-    private IndexInput getSlicedIndexInput() throws IOException {
-        return indexInput.slice("FaissMemoryOptimizedSearcher", 0, fileSize);
     }
 
     @VisibleForTesting

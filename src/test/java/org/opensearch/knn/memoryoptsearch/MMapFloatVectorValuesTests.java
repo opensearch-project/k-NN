@@ -14,6 +14,7 @@ import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.tests.util.LuceneTestCase;
 import org.opensearch.knn.generate.SearchTestHelper;
 import org.opensearch.knn.memoryoptsearch.faiss.MMapFloatVectorValues;
+import org.opensearch.knn.memoryoptsearch.faiss.vectorvalues.FaissFloatVectorValues;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
@@ -57,15 +58,10 @@ public class MMapFloatVectorValuesTests extends LuceneTestCase {
                     numVectors * dimension * Float.BYTES
                 );
                 assertNotNull(addressAndSize);
-                final MMapFloatVectorValues values = new MMapFloatVectorValues(
-                    input,
-                    oneVectorByteSize,
-                    0,
-                    dimension,
-                    numVectors,
-                    addressAndSize,
-                    null
-                );
+
+                FaissFloatVectorValues faissFloatVectorValues = new FaissFloatVectorValues(input, oneVectorByteSize, dimension, numVectors);
+
+                final MMapFloatVectorValues values = new MMapFloatVectorValues(faissFloatVectorValues, addressAndSize);
 
                 // Ensure properties are correct.
                 assertEquals(oneVectorByteSize, values.getVectorByteLength());
