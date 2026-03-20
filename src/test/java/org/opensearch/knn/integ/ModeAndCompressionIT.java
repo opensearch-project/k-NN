@@ -311,6 +311,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         String mode = Mode.ON_DISK.getName();
         String compressionLevel = CompressionLevel.x32.getName();
         String indexName = INDEX_NAME + compressionLevel;
+        // Explicitly use binary encoder to test BQ rescoring behavior
         builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
@@ -319,6 +320,18 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
             .field("dimension", DIMENSION)
             .field(MODE_PARAMETER, mode)
             .field(COMPRESSION_LEVEL_PARAMETER, compressionLevel)
+            .startObject(KNN_METHOD)
+            .field(NAME, "hnsw")
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, "binary")
+            .startObject(PARAMETERS)
+            .field("bits", 1)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
             .endObject()
             .endObject()
             .endObject();

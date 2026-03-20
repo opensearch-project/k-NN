@@ -68,7 +68,7 @@ import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorV
  * for maximum throughput.
  *
  * @see NativeIndexBuildStrategy
- * @see NativeIndexBuildStrategyFactory — returns this strategy when field info contains faiss_bbq_config
+ * @see NativeIndexBuildStrategyFactory — returns this strategy when field info contains sq_config
  */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeIndexBuildStrategy {

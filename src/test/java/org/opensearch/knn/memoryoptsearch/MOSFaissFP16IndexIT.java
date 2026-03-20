@@ -14,7 +14,8 @@ public class MOSFaissFP16IndexIT extends AbstractMemoryOptimizedKnnSearchIT {
           "encoder": {
             "name": "sq",
             "parameters": {
-              "type": "fp16"
+              "type": "fp16",
+              "bits": 16
             }
           }
         }""".trim();
