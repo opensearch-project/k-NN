@@ -31,6 +31,12 @@ public class MuveraEncoder {
     private final double[][] simhashVectors;
     private final double[][][] dimReductionProjections;
 
+    /**
+     * Maximum allowed FDE dimension. Matches the k-NN engine max dimension limit (16,000)
+     * to ensure the FDE vector can be indexed in any supported engine.
+     */
+    static final int MAX_FDE_DIMENSION = 16_000;
+
     public MuveraEncoder(int dim, int kSim, int dimProj, int rReps, long seed) {
         if (dim <= 0) {
             throw new IllegalArgumentException("dim must be positive, got: " + dim);
@@ -43,6 +49,25 @@ public class MuveraEncoder {
         }
         if (rReps <= 0) {
             throw new IllegalArgumentException("r_reps must be positive, got: " + rReps);
+        }
+
+        // Validate that the resulting FDE dimension does not exceed the k-NN engine limit.
+        // FDE dimension = rReps * 2^kSim * dimProj
+        long fdeDimension = (long) rReps * (1L << kSim) * dimProj;
+        if (fdeDimension > MAX_FDE_DIMENSION) {
+            throw new IllegalArgumentException(
+                "MUVERA parameters produce an FDE dimension of ["
+                    + fdeDimension
+                    + "] which exceeds the maximum allowed dimension of ["
+                    + MAX_FDE_DIMENSION
+                    + "]. Reduce r_reps, k_sim, or dim_proj. (r_reps="
+                    + rReps
+                    + " * 2^k_sim="
+                    + (1L << kSim)
+                    + " * dim_proj="
+                    + dimProj
+                    + ")"
+            );
         }
 
         this.dim = dim;

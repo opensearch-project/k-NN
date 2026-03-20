@@ -262,6 +262,14 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
             int rReps = ConfigurationUtils.readIntProperty(TYPE, tag, config, "r_reps", 20);
             long seed = readLongProperty(TYPE, tag, config, "seed", 42L);
             int oversampleFactor = ConfigurationUtils.readIntProperty(TYPE, tag, config, "oversample_factor", 4);
+            if (oversampleFactor <= 0) {
+                throw ConfigurationUtils.newConfigurationException(
+                    TYPE,
+                    tag,
+                    "oversample_factor",
+                    "must be positive, got: " + oversampleFactor
+                );
+            }
 
             MuveraEncoder encoder = new MuveraEncoder(dim, kSim, dimProj, rReps, seed);
             int computedDimension = encoder.getEmbeddingSize();

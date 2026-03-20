@@ -236,4 +236,30 @@ public class MuveraSearchRequestProcessorTests extends KNNTestCase {
         );
         assertTrue(e.getMessage().contains("fde_dimension"));
     }
+
+    public void testFactoryThrowsOnInvalidOversampleFactor() {
+        MuveraSearchRequestProcessor.Factory factory = new MuveraSearchRequestProcessor.Factory();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put("target_field", TARGET_FIELD);
+        config.put("dim", DIM);
+        config.put("k_sim", K_SIM);
+        config.put("dim_proj", DIM_PROJ);
+        config.put("r_reps", R_REPS);
+        config.put("oversample_factor", 0);
+
+        Exception e = expectThrows(Exception.class, () -> factory.create(Map.of(), "tag", "desc", false, config, null));
+        assertTrue(e.getMessage().contains("oversample_factor"));
+
+        Map<String, Object> negativeConfig = new HashMap<>();
+        negativeConfig.put("target_field", TARGET_FIELD);
+        negativeConfig.put("dim", DIM);
+        negativeConfig.put("k_sim", K_SIM);
+        negativeConfig.put("dim_proj", DIM_PROJ);
+        negativeConfig.put("r_reps", R_REPS);
+        negativeConfig.put("oversample_factor", -1);
+
+        Exception e2 = expectThrows(Exception.class, () -> factory.create(Map.of(), "tag", "desc", false, negativeConfig, null));
+        assertTrue(e2.getMessage().contains("oversample_factor"));
+    }
 }

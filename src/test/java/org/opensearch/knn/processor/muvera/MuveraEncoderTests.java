@@ -131,4 +131,20 @@ public class MuveraEncoderTests extends KNNTestCase {
         float[] fde = encoder.processDocument(vectors);
         assertEquals(6, fde.length);
     }
+
+    public void testFdeDimensionExceedsMaxThrows() {
+        // kSim=14 -> 2^14 = 16384 partitions, with dimProj=8 and rReps=20 -> 20 * 16384 * 8 = 2,621,440 >> 16,000
+        IllegalArgumentException e = expectThrows(
+            IllegalArgumentException.class,
+            () -> new MuveraEncoder(128, 14, 8, 20, 42L)
+        );
+        assertTrue(e.getMessage().contains("exceeds the maximum allowed dimension"));
+        assertTrue(e.getMessage().contains(String.valueOf(MuveraEncoder.MAX_FDE_DIMENSION)));
+    }
+
+    public void testFdeDimensionAtMaxDoesNotThrow() {
+        // rReps=1, kSim=0 (2^0=1 partition), dimProj=16000 -> FDE = 1 * 1 * 16000 = 16,000 (exactly at limit)
+        MuveraEncoder encoder = new MuveraEncoder(4, 0, 16000, 1, 42L);
+        assertEquals(16000, encoder.getEmbeddingSize());
+    }
 }
