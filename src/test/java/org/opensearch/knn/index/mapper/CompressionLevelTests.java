@@ -10,6 +10,8 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.Version;
 
+import static org.opensearch.knn.common.KNNConstants.ENCODER_FAISS_BBQ;
+
 public class CompressionLevelTests extends KNNTestCase {
 
     public void testFromName() {
@@ -134,5 +136,47 @@ public class CompressionLevelTests extends KNNTestCase {
         // isFlatMethod=false on x32 with NOT_CONFIGURED mode should return null (no mode for rescore)
         rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(Mode.NOT_CONFIGURED, 500, Version.CURRENT, false);
         assertNull(rescoreContext);
+    }
+
+    public void testGetDefaultRescoreContext_whenBBQEncoder_thenReturnFixedOversampleFactor() {
+        // BBQ encoder should return fixed oversample factor regardless of compression level, mode, or dimension
+        for (CompressionLevel level : CompressionLevel.values()) {
+            RescoreContext rescoreContext = level.getDefaultRescoreContext(
+                Mode.NOT_CONFIGURED,
+                500,
+                Version.CURRENT,
+                false,
+                ENCODER_FAISS_BBQ
+            );
+            assertNotNull("BBQ rescore context should not be null for " + level, rescoreContext);
+            assertEquals(RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR, rescoreContext.getOversampleFactor(), 0.0f);
+            assertFalse(rescoreContext.isUserProvided());
+            assertFalse(rescoreContext.isAllowOverrideOversampleFactor());
+        }
+
+        // BBQ should also work with ON_DISK mode and high dimension
+        RescoreContext rescoreContext = CompressionLevel.x8.getDefaultRescoreContext(
+            Mode.ON_DISK,
+            1500,
+            Version.CURRENT,
+            false,
+            ENCODER_FAISS_BBQ
+        );
+        assertNotNull(rescoreContext);
+        assertEquals(RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR, rescoreContext.getOversampleFactor(), 0.0f);
+        assertFalse(rescoreContext.isAllowOverrideOversampleFactor());
+    }
+
+    public void testGetDefaultRescoreContext_whenNonBBQEncoder_thenFallsBackToNormalLogic() {
+        // Non-BBQ encoder should fall through to normal compression level logic
+        RescoreContext rescoreContext = CompressionLevel.x8.getDefaultRescoreContext(Mode.ON_DISK, 500, Version.CURRENT, false, "sq");
+        assertNotNull(rescoreContext);
+        // x8 with dimension <= 1000 should use 5.0f oversample (normal logic)
+        assertEquals(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD, rescoreContext.getOversampleFactor(), 0.0f);
+
+        // null encoder should also fall through
+        rescoreContext = CompressionLevel.x8.getDefaultRescoreContext(Mode.ON_DISK, 500, Version.CURRENT, false, null);
+        assertNotNull(rescoreContext);
+        assertEquals(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD, rescoreContext.getOversampleFactor(), 0.0f);
     }
 }
