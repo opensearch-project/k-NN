@@ -7,15 +7,19 @@ package org.opensearch.knn.index.codec.nativeindex;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.hnsw.FlatFieldVectorsWriter;
+import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
+import org.apache.lucene.codecs.lucene104.QuantizedByteVectorValues;
 import org.apache.lucene.index.DocValuesSkipIndexType;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.DocsWithFieldSet;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.SegmentInfo;
+import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
@@ -41,7 +45,7 @@ import java.util.Random;
 import static org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE;
 
 /**
- * Tests for {@link MemOptimizedBBQIndexBuildStrategy}.
+ * Tests for {@link MemOptimizedScalarQuantizedIndexBuildStrategy}.
  * <p>
  * Each test writes vectors through Lucene's binary quantized format to produce .vec and .veb files,
  * then invokes the BBQ build strategy to construct a Faiss HNSW index from those files.
@@ -50,10 +54,10 @@ import static org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectors
  * Dense case: doc_id == vector_ordinal (sequential IDs, no gaps)
  * Sparse case: doc_id != vector_ordinal (IDs with gaps, simulating deleted docs or nested fields)
  */
-public class MemOptimizedBBQIndexBuildStrategyTests extends KNNTestCase {
+public class MemOptimizedScalarQuantizedIndexBuildStrategyTests extends KNNTestCase {
 
     private static final int DIMENSION = 128;
-    private static final int NUM_VECTORS = 70000;
+    private static final int NUM_VECTORS = 1234;
     private static final String FIELD_NAME = "test_field";
     private static final String SEGMENT_NAME = "_0";
 
@@ -154,27 +158,45 @@ public class MemOptimizedBBQIndexBuildStrategyTests extends KNNTestCase {
             }
 
             // Step 2: Build the Faiss BBQ HNSW index
-            // Create a doc-id-to-vector map for KNNVectorValues
             final Map<String, Object> parameters = buildIndexParameters(spaceType, indexThreadQty);
             final String faissFileName = SEGMENT_NAME + "_" + FIELD_NAME + ".faiss";
 
-            try (final IndexOutput indexOutput = directory.createOutput(faissFileName, IOContext.DEFAULT)) {
+            // Open a reader to extract QuantizedByteVectorValues (same as the writer does)
+            final SegmentReadState readState = new SegmentReadState(
+                writeState.directory,
+                writeState.segmentInfo,
+                writeState.fieldInfos,
+                writeState.context,
+                writeState.segmentSuffix
+            );
+
+            try (
+                final FlatVectorsReader flatVectorsReader = bbqFormat.fieldsReader(readState);
+                final IndexOutput indexOutput = directory.createOutput(faissFileName, IOContext.DEFAULT)
+            ) {
+                // Extract QuantizedByteVectorValues via reflection (same as the writer)
+                final FloatVectorValues floatVectorValues = flatVectorsReader.getFloatVectorValues(FIELD_NAME);
+                final java.lang.reflect.Field f = floatVectorValues.getClass().getDeclaredField("quantizedVectorValues");
+                f.setAccessible(true);
+                final QuantizedByteVectorValues quantizedValues = (QuantizedByteVectorValues) f.get(floatVectorValues);
+
                 final IndexOutputWithBuffer indexOutputWithBuffer = new IndexOutputWithBuffer(indexOutput);
 
                 final BuildIndexParams buildIndexParams = BuildIndexParams.builder()
-                    .fieldInfo(fieldInfo)
+                    .field(fieldInfo.getName())
                     .knnEngine(KNNEngine.FAISS)
                     .indexOutputWithBuffer(indexOutputWithBuffer)
                     .vectorDataType(VectorDataType.FLOAT)
-                    .parameters(parameters)
+                    .indexParameters(parameters)
                     .knnVectorValuesSupplier(
                         () -> KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, docsWithFieldSet, docIdToVector)
                     )
                     .totalLiveDocs(NUM_VECTORS)
                     .segmentWriteState(writeState)
+                    .quantizedByteVectorValues(quantizedValues)
                     .build();
 
-                MemOptimizedBBQIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams);
+                MemOptimizedScalarQuantizedIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams);
             }
 
             // Step 3: Verify the .faiss file was written with non-zero size

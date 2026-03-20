@@ -41,9 +41,9 @@ import java.util.List;
  * with both {@code scorer()} (quantized) and {@code rescorer()} (full-precision) support.
  */
 @Log4j2
-public class Faiss104ScalarQuantizedKnnVectorsReader extends NativeEngines990KnnVectorsReader {
+public class Faiss1040ScalarQuantizedKnnVectorsReader extends NativeEngines990KnnVectorsReader {
 
-    Faiss104ScalarQuantizedKnnVectorsReader(SegmentReadState state, FlatVectorsReader flatVectorsReader) {
+    Faiss1040ScalarQuantizedKnnVectorsReader(SegmentReadState state, FlatVectorsReader flatVectorsReader) {
         super(state, flatVectorsReader);
     }
 

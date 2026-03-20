@@ -8,7 +8,7 @@ package org.opensearch.knn.index.codec.nativeindex.model;
 import lombok.Builder;
 import lombok.ToString;
 import lombok.Value;
-import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.codecs.lucene104.QuantizedByteVectorValues;
 import org.apache.lucene.index.SegmentWriteState;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.VectorDataType;
@@ -24,11 +24,11 @@ import java.util.function.Supplier;
 @Builder
 @ToString
 public class BuildIndexParams {
-    FieldInfo fieldInfo;
+    String field;
     KNNEngine knnEngine;
     IndexOutputWithBuffer indexOutputWithBuffer;
     VectorDataType vectorDataType;
-    Map<String, Object> parameters;
+    Map<String, Object> indexParameters;
     /**
      * An optional quantization state that contains required information for quantization
      */
@@ -38,4 +38,10 @@ public class BuildIndexParams {
     int totalLiveDocs;
     SegmentWriteState segmentWriteState;
     boolean isFlush;
+    /**
+     * Optional quantized byte vector values for BBQ (Binary Quantized) index building.
+     * Provided by Faiss104ScalarQuantizedKnnVectorsWriter, null for non-BBQ fields.
+     */
+    @Nullable
+    QuantizedByteVectorValues quantizedByteVectorValues;
 }

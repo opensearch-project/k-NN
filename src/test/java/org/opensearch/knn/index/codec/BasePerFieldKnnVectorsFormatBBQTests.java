@@ -11,7 +11,7 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.codec.KNN1040Codec.Faiss104ScalarQuantizedKnnVectorsFormat;
+import org.opensearch.knn.index.codec.KNN1040Codec.Faiss1040ScalarQuantizedKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN1040Codec.KNN1040PerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -42,7 +42,7 @@ public class BasePerFieldKnnVectorsFormatBBQTests extends KNNTestCase {
         final KnnVectorsFormat format = perFieldFormat.getKnnVectorsFormatForField(fieldName);
         assertTrue(
             "Expected Faiss104ScalarQuantizedKnnVectorsFormat but got " + format.getClass().getSimpleName(),
-            format instanceof Faiss104ScalarQuantizedKnnVectorsFormat
+            format instanceof Faiss1040ScalarQuantizedKnnVectorsFormat
         );
     }
 

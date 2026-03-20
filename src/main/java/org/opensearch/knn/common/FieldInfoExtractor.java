@@ -17,6 +17,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 
+import static org.opensearch.knn.common.KNNConstants.FAISS_BBQ_CONFIG;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.indices.ModelUtil.getModelMetadata;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
@@ -137,5 +138,15 @@ public class FieldInfoExtractor {
      */
     public static @Nullable FieldInfo getFieldInfo(final LeafReader leafReader, final String fieldName) {
         return leafReader.getFieldInfos().fieldInfo(fieldName);
+    }
+
+    /**
+     * Check if the field is configured for Faiss BBQ.
+     *
+     * @param fieldInfo {@link FieldInfo}
+     * @return true if the field has faiss_bbq_config attribute
+     */
+    public static boolean isFaissBBQ(final FieldInfo fieldInfo) {
+        return StringUtils.isNotEmpty(fieldInfo.getAttribute(FAISS_BBQ_CONFIG));
     }
 }

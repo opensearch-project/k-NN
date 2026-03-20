@@ -10,7 +10,7 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.codec.KNN1040Codec.Faiss104ScalarQuantizedKnnVectorsFormat;
+import org.opensearch.knn.index.codec.KNN1040Codec.Faiss1040ScalarQuantizedKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -113,7 +113,7 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
         KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, params, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH);
         assertTrue(
             "Expected Faiss104ScalarQuantizedKnnVectorsFormat but got " + result.getClass().getSimpleName(),
-            result instanceof Faiss104ScalarQuantizedKnnVectorsFormat
+            result instanceof Faiss1040ScalarQuantizedKnnVectorsFormat
         );
     }
 
