@@ -10,6 +10,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
+import org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
@@ -20,6 +21,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_BINARY;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_FAISS_BBQ;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
@@ -33,7 +35,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
  */
 public class MemoryOptimizedSearchSupportSpec {
     private static final Version MIN_VERSION_SUPPORTS_MEM_OPT_SEARCH = Version.V_2_17_0;
-    private static final Set<String> SUPPORTED_HNSW_ENCODING = Set.of(ENCODER_FLAT, ENCODER_SQ, ENCODER_BINARY);
+    private static final Set<String> SUPPORTED_HNSW_ENCODING = Set.of(ENCODER_FLAT, ENCODER_SQ, ENCODER_BINARY, ENCODER_FAISS_BBQ);
 
     /**
      * Determines whether a memory optimized searching should be applied during search.
@@ -45,6 +47,11 @@ public class MemoryOptimizedSearchSupportSpec {
      * @return True if memory optimized search should be used otherwise False.
      */
     public static boolean isSupportedFieldType(final KNNVectorFieldType fieldType, final String indexName) {
+        // If the field is configured to always use memory optimized search, return true
+        if (fieldType.isAlwaysUseMemoryOptimizedSearch()) {
+            return true;
+        }
+
         if (fieldType.isMemoryOptimizedSearchAvailable()) {
             if (KNNSettings.isMemoryOptimizedKnnSearchModeEnabled(indexName)) {
                 final boolean shouldBlockMemoryOptimizedSearch = fieldType.getIndexCreatedVersion() == null
@@ -81,7 +88,7 @@ public class MemoryOptimizedSearchSupportSpec {
      *
      * @param methodContextOpt   Optional method context.
      * @param quantizationConfig Quantization configuration.
-     * @param modelId Model id.
+     * @param modelId            Model id.
      * @return True if memory-optimized-search is supported, otherwise false.
      */
     public static boolean isSupportedFieldType(
@@ -140,5 +147,18 @@ public class MemoryOptimizedSearchSupportSpec {
         return quantizationType == ScalarQuantizationType.ONE_BIT
             || quantizationType == ScalarQuantizationType.TWO_BIT
             || quantizationType == ScalarQuantizationType.FOUR_BIT;
+    }
+
+    /**
+     * Determines whether memory-optimized search must always be used for the given KNN method context,
+     * regardless of the cluster-level memory-optimized search setting. Currently, this returns {@code true}
+     * only when the encoder is {@code ENCODER_FAISS_BBQ}, as BBQ-encoded indices always require
+     * memory-optimized search for correctness.
+     *
+     * @param knnMethodContext Optional method context containing engine, space type, and encoder information.
+     * @return {@code true} if memory-optimized search should always be enabled, {@code false} otherwise.
+     */
+    public static boolean isAlwaysUseMemoryOptimizedSearch(final Optional<KNNMethodContext> knnMethodContext) {
+        return knnMethodContext.isPresent() && ENCODER_FAISS_BBQ.equals(KNNVectorFieldMapperUtil.getEncoderName(knnMethodContext.get()));
     }
 }
