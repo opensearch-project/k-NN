@@ -38,6 +38,7 @@ public enum CompressionLevel {
      * Default is set to 1x and is a noop
      */
     private static final CompressionLevel DEFAULT = x1;
+    private static final float FLAT_OVERSAMPLE_FACTOR = 2.0f;
 
     /**
      * Get the compression level from a string representation. The format for the string should be "Nx", where N is
@@ -108,7 +109,14 @@ public enum CompressionLevel {
      *                  is invalid.
      */
     public RescoreContext getDefaultRescoreContext(Mode mode, int dimension, Version version) {
+        return getDefaultRescoreContext(mode, dimension, version, false);
+    }
+
+    public RescoreContext getDefaultRescoreContext(Mode mode, int dimension, Version version, boolean isFlatMethod) {
         // TODO move this to separate class called resolver to resolve rescore context
+        if (this == x32 && isFlatMethod) {
+            return RescoreContext.builder().oversampleFactor(FLAT_OVERSAMPLE_FACTOR).userProvided(false).build();
+        }
         if (modesForRescore.contains(mode)) {
             if (this == x4 && version.before(Version.V_3_1_0)) {
                 // For index created before 3.1, context was always null and mode is empty
@@ -129,7 +137,7 @@ public enum CompressionLevel {
 
     @VisibleForTesting
     RescoreContext getDefaultRescoreContext(Mode mode, int dimension) {
-        return getDefaultRescoreContext(mode, dimension, Version.CURRENT);
+        return getDefaultRescoreContext(mode, dimension, Version.CURRENT, false);
     }
 
 }
