@@ -16,8 +16,14 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
+import org.opensearch.knn.index.engine.faiss.SQConfigParser;
+import org.opensearch.knn.index.engine.faiss.SQConfig;
 import org.opensearch.knn.memoryoptsearch.faiss.Faiss104ScalarQuantizedVectorScorer;
 import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
@@ -30,6 +36,101 @@ public class FlatVectorsScorerProviderTests extends KNNTestCase {
     private static final byte[] BYTE_VECTOR = new byte[] { 1, 3, 0, 90 };
 
     private static final FlatVectorsScorer VECTOR_SCORER = FlatVectorScorerUtil.getLucene99FlatVectorsScorer();
+
+    @SneakyThrows
+    public void testAdcScoringL2() {
+        final FieldInfo fieldInfo = mock(FieldInfo.class);
+        final String adcConfig = QuantizationConfigParser.toCsv(
+            QuantizationConfig.builder().quantizationType(ScalarQuantizationType.ONE_BIT).enableADC(true).build()
+        );
+        when(fieldInfo.getAttribute(KNNConstants.QFRAMEWORK_CONFIG)).thenReturn(adcConfig);
+        when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+
+        final FlatVectorsScorer scorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
+            fieldInfo,
+            KNNVectorSimilarityFunction.EUCLIDEAN,
+            VECTOR_SCORER
+        );
+
+        final ByteVectorValues byteVectorValues = mock(ByteVectorValues.class);
+        when(byteVectorValues.vectorValue(anyInt())).thenReturn(BYTE_VECTOR);
+        final RandomVectorScorer vectorScorer = scorer.getRandomVectorScorer(null, byteVectorValues, FLOAT_QUERY);
+        assertNotNull(vectorScorer);
+        // Verify it scores without error
+        vectorScorer.score(0);
+    }
+
+    @SneakyThrows
+    public void testAdcScoringInnerProduct() {
+        final FieldInfo fieldInfo = mock(FieldInfo.class);
+        final String adcConfig = QuantizationConfigParser.toCsv(
+            QuantizationConfig.builder().quantizationType(ScalarQuantizationType.ONE_BIT).enableADC(true).build()
+        );
+        when(fieldInfo.getAttribute(KNNConstants.QFRAMEWORK_CONFIG)).thenReturn(adcConfig);
+        when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.INNER_PRODUCT.getValue());
+
+        final FlatVectorsScorer scorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
+            fieldInfo,
+            KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT,
+            VECTOR_SCORER
+        );
+
+        final ByteVectorValues byteVectorValues = mock(ByteVectorValues.class);
+        when(byteVectorValues.vectorValue(anyInt())).thenReturn(BYTE_VECTOR);
+        final RandomVectorScorer vectorScorer = scorer.getRandomVectorScorer(null, byteVectorValues, FLOAT_QUERY);
+        assertNotNull(vectorScorer);
+        vectorScorer.score(0);
+    }
+
+    @SneakyThrows
+    public void testAdcScoringUnsupportedByteQuery() {
+        final FieldInfo fieldInfo = mock(FieldInfo.class);
+        final String adcConfig = QuantizationConfigParser.toCsv(
+            QuantizationConfig.builder().quantizationType(ScalarQuantizationType.ONE_BIT).enableADC(true).build()
+        );
+        when(fieldInfo.getAttribute(KNNConstants.QFRAMEWORK_CONFIG)).thenReturn(adcConfig);
+        when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+
+        final FlatVectorsScorer scorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
+            fieldInfo,
+            KNNVectorSimilarityFunction.EUCLIDEAN,
+            VECTOR_SCORER
+        );
+
+        final ByteVectorValues byteVectorValues = mock(ByteVectorValues.class);
+        expectThrows(UnsupportedOperationException.class, () -> scorer.getRandomVectorScorer(null, byteVectorValues, BYTE_QUERY));
+    }
+
+    @SneakyThrows
+    public void testFaissSQOneBitResolverReturnsFaissSQScorer() {
+        final FieldInfo fieldInfo = mock(FieldInfo.class);
+        final String sqConfig = SQConfigParser.toCsv(SQConfig.builder().bits(FaissSQEncoder.Bits.ONE.getValue()).build());
+        when(fieldInfo.getAttribute(KNNConstants.SQ_CONFIG)).thenReturn(sqConfig);
+
+        final FlatVectorsScorer scorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
+            fieldInfo,
+            KNNVectorSimilarityFunction.EUCLIDEAN,
+            VECTOR_SCORER
+        );
+
+        assertNotSame("Expected a specialized SQ scorer, not the delegate", VECTOR_SCORER, scorer);
+    }
+
+    @SneakyThrows
+    public void testFaissSQNonOneBitFallsBackToDelegate() {
+        final FieldInfo fieldInfo = mock(FieldInfo.class);
+        // bits=2 should NOT match the FaissSQScorerResolver
+        final String sqConfig = SQConfigParser.toCsv(SQConfig.builder().bits(2).build());
+        when(fieldInfo.getAttribute(KNNConstants.SQ_CONFIG)).thenReturn(sqConfig);
+
+        final FlatVectorsScorer scorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
+            fieldInfo,
+            KNNVectorSimilarityFunction.EUCLIDEAN,
+            VECTOR_SCORER
+        );
+
+        assertSame("Expected delegate scorer for non-1-bit SQ field", VECTOR_SCORER, scorer);
+    }
 
     @SneakyThrows
     public void testHammingScoring() {
