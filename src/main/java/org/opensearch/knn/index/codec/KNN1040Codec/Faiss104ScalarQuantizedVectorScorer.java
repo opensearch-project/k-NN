@@ -70,18 +70,17 @@ public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantize
     ) throws IOException {
         final QuantizedByteVectorValues quantizedByteVectorValues = Faiss1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(
             vectorValues,
-            false
+            true
         );
-        if (quantizedByteVectorValues != null) {
-            final IndexInput indexInput = quantizedByteVectorValues.getSlice();
-            final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(indexInput, 0, indexInput.length());
-            if (addressAndSize != null) {
-                return bulkSimdRandomVectorScorer(quantizedByteVectorValues, target, addressAndSize, similarityFunction);
-            }
+
+        final IndexInput indexInput = quantizedByteVectorValues.getSlice();
+        final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(indexInput, 0, indexInput.length());
+        if (addressAndSize != null) {
+            return bulkSimdRandomVectorScorer(quantizedByteVectorValues, target, addressAndSize, similarityFunction);
         }
 
-        // Fallback to Lucene scorer
-        return super.getRandomVectorScorer(similarityFunction, vectorValues, target);
+        // Fallback
+        return super.getRandomVectorScorer(similarityFunction, quantizedByteVectorValues, target);
     }
 
     /**

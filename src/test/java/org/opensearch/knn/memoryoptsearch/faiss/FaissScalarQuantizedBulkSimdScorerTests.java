@@ -172,46 +172,42 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
                 // ---- Step 3: SIMD scorer (test subject) ----
                 final Faiss104ScalarQuantizedVectorScorer simdFlatScorer = new Faiss104ScalarQuantizedVectorScorer(defaultScorer);
 
-                try (
-                    FlatVectorsReader testReader = new Lucene104ScalarQuantizedVectorsReader(
-                        readState,
-                        rawVectorFormat.fieldsReader(readState),
-                        simdFlatScorer
-                    )
-                ) {
-                    RandomVectorScorer testScorer = testReader.getRandomVectorScorer(FIELD_NAME, queryVector);
-                    assertNotNull("Test scorer should not be null", testScorer);
+                RandomVectorScorer testScorer = simdFlatScorer.getRandomVectorScorer(
+                    similarityFunction,
+                    truthReader.getFloatVectorValues(FIELD_NAME),
+                    queryVector
+                );
+                assertNotNull("Test scorer should not be null", testScorer);
 
-                    // ---- Step 4: Compare scores ----
-                    int maxOrd = truthScorer.maxOrd();
-                    assertEquals("maxOrd mismatch", maxOrd, testScorer.maxOrd());
+                // ---- Step 4: Compare scores ----
+                int maxOrd = truthScorer.maxOrd();
+                assertEquals("maxOrd mismatch", maxOrd, testScorer.maxOrd());
 
-                    for (int ord = 0; ord < maxOrd; ord++) {
-                        float actual = testScorer.score(ord);
-                        float expected = truthScorer.score(ord);
-                        assertEquals("Score mismatch at ord=" + ord + " for " + similarityFunction, expected, actual, 1e-2);
+                for (int ord = 0; ord < maxOrd; ord++) {
+                    float actual = testScorer.score(ord);
+                    float expected = truthScorer.score(ord);
+                    assertEquals("Score mismatch at ord=" + ord + " for " + similarityFunction, expected, actual, 1e-2);
+                }
+
+                // Bulk scoring with various batch sizes to exercise batch-of-8, batch-of-4, and tail
+                for (int batchSize : new int[] { 1, 3, 4, 5, 7, 8, 10, 21, 44 }) {
+                    if (batchSize > maxOrd) {
+                        continue;
                     }
-
-                    // Bulk scoring with various batch sizes to exercise batch-of-8, batch-of-4, and tail
-                    for (int batchSize : new int[] { 1, 3, 4, 5, 7, 8, 10, 21, 44 }) {
-                        if (batchSize > maxOrd) {
-                            continue;
-                        }
-                        int[] ords = new int[batchSize];
-                        float[] bulkScores = new float[batchSize];
-                        for (int j = 0; j < batchSize; j++) {
-                            ords[j] = ThreadLocalRandom.current().nextInt(NUM_VECTORS);
-                        }
-                        testScorer.bulkScore(ords, bulkScores, batchSize);
-                        for (int j = 0; j < batchSize; j++) {
-                            float expected = truthScorer.score(ords[j]);
-                            assertEquals(
-                                "Bulk score mismatch at ord=" + ords[j] + " (batch=" + batchSize + ") for " + similarityFunction,
-                                expected,
-                                bulkScores[j],
-                                1e-2
-                            );
-                        }
+                    int[] ords = new int[batchSize];
+                    float[] bulkScores = new float[batchSize];
+                    for (int j = 0; j < batchSize; j++) {
+                        ords[j] = ThreadLocalRandom.current().nextInt(NUM_VECTORS);
+                    }
+                    testScorer.bulkScore(ords, bulkScores, batchSize);
+                    for (int j = 0; j < batchSize; j++) {
+                        float expected = truthScorer.score(ords[j]);
+                        assertEquals(
+                            "Bulk score mismatch at ord=" + ords[j] + " (batch=" + batchSize + ") for " + similarityFunction,
+                            expected,
+                            bulkScores[j],
+                            1e-2
+                        );
                     }
                 }
             }

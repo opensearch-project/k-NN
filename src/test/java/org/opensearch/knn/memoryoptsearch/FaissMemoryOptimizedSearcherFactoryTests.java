@@ -19,14 +19,13 @@ import org.mockito.MockedStatic;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.memoryoptsearch.faiss.AbstractFaissHNSWIndex;
-import org.opensearch.knn.memoryoptsearch.faiss.FaissEmptyIndex;
-import org.opensearch.knn.memoryoptsearch.faiss.FaissHNSWIndex;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissHNSW;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIdMapIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcherFactory;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissScalarQuantizedFlatIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.UnsupportedFaissIndexException;
+import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissBinaryHnswIndex;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -48,31 +47,37 @@ public class FaissMemoryOptimizedSearcherFactoryTests extends KNNTestCase {
     public void testCreateVectorSearcher_whenScalarQuantizedFieldWith1Bit_thenWiresFlatIndexAndScorer() {
         final FaissMemoryOptimizedSearcherFactory factory = new FaissMemoryOptimizedSearcherFactory();
         final Path tempDir = createTempDir(UUID.randomUUID().toString());
-        final String fileName = "sq_index.faiss";
+        final String fileName = "_0_test_field.faiss";
 
         // Build a mock index tree: FaissIdMapIndex -> FaissHNSWIndex -> FaissEmptyIndex
         // so that maybeSetFlatIndex replaces the empty storage with FaissScalarQuantizedFlatIndex
-        final FaissHNSWIndex hnswIndex = new FaissHNSWIndex(FaissHNSWIndex.IHNF);
-        final Field flatVectorsField = AbstractFaissHNSWIndex.class.getDeclaredField("flatVectors");
-        flatVectorsField.setAccessible(true);
-        flatVectorsField.set(hnswIndex, FaissEmptyIndex.INSTANCE);
+        final FaissHNSW faissHNSW = mock(FaissHNSW.class);
+        final FaissBinaryHnswIndex hnswIndex = new FaissBinaryHnswIndex(FaissBinaryHnswIndex.IBHF, faissHNSW);
+        hnswIndex.setStorage(null);
 
+        // Set nested index
         final FaissIdMapIndex idMapIndex = new FaissIdMapIndex(FaissIdMapIndex.IXMP);
         final Field nestedIndexField = FaissIdMapIndex.class.getDeclaredField("nestedIndex");
         nestedIndexField.setAccessible(true);
         nestedIndexField.set(idMapIndex, hnswIndex);
+
+        // Set Hnsw index
         final Field hnswGetterField = FaissIdMapIndex.class.getDeclaredField("hnswGetter");
         hnswGetterField.setAccessible(true);
         hnswGetterField.set(idMapIndex, hnswIndex);
+
+        // Set space type
         final Field spaceTypeField = FaissIndex.class.getDeclaredField("spaceType");
         spaceTypeField.setAccessible(true);
         spaceTypeField.set(idMapIndex, SpaceType.L2);
 
+        // Setting field info
         final FieldInfo fieldInfo = mock(FieldInfo.class);
         when(fieldInfo.getAttribute(KNNConstants.SQ_CONFIG)).thenReturn("bits=1");
         when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
         when(fieldInfo.getName()).thenReturn("test_field");
 
+        // Set flat vector scorer
         final FlatVectorsReader flatVectorsReader = mock(FlatVectorsReader.class);
         when(flatVectorsReader.getFlatVectorScorer()).thenReturn(SQ_SCORER);
 
@@ -94,7 +99,7 @@ public class FaissMemoryOptimizedSearcherFactoryTests extends KNNTestCase {
 
                 assertNotNull(searcher);
                 // Verify flat storage was wired in
-                assertTrue(hnswIndex.getFlatVectors() instanceof FaissScalarQuantizedFlatIndex);
+                assertTrue(hnswIndex.getStorage() instanceof FaissScalarQuantizedFlatIndex);
                 searcher.close();
             }
         }

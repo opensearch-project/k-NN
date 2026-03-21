@@ -25,7 +25,11 @@ class Faiss1040ScalarQuantizedUtils {
         } catch (NoSuchFieldException | IllegalAccessException e) {
             if (throwExceptionIfNotFound) {
                 throw new IOException(
-                    "Failed to extract QuantizedByteVectorValues from FlatVectorsReader."
+                    "Failed to extract QuantizedByteVectorValues from floatVectorValues ["
+                        + floatVectorValues.getClass().getSimpleName()
+                        + "/"
+                        + floatVectorValues
+                        + "]"
                         + " This may indicate an incompatible Lucene "
                         + "version.",
                     e

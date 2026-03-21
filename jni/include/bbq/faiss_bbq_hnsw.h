@@ -14,6 +14,8 @@ namespace knn_jni {
             faiss_bbq_flat(_faiss_bbq_flat) {
             // This has the ownership of FaissBBQFlat, setting this true to make it free'd when this class is freed
             own_fields = true;
+            // Set metric type that was given, not just blindly use default space type.
+            metric_type = _faiss_bbq_flat->metric_type;
         }
 
         faiss::DistanceComputer* get_distance_computer() const final {

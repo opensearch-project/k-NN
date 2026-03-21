@@ -57,7 +57,7 @@ public class FaissBinaryHnswIndex extends FaissBinaryIndex implements FaissHNSWP
         // Partial load storage
         final FaissIndex maybeEmptyStorage = FaissIndex.load(input);
         if (FaissEmptyIndex.isEmptyIndex(maybeEmptyStorage) == false) {
-            storage = FaissIndexLoadUtils.toBinaryIndex(FaissIndex.load(input));
+            storage = FaissIndexLoadUtils.toBinaryIndex(maybeEmptyStorage);
         }
     }
 
