@@ -15,8 +15,7 @@ import org.opensearch.knn.index.mapper.Mode;
  * Note that Faiss does not support 4x, and Faiss uses FP16 as 2x which is already covered in {@link MOSFaissFP16IndexIT}.
  */
 public class MOSFaissDiskBasedIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
-    // Explicit BQ encoder params to pin x32 tests to binary quantizer (not BBQ).
-    // These tests validate MOS off-heap behavior which is specific to the BQ code path.
+    // Explicit BQ encoder params to pin x32 tests to binary quantizer and x32 with EMPTY_PARAMS to use SQ with 1 bit
     private static final String BQ_ENCODER_PARAMS = """
         {"encoder": {"name": "binary", "parameters": {"bits": 1}}}""";
 
@@ -42,6 +41,17 @@ public class MOSFaissDiskBasedIndexIT extends AbstractMemoryOptimizedKnnSearchIT
         doTestNonNestedIndex(
             VectorDataType.FLOAT,
             BQ_ENCODER_PARAMS,
+            false,
+            SpaceType.INNER_PRODUCT,
+            NO_ADDITIONAL_SETTINGS,
+            Mode.ON_DISK,
+            CompressionLevel.x32
+        );
+
+        // Faiss 32x equivalent to Faiss SQ 1 bit
+        doTestNonNestedIndex(
+            VectorDataType.FLOAT,
+            EMPTY_PARAMS,
             false,
             SpaceType.INNER_PRODUCT,
             NO_ADDITIONAL_SETTINGS,
@@ -75,6 +85,16 @@ public class MOSFaissDiskBasedIndexIT extends AbstractMemoryOptimizedKnnSearchIT
             Mode.ON_DISK,
             CompressionLevel.x32
         );
+
+        // Faiss 32x equivalent to Faiss SQ 1 bit
+        doTestNestedIndex(
+            VectorDataType.FLOAT,
+            EMPTY_PARAMS,
+            SpaceType.INNER_PRODUCT,
+            NO_ADDITIONAL_SETTINGS,
+            Mode.ON_DISK,
+            CompressionLevel.x32
+        );
     }
 
     public void testWhenNoIndexBuiltForNonNested() {
@@ -99,6 +119,17 @@ public class MOSFaissDiskBasedIndexIT extends AbstractMemoryOptimizedKnnSearchIT
         doTestNonNestedIndex(
             VectorDataType.FLOAT,
             BQ_ENCODER_PARAMS,
+            false,
+            SpaceType.INNER_PRODUCT,
+            NO_BUILD_HNSW,
+            Mode.ON_DISK,
+            CompressionLevel.x32
+        );
+
+        // Faiss 32x equivalent to Faiss SQ 1 bit
+        doTestNonNestedIndex(
+            VectorDataType.FLOAT,
+            EMPTY_PARAMS,
             false,
             SpaceType.INNER_PRODUCT,
             NO_BUILD_HNSW,
