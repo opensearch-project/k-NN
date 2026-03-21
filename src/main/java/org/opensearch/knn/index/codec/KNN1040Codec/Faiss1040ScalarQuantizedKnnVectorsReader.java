@@ -8,27 +8,22 @@ package org.opensearch.knn.index.codec.KNN1040Codec;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.ByteVectorValues;
-import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.search.AcceptDocs;
+import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.search.KnnCollector;
-import org.apache.lucene.util.IOUtils;
+import org.opensearch.knn.index.codec.nativeindex.AbstractNativeEnginesKnnVectorsReader;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsReader;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
 
-import java.io.Closeable;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
- * Reader for Faiss 104 scalar quantized vector fields. Extends {@link NativeEngines990KnnVectorsReader}
- * and overrides search behavior to always force memory-optimized search regardless of the
- * index-level setting.
+ * Reader for Faiss 1040 scalar quantized vector fields. Extends {@link AbstractNativeEnginesKnnVectorsReader}
+ * and always forces memory-optimized search regardless of the index-level setting.
  *
- * <p>Key differences from the parent:
+ * <p>Key differences from {@link NativeEngines990KnnVectorsReader}:
  * <ul>
  *   <li>Always forces memory-optimized search — not gated by index setting</li>
  *   <li>No quantization state cache (quantization is handled by Lucene, not k-NN's framework)</li>
@@ -41,8 +36,7 @@ import java.util.List;
  * with both {@code scorer()} (quantized) and {@code rescorer()} (full-precision) support.
  */
 @Log4j2
-public class Faiss1040ScalarQuantizedKnnVectorsReader extends NativeEngines990KnnVectorsReader {
-
+public class Faiss1040ScalarQuantizedKnnVectorsReader extends AbstractNativeEnginesKnnVectorsReader {
     Faiss1040ScalarQuantizedKnnVectorsReader(SegmentReadState state, FlatVectorsReader flatVectorsReader) {
         super(state, flatVectorsReader);
     }
@@ -59,13 +53,14 @@ public class Faiss1040ScalarQuantizedKnnVectorsReader extends NativeEngines990Kn
      */
     @Override
     public void search(String field, float[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
-        // Null target is the warmup signal — handle before attempting searcher load
+        final VectorSearcher memoryOptimizedSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfos.fieldInfo(field));
+
+        // On warmup, target is null. We load the searcher first to trigger memory-mapping of vectors(partial load),
+        // then throw instead of returning silently so the warmup call is detectable and can be validated in tests.
+        // TODO: Support MOS warmup properly
         if (target == null) {
             throw new FaissMemoryOptimizedSearcher.WarmupInitializationException("Null vector supplied for warmup");
         }
-
-        final FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(field);
-        final VectorSearcher memoryOptimizedSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfo);
 
         if (memoryOptimizedSearcher == null) {
             throw new IllegalStateException(
@@ -79,19 +74,5 @@ public class Faiss1040ScalarQuantizedKnnVectorsReader extends NativeEngines990Kn
     @Override
     public void search(String field, byte[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
         throw new UnsupportedOperationException("Byte vector search is not supported for Faiss scalar quantized format");
-    }
-
-    /**
-     * No NativeMemoryCacheManager invalidation or quantization state cache cleanup needed —
-     * this format doesn't use the k-NN quantization framework or the native memory cache.
-     */
-    @Override
-    public void close() throws IOException {
-        final List<Closeable> closeables = new ArrayList<>();
-        closeables.add(flatVectorsReader);
-        if (vectorSearcherHolder != null) {
-            closeables.add(vectorSearcherHolder.getVectorSearcher());
-        }
-        IOUtils.close(closeables);
     }
 }

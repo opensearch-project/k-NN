@@ -39,13 +39,13 @@ import static org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectors
  * <p>The SIMD path uses a precomputed search context and performs scoring in native code
  * (e.g., AVX-512), significantly improving throughput for large-scale vector search.
  */
-public class Faiss104ScalerQuantizedVectorScorer extends Lucene104ScalarQuantizedVectorScorer {
+public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantizedVectorScorer {
     /**
      * Creates a new scorer that wraps a non-quantized delegate scorer.
      *
      * @param delegate fallback scorer used when SIMD acceleration is not applicable
      */
-    public Faiss104ScalerQuantizedVectorScorer(final FlatVectorsScorer delegate) {
+    public Faiss104ScalarQuantizedVectorScorer(final FlatVectorsScorer delegate) {
         super(delegate);
     }
 

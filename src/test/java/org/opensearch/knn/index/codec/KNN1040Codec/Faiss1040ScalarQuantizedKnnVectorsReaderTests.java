@@ -20,7 +20,7 @@ import org.mockito.MockedStatic;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
-import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsReader;
+import org.opensearch.knn.index.codec.nativeindex.AbstractNativeEnginesKnnVectorsReader;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
@@ -70,7 +71,15 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
         KNNEngine mockFaiss = spy(KNNEngine.FAISS);
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
-        when(mockFactory.createVectorSearcher(any(), any(), any(), any(), any())).thenReturn(mock(VectorSearcher.class));
+        when(
+            mockFactory.createVectorSearcher(
+                any(Directory.class),
+                anyString(),
+                any(FieldInfo.class),
+                any(IOContext.class),
+                any(FlatVectorsReader.class)
+            )
+        ).thenReturn(mock(VectorSearcher.class));
 
         try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
             ms.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
@@ -91,8 +100,15 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
         VectorSearcher mockSearcher = mock(VectorSearcher.class);
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
-        when(mockFactory.createVectorSearcher(any(), any(), any(), any(), any())).thenReturn(mockSearcher);
-
+        when(
+            mockFactory.createVectorSearcher(
+                any(Directory.class),
+                anyString(),
+                any(FieldInfo.class),
+                any(IOContext.class),
+                any(FlatVectorsReader.class)
+            )
+        ).thenReturn(mockSearcher);
         try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
             ms.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
             ms.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
@@ -145,7 +161,15 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
         VectorSearcher mockSearcher = mock(VectorSearcher.class);
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
-        when(mockFactory.createVectorSearcher(any(), any(), any(), any(), any())).thenReturn(mockSearcher);
+        when(
+            mockFactory.createVectorSearcher(
+                any(Directory.class),
+                anyString(),
+                any(FieldInfo.class),
+                any(IOContext.class),
+                any(FlatVectorsReader.class)
+            )
+        ).thenReturn(mockSearcher);
         final FlatVectorsReader fvr = mock(FlatVectorsReader.class);
 
         try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
@@ -177,9 +201,9 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
             Collections.emptySet(),
             mock(FlatVectorsReader.class)
         );
-        final Field f = NativeEngines990KnnVectorsReader.class.getDeclaredField("vectorSearcherHolder");
+        final Field f = AbstractNativeEnginesKnnVectorsReader.class.getDeclaredField("vectorSearcherHolder");
         f.setAccessible(true);
-        assertFalse(((NativeEngines990KnnVectorsReader.VectorSearcherHolder) f.get(reader)).isSet());
+        assertFalse(((AbstractNativeEnginesKnnVectorsReader.VectorSearcherHolder) f.get(reader)).isSet());
     }
 
     // --- helpers ---

@@ -45,13 +45,13 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Tests that the native SIMD BBQ scorer ({@link Faiss104ScalerQuantizedVectorScorer}) produces scores
+ * Tests that the native SIMD SQ scorer ({@link Faiss104ScalarQuantizedVectorScorer}) produces scores
  * matching Lucene's {@link Lucene104ScalarQuantizedVectorScorer} (the source of truth).
  * <p>
  * Uses the Lucene codec pipeline directly:
  * 1. {@link Lucene104ScalarQuantizedVectorsFormat#fieldsWriter} to quantize and write vectors.
  * 2. {@link Lucene104ScalarQuantizedVectorsReader} with {@link Lucene104ScalarQuantizedVectorScorer} → truth.
- * 3. {@link Lucene104ScalarQuantizedVectorsReader} with {@link Faiss104ScalerQuantizedVectorScorer} → test subject.
+ * 3. {@link Lucene104ScalarQuantizedVectorsReader} with {@link Faiss104ScalarQuantizedVectorScorer} → test subject.
  * 4. Compare scores.
  */
 public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
@@ -169,7 +169,7 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
                 assertNotNull("Truth scorer should not be null", truthScorer);
 
                 // ---- Step 3: SIMD scorer (test subject) ----
-                final Faiss104ScalerQuantizedVectorScorer simdFlatScorer = new Faiss104ScalerQuantizedVectorScorer(defaultScorer);
+                final Faiss104ScalarQuantizedVectorScorer simdFlatScorer = new Faiss104ScalarQuantizedVectorScorer(defaultScorer);
 
                 try (
                     FlatVectorsReader testReader = new Lucene104ScalarQuantizedVectorsReader(
