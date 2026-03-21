@@ -6,7 +6,7 @@
 package org.opensearch.knn.memoryoptsearch;
 
 import org.apache.lucene.index.ByteVectorValues;
-import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.KnnVectorValues.DocIndexIterator;
 import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.util.Bits;
@@ -61,9 +61,33 @@ public interface VectorSearcher extends Closeable {
     void search(byte[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException;
 
     /**
-     * Returns the {@link ByteVectorValues} from the searcher. The behavior is undefined if
-     * searcher doesn't have KNN vectors enabled on its {@link FieldInfo}. The return value is
-     * never {@code null}.
+     * Returns the {@link ByteVectorValues} from the searcher, using the provided iterator
+     * for the underlying scorer. When the returned values produce a {@link org.apache.lucene.search.VectorScorer},
+     * that scorer will iterate using {@code iterator} instead of the default one.
+     *
+     * <p>Why a {@link DocIndexIterator} is required</p>
+     * The FAISS-backed {@link ByteVectorValues} implementation is a random-access store: it can
+     * look up any vector by ordinal, but it does not inherently know how to iterate over
+     * documents. A {@link org.apache.lucene.search.VectorScorer}, however, needs a
+     * {@link org.apache.lucene.search.DocIdSetIterator} to drive scoring. Because the FAISS
+     * layer cannot construct one on its own, the iterator must be supplied externally.
+     *
+     * <p>Three approaches were considered:
+     * <ol>
+     *   <li><b>Pass the iterator when requesting {@code ByteVectorValues} (chosen approach)</b> –
+     *       the caller provides a {@link DocIndexIterator} here, and the
+     *       implementation wraps it into the scorer. This keeps the FAISS loading path
+     *       unchanged and gives the caller full control over which iterator is used.</li>
+     *   <li>Accept the iterator during the FAISS index load ({@code FaissIndex.load}) so it
+     *       propagates to every {@code ByteVectorValues} instance automatically.</li>
+     *   <li>Construct the iterator inside the {@code ByteVectorValues} implementation
+     *       itself.</li>
+     * </ol>
+     *
+     * <p>TODO: Clean this up by moving toward building the iterator/scorer inside the
+     * {@code ByteVectorValues} implementation so callers no longer need to supply one.
+     *
+     * @param iterator the iterator the scorer should use for document traversal
      */
-    ByteVectorValues getByteVectorValues() throws IOException;
+    ByteVectorValues getByteVectorValues(DocIndexIterator iterator) throws IOException;
 }

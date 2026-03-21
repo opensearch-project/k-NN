@@ -10,6 +10,8 @@ import lombok.SneakyThrows;
 import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.FloatVectorValues;
+import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentInfo;
@@ -88,18 +90,21 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
         KNNEngine mockFaiss = spy(KNNEngine.FAISS);
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
         VectorSearcher mockSearcher = mock(VectorSearcher.class);
-        when(mockSearcher.getByteVectorValues()).thenReturn(mock(ByteVectorValues.class));
+        when(mockSearcher.getByteVectorValues(any())).thenReturn(mock(ByteVectorValues.class));
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
         when(mockFactory.createVectorSearcher(any(), any(), any(), any(), any())).thenReturn(mockSearcher);
 
+        final FloatVectorValues mockFloatValues = mock(FloatVectorValues.class);
+        when(mockFloatValues.iterator()).thenReturn(mock(KnnVectorValues.DocIndexIterator.class));
         final FlatVectorsReader flatVectorsReader = mock(FlatVectorsReader.class);
+        when(flatVectorsReader.getFloatVectorValues("field1")).thenReturn(mockFloatValues);
         try (MockedStatic<KNNEngine> mockedStatic = mockStatic(KNNEngine.class)) {
             mockedStatic.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
             final Set<String> filesInSegment = Set.of("_0_165_field1.faiss");
             mockedStatic.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
             NativeEngines990KnnVectorsReader reader = createReader(fieldInfos, filesInSegment, flatVectorsReader);
             reader.getByteVectorValues("field1");
-            verify(mockSearcher).getByteVectorValues();
+            verify(mockSearcher).getByteVectorValues(any());
             verify(flatVectorsReader, Mockito.never()).getByteVectorValues("field1");
         }
     }

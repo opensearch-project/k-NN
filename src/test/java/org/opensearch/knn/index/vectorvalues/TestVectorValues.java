@@ -314,8 +314,8 @@ public class TestVectorValues {
          * @throws IOException
          */
         @Override
-        public ByteVectorValues copy() throws IOException {
-            return null;
+        public PreDefinedByteVectorValues copy() throws IOException {
+            return new PreDefinedByteVectorValues(vectors);
         }
 
         @Override
