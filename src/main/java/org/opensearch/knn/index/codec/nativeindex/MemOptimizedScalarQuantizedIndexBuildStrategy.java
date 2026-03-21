@@ -58,7 +58,7 @@ import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorV
  *
  * <h2>Storage Separation</h2>
  * The resulting .faiss file contains only the HNSW graph structure (adjacency lists, levels, etc.)
- * with a "null" storage section placeholder. At search time, {@code FaissBBQFlatIndex} is plugged
+ * with a "null" storage section placeholder. At search time, {@code FaissScalarQuantizedFlatIndex} is plugged
  * in as a virtual storage layer that reads quantized vectors from Lucene's flat files instead of
  * from the .faiss file.
  *
@@ -124,7 +124,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
         // Force override vector data type as binary so that Faiss can treat it as binary index.
         indexParameters.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.BINARY.getValue());
 
-        // Initialize the Faiss BBQ index in native (C++) memory. This allocates:
+        // Initialize the Faiss SQ index in native (C++) memory. This allocates:
         // - The HNSW graph structure (adjacency lists, entry point, max level)
         // - Off-heap storage for quantized vectors and correction factors
         // The index is identified by a memory address (pointer) returned from C++.
@@ -166,7 +166,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
      *   <li><b>Index serialization</b>: Writes the HNSW graph to disk using
      *       {@code IO_FLAG_SKIP_STORAGE}, which omits the flat vector storage section and
      *       writes a "null" placeholder instead. The quantized vectors remain in Lucene's
-     *       .veb file and are accessed at search time via {@code FaissBBQFlatIndex}</li>
+     *       .veb file and are accessed at search time via {@code FaissScalarQuantizedFlatIndex}</li>
      * </ol>
      *
      * @param indexMemoryAddress    pointer to the native Faiss BBQ index in off-heap memory
@@ -216,7 +216,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
         // HNSW graph structure (adjacency lists, entry point, levels) and emit a "null" section
         // name where the flat vector storage would normally go. At search time, this "null"
         // section triggers FaissIndex.load to call a Supplier<FaissIndex> that returns a
-        // FaissBBQFlatIndex backed by Lucene's BinaryQuantizedVectorsReader.
+        // FaissScalarQuantizedFlatIndex backed by Lucene's BinaryQuantizedVectorsReader.
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
             JNIService.writeIndex(
                 indexInfo.getIndexOutputWithBuffer(),

@@ -23,6 +23,7 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.codec.nativeindex.AbstractNativeEnginesKnnVectorsReader;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -53,7 +54,7 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
         // Load vector searchers
         final NativeEngines990KnnVectorsReader reader = createReader(fieldInfos, Collections.emptySet(), null);
 
-        final NativeEngines990KnnVectorsReader.VectorSearcherHolder vectorSearchers = getVectorSearcherHolders(reader);
+        final AbstractNativeEnginesKnnVectorsReader.VectorSearcherHolder vectorSearchers = getVectorSearcherHolders(reader);
         assertFalse(vectorSearchers.isSet());
     }
 
@@ -210,12 +211,11 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    private static NativeEngines990KnnVectorsReader.VectorSearcherHolder getVectorSearcherHolders(
+    private static AbstractNativeEnginesKnnVectorsReader.VectorSearcherHolder getVectorSearcherHolders(
         final NativeEngines990KnnVectorsReader reader
     ) {
-        // Get searcher table
-        final Field tableField = NativeEngines990KnnVectorsReader.class.getDeclaredField("vectorSearcherHolder");
+        final Field tableField = AbstractNativeEnginesKnnVectorsReader.class.getDeclaredField("vectorSearcherHolder");
         tableField.setAccessible(true);
-        return (NativeEngines990KnnVectorsReader.VectorSearcherHolder) tableField.get(reader);
+        return (AbstractNativeEnginesKnnVectorsReader.VectorSearcherHolder) tableField.get(reader);
     }
 }
