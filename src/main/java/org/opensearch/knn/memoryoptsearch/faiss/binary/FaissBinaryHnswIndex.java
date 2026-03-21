@@ -6,10 +6,12 @@
 package org.opensearch.knn.memoryoptsearch.faiss.binary;
 
 import lombok.Getter;
+import lombok.Setter;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexInput;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissEmptyIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissHNSW;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissHNSWProvider;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
@@ -27,6 +29,8 @@ public class FaissBinaryHnswIndex extends FaissBinaryIndex implements FaissHNSWP
 
     @Getter
     protected FaissHNSW faissHnsw;
+    @Getter
+    @Setter
     protected FaissBinaryIndex storage;
 
     public FaissBinaryHnswIndex(final String indexType, final FaissHNSW faissHnsw) {
@@ -51,7 +55,10 @@ public class FaissBinaryHnswIndex extends FaissBinaryIndex implements FaissHNSWP
         faissHnsw.load(input, getTotalNumberOfVectors());
 
         // Partial load storage
-        storage = FaissIndexLoadUtils.toBinaryIndex(FaissIndex.load(input));
+        final FaissIndex maybeEmptyStorage = FaissIndex.load(input);
+        if (FaissEmptyIndex.isEmptyIndex(maybeEmptyStorage) == false) {
+            storage = FaissIndexLoadUtils.toBinaryIndex(FaissIndex.load(input));
+        }
     }
 
     @Override
@@ -61,7 +68,7 @@ public class FaissBinaryHnswIndex extends FaissBinaryIndex implements FaissHNSWP
 
     @Override
     public FloatVectorValues getFloatValues(IndexInput indexInput) throws IOException {
-        throw new UnsupportedOperationException(FaissBinaryHnswIndex.class.getSimpleName() + " does not support FloatVectorValues.");
+        return storage.getFloatValues(indexInput);
     }
 
     @Override

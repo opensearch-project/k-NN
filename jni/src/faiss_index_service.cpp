@@ -8,6 +8,7 @@
 // GitHub history for details.
 
 #include "faiss_index_service.h"
+#include "jni_util.h"
 #include "faiss_methods.h"
 #include "faiss/Index.h"
 #include "faiss/IndexBinary.h"
@@ -17,6 +18,7 @@
 #include "faiss/IndexBinaryIVF.h"
 #include "faiss/IndexIDMap.h"
 #include "bbq/faiss_bbq_hnsw.h"
+#include <iostream>
 
 #include <string>
 #include <vector>
@@ -207,24 +209,12 @@ jlong BinaryIndexService::initIndex(
 jlong BinaryIndexService::initFaissBBQIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric,
                                             std::string indexDescription, int dim, int numVectors, int threadCount,
                                             std::unordered_map<std::string, jobject> parameters, float centroidDp, int quantizedVectorBytes) {
-    // Extract `m` from the binary index
-    int32_t m;
-    {
-        // Create binary index first
-        std::unique_ptr<faiss::IndexBinary> originalIndexBinaryHNSW(faissMethods->indexBinaryFactory(dim, indexDescription.c_str()));
-        if (auto indexBinaryHNSW = dynamic_cast<faiss::IndexBinaryHNSW*>(originalIndexBinaryHNSW.get())) {
-            m = indexBinaryHNSW->hnsw.m;
-        } else {
-            std::string actualType = "nullptr";
-            if (originalIndexBinaryHNSW) {
-                // Dereferencing a simple pointer variable is technically a "side effect"
-                // in the eyes of the warning, but this is the standard way to use it.
-                actualType = typeid(*originalIndexBinaryHNSW).name();
-            }
-
-            throw std::runtime_error("Failed to cast " + actualType + " to faiss::IndexBinaryHNSW*");
-        }
+    if (auto it = parameters.find(M); it == parameters.end()) {
+        throw std::runtime_error("Parameter " + M + " is required for Faiss scalar optimized index");
     }
+
+    // Extract `m` from the binary index
+    const int32_t m = jniUtil->ConvertJavaObjectToCppInteger(env, parameters[M]);
 
     // Create Faiss BBQ HNSW Index
     std::unique_ptr<knn_jni::FaissBBQHnsw> faissBBQHnsw (new knn_jni::FaissBBQHnsw(

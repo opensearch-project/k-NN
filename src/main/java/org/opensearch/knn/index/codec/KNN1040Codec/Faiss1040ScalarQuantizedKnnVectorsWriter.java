@@ -14,7 +14,6 @@ import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
 import org.apache.lucene.codecs.lucene104.QuantizedByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
-import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
@@ -24,9 +23,9 @@ import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.RamUsageEstimator;
 import org.opensearch.knn.index.codec.nativeindex.AbstractNativeEnginesKnnVectorsWriter;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
 
 /**
  * Writer for Faiss BBQ vector fields. Unlike {@link org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsWriter}
@@ -108,7 +107,10 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
         // and pass it to the build strategy. The writer owns the reader lifecycle.
         final FlatVectorsReader flatVectorsReader = openFlatVectorsReader();
         try {
-            final QuantizedByteVectorValues quantizedValues = extractQuantizedByteVectorValues(flatVectorsReader);
+            final QuantizedByteVectorValues quantizedValues = Faiss1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(
+                flatVectorsReader.getFloatVectorValues(fieldInfo.getName()),
+                true
+            );
             doFlush(
                 fieldInfo,
                 fieldWriter,
@@ -141,7 +143,10 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
         // and pass it to the build strategy. The writer owns the reader lifecycle.
         final FlatVectorsReader flatVectorsReader = openFlatVectorsReader();
         try {
-            final QuantizedByteVectorValues quantizedValues = extractQuantizedByteVectorValues(flatVectorsReader);
+            final QuantizedByteVectorValues quantizedValues = Faiss1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(
+                flatVectorsReader.getFloatVectorValues(fieldInfo.getName()),
+                true
+            );
             doMergeOneField(fieldInfo, mergeState, null, null, segmentWriteState, new NativeIndexBuildStrategyFactory(), quantizedValues);
         } finally {
             IOUtils.close(flatVectorsReader);
@@ -179,34 +184,8 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
             segmentWriteState.segmentInfo,
             new FieldInfos(new FieldInfo[] { fieldInfo }),
             segmentWriteState.context,
-            fieldInfo.getName()
+            segmentWriteState.segmentSuffix
         );
         return quantizedFlatVectorsReaderSupplier.apply(readState);
-    }
-
-    /**
-     * Extracts QuantizedByteVectorValues from a FlatVectorsReader via reflection.
-     *
-     * <p>The FlatVectorsReader.getFloatVectorValues() returns a BinarizedVectorValues instance
-     * that wraps both the quantized binary codes and their correction factors. The underlying
-     * QuantizedByteVectorValues is accessed via the private "quantizedVectorValues" field.
-     *
-     * <p>This reflection is necessary because Lucene does not expose a public API to access
-     * the quantized byte vector values directly from the reader.
-     */
-    private QuantizedByteVectorValues extractQuantizedByteVectorValues(final FlatVectorsReader reader) throws IOException {
-        try {
-            final FloatVectorValues floatVectorValues = reader.getFloatVectorValues(fieldInfo.getName());
-            final Field f = floatVectorValues.getClass().getDeclaredField("quantizedVectorValues");
-            f.setAccessible(true);
-            return (QuantizedByteVectorValues) f.get(floatVectorValues);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            throw new IOException(
-                "Failed to extract QuantizedByteVectorValues from FlatVectorsReader for field ["
-                    + fieldInfo.getName()
-                    + "]. This may indicate an incompatible Lucene version.",
-                e
-            );
-        }
     }
 }

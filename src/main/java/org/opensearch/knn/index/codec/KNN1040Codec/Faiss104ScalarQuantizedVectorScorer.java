@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.memoryoptsearch.faiss;
+package org.opensearch.knn.index.codec.KNN1040Codec;
 
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorScorer;
@@ -68,7 +68,11 @@ public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantize
         KnnVectorValues vectorValues,
         float[] target
     ) throws IOException {
-        if (vectorValues instanceof QuantizedByteVectorValues quantizedByteVectorValues) {
+        final QuantizedByteVectorValues quantizedByteVectorValues = Faiss1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(
+            vectorValues,
+            false
+        );
+        if (quantizedByteVectorValues != null) {
             final IndexInput indexInput = quantizedByteVectorValues.getSlice();
             final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(indexInput, 0, indexInput.length());
             if (addressAndSize != null) {

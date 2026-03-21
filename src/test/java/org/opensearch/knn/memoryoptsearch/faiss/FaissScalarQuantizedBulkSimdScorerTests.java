@@ -36,6 +36,7 @@ import org.apache.lucene.util.Version;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.junit.Test;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.codec.KNN1040Codec.Faiss104ScalarQuantizedVectorScorer;
 
 import java.lang.reflect.Field;
 import java.util.Arrays;

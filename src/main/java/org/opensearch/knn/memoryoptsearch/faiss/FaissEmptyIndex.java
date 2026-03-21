@@ -39,4 +39,8 @@ public class FaissEmptyIndex extends FaissIndex {
     public ByteVectorValues getByteValues(IndexInput indexInput) {
         throw new UnsupportedOperationException(String.format("%s does not support this operation.", getClass().getSimpleName()));
     }
+
+    public static boolean isEmptyIndex(final FaissIndex maybeEmptyStorage) {
+        return maybeEmptyStorage instanceof FaissEmptyIndex;
+    }
 }
