@@ -53,6 +53,10 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     private final VectorSimilarityFunction vectorSimilarityFunction;
     private boolean isAdc;
 
+    /**
+     * Constructor that accepts a pre-loaded {@link FaissIndex}. The factory is responsible for
+     * loading the index and applying any transformations (e.g., replacing null flat storage for Faiss SQ (for 1 bit)).
+     */
     public FaissMemoryOptimizedSearcher(
         final IndexInput indexInput,
         final FaissIndex faissIndex,
