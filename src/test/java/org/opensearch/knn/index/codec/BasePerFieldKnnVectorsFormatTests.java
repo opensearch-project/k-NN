@@ -35,8 +35,8 @@ import java.util.function.Function;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_OPTIMIZED_SCALAR_QUANTIZER;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
@@ -230,8 +230,8 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
      * resolver should be called.
      */
     public void testGetKnnVectorsFormatForField_whenLuceneSQ_thenReturnLuceneSQFormat() {
-        Map<String, Object> encoderParams = new HashMap<>();
-        MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_OPTIMIZED_SCALAR_QUANTIZER, encoderParams);
+        Map<String, Object> encoderParams = new HashMap<>(Map.of(LUCENE_SQ_BITS, 1));
+        MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, encoderParams);
 
         Map<String, Object> params = new HashMap<>();
         params.put(METHOD_ENCODER_PARAMETER, encoderContext);

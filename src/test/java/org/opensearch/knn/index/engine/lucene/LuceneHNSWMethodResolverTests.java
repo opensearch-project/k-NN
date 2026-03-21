@@ -21,8 +21,8 @@ import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.Map;
 
-import static org.opensearch.knn.common.KNNConstants.ENCODER_OPTIMIZED_SCALAR_QUANTIZER;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
@@ -136,7 +136,7 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
             SpaceType.INNER_PRODUCT,
             new MethodComponentContext(
                 METHOD_HNSW,
-                Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_OPTIMIZED_SCALAR_QUANTIZER, Map.of()))
+                Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 1)))
             )
         );
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
@@ -148,7 +148,7 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
         assertEquals(METHOD_HNSW, resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getName());
         assertFalse(resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getParameters().isEmpty());
         assertEquals(
-            ENCODER_OPTIMIZED_SCALAR_QUANTIZER,
+            ENCODER_SQ,
             ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
                 .getMethodComponentContext()
                 .getParameters()
@@ -165,7 +165,7 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
         );
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             knnMethodContext,
-            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build(),
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.V_3_3_0).build(),
             false,
             SpaceType.INNER_PRODUCT
         );

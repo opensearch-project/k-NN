@@ -41,6 +41,7 @@ import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
@@ -51,7 +52,6 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_OPTIMIZED_SCALAR_QUANTIZER;
 
 public class IndexingIT extends AbstractRestartUpgradeTestCase {
     private static final String TEST_FIELD = "test-field";
@@ -759,8 +759,8 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
     public void testKNNIndexOptimizedScalarQuantizer() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
 
-        // Skip test if OptimizedScalarQuantizer encoder is not supported in the old cluster version
-        if (isOptimizedScalarQuantizerEncoderSupported(getBWCVersion()) == false) {
+        // Skip test if OptimizedScalarQuantizer is not supported in the old cluster version
+        if (isOptimizedScalarQuantizerSupported(getBWCVersion()) == false) {
             logger.info(
                 "Skipping testKNNIndexOptimizedScalarQuantizer as OptimizedScalarQuantizer encoder is not supported in version: {}",
                 getBWCVersion()
@@ -784,7 +784,10 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 .field(KNN_ENGINE, LUCENE_NAME)
                 .startObject(PARAMETERS)
                 .startObject(METHOD_ENCODER_PARAMETER)
-                .field(NAME, ENCODER_OPTIMIZED_SCALAR_QUANTIZER)
+                .field(NAME, ENCODER_SQ)
+                .startObject(PARAMETERS)
+                .field(LUCENE_SQ_BITS, 1)
+                .endObject()
                 .endObject()
                 .field(METHOD_PARAMETER_EF_CONSTRUCTION, 256)
                 .field(METHOD_PARAMETER_M, 16)

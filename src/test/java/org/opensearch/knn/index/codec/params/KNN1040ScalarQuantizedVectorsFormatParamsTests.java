@@ -10,9 +10,9 @@ import junit.framework.TestCase;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 
-import static org.opensearch.knn.common.KNNConstants.ENCODER_OPTIMIZED_SCALAR_QUANTIZER;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.OPTIMIZED_SCALAR_QUANTIZER_BITS;
 import static org.opensearch.knn.common.KNNConstants.OPTIMIZED_SCALAR_QUANTIZER_DEFAULT_BITS;
 
 import java.util.HashMap;
@@ -24,18 +24,14 @@ public class KNN1040ScalarQuantizedVectorsFormatParamsTests extends TestCase {
 
     public void testInitParams_whenCalled_thenReturnDefaultParams() {
         KNN1040ScalarQuantizedVectorsFormatParams knn1040ScalarQuantizedVectorsFormatParams = new KNN1040ScalarQuantizedVectorsFormatParams(
-            getParamsForConstructor(
-                OPTIMIZED_SCALAR_QUANTIZER_DEFAULT_BITS,
-                ENCODER_OPTIMIZED_SCALAR_QUANTIZER,
-                OPTIMIZED_SCALAR_QUANTIZER_BITS
-            ),
+            getParamsForConstructor(OPTIMIZED_SCALAR_QUANTIZER_DEFAULT_BITS, ENCODER_SQ, LUCENE_SQ_BITS),
             DEFAULT_MAX_CONNECTIONS,
             DEFAULT_BEAM_WIDTH
         );
 
         assertEquals(DEFAULT_MAX_CONNECTIONS, knn1040ScalarQuantizedVectorsFormatParams.getMaxConnections());
         assertEquals(DEFAULT_BEAM_WIDTH, knn1040ScalarQuantizedVectorsFormatParams.getBeamWidth());
-        assertEquals(ENCODER_OPTIMIZED_SCALAR_QUANTIZER, knn1040ScalarQuantizedVectorsFormatParams.getEncoderName());
+        assertEquals(ENCODER_SQ, knn1040ScalarQuantizedVectorsFormatParams.getEncoderName());
         assertEquals(
             ScalarEncoding.fromNumBits(OPTIMIZED_SCALAR_QUANTIZER_DEFAULT_BITS),
             knn1040ScalarQuantizedVectorsFormatParams.getBitEncoding()
@@ -43,11 +39,7 @@ public class KNN1040ScalarQuantizedVectorsFormatParamsTests extends TestCase {
     }
 
     public void testValidate_returnsTrue_withDefaultOptimizedSQParams() {
-        Map<String, Object> params = getParamsForConstructor(
-            OPTIMIZED_SCALAR_QUANTIZER_DEFAULT_BITS,
-            ENCODER_OPTIMIZED_SCALAR_QUANTIZER,
-            OPTIMIZED_SCALAR_QUANTIZER_BITS
-        );
+        Map<String, Object> params = getParamsForConstructor(OPTIMIZED_SCALAR_QUANTIZER_DEFAULT_BITS, ENCODER_SQ, LUCENE_SQ_BITS);
         KNN1040ScalarQuantizedVectorsFormatParams knn1040ScalarQuantizedVectorsFormatParams = new KNN1040ScalarQuantizedVectorsFormatParams(
             params,
             DEFAULT_MAX_CONNECTIONS,
@@ -58,11 +50,7 @@ public class KNN1040ScalarQuantizedVectorsFormatParamsTests extends TestCase {
     }
 
     public void testValidate_returnsFalse_whenNullEncoderProvided() {
-        Map<String, Object> params = getParamsForConstructor(
-            OPTIMIZED_SCALAR_QUANTIZER_DEFAULT_BITS,
-            null,
-            OPTIMIZED_SCALAR_QUANTIZER_BITS
-        );
+        Map<String, Object> params = getParamsForConstructor(OPTIMIZED_SCALAR_QUANTIZER_DEFAULT_BITS, null, LUCENE_SQ_BITS);
         KNN1040ScalarQuantizedVectorsFormatParams knn1040ScalarQuantizedVectorsFormatParams = new KNN1040ScalarQuantizedVectorsFormatParams(
             params,
             DEFAULT_MAX_CONNECTIONS,
@@ -73,11 +61,7 @@ public class KNN1040ScalarQuantizedVectorsFormatParamsTests extends TestCase {
     }
 
     public void testValidate_returnsFalse_whenInvalidEncoderProvided() {
-        Map<String, Object> params = getParamsForConstructor(
-            OPTIMIZED_SCALAR_QUANTIZER_DEFAULT_BITS,
-            "FAKE_ENCODER",
-            OPTIMIZED_SCALAR_QUANTIZER_BITS
-        );
+        Map<String, Object> params = getParamsForConstructor(OPTIMIZED_SCALAR_QUANTIZER_DEFAULT_BITS, "FAKE_ENCODER", LUCENE_SQ_BITS);
         KNN1040ScalarQuantizedVectorsFormatParams knn1040ScalarQuantizedVectorsFormatParams = new KNN1040ScalarQuantizedVectorsFormatParams(
             params,
             DEFAULT_MAX_CONNECTIONS,

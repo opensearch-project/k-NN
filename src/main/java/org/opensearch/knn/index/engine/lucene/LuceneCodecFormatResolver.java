@@ -92,7 +92,7 @@ public class LuceneCodecFormatResolver implements CodecFormatResolver {
                 defaultMaxConnections,
                 defaultBeamWidth
             );
-            if (sqParams.validate(params)) {
+            if (sqParams.validate(params) && sqParams.getBits() != LuceneSQEncoder.Bits.ONE.getValue()) {
                 log.debug(
                     "Initialize KNN vector format for field [{}] with params [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\"",
                     field,

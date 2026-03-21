@@ -9,12 +9,15 @@ import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.AbstractMethodResolver;
+import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
+import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
+import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 
@@ -25,6 +28,7 @@ import java.util.Set;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.index.engine.lucene.LuceneHNSWMethod.HNSW_METHOD_COMPONENT;
+import static org.opensearch.knn.index.engine.lucene.LuceneHNSWMethod.SUPPORTED_ENCODERS;
 
 /**
  * Resolves method configuration for the Lucene HNSW method. Supports optional scalar quantization
@@ -83,14 +87,8 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
         String encoderName;
         MethodComponent encoderComponent;
 
-        // Use Optimized Scalar Quantizer for ON_DISK by default (since compression level resolves to x32 by default for ON_DISK)
-        if (knnMethodConfigContext.getVersionCreated().onOrAfter(Version.V_3_6_0) && resolvedCompressionLevel == CompressionLevel.x32) {
-            encoderName = LuceneHNSWMethod.OPTIMIZED_SCALAR_QUANTIZER_ENCODER.getName();
-            encoderComponent = LuceneHNSWMethod.OPTIMIZED_SCALAR_QUANTIZER_ENCODER.getMethodComponent();
-        } else {
-            encoderName = LuceneHNSWMethod.SQ_ENCODER.getName();
-            encoderComponent = LuceneHNSWMethod.SQ_ENCODER.getMethodComponent();
-        }
+        encoderName = LuceneHNSWMethod.SQ_ENCODER.getName();
+        encoderComponent = LuceneHNSWMethod.SQ_ENCODER.getMethodComponent();
 
         MethodComponentContext encoderComponentContext = new MethodComponentContext(encoderName, new HashMap<>());
         Map<String, Object> resolvedParams = MethodComponent.getParameterMapWithDefaultsAdded(
@@ -100,6 +98,20 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
         );
         encoderComponentContext.getParameters().putAll(resolvedParams);
         methodComponentContext.getParameters().put(METHOD_ENCODER_PARAMETER, encoderComponentContext);
+
+        TrainingConfigValidationInput.TrainingConfigValidationInputBuilder inputBuilder = TrainingConfigValidationInput.builder();
+
+        Encoder encoder = SUPPORTED_ENCODERS.get(encoderName);
+
+        TrainingConfigValidationOutput validationOutput = encoder.validateEncoderConfig(
+            inputBuilder.knnMethodContext(resolvedKNNMethodContext).knnMethodConfigContext(knnMethodConfigContext).build()
+        );
+
+        if (validationOutput.getValid() != null && !validationOutput.getValid()) {
+            ValidationException validationException = new ValidationException();
+            validationException.addValidationError(validationOutput.getErrorMessage());
+            throw validationException;
+        }
     }
 
     // Method validates for explicit contradictions in the config

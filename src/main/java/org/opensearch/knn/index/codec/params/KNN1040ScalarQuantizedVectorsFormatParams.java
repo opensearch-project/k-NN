@@ -12,8 +12,8 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import java.util.Map;
 import java.util.Set;
 
-import static org.opensearch.knn.common.KNNConstants.ENCODER_OPTIMIZED_SCALAR_QUANTIZER;
-import static org.opensearch.knn.common.KNNConstants.OPTIMIZED_SCALAR_QUANTIZER_BITS;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.OPTIMIZED_SCALAR_QUANTIZER_DEFAULT_BITS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 
@@ -22,7 +22,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
  */
 @Getter
 public class KNN1040ScalarQuantizedVectorsFormatParams extends KNNVectorsFormatParams {
-    private static final Set<String> SUPPORTED_ENCODERS = Set.of(ENCODER_OPTIMIZED_SCALAR_QUANTIZER);
+    private static final Set<String> SUPPORTED_ENCODERS = Set.of(ENCODER_SQ);
     private String encoderName;
     private ScalarEncoding bitEncoding;
 
@@ -59,6 +59,6 @@ public class KNN1040ScalarQuantizedVectorsFormatParams extends KNNVectorsFormatP
     }
 
     private void initBits(final Map<String, Object> params) {
-        this.bitEncoding = getOrDefaultBitsForEncoder(params, OPTIMIZED_SCALAR_QUANTIZER_BITS, OPTIMIZED_SCALAR_QUANTIZER_DEFAULT_BITS);
+        this.bitEncoding = getOrDefaultBitsForEncoder(params, LUCENE_SQ_BITS, OPTIMIZED_SCALAR_QUANTIZER_DEFAULT_BITS);
     }
 }

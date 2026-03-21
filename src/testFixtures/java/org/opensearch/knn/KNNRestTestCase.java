@@ -2801,9 +2801,9 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
-     * Optimized Scalar Quantizer encoder is only supported on or after V_3_6_0
+     * Optimized Scalar Quantizer is only supported on or after V_3_6_0
      */
-    protected boolean isOptimizedScalarQuantizerEncoderSupported(final Optional<String> bwcVersion) {
+    protected boolean isOptimizedScalarQuantizerSupported(final Optional<String> bwcVersion) {
         if (bwcVersion.isEmpty()) {
             return false;
         }
