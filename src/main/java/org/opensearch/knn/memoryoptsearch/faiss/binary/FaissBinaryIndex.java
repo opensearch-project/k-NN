@@ -21,6 +21,7 @@ import java.io.IOException;
 public abstract class FaissBinaryIndex extends FaissIndex {
     // Number of bytes per vector (e.g. dimension / 8)
     protected int codeSize;
+    // Metric type in Faiss. See MetricType.h
     protected int metricType;
 
     public FaissBinaryIndex(final String indexType) {

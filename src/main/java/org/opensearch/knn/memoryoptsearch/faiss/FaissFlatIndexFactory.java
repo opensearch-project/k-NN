@@ -66,11 +66,10 @@ public class FaissFlatIndexFactory {
         // we now support other space types (i.e. L2, inner product).
         // Update the space type accordingly.
         final int metricType = idMapIndex.getMetricType();
-        if (metricType == FaissMetricType.INNER_PRODUCT.ordinal()) {
-            idMapIndex.setSpaceType(SpaceType.INNER_PRODUCT);
-        } else if (metricType == FaissMetricType.L2.ordinal()) {
-            idMapIndex.setSpaceType(SpaceType.L2);
-        } else {
+        try {
+            final SpaceType spaceType = FaissMetricType.values()[metricType].spaceType;
+            idMapIndex.setSpaceType(spaceType);
+        } catch (ArrayIndexOutOfBoundsException e) {
             throw new IllegalArgumentException(
                 "Unsupported metric type: " + metricType + ", only support " + Arrays.asList(FaissMetricType.values())
             );

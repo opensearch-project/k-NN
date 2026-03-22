@@ -40,6 +40,14 @@ public class FaissEmptyIndex extends FaissIndex {
         throw new UnsupportedOperationException(String.format("%s does not support this operation.", getClass().getSimpleName()));
     }
 
+    /**
+     * Checks whether the given {@link FaissIndex} is an empty placeholder written by Faiss
+     * when {@code IO_FLAG_SKIP_STORAGE} is used (e.g., Faiss SQ 1-bit where flat vector
+     * storage is omitted from the .faiss file and instead served by Lucene's flat files).
+     *
+     * @param maybeEmptyStorage the index loaded from the storage section of a Faiss HNSW file
+     * @return {@code true} if the index is a {@link FaissEmptyIndex} placeholder
+     */
     public static boolean isEmptyIndex(final FaissIndex maybeEmptyStorage) {
         return maybeEmptyStorage instanceof FaissEmptyIndex;
     }

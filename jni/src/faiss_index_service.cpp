@@ -210,7 +210,7 @@ jlong BinaryIndexService::initFaissBBQIndex(knn_jni::JNIUtilInterface *jniUtil, 
                                             std::string indexDescription, int dim, int numVectors, int threadCount,
                                             std::unordered_map<std::string, jobject> parameters, float centroidDp, int quantizedVectorBytes) {
     if (auto it = parameters.find(M); it == parameters.end()) {
-        throw std::runtime_error("Parameter " + M + " is required for Faiss scalar optimized index");
+        throw std::runtime_error("Parameter [" + M + "] is required for Faiss scalar optimized index");
     }
 
     // Extract `m` from the binary index

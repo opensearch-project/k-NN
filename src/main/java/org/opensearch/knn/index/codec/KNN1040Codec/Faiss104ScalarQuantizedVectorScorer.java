@@ -75,11 +75,15 @@ public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantize
         if (vectorValues instanceof WrappedFloatVectorValues) {
             vectorValues = WrappedFloatVectorValues.getBottomFloatVectorValues(vectorValues);
         }
+
+        // Extract QuantizedByteVectorValues from `vectorValues`.
+        // This should not be null, otherwise it can't get entroid + correction factors.
         final QuantizedByteVectorValues quantizedByteVectorValues = Faiss1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(
             vectorValues,
             true
         );
 
+        // Try bulk SIMD
         final IndexInput indexInput = quantizedByteVectorValues.getSlice();
         final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(indexInput, 0, indexInput.length());
         if (addressAndSize != null) {
