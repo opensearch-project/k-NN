@@ -21,6 +21,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
  */
 @Getter
 public class KNNScalarQuantizedVectorsFormatParams extends KNNVectorsFormatParams {
+    @Deprecated(since = "3.6.0", forRemoval = true)
     private Float confidenceInterval;
     private int bits;
     private boolean compressFlag;
@@ -53,6 +54,7 @@ public class KNNScalarQuantizedVectorsFormatParams extends KNNVectorsFormatParam
         return true;
     }
 
+    @Deprecated(since = "3.6.0", forRemoval = true)
     private void initConfidenceInterval(final Map<String, Object> params) {
 
         if (params != null && params.containsKey(LUCENE_SQ_CONFIDENCE_INTERVAL)) {
