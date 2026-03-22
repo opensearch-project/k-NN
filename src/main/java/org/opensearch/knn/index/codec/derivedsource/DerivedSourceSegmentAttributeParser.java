@@ -22,6 +22,7 @@ public class DerivedSourceSegmentAttributeParser {
 
     static final String DERIVED_SOURCE_FIELD = "derived_vector_fields";
     static final String NESTED_DERIVED_SOURCE_FIELD = "nested_derived_vector_fields";
+    static final String NORM_DERIVED_SOURCE_FIELD = "norm_derived_vector_fields";
     static final String DELIMETER = ",";
 
     /**
@@ -44,6 +45,23 @@ public class DerivedSourceSegmentAttributeParser {
     }
 
     /**
+     * From segmentInfo, parse the norm_derived_vector_fields
+     *
+     * @param segmentInfo {@link SegmentInfo}
+     * @return List of fields that have norm doc values stored. Empty list if none.
+     */
+    public static List<String> parseNormDerivedVectorFields(SegmentInfo segmentInfo) {
+        if (segmentInfo == null) {
+            return Collections.emptyList();
+        }
+        String normFields = segmentInfo.getAttribute(NORM_DERIVED_SOURCE_FIELD);
+        if (StringUtils.isEmpty(normFields)) {
+            return Collections.emptyList();
+        }
+        return Arrays.stream(normFields.split(DELIMETER, -1)).collect(Collectors.toList());
+    }
+
+    /**
      * Adds {@link SegmentInfo} attribute for vectorFieldTypes
      *
      * @param segmentInfo {@link SegmentInfo}
@@ -59,5 +77,18 @@ public class DerivedSourceSegmentAttributeParser {
         }
         String fieldName = isNested ? NESTED_DERIVED_SOURCE_FIELD : DERIVED_SOURCE_FIELD;
         segmentInfo.putAttribute(fieldName, String.join(DELIMETER, fields));
+    }
+
+    /**
+     * Adds {@link SegmentInfo} attribute for norm vector fields
+     *
+     * @param segmentInfo {@link SegmentInfo}
+     * @param fields Set of vector field names that have norm doc values
+     */
+    public static void addNormDerivedVectorFieldsAttribute(SegmentInfo segmentInfo, Set<String> fields) {
+        if (segmentInfo == null || fields == null || fields.isEmpty()) {
+            return;
+        }
+        segmentInfo.putAttribute(NORM_DERIVED_SOURCE_FIELD, String.join(DELIMETER, fields));
     }
 }

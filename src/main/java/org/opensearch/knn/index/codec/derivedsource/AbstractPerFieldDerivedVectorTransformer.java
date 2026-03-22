@@ -29,13 +29,46 @@ public abstract class AbstractPerFieldDerivedVectorTransformer implements PerFie
         CheckedSupplier<Object, IOException> vectorSupplier,
         CheckedSupplier<Object, IOException> vectorCloneSupplier
     ) throws IOException {
+        return formatVector(fieldInfo, vectorSupplier, vectorCloneSupplier, 1.0f);
+    }
+
+    /**
+     * Utility method for formatting the vector values based on the vector data type, with optional denormalization.
+     *
+     * @param fieldInfo fieldinfo for the vector field
+     * @param vectorSupplier supplies vector (without clone)
+     * @param vectorCloneSupplier supplies clone of vector.
+     * @param norm L2 norm to apply for denormalization. 1.0f means no denormalization.
+     * @return vector formatted based on the vector data type. Typically, this will be a float[] or int[].
+     * @throws IOException if unable to deserialize stored vector
+     */
+    protected Object formatVector(
+        FieldInfo fieldInfo,
+        CheckedSupplier<Object, IOException> vectorSupplier,
+        CheckedSupplier<Object, IOException> vectorCloneSupplier,
+        float norm
+    ) throws IOException {
         Object vectorValue = vectorSupplier.get();
         // If the vector value is a byte[], we must deserialize
         if (vectorValue instanceof byte[]) {
             BytesRef vectorBytesRef = new BytesRef((byte[]) vectorValue);
             VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(fieldInfo);
-            return KNNVectorFieldMapperUtil.deserializeStoredVector(vectorBytesRef, vectorDataType);
+            Object deserialized = KNNVectorFieldMapperUtil.deserializeStoredVector(vectorBytesRef, vectorDataType);
+            if (norm != 1.0f && deserialized instanceof float[] floatVector) {
+                denormalize(floatVector, norm);
+            }
+            return deserialized;
         }
-        return vectorCloneSupplier.get();
+        float[] vector = (float[]) vectorCloneSupplier.get();
+        if (norm != 1.0f) {
+            denormalize(vector, norm);
+        }
+        return vector;
+    }
+
+    private static void denormalize(float[] vector, float norm) {
+        for (int i = 0; i < vector.length; i++) {
+            vector[i] *= norm;
+        }
     }
 }

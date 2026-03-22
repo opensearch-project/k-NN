@@ -7,6 +7,7 @@ package org.opensearch.knn.common;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import org.apache.lucene.util.VectorUtil;
 
 import java.util.List;
 import java.util.Objects;

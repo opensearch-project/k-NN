@@ -53,7 +53,8 @@ public class DerivedSourceVectorTransformer {
             PerFieldDerivedVectorTransformer perFieldDerivedVectorTransformer = PerFieldDerivedVectorTransformerFactory.create(
                 derivedFieldInfo.fieldInfo(),
                 derivedFieldInfo.isNested(),
-                derivedSourceReaders
+                derivedSourceReaders,
+                segmentReadState.fieldInfos
             );
             perFieldDerivedVectorTransformers.put(derivedFieldInfo.name(), perFieldDerivedVectorTransformer);
         }

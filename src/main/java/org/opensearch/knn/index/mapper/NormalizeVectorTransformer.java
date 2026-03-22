@@ -43,4 +43,16 @@ public class NormalizeVectorTransformer implements VectorTransformer {
             throw new IllegalArgumentException("Vector cannot be null or empty");
         }
     }
+
+    /**
+     * Calculate L2 norm of a given float vector.
+     *
+     * @param vector the vector
+     * @return L2 norm of the vector
+     */
+    @Override
+    public float computeL2Norm(final float[] vector) {
+        float dot = VectorUtil.dotProduct(vector, vector);
+        return (float) Math.sqrt(dot);
+    }
 }

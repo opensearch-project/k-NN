@@ -6,6 +6,8 @@
 package org.opensearch.knn.index.codec.derivedsource;
 
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.FieldInfos;
+import org.opensearch.knn.common.KNNConstants;
 
 public class PerFieldDerivedVectorTransformerFactory {
 
@@ -13,21 +15,22 @@ public class PerFieldDerivedVectorTransformerFactory {
      * Create a {@link PerFieldDerivedVectorTransformer} instance based on information in field info.
      *
      * @param fieldInfo FieldInfo for the field to create the injector for
+     * @param isNested whether the field is nested
      * @param derivedSourceReaders {@link DerivedSourceReaders} instance
-     * @return PerFieldDerivedVectorInjector instance
+     * @param fieldInfos FieldInfos to look up the norm field
+     * @return PerFieldDerivedVectorTransformer instance
      */
     public static PerFieldDerivedVectorTransformer create(
         FieldInfo fieldInfo,
         boolean isNested,
-        DerivedSourceReaders derivedSourceReaders
+        DerivedSourceReaders derivedSourceReaders,
+        FieldInfos fieldInfos
     ) {
-        // Nested case
+        FieldInfo normFieldInfo = fieldInfos.fieldInfo(KNNConstants.NORM_FIELD_PREFIX + fieldInfo.name);
+
         if (isNested) {
-            return new NestedPerFieldDerivedVectorTransformer(fieldInfo, derivedSourceReaders);
+            return new NestedPerFieldDerivedVectorTransformer(fieldInfo, derivedSourceReaders, normFieldInfo);
         }
-
-        // Non-nested case
-        return new RootPerFieldDerivedVectorTransformer(fieldInfo, derivedSourceReaders);
+        return new RootPerFieldDerivedVectorTransformer(fieldInfo, derivedSourceReaders, normFieldInfo);
     }
-
 }

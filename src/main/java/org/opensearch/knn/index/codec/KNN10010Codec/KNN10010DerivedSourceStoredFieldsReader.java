@@ -16,11 +16,13 @@ import org.opensearch.knn.index.codec.derivedsource.DerivedSourceStoredFieldVisi
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceVectorTransformer;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 
 public class KNN10010DerivedSourceStoredFieldsReader extends StoredFieldsReader {
     private final StoredFieldsReader delegate;
     private final List<DerivedFieldInfo> derivedVectorFields;
+    private final List<String> normFields;
     private final DerivedSourceReaders derivedSourceReaders;
     private final SegmentReadState segmentReadState;
     private final boolean shouldInject;
@@ -42,18 +44,30 @@ public class KNN10010DerivedSourceStoredFieldsReader extends StoredFieldsReader 
         DerivedSourceReaders derivedSourceReaders,
         SegmentReadState segmentReadState
     ) throws IOException {
-        this(delegate, derivedVectorFields, derivedSourceReaders, segmentReadState, true);
+        this(delegate, derivedVectorFields, Collections.emptyList(), derivedSourceReaders, segmentReadState, true);
+    }
+
+    public KNN10010DerivedSourceStoredFieldsReader(
+        StoredFieldsReader delegate,
+        List<DerivedFieldInfo> derivedVectorFields,
+        List<String> normFields,
+        DerivedSourceReaders derivedSourceReaders,
+        SegmentReadState segmentReadState
+    ) throws IOException {
+        this(delegate, derivedVectorFields, normFields, derivedSourceReaders, segmentReadState, true);
     }
 
     private KNN10010DerivedSourceStoredFieldsReader(
         StoredFieldsReader delegate,
         List<DerivedFieldInfo> derivedVectorFields,
+        List<String> normFields,
         DerivedSourceReaders derivedSourceReaders,
         SegmentReadState segmentReadState,
         boolean shouldInject
     ) throws IOException {
         this.delegate = delegate;
         this.derivedVectorFields = derivedVectorFields;
+        this.normFields = normFields;
         this.derivedSourceReaders = derivedSourceReaders;
         this.segmentReadState = segmentReadState;
         this.shouldInject = shouldInject;
@@ -99,6 +113,7 @@ public class KNN10010DerivedSourceStoredFieldsReader extends StoredFieldsReader 
             return new KNN10010DerivedSourceStoredFieldsReader(
                 delegate.clone(),
                 derivedVectorFields,
+                normFields,
                 derivedSourceReaders.clone(),
                 segmentReadState,
                 shouldInject
@@ -130,6 +145,7 @@ public class KNN10010DerivedSourceStoredFieldsReader extends StoredFieldsReader 
             return new KNN10010DerivedSourceStoredFieldsReader(
                 delegate.getMergeInstance(),
                 derivedVectorFields,
+                normFields,
                 derivedSourceReaders.getMergeInstance(),
                 segmentReadState,
                 false
@@ -159,6 +175,14 @@ public class KNN10010DerivedSourceStoredFieldsReader extends StoredFieldsReader 
      */
     public List<DerivedFieldInfo> getDerivedVectorFields() {
         return derivedVectorFields;
+    }
+
+    /**
+     * Returns the list of norm fields for this reader.
+     * Used during merge to collect norm field names from source segments.
+     */
+    public List<String> getNormFields() {
+        return normFields;
     }
 
 }

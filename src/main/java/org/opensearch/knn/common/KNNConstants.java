@@ -218,4 +218,7 @@ public class KNNConstants {
     public static final int BYTE_ALIGNMENT_MASK = 7; // Used for rounding up to nearest byte (Byte.SIZE - 1)
     // Define here: https://github.com/opensearch-project/remote-vector-index-builder/blob/main/API.md#index-parameters
     public static final int MIN_DOCS_FOR_REMOTE_INDEX_BUILD = 4;
+
+    // Norm field
+    public static final String NORM_FIELD_PREFIX = "_knn_norm_";
 }

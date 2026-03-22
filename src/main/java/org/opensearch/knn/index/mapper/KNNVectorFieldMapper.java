@@ -21,6 +21,7 @@ import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
+import org.apache.lucene.document.FloatDocValuesField;
 import org.apache.lucene.index.IndexOptions;
 import org.opensearch.Version;
 import org.opensearch.common.Explicit;
@@ -37,6 +38,7 @@ import org.opensearch.index.mapper.MapperParsingException;
 import org.opensearch.index.mapper.ParametrizedFieldMapper;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.common.KNNVectorUtil;
 import org.opensearch.knn.index.DerivedKnnByteVectorField;
 import org.opensearch.knn.index.DerivedKnnFloatVectorField;
 import org.opensearch.knn.index.KNNSettings;
@@ -678,9 +680,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         parseCreateField(context, fieldType().getKnnMappingConfig().getDimension(), fieldType().getVectorDataType());
     }
 
-    private Field createVectorField(float[] vectorValue, boolean isDerivedEnabled) {
+    private Field createVectorField(float[] vectorValue, boolean isDerivedEnabled, float norm) {
         if (useLuceneBasedVectorField) {
-            return new DerivedKnnFloatVectorField(name(), vectorValue, fieldType, isDerivedEnabled);
+            return new DerivedKnnFloatVectorField(name(), vectorValue, fieldType, isDerivedEnabled, norm);
         }
         return new VectorField(name(), vectorValue, fieldType);
     }
@@ -698,11 +700,14 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
      * @param array array of floats
      * @return {@link List} of {@link Field}
      */
-    protected List<Field> getFieldsForFloatVector(final float[] array, boolean isDerivedEnabled) {
+    protected List<Field> getFieldsForFloatVector(final float[] array, boolean isDerivedEnabled, float norm) {
         final List<Field> fields = new ArrayList<>();
-        fields.add(createVectorField(array, isDerivedEnabled));
+        fields.add(createVectorField(array, isDerivedEnabled, norm));
         if (this.stored) {
             fields.add(createStoredFieldForFloatVector(name(), array));
+        }
+        if(isDerivedEnabled && norm != 1.0f) {
+            fields.add(new FloatDocValuesField(KNNConstants.NORM_FIELD_PREFIX + name(), norm));
         }
         return fields;
     }
@@ -787,8 +792,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
             final float[] array = floatsArrayOptional.get();
             getVectorValidator().validateVector(array);
-            getVectorTransformer().transform(array, true);
-            context.doc().addAll(getFieldsForFloatVector(array, isDerivedEnabled(context)));
+            VectorTransformer transformer = getVectorTransformer();
+            float norm = transformer.computeL2Norm(array);
+            transformer.transform(array, true);
+            context.doc().addAll(getFieldsForFloatVector(array, isDerivedEnabled(context), norm));
         } else {
             throw new IllegalArgumentException(
                 String.format(Locale.ROOT, "Cannot parse context for unsupported values provided for field [%s]", VECTOR_DATA_TYPE_FIELD)

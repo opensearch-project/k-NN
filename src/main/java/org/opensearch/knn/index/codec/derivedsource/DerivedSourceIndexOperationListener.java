@@ -98,6 +98,14 @@ public class DerivedSourceIndexOperationListener implements IndexingOperationLis
         return operation;
     }
 
+    private float[] denormalize(float[] normalizedVector, float norm) {
+        float[] result = new float[normalizedVector.length];
+        for (int i = 0; i < normalizedVector.length; i++) {
+            result[i] = normalizedVector[i] * norm;
+        }
+        return result;
+    }
+
     private Pair<Function<Map<String, Object>, Map<String, Object>>> createInjectTransformer(Engine.Index operation) {
         Map<String, List<Object>> injectedVectors = new HashMap<>();
 
@@ -106,8 +114,13 @@ public class DerivedSourceIndexOperationListener implements IndexingOperationLis
             for (Iterator<IndexableField> it = document.iterator(); it.hasNext();) {
                 IndexableField indexableField = it.next();
                 if (indexableField instanceof DerivedKnnFloatVectorField knnVectorFieldType && knnVectorFieldType.isDerivedEnabled()) {
+                    Object vector = formatVector(VectorDataType.FLOAT, knnVectorFieldType.vectorValue());
+                    float norm = knnVectorFieldType.getVectorNorm();
+                    if (norm != 1.0f && vector instanceof float[] floatVector) {
+                        vector = denormalize(floatVector, norm);
+                    }
                     injectedVectors.computeIfAbsent(indexableField.name(), k -> new ArrayList<>())
-                        .add(formatVector(VectorDataType.FLOAT, knnVectorFieldType.vectorValue()));
+                        .add(vector);
                 }
 
                 if (indexableField instanceof DerivedKnnByteVectorField knnByteVectorField && knnByteVectorField.isDerivedEnabled()) {
