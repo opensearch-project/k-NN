@@ -17,6 +17,7 @@ import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.apache.lucene.util.quantization.OptimizedScalarQuantizer;
 import org.opensearch.knn.jni.SimdVectorComputeService;
 import org.opensearch.knn.memoryoptsearch.MemorySegmentAddressExtractorUtil;
+import org.opensearch.knn.memoryoptsearch.faiss.WrappedFloatVectorValues;
 
 import java.io.IOException;
 
@@ -68,6 +69,12 @@ public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantize
         KnnVectorValues vectorValues,
         float[] target
     ) throws IOException {
+        // For the sparse case, KnnVectorValues having `QuantizedByteVectorValues` might be wrapped to support
+        // vector ordinal to doc id mapping. For the dense case, it's not needed as vector ordinal is always the same
+        // as doc id.
+        if (vectorValues instanceof WrappedFloatVectorValues) {
+            vectorValues = WrappedFloatVectorValues.getBottomFloatVectorValues(vectorValues);
+        }
         final QuantizedByteVectorValues quantizedByteVectorValues = Faiss1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(
             vectorValues,
             true

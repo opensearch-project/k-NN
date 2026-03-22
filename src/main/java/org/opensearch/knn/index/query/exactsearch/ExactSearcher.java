@@ -125,7 +125,6 @@ public class ExactSearcher {
         // Creating min heap and init with MAX DocID and Score as -INF.
         final HitQueue queue = new HitQueue(limit, true);
         ScoreDoc topDoc = queue.top();
-        final Map<Integer, Float> docToScore = new HashMap<>();
         int docId;
         while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
             final float currentScore = iterator.score();

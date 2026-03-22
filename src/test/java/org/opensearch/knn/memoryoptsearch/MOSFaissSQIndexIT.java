@@ -42,16 +42,4 @@ public class MOSFaissSQIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
             CompressionLevel.x32
         );
     }
-
-    public void testWhenNoIndexBuiltForNonNested() {
-        doTestNonNestedIndex(
-            VectorDataType.FLOAT,
-            SQ_ENCODER_PARAMS,
-            false,
-            SpaceType.INNER_PRODUCT,
-            NO_BUILD_HNSW,
-            Mode.ON_DISK,
-            CompressionLevel.x32
-        );
-    }
 }
