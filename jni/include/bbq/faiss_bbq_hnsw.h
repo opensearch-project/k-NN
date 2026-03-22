@@ -16,6 +16,9 @@ namespace knn_jni {
             own_fields = true;
             // Set metric type that was given, not just blindly use default space type.
             metric_type = _faiss_bbq_flat->metric_type;
+            // Since HNSW is setting query pointer as `base + query_index * index_hnsw.code_size`
+            // we should update code_size in here.
+            code_size = _faiss_bbq_flat->code_size;
         }
 
         faiss::DistanceComputer* get_distance_computer() const final {
