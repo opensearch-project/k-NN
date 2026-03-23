@@ -141,6 +141,11 @@ public class FaissSQEncoder implements Encoder {
         return CompressionLevel.x2;
     }
 
+    // TODO: The Encoder interface's validateEncoderConfig uses TrainingConfigValidation* types that were
+    // designed for model training. We should add a general-purpose validation method to the Encoder interface
+    // (e.g. Encoder.validate(KNNMethodContext, KNNMethodConfigContext)) that both Faiss and Lucene resolvers
+    // can delegate to, decoupled from training concerns. See LuceneHNSWMethodResolver.validateEncoderParams()
+    // for the Lucene equivalent that avoids the training interface.
     @Override
     public TrainingConfigValidationOutput validateEncoderConfig(TrainingConfigValidationInput validationInput) {
         TrainingConfigValidationOutput.TrainingConfigValidationOutputBuilder builder = TrainingConfigValidationOutput.builder();
@@ -163,6 +168,7 @@ public class FaissSQEncoder implements Encoder {
         boolean isV360OrLater = version != null && version.onOrAfter(Version.V_3_6_0);
         Object bitsObj = encoderParams.get(SQ_BITS);
         boolean hasType = encoderParams.containsKey(FAISS_SQ_TYPE);
+        boolean hasClip = encoderParams.containsKey(FAISS_SQ_CLIP);
 
         // On 3.6.0+, bits is required when the user explicitly specifies the sq encoder for FLOAT data
         if (isV360OrLater && bitsObj == null && configContext.getVectorDataType() == VectorDataType.FLOAT) {
@@ -183,21 +189,40 @@ public class FaissSQEncoder implements Encoder {
         if (bitsObj instanceof Integer) {
             int bits = (Integer) bitsObj;
 
-            // bits=1 does not support the type parameter
-            if (bits == Bits.ONE.getValue() && hasType) {
-                return builder.valid(false)
-                    .errorMessage(
-                        String.format(
-                            Locale.ROOT,
-                            "Parameter [%s] is not supported when [%s=%d] for encoder [%s]. "
-                                + "The 1-bit scalar quantization path does not use the type parameter.",
-                            FAISS_SQ_TYPE,
-                            SQ_BITS,
-                            bits,
-                            ENCODER_SQ
+            // type and clip is only applicable for fp16 (bits=16)
+            if (Bits.SIXTEEN.getValue() != bits) {
+                if (hasType) {
+                    return builder.valid(false)
+                        .errorMessage(
+                            String.format(
+                                Locale.ROOT,
+                                "Parameter [%s] is not supported when [%s=%d] for encoder [%s]. "
+                                    + "The type parameter is only applicable for fp16 quantization (bits=16).",
+                                FAISS_SQ_TYPE,
+                                SQ_BITS,
+                                bits,
+                                ENCODER_SQ
+                            )
                         )
-                    )
-                    .build();
+                        .build();
+                }
+
+                if (hasClip) {
+                    return builder.valid(false)
+                        .errorMessage(
+                            String.format(
+                                Locale.ROOT,
+                                "Parameter [%s] is not supported when [%s=%d] for encoder [%s]. "
+                                    + "Clipping is only applicable for fp16 quantization (bits=16).",
+                                FAISS_SQ_CLIP,
+                                SQ_BITS,
+                                bits,
+                                ENCODER_SQ
+                            )
+                        )
+                        .build();
+                }
+
             }
 
             // Validate compression level compatibility if explicitly set

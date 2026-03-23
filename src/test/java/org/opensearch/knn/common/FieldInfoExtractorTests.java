@@ -13,6 +13,7 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.faiss.SQConfig;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 
@@ -107,5 +108,30 @@ public class FieldInfoExtractorTests extends KNNTestCase {
         Mockito.when(fieldInfos.fieldInfo("valid")).thenReturn(fieldInfo);
         Assert.assertNull(FieldInfoExtractor.getFieldInfo(leafReader, "invalid"));
         Assert.assertEquals(fieldInfo, FieldInfoExtractor.getFieldInfo(leafReader, "valid"));
+    }
+
+    public void testIsSQField_whenAttributePresent_thenTrue() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getAttribute(KNNConstants.SQ_CONFIG)).thenReturn("bits=1");
+        Assert.assertTrue(FieldInfoExtractor.isSQField(fieldInfo));
+    }
+
+    public void testIsSQField_whenAttributeAbsent_thenFalse() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getAttribute(KNNConstants.SQ_CONFIG)).thenReturn(null);
+        Assert.assertFalse(FieldInfoExtractor.isSQField(fieldInfo));
+    }
+
+    public void testExtractSQConfig_whenPresent_thenReturnConfig() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getAttribute(KNNConstants.SQ_CONFIG)).thenReturn("bits=1");
+        SQConfig config = FieldInfoExtractor.extractSQConfig(fieldInfo);
+        Assert.assertEquals(1, config.getBits());
+    }
+
+    public void testExtractSQConfig_whenAbsent_thenReturnEmpty() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getAttribute(KNNConstants.SQ_CONFIG)).thenReturn(null);
+        Assert.assertSame(SQConfig.EMPTY, FieldInfoExtractor.extractSQConfig(fieldInfo));
     }
 }

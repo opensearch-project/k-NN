@@ -24,6 +24,7 @@ import java.util.Map;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_FLAT_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
@@ -110,6 +111,30 @@ public class FaissSQEncoderTests extends KNNTestCase {
         assertTrue(output.getErrorMessage().contains("not supported"));
     }
 
+    // --- Validation: bits=1 + clip not allowed ---
+
+    public void testValidate_whenBits1WithClip_thenError() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        TrainingConfigValidationOutput output = encoder.validateEncoderConfig(
+            buildValidationInput(Version.CURRENT, CompressionLevel.NOT_CONFIGURED, Map.of(SQ_BITS, 1, FAISS_SQ_CLIP, true))
+        );
+        assertNotNull(output.getValid());
+        assertFalse(output.getValid());
+        assertTrue(output.getErrorMessage().contains("clip"));
+    }
+
+    public void testValidate_whenBits16WithClip_thenOk() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        TrainingConfigValidationOutput output = encoder.validateEncoderConfig(
+            buildValidationInput(
+                Version.CURRENT,
+                CompressionLevel.NOT_CONFIGURED,
+                Map.of(SQ_BITS, 16, FAISS_SQ_TYPE, "fp16", FAISS_SQ_CLIP, true)
+            )
+        );
+        assertNull(output.getValid());
+    }
+
     // --- Validation: compression level compatibility ---
 
     public void testValidate_whenBits1WithX32Compression_thenOk() {
@@ -176,5 +201,37 @@ public class FaissSQEncoderTests extends KNNTestCase {
         );
 
         return TrainingConfigValidationInput.builder().knnMethodContext(methodContext).knnMethodConfigContext(configContext).build();
+    }
+
+    // --- isSQOneBit utility ---
+
+    public void testIsSQOneBit_whenSQWithBits1_thenTrue() {
+        MethodComponentContext encoderCtx = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 1));
+        Map<String, Object> params = Map.of(METHOD_ENCODER_PARAMETER, encoderCtx);
+        assertTrue(FaissSQEncoder.isSQOneBit(params));
+    }
+
+    public void testIsSQOneBit_whenSQWithBits16_thenFalse() {
+        MethodComponentContext encoderCtx = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 16));
+        Map<String, Object> params = Map.of(METHOD_ENCODER_PARAMETER, encoderCtx);
+        assertFalse(FaissSQEncoder.isSQOneBit(params));
+    }
+
+    public void testIsSQOneBit_whenNonSQEncoder_thenFalse() {
+        MethodComponentContext encoderCtx = new MethodComponentContext("flat", Map.of());
+        Map<String, Object> params = Map.of(METHOD_ENCODER_PARAMETER, encoderCtx);
+        assertFalse(FaissSQEncoder.isSQOneBit(params));
+    }
+
+    public void testIsSQOneBit_whenNullParams_thenFalse() {
+        assertFalse(FaissSQEncoder.isSQOneBit(null));
+    }
+
+    public void testIsSQOneBit_whenNoEncoder_thenFalse() {
+        assertFalse(FaissSQEncoder.isSQOneBit(Map.of()));
+    }
+
+    public void testIsSQOneBit_whenEncoderNotMethodComponentContext_thenFalse() {
+        assertFalse(FaissSQEncoder.isSQOneBit(Map.of(METHOD_ENCODER_PARAMETER, "not_a_context")));
     }
 }
