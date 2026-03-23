@@ -17,7 +17,7 @@
 #include "faiss/IndexIVFFlat.h"
 #include "faiss/IndexBinaryIVF.h"
 #include "faiss/IndexIDMap.h"
-#include "bbq/faiss_bbq_hnsw.h"
+#include "sq/faiss_sq_hnsw.h"
 #include <iostream>
 
 #include <string>
@@ -217,8 +217,8 @@ jlong BinaryIndexService::initFaissBBQIndex(knn_jni::JNIUtilInterface *jniUtil, 
     const int32_t m = jniUtil->ConvertJavaObjectToCppInteger(env, parameters[M]);
 
     // Create Faiss BBQ HNSW Index
-    std::unique_ptr<knn_jni::FaissBBQHnsw> faissBBQHnsw (new knn_jni::FaissBBQHnsw(
-        m, new knn_jni::FaissBBQFlat(numVectors, quantizedVectorBytes, centroidDp, dim, metric)));
+    std::unique_ptr<knn_jni::FaissSQHnsw> faissBBQHnsw (new knn_jni::FaissSQHnsw(
+        m, new knn_jni::FaissSQFlat(numVectors, quantizedVectorBytes, centroidDp, dim, metric)));
 
     // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
     if (threadCount != 0) {

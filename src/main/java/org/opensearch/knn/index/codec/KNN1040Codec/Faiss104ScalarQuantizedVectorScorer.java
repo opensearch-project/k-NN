@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorScorer;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
@@ -40,6 +41,7 @@ import static org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectors
  * <p>The SIMD path uses a precomputed search context and performs scoring in native code
  * (e.g., AVX-512), significantly improving throughput for large-scale vector search.
  */
+@Log4j2
 public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantizedVectorScorer {
     /**
      * Creates a new scorer that wraps a non-quantized delegate scorer.
@@ -79,8 +81,7 @@ public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantize
         // Extract QuantizedByteVectorValues from `vectorValues`.
         // This should not be null, otherwise it can't get entroid + correction factors.
         final QuantizedByteVectorValues quantizedByteVectorValues = Faiss1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(
-            vectorValues,
-            true
+            vectorValues
         );
 
         // Try bulk SIMD
@@ -91,6 +92,7 @@ public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantize
         }
 
         // Fallback
+        log.warn("Bulk SIMD for Faiss SQ is not supported, falling back to Lucene's random vector scorer");
         return super.getRandomVectorScorer(similarityFunction, quantizedByteVectorValues, target);
     }
 

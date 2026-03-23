@@ -11,8 +11,7 @@ import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 
 /**
- * This is testing disk modes (32x, 16x, 8x) with LuceneOnFaiss is on.
- * Note that Faiss does not support 4x, and Faiss uses FP16 as 2x which is already covered in {@link MOSFaissFP16IndexIT}.
+ * This is testing Faiss SQ 32x for all possible combinations.
  */
 public class MOSFaissSQIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
     // Explicit BQ encoder params to pin x32 tests to binary quantizer (not BBQ).

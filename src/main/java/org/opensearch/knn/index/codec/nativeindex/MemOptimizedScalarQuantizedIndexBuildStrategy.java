@@ -144,7 +144,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
         } catch (final Exception e) {
             // Release the native Faiss BBQ index to prevent off-heap memory leaks.
             // The indexMemoryAddress points to faiss::IndexBinaryIDMap* which owns the entire
-            // hierarchy (IndexBinaryIDMap → FaissBBQHnsw → FaissBBQFlat) via own_fields = true.
+            // hierarchy (IndexBinaryIDMap → FaissSQHnsw → FaissSQFlat) via own_fields = true.
             JNIService.releaseBBQIndex(indexMemoryAddress, indexInfo.getKnnEngine());
             throw e;
         }

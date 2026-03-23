@@ -108,8 +108,7 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
         final FlatVectorsReader flatVectorsReader = openFlatVectorsReader();
         try {
             final QuantizedByteVectorValues quantizedValues = Faiss1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(
-                flatVectorsReader.getFloatVectorValues(fieldInfo.getName()),
-                true
+                flatVectorsReader.getFloatVectorValues(fieldInfo.getName())
             );
             doFlush(
                 fieldInfo,
@@ -144,8 +143,7 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
         final FlatVectorsReader flatVectorsReader = openFlatVectorsReader();
         try {
             final QuantizedByteVectorValues quantizedValues = Faiss1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(
-                flatVectorsReader.getFloatVectorValues(fieldInfo.getName()),
-                true
+                flatVectorsReader.getFloatVectorValues(fieldInfo.getName())
             );
             doMergeOneField(fieldInfo, mergeState, null, null, segmentWriteState, new NativeIndexBuildStrategyFactory(), quantizedValues);
         } finally {

@@ -11,6 +11,7 @@ import org.apache.lucene.index.KnnVectorValues;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.util.Locale;
 
 /**
  * Utility class for extracting quantized vector values from Lucene's internal reader structures.
@@ -26,6 +27,7 @@ import java.lang.reflect.Field;
  */
 @UtilityClass
 class Faiss1040ScalarQuantizedUtils {
+    private static final String QUANTIZED_VECTOR_VALUES_FIELD_NAME = "quantizedVectorValues";
 
     /**
      * Extracts {@link QuantizedByteVectorValues} from the given {@link KnnVectorValues} via reflection.
@@ -36,38 +38,28 @@ class Faiss1040ScalarQuantizedUtils {
      * quantized codes and their correction factors (lower/upper intervals, additional correction,
      * and quantized component sum).
      *
-     * @param floatVectorValues    the vector values instance to extract quantized values from;
-     *                             typically a {@code ScalarQuantizedVectorValues}
-     * @param throwExceptionIfNotFound if {@code true}, throws {@link IOException} when the field
-     *                                 cannot be found (e.g., incompatible Lucene version);
-     *                                 if {@code false}, returns {@code null} silently
+     * @param floatVectorValues the vector values instance to extract quantized values from;
+     *                          typically a {@code ScalarQuantizedVectorValues}
      * @return the extracted {@link QuantizedByteVectorValues}, or {@code null} if not found
-     *         and {@code throwExceptionIfNotFound} is {@code false}
+     * and {@code throwExceptionIfNotFound} is {@code false}
      * @throws IOException if extraction fails and {@code throwExceptionIfNotFound} is {@code true}
      */
-    public static QuantizedByteVectorValues extractQuantizedByteVectorValues(
-        final KnnVectorValues floatVectorValues,
-        final boolean throwExceptionIfNotFound
-    ) throws IOException {
+    public static QuantizedByteVectorValues extractQuantizedByteVectorValues(final KnnVectorValues floatVectorValues) throws IOException {
         try {
-            final Field f = floatVectorValues.getClass().getDeclaredField("quantizedVectorValues");
+            final Field f = floatVectorValues.getClass().getDeclaredField(QUANTIZED_VECTOR_VALUES_FIELD_NAME);
             f.setAccessible(true);
             return (QuantizedByteVectorValues) f.get(floatVectorValues);
         } catch (NoSuchFieldException | IllegalAccessException e) {
-            if (throwExceptionIfNotFound) {
-                throw new IOException(
-                    "Failed to extract QuantizedByteVectorValues from floatVectorValues ["
-                        + floatVectorValues.getClass().getSimpleName()
-                        + "/"
-                        + floatVectorValues
-                        + "]"
-                        + " This may indicate an incompatible Lucene "
-                        + "version.",
-                    e
-                );
-            }
+            throw new IOException(
+                String.format(
+                    Locale.ROOT,
+                    "Failed to extract QuantizedByteVectorValues from floatVectorValues [%s/%s]."
+                        + " This may indicate an incompatible Lucene version.",
+                    floatVectorValues.getClass().getSimpleName(),
+                    floatVectorValues
+                ),
+                e
+            );
         }
-
-        return null;
     }
 }
