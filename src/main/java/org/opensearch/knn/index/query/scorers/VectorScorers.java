@@ -18,6 +18,7 @@ import org.apache.lucene.search.VectorScorer;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.opensearch.common.Nullable;
+import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
@@ -48,7 +49,7 @@ public final class VectorScorers {
      * @param target    the float query vector
      * @param vectorScorerMode determines whether to use scoring or rescoring
      * @param spaceType the space type defining the similarity function
-     * @param fieldInfo the field info for the vector field, or null if not available
+     * @param fieldInfo the field info for the vector field
      * @return a {@link VectorScorer} appropriate for the underlying vector storage format
      * @throws IOException if an I/O error occurs
      */
@@ -57,7 +58,7 @@ public final class VectorScorers {
         final float[] target,
         final VectorScorerMode vectorScorerMode,
         final SpaceType spaceType,
-        @Nullable final FieldInfo fieldInfo
+        final FieldInfo fieldInfo
     ) throws IOException {
         return createScorer(docIdsIteratorValues, target, vectorScorerMode, spaceType, fieldInfo, null, null);
     }
@@ -71,7 +72,7 @@ public final class VectorScorers {
      * @param target    the float query vector
      * @param vectorScorerMode determines whether to use scoring or rescoring
      * @param spaceType the space type defining the similarity function
-     * @param fieldInfo the field info for the vector field, or null if not available
+     * @param fieldInfo the field info for the vector field
      * @param filteredIdsIterator iterator over accepted child documents, or null if not nested
      * @param parentBitSet bit set identifying parent documents, or null if not nested
      * @return a {@link VectorScorer} appropriate for the underlying vector storage format
@@ -82,7 +83,7 @@ public final class VectorScorers {
         final float[] target,
         final VectorScorerMode vectorScorerMode,
         final SpaceType spaceType,
-        @Nullable final FieldInfo fieldInfo,
+        final FieldInfo fieldInfo,
         @Nullable final DocIdSetIterator filteredIdsIterator,
         @Nullable final BitSet parentBitSet
     ) throws IOException {
@@ -98,7 +99,6 @@ public final class VectorScorers {
      * @param target    the byte query vector
      * @param vectorScorerMode determines whether to use scoring or rescoring
      * @param spaceType the space type defining the similarity function
-     * @param fieldInfo the field info for the vector field, or null if not available
      * @return a {@link VectorScorer} appropriate for the underlying vector storage format
      * @throws IOException if an I/O error occurs
      */
@@ -106,10 +106,9 @@ public final class VectorScorers {
         final KNNVectorValuesIterator.DocIdsIteratorValues docIdsIteratorValues,
         final byte[] target,
         final VectorScorerMode vectorScorerMode,
-        final SpaceType spaceType,
-        @Nullable final FieldInfo fieldInfo
+        final SpaceType spaceType
     ) throws IOException {
-        return createScorer(docIdsIteratorValues, target, vectorScorerMode, spaceType, fieldInfo, null, null);
+        return createScorer(docIdsIteratorValues, target, vectorScorerMode, spaceType, null, null);
     }
 
     /**
@@ -121,7 +120,6 @@ public final class VectorScorers {
      * @param target    the byte query vector
      * @param vectorScorerMode determines whether to use scoring or rescoring
      * @param spaceType the space type defining the similarity function
-     * @param fieldInfo the field info for the vector field, or null if not available
      * @param acceptedChildrenIterator iterator over accepted child documents, or null if not nested
      * @param parentBitSet bit set identifying parent documents, or null if not nested
      * @return a {@link VectorScorer} appropriate for the underlying vector storage format
@@ -132,11 +130,10 @@ public final class VectorScorers {
         final byte[] target,
         final VectorScorerMode vectorScorerMode,
         final SpaceType spaceType,
-        @Nullable final FieldInfo fieldInfo,
         @Nullable final DocIdSetIterator acceptedChildrenIterator,
         @Nullable final BitSet parentBitSet
     ) throws IOException {
-        final VectorScorer scorer = getBaseScorer(docIdsIteratorValues, target, vectorScorerMode, spaceType, fieldInfo);
+        final VectorScorer scorer = getBaseScorer(docIdsIteratorValues, target, vectorScorerMode, spaceType);
         return maybeWrapWithNestedScorer(scorer, acceptedChildrenIterator, parentBitSet);
     }
 
@@ -145,7 +142,7 @@ public final class VectorScorers {
         final float[] target,
         final VectorScorerMode vectorScorerMode,
         final SpaceType spaceType,
-        @Nullable final FieldInfo fieldInfo
+        final FieldInfo fieldInfo
     ) throws IOException {
         final DocIdSetIterator docIdSetIterator = docIdsIteratorValues.getDocIdSetIterator();
 
@@ -158,18 +155,17 @@ public final class VectorScorers {
         if (knnVectorValues instanceof FloatVectorValues floatVectorValues) {
             return vectorScorerMode.createScorer(floatVectorValues, target);
         }
-        if (knnVectorValues instanceof ByteVectorValues byteVectorValues) { // ADC case
+        if (knnVectorValues instanceof ByteVectorValues byteVectorValues && FieldInfoExtractor.isAdc(fieldInfo)) {
             return createADCScorer(fieldInfo, byteVectorValues, target, spaceType);
         }
-        throw new IllegalArgumentException("Unsupported KnnVectorValues type: " + knnVectorValues.getClass().getSimpleName());
+        throw new IllegalArgumentException("Unsupported KnnVectorValues type: " + knnVectorValues.getClass());
     }
 
     private static VectorScorer getBaseScorer(
         final KNNVectorValuesIterator.DocIdsIteratorValues docIdsIteratorValues,
         final byte[] target,
         final VectorScorerMode vectorScorerMode,
-        final SpaceType spaceType,
-        @Nullable final FieldInfo fieldInfo
+        final SpaceType spaceType
     ) throws IOException {
         final DocIdSetIterator docIdSetIterator = docIdsIteratorValues.getDocIdSetIterator();
 

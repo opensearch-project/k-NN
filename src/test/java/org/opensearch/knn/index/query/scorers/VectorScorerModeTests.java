@@ -5,17 +5,17 @@
 
 package org.opensearch.knn.index.query.scorers;
 
-import junit.framework.TestCase;
 import lombok.SneakyThrows;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.search.VectorScorer;
+import org.opensearch.knn.KNNTestCase;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-public class VectorScorerModeTests extends TestCase {
+public class VectorScorerModeTests extends KNNTestCase {
 
     // ──────────────────────────────────────────────
     // SCORE mode

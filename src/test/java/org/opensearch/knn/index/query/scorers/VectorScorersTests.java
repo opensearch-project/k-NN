@@ -5,33 +5,38 @@
 
 package org.opensearch.knn.index.query.scorers;
 
-import junit.framework.TestCase;
 import lombok.SneakyThrows;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.KnnVectorValues;
+import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.VectorScorer;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.FixedBitSet;
 import org.mockito.MockedStatic;
+import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 
+import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 
-public class VectorScorersTests extends TestCase {
+public class VectorScorersTests extends KNNTestCase {
 
     private final FieldInfo fieldInfo = mock(FieldInfo.class);
 
@@ -55,36 +60,26 @@ public class VectorScorersTests extends TestCase {
         assertNotNull(scorer);
         assertTrue(scorer instanceof KNNBinaryDocValuesScorer);
 
-        DocIdSetIterator iterator = scorer.iterator();
-        assertEquals(0, iterator.nextDoc());
-        float scoreIdentical = scorer.score();
-
-        assertEquals(1, iterator.nextDoc());
-        float scoreFar = scorer.score();
-
-        assertTrue("Identical vector should score higher", scoreIdentical > scoreFar);
-        assertEquals(DocIdSetIterator.NO_MORE_DOCS, iterator.nextDoc());
+        assertScores(buildExpectedScores(query, docs, SpaceType.L2), scorer);
     }
 
     @SneakyThrows
     public void testFloatTarget_withFloatVectorValues_delegatesToScoreMode() {
         float[] query = { 1.0f, 2.0f };
+        List<float[]> docs = List.of(new float[] { 1.0f, 2.0f }, new float[] { 3.0f, 4.0f });
         TestVectorValues.PreDefinedFloatVectorValues floatVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
-            List.of(new float[] { 1.0f, 2.0f }, new float[] { 3.0f, 4.0f })
+            docs,
+            VectorSimilarityFunction.EUCLIDEAN
         );
 
         KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
         when(iteratorValues.getDocIdSetIterator()).thenReturn(floatVectorValues.iterator());
         when(iteratorValues.getKnnVectorValues()).thenReturn(floatVectorValues);
 
-        VectorScorerMode vectorScorerMode = mock(VectorScorerMode.class);
-        VectorScorer expectedScorer = mock(VectorScorer.class);
-        when(vectorScorerMode.createScorer(floatVectorValues, query)).thenReturn(expectedScorer);
+        VectorScorer scorer = VectorScorers.createScorer(iteratorValues, query, VectorScorerMode.SCORE, SpaceType.L2, fieldInfo);
 
-        VectorScorer scorer = VectorScorers.createScorer(iteratorValues, query, vectorScorerMode, SpaceType.L2, fieldInfo);
-
-        assertSame(expectedScorer, scorer);
-        verify(vectorScorerMode).createScorer(floatVectorValues, query);
+        assertNotNull(scorer);
+        assertScores(buildExpectedScores(query, docs, SpaceType.L2), scorer);
     }
 
     @SneakyThrows
@@ -143,41 +138,31 @@ public class VectorScorersTests extends TestCase {
         KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
         when(iteratorValues.getDocIdSetIterator()).thenReturn(binaryDocValues);
 
-        VectorScorer scorer = VectorScorers.createScorer(iteratorValues, query, VectorScorerMode.SCORE, SpaceType.HAMMING, fieldInfo);
+        VectorScorer scorer = VectorScorers.createScorer(iteratorValues, query, VectorScorerMode.SCORE, SpaceType.HAMMING);
 
         assertNotNull(scorer);
         assertTrue(scorer instanceof KNNBinaryDocValuesScorer);
 
-        DocIdSetIterator iterator = scorer.iterator();
-        assertEquals(0, iterator.nextDoc());
-        float scoreIdentical = scorer.score();
-
-        assertEquals(1, iterator.nextDoc());
-        float scoreFlipped = scorer.score();
-
-        assertTrue("Identical vector should score higher", scoreIdentical > scoreFlipped);
-        assertEquals(DocIdSetIterator.NO_MORE_DOCS, iterator.nextDoc());
+        assertScores(buildExpectedScores(query, docs, SpaceType.HAMMING), scorer);
     }
 
     @SneakyThrows
     public void testByteTarget_withByteVectorValues_delegatesToScoreMode() {
         byte[] query = { 1, 2 };
+        List<byte[]> docs = List.of(new byte[] { 1, 2 }, new byte[] { 3, 4 });
         TestVectorValues.PreDefinedByteVectorValues byteVectorValues = new TestVectorValues.PreDefinedByteVectorValues(
-            List.of(new byte[] { 1, 2 }, new byte[] { 3, 4 })
+            docs,
+            VectorSimilarityFunction.EUCLIDEAN
         );
 
         KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
         when(iteratorValues.getDocIdSetIterator()).thenReturn(byteVectorValues.iterator());
         when(iteratorValues.getKnnVectorValues()).thenReturn(byteVectorValues);
 
-        VectorScorerMode vectorScorerMode = mock(VectorScorerMode.class);
-        VectorScorer expectedScorer = mock(VectorScorer.class);
-        when(vectorScorerMode.createScorer(byteVectorValues, query)).thenReturn(expectedScorer);
+        VectorScorer scorer = VectorScorers.createScorer(iteratorValues, query, VectorScorerMode.SCORE, SpaceType.L2);
 
-        VectorScorer scorer = VectorScorers.createScorer(iteratorValues, query, vectorScorerMode, SpaceType.L2, fieldInfo);
-
-        assertSame(expectedScorer, scorer);
-        verify(vectorScorerMode).createScorer(byteVectorValues, query);
+        assertNotNull(scorer);
+        assertScores(buildExpectedScores(query, docs, SpaceType.L2), scorer);
     }
 
     @SneakyThrows
@@ -190,7 +175,7 @@ public class VectorScorersTests extends TestCase {
         when(iteratorValues.getKnnVectorValues()).thenReturn(floatVectorValues);
 
         try {
-            VectorScorers.createScorer(iteratorValues, query, VectorScorerMode.SCORE, SpaceType.L2, fieldInfo);
+            VectorScorers.createScorer(iteratorValues, query, VectorScorerMode.SCORE, SpaceType.L2);
             fail("Expected IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             assertTrue(e.getMessage().contains("Byte target requires ByteVectorValues"));
@@ -252,16 +237,33 @@ public class VectorScorersTests extends TestCase {
         BitSet parentBitSet = new FixedBitSet(4);
         parentBitSet.set(2);
 
-        VectorScorer scorer = VectorScorers.createScorer(
-            iteratorValues,
-            query,
-            vectorScorerMode,
-            SpaceType.L2,
-            fieldInfo,
-            null,
-            parentBitSet
-        );
+        VectorScorer scorer = VectorScorers.createScorer(iteratorValues, query, vectorScorerMode, SpaceType.L2, null, parentBitSet);
 
         assertTrue(scorer instanceof NestedBestChildVectorScorer);
+    }
+
+    // ──────────────────────────────────────────────
+    // Helpers
+    // ──────────────────────────────────────────────
+
+    private static Map<Integer, Float> buildExpectedScores(float[] query, List<float[]> docs, SpaceType spaceType) {
+        return IntStream.range(0, docs.size())
+            .boxed()
+            .collect(Collectors.toMap(i -> i, i -> spaceType.getKnnVectorSimilarityFunction().compare(query, docs.get(i))));
+    }
+
+    private static Map<Integer, Float> buildExpectedScores(byte[] query, List<byte[]> docs, SpaceType spaceType) {
+        return IntStream.range(0, docs.size())
+            .boxed()
+            .collect(Collectors.toMap(i -> i, i -> spaceType.getKnnVectorSimilarityFunction().compare(query, docs.get(i))));
+    }
+
+    private static void assertScores(Map<Integer, Float> expectedScores, VectorScorer scorer) throws IOException {
+        Map<Integer, Float> actualScores = new HashMap<>();
+        DocIdSetIterator iterator = scorer.iterator();
+        for (int docId = iterator.nextDoc(); docId != DocIdSetIterator.NO_MORE_DOCS; docId = iterator.nextDoc()) {
+            actualScores.put(docId, scorer.score());
+        }
+        assertEquals(expectedScores, actualScores);
     }
 }
