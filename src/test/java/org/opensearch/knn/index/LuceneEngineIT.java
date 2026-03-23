@@ -771,29 +771,20 @@ public class LuceneEngineIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testAddSearchDeleteWithCompressionLevelImpliedOptimizedScalarQuantizer() {
+    public void testAddSearchDeleteWithCompressionLevelImplied1bitScalarQuantizer() {
         createKnnIndexMappingWithLuceneEngineWithModeAndCompression(CompressionLevel.x32, DIMENSION, Mode.NOT_CONFIGURED);
         addSearchDeleteToCurrentKNNIndex();
     }
 
     @SneakyThrows
-    public void testAddSearchDeleteWithModeImpliedOptimizedScalarQuantizer() {
+    public void testAddSearchDeleteWithModeImplied1bitScalarQuantizer() {
         createKnnIndexMappingWithLuceneEngineWithModeAndCompression(CompressionLevel.NOT_CONFIGURED, DIMENSION, Mode.ON_DISK);
         addSearchDeleteToCurrentKNNIndex();
     }
 
     @SneakyThrows
-    public void testOptimizedScalarQuantizer_withInvalidParams_thenThrowException() {
-        // Use "byte" data_type with OptimizedScalarQuantizer encoder which throws an exception
-        expectThrows(
-            ResponseException.class,
-            () -> createKnnIndexMappingWithLuceneEngineAndOptimizedScalarQuantizer(DIMENSION, SpaceType.L2, VectorDataType.BYTE)
-        );
-    }
-
-    @SneakyThrows
-    public void testAddDocWithOptimizedScalarQuantizer() {
-        createKnnIndexMappingWithLuceneEngineAndOptimizedScalarQuantizer(DIMENSION, SpaceType.L2, VectorDataType.FLOAT);
+    public void testAddDocWith1bitScalarQuantizer() {
+        createKnnIndexMappingWithLuceneEngineAnd1bitScalarQuantizer(DIMENSION, SpaceType.L2, VectorDataType.FLOAT);
         Float[] vector = new Float[] { 2.0f, 4.5f, 6.5f };
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
 
@@ -802,8 +793,8 @@ public class LuceneEngineIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testUpdateDocWithOptimizedScalarQuantizer() {
-        createKnnIndexMappingWithLuceneEngineAndOptimizedScalarQuantizer(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
+    public void testUpdateDocWith1bitScalarQuantizer() {
+        createKnnIndexMappingWithLuceneEngineAnd1bitScalarQuantizer(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
         Float[] vector = { 6.0f, 6.0f, 7.0f };
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
 
@@ -815,8 +806,8 @@ public class LuceneEngineIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testDeleteDocWithOptimizedScalarQuantizer() {
-        createKnnIndexMappingWithLuceneEngineAndOptimizedScalarQuantizer(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
+    public void testDeleteDocWith1bitScalarQuantizer() {
+        createKnnIndexMappingWithLuceneEngineAnd1bitScalarQuantizer(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
         Float[] vector = { 6.0f, 6.0f, 7.0f };
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
 
@@ -827,8 +818,8 @@ public class LuceneEngineIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testIndexingAndQueryingWithOptimizedScalarQuantizer() {
-        createKnnIndexMappingWithLuceneEngineAndOptimizedScalarQuantizer(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
+    public void testIndexingAndQueryingWith1bitScalarQuantizer() {
+        createKnnIndexMappingWithLuceneEngineAnd1bitScalarQuantizer(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
 
         int numDocs = 10;
         for (int i = 0; i < numDocs; i++) {
@@ -852,8 +843,8 @@ public class LuceneEngineIT extends KNNRestTestCase {
         }
     }
 
-    public void testQueryWithFilterUsingOptimizedScalarQuantizer() throws Exception {
-        createKnnIndexMappingWithLuceneEngineAndOptimizedScalarQuantizer(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
+    public void testQueryWithFilterUsing1bitScalarQuantizer() throws Exception {
+        createKnnIndexMappingWithLuceneEngineAnd1bitScalarQuantizer(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
 
         addKnnDocWithAttributes(
             DOC_ID,
@@ -871,11 +862,11 @@ public class LuceneEngineIT extends KNNRestTestCase {
         validateQueryResultsWithFilters(searchVector, 5, 1, expectedDocIdsKGreaterThanFilterResult, expectedDocIdsKLimitsFilterResult);
     }
 
-    public void testInvalidParameters_withOptimizedScalarQuantizer() throws Exception {
+    public void testInvalidParameters_with1bitScalarQuantizer() throws Exception {
         int bits = 2;
         expectThrows(
             ResponseException.class,
-            () -> createKnnIndexMappingWithLuceneEngineAndOptimizedScalarQuantizer(DIMENSION, SpaceType.L2, VectorDataType.FLOAT, bits)
+            () -> createKnnIndexMappingWithLuceneEngineAnd1bitScalarQuantizer(DIMENSION, SpaceType.L2, VectorDataType.FLOAT, bits)
         );
     }
 
@@ -900,7 +891,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         createKnnIndex(INDEX_NAME, mapping);
     }
 
-    private void createKnnIndexMappingWithLuceneEngineAndOptimizedScalarQuantizer(
+    private void createKnnIndexMappingWithLuceneEngineAnd1bitScalarQuantizer(
         int dimension,
         SpaceType spaceType,
         VectorDataType vectorDataType,
@@ -937,12 +928,12 @@ public class LuceneEngineIT extends KNNRestTestCase {
         createKnnIndex(INDEX_NAME, mapping);
     }
 
-    private void createKnnIndexMappingWithLuceneEngineAndOptimizedScalarQuantizer(
+    private void createKnnIndexMappingWithLuceneEngineAnd1bitScalarQuantizer(
         int dimension,
         SpaceType spaceType,
         VectorDataType vectorDataType
     ) throws Exception {
-        createKnnIndexMappingWithLuceneEngineAndOptimizedScalarQuantizer(dimension, spaceType, vectorDataType, 1);
+        createKnnIndexMappingWithLuceneEngineAnd1bitScalarQuantizer(dimension, spaceType, vectorDataType, 1);
     }
 
     private void createKnnIndexMappingWithLuceneEngine(int dimension, SpaceType spaceType, VectorDataType vectorDataType) throws Exception {
@@ -1256,7 +1247,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testNestedFieldWithOptimizedScalarQuantizer() {
+    public void testNestedFieldWith1bitScalarQuantizer() {
         final String nestedFieldPath = "nested_field.my_vector";
         final String nestedPath = "nested_field";
         final int dimension = 16;

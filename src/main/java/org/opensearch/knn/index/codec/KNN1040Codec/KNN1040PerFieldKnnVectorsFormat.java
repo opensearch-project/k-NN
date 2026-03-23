@@ -19,12 +19,12 @@ import org.opensearch.knn.index.codec.KnnVectorsFormatContext;
 import org.opensearch.knn.index.codec.LuceneVectorsFormatType;
 import org.opensearch.knn.index.codec.KNN9120Codec.KNN9120HnswBinaryVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
-import org.opensearch.knn.index.codec.params.KNN1040ScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.faiss.FaissCodecFormatResolver;
 import org.opensearch.knn.index.engine.lucene.LuceneCodecFormatResolver;
+import org.opensearch.knn.index.engine.lucene.LuceneSQEncoder;
 
 import java.util.Map;
 import java.util.Optional;
@@ -82,6 +82,15 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
                 ctx.getDefaultBeamWidth()
             );
             final Tuple<Integer, ExecutorService> merge = getMergeThreadCountAndExecutorService();
+            if (p.getBits() == LuceneSQEncoder.Bits.ONE.getValue()) {
+                return new Lucene104HnswScalarQuantizedVectorsFormat(
+                    p.getBitEncoding(),
+                    p.getMaxConnections(),
+                    p.getBeamWidth(),
+                    merge.v1(),
+                    merge.v2()
+                );
+            }
             return new Lucene99RWHnswScalarQuantizedVectorsFormat(
                 p.getMaxConnections(),
                 p.getBeamWidth(),
@@ -89,20 +98,6 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
                 p.getBits(),
                 p.isCompressFlag(),
                 p.getConfidenceInterval(),
-                merge.v2()
-            );
-        }, LuceneVectorsFormatType.OPTIMIZED_SCALAR_QUANTIZER, ctx -> {
-            final KNN1040ScalarQuantizedVectorsFormatParams p = new KNN1040ScalarQuantizedVectorsFormatParams(
-                ctx.getParams(),
-                ctx.getDefaultMaxConnections(),
-                ctx.getDefaultBeamWidth()
-            );
-            final Tuple<Integer, ExecutorService> merge = getMergeThreadCountAndExecutorService();
-            return new Lucene104HnswScalarQuantizedVectorsFormat(
-                p.getBitEncoding(),
-                p.getMaxConnections(),
-                p.getBeamWidth(),
-                merge.v1(),
                 merge.v2()
             );
         },

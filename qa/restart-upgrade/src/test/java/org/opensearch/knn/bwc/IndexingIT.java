@@ -674,7 +674,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
-    private void testKNNAfterOptimizedScalarQuantizerIntegrationBWCRunner(String mapping) throws Exception {
+    private void testKNNAfter1bitScalarQuantizerIntegrationBWCRunner(String mapping) throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
         int k = 4;
         int dimension = 8;
@@ -730,7 +730,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             .endObject()
             .endObject()
             .toString();
-        testKNNAfterOptimizedScalarQuantizerIntegrationBWCRunner(mapping);
+        testKNNAfter1bitScalarQuantizerIntegrationBWCRunner(mapping);
     }
 
     public void testKNNIndexLuceneOnDiskNoCompressionBWC() throws Exception {
@@ -753,16 +753,16 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             .endObject()
             .endObject()
             .toString();
-        testKNNAfterOptimizedScalarQuantizerIntegrationBWCRunner(mapping);
+        testKNNAfter1bitScalarQuantizerIntegrationBWCRunner(mapping);
     }
 
-    public void testKNNIndexOptimizedScalarQuantizer() throws Exception {
+    public void testKNNIndex1bitScalarQuantizer() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
 
-        // Skip test if OptimizedScalarQuantizer is not supported in the old cluster version
-        if (isOptimizedScalarQuantizerSupported(getBWCVersion()) == false) {
+        // Skip test if 1bitScalarQuantizer is not supported in the old cluster version
+        if (isBinaryScalarQuantizerSupported(getBWCVersion()) == false) {
             logger.info(
-                "Skipping testKNNIndexOptimizedScalarQuantizer as OptimizedScalarQuantizer encoder is not supported in version: {}",
+                "Skipping testKNNIndex1bitScalarQuantizer as Lucene Scalar quantizer with 1 bit compression is not supported in version: {}",
                 getBWCVersion()
             );
             return;

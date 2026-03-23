@@ -685,7 +685,10 @@ public class RecallTestsIT extends KNNRestTestCase {
      *              "m":{HNSW_M},
      *              "ef_construction": {HNSW_EF_CONSTRUCTION},
      *              "encoder": {
-     *                  "name": "binary",
+     *                  "name": "sq",
+     *                  "parameters": {
+     *                      "bits": 1
+     *                  }
      *              }
      *          }
      *       }
@@ -694,7 +697,7 @@ public class RecallTestsIT extends KNNRestTestCase {
      * }
      */
     @SneakyThrows
-    public void testRecall_whenOptimizedScalarQuantizer_thenRecallAbove60percent() {
+    public void testRecall_when1bitScalarQuantizer_thenRecallAbove60percent() {
         List<SpaceType> spaceTypes = List.of(SpaceType.L2, SpaceType.COSINESIMIL);
         for (SpaceType spaceType : spaceTypes) {
             String indexName = createIndexName(KNNEngine.LUCENE, spaceType) + "_binary";

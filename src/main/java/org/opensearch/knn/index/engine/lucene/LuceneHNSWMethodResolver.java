@@ -25,6 +25,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SCALAR_QUANTIZER_DEFAULT_BITS_AFTER_V360;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_DEFAULT_BITS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.index.engine.lucene.LuceneHNSWMethod.HNSW_METHOD_COMPONENT;
@@ -59,6 +62,7 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
             METHOD_HNSW
         );
         resolveEncoder(resolvedKNNMethodContext, knnMethodConfigContext);
+        resolveEncoderBitsAndValidate(resolvedKNNMethodContext, knnMethodConfigContext);
         resolveMethodParams(resolvedKNNMethodContext.getMethodComponentContext(), knnMethodConfigContext, HNSW_METHOD_COMPONENT);
         CompressionLevel resolvedCompressionLevel = resolveCompressionLevelFromMethodContext(
             resolvedKNNMethodContext,
@@ -96,17 +100,41 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
             encoderComponent,
             knnMethodConfigContext
         );
+
         encoderComponentContext.getParameters().putAll(resolvedParams);
         methodComponentContext.getParameters().put(METHOD_ENCODER_PARAMETER, encoderComponentContext);
+    }
 
-        TrainingConfigValidationInput.TrainingConfigValidationInputBuilder inputBuilder = TrainingConfigValidationInput.builder();
-
+    // if encoder gets resolved, determine if default bits need to be added and validate encoder config makes sense
+    private void resolveEncoderBitsAndValidate(KNNMethodContext resolvedKNNMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
+        if (!isEncoderSpecified(resolvedKNNMethodContext)) {
+            return;
+        }
+        MethodComponentContext encoderComponentContext = getEncoderComponentContext(resolvedKNNMethodContext);
+        if (encoderComponentContext == null) {
+            return;
+        }
+        if (!encoderComponentContext.getParameters().containsKey(LUCENE_SQ_BITS)) {
+            CompressionLevel effectiveCompression = CompressionLevel.isConfigured(knnMethodConfigContext.getCompressionLevel())
+                ? knnMethodConfigContext.getCompressionLevel()
+                : getDefaultCompressionLevel(knnMethodConfigContext);
+            boolean useNewDefault = knnMethodConfigContext.getVersionCreated().onOrAfter(Version.V_3_6_0)
+                && LuceneSQEncoder.Bits.fromValue(LUCENE_SCALAR_QUANTIZER_DEFAULT_BITS_AFTER_V360)
+                    .getCompressionLevel() == effectiveCompression;
+            encoderComponentContext.getParameters()
+                .put(LUCENE_SQ_BITS, useNewDefault ? LUCENE_SCALAR_QUANTIZER_DEFAULT_BITS_AFTER_V360 : LUCENE_SQ_DEFAULT_BITS);
+        }
+        String encoderName = encoderComponentContext.getName();
         Encoder encoder = SUPPORTED_ENCODERS.get(encoderName);
-
+        if (encoder == null) {
+            return;
+        }
         TrainingConfigValidationOutput validationOutput = encoder.validateEncoderConfig(
-            inputBuilder.knnMethodContext(resolvedKNNMethodContext).knnMethodConfigContext(knnMethodConfigContext).build()
+            TrainingConfigValidationInput.builder()
+                .knnMethodContext(resolvedKNNMethodContext)
+                .knnMethodConfigContext(knnMethodConfigContext)
+                .build()
         );
-
         if (validationOutput.getValid() != null && !validationOutput.getValid()) {
             ValidationException validationException = new ValidationException();
             validationException.addValidationError(validationOutput.getErrorMessage());
@@ -134,8 +162,8 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
             return knnMethodConfigContext.getCompressionLevel();
         }
         if (knnMethodConfigContext.getMode() == Mode.ON_DISK) {
-            // Starting with version 3.6, supporting Optimized Scalar Quantizer by default
-            if (knnMethodConfigContext.getVersionCreated().onOrAfter(Version.V_3_6_0)) {
+            // Starting with version 3.6, supporting 32x compression by default
+            if (Version.V_3_6_0.onOrBefore(knnMethodConfigContext.getVersionCreated())) {
                 return CompressionLevel.x32;
             }
             return CompressionLevel.x4;

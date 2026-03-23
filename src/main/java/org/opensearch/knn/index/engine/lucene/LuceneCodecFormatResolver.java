@@ -9,7 +9,6 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.opensearch.knn.index.codec.KnnVectorsFormatContext;
 import org.opensearch.knn.index.codec.LuceneVectorsFormatType;
-import org.opensearch.knn.index.codec.params.KNN1040ScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.engine.CodecFormatResolver;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -92,7 +91,7 @@ public class LuceneCodecFormatResolver implements CodecFormatResolver {
                 defaultMaxConnections,
                 defaultBeamWidth
             );
-            if (sqParams.validate(params) && sqParams.getBits() != LuceneSQEncoder.Bits.ONE.getValue()) {
+            if (sqParams.validate(params)) {
                 log.debug(
                     "Initialize KNN vector format for field [{}] with params [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\"",
                     field,
@@ -106,24 +105,6 @@ public class LuceneCodecFormatResolver implements CodecFormatResolver {
                     sqParams.getBits()
                 );
                 return LuceneVectorsFormatType.SCALAR_QUANTIZED;
-            } else {
-                // Temporary route for OptimizedScalarQuantizer - eventually this should be used for SQ as well
-                KNN1040ScalarQuantizedVectorsFormatParams optimizedScalarQuantizerParams = new KNN1040ScalarQuantizedVectorsFormatParams(
-                    params,
-                    defaultMaxConnections,
-                    defaultBeamWidth
-                );
-                if (optimizedScalarQuantizerParams.validate(params)) {
-                    log.debug(
-                        "Initialize KNN vector format for field [{}] with scalar/binary quantization, params [{}] = \"{}\", [{}] = \"{}\"",
-                        field,
-                        MAX_CONNECTIONS,
-                        optimizedScalarQuantizerParams.getMaxConnections(),
-                        BEAM_WIDTH,
-                        optimizedScalarQuantizerParams.getBeamWidth()
-                    );
-                    return LuceneVectorsFormatType.OPTIMIZED_SCALAR_QUANTIZER;
-                }
             }
         }
 

@@ -32,7 +32,6 @@ import static org.opensearch.knn.common.KNNConstants.DYNAMIC_CONFIDENCE_INTERVAL
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
-import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_DEFAULT_BITS;
 import static org.opensearch.knn.common.KNNConstants.MAXIMUM_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.MINIMUM_CONFIDENCE_INTERVAL;
@@ -81,7 +80,8 @@ public class LuceneSQEncoder implements Encoder {
         )
         .addParameter(
             LUCENE_SQ_BITS,
-            new Parameter.IntegerParameter(LUCENE_SQ_BITS, LUCENE_SQ_DEFAULT_BITS, (v, context) -> LUCENE_SQ_BITS_SUPPORTED.contains(v))
+            // Making default value null - it should be passed in from LuceneHNSWMethodResolver
+            new Parameter.IntegerParameter(LUCENE_SQ_BITS, null, (v, context) -> LUCENE_SQ_BITS_SUPPORTED.contains(v))
         )
         .build();
 
@@ -90,6 +90,11 @@ public class LuceneSQEncoder implements Encoder {
         return METHOD_COMPONENT;
     }
 
+    // TODO: The Encoder interface currently only has validateEncoderConfig() which uses
+    // TrainingConfigValidation* types designed for model training. We should add a general-purpose
+    // validation method to the Encoder interface (e.g. Encoder.validate(KNNMethodContext, KNNMethodConfigContext))
+    // that both Faiss and Lucene resolvers can delegate to, decoupled from training concerns.
+    // See: FaissSQEncoder.validateEncoderConfig() for the Faiss equivalent of this validation.
     @Override
     public TrainingConfigValidationOutput validateEncoderConfig(TrainingConfigValidationInput validationInput) {
         TrainingConfigValidationOutput.TrainingConfigValidationOutputBuilder builder = TrainingConfigValidationOutput.builder();
@@ -140,7 +145,7 @@ public class LuceneSQEncoder implements Encoder {
                             String.format(
                                 Locale.ROOT,
                                 "Parameters [%s] are not supported when [%s=%d] for encoder [%s]. "
-                                    + "The 1-bit scalar quantization path does not use the type parameter.",
+                                    + "The 1-bit scalar quantization path does not use additional parameters.",
                                 nonBitParameters,
                                 LUCENE_SQ_BITS,
                                 bits,
@@ -200,12 +205,22 @@ public class LuceneSQEncoder implements Encoder {
             return CompressionLevel.x4;
         }
 
-        if (knnMethodConfigContext.getCompressionLevel() == CompressionLevel.NOT_CONFIGURED) {
-            if (knnMethodConfigContext.getVersionCreated().onOrAfter(Version.V_3_6_0)) {
-                return CompressionLevel.x32;
-            }
-            return CompressionLevel.x4;
+        if (CompressionLevel.isConfigured(knnMethodConfigContext.getCompressionLevel())) {
+            return knnMethodConfigContext.getCompressionLevel();
         }
-        return knnMethodConfigContext.getCompressionLevel();
+
+        // resolve compression level based on bits if its specified - the two must be equivalent
+        if (methodComponentContext != null && methodComponentContext.getParameters() != null) {
+            Object bitsObj = methodComponentContext.getParameters().get(LUCENE_SQ_BITS);
+            if (bitsObj instanceof Integer) {
+                return Bits.fromValue((Integer) bitsObj).getCompressionLevel();
+            }
+        }
+
+        // For indices after version 3.6.0, we want to default to 32x compression
+        if (knnMethodConfigContext.getVersionCreated().onOrAfter(Version.V_3_6_0)) {
+            return CompressionLevel.x32;
+        }
+        return CompressionLevel.x4;
     }
 }

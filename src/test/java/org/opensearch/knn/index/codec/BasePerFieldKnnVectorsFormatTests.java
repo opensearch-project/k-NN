@@ -58,7 +58,6 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
     // Sentinel format instances used to verify correct resolution
     private static final KnnVectorsFormat HNSW_FORMAT = mock(KnnVectorsFormat.class);
     private static final KnnVectorsFormat SQ_FORMAT = mock(KnnVectorsFormat.class);
-    private static final KnnVectorsFormat OPTIMIZED_SCALAR_QUANTIZER_FORMAT = mock(KnnVectorsFormat.class);
     private static final KnnVectorsFormat FLAT_FORMAT = mock(KnnVectorsFormat.class);
     private static final KnnVectorsFormat DEFAULT_FORMAT = mock(KnnVectorsFormat.class);
 
@@ -223,39 +222,6 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
         TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.of(mapperService), resolvers);
         KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
         assertSame(SQ_FORMAT, result);
-    }
-
-    /**
-     * When the Lucene engine is used with a Optimized Scalar Quantizer encoder
-     * resolver should be called.
-     */
-    public void testGetKnnVectorsFormatForField_whenLuceneSQ_thenReturnLuceneSQFormat() {
-        Map<String, Object> encoderParams = new HashMap<>(Map.of(LUCENE_SQ_BITS, 1));
-        MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, encoderParams);
-
-        Map<String, Object> params = new HashMap<>();
-        params.put(METHOD_ENCODER_PARAMETER, encoderContext);
-        params.put(METHOD_PARAMETER_M, 16);
-        params.put(METHOD_PARAMETER_EF_CONSTRUCTION, 100);
-
-        KNNMethodContext OptimizedScalarQuantizerMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
-            SpaceType.L2,
-            new MethodComponentContext(METHOD_HNSW, params)
-        );
-
-        MapperService mapperService = mockMapperService(TEST_FIELD, OptimizedScalarQuantizerMethodContext);
-
-        Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
-            LuceneVectorsFormatType.OPTIMIZED_SCALAR_QUANTIZER,
-            ctx -> OPTIMIZED_SCALAR_QUANTIZER_FORMAT,
-            LuceneVectorsFormatType.HNSW,
-            ctx -> HNSW_FORMAT
-        );
-
-        TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.of(mapperService), resolvers);
-        KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
-        assertSame(OPTIMIZED_SCALAR_QUANTIZER_FORMAT, result);
     }
 
     /**

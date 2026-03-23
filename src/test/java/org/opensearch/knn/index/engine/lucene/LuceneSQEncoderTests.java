@@ -14,6 +14,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
 import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
@@ -21,6 +22,7 @@ import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
@@ -35,6 +37,19 @@ public class LuceneSQEncoderTests extends KNNTestCase {
         assertEquals(
             CompressionLevel.x32,
             encoder.calculateCompressionLevel(null, KNNMethodConfigContext.builder().versionCreated(Version.V_3_6_0).build())
+        );
+    }
+
+    public void testCalculateCompressionLevelWhenUserSupplied() {
+        LuceneSQEncoder encoder = new LuceneSQEncoder();
+
+        // Checking on a non-valid compression level to ensure users choice still taken
+        assertEquals(
+            CompressionLevel.x16,
+            encoder.calculateCompressionLevel(
+                null,
+                KNNMethodConfigContext.builder().versionCreated(Version.V_3_6_0).compressionLevel(CompressionLevel.x16).build()
+            )
         );
     }
 
@@ -76,6 +91,34 @@ public class LuceneSQEncoderTests extends KNNTestCase {
         assertNull(output.getValid());
     }
 
+    public void testValidate_whenBits1WithConfidenceInterval_thenError() {
+        LuceneSQEncoder encoder = new LuceneSQEncoder();
+        TrainingConfigValidationOutput output = encoder.validateEncoderConfig(
+            buildValidationInput(
+                Version.CURRENT,
+                CompressionLevel.NOT_CONFIGURED,
+                Map.of(LUCENE_SQ_BITS, 1, LUCENE_SQ_CONFIDENCE_INTERVAL, 1.0f)
+            )
+        );
+        assertNotNull(output.getValid());
+        assertFalse(output.getValid());
+        assertTrue(output.getErrorMessage().contains("confidence_interval"));
+        assertTrue(output.getErrorMessage().contains("does not use additional parameter"));
+    }
+
+    public void testValidate_whenInvalidBits_thenError() {
+        LuceneSQEncoder encoder = new LuceneSQEncoder();
+        MethodComponent methodComponent = encoder.getMethodComponent();
+        KNNMethodConfigContext context = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .build();
+
+        MethodComponentContext mcc = new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 2));
+        assertNotNull(methodComponent.validate(mcc, context));
+    }
+
     public void testValidate_whenBits1WithX2Compression_thenError() {
         LuceneSQEncoder encoder = new LuceneSQEncoder();
         TrainingConfigValidationOutput output = encoder.validateEncoderConfig(
@@ -85,6 +128,25 @@ public class LuceneSQEncoderTests extends KNNTestCase {
         assertFalse(output.getValid());
         assertTrue(output.getErrorMessage().contains("incompatible"));
         assertTrue(output.getErrorMessage().contains("32x"));
+    }
+
+    public void testCalculateCompressionLevel_whenNotConfiguredPreV360() {
+        LuceneSQEncoder encoder = new LuceneSQEncoder();
+        assertEquals(
+            CompressionLevel.x4,
+            encoder.calculateCompressionLevel(null, KNNMethodConfigContext.builder().versionCreated(Version.V_3_5_0).build())
+        );
+    }
+
+    public void testCalculateCompressionLevel_whenConfiugred() {
+        LuceneSQEncoder encoder = new LuceneSQEncoder();
+        assertEquals(
+            CompressionLevel.x4,
+            encoder.calculateCompressionLevel(
+                null,
+                KNNMethodConfigContext.builder().versionCreated(Version.CURRENT).compressionLevel(CompressionLevel.x4).build()
+            )
+        );
     }
 
     public void testValidate_whenBits7WithX4Compression_thenOk() {

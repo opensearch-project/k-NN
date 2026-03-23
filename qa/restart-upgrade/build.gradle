@@ -111,8 +111,8 @@ task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
     }
 
     // excludes: 1.any; 2.x where x < 17
-    def invalidPrefixesForQFrameBitEncoderAndOptimizedScalarQuantizerBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
-    if (invalidPrefixesForQFrameBitEncoderAndOptimizedScalarQuantizerBWCChecks.any { knn_bwc_version.startsWith(it) }
+    def invalidPrefixesForQFrameBitEncoderAnd1bitScalarQuantizerBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
+    if (invalidPrefixesForQFrameBitEncoderAnd1bitScalarQuantizerBWCChecks.any { knn_bwc_version.startsWith(it) }
             ) {
         filter {
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLucene4xBWC"
@@ -273,8 +273,8 @@ task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
         }
     }
 
-    def invalidPrefixesForQFrameBitEncoderAndOptimizedScalarQuantizerBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
-    if (invalidPrefixesForQFrameBitEncoderAndOptimizedScalarQuantizerBWCChecks.any { knn_bwc_version.startsWith(it) }) {
+    def invalidPrefixesForQFrameBitEncoderAnd1bitScalarQuantizerBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
+    if (invalidPrefixesForQFrameBitEncoderAnd1bitScalarQuantizerBWCChecks.any { knn_bwc_version.startsWith(it) }) {
         filter {
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLucene4xBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneOnDiskNoCompressionBWC"
@@ -344,10 +344,10 @@ task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
         }
     }
 
-    def invalidPrefixesForOptimizedScalarQuantizerChecks = ['1.', '2.'] + ((0..5).collect { "3.${it}." } as Collection<String>)
-    if (invalidPrefixesForOptimizedScalarQuantizerChecks.any { knn_bwc_version.startsWith(it) }) {
+    def invalidPrefixesFor1bitScalarQuantizerChecks = ['1.', '2.'] + ((0..5).collect { "3.${it}." } as Collection<String>)
+    if (invalidPrefixesFor1bitScalarQuantizerChecks.any { knn_bwc_version.startsWith(it) }) {
         filter {
-            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexOptimizedScalarQuantizer"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndex1bitScalarQuantizer"
         }
     }
 

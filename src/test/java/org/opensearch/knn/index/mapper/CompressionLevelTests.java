@@ -120,7 +120,7 @@ public class CompressionLevelTests extends KNNTestCase {
         assertNull(rescoreContext);
 
         // These tests test the 32x compression techniques, ensure that the correct rescoring factor is set for FAISS ADC/RR and Lucene
-        // Optimized Scalar Quantizer
+        // Scalar Quantizer
         rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(
             mode,
             belowThresholdDimension,
