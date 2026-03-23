@@ -20,6 +20,7 @@ public class MOSFaissSQIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
         {"encoder": {"name": "sq", "parameters": {"bits": 1}}}""";
 
     public void testNonNestedDiskBasedIndexWithIP() {
+        // ANN search
         doTestNonNestedIndex(
             VectorDataType.FLOAT,
             SQ_ENCODER_PARAMS,
@@ -32,6 +33,7 @@ public class MOSFaissSQIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
     }
 
     public void testNestedDiskBasedIndexWithIP() {
+        // ANN search
         doTestNestedIndex(
             VectorDataType.FLOAT,
             SQ_ENCODER_PARAMS,
@@ -40,5 +42,61 @@ public class MOSFaissSQIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
             Mode.ON_DISK,
             CompressionLevel.x32
         );
+
+        // We don't support radial search for nested index
+    }
+
+    public void testNonNestedDiskBasedIndexWithL2() {
+        // ANN search
+        doTestNonNestedIndex(
+            VectorDataType.FLOAT,
+            SQ_ENCODER_PARAMS,
+            false,
+            SpaceType.L2,
+            NO_ADDITIONAL_SETTINGS,
+            Mode.ON_DISK,
+            CompressionLevel.x32
+        );
+    }
+
+    public void testNestedDiskBasedIndexWithL2() {
+        // ANN search
+        doTestNestedIndex(
+            VectorDataType.FLOAT,
+            SQ_ENCODER_PARAMS,
+            SpaceType.L2,
+            NO_ADDITIONAL_SETTINGS,
+            Mode.ON_DISK,
+            CompressionLevel.x32
+        );
+
+        // We don't support radial search for nested index
+    }
+
+    public void testNonNestedDiskBasedIndexWithCosine() {
+        // ANN search
+        doTestNonNestedIndex(
+            VectorDataType.FLOAT,
+            SQ_ENCODER_PARAMS,
+            false,
+            SpaceType.COSINESIMIL,
+            NO_ADDITIONAL_SETTINGS,
+            Mode.ON_DISK,
+            CompressionLevel.x32
+        );
+    }
+
+    public void testNestedDiskBasedIndexWithCosine() {
+        // ANN search
+        doTestNestedIndex(
+            VectorDataType.FLOAT,
+            SQ_ENCODER_PARAMS,
+            SpaceType.COSINESIMIL,
+            NO_ADDITIONAL_SETTINGS,
+            Mode.ON_DISK,
+            CompressionLevel.x32
+        );
+
+        // We don't support radial search for nested index
     }
 }
