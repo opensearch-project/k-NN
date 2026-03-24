@@ -82,11 +82,11 @@ jobs:
 
       - name: Pull LocalStack Docker image
         run: |
-          docker pull localstack/localstack:latest
+          docker pull localstack/localstack:4.14
 
       - name: Run LocalStack
         run: |
-          docker run --rm -d -p 4566:4566 localstack/localstack:latest
+          docker run --rm -d -p 4566:4566 localstack/localstack:4.14
 
       - name: Verify Localstack is ready
         run: |

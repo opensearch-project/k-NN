@@ -14,12 +14,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Bug Fixes
 * The KNN1030Codec does not properly support delegation for non-default codec(s). [#3093](https://github.com/opensearch-project/k-NN/pull/3093)
 * Fix score conversion logic for radial exact search [#3110](https://github.com/opensearch-project/k-NN/pull/3110)
+* Simplify DerivedSourceReaders lifecycle by removing manual ref-counting [#3138](https://github.com/opensearch-project/k-NN/pull/3138)
 * Fix lucene reduce to topK when rescoring is enabled [#3124](https://github.com/opensearch-project/k-NN/pull/3124)
 * Fix bugs in optimistic search for nested Cagra index [#3155](https://github.com/opensearch-project/k-NN/pull/3155)
 * Fixed generating random entry points for CagraIndex in MOS when numVectors < entryPoints [#3161](https://github.com/opensearch-project/k-NN/pull/3161)
 * Fix integer overflow for memory optimized search [#3130](https://github.com/opensearch-project/k-NN/pull/3130)
 * Fix derived source returning incorrect vector value during indexing with dynamic templates [#3035](https://github.com/opensearch-project/k-NN/pull/3035)
 * Fix FaissIdMap honor the given acceptOrds for sparse case. [#3196](https://github.com/opensearch-project/k-NN/pull/3196)
+* Fix radial search bug returning 0 results for IndexHNSWCagra [#3201](https://github.com/opensearch-project/k-NN/pull/3201)
 
 ### Refactoring
 
@@ -33,6 +35,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Speedup FP16 bulk similarity by precomputing the tail mask [#3172](https://github.com/opensearch-project/k-NN/pull/3172)
 * Add Prefetch functionality to prefetch vectors during ANN Search for MemoryOptimizedSearch. [#3173](https://github.com/opensearch-project/k-NN/pull/3173)
 * Add Prefetch functionality to Fp16 based indices during ANN Search for MemoryOptimizedSearch. [#3195](https://github.com/opensearch-project/k-NN/pull/3195)
+* Add Prefetch functionality to SparseFloatVectorValues with Faiss Indices [#]()
 * Optimize ByteVectorIdsExactKNNIterator by moving array conversion to constructor [#3171](https://github.com/opensearch-project/k-NN/pull/3171)
 * Add VectorScorers for BinaryDocValues and nested best child scoring [#3179](https://github.com/opensearch-project/k-NN/pull/3179)
 * Introduce NativeEngines990KnnVectorsScorer to decouple native SIMD scoring selection from FaissMemoryOptimizedSearcher [#3184](https://github.com/opensearch-project/k-NN/pull/3184)
+* Add scorer-aware ByteVectorValues wrapper for FAISS Index [#3192](https://github.com/opensearch-project/k-NN/pull/3192)
+* Introduce VectorScorers to create VectorScorer instances based on the underlying vector storage format [#3183](https://github.com/opensearch-project/k-NN/pull/3183)

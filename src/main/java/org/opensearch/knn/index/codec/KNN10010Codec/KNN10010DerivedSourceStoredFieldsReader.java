@@ -99,7 +99,7 @@ public class KNN10010DerivedSourceStoredFieldsReader extends StoredFieldsReader 
             return new KNN10010DerivedSourceStoredFieldsReader(
                 delegate.clone(),
                 derivedVectorFields,
-                derivedSourceReaders.cloneWithMerge(),
+                derivedSourceReaders.clone(),
                 segmentReadState,
                 shouldInject
             );
@@ -130,7 +130,7 @@ public class KNN10010DerivedSourceStoredFieldsReader extends StoredFieldsReader 
             return new KNN10010DerivedSourceStoredFieldsReader(
                 delegate.getMergeInstance(),
                 derivedVectorFields,
-                derivedSourceReaders.cloneWithMerge(),
+                derivedSourceReaders.getMergeInstance(),
                 segmentReadState,
                 false
             );

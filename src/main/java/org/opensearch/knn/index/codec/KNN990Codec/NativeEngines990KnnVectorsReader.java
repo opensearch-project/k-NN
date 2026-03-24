@@ -379,7 +379,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
             return null;
         }
         final VectorSearcher vectorSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfo);
-        return vectorSearcher != null ? vectorSearcher.getByteVectorValues() : null;
+        return vectorSearcher != null ? vectorSearcher.getByteVectorValues(getFloatVectorValues(fieldInfo.getName()).iterator()) : null;
     }
 
     /**

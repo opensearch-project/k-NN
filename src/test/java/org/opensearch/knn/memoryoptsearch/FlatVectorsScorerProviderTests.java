@@ -69,6 +69,15 @@ public class FlatVectorsScorerProviderTests extends KNNTestCase {
         }
     }
 
+    public void testNullDelegateScorerThrowsException() {
+        FieldInfo fieldInfo = mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> FlatVectorsScorerProvider.getFlatVectorsScorer(fieldInfo, KNNVectorSimilarityFunction.EUCLIDEAN, null)
+        );
+    }
+
     public void testNonHammingScoring() {
         FieldInfo fieldInfo = mock(FieldInfo.class);
         // Test L2
