@@ -37,7 +37,7 @@ public class FaissFlatIndexFactory {
 
     /**
      * If the loaded FAISS index has no flat storage (e.g. SQ with 1-bit skips it via IO_FLAG_SKIP_STORAGE),
-     * wires in the appropriate flat index via {@link #create}.
+     * wires in the appropriate flat index via {@link #createBinaryIndex}.
      */
     static void maybeSetFlatBinaryIndex(final FaissIndex faissIndex, final FieldInfo fieldInfo, final FlatVectorsReader flatVectorsReader) {
         if (!(faissIndex instanceof FaissIdMapIndex idMapIndex)) {
