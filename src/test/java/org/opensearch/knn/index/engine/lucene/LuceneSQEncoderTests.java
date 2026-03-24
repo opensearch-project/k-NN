@@ -16,8 +16,7 @@ import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
-import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
-import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
+import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
@@ -54,56 +53,40 @@ public class LuceneSQEncoderTests extends KNNTestCase {
     }
 
     public void testValidate_WhenV360NoBits_thenError() {
-        LuceneSQEncoder encoder = new LuceneSQEncoder();
-        TrainingConfigValidationOutput output = encoder.validateEncoderConfig(
-            buildValidationInput(Version.V_3_6_0, CompressionLevel.NOT_CONFIGURED, Map.of())
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> callValidateEncoderParams(Version.V_3_6_0, CompressionLevel.NOT_CONFIGURED, Map.of())
         );
-
-        assertNotNull(output.getValid());
-        assertFalse(output.getValid());
-        assertTrue(output.getErrorMessage().contains("bits"));
-        assertTrue(output.getErrorMessage().contains("required"));
+        assertTrue(e.getMessage().contains("bits"));
+        assertTrue(e.getMessage().contains("required"));
     }
 
     public void testValidate_whenPreV360NoBits_thenOk() {
-        LuceneSQEncoder encoder = new LuceneSQEncoder();
-        TrainingConfigValidationOutput output = encoder.validateEncoderConfig(
-            buildValidationInput(Version.V_3_5_0, CompressionLevel.NOT_CONFIGURED, Map.of())
-        );
-        assertNull(output.getValid());
+        callValidateEncoderParams(Version.V_3_5_0, CompressionLevel.NOT_CONFIGURED, Map.of());
     }
 
     public void testValidate_WhenPreV360Bits1_thenError() {
-        LuceneSQEncoder encoder = new LuceneSQEncoder();
-        TrainingConfigValidationOutput output = encoder.validateEncoderConfig(
-            buildValidationInput(Version.V_3_5_0, CompressionLevel.NOT_CONFIGURED, Map.of(LUCENE_SQ_BITS, 1))
+        expectThrows(
+            ValidationException.class,
+            () -> callValidateEncoderParams(Version.V_3_5_0, CompressionLevel.NOT_CONFIGURED, Map.of(LUCENE_SQ_BITS, 1))
         );
-
-        assertNotNull(output.getValid());
-        assertFalse(output.getValid());
     }
 
     public void testValidate_whenBits1WithX32Compression_thenOk() {
-        LuceneSQEncoder encoder = new LuceneSQEncoder();
-        TrainingConfigValidationOutput output = encoder.validateEncoderConfig(
-            buildValidationInput(Version.CURRENT, CompressionLevel.x32, Map.of(LUCENE_SQ_BITS, 1))
-        );
-        assertNull(output.getValid());
+        callValidateEncoderParams(Version.CURRENT, CompressionLevel.x32, Map.of(LUCENE_SQ_BITS, 1));
     }
 
     public void testValidate_whenBits1WithConfidenceInterval_thenError() {
-        LuceneSQEncoder encoder = new LuceneSQEncoder();
-        TrainingConfigValidationOutput output = encoder.validateEncoderConfig(
-            buildValidationInput(
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> callValidateEncoderParams(
                 Version.CURRENT,
                 CompressionLevel.NOT_CONFIGURED,
                 Map.of(LUCENE_SQ_BITS, 1, LUCENE_SQ_CONFIDENCE_INTERVAL, 1.0f)
             )
         );
-        assertNotNull(output.getValid());
-        assertFalse(output.getValid());
-        assertTrue(output.getErrorMessage().contains("confidence_interval"));
-        assertTrue(output.getErrorMessage().contains("does not use additional parameter"));
+        assertTrue(e.getMessage().contains("confidence_interval"));
+        assertTrue(e.getMessage().contains("does not use additional parameter"));
     }
 
     public void testValidate_whenInvalidBits_thenError() {
@@ -120,14 +103,12 @@ public class LuceneSQEncoderTests extends KNNTestCase {
     }
 
     public void testValidate_whenBits1WithX2Compression_thenError() {
-        LuceneSQEncoder encoder = new LuceneSQEncoder();
-        TrainingConfigValidationOutput output = encoder.validateEncoderConfig(
-            buildValidationInput(Version.CURRENT, CompressionLevel.x4, Map.of(LUCENE_SQ_BITS, 1))
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> callValidateEncoderParams(Version.CURRENT, CompressionLevel.x4, Map.of(LUCENE_SQ_BITS, 1))
         );
-        assertNotNull(output.getValid());
-        assertFalse(output.getValid());
-        assertTrue(output.getErrorMessage().contains("incompatible"));
-        assertTrue(output.getErrorMessage().contains("32x"));
+        assertTrue(e.getMessage().contains("incompatible"));
+        assertTrue(e.getMessage().contains("32x"));
     }
 
     public void testCalculateCompressionLevel_whenNotConfiguredPreV360() {
@@ -150,18 +131,10 @@ public class LuceneSQEncoderTests extends KNNTestCase {
     }
 
     public void testValidate_whenBits7WithX4Compression_thenOk() {
-        LuceneSQEncoder encoder = new LuceneSQEncoder();
-        TrainingConfigValidationOutput output = encoder.validateEncoderConfig(
-            buildValidationInput(Version.CURRENT, CompressionLevel.x4, Map.of(LUCENE_SQ_BITS, 7))
-        );
-        assertNull(output.getValid());
+        callValidateEncoderParams(Version.CURRENT, CompressionLevel.x4, Map.of(LUCENE_SQ_BITS, 7));
     }
 
-    private TrainingConfigValidationInput buildValidationInput(
-        Version version,
-        CompressionLevel compressionLevel,
-        Map<String, Object> encoderParams
-    ) {
+    private void callValidateEncoderParams(Version version, CompressionLevel compressionLevel, Map<String, Object> encoderParams) {
         KNNMethodConfigContext configContext = KNNMethodConfigContext.builder()
             .versionCreated(version)
             .vectorDataType(VectorDataType.FLOAT)
@@ -176,6 +149,6 @@ public class LuceneSQEncoderTests extends KNNTestCase {
             new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_ENCODER_PARAMETER, encoderCtx))
         );
 
-        return TrainingConfigValidationInput.builder().knnMethodContext(methodContext).knnMethodConfigContext(configContext).build();
+        LuceneHNSWMethodResolver.validateEncoderParams(methodContext, configContext);
     }
 }
