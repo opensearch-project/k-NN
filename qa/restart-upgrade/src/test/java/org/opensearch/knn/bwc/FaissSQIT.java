@@ -36,6 +36,7 @@ import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
+import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
@@ -109,6 +110,7 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
                 .field(NAME, ENCODER_SQ)
                 .startObject(PARAMETERS)
                 .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+                .field(SQ_BITS, 16)
                 .endObject()
                 .endObject()
                 .endObject()
@@ -185,6 +187,7 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
                 .field(NAME, ENCODER_SQ)
                 .startObject(PARAMETERS)
                 .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+                .field(SQ_BITS, 16)
                 .field(FAISS_SQ_CLIP, true)
                 .endObject()
                 .endObject()
@@ -258,6 +261,7 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
                 .field(NAME, ENCODER_SQ)
                 .startObject(PARAMETERS)
                 .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+                .field(SQ_BITS, 16)
                 .endObject()
                 .endObject()
                 .endObject()
@@ -312,6 +316,7 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
                 .field(NAME, ENCODER_SQ)
                 .startObject(PARAMETERS)
                 .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+                .field(SQ_BITS, 16)
                 .field(FAISS_SQ_CLIP, true)
                 .endObject()
                 .endObject()

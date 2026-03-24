@@ -55,7 +55,7 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
         // Needed to make sure we don't get 0 dimensions while initializing index
         initializeVectorValues(knnVectorValues);
         KNNEngine engine = indexInfo.getKnnEngine();
-        Map<String, Object> indexParameters = indexInfo.getParameters();
+        Map<String, Object> indexParameters = indexInfo.getIndexParameters();
         IndexBuildSetup indexBuildSetup = QuantizationIndexUtils.prepareIndexBuild(knnVectorValues, indexInfo);
 
         // Initialize the index
@@ -122,7 +122,7 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
 
             // Write vector
             AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-                JNIService.writeIndex(indexInfo.getIndexOutputWithBuffer(), indexMemoryAddress, engine, indexParameters);
+                JNIService.writeIndex(indexInfo.getIndexOutputWithBuffer(), indexMemoryAddress, engine, indexParameters, false);
                 return null;
             });
 
@@ -130,7 +130,7 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
             throw indexBuildAbortedException;
         } catch (Exception exception) {
             throw new RuntimeException(
-                "Failed to build index, field name [" + indexInfo.getFieldName() + "], parameters " + indexInfo,
+                "Failed to build index, field name [" + indexInfo.getField() + "], parameters " + indexInfo,
                 exception
             );
         }

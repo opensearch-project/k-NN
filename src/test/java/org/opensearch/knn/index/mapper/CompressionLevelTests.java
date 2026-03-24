@@ -135,4 +135,38 @@ public class CompressionLevelTests extends KNNTestCase {
         rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(Mode.NOT_CONFIGURED, 500, Version.CURRENT, false);
         assertNull(rescoreContext);
     }
+
+    public void testGetDefaultRescoreContext_whenSQOneBitEncoder_thenReturnFixedOversampleFactor() {
+        // sq(bits=1) encoder with x32 compression should return fixed oversample factor
+        RescoreContext rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(
+            Mode.NOT_CONFIGURED,
+            500,
+            Version.CURRENT,
+            false,
+            true
+        );
+        assertNotNull(rescoreContext);
+        assertEquals(RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR, rescoreContext.getOversampleFactor(), 0.0f);
+        assertFalse(rescoreContext.isUserProvided());
+        assertFalse(rescoreContext.isAllowOverrideOversampleFactor());
+
+        // sq(bits=1) should also work with ON_DISK mode and high dimension
+        rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(Mode.ON_DISK, 1500, Version.CURRENT, false, true);
+        assertNotNull(rescoreContext);
+        assertEquals(RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR, rescoreContext.getOversampleFactor(), 0.0f);
+        assertFalse(rescoreContext.isAllowOverrideOversampleFactor());
+    }
+
+    public void testGetDefaultRescoreContext_whenNonSQOneBitEncoder_thenFallsBackToNormalLogic() {
+        // Non-sq(bits=1) encoder should fall through to normal compression level logic
+        RescoreContext rescoreContext = CompressionLevel.x8.getDefaultRescoreContext(Mode.ON_DISK, 500, Version.CURRENT, false, false);
+        assertNotNull(rescoreContext);
+        // x8 with dimension <= 1000 should use 5.0f oversample (normal logic)
+        assertEquals(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD, rescoreContext.getOversampleFactor(), 0.0f);
+
+        // null encoder should also fall through
+        rescoreContext = CompressionLevel.x8.getDefaultRescoreContext(Mode.ON_DISK, 500, Version.CURRENT, false, false);
+        assertNotNull(rescoreContext);
+        assertEquals(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD, rescoreContext.getOversampleFactor(), 0.0f);
+    }
 }

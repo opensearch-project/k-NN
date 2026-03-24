@@ -73,7 +73,7 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
             }
             vectorTransfer.flush(true);
 
-            final Map<String, Object> params = indexInfo.getParameters();
+            final Map<String, Object> params = indexInfo.getIndexParameters();
             long vectorAddress = vectorTransfer.getVectorAddress();
             // Currently this is if else as there are only two cases, with more cases this will have to be made
             // more maintainable
@@ -109,7 +109,7 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
             throw indexBuildAbortedException;
         } catch (Exception exception) {
             throw new RuntimeException(
-                "Failed to build index, field name " + indexInfo.getFieldName() + ", parameters " + indexInfo,
+                "Failed to build index, field name " + indexInfo.getField() + ", parameters " + indexInfo,
                 exception
             );
         }

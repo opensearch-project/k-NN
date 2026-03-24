@@ -10,9 +10,9 @@ extern "C" {
 /*
  * Class:     org_opensearch_knn_jni_SimdVectorComputeService
  * Method:    bulkDistanceCalculation
- * Signature: ([I[FI)V
+ * Signature: ([I[FI)F
  */
-JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_scoreSimilarityInBulk
+JNIEXPORT jfloat JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_scoreSimilarityInBulk
   (JNIEnv *, jclass, jintArray, jfloatArray, jint);
 
 /*
@@ -30,6 +30,14 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_save
  */
 JNIEXPORT jfloat JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_scoreSimilarity
   (JNIEnv *, jclass, jint);
+
+/*
+ * Class:     org_opensearch_knn_jni_SimdVectorComputeService
+ * Method:    saveBBQSearchContext
+ * Signature: ([BFFFI[JIIF)V
+ */
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_saveBBQSearchContext
+  (JNIEnv *, jclass, jbyteArray, jfloat, jfloat, jfloat, jint, jlongArray, jint, jint, jfloat);
 
 #ifdef __cplusplus
 }

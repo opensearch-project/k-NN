@@ -16,6 +16,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.codec.KNN1040Codec.Faiss104ScalarQuantizedVectorScorer;
 import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
 
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -76,6 +77,19 @@ public class FlatVectorsScorerProviderTests extends KNNTestCase {
             IllegalArgumentException.class,
             () -> FlatVectorsScorerProvider.getFlatVectorsScorer(fieldInfo, KNNVectorSimilarityFunction.EUCLIDEAN, null)
         );
+    }
+
+    public void testFaissSQScoring_whenSQFieldInfo_thenReturnsFaiss104ScalarQuantizedVectorScorer() {
+        FieldInfo fieldInfo = mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(KNNConstants.SQ_CONFIG)).thenReturn("bits=1");
+
+        final FlatVectorsScorer scorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
+            fieldInfo,
+            KNNVectorSimilarityFunction.EUCLIDEAN,
+            VECTOR_SCORER
+        );
+
+        assertTrue(scorer instanceof Faiss104ScalarQuantizedVectorScorer);
     }
 
     public void testNonHammingScoring() {

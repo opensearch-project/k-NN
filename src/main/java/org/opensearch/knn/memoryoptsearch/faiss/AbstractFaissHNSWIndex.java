@@ -10,6 +10,7 @@ import lombok.Getter;
 public abstract class AbstractFaissHNSWIndex extends FaissIndex implements FaissHNSWProvider {
     @Getter
     protected FaissHNSW faissHnsw;
+    @Getter
     protected FaissIndex flatVectors;
 
     public AbstractFaissHNSWIndex(final String indexType, final FaissHNSW faissHnsw) {
