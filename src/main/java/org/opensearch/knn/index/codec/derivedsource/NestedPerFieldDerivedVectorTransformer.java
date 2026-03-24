@@ -6,8 +6,6 @@
 package org.opensearch.knn.index.codec.derivedsource;
 
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.NumericDocValues;
-import org.opensearch.common.CheckedSupplier;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 
@@ -17,26 +15,24 @@ public class NestedPerFieldDerivedVectorTransformer extends AbstractPerFieldDeri
 
     private final FieldInfo childFieldInfo;
     private final DerivedSourceReaders derivedSourceReaders;
-    private final CheckedSupplier<NumericDocValues, IOException> normValuesSupplier;
+    private final DerivedSourceNormSupplier normSupplier;
     private KNNVectorValues<?> vectorValues;
-    private NumericDocValues normDocValues;
+    private int currentOffset;
 
     /**
      *
      * @param childFieldInfo FieldInfo of the child field
      * @param derivedSourceReaders Readers for access segment info
-     * @param normFieldInfo FieldInfo for the norm field, or null if no denormalization is needed
+     * @param normSupplier supplier for L2 norm values
      */
     public NestedPerFieldDerivedVectorTransformer(
         FieldInfo childFieldInfo,
         DerivedSourceReaders derivedSourceReaders,
-        FieldInfo normFieldInfo
+        DerivedSourceNormSupplier normSupplier
     ) {
         this.childFieldInfo = childFieldInfo;
         this.derivedSourceReaders = derivedSourceReaders;
-        this.normValuesSupplier = normFieldInfo != null
-            ? () -> derivedSourceReaders.getDocValuesProducer().getNumeric(normFieldInfo)
-            : null;
+        this.normSupplier = normSupplier;
     }
 
     @Override
@@ -46,12 +42,13 @@ public class NestedPerFieldDerivedVectorTransformer extends AbstractPerFieldDeri
         }
 
         try {
-            float norm = (normDocValues != null) ? Float.intBitsToFloat((int) normDocValues.longValue()) : 1.0f;
-            Object vector = formatVector(childFieldInfo, vectorValues::getVector, vectorValues::conditionalCloneVector, norm);
+            Object vector = formatVector(
+                childFieldInfo,
+                vectorValues::getVector,
+                vectorValues::conditionalCloneVector,
+                () -> normSupplier.getNorm(currentOffset)
+            );
             vectorValues.nextDoc();
-            if (normDocValues != null) {
-                normDocValues.nextDoc();
-            }
             return vector;
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -66,9 +63,6 @@ public class NestedPerFieldDerivedVectorTransformer extends AbstractPerFieldDeri
             derivedSourceReaders.getKnnVectorsReader()
         );
         vectorValues.advance(offset);
-        if (normValuesSupplier != null) {
-            normDocValues = normValuesSupplier.get();
-            normDocValues.advance(offset);
-        }
+        currentOffset = offset;
     }
 }

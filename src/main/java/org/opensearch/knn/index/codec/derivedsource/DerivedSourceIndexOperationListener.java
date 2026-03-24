@@ -22,6 +22,7 @@ import org.opensearch.index.engine.Engine;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.index.mapper.SourceFieldMapper;
 import org.opensearch.index.shard.IndexingOperationListener;
+import org.opensearch.knn.common.KNNVectorUtil;
 import org.opensearch.knn.index.DerivedKnnByteVectorField;
 import org.opensearch.knn.index.DerivedKnnFloatVectorField;
 import org.opensearch.knn.index.VectorDataType;
@@ -98,14 +99,6 @@ public class DerivedSourceIndexOperationListener implements IndexingOperationLis
         return operation;
     }
 
-    private float[] denormalize(float[] normalizedVector, float norm) {
-        float[] result = new float[normalizedVector.length];
-        for (int i = 0; i < normalizedVector.length; i++) {
-            result[i] = normalizedVector[i] * norm;
-        }
-        return result;
-    }
-
     private Pair<Function<Map<String, Object>, Map<String, Object>>> createInjectTransformer(Engine.Index operation) {
         Map<String, List<Object>> injectedVectors = new HashMap<>();
 
@@ -117,10 +110,9 @@ public class DerivedSourceIndexOperationListener implements IndexingOperationLis
                     Object vector = formatVector(VectorDataType.FLOAT, knnVectorFieldType.vectorValue());
                     float norm = knnVectorFieldType.getVectorNorm();
                     if (norm != 1.0f && vector instanceof float[] floatVector) {
-                        vector = denormalize(floatVector, norm);
+                        vector = KNNVectorUtil.denormalize(floatVector, norm, false);
                     }
-                    injectedVectors.computeIfAbsent(indexableField.name(), k -> new ArrayList<>())
-                        .add(vector);
+                    injectedVectors.computeIfAbsent(indexableField.name(), k -> new ArrayList<>()).add(vector);
                 }
 
                 if (indexableField instanceof DerivedKnnByteVectorField knnByteVectorField && knnByteVectorField.isDerivedEnabled()) {

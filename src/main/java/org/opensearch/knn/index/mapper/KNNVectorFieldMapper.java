@@ -706,8 +706,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         if (this.stored) {
             fields.add(createStoredFieldForFloatVector(name(), array));
         }
-        if(isDerivedEnabled && norm != 1.0f) {
-            fields.add(new FloatDocValuesField(KNNConstants.NORM_FIELD_PREFIX + name(), norm));
+        if (isDerivedEnabled && norm != 1.0f) {
+            fields.add(new FloatDocValuesField(KNNVectorUtil.getNormFieldName(name()), norm));
         }
         return fields;
     }

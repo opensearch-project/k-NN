@@ -6,7 +6,6 @@
 package org.opensearch.knn.index.codec.derivedsource;
 
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.NumericDocValues;
 import org.opensearch.common.CheckedSupplier;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
@@ -17,41 +16,32 @@ public class RootPerFieldDerivedVectorTransformer extends AbstractPerFieldDerive
 
     private final FieldInfo fieldInfo;
     private final CheckedSupplier<KNNVectorValues<?>, IOException> vectorValuesSupplier;
-    private final CheckedSupplier<NumericDocValues, IOException> normValuesSupplier;
+    private final DerivedSourceNormSupplier normSupplier;
     private KNNVectorValues<?> vectorValues;
-    private NumericDocValues normDocValues;
+    private int currentDocId;
 
     /**
      * Constructor for RootPerFieldDerivedVectorTransformer.
      *
      * @param fieldInfo FieldInfo for the field to create the injector for
      * @param derivedSourceReaders {@link DerivedSourceReaders} instance
-     * @param normFieldInfo FieldInfo for the norm field, or null if no denormalization is needed
+     * @param normSupplier supplier for L2 norm values
      */
-    public RootPerFieldDerivedVectorTransformer(
-        FieldInfo fieldInfo,
-        DerivedSourceReaders derivedSourceReaders,
-        FieldInfo normFieldInfo
-    ) {
+    public RootPerFieldDerivedVectorTransformer(FieldInfo fieldInfo, DerivedSourceReaders derivedSourceReaders, DerivedSourceNormSupplier normSupplier) {
         this.fieldInfo = fieldInfo;
         this.vectorValuesSupplier = () -> KNNVectorValuesFactory.getVectorValues(
             fieldInfo,
             derivedSourceReaders.getDocValuesProducer(),
             derivedSourceReaders.getKnnVectorsReader()
         );
-        this.normValuesSupplier = normFieldInfo != null
-            ? () -> derivedSourceReaders.getDocValuesProducer().getNumeric(normFieldInfo)
-            : null;
+        this.normSupplier = normSupplier;
     }
 
     @Override
     public void setCurrentDoc(int offset, int docId) throws IOException {
         vectorValues = vectorValuesSupplier.get();
         vectorValues.advance(docId);
-        if (normValuesSupplier != null) {
-            normDocValues = normValuesSupplier.get();
-            normDocValues.advance(docId);
-        }
+        currentDocId = docId;
     }
 
     @Override
@@ -61,8 +51,12 @@ public class RootPerFieldDerivedVectorTransformer extends AbstractPerFieldDerive
         }
 
         try {
-            float norm = (normDocValues != null) ? Float.intBitsToFloat((int) normDocValues.longValue()) : 1.0f;
-            return formatVector(fieldInfo, vectorValues::getVector, vectorValues::conditionalCloneVector, norm);
+            return formatVector(
+                fieldInfo,
+                vectorValues::getVector,
+                vectorValues::conditionalCloneVector,
+                () -> normSupplier.getNorm(currentDocId)
+            );
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

@@ -7,7 +7,7 @@ package org.opensearch.knn.index.codec.derivedsource;
 
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
-import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.common.KNNVectorUtil;
 
 public class PerFieldDerivedVectorTransformerFactory {
 
@@ -26,11 +26,14 @@ public class PerFieldDerivedVectorTransformerFactory {
         DerivedSourceReaders derivedSourceReaders,
         FieldInfos fieldInfos
     ) {
-        FieldInfo normFieldInfo = fieldInfos.fieldInfo(KNNConstants.NORM_FIELD_PREFIX + fieldInfo.name);
+        FieldInfo normFieldInfo = fieldInfos.fieldInfo(KNNVectorUtil.getNormFieldName(fieldInfo.name));
+        DerivedSourceNormSupplier normSupplier = normFieldInfo != null
+            ? DerivedSourceNormSupplier.fromDocValues(() -> derivedSourceReaders.getDocValuesProducer().getNumeric(normFieldInfo))
+            : DerivedSourceNormSupplier.UNIT;
 
         if (isNested) {
-            return new NestedPerFieldDerivedVectorTransformer(fieldInfo, derivedSourceReaders, normFieldInfo);
+            return new NestedPerFieldDerivedVectorTransformer(fieldInfo, derivedSourceReaders, normSupplier);
         }
-        return new RootPerFieldDerivedVectorTransformer(fieldInfo, derivedSourceReaders, normFieldInfo);
+        return new RootPerFieldDerivedVectorTransformer(fieldInfo, derivedSourceReaders, normSupplier);
     }
 }

@@ -4,8 +4,6 @@
  */
 package org.opensearch.knn.index.mapper;
 
-import org.apache.lucene.util.VectorUtil;
-
 /**
  * Defines operations for transforming vectors in the k-NN search context.
  * Implementations can modify vectors while preserving their dimensional properties

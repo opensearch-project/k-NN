@@ -169,10 +169,10 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
      * This is only needed for Faiss engine with cosine similarity, where vectors are normalized at index time.
      */
     private static boolean needsNormField(KNNVectorFieldType fieldType) {
-        Optional<KNNMethodContext> ctx = fieldType.getKnnMappingConfig().getKnnMethodContext();
-        return ctx.isPresent()
-            && ctx.get().getKnnEngine() == KNNEngine.FAISS
-            && ctx.get().getSpaceType() == SpaceType.COSINESIMIL;
+        Optional<KNNMethodContext> context = fieldType.getKnnMappingConfig().getKnnMethodContext();
+        return context.isPresent()
+            && context.get().getKnnEngine() == KNNEngine.FAISS
+            && context.get().getSpaceType() == SpaceType.COSINESIMIL;
     }
 
     /**
