@@ -15,14 +15,15 @@ import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.index.VectorSimilarityFunction;
-import org.apache.lucene.search.ConjunctionUtils;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.HitQueue;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopDocsCollector;
 import org.apache.lucene.search.TotalHits;
+import org.apache.lucene.search.VectorScorer;
 import org.apache.lucene.search.join.BitSetProducer;
+import org.apache.lucene.util.BitSet;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
@@ -31,11 +32,11 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
-import org.opensearch.knn.index.vectorvalues.KNNByteVectorValues;
-import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
+import org.opensearch.knn.index.query.scorers.VectorScorerMode;
+import org.opensearch.knn.index.query.scorers.VectorScorers;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
 import org.opensearch.knn.indices.ModelDao;
 
 import java.io.IOException;
@@ -60,18 +61,17 @@ public class ExactSearcher {
      * @throws IOException exception during execution of exact search
      */
     public TopDocs searchLeaf(final LeafReaderContext leafReaderContext, final ExactSearcherContext context) throws IOException {
-        final ExactKNNIterator iterator = getKNNIterator(leafReaderContext, context);
-        // because of any reason if we are not able to get ExactKNNIterator, return empty top docss
-        if (iterator == null) {
+        final VectorScorer vectorScorer = createVectorScorer(leafReaderContext, context);
+        if (vectorScorer == null) {
             return TopDocsCollector.EMPTY_TOPDOCS;
         }
         if (context.getRadius() != null) {
-            return doRadialSearch(leafReaderContext, context, iterator);
+            return doRadialSearch(leafReaderContext, context, vectorScorer);
         }
         if (context.getMatchedDocsIterator() != null && context.numberOfMatchedDocs <= context.getK()) {
-            return scoreAllDocs(iterator);
+            return scoreAllDocs(vectorScorer);
         }
-        return searchTopCandidates(iterator, context.getK(), Predicates.alwaysTrue());
+        return searchTopCandidates(vectorScorer, context.getK(), Predicates.alwaysTrue());
     }
 
     /**
@@ -80,11 +80,11 @@ public class ExactSearcher {
      * to filter out the documents that does not have given min score.
      * @param leafReaderContext {@link LeafReaderContext}
      * @param context {@link ExactSearcherContext}
-     * @param iterator {@link ExactKNNIterator}
+     * @param vectorScorer {@link VectorScorer}
      * @return TopDocs containing the results of the search
-     * @throws IOException exception raised by iterator during traversal
+     * @throws IOException exception raised by scorer during traversal
      */
-    private TopDocs doRadialSearch(LeafReaderContext leafReaderContext, ExactSearcherContext context, ExactKNNIterator iterator)
+    private TopDocs doRadialSearch(LeafReaderContext leafReaderContext, ExactSearcherContext context, VectorScorer vectorScorer)
         throws IOException {
         // Ensure `isMemoryOptimizedSearchEnabled` is set. This is necessary to determine whether distance to score conversion is required.
         assert (context.isMemoryOptimizedSearchEnabled != null);
@@ -106,26 +106,28 @@ public class ExactSearcher {
         // We need to convert it to OpenSearch score space using the reverse translation.
         final float minScore = context.isMemoryOptimizedSearchEnabled ? context.getRadius() : engine.score(context.getRadius(), spaceType);
 
-        return filterDocsByMinScore(context, iterator, minScore);
+        return filterDocsByMinScore(context, vectorScorer, minScore);
     }
 
-    private TopDocs scoreAllDocs(ExactKNNIterator iterator) throws IOException {
+    private TopDocs scoreAllDocs(VectorScorer vectorScorer) throws IOException {
+        final DocIdSetIterator iterator = vectorScorer.iterator();
         final List<ScoreDoc> scoreDocList = new ArrayList<>();
         int docId;
         while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
-            scoreDocList.add(new ScoreDoc(docId, iterator.score()));
+            scoreDocList.add(new ScoreDoc(docId, vectorScorer.score()));
         }
         scoreDocList.sort(Comparator.comparing(scoreDoc -> scoreDoc.score, Comparator.reverseOrder()));
         return new TopDocs(new TotalHits(scoreDocList.size(), TotalHits.Relation.EQUAL_TO), scoreDocList.toArray(ScoreDoc[]::new));
     }
 
-    private TopDocs searchTopCandidates(ExactKNNIterator iterator, int limit, @NonNull Predicate<Float> filterScore) throws IOException {
+    private TopDocs searchTopCandidates(VectorScorer vectorScorer, int limit, @NonNull Predicate<Float> filterScore) throws IOException {
+        final DocIdSetIterator iterator = vectorScorer.iterator();
         // Creating min heap and init with MAX DocID and Score as -INF.
         final HitQueue queue = new HitQueue(limit, true);
         ScoreDoc topDoc = queue.top();
         int docId;
         while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
-            final float currentScore = iterator.score();
+            final float currentScore = vectorScorer.score();
             if (filterScore.test(currentScore) && currentScore > topDoc.score) {
                 topDoc.score = currentScore;
                 topDoc.doc = docId;
@@ -151,168 +153,101 @@ public class ExactSearcher {
         return new TopDocs(totalHits, topScoreDocs);
     }
 
-    private TopDocs filterDocsByMinScore(ExactSearcherContext context, ExactKNNIterator iterator, float minScore) throws IOException {
+    private TopDocs filterDocsByMinScore(ExactSearcherContext context, VectorScorer vectorScorer, float minScore) throws IOException {
         int maxResultWindow = context.getMaxResultWindow();
         Predicate<Float> scoreGreaterThanOrEqualToMinScore = score -> score >= minScore;
-        return searchTopCandidates(iterator, maxResultWindow, scoreGreaterThanOrEqualToMinScore);
+        return searchTopCandidates(vectorScorer, maxResultWindow, scoreGreaterThanOrEqualToMinScore);
     }
 
-    private ExactKNNIterator getKNNIterator(LeafReaderContext leafReaderContext, ExactSearcherContext exactSearcherContext)
+    private VectorScorer createVectorScorer(final LeafReaderContext leafReaderContext, final ExactSearcherContext context)
         throws IOException {
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
-        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, exactSearcherContext.getField());
+        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, context.getField());
         if (fieldInfo == null) {
-            log.debug(
-                "[KNN] Cannot get ExactKNNIterator as Field info not found for {}:{}",
-                exactSearcherContext.getField(),
-                reader.getSegmentName()
-            );
+            log.debug("[KNN] Cannot create VectorScorer as FieldInfo not found for {}:{}", context.getField(), reader.getSegmentName());
             return null;
         }
+
         final VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(fieldInfo);
         final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
-        boolean isNestedRequired = exactSearcherContext.getParentsFilter() != null;
+        final VectorScorerMode scorerMode = context.isUseQuantizedVectorsForSearch() ? VectorScorerMode.SCORE : VectorScorerMode.RESCORE;
+        final boolean isNestedRequired = context.getParentsFilter() != null;
+        final DocIdSetIterator acceptedChildrenIterator = isNestedRequired ? context.getMatchedDocsIterator() : null;
+        final BitSet parentBitSet = isNestedRequired ? context.getParentsFilter().getBitSet(leafReaderContext) : null;
 
-        // We need to create a new VectorValues instances as the new one will be used to iterate over the docIds in
-        // conjunction with Matched Docs.
-        final DocIdSetIterator matchedDocs = getMatchedDocsIterator(
-            exactSearcherContext.getMatchedDocsIterator(),
-            KNNVectorValuesFactory.getVectorValues(fieldInfo, reader).getVectorValuesIterator().getDocIdSetIterator()
-        );
+        final KNNVectorValues<?> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
+        final KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = (KNNVectorValuesIterator.DocIdsIteratorValues) vectorValues
+            .getVectorValuesIterator();
+
         if (VectorDataType.BINARY == vectorDataType) {
-            final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
-            if (isNestedRequired) {
-                return new NestedBinaryVectorIdsExactKNNIterator(
-                    matchedDocs,
-                    exactSearcherContext.getByteQueryVector(),
-                    (KNNBinaryVectorValues) vectorValues,
-                    spaceType,
-                    exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext)
-                );
-            }
-            return new BinaryVectorIdsExactKNNIterator(
-                matchedDocs,
-                exactSearcherContext.getByteQueryVector(),
-                (KNNBinaryVectorValues) vectorValues,
-                spaceType
+            return VectorScorers.createScorer(
+                iteratorValues,
+                context.getByteQueryVector(),
+                scorerMode,
+                spaceType,
+                acceptedChildrenIterator,
+                parentBitSet
             );
         }
 
         if (VectorDataType.BYTE == vectorDataType) {
-            final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
-            if (isNestedRequired) {
-                return new NestedByteVectorIdsExactKNNIterator(
-                    matchedDocs,
-                    exactSearcherContext.getFloatQueryVector(),
-                    (KNNByteVectorValues) vectorValues,
-                    spaceType,
-                    exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext)
-                );
+            final float[] floatQueryVector = context.getFloatQueryVector();
+            final byte[] byteQueryVector = new byte[floatQueryVector.length];
+            for (int i = 0; i < byteQueryVector.length; i++) {
+                byteQueryVector[i] = (byte) floatQueryVector[i];
             }
-            return new ByteVectorIdsExactKNNIterator(
-                matchedDocs,
-                exactSearcherContext.getFloatQueryVector(),
-                (KNNByteVectorValues) vectorValues,
-                spaceType
+            return VectorScorers.createScorer(
+                iteratorValues,
+                byteQueryVector,
+                scorerMode,
+                spaceType,
+                acceptedChildrenIterator,
+                parentBitSet
             );
         }
-        // Build Segment Level Quantization info.
-        final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(
-            reader,
-            fieldInfo,
-            exactSearcherContext.getField()
-        );
-        // For FP32 vectors, there are two execution paths:
-        // 1. Full precision path: Used during rescoring or when quantization is not available.
-        // Loads original float32 vectors and performs exact search using the configured distance metric (L2, Cosine, etc.).
-        // 2. Quantized path: Used during approximate search when quantization is enabled.
-        // Loads quantized byte vectors from segment and performs search using either:
-        // a) ADC (Asymmetric Distance Computation): Transforms query vector and compares against quantized doc vectors
-        // b) Symmetric quantization: Quantizes query vector and uses Hamming distance for comparison
-        if (segmentLevelQuantizationInfo == null || !exactSearcherContext.isUseQuantizedVectorsForSearch()) {
-            final KNNVectorValues<float[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
-            if (isNestedRequired) {
-                return new NestedVectorIdsExactKNNIterator(
-                    matchedDocs,
-                    exactSearcherContext.getFloatQueryVector(),
-                    (KNNFloatVectorValues) vectorValues,
-                    spaceType,
-                    exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext)
-                );
-            }
-            return new VectorIdsExactKNNIterator(
-                matchedDocs,
-                exactSearcherContext.getFloatQueryVector(),
-                (KNNFloatVectorValues) vectorValues,
-                spaceType
-            );
-        }
-        final KNNVectorValues<byte[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader, true);
-        // For ADC, we will transform float vector -> ADC's float vector
-        if (SegmentLevelQuantizationUtil.isAdcEnabled(segmentLevelQuantizationInfo)) {
-            SegmentLevelQuantizationUtil.transformVectorWithADC(
-                exactSearcherContext.getFloatQueryVector(),
-                segmentLevelQuantizationInfo,
-                spaceType
-            );
-            if (isNestedRequired) {
-                return new NestedBinaryVectorIdsExactKNNIterator(
-                    matchedDocs,
-                    exactSearcherContext.getFloatQueryVector(),
-                    (KNNBinaryVectorValues) vectorValues,
-                    spaceType,
-                    exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext)
-                );
-            }
-            return new BinaryVectorIdsExactKNNIterator(
-                matchedDocs,
-                exactSearcherContext.getFloatQueryVector(),
-                (KNNBinaryVectorValues) vectorValues,
-                spaceType
-            );
-        }
-        final byte[] quantizedQueryVector = SegmentLevelQuantizationUtil.quantizeVector(
-            exactSearcherContext.getFloatQueryVector(),
-            segmentLevelQuantizationInfo
-        );
-        // Quantized search path: retrieve quantized byte vectors from reader as KNNBinaryVectorValues and perform exact search
-        // using Hamming distance.
-        if (isNestedRequired) {
-            return new NestedBinaryVectorIdsExactKNNIterator(
-                matchedDocs,
-                quantizedQueryVector,
-                (KNNBinaryVectorValues) vectorValues,
-                SpaceType.HAMMING,
-                exactSearcherContext.getParentsFilter().getBitSet(leafReaderContext)
-            );
-        }
-        return new BinaryVectorIdsExactKNNIterator(
-            matchedDocs,
-            quantizedQueryVector,
-            (KNNBinaryVectorValues) vectorValues,
-            SpaceType.HAMMING
-        );
-    }
 
-    /**
-    * Creates a {@link DocIdSetIterator} which is an intersection of the iterators passed as arguments.
-    * This is used to get the intersection of the matched docs and the vector values docIds.
-    *
-    * @param originalMatchedDocsDISI A {@link DocIdSetIterator} on which exact search needs to be performed
-    * @param vectorValuesDISI A {@link DocIdSetIterator} which contains the docIds which has vector on it.
-    * @return DocIdSetIterator A intersection of the iterators
-    */
-    private DocIdSetIterator getMatchedDocsIterator(
-        @Nullable final DocIdSetIterator originalMatchedDocsDISI,
-        final DocIdSetIterator vectorValuesDISI
-    ) {
-        if (originalMatchedDocsDISI == null) {
-            return null;
+        // Float vector path
+        final SegmentLevelQuantizationInfo quantizationInfo = SegmentLevelQuantizationInfo.build(reader, fieldInfo, context.getField());
+
+        if (quantizationInfo == null || scorerMode == VectorScorerMode.RESCORE) {
+            return VectorScorers.createScorer(
+                iteratorValues,
+                context.getFloatQueryVector(),
+                scorerMode,
+                spaceType,
+                fieldInfo,
+                acceptedChildrenIterator,
+                parentBitSet
+            );
         }
-        final List<DocIdSetIterator> disiList = new ArrayList<>();
-        disiList.add(originalMatchedDocsDISI);
-        disiList.add(vectorValuesDISI);
-        return ConjunctionUtils.intersectIterators(disiList);
+
+        // Quantized path — need byte vector values
+        final KNNVectorValues<?> quantizedValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader, true);
+        final KNNVectorValuesIterator.DocIdsIteratorValues quantizedIteratorValues =
+            (KNNVectorValuesIterator.DocIdsIteratorValues) quantizedValues.getVectorValuesIterator();
+
+        if (SegmentLevelQuantizationUtil.isAdcEnabled(quantizationInfo)) {
+            SegmentLevelQuantizationUtil.transformVectorWithADC(context.getFloatQueryVector(), quantizationInfo, spaceType);
+            return VectorScorers.createScorer(
+                quantizedIteratorValues,
+                context.getFloatQueryVector(),
+                scorerMode,
+                spaceType,
+                fieldInfo,
+                acceptedChildrenIterator,
+                parentBitSet
+            );
+        }
+
+        final byte[] quantizedQueryVector = SegmentLevelQuantizationUtil.quantizeVector(context.getFloatQueryVector(), quantizationInfo);
+        return VectorScorers.createScorer(
+            quantizedIteratorValues,
+            quantizedQueryVector,
+            scorerMode,
+            SpaceType.HAMMING,
+            acceptedChildrenIterator,
+            parentBitSet
+        );
     }
 
     /**
