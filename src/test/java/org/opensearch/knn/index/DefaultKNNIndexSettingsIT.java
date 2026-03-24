@@ -29,7 +29,7 @@ public class DefaultKNNIndexSettingsIT extends KNNRestTestCase {
 
         // Verify settings based on knn flag
         String derivedSourceEnabled = getIndexSettingByName(indexName, KNN_DERIVED_SOURCE_ENABLED);
-        assertEquals(Boolean.toString(isKnnIndex), derivedSourceEnabled);
+        assertEquals(!isKnnIndex ? null : "true", derivedSourceEnabled);
 
         String maxMergeAtOnce = getIndexSettingByName(
             indexName,
