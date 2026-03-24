@@ -16,6 +16,7 @@ import org.apache.lucene.util.hnsw.RandomVectorScorerSupplier;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.codec.KNN1040Codec.Faiss104ScalarQuantizedVectorScorer;
 import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 

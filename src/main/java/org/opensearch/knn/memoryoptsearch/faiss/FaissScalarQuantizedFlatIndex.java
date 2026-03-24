@@ -11,6 +11,7 @@ import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexInput;
+import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissBinaryIndex;
 
 import java.io.IOException;
 
@@ -20,7 +21,7 @@ import java.io.IOException;
  * and quantized vectors are stored separately via Lucene's format. This class bridges the two by installing
  * itself as the flat storage under FaissHNSWIndex, providing access to the quantized vectors reader for scoring.
  */
-public class FaissScalarQuantizedFlatIndex extends FaissIndex {
+public class FaissScalarQuantizedFlatIndex extends FaissBinaryIndex {
     static final String FAISS_SCALAR_QUANTIZED_FLAT_INDEX = "FaissScalarQuantizedFlatIndex";
 
     @Getter

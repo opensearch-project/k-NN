@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.memoryoptsearch.faiss;
+package org.opensearch.knn.index.codec.KNN1040Codec;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorScorer;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
@@ -17,6 +18,7 @@ import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.apache.lucene.util.quantization.OptimizedScalarQuantizer;
 import org.opensearch.knn.jni.SimdVectorComputeService;
 import org.opensearch.knn.memoryoptsearch.MemorySegmentAddressExtractorUtil;
+import org.opensearch.knn.memoryoptsearch.faiss.WrappedFloatVectorValues;
 
 import java.io.IOException;
 
@@ -39,6 +41,7 @@ import static org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectors
  * <p>The SIMD path uses a precomputed search context and performs scoring in native code
  * (e.g., AVX-512), significantly improving throughput for large-scale vector search.
  */
+@Log4j2
 public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantizedVectorScorer {
     /**
      * Creates a new scorer that wraps a non-quantized delegate scorer.
@@ -68,16 +71,29 @@ public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantize
         KnnVectorValues vectorValues,
         float[] target
     ) throws IOException {
-        if (vectorValues instanceof QuantizedByteVectorValues quantizedByteVectorValues) {
-            final IndexInput indexInput = quantizedByteVectorValues.getSlice();
-            final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(indexInput, 0, indexInput.length());
-            if (addressAndSize != null) {
-                return bulkSimdRandomVectorScorer(quantizedByteVectorValues, target, addressAndSize, similarityFunction);
-            }
+        // For the sparse case, KnnVectorValues having `QuantizedByteVectorValues` might be wrapped to support
+        // vector ordinal to doc id mapping. For the dense case, it's not needed as vector ordinal is always the same
+        // as doc id.
+        if (vectorValues instanceof WrappedFloatVectorValues) {
+            vectorValues = WrappedFloatVectorValues.getBottomFloatVectorValues(vectorValues);
         }
 
-        // Fallback to Lucene scorer
-        return super.getRandomVectorScorer(similarityFunction, vectorValues, target);
+        // Extract QuantizedByteVectorValues from `vectorValues`.
+        // This should not be null, otherwise it can't get entroid + correction factors.
+        final QuantizedByteVectorValues quantizedByteVectorValues = Faiss1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(
+            vectorValues
+        );
+
+        // Try bulk SIMD
+        final IndexInput indexInput = quantizedByteVectorValues.getSlice();
+        final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(indexInput, 0, indexInput.length());
+        if (addressAndSize != null) {
+            return bulkSimdRandomVectorScorer(quantizedByteVectorValues, target, addressAndSize, similarityFunction);
+        }
+
+        // Fallback
+        log.warn("Bulk SIMD for Faiss SQ is not supported, falling back to Lucene's random vector scorer");
+        return super.getRandomVectorScorer(similarityFunction, quantizedByteVectorValues, target);
     }
 
     /**

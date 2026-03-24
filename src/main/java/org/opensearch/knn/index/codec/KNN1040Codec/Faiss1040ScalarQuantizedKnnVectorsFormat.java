@@ -38,7 +38,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
 
     // Shared across all format instances; Lucene104ScalarQuantizedVectorsFormat is stateless.
     // TODO : We have to make it scalable for other encoding types, not limit this on `ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE`.
-    private static final Lucene104ScalarQuantizedVectorsFormat bbqFlatFormat = new Lucene104ScalarQuantizedVectorsFormat(
+    private static final Lucene104ScalarQuantizedVectorsFormat faissSqFlatFormat = new Lucene104ScalarQuantizedVectorsFormat(
         ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE
     );
 
@@ -48,12 +48,22 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
 
     @Override
     public KnnVectorsWriter fieldsWriter(SegmentWriteState state) throws IOException {
-        return new Faiss1040ScalarQuantizedKnnVectorsWriter(state, bbqFlatFormat.fieldsWriter(state), bbqFlatFormat::fieldsReader);
+        return new Faiss1040ScalarQuantizedKnnVectorsWriter(state, faissSqFlatFormat.fieldsWriter(state), faissSqFlatFormat::fieldsReader);
     }
 
+    /**
+     * Wraps the Lucene flat vectors reader with {@link Faiss1040PrefetchSupportKnnVectorReader} so that
+     * the {@link org.apache.lucene.index.FloatVectorValues} returned by the reader implement
+     * {@link org.apache.lucene.codecs.lucene95.HasIndexSlice}. This is required because Lucene's
+     * prefetch-enabled HNSW traversal expects all vector values to expose an {@link org.apache.lucene.store.IndexInput}
+     * for I/O prefetching, but Lucene's {@code ScalarQuantizedVectorValues} does not implement that interface.
+     */
     @Override
     public KnnVectorsReader fieldsReader(SegmentReadState state) throws IOException {
-        return new Faiss1040ScalarQuantizedKnnVectorsReader(state, bbqFlatFormat.fieldsReader(state));
+        return new Faiss1040ScalarQuantizedKnnVectorsReader(
+            state,
+            new Faiss1040PrefetchSupportKnnVectorReader(faissSqFlatFormat.fieldsReader(state))
+        );
     }
 
     /**

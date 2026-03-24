@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-#include "bbq/faiss_bbq_flat.h"
+#include "sq/faiss_sq_flat.h"
 
 #include <cstdint>
 #include <cstring>
@@ -26,7 +26,7 @@ namespace knn_jni {
 // Helpers
 // ---------------------------------------------------------------------------
 
-// Reference scalar popcount dot-product matching FaissBBQDistanceComputer behavior.
+// Reference scalar popcount dot-product matching FaissSQDistanceComputer behavior.
 // Processes only full 8-byte words (quantizedVectorBytes >> 3), same as the real code.
 static uint32_t referencePopcount(const uint8_t* a, const uint8_t* b, int32_t quantizedVectorBytes) {
     const int32_t words = quantizedVectorBytes >> 3;
@@ -40,7 +40,7 @@ static uint32_t referencePopcount(const uint8_t* a, const uint8_t* b, int32_t qu
     return dp;
 }
 
-// Reference scoring formula matching FaissBBQDistanceComputer.
+// Reference scoring formula matching FaissSQDistanceComputer.
 static float referenceScore(bool isMaxIP, int32_t dim, float centroidDp,
                             float ay, float ly, float queryAdditional, float y1,
                             float ax, float lx, float additional, float x1,
@@ -68,7 +68,7 @@ static void writeCorrectionFactors(uint8_t* ptr, float lower, float upper,
 // Test fixture — parameterised over (IsMaxIP, IsBytesMultipleOf8)
 // ---------------------------------------------------------------------------
 
-struct BBQTestParams {
+struct SQTestParams {
     bool isMaxIP;
     bool isBytesMultipleOf8;
     std::string name() const {
@@ -78,7 +78,7 @@ struct BBQTestParams {
     }
 };
 
-class FaissBBQDistanceComputerTest : public ::testing::TestWithParam<BBQTestParams> {
+class FaissSQDistanceComputerTest : public ::testing::TestWithParam<SQTestParams> {
 protected:
     static constexpr float CENTROID_DP = 0.5f;
     static constexpr float TOLERANCE  = 1e-5f;
@@ -173,7 +173,7 @@ protected:
 // operator() — single vector distance
 // ---------------------------------------------------------------------------
 
-TEST_P(FaissBBQDistanceComputerTest, OperatorSingleVector) {
+TEST_P(FaissSQDistanceComputerTest, OperatorSingleVector) {
     auto [isMaxIP, isBytesMultipleOf8] = GetParam();
     // quantizedVectorBytes is always a multiple of 8 in practice.
     // For IsBytesMultipleOf8=false we still use a multiple-of-8 qvb to exercise
@@ -188,13 +188,13 @@ TEST_P(FaissBBQDistanceComputerTest, OperatorSingleVector) {
     // Create distance computer via template
     std::unique_ptr<faiss::DistanceComputer> dc;
     if (isMaxIP && isBytesMultipleOf8)
-        dc.reset(new FaissBBQDistanceComputer<true, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<true, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
     else if (isMaxIP && !isBytesMultipleOf8)
-        dc.reset(new FaissBBQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
     else if (!isMaxIP && isBytesMultipleOf8)
-        dc.reset(new FaissBBQDistanceComputer<false, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<false, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
     else
-        dc.reset(new FaissBBQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
 
     dc->set_query(reinterpret_cast<const float*>(queryBuf.data()));
 
@@ -222,7 +222,7 @@ TEST_P(FaissBBQDistanceComputerTest, OperatorSingleVector) {
 // distances_batch_4
 // ---------------------------------------------------------------------------
 
-TEST_P(FaissBBQDistanceComputerTest, DistancesBatch4) {
+TEST_P(FaissSQDistanceComputerTest, DistancesBatch4) {
     auto [isMaxIP, isBytesMultipleOf8] = GetParam();
     const int32_t qvb = 24;
     const int32_t dim = dimForQVB(qvb);
@@ -233,13 +233,13 @@ TEST_P(FaissBBQDistanceComputerTest, DistancesBatch4) {
 
     std::unique_ptr<faiss::DistanceComputer> dc;
     if (isMaxIP && isBytesMultipleOf8)
-        dc.reset(new FaissBBQDistanceComputer<true, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<true, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
     else if (isMaxIP && !isBytesMultipleOf8)
-        dc.reset(new FaissBBQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
     else if (!isMaxIP && isBytesMultipleOf8)
-        dc.reset(new FaissBBQDistanceComputer<false, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<false, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
     else
-        dc.reset(new FaissBBQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
 
     dc->set_query(reinterpret_cast<const float*>(queryBuf.data()));
 
@@ -265,7 +265,7 @@ TEST_P(FaissBBQDistanceComputerTest, DistancesBatch4) {
 // symmetric_dis
 // ---------------------------------------------------------------------------
 
-TEST_P(FaissBBQDistanceComputerTest, SymmetricDis) {
+TEST_P(FaissSQDistanceComputerTest, SymmetricDis) {
     auto [isMaxIP, isBytesMultipleOf8] = GetParam();
     const int32_t qvb = 8;
     const int32_t dim = dimForQVB(qvb);
@@ -275,13 +275,13 @@ TEST_P(FaissBBQDistanceComputerTest, SymmetricDis) {
 
     std::unique_ptr<faiss::DistanceComputer> dc;
     if (isMaxIP && isBytesMultipleOf8)
-        dc.reset(new FaissBBQDistanceComputer<true, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<true, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
     else if (isMaxIP && !isBytesMultipleOf8)
-        dc.reset(new FaissBBQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
     else if (!isMaxIP && isBytesMultipleOf8)
-        dc.reset(new FaissBBQDistanceComputer<false, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<false, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
     else
-        dc.reset(new FaissBBQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
 
     // symmetric_dis doesn't need set_query, it works on stored vectors only
     for (int i = 0; i < NUM_VECS; ++i) {
@@ -316,7 +316,7 @@ TEST_P(FaissBBQDistanceComputerTest, SymmetricDis) {
 // setCorrectionFactors — verify extraction matches what was written
 // ---------------------------------------------------------------------------
 
-TEST_P(FaissBBQDistanceComputerTest, CorrectionFactorsExtraction) {
+TEST_P(FaissSQDistanceComputerTest, CorrectionFactorsExtraction) {
     auto [isMaxIP, isBytesMultipleOf8] = GetParam();
     const int32_t qvb = 16;
     const int32_t dim = dimForQVB(qvb);
@@ -326,13 +326,13 @@ TEST_P(FaissBBQDistanceComputerTest, CorrectionFactorsExtraction) {
 
     std::unique_ptr<faiss::DistanceComputer> dc;
     if (isMaxIP && isBytesMultipleOf8)
-        dc.reset(new FaissBBQDistanceComputer<true, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<true, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
     else if (isMaxIP && !isBytesMultipleOf8)
-        dc.reset(new FaissBBQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
     else if (!isMaxIP && isBytesMultipleOf8)
-        dc.reset(new FaissBBQDistanceComputer<false, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<false, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
     else
-        dc.reset(new FaissBBQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
 
     // Verify correction factor extraction indirectly: set_query reads query correction
     // factors, then operator() uses both query and target correction factors in the
@@ -359,17 +359,17 @@ TEST_P(FaissBBQDistanceComputerTest, CorrectionFactorsExtraction) {
 }
 
 // ---------------------------------------------------------------------------
-// FaissBBQFlat::get_distance_computer — integration test
+// FaissSQFlat::get_distance_computer — integration test
 // ---------------------------------------------------------------------------
 
-TEST_P(FaissBBQDistanceComputerTest, GetDistanceComputerIntegration) {
+TEST_P(FaissSQDistanceComputerTest, GetDistanceComputerIntegration) {
     auto [isMaxIP, isBytesMultipleOf8] = GetParam();
     const int32_t qvb = 16;
     const int32_t dim = dimForQVB(qvb);
     constexpr int NUM_VECS = 4;
 
     faiss::MetricType metric = isMaxIP ? faiss::METRIC_INNER_PRODUCT : faiss::METRIC_L2;
-    FaissBBQFlat flat(NUM_VECS, qvb, CENTROID_DP, dim, metric);
+    FaissSQFlat flat(NUM_VECS, qvb, CENTROID_DP, dim, metric);
 
     // Populate the storage
     auto buf = makeBuffer(NUM_VECS, qvb);
@@ -405,15 +405,15 @@ TEST_P(FaissBBQDistanceComputerTest, GetDistanceComputerIntegration) {
 // ---------------------------------------------------------------------------
 
 INSTANTIATE_TEST_SUITE_P(
-    BBQDistanceComputer,
-    FaissBBQDistanceComputerTest,
+    SQDistanceComputer,
+    FaissSQDistanceComputerTest,
     ::testing::Values(
-        BBQTestParams{false, true},   // L2, aligned
-        BBQTestParams{false, false},  // L2, unaligned
-        BBQTestParams{true,  true},   // MaxIP, aligned
-        BBQTestParams{true,  false}   // MaxIP, unaligned
+        SQTestParams{false, true},   // L2, aligned
+        SQTestParams{false, false},  // L2, unaligned
+        SQTestParams{true,  true},   // MaxIP, aligned
+        SQTestParams{true,  false}   // MaxIP, unaligned
     ),
-    [](const ::testing::TestParamInfo<BBQTestParams>& info) {
+    [](const ::testing::TestParamInfo<SQTestParams>& info) {
         return info.param.name();
     }
 );

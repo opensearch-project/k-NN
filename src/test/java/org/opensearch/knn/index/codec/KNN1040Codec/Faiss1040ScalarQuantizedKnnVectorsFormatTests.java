@@ -130,4 +130,66 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormatTests extends KNNTestCase {
         final String str = new Faiss1040ScalarQuantizedKnnVectorsFormat().toString();
         assertTrue(str.contains(Faiss1040ScalarQuantizedKnnVectorsFormat.class.getSimpleName()));
     }
+
+    @SneakyThrows
+    public void testFieldsReader_thenWrapsFlatReaderWithPrefetchSupport() {
+        final SegmentInfo mockedSegmentInfo = new SegmentInfo(
+            mock(Directory.class),
+            mock(Version.class),
+            mock(Version.class),
+            "test-segment",
+            0,
+            false,
+            false,
+            mock(org.apache.lucene.codecs.Codec.class),
+            mock(Map.class),
+            new byte[16],
+            mock(Map.class),
+            mock(Sort.class)
+        );
+
+        final Directory directory = mock(Directory.class);
+        final IndexInput input = mock(IndexInput.class);
+        Mockito.when(directory.openInput(any(), any())).thenReturn(input);
+
+        final FieldInfos fieldInfos = mock(FieldInfos.class);
+        Mockito.when(fieldInfos.iterator()).thenReturn(new Iterator<FieldInfo>() {
+            @Override
+            public boolean hasNext() {
+                return false;
+            }
+
+            @Override
+            public FieldInfo next() {
+                return null;
+            }
+        });
+
+        final SegmentReadState mockedSegmentReadState = new SegmentReadState(
+            directory,
+            mockedSegmentInfo,
+            fieldInfos,
+            mock(IOContext.class),
+            "test-segment-suffix"
+        );
+
+        final Faiss1040ScalarQuantizedKnnVectorsFormat format = new Faiss1040ScalarQuantizedKnnVectorsFormat();
+        try (MockedStatic<CodecUtil> mockedCodecUtil = Mockito.mockStatic(CodecUtil.class)) {
+            mockedCodecUtil.when(() -> CodecUtil.retrieveChecksum(any(IndexInput.class))).thenAnswer((Answer<Void>) invocation -> null);
+
+            KnnVectorsReader reader = format.fieldsReader(mockedSegmentReadState);
+            assertTrue(reader instanceof Faiss1040ScalarQuantizedKnnVectorsReader);
+
+            // Verify the internal FlatVectorsReader is wrapped with Faiss1040PrefetchSupportKnnVectorReader
+            java.lang.reflect.Field flatReaderField = reader.getClass().getSuperclass().getDeclaredField("flatVectorsReader");
+            flatReaderField.setAccessible(true);
+            Object flatReader = flatReaderField.get(reader);
+            assertTrue(
+                "FlatVectorsReader should be wrapped with Faiss1040PrefetchSupportKnnVectorReader for prefetch support",
+                flatReader instanceof Faiss1040PrefetchSupportKnnVectorReader
+            );
+
+            reader.close();
+        }
+    }
 }

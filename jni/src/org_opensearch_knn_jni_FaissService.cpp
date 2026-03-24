@@ -20,7 +20,7 @@
 #include "faiss_stream_support.h"
 #include "faiss/impl/FaissException.h"
 #include "faiss_index_service.h"
-#include "bbq/faiss_bbq_hnsw.h"
+#include "sq/faiss_sq_hnsw.h"
 
 static knn_jni::JNIUtil jniUtil;
 static const jint KNN_FAISS_JNI_VERSION = JNI_VERSION_1_1;
@@ -594,8 +594,8 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_addDocsToBBQInde
     try {
         // Grab Faiss BBQ stuff
         auto binaryIdMap = (faiss::IndexBinaryIDMap*) indexMemoryAddress;
-        auto faissBBQHnsw = (knn_jni::FaissBBQHnsw*) binaryIdMap->index;
-        auto faissBBQFlat = (knn_jni::FaissBBQFlat*) faissBBQHnsw->storage;
+        auto faissBBQHnsw = (knn_jni::FaissSQHnsw*) binaryIdMap->index;
+        auto faissBBQFlat = (knn_jni::FaissSQFlat*) faissBBQHnsw->storage;
 
         // Allocate in stack
         int64_t docIds[numDocs];
@@ -625,8 +625,8 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_passBBQVectorsWi
     try {
         // Grab Faiss BBQ stuff
         auto binaryIdMap = (faiss::IndexBinaryIDMap*) indexMemoryAddress;
-        auto faissBBQHnsw = (knn_jni::FaissBBQHnsw*) binaryIdMap->index;
-        auto faissBBQFlat = (knn_jni::FaissBBQFlat*) faissBBQHnsw->storage;
+        auto faissBBQHnsw = (knn_jni::FaissSQHnsw*) binaryIdMap->index;
+        auto faissBBQFlat = (knn_jni::FaissSQFlat*) faissBBQHnsw->storage;
 
         // Start copying
         jbyte* jb = static_cast<jbyte*>(env->GetPrimitiveArrayCritical(buffer, nullptr));

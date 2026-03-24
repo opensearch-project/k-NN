@@ -5,9 +5,11 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
+import com.carrotsearch.randomizedtesting.annotations.TimeoutSuite;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.lucene.tests.util.TimeUnits;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
@@ -55,6 +57,7 @@ import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
 import static org.opensearch.knn.index.KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_MODE;
 
 @Log4j2
+@TimeoutSuite(millis = 2 * TimeUnits.HOUR)
 public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase {
     protected static final String INDEX_NAME = "target_index";
     protected static final int NUM_DOCUMENTS = 400;

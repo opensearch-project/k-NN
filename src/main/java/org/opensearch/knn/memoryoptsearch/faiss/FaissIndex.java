@@ -6,6 +6,7 @@
 package org.opensearch.knn.memoryoptsearch.faiss;
 
 import lombok.Getter;
+import lombok.Setter;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
@@ -35,6 +36,7 @@ public abstract class FaissIndex {
     // Total number of vectors saved within this index.
     protected int totalNumberOfVectors;
     // Space type used to index vectors in this index.
+    @Setter
     protected SpaceType spaceType;
 
     public FaissIndex(final String indexType) {
