@@ -29,6 +29,7 @@ public class FaissBinaryHnswIndex extends FaissBinaryIndex implements FaissHNSWP
 
     @Getter
     protected FaissHNSW faissHnsw;
+    // TODO : This should be changed to SetOnce<FaissBinaryIndex>
     @Getter
     @Setter
     protected FaissBinaryIndex storage;

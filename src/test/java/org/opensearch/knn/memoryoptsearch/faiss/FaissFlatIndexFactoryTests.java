@@ -26,7 +26,7 @@ public class FaissFlatIndexFactoryTests extends KNNTestCase {
         FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test_field").addAttribute(SQ_CONFIG, "bits=1").build();
         FlatVectorsReader mockReader = mock(FlatVectorsReader.class);
 
-        FaissBinaryIndex result = FaissFlatIndexFactory.create(fieldInfo, mockReader);
+        FaissBinaryIndex result = FaissFlatIndexFactory.createBinaryIndex(fieldInfo, mockReader);
 
         assertNotNull(result);
         assertTrue(result instanceof FaissScalarQuantizedFlatIndex);
@@ -37,7 +37,7 @@ public class FaissFlatIndexFactoryTests extends KNNTestCase {
         FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test_field").build();
         FlatVectorsReader mockReader = mock(FlatVectorsReader.class);
 
-        FaissBinaryIndex result = FaissFlatIndexFactory.create(fieldInfo, mockReader);
+        FaissBinaryIndex result = FaissFlatIndexFactory.createBinaryIndex(fieldInfo, mockReader);
 
         assertNull(result);
     }

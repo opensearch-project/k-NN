@@ -27,7 +27,7 @@ public class FaissFlatIndexFactory {
      * Returns a {@link FaissBinaryIndex} to use as flat storage for the given field, or {@code null}
      * if the FAISS file's own flat storage should be used.
      */
-    static FaissBinaryIndex create(final FieldInfo fieldInfo, final FlatVectorsReader flatVectorsReader) {
+    static FaissBinaryIndex createBinaryIndex(final FieldInfo fieldInfo, final FlatVectorsReader flatVectorsReader) {
         if (FieldInfoExtractor.isSQField(fieldInfo)
             && FieldInfoExtractor.extractSQConfig(fieldInfo).getBits() == FaissSQEncoder.Bits.ONE.getValue()) {
             return new FaissScalarQuantizedFlatIndex(flatVectorsReader, fieldInfo.getName());
@@ -48,7 +48,7 @@ public class FaissFlatIndexFactory {
             return;
         }
 
-        final FaissBinaryIndex flatBinaryIndex = create(fieldInfo, flatVectorsReader);
+        final FaissBinaryIndex flatBinaryIndex = createBinaryIndex(fieldInfo, flatVectorsReader);
         if (flatBinaryIndex == null) {
             throw new IllegalStateException(
                 String.format(
