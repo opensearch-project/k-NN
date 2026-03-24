@@ -180,13 +180,13 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormatTests extends KNNTestCase {
             KnnVectorsReader reader = format.fieldsReader(mockedSegmentReadState);
             assertTrue(reader instanceof Faiss1040ScalarQuantizedKnnVectorsReader);
 
-            // Verify the internal FlatVectorsReader is wrapped with Faiss1040PrefetchSupportKnnVectorReader
+            // Verify the internal FlatVectorsReader is wrapped with Faiss1040ScalarQuantizedFlatVectorsReader
             java.lang.reflect.Field flatReaderField = reader.getClass().getSuperclass().getDeclaredField("flatVectorsReader");
             flatReaderField.setAccessible(true);
             Object flatReader = flatReaderField.get(reader);
             assertTrue(
-                "FlatVectorsReader should be wrapped with Faiss1040PrefetchSupportKnnVectorReader for prefetch support",
-                flatReader instanceof Faiss1040PrefetchSupportKnnVectorReader
+                "FlatVectorsReader should be wrapped with Faiss1040ScalarQuantizedFlatVectorsReader",
+                flatReader instanceof Faiss1040ScalarQuantizedFlatVectorsReader
             );
 
             reader.close();

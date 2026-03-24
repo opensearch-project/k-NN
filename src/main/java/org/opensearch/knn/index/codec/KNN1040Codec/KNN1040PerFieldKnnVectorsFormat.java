@@ -102,7 +102,7 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
             );
         },
             LuceneVectorsFormatType.FLAT,
-            ctx -> new KNN104ScalarQuantizedVectorsFormat(Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE)
+            ctx -> new KNN1040ScalarQuantizedVectorsFormat(Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE)
         );
     }
 

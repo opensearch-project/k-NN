@@ -31,7 +31,7 @@ import java.io.IOException;
  * slice that contains the quantized vector data and correction factors used during scoring.
  */
 @RequiredArgsConstructor
-class ScalarQuantizedFloatVectorValuesWithIndexInputSlice extends FloatVectorValues implements HasIndexSlice {
+class ScalarQuantizedFloatVectorValues extends FloatVectorValues implements HasIndexSlice {
     private final FloatVectorValues floatVectorValues;
     private final QuantizedByteVectorValues quantizedVectorValues;
 
@@ -52,7 +52,7 @@ class ScalarQuantizedFloatVectorValuesWithIndexInputSlice extends FloatVectorVal
 
     @Override
     public FloatVectorValues copy() throws IOException {
-        return new ScalarQuantizedFloatVectorValuesWithIndexInputSlice(floatVectorValues.copy(), quantizedVectorValues.copy());
+        return new ScalarQuantizedFloatVectorValues(floatVectorValues.copy(), quantizedVectorValues.copy());
     }
 
     @Override

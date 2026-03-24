@@ -42,25 +42,30 @@ import static org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectors
  * (e.g., AVX-512), significantly improving throughput for large-scale vector search.
  */
 @Log4j2
-public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantizedVectorScorer {
+public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantizedVectorScorer {
     /**
      * Creates a new scorer that wraps a non-quantized delegate scorer.
      *
      * @param delegate fallback scorer used when SIMD acceleration is not applicable
      */
-    public Faiss104ScalarQuantizedVectorScorer(final FlatVectorsScorer delegate) {
+    public KNN1040ScalarQuantizedVectorScorer(final FlatVectorsScorer delegate) {
         super(delegate);
     }
 
     /**
      * Returns a {@link RandomVectorScorer} for the given query vector.
      *
+     * <p><b>Important:</b> This method only supports {@link QuantizedByteVectorValues}. It will fail
+     * with an exception if called with raw (non-quantized) vector values such as
+     * {@code OffHeapFloatVectorValues}. Callers must ensure that this scorer is not used as the
+     * scorer for raw vector formats (e.g., {@link org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat}).
+     *
      * <p>This method attempts to construct a SIMD-accelerated scorer when the input vectors
      * are quantized and backed by memory that can be accessed directly (e.g., via a memory segment).
-     * Otherwise, it falls back to the default implementation.
+     * Otherwise, it falls back to the parent's quantized scoring implementation.
      *
      * @param similarityFunction the similarity function (e.g., inner product or L2)
-     * @param vectorValues       the vector storage
+     * @param vectorValues       the quantized vector storage (must be {@link QuantizedByteVectorValues})
      * @param target             the query vector (float32)
      * @return a scorer capable of computing similarity scores
      * @throws IOException if an error occurs while accessing vector data
@@ -78,11 +83,14 @@ public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantize
             vectorValues = WrappedFloatVectorValues.getBottomFloatVectorValues(vectorValues);
         }
 
-        // Extract QuantizedByteVectorValues from `vectorValues`.
-        // This should not be null, otherwise it can't get entroid + correction factors.
-        final QuantizedByteVectorValues quantizedByteVectorValues = Faiss1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(
-            vectorValues
-        );
+        final QuantizedByteVectorValues quantizedByteVectorValues;
+        if (vectorValues instanceof QuantizedByteVectorValues) {
+            quantizedByteVectorValues = (QuantizedByteVectorValues) vectorValues;
+        } else {
+            // Extract QuantizedByteVectorValues from `vectorValues`.
+            // This should not be null, otherwise it can't get entroid + correction factors.
+            quantizedByteVectorValues = KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(vectorValues);
+        }
 
         // Try bulk SIMD
         final IndexInput indexInput = quantizedByteVectorValues.getSlice();
@@ -92,7 +100,7 @@ public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantize
         }
 
         // Fallback
-        log.warn("Bulk SIMD for Faiss SQ is not supported, falling back to Lucene's random vector scorer");
+        log.warn("Bulk SIMD for SQ is not supported, falling back to Lucene's random vector scorer");
         return super.getRandomVectorScorer(similarityFunction, quantizedByteVectorValues, target);
     }
 
@@ -127,7 +135,7 @@ public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantize
 
         // We only support 32x quantization with 4 bit query quantization for search.
         if (scalarEncoding != SINGLE_BIT_QUERY_NIBBLE) {
-            throw new IllegalStateException("SQ only supports SINGLE_BIT_QUERY_NIBBLE encoding.");
+            throw new IllegalStateException(String.format("SQ only supports %s encoding.", SINGLE_BIT_QUERY_NIBBLE));
         }
 
         // Validate dimensionality

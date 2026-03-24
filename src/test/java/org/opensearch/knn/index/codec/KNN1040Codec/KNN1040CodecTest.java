@@ -57,7 +57,7 @@ public class KNN1040CodecTest extends KNNCodecTestCase {
         assertTrue(codec.knnVectorsFormat() instanceof KNN1040PerFieldKnnVectorsFormat);
     }
 
-    public void testFlatFormatResolver_returnsPrefetchingFormat() {
+    public void testFlatFormatResolver_returnsKNN1040ScalarQuantizedVectorsFormat() {
         KNNMethodContext flatMethodContext = new KNNMethodContext(
             LUCENE,
             SpaceType.L2,
@@ -76,8 +76,8 @@ public class KNN1040CodecTest extends KNNCodecTestCase {
         KNN1040PerFieldKnnVectorsFormat format = new KNN1040PerFieldKnnVectorsFormat(Optional.of(mapperService));
         KnnVectorsFormat result = format.getKnnVectorsFormatForField("test_field");
         assertTrue(
-            "Expected KNN104ScalarQuantizedVectorsFormat but got " + result.getClass().getSimpleName(),
-            result instanceof KNN104ScalarQuantizedVectorsFormat
+            "Expected KNN1040ScalarQuantizedVectorsFormat but got " + result.getClass().getSimpleName(),
+            result instanceof KNN1040ScalarQuantizedVectorsFormat
         );
     }
 

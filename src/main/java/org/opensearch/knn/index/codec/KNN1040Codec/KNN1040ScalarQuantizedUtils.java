@@ -23,10 +23,10 @@ import java.util.Locale;
  *
  * <p>This is used by both the write path ({@link Faiss1040ScalarQuantizedKnnVectorsWriter}) to extract
  * quantized vectors for native HNSW graph construction, and the search path
- * ({@link Faiss104ScalarQuantizedVectorScorer}) to obtain quantized vectors for SIMD-accelerated scoring.
+ * ({@link KNN1040ScalarQuantizedVectorScorer}) to obtain quantized vectors for SIMD-accelerated scoring.
  */
 @UtilityClass
-class Faiss1040ScalarQuantizedUtils {
+class KNN1040ScalarQuantizedUtils {
     private static final String QUANTIZED_VECTOR_VALUES_FIELD_NAME = "quantizedVectorValues";
 
     /**
