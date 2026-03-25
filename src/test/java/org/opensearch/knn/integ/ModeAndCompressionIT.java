@@ -515,6 +515,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
             addKNNDocs(indexName, FIELD_NAME, DIMENSION, 0, NUM_DOCS + 1);
             addNonKNNDoc(indexName, String.valueOf(NUM_DOCS + 2), FIELD_NAME_NON_KNN, "Hello world");
             deleteKnnDoc(indexName, "0");
+            flushIndex(indexName);
             validateGreenIndex(indexName);
             validateSearch(
                 indexName,
