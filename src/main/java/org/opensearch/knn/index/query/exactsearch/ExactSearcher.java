@@ -28,6 +28,7 @@ import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.query.MemoryOptimizedSearchScoreConverter;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -59,7 +60,9 @@ public class ExactSearcher {
      * @throws IOException exception during execution of exact search
      */
     public TopDocs searchLeaf(final LeafReaderContext leafReaderContext, final ExactSearcherContext context) throws IOException {
-        final VectorScorer vectorScorer = createVectorScorer(leafReaderContext, context);
+        final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
+        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, context.getField());
+        final VectorScorer vectorScorer = createVectorScorer(reader, fieldInfo, leafReaderContext, context);
         if (vectorScorer == null) {
             return TopDocsCollector.EMPTY_TOPDOCS;
         }
@@ -67,13 +70,18 @@ public class ExactSearcher {
         // so pass null to avoid double consumption of the same iterator.
         final boolean isNested = context.getParentsFilter() != null;
         final DocIdSetIterator matchedDocs = isNested ? null : context.getMatchedDocsIterator();
+        final TopDocs topDocs;
         if (context.getRadius() != null) {
-            return doRadialSearch(leafReaderContext, context, vectorScorer, matchedDocs);
+            topDocs = doRadialSearch(leafReaderContext, context, vectorScorer, matchedDocs);
+        } else if (matchedDocs != null && context.numberOfMatchedDocs <= context.getK()) {
+            topDocs = scoreAllDocs(vectorScorer, matchedDocs);
+        } else {
+            topDocs = searchTopK(vectorScorer, matchedDocs, context.getK());
         }
-        if (matchedDocs != null && context.numberOfMatchedDocs <= context.getK()) {
-            return scoreAllDocs(vectorScorer, matchedDocs);
+        if (fieldInfo != null && FieldInfoExtractor.getSpaceType(modelDao, fieldInfo) == SpaceType.COSINESIMIL) {
+            MemoryOptimizedSearchScoreConverter.convertToCosineScore(topDocs.scoreDocs);
         }
-        return searchTopK(vectorScorer, matchedDocs, context.getK());
+        return topDocs;
     }
 
     /**
@@ -199,10 +207,12 @@ public class ExactSearcher {
         return new TopDocs(new TotalHits(topScoreDocs.length, TotalHits.Relation.EQUAL_TO), topScoreDocs);
     }
 
-    private VectorScorer createVectorScorer(final LeafReaderContext leafReaderContext, final ExactSearcherContext context)
-        throws IOException {
-        final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
-        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, context.getField());
+    private VectorScorer createVectorScorer(
+        final SegmentReader reader,
+        final FieldInfo fieldInfo,
+        final LeafReaderContext leafReaderContext,
+        final ExactSearcherContext context
+    ) throws IOException {
         if (fieldInfo == null) {
             log.debug("[KNN] Cannot create VectorScorer as FieldInfo not found for {}:{}", context.getField(), reader.getSegmentName());
             return null;
@@ -225,6 +235,7 @@ public class ExactSearcher {
                 context.getByteQueryVector(),
                 scorerMode,
                 spaceType,
+                fieldInfo,
                 acceptedChildrenIterator,
                 parentBitSet
             );
@@ -241,6 +252,7 @@ public class ExactSearcher {
                 byteQueryVector,
                 scorerMode,
                 spaceType,
+                fieldInfo,
                 acceptedChildrenIterator,
                 parentBitSet
             );
@@ -285,6 +297,7 @@ public class ExactSearcher {
             quantizedQueryVector,
             scorerMode,
             SpaceType.HAMMING,
+            fieldInfo,
             acceptedChildrenIterator,
             parentBitSet
         );
