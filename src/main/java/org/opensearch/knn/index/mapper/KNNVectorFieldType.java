@@ -22,6 +22,7 @@ import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryShardException;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
@@ -175,12 +176,17 @@ public class KNNVectorFieldType extends MappedFieldType {
         final int dimension = knnMappingConfig.getDimension();
         final CompressionLevel compressionLevel = knnMappingConfig.getCompressionLevel();
         final Mode mode = knnMappingConfig.getMode();
+        KNNEngine engine = null;
+        if (methodContext.isPresent()) {
+            engine = methodContext.get().getKnnEngine();
+        }
         return compressionLevel.getDefaultRescoreContext(
             mode,
             dimension,
             knnMappingConfig.getIndexCreatedVersion(),
             isFlatMethod,
-            isSQOneBit
+            isSQOneBit,
+            engine
         );
     }
 

@@ -21,6 +21,8 @@ public final class RescoreContext {
 
     public static final int MAX_FIRST_PASS_RESULTS = 10000;
     public static final int DIMENSION_THRESHOLD = 1000;
+
+    public static final float OVERSAMPLE_FACTOR_DEFAULT_FOR_LUCENE_SCALAR_QUANTIZER_AFTER_V360 = 2.0f;
     public static final float OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD = 5.0f;
 
     // Dimension thresholds for adjusting oversample factor
