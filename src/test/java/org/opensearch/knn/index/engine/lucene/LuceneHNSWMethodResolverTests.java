@@ -22,6 +22,7 @@ import org.opensearch.knn.index.mapper.Mode;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
@@ -58,7 +59,7 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
         );
         assertEquals(KNNEngine.LUCENE, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
         assertEquals(SpaceType.INNER_PRODUCT, resolvedMethodContext.getKnnMethodContext().getSpaceType());
-        assertEquals(CompressionLevel.x4, resolvedMethodContext.getCompressionLevel());
+        assertEquals(CompressionLevel.x32, resolvedMethodContext.getCompressionLevel());
 
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             null,
@@ -101,7 +102,7 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
         );
         assertEquals(KNNEngine.LUCENE, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
         assertEquals(SpaceType.INNER_PRODUCT, resolvedMethodContext.getKnnMethodContext().getSpaceType());
-        assertEquals(CompressionLevel.x4, resolvedMethodContext.getCompressionLevel());
+        assertEquals(CompressionLevel.x32, resolvedMethodContext.getCompressionLevel());
         assertNotEquals(knnMethodContext, resolvedMethodContext.getKnnMethodContext());
 
         knnMethodContext = new KNNMethodContext(
@@ -129,6 +130,36 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
         assertEquals(CompressionLevel.x4, resolvedMethodContext.getCompressionLevel());
         assertNotEquals(knnMethodContext, resolvedMethodContext.getKnnMethodContext());
 
+        // Verify Lucene Scalar Quantizer with 32x resolves properly
+        knnMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.INNER_PRODUCT,
+            new MethodComponentContext(
+                METHOD_HNSW,
+                Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 1)))
+            )
+        );
+        resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            knnMethodContext,
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build(),
+            false,
+            SpaceType.INNER_PRODUCT
+        );
+        assertEquals(METHOD_HNSW, resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getName());
+        assertFalse(resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getParameters().isEmpty());
+        assertEquals(
+            ENCODER_SQ,
+            ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER)).getName()
+        );
+        assertEquals(KNNEngine.LUCENE, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
+        assertEquals(SpaceType.INNER_PRODUCT, resolvedMethodContext.getKnnMethodContext().getSpaceType());
+        assertEquals(CompressionLevel.x32, resolvedMethodContext.getCompressionLevel());
+
+        // Ensure for version after 3.6.0 encoder resolves to lucene on_disk with 32x compression
+        // by default
         knnMethodContext = new KNNMethodContext(
             KNNEngine.LUCENE,
             SpaceType.INNER_PRODUCT,
@@ -136,7 +167,177 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
         );
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             knnMethodContext,
-            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build(),
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.FLOAT)
+                .versionCreated(Version.V_3_6_0)
+                .mode(Mode.ON_DISK)
+                .build(),
+            false,
+            SpaceType.INNER_PRODUCT
+        );
+        assertEquals(METHOD_HNSW, resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getName());
+        assertFalse(resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getParameters().isEmpty());
+        assertEquals(
+            ENCODER_SQ,
+            ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER)).getName()
+        );
+        assertEquals(KNNEngine.LUCENE, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
+        assertEquals(SpaceType.INNER_PRODUCT, resolvedMethodContext.getKnnMethodContext().getSpaceType());
+        assertEquals(CompressionLevel.x32, resolvedMethodContext.getCompressionLevel());
+        assertTrue(
+            ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER)).getParameters().containsKey(LUCENE_SQ_BITS)
+        );
+        assertEquals(
+            1,
+            ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER)).getParameters().get(LUCENE_SQ_BITS)
+        );
+
+        // Ensure for version before 3.6.0 encoder resolves to lucene with 4x compression
+        // by default even when on_disk
+        knnMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.INNER_PRODUCT,
+            new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Map.of())))
+        );
+        resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            knnMethodContext,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.FLOAT)
+                .versionCreated(Version.V_3_5_0)
+                .mode(Mode.ON_DISK)
+                .build(),
+            false,
+            SpaceType.INNER_PRODUCT
+        );
+        assertEquals(METHOD_HNSW, resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getName());
+        assertFalse(resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getParameters().isEmpty());
+        assertEquals(
+            ENCODER_SQ,
+            ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER)).getName()
+        );
+        assertEquals(KNNEngine.LUCENE, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
+        assertEquals(SpaceType.INNER_PRODUCT, resolvedMethodContext.getKnnMethodContext().getSpaceType());
+        assertEquals(CompressionLevel.x4, resolvedMethodContext.getCompressionLevel());
+        assertTrue(
+            ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER)).getParameters().containsKey(LUCENE_SQ_BITS)
+        );
+        assertEquals(
+            7,
+            ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER)).getParameters().get(LUCENE_SQ_BITS)
+        );
+
+        // Verify when mode is ON_DISK and bits is specified, uses specified bits
+        knnMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.INNER_PRODUCT,
+            new MethodComponentContext(
+                METHOD_HNSW,
+                Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 7)))
+            )
+        );
+        resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            knnMethodContext,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.FLOAT)
+                .versionCreated(Version.V_3_6_0)
+                .mode(Mode.ON_DISK)
+                .build(),
+            false,
+            SpaceType.INNER_PRODUCT
+        );
+        assertEquals(METHOD_HNSW, resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getName());
+        assertFalse(resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getParameters().isEmpty());
+        assertEquals(
+            ENCODER_SQ,
+            ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER)).getName()
+        );
+        assertEquals(KNNEngine.LUCENE, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
+        assertEquals(SpaceType.INNER_PRODUCT, resolvedMethodContext.getKnnMethodContext().getSpaceType());
+        assertEquals(CompressionLevel.x4, resolvedMethodContext.getCompressionLevel());
+        assertTrue(
+            ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER)).getParameters().containsKey(LUCENE_SQ_BITS)
+        );
+        assertEquals(
+            7,
+            ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER)).getParameters().get(LUCENE_SQ_BITS)
+        );
+
+        // Verify when mode is not on_disk and bits is 7 for SQ encoder, resolution succeeds
+        knnMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.INNER_PRODUCT,
+            new MethodComponentContext(
+                METHOD_HNSW,
+                Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 7)))
+            )
+        );
+        resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            knnMethodContext,
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.V_3_6_0).build(),
+            false,
+            SpaceType.INNER_PRODUCT
+        );
+        assertEquals(METHOD_HNSW, resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getName());
+        assertFalse(resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getParameters().isEmpty());
+        assertEquals(
+            ENCODER_SQ,
+            ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER)).getName()
+        );
+        assertEquals(KNNEngine.LUCENE, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
+        assertEquals(SpaceType.INNER_PRODUCT, resolvedMethodContext.getKnnMethodContext().getSpaceType());
+        assertEquals(CompressionLevel.x4, resolvedMethodContext.getCompressionLevel());
+        assertTrue(
+            ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER)).getParameters().containsKey(LUCENE_SQ_BITS)
+        );
+        assertEquals(
+            7,
+            ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER)).getParameters().get(LUCENE_SQ_BITS)
+        );
+
+        knnMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.INNER_PRODUCT,
+            new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Map.of())))
+        );
+        resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            knnMethodContext,
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.V_3_3_0).build(),
             false,
             SpaceType.INNER_PRODUCT
         );
@@ -178,14 +379,36 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
             )
         );
 
-        // Invalid compression for HNSW
+        // Changed from 32x to 16x, Lucene 32x compression was added
         expectThrows(
             ValidationException.class,
             () -> TEST_RESOLVER.resolveMethod(
                 null,
                 KNNMethodConfigContext.builder()
                     .vectorDataType(VectorDataType.FLOAT)
-                    .compressionLevel(CompressionLevel.x32)
+                    .compressionLevel(CompressionLevel.x16)
+                    .versionCreated(Version.CURRENT)
+                    .build(),
+                false,
+                SpaceType.L2
+            )
+        );
+
+        // Expect invalid when bits and compression level do not align
+        expectThrows(
+            ValidationException.class,
+            () -> TEST_RESOLVER.resolveMethod(
+                new KNNMethodContext(
+                    KNNEngine.LUCENE,
+                    SpaceType.L2,
+                    new MethodComponentContext(
+                        METHOD_HNSW,
+                        Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 1)))
+                    )
+                ),
+                KNNMethodConfigContext.builder()
+                    .vectorDataType(VectorDataType.FLOAT)
+                    .compressionLevel(CompressionLevel.x4)
                     .versionCreated(Version.CURRENT)
                     .build(),
                 false,
