@@ -23,6 +23,7 @@ import org.opensearch.index.query.QueryShardException;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.indices.ModelDao;
@@ -49,7 +50,23 @@ public class KNNVectorFieldType extends MappedFieldType {
     private static final Logger logger = LogManager.getLogger(KNNVectorFieldType.class);
     KNNMappingConfig knnMappingConfig;
     VectorDataType vectorDataType;
-    // Whether this field type can be benefit from memory optimized search?
+    /**
+     * When {@code true}, memory-optimized search is always applied for this field regardless of the
+     * cluster-level setting. This is determined at mapping time based on the encoder type
+     * (e.g., FAISS BBQ encoder always requires memory-optimized search).
+     *
+     * @see MemoryOptimizedSearchSupportSpec#isAlwaysUseMemoryOptimizedSearch(java.util.Optional)
+     */
+    boolean alwaysUseMemoryOptimizedSearch;
+    /**
+     * Whether this field type can benefit from memory-optimized search. This is determined at mapping time
+     * based on the engine, method, encoder, and quantization configuration. A field may be eligible for
+     * memory-optimized search but still require the cluster-level setting to be enabled, unless
+     * {@link #alwaysUseMemoryOptimizedSearch} is {@code true}.
+     *
+     * @see MemoryOptimizedSearchSupportSpec#isSupportedFieldType(java.util.Optional,
+     *      org.opensearch.knn.index.engine.qframe.QuantizationConfig, java.util.Optional)
+     */
     boolean memoryOptimizedSearchAvailable;
     Version indexCreatedVersion;
 
@@ -70,6 +87,9 @@ public class KNNVectorFieldType extends MappedFieldType {
         Version indexCreatedVersion
     ) {
         this(name, metadata, vectorDataType, annConfig);
+        this.alwaysUseMemoryOptimizedSearch = MemoryOptimizedSearchSupportSpec.isAlwaysUseMemoryOptimizedSearch(
+            knnMappingConfig.getKnnMethodContext()
+        );
         this.memoryOptimizedSearchAvailable = MemoryOptimizedSearchSupportSpec.isSupportedFieldType(
             knnMappingConfig.getKnnMethodContext(),
             annConfig.getQuantizationConfig(),
@@ -146,13 +166,22 @@ public class KNNVectorFieldType extends MappedFieldType {
         if (userProvidedContext != null) {
             return userProvidedContext;
         }
-        KNNMappingConfig knnMappingConfig = getKnnMappingConfig();
-        Optional<KNNMethodContext> methodContext = knnMappingConfig.getKnnMethodContext();
-        boolean isFlatMethod = methodContext.isPresent() && METHOD_FLAT.equals(methodContext.get().getMethodComponentContext().getName());
-        int dimension = knnMappingConfig.getDimension();
-        CompressionLevel compressionLevel = knnMappingConfig.getCompressionLevel();
-        Mode mode = knnMappingConfig.getMode();
-        return compressionLevel.getDefaultRescoreContext(mode, dimension, knnMappingConfig.getIndexCreatedVersion(), isFlatMethod);
+        final KNNMappingConfig knnMappingConfig = getKnnMappingConfig();
+        final Optional<KNNMethodContext> methodContext = knnMappingConfig.getKnnMethodContext();
+        final boolean isFlatMethod = methodContext.isPresent()
+            && METHOD_FLAT.equals(methodContext.get().getMethodComponentContext().getName());
+        final boolean isSQOneBit = methodContext.map(mc -> FaissSQEncoder.isSQOneBit(mc.getMethodComponentContext().getParameters()))
+            .orElse(false);
+        final int dimension = knnMappingConfig.getDimension();
+        final CompressionLevel compressionLevel = knnMappingConfig.getCompressionLevel();
+        final Mode mode = knnMappingConfig.getMode();
+        return compressionLevel.getDefaultRescoreContext(
+            mode,
+            dimension,
+            knnMappingConfig.getIndexCreatedVersion(),
+            isFlatMethod,
+            isSQOneBit
+        );
     }
 
     /**

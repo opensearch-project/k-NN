@@ -29,7 +29,7 @@ import java.util.Map;
  *
  * @param <T> float[] or byte[]
  */
-class NativeEngineFieldVectorsWriter<T> extends KnnFieldVectorsWriter<T> {
+public class NativeEngineFieldVectorsWriter<T> extends KnnFieldVectorsWriter<T> {
     private static final long SHALLOW_SIZE = RamUsageEstimator.shallowSizeOfInstance(NativeEngineFieldVectorsWriter.class);
     @Getter
     private final FieldInfo fieldInfo;
@@ -47,7 +47,7 @@ class NativeEngineFieldVectorsWriter<T> extends KnnFieldVectorsWriter<T> {
     private final FlatFieldVectorsWriter<T> flatFieldVectorsWriter;
 
     @SuppressWarnings("unchecked")
-    static NativeEngineFieldVectorsWriter<?> create(
+    public static NativeEngineFieldVectorsWriter<?> create(
         final FieldInfo fieldInfo,
         final FlatFieldVectorsWriter<?> flatFieldVectorsWriter,
         final InfoStream infoStream

@@ -10,10 +10,17 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.codec.KNN1040Codec.Faiss1040ScalarQuantizedKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 
+import java.util.Map;
 import java.util.Optional;
+
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -91,11 +98,81 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
         );
     }
 
-    public void testResolve_whenCalledWithFieldContext_thenThrowUnsupportedOperationException() {
-        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(Optional.empty(), mock(NativeIndexBuildStrategyFactory.class));
-        expectThrows(
-            UnsupportedOperationException.class,
-            () -> resolver.resolve(TEST_FIELD, null, null, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH)
+    public void testResolve_whenCalledWithFieldContext_andSQOneBitEncoder_thenReturnsSQOneBitFormat() {
+        MapperService mapperService = mock(MapperService.class);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING)).thenReturn(null);
+        when(mapperService.getIndexSettings()).thenReturn(indexSettings);
+
+        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(
+            Optional.of(mapperService),
+            mock(NativeIndexBuildStrategyFactory.class)
+        );
+
+        MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 1));
+        Map<String, Object> params = Map.of(METHOD_ENCODER_PARAMETER, encoderContext);
+
+        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, params, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH);
+        assertTrue(
+            "Expected Faiss104ScalarQuantizedKnnVectorsFormat but got " + result.getClass().getSimpleName(),
+            result instanceof Faiss1040ScalarQuantizedKnnVectorsFormat
+        );
+    }
+
+    public void testResolve_whenCalledWithFieldContext_andNoEncoder_thenReturnsNativeFormat() {
+        MapperService mapperService = mock(MapperService.class);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING)).thenReturn(null);
+        when(mapperService.getIndexSettings()).thenReturn(indexSettings);
+
+        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(
+            Optional.of(mapperService),
+            mock(NativeIndexBuildStrategyFactory.class)
+        );
+
+        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, Map.of(), DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH);
+        assertTrue(
+            "Expected NativeEngines990KnnVectorsFormat but got " + result.getClass().getSimpleName(),
+            result instanceof NativeEngines990KnnVectorsFormat
+        );
+    }
+
+    public void testResolve_whenCalledWithFieldContext_andNonSQOneBitEncoder_thenReturnsNativeFormat() {
+        MapperService mapperService = mock(MapperService.class);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING)).thenReturn(null);
+        when(mapperService.getIndexSettings()).thenReturn(indexSettings);
+
+        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(
+            Optional.of(mapperService),
+            mock(NativeIndexBuildStrategyFactory.class)
+        );
+
+        MethodComponentContext encoderContext = new MethodComponentContext("sq", Map.of());
+        Map<String, Object> params = Map.of(METHOD_ENCODER_PARAMETER, encoderContext);
+
+        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, params, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH);
+        assertTrue(
+            "Expected NativeEngines990KnnVectorsFormat but got " + result.getClass().getSimpleName(),
+            result instanceof NativeEngines990KnnVectorsFormat
+        );
+    }
+
+    public void testResolve_whenCalledWithFieldContext_thenFallsBackToDefaultFormat() {
+        MapperService mapperService = mock(MapperService.class);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING)).thenReturn(null);
+        when(mapperService.getIndexSettings()).thenReturn(indexSettings);
+
+        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(
+            Optional.of(mapperService),
+            mock(NativeIndexBuildStrategyFactory.class)
+        );
+        // Null params should fall back to default native format
+        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, null, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH);
+        assertTrue(
+            "Expected NativeEngines990KnnVectorsFormat but got " + result.getClass().getSimpleName(),
+            result instanceof NativeEngines990KnnVectorsFormat
         );
     }
 }

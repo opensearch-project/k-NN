@@ -24,7 +24,21 @@ public class SimdVectorComputeService {
         FP16_MAXIMUM_INNER_PRODUCT,
         // FP16 Maximum Inner Product. The result will be the same as we acquired from VectorSimilarityFunction.EUCLIDEAN.
         FP16_L2,
+        BBQ_IP,
+        BBQ_L2
     }
+
+    public static native void saveBBQSearchContext(
+        byte[] quantizedQuery,
+        float queryLowerInterval,
+        float queryUpperInterval,
+        float queryAdditionalCorrection,
+        int queryQuantizedComponentSum,
+        long[] addressAndSize,
+        int nativeFunctionTypeOrd,
+        int dimension,
+        float centroidDp
+    );
 
     /**
      * With vector ids, performing bulk SIMD similarity calculations and put the results into `scores`.
@@ -34,7 +48,7 @@ public class SimdVectorComputeService {
      * @param numVectors        The number of valid vector ids in `internalVectorIds`. Therefore, this will put exactly `numVectors` result
      *                          values into `scores`.
      */
-    public native static void scoreSimilarityInBulk(int[] internalVectorIds, float[] scores, int numVectors);
+    public native static float scoreSimilarityInBulk(int[] internalVectorIds, float[] scores, int numVectors);
 
     /**
      * Before vector search starts, it persists required information into a storage. Those persisted information will be used during search.

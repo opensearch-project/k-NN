@@ -166,7 +166,7 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
 
             when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
             nativeIndexWriterMockedStatic.when(
-                () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
+                () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory, null)
             ).thenReturn(nativeIndexWriter);
             doAnswer(answer -> {
                 Thread.sleep(2); // Need this for KNNGraph value assertion, removing this will fail the assertion
@@ -237,7 +237,7 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
 
             when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
             nativeIndexWriterMockedStatic.when(
-                () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
+                () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory, null)
             ).thenReturn(nativeIndexWriter);
             doAnswer(answer -> {
                 Thread.sleep(2); // Need this for KNNGraph value assertion, removing this will fail the assertion
@@ -299,7 +299,7 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
 
             when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
             nativeIndexWriterMockedStatic.when(
-                () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
+                () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory, null)
             ).thenReturn(nativeIndexWriter);
             doAnswer(answer -> {
                 Thread.sleep(2); // Need this for KNNGraph value assertion, removing this will fail the assertion
@@ -371,7 +371,7 @@ public class NativeEngines990KnnVectorsWriterMergeTests extends OpenSearchTestCa
             }
 
             nativeIndexWriterMockedStatic.when(
-                () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState, nativeIndexBuildStrategyFactory)
+                () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState, nativeIndexBuildStrategyFactory, null)
             ).thenReturn(nativeIndexWriter);
             doAnswer(answer -> {
                 Thread.sleep(2); // Need this for KNNGraph value assertion, removing this will fail the assertion

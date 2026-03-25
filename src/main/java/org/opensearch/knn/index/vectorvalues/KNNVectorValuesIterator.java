@@ -17,7 +17,9 @@ import org.apache.lucene.index.KnnVectorValues;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * An abstract class that provides an iterator to iterate over KNNVectors, as KNNVectors are stored as different
@@ -154,12 +156,23 @@ public interface KNNVectorValuesIterator {
      * A FieldWriterIteratorValues is mainly used when Vectors are stored in {@link KnnFieldVectorsWriter} interface.
      */
     class FieldWriterIteratorValues<T> extends AbstractVectorValuesIterator {
-        private final Map<Integer, T> vectors;
+        private final Function<Integer, T> vectorGetter;
 
         FieldWriterIteratorValues(@NonNull final DocsWithFieldSet docsWithFieldSet, @NonNull final Map<Integer, T> vectors) {
             super(docsWithFieldSet.iterator());
             assert docsWithFieldSet.iterator().cost() == vectors.size();
-            this.vectors = vectors;
+            this.vectorGetter = vectors::get;
+        }
+
+        FieldWriterIteratorValues(@NonNull final DocsWithFieldSet docsWithFieldSet, @NonNull final List<T> vectors) {
+            super(docsWithFieldSet.iterator());
+            assert docsWithFieldSet.iterator().cost() == vectors.size();
+            // We can return vectors in sequential manner.
+            // Dense case -> Easy. doc_id == vector_ordinal and doc_id will be given as 0, 1, ..., N - 1
+            // Sparse case -> doc_id will be given in increasing order 1, 4, 7, 8, 10, ...
+            // but its corresponding vector ordinal is 0, 1, 2, ...
+            final int[] index = { 0 };
+            this.vectorGetter = (docId) -> vectors.get(index[0]++);
         }
 
         /**
@@ -167,7 +180,7 @@ public interface KNNVectorValuesIterator {
          * @return {@link Map}
          */
         public T vectorsValue() {
-            return vectors.get(docId());
+            return vectorGetter.apply(docId());
         }
 
         @Override
@@ -175,5 +188,4 @@ public interface KNNVectorValuesIterator {
             return new VectorValueExtractorStrategy.FieldWriterIteratorVectorExtractor();
         }
     }
-
 }

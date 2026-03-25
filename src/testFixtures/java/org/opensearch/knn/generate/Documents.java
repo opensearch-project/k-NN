@@ -7,6 +7,7 @@ package org.opensearch.knn.generate;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.Mode;
@@ -28,6 +29,7 @@ import static org.opensearch.knn.generate.DocumentsGenerator.FILTER_ID_NO_MOD;
  * After prepared answer set, user can proceed to validate result with validateResponse method.
  */
 @RequiredArgsConstructor
+@Log4j2
 public class Documents {
     public record Result(String id, String filterId, float score) {
     }
@@ -162,6 +164,7 @@ public class Documents {
 
         // At least we must have 0.8 recall.
         float matchRatio = (float) matchCount / (float) results.size();
+        log.info("Validating match ratio[={}] <= 0.8, matchCount={}, num results={}", matchRatio, matchCount, results.size());
         assertTrue(
             "Match ratio[=" + matchRatio + "] <= 0.8, matchCount=" + matchCount + ", num results=" + results.size(),
             matchRatio > 0.8
