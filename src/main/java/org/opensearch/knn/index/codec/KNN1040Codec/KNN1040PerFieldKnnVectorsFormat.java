@@ -9,7 +9,7 @@ import org.apache.lucene.backward_codecs.lucene99.Lucene99RWHnswScalarQuantizedV
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
-import org.apache.lucene.codecs.lucene104.Lucene104HnswScalarQuantizedVectorsFormat;
+
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
@@ -83,7 +83,7 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
             );
             final Tuple<Integer, ExecutorService> merge = getMergeThreadCountAndExecutorService();
             if (p.getBits() == LuceneSQEncoder.Bits.ONE.getValue()) {
-                return new Lucene104HnswScalarQuantizedVectorsFormat(
+                return new KNN1040HnswScalarQuantizedVectorsFormat(
                     p.getBitEncoding(),
                     p.getMaxConnections(),
                     p.getBeamWidth(),

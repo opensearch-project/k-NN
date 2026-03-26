@@ -10,9 +10,11 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.lucene104.QuantizedByteVectorValues;
 import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.VectorEncoding;
+import org.apache.lucene.index.VectorSimilarityFunction;
 import org.opensearch.knn.KNNTestCase;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 import static org.mockito.Mockito.mock;
 
@@ -62,6 +64,31 @@ public class KNN1040ScalarQuantizedUtilsTests extends KNNTestCase {
 
         // Assert: the returned reference is the exact same object
         assertSame(expected, result);
+    }
+
+    public void testNormalizeIfNeeded_cosineUnnormalized_normalizes() {
+        float[] vector = { 3.0f, 4.0f };
+        KNN1040ScalarQuantizedUtils.normalizeIfNeeded(vector, VectorSimilarityFunction.COSINE);
+        float norm = 0;
+        for (float v : vector)
+            norm += v * v;
+        assertEquals(1.0f, norm, 1e-5f);
+    }
+
+    public void testNormalizeIfNeeded_cosineAlreadyNormalized_unchanged() {
+        float[] vector = { 0.6f, 0.8f };
+        float[] original = Arrays.copyOf(vector, vector.length);
+        KNN1040ScalarQuantizedUtils.normalizeIfNeeded(vector, VectorSimilarityFunction.COSINE);
+        assertArrayEquals(original, vector, 1e-6f);
+    }
+
+    public void testNormalizeIfNeeded_nonCosine_unchanged() {
+        float[] vector = { 3.0f, 4.0f };
+        float[] original = Arrays.copyOf(vector, vector.length);
+        KNN1040ScalarQuantizedUtils.normalizeIfNeeded(vector, VectorSimilarityFunction.EUCLIDEAN);
+        assertArrayEquals(original, vector, 0f);
+        KNN1040ScalarQuantizedUtils.normalizeIfNeeded(vector, VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT);
+        assertArrayEquals(original, vector, 0f);
     }
 
     public void testExtractQuantizedByteVectorValues_whenFieldMissing_thenThrowsIOException() {

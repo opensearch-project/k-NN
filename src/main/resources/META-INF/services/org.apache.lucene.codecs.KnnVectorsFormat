@@ -13,3 +13,4 @@ org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat
 org.opensearch.knn.index.codec.KNN1040Codec.Faiss1040ScalarQuantizedKnnVectorsFormat
 org.opensearch.knn.index.codec.KNN9120Codec.KNN9120HnswBinaryVectorsFormat
 org.opensearch.knn.index.codec.KNN1040Codec.KNN1040ScalarQuantizedVectorsFormat
+org.opensearch.knn.index.codec.KNN1040Codec.KNN1040HnswScalarQuantizedVectorsFormat
