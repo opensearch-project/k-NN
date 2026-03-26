@@ -16,7 +16,6 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.knn.KnnSearchStrategy;
 import org.apache.lucene.store.IndexInput;
-import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOSupplier;
 import org.apache.lucene.util.hnsw.HnswGraphSearcher;
@@ -63,7 +62,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     }
 
     @Override
-    public void search(float[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
+    public void search(float[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
         search(
             VectorEncoding.FLOAT32,
             () -> flatVectorsScorer.getRandomVectorScorer(
@@ -77,7 +76,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     }
 
     @Override
-    public void search(byte[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
+    public void search(byte[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
         search(
             VectorEncoding.BYTE,
             () -> flatVectorsScorer.getRandomVectorScorer(
@@ -110,7 +109,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         final VectorEncoding vectorEncoding,
         final IOSupplier<RandomVectorScorer> scorerSupplier,
         final KnnCollector knnCollector,
-        final AcceptDocs acceptDocs
+        final Bits acceptDocs
     ) throws IOException {
         if (faissIndex.getTotalNumberOfVectors() == 0 || knnCollector.k() == 0) {
             return;

@@ -22,6 +22,7 @@ import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
 
@@ -229,9 +230,7 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    private static NativeEngines990KnnVectorsReader createReader(final FieldInfos fieldInfos, final Set<String> filesInSegment) {
-        return createReader(fieldInfos, filesInSegment, null);
-    }
+    private static NativeEngines990KnnVectorsReader createReader(
         final FieldInfos fieldInfos,
         final Set<String> filesInSegment,
         final FlatVectorsReader flatVectorsReader

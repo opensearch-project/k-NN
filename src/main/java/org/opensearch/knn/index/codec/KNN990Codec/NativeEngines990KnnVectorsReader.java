@@ -21,7 +21,6 @@ import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.VectorEncoding;
-import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
@@ -199,7 +198,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
      *                     if they are all allowed to match.
      */
     @Override
-    public void search(String field, byte[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
+    public void search(String field, byte[] target, KnnCollector knnCollector, Bits acceptDocs) throws IOException {
         final FieldInfo fieldInfo = segmentReadState.fieldInfos.fieldInfo(field);
         // searching with byte vector is not supported by ADC.
         if (trySearchWithMemoryOptimizedSearch(fieldInfo, target, knnCollector, acceptDocs, false)) {
@@ -254,7 +253,7 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
         final FieldInfo fieldInfo,
         final Object target,
         final KnnCollector knnCollector,
-        final AcceptDocs acceptDocs,
+        final Bits acceptDocs,
         final boolean isFloatVector
     ) throws IOException {
         // Try with memory optimized searcher
