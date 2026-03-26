@@ -138,7 +138,7 @@ public class VectorScorersTests extends KNNTestCase {
         KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
         when(iteratorValues.getDocIdSetIterator()).thenReturn(binaryDocValues);
 
-        VectorScorer scorer = VectorScorers.createScorer(iteratorValues, query, VectorScorerMode.SCORE, SpaceType.HAMMING);
+        VectorScorer scorer = VectorScorers.createScorer(iteratorValues, query, VectorScorerMode.SCORE, SpaceType.HAMMING, fieldInfo);
 
         assertNotNull(scorer);
         assertTrue(scorer instanceof KNNBinaryDocValuesScorer);
@@ -159,7 +159,7 @@ public class VectorScorersTests extends KNNTestCase {
         when(iteratorValues.getDocIdSetIterator()).thenReturn(byteVectorValues.iterator());
         when(iteratorValues.getKnnVectorValues()).thenReturn(byteVectorValues);
 
-        VectorScorer scorer = VectorScorers.createScorer(iteratorValues, query, VectorScorerMode.SCORE, SpaceType.L2);
+        VectorScorer scorer = VectorScorers.createScorer(iteratorValues, query, VectorScorerMode.SCORE, SpaceType.L2, fieldInfo);
 
         assertNotNull(scorer);
         assertScores(buildExpectedScores(query, docs, SpaceType.L2), scorer);
@@ -175,11 +175,37 @@ public class VectorScorersTests extends KNNTestCase {
         when(iteratorValues.getKnnVectorValues()).thenReturn(floatVectorValues);
 
         try {
-            VectorScorers.createScorer(iteratorValues, query, VectorScorerMode.SCORE, SpaceType.L2);
+            VectorScorers.createScorer(iteratorValues, query, VectorScorerMode.SCORE, SpaceType.L2, fieldInfo);
             fail("Expected IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             assertTrue(e.getMessage().contains("Byte target requires ByteVectorValues"));
         }
+    }
+
+    @SneakyThrows
+    public void testByteTarget_withByteVectorValues_hammingSpaceType_returnsHammingScorer() {
+        byte[] query = { 0b0000_0000, (byte) 0b1111_1111 };
+        List<byte[]> docs = List.of(new byte[] { 0b0000_0000, (byte) 0b1111_1111 }, new byte[] { (byte) 0b1111_1111, 0b0000_0000 });
+        TestVectorValues.PreDefinedByteVectorValues byteVectorValues = new TestVectorValues.PreDefinedByteVectorValues(docs);
+
+        KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
+        when(iteratorValues.getDocIdSetIterator()).thenReturn(byteVectorValues.iterator());
+        when(iteratorValues.getKnnVectorValues()).thenReturn(byteVectorValues);
+
+        FieldInfo hammingFieldInfo = mock(FieldInfo.class);
+        when(hammingFieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.HAMMING.getValue());
+
+        VectorScorer scorer = VectorScorers.createScorer(
+            iteratorValues,
+            query,
+            VectorScorerMode.SCORE,
+            SpaceType.HAMMING,
+            hammingFieldInfo
+        );
+
+        assertNotNull(scorer);
+        assertFalse(scorer instanceof KNNBinaryDocValuesScorer);
+        assertScores(buildExpectedScores(query, docs, SpaceType.HAMMING), scorer);
     }
 
     // ──────────────────────────────────────────────
@@ -237,7 +263,15 @@ public class VectorScorersTests extends KNNTestCase {
         BitSet parentBitSet = new FixedBitSet(4);
         parentBitSet.set(2);
 
-        VectorScorer scorer = VectorScorers.createScorer(iteratorValues, query, vectorScorerMode, SpaceType.L2, null, parentBitSet);
+        VectorScorer scorer = VectorScorers.createScorer(
+            iteratorValues,
+            query,
+            vectorScorerMode,
+            SpaceType.L2,
+            fieldInfo,
+            null,
+            parentBitSet
+        );
 
         assertTrue(scorer instanceof NestedBestChildVectorScorer);
     }
