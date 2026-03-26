@@ -13,6 +13,7 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.faiss.SQConfig;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 
@@ -66,6 +67,38 @@ public class FieldInfoExtractorTests extends KNNTestCase {
         assertEquals(VectorDataType.DEFAULT, FieldInfoExtractor.extractVectorDataType(fieldInfo));
     }
 
+    public void testIsAdc_whenNoQFrameworkConfig_thenReturnsFalse() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(KNNConstants.QFRAMEWORK_CONFIG)).thenReturn(null);
+        Assert.assertFalse(FieldInfoExtractor.isAdc(fieldInfo));
+    }
+
+    public void testIsAdc_whenEmptyQFrameworkConfig_thenReturnsFalse() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(KNNConstants.QFRAMEWORK_CONFIG)).thenReturn("");
+        Assert.assertFalse(FieldInfoExtractor.isAdc(fieldInfo));
+    }
+
+    public void testIsAdc_whenAdcEnabled_thenReturnsTrue() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(KNNConstants.QFRAMEWORK_CONFIG)).thenReturn("type=binary,bits=2,random_rotation=false,enable_adc=true");
+        Assert.assertTrue(FieldInfoExtractor.isAdc(fieldInfo));
+    }
+
+    public void testIsAdc_whenAdcDisabled_thenReturnsFalse() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(KNNConstants.QFRAMEWORK_CONFIG)).thenReturn(
+            "type=binary,bits=2,random_rotation=false,enable_adc=false"
+        );
+        Assert.assertFalse(FieldInfoExtractor.isAdc(fieldInfo));
+    }
+
+    public void testIsAdc_whenOldFormatWithoutAdcField_thenReturnsFalse() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(KNNConstants.QFRAMEWORK_CONFIG)).thenReturn("type=binary,bits=2");
+        Assert.assertFalse(FieldInfoExtractor.isAdc(fieldInfo));
+    }
+
     public void testGetFieldInfo_whenDifferentInput_thenSuccess() {
         LeafReader leafReader = Mockito.mock(LeafReader.class);
         FieldInfos fieldInfos = Mockito.mock(FieldInfos.class);
@@ -75,5 +108,30 @@ public class FieldInfoExtractorTests extends KNNTestCase {
         Mockito.when(fieldInfos.fieldInfo("valid")).thenReturn(fieldInfo);
         Assert.assertNull(FieldInfoExtractor.getFieldInfo(leafReader, "invalid"));
         Assert.assertEquals(fieldInfo, FieldInfoExtractor.getFieldInfo(leafReader, "valid"));
+    }
+
+    public void testIsSQField_whenAttributePresent_thenTrue() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getAttribute(KNNConstants.SQ_CONFIG)).thenReturn("bits=1");
+        Assert.assertTrue(FieldInfoExtractor.isSQField(fieldInfo));
+    }
+
+    public void testIsSQField_whenAttributeAbsent_thenFalse() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getAttribute(KNNConstants.SQ_CONFIG)).thenReturn(null);
+        Assert.assertFalse(FieldInfoExtractor.isSQField(fieldInfo));
+    }
+
+    public void testExtractSQConfig_whenPresent_thenReturnConfig() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getAttribute(KNNConstants.SQ_CONFIG)).thenReturn("bits=1");
+        SQConfig config = FieldInfoExtractor.extractSQConfig(fieldInfo);
+        Assert.assertEquals(1, config.getBits());
+    }
+
+    public void testExtractSQConfig_whenAbsent_thenReturnEmpty() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getAttribute(KNNConstants.SQ_CONFIG)).thenReturn(null);
+        Assert.assertSame(SQConfig.EMPTY, FieldInfoExtractor.extractSQConfig(fieldInfo));
     }
 }

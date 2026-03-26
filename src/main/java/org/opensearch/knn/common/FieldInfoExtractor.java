@@ -14,9 +14,12 @@ import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.faiss.SQConfig;
+import org.opensearch.knn.index.engine.faiss.SQConfigParser;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 
+import static org.opensearch.knn.common.KNNConstants.SQ_CONFIG;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.indices.ModelUtil.getModelMetadata;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
@@ -85,6 +88,16 @@ public class FieldInfoExtractor {
     }
 
     /**
+     * Check for a field to be ADC or not
+     * @param fieldInfo {@link FieldInfo}
+     * @return true if the field is ADC, false otherwise
+     */
+    public static boolean isAdc(final FieldInfo fieldInfo) {
+        final QuantizationConfig quantizationConfig = FieldInfoExtractor.extractQuantizationConfig(fieldInfo);
+        return quantizationConfig.isEnableADC();
+    }
+
+    /**
      * Get the space type for the given field info.
      *
      * @param modelDao ModelDao instance to retrieve model metadata
@@ -127,5 +140,29 @@ public class FieldInfoExtractor {
      */
     public static @Nullable FieldInfo getFieldInfo(final LeafReader leafReader, final String fieldName) {
         return leafReader.getFieldInfos().fieldInfo(fieldName);
+    }
+
+    /**
+     * Check if the field has an SQ encoder config attribute.
+     *
+     * @param fieldInfo {@link FieldInfo}
+     * @return true if the field has an sq_config attribute
+     */
+    public static boolean isSQField(final FieldInfo fieldInfo) {
+        return StringUtils.isNotEmpty(fieldInfo.getAttribute(SQ_CONFIG));
+    }
+
+    /**
+     * Extract the SQ config from the field attribute.
+     *
+     * @param fieldInfo {@link FieldInfo}
+     * @return {@link SQConfig}, or {@link SQConfig#EMPTY} if not present
+     */
+    public static SQConfig extractSQConfig(final FieldInfo fieldInfo) {
+        String configString = fieldInfo.getAttribute(SQ_CONFIG);
+        if (StringUtils.isEmpty(configString)) {
+            return SQConfig.EMPTY;
+        }
+        return SQConfigParser.fromCsv(configString);
     }
 }

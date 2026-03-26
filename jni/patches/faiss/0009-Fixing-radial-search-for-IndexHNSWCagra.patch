@@ -1,0 +1,373 @@
+From 73665f7b1406c93eec2e1cc257bfde50dc913c09 Mon Sep 17 00:00:00 2001
+From: Navneet Verma <vermanavneet003@gmail.com>
+Date: Sat, 21 Mar 2026 21:57:27 -0700
+Subject: [PATCH 7/7] Fixing radial search for IndexHNSWCagra (#1)
+
+Signed-off-by: Navneet Verma <navneev@amazon.com>
+---
+ faiss/IndexHNSW.cpp                    |  71 +++++++++++++-
+ faiss/IndexHNSW.h                      |  14 ++-
+ faiss/impl/HNSW.cpp                    |  14 ++-
+ faiss/impl/HNSW.h                      |   6 ++
+ tests/CMakeLists.txt                   |   1 +
+ tests/test_hnsw_cagra_range_search.cpp | 127 +++++++++++++++++++++++++
+ 6 files changed, 227 insertions(+), 6 deletions(-)
+ create mode 100644 tests/test_hnsw_cagra_range_search.cpp
+
+diff --git a/faiss/IndexHNSW.cpp b/faiss/IndexHNSW.cpp
+index 5cf1b0cdb..85f3a811a 100644
+--- a/faiss/IndexHNSW.cpp
++++ b/faiss/IndexHNSW.cpp
+@@ -29,6 +29,7 @@
+ #include <faiss/impl/ResultHandler.h>
+ #include <faiss/utils/random.h>
+ #include <faiss/utils/sorting.h>
++#include <sys/stat.h>
+ 
+ namespace faiss {
+ 
+@@ -240,11 +241,12 @@ void IndexHNSW::train(idx_t n, const void* x, NumericType numeric_type) {
+ namespace {
+ 
+ template <class BlockResultHandler>
+-void hnsw_search(
++void hnsw_search_with_entry_points(
+         const IndexHNSW* index,
+         idx_t n,
+         const float* x,
+         BlockResultHandler& bres,
++        const storage_idx_t* entryPoints,
+         const SearchParameters* params) {
+     FAISS_THROW_IF_NOT_MSG(
+             index->storage,
+@@ -279,8 +281,14 @@ void hnsw_search(
+             for (idx_t i = i0; i < i1; i++) {
+                 res.begin(i);
+                 dis->set_query(x + i * index->d);
++                HNSWStats stats;
++                if (entryPoints != nullptr) {
++                    // It is assumed that entryPoints array has the same layout as the data, i.e. entryPoints[i] corresponds to the i-th vector being searched.
++                    stats = hnsw.search_with_entry_point(*dis, res, vt, params, entryPoints[i]);
++                } else {
++                    stats = hnsw.search_with_entry_point(*dis, res, vt, params);
++                }
+ 
+-                HNSWStats stats = hnsw.search(*dis, res, vt, params);
+                 n1 += stats.n1;
+                 n2 += stats.n2;
+                 ndis += stats.ndis;
+@@ -294,6 +302,16 @@ void hnsw_search(
+     hnsw_stats.combine({n1, n2, ndis, nhops});
+ }
+ 
++template <class BlockResultHandler>
++void hnsw_search(
++        const IndexHNSW* index,
++        idx_t n,
++        const float* x,
++        BlockResultHandler& bres,
++        const SearchParameters* params) {
++    hnsw_search_with_entry_points(index, n, x, bres, nullptr, params);
++}
++
+ template <class BlockResultHandler>
+ void hnsw_search_level_0(
+         const IndexHNSW* index,
+@@ -397,10 +415,18 @@ void IndexHNSW::range_search(
+         float radius,
+         RangeSearchResult* result,
+         const SearchParameters* params) const {
++    range_search_with_entry_point(n, x, radius, result, params, nullptr);
++}
++
++void IndexHNSW::range_search_with_entry_point(idx_t n,
++        const float* x,
++        float radius,
++        RangeSearchResult* result,
++        const SearchParameters* params, const storage_idx_t* entryPoints) const {
+     using RH = RangeSearchBlockResultHandler<HNSW::C>;
+     RH bres(result, is_similarity_metric(metric_type) ? -radius : radius);
+ 
+-    hnsw_search(this, n, x, bres, params);
++    hnsw_search_with_entry_points(this, n, x, bres, entryPoints, params);
+ 
+     if (is_similarity_metric(this->metric_type)) {
+         // we need to revert the negated distances
+@@ -1123,4 +1149,43 @@ void IndexHNSWCagra::set_numeric_type(faiss::NumericType numeric_type) {
+     numeric_type_ = numeric_type;
+ }
+ 
++
++void IndexHNSWCagra::range_search(
++        idx_t n,
++        const float* x,
++        float radius,
++        RangeSearchResult* result,
++        const SearchParameters* params) const {
++    if (!base_level_only) {
++        IndexHNSW::range_search(n, x, radius, result, params);
++    } else {
++        std::vector<storage_idx_t> nearest(n);
++        std::vector<float> nearest_d(n);
++#pragma omp for
++        for (idx_t i = 0; i < n; i++) {
++            std::unique_ptr<DistanceComputer> dis(
++                    storage_distance_computer(this->storage));
++            dis->set_query(x + i * d);
++            nearest[i] = -1;
++            nearest_d[i] = std::numeric_limits<float>::max();
++
++            std::random_device rd;
++            std::mt19937 gen(rd());
++            std::uniform_int_distribution<idx_t> distrib(0, this->ntotal-1);
++
++            for (idx_t j = 0; j < num_base_level_search_entrypoints; j++) {
++                auto idx = distrib(gen);
++                auto distance = (*dis)(idx);
++                if (distance < nearest_d[i]) {
++                    nearest[i] = idx;
++                    nearest_d[i] = distance;
++                }
++            }
++            FAISS_THROW_IF_NOT_MSG(
++                    nearest[i] >= 0, "Could not find a valid entrypoint.");
++        }
++        range_search_with_entry_point(n, x, radius, result, params, nearest.data());
++    }
++}
++
+ } // namespace faiss
+diff --git a/faiss/IndexHNSW.h b/faiss/IndexHNSW.h
+index df621af93..054da0d91 100644
+--- a/faiss/IndexHNSW.h
++++ b/faiss/IndexHNSW.h
+@@ -122,8 +122,13 @@ struct IndexHNSW : Index {
+     void link_singletons();
+ 
+     void permute_entries(const idx_t* perm);
+-
+     DistanceComputer* get_distance_computer() const override;
++
++    void range_search_with_entry_point(idx_t n,
++        const float* x,
++        float radius,
++        RangeSearchResult* result,
++        const SearchParameters* params=nullptr, const storage_idx_t* entryPoints=nullptr) const;
+ };
+ 
+ /** Flat index topped with with a HNSW structure to access elements
+@@ -232,6 +237,13 @@ struct IndexHNSWCagra : IndexHNSW {
+     faiss::NumericType get_numeric_type() const;
+     void set_numeric_type(faiss::NumericType numeric_type);
+     NumericType numeric_type_;
++
++    void range_search(
++        idx_t n,
++        const float* x,
++        float radius,
++        RangeSearchResult* result,
++        const SearchParameters* params = nullptr) const override;
+ };
+ 
+ } // namespace faiss
+diff --git a/faiss/impl/HNSW.cpp b/faiss/impl/HNSW.cpp
+index 6fc392dd9..ae366e885 100644
+--- a/faiss/impl/HNSW.cpp
++++ b/faiss/impl/HNSW.cpp
+@@ -945,10 +945,20 @@ HNSWStats HNSW::search(
+         ResultHandler<C>& res,
+         VisitedTable& vt,
+         const SearchParameters* params) const {
++    return search_with_entry_point(qdis, res, vt, params, -1);
++}
++
++HNSWStats HNSW::search_with_entry_point(
++        DistanceComputer& qdis,
++        ResultHandler<C>& res,
++        VisitedTable& vt,
++        const SearchParameters* params,
++        storage_idx_t passed_entry_point) const {
+     HNSWStats stats;
+-    if (entry_point == -1) {
++    if (entry_point == -1 && passed_entry_point == -1) {
+         return stats;
+     }
++    storage_idx_t nearest = entry_point == -1 ? passed_entry_point : entry_point;
+     int k = extract_k_from_ResultHandler(res);
+ 
+     bool bounded_queue = this->search_bounded_queue;
+@@ -962,7 +972,7 @@ HNSWStats HNSW::search(
+     }
+ 
+     //  greedy search on upper levels
+-    storage_idx_t nearest = entry_point;
++
+     float d_nearest = qdis(nearest);
+ 
+     for (int level = max_level; level >= 1; level--) {
+diff --git a/faiss/impl/HNSW.h b/faiss/impl/HNSW.h
+index 5a3b7f93f..1631ca49b 100644
+--- a/faiss/impl/HNSW.h
++++ b/faiss/impl/HNSW.h
+@@ -203,6 +203,12 @@ struct HNSW {
+             VisitedTable& vt,
+             const SearchParameters* params = nullptr) const;
+ 
++    HNSWStats search_with_entry_point(
++            DistanceComputer& qdis,
++            ResultHandler<C>& res,
++            VisitedTable& vt,
++            const SearchParameters* params = nullptr, storage_idx_t passed_entry_point = -1) const;
++
+     /// search only in level 0 from a given vertex
+     void search_level_0(
+             DistanceComputer& qdis,
+diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
+index a7514e517..dc149bb78 100644
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -41,6 +41,7 @@ set(FAISS_TEST_SRC
+   test_mmap.cpp
+   test_zerocopy.cpp
+   test_ivfpq_share_table.cpp
++  test_hnsw_cagra_range_search.cpp
+ )
+ 
+ add_executable(faiss_test ${FAISS_TEST_SRC})
+diff --git a/tests/test_hnsw_cagra_range_search.cpp b/tests/test_hnsw_cagra_range_search.cpp
+new file mode 100644
+index 000000000..bcf7363dc
+--- /dev/null
++++ b/tests/test_hnsw_cagra_range_search.cpp
+@@ -0,0 +1,127 @@
++/*
++ * Copyright (c) Meta Platforms, Inc. and affiliates.
++ *
++ * This source code is licensed under the MIT license found in the
++ * LICENSE file in the root directory of this source tree.
++ */
++
++#include "faiss/IndexHNSW.h"
++#include <algorithm>
++#include <gtest/gtest.h>
++
++/// Copy the base layer graph from src to a new IndexHNSWCagra (dst)
++/// that only has level 0. Modeled after GpuIndexCagra::copyTo().
++void copyBaseLevelOnly(
++        const faiss::IndexHNSWCagra& src,
++        faiss::IndexHNSWCagra& dst) {
++    auto n = src.ntotal;
++    auto d = src.d;
++    auto M = src.hnsw.nb_neighbors(0) / 2;
++    auto graph_degree = src.hnsw.nb_neighbors(0);
++
++    // Setup storage
++    if (dst.storage && dst.own_fields) {
++        delete dst.storage;
++    }
++    dst.storage = new faiss::IndexFlatL2(d);
++    dst.own_fields = true;
++    dst.d = d;
++    dst.metric_type = src.metric_type;
++    dst.is_trained = true;
++    dst.keep_max_size_level0 = true;
++
++    // Reset and reconfigure HNSW structure
++    dst.hnsw.reset();
++    dst.hnsw.assign_probas.clear();
++    dst.hnsw.cum_nneighbor_per_level.clear();
++    dst.hnsw.set_default_probas(M, 1.0 / log(M));
++
++    // Only build level 0 — no upper levels
++    dst.hnsw.prepare_level_tab(n, false);
++
++    // Copy vectors into storage
++    auto src_flat = dynamic_cast<faiss::IndexFlat*>(src.storage);
++    dst.storage->add(n, src_flat->get_xb());
++    dst.ntotal = n;
++
++    // Copy level 0 neighbors from src to dst
++#pragma omp parallel for
++    for (faiss::idx_t i = 0; i < n; i++) {
++        size_t src_begin, src_end;
++        src.hnsw.neighbor_range(i, 0, &src_begin, &src_end);
++
++        size_t dst_begin, dst_end;
++        dst.hnsw.neighbor_range(i, 0, &dst_begin, &dst_end);
++
++        for (size_t j = 0; j < graph_degree && j < (dst_end - dst_begin); j++) {
++            dst.hnsw.neighbors[dst_begin + j] =
++                    src.hnsw.neighbors[src_begin + j];
++        }
++    }
++
++    // Mark as base_level_only
++    dst.base_level_only = true;
++}
++
++TEST(IndexHNSWCagra, range_searh) {
++    int d = 8;    // dimension
++    int nb = 10;  // number of vectors to index
++    int nq = 1;   // number of queries
++    int k = 3;    // number of nearest neighbors
++    int M = 4;    // HNSW parameter
++    float radius = 0.7f;
++
++    // Generate random vectors
++    std::mt19937 rng(42);
++    std::uniform_real_distribution<float> distrib(0.0f, 1.0f);
++
++    std::vector<float> xb(nb * d);
++    for (auto& v : xb) {
++        v = distrib(rng);
++    }
++
++    std::vector<float> xq(nq * d);
++    for (auto& v : xq) {
++        v = distrib(rng);
++    }
++
++    // Build index with full HNSW (base_level_only must be false to add)
++    faiss::IndexHNSWCagra original_index(d, M, faiss::METRIC_L2);
++    original_index.add(nb, xb.data());
++    original_index.num_base_level_search_entrypoints = 2;
++    faiss::RangeSearchResult original_index_results(nq);
++    original_index.range_search(nq, xq.data(), radius, &original_index_results);
++
++
++    // Range search on copied index
++    faiss::IndexHNSWCagra copied_index;
++    copyBaseLevelOnly(original_index, copied_index);
++    copied_index.num_base_level_search_entrypoints = 2;
++    copied_index.base_level_only = true;
++
++    faiss::RangeSearchResult copied_index_results(nq);
++
++    copied_index.range_search(nq, xq.data(), radius, &copied_index_results);
++
++    size_t original_count = original_index_results.lims[nq];
++    size_t copied_count = copied_index_results.lims[nq];
++
++    ASSERT_EQ(original_count, copied_count)
++            << "Number of results differ. Original: " << original_count
++            << " Copied: " << copied_count;
++
++    // Sort labels for each query before comparing (range_search results are unordered)
++    for (int i = 0; i < nq; i++) {
++        std::sort(original_index_results.labels + original_index_results.lims[i],
++                  original_index_results.labels + original_index_results.lims[i + 1]);
++        std::sort(copied_index_results.labels + copied_index_results.lims[i],
++                  copied_index_results.labels + copied_index_results.lims[i + 1]);
++    }
++
++    for (size_t j = 0; j < original_count; j++) {
++        ASSERT_EQ(original_index_results.labels[j], copied_index_results.labels[j])
++                << "Label mismatch at index " << j
++                << ". Original: " << original_index_results.labels[j]
++                << " Copied: " << copied_index_results.labels[j];
++    }
++}
+\ No newline at end of file
+-- 
+2.47.0
+

@@ -76,6 +76,7 @@ public class KNNConstants {
     public static final String SEARCH_SIZE_PARAMETER = "search_size";
 
     public static final String QFRAMEWORK_CONFIG = "qframe_config";
+    public static final String SQ_CONFIG = "sq_config";
 
     public static final String VECTOR_DATA_TYPE_FIELD = "data_type";
     public static final String EXPAND_NESTED = "expand_nested_docs";
@@ -105,6 +106,7 @@ public class KNNConstants {
     public static final double MAXIMUM_CONFIDENCE_INTERVAL = 1.0;
     public static final String LUCENE_SQ_BITS = "bits";
     public static final int LUCENE_SQ_DEFAULT_BITS = 7;
+    public static final int LUCENE_SCALAR_QUANTIZER_DEFAULT_BITS_AFTER_V360 = 1;
     public static final String MAX_CONNECTIONS = "max_connections";
     public static final String BEAM_WIDTH = "beam_width";
 
@@ -134,6 +136,7 @@ public class KNNConstants {
     public static final String FAISS_FLAT_DESCRIPTION = "Flat";
     public static final String FAISS_PQ_DESCRIPTION = "PQ";
     public static final String ENCODER_SQ = "sq";
+    public static final String SQ_BITS = "bits";
     public static final String FAISS_SQ_DESCRIPTION = "SQ";
     public static final String FAISS_SQ_TYPE = "type";
     public static final String FAISS_SQ_ENCODER_FP16 = "fp16";

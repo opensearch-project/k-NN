@@ -9,6 +9,7 @@ import org.apache.lucene.backward_codecs.lucene99.Lucene99RWHnswScalarQuantizedV
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
+import org.apache.lucene.codecs.lucene104.Lucene104HnswScalarQuantizedVectorsFormat;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
@@ -23,6 +24,7 @@ import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.faiss.FaissCodecFormatResolver;
 import org.opensearch.knn.index.engine.lucene.LuceneCodecFormatResolver;
+import org.opensearch.knn.index.engine.lucene.LuceneSQEncoder;
 
 import java.util.Map;
 import java.util.Optional;
@@ -80,6 +82,15 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
                 ctx.getDefaultBeamWidth()
             );
             final Tuple<Integer, ExecutorService> merge = getMergeThreadCountAndExecutorService();
+            if (p.getBits() == LuceneSQEncoder.Bits.ONE.getValue()) {
+                return new Lucene104HnswScalarQuantizedVectorsFormat(
+                    p.getBitEncoding(),
+                    p.getMaxConnections(),
+                    p.getBeamWidth(),
+                    merge.v1(),
+                    merge.v2()
+                );
+            }
             return new Lucene99RWHnswScalarQuantizedVectorsFormat(
                 p.getMaxConnections(),
                 p.getBeamWidth(),

@@ -6,6 +6,7 @@
 package org.opensearch.knn.memoryoptsearch.faiss;
 
 import lombok.Getter;
+import lombok.Setter;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
@@ -25,6 +26,9 @@ import java.io.IOException;
  */
 @Getter
 public abstract class FaissIndex {
+    // Section name written by Faiss when IO_FLAG_SKIP_STORAGE is set (e.g., Faiss SQ (for 1 bit) skips flat vector storage).
+    static final String NULL_INDEX_TYPE = "null";
+
     // Index type name
     protected String indexType;
     // Vector dimension
@@ -32,6 +36,7 @@ public abstract class FaissIndex {
     // Total number of vectors saved within this index.
     protected int totalNumberOfVectors;
     // Space type used to index vectors in this index.
+    @Setter
     protected SpaceType spaceType;
 
     public FaissIndex(final String indexType) {
@@ -44,13 +49,19 @@ public abstract class FaissIndex {
      * The first four bytes of each section represent an index type name. The index type is read first,
      * and {@link IndexTypeToFaissIndexMapping} is then used to delegate section loading to the corresponding {@link FaissIndex} subtype
      * implementation.
+     * When a "null" section name is encountered (e.g., Faiss SQ (for 1 bit) where storage was skipped via IO_FLAG_SKIP_STORAGE),
+     * this method returns {@link FaissEmptyIndex#INSTANCE}. The caller is responsible for replacing it
+     * with a concrete flat index (e.g., via {@link FaissFlatIndexFactory}).
      *
      * @param input Input stream to a FAISS index
-     * @return Top level {@link FaissIndex}.
+     * @return Top level {@link FaissIndex}, or {@link FaissEmptyIndex#INSTANCE} if a "null" section is encountered.
      * @throws IOException
      */
     public static FaissIndex load(IndexInput input) throws IOException {
         final String indexType = FaissIndexLoadUtils.readIndexType(input);
+        if (NULL_INDEX_TYPE.equals(indexType)) {
+            return FaissEmptyIndex.INSTANCE;
+        }
         final FaissIndex faissIndex = IndexTypeToFaissIndexMapping.getFaissIndex(indexType);
         faissIndex.doLoad(input);
         return faissIndex;

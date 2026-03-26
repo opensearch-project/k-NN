@@ -24,7 +24,6 @@ import org.opensearch.knn.index.query.KNNQueryBuilder;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -42,6 +41,7 @@ import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
@@ -204,7 +204,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
     public void testKNNIndexLuceneQuantization() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
         int k = 4;
-        int dimension = 2;
+        int dimension = 8;
 
         if (isRunningAgainstOldCluster()) {
             String mapping = XContentFactory.jsonBuilder()
@@ -231,16 +231,16 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 .toString();
             createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
 
-            Float[] vector1 = { -10.6f, 25.48f };
-            Float[] vector2 = { -10.8f, 25.48f };
-            Float[] vector3 = { -11.0f, 25.48f };
-            Float[] vector4 = { -11.2f, 25.48f };
+            Float[] vector1 = { -10.6f, 25.48f, 1.2f, 3.4f, -5.6f, 7.8f, -9.0f, 11.2f };
+            Float[] vector2 = { -10.8f, 25.48f, 1.4f, 3.6f, -5.8f, 8.0f, -9.2f, 11.4f };
+            Float[] vector3 = { -11.0f, 25.48f, 1.6f, 3.8f, -6.0f, 8.2f, -9.4f, 11.6f };
+            Float[] vector4 = { -11.2f, 25.48f, 1.8f, 4.0f, -6.2f, 8.4f, -9.6f, 11.8f };
             addKnnDoc(testIndex, "1", TEST_FIELD, vector1);
             addKnnDoc(testIndex, "2", TEST_FIELD, vector2);
             addKnnDoc(testIndex, "3", TEST_FIELD, vector3);
             addKnnDoc(testIndex, "4", TEST_FIELD, vector4);
 
-            float[] queryVector = { -10.5f, 25.48f };
+            float[] queryVector = { -10.5f, 25.48f, 1.0f, 3.2f, -5.4f, 7.6f, -8.8f, 11.0f };
             Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
             List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
             assertEquals(k, results.size());
@@ -248,7 +248,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 assertEquals(k - i, Integer.parseInt(results.get(i).getDocId()));
             }
         } else {
-            float[] queryVector = { -10.5f, 25.48f };
+            float[] queryVector = { -10.5f, 25.48f, 1.0f, 3.2f, -5.4f, 7.6f, -8.8f, 11.0f };
             Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
             List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
             assertEquals(k, results.size());
@@ -671,6 +671,159 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             // Clean up
             deleteKNNIndex(testIndex);
             deleteKNNIndex(newIndex);
+        }
+    }
+
+    private void testKNNAfter1bitScalarQuantizerIntegrationBWCRunner(String mapping) throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        int k = 4;
+        int dimension = 8;
+
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+        int[] expectedOrder = { 1, 2, 3, 4 }; // Using Inner product
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+
+            Float[] vector1 = { 1.0f, 2.0f, 3.0f, 12.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+            Float[] vector2 = { 1.0f, 2.0f, 7.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+            Float[] vector3 = { 1.0f, 4.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+            Float[] vector4 = { 2.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+            addKnnDoc(testIndex, "1", TEST_FIELD, vector1);
+            addKnnDoc(testIndex, "2", TEST_FIELD, vector2);
+            addKnnDoc(testIndex, "3", TEST_FIELD, vector3);
+            addKnnDoc(testIndex, "4", TEST_FIELD, vector4);
+
+            Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
+            List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
+            assertEquals(k, results.size());
+            for (int i = 0; i < k; i++) {
+                assertEquals(expectedOrder[i], Integer.parseInt(results.get(i).getDocId()));
+            }
+        } else {
+            Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
+            List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
+            assertEquals(k, results.size());
+            for (int i = 0; i < k; i++) {
+                assertEquals(expectedOrder[i], Integer.parseInt(results.get(i).getDocId()));
+            }
+            deleteKNNIndex(testIndex);
+        }
+    }
+
+    public void testKNNIndexLucene4xBWC() throws Exception {
+        // Verify that old lucene indices with compression level
+        // specified still work
+        int dimension = 8;
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(TEST_FIELD)
+            .field(VECTOR_TYPE, KNN_VECTOR)
+            .field(DIMENSION, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x4.getName())
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+            .field(KNN_ENGINE, LUCENE_NAME)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+        testKNNAfter1bitScalarQuantizerIntegrationBWCRunner(mapping);
+    }
+
+    public void testKNNIndexLuceneOnDiskNoCompressionBWC() throws Exception {
+        // Pre-3.6, Lucene with ON_DISK defaults to 4x. Post-3.6, default
+        // is now 32x. Verify old indices still work
+        int dimension = 8;
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(TEST_FIELD)
+            .field(VECTOR_TYPE, KNN_VECTOR)
+            .field(DIMENSION, dimension)
+            .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+            .field(KNN_ENGINE, LUCENE_NAME)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+        testKNNAfter1bitScalarQuantizerIntegrationBWCRunner(mapping);
+    }
+
+    public void testKNNIndex1bitScalarQuantizer() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+
+        // Skip test if 1bitScalarQuantizer is not supported in the old cluster version
+        if (isBinaryScalarQuantizerSupported(getBWCVersion()) == false) {
+            logger.info(
+                "Skipping testKNNIndex1bitScalarQuantizer as Lucene Scalar quantizer with 1 bit compression is not supported in version: {}",
+                getBWCVersion()
+            );
+            return;
+        }
+
+        int k = 4;
+        int dimension = 8;
+
+        if (isRunningAgainstOldCluster()) {
+            String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(TEST_FIELD)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, dimension)
+                .startObject(KNN_METHOD)
+                .field(NAME, METHOD_HNSW)
+                .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+                .field(KNN_ENGINE, LUCENE_NAME)
+                .startObject(PARAMETERS)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, ENCODER_SQ)
+                .startObject(PARAMETERS)
+                .field(LUCENE_SQ_BITS, 1)
+                .endObject()
+                .endObject()
+                .field(METHOD_PARAMETER_EF_CONSTRUCTION, 256)
+                .field(METHOD_PARAMETER_M, 16)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+
+            Float[] vector1 = { -10.6f, 25.48f, 1.2f, 3.4f, -5.6f, 7.8f, -9.0f, 11.2f };
+            Float[] vector2 = { -10.8f, 25.48f, 1.4f, 3.6f, -5.8f, 8.0f, -9.2f, 11.4f };
+            Float[] vector3 = { -11.0f, 25.48f, 1.6f, 3.8f, -6.0f, 8.2f, -9.4f, 11.6f };
+            Float[] vector4 = { -11.2f, 25.48f, 1.8f, 4.0f, -6.2f, 8.4f, -9.6f, 11.8f };
+            addKnnDoc(testIndex, "1", TEST_FIELD, vector1);
+            addKnnDoc(testIndex, "2", TEST_FIELD, vector2);
+            addKnnDoc(testIndex, "3", TEST_FIELD, vector3);
+            addKnnDoc(testIndex, "4", TEST_FIELD, vector4);
+
+            float[] queryVector = { -10.5f, 25.48f, 1.0f, 3.2f, -5.4f, 7.6f, -8.8f, 11.0f };
+            Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
+            List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
+            assertEquals(k, results.size());
+            for (int i = 0; i < k; i++) {
+                assertEquals(k - i, Integer.parseInt(results.get(i).getDocId()));
+            }
+        } else {
+            float[] queryVector = { -10.5f, 25.48f, 1.0f, 3.2f, -5.4f, 7.6f, -8.8f, 11.0f };
+            Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
+            List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
+            assertEquals(k, results.size());
+            for (int i = 0; i < k; i++) {
+                assertEquals(k - i, Integer.parseInt(results.get(i).getDocId()));
+            }
+            deleteKNNIndex(testIndex);
         }
     }
 

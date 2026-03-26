@@ -8,6 +8,7 @@ package org.opensearch.knn.memoryoptsearch.faiss;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
@@ -35,7 +36,9 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
     );
 
     public static final String IXSQ = "IxSQ";
-
+    private static final String FLOAT_VECTOR_VALUES_SLICE = "FaissIndexScalarQuantizedFloatVectorValuesSlice";
+    private static final String MMAP_FLOAT_VECTOR_VALUES_SLICE = "FaissIndexScalarQuantizedMMapFloatVectorValuesSlice";
+    private static final String BYTE_VECTOR_VALUES_SLICE = "FaissIndexScalarQuantizedByteVectorValuesSlice";
     private FaissQuantizerType quantizerType;
     private FaissQuantizedValueReconstructor reconstructor;
     private RangeStat rangeStat;
@@ -96,37 +99,7 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
     }
 
     @Override
-    public FloatVectorValues getFloatValues(IndexInput indexInput) {
-        @RequiredArgsConstructor
-        final class FloatVectorValuesImpl extends FloatVectorValues {
-            final IndexInput indexInput;
-            final byte[] bytesBuffer = new byte[(int) oneVectorByteSize];
-            final float[] floatBuffer = new float[dimension];
-
-            @Override
-            public float[] vectorValue(int internalVectorId) throws IOException {
-                indexInput.seek(flatVectors.getBaseOffset() + internalVectorId * oneVectorByteSize);
-                indexInput.readBytes(bytesBuffer, 0, bytesBuffer.length);
-                reconstructor.reconstruct(bytesBuffer, floatBuffer);
-                return floatBuffer;
-            }
-
-            @Override
-            public int dimension() {
-                return dimension;
-            }
-
-            @Override
-            public int size() {
-                return totalNumberOfVectors;
-            }
-
-            @Override
-            public FloatVectorValuesImpl copy() {
-                return new FloatVectorValuesImpl(indexInput.clone());
-            }
-        }
-
+    public FloatVectorValues getFloatValues(IndexInput indexInput) throws IOException {
         if (quantizerType == FaissQuantizerType.QT_FP16) {
             // Faiss SIMD bulk only supported for FP16 for now.
             final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(
@@ -137,55 +110,21 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
             if (addressAndSize != null) {
                 // Return MMapByteVectorValues having pointers pointing to mmap regions.
                 return new MMapFloatVectorValues(
-                    indexInput,
-                    oneVectorByteSize,
-                    flatVectors.getBaseOffset(),
-                    dimension,
-                    totalNumberOfVectors,
-                    addressAndSize,
-                    reconstructor
+                    new FloatVectorValuesImpl(flatVectors.slice(indexInput, FLOAT_VECTOR_VALUES_SLICE)),
+                    addressAndSize
                 );
             } else {
                 log.debug("Failed to extract mapped pointers from IndexInput, falling back to FloatVectorValuesImpl.");
             }
         }
 
-        return new FloatVectorValuesImpl(indexInput);
+        return new FloatVectorValuesImpl(flatVectors.slice(indexInput, FLOAT_VECTOR_VALUES_SLICE));
     }
 
     @Override
-    public ByteVectorValues getByteValues(IndexInput indexInput) {
-        @RequiredArgsConstructor
-        final class ByteVectorValuesImpl extends ByteVectorValues {
-            final IndexInput indexInput;
-            final byte[] buffer = new byte[(int) oneVectorByteSize];
-
-            @Override
-            public byte[] vectorValue(int internalVectorId) throws IOException {
-                indexInput.seek(flatVectors.getBaseOffset() + internalVectorId * oneVectorByteSize);
-                indexInput.readBytes(buffer, 0, buffer.length);
-                reconstructor.reconstruct(buffer, buffer);
-                return buffer;
-            }
-
-            @Override
-            public int dimension() {
-                return dimension;
-            }
-
-            @Override
-            public int size() {
-                return totalNumberOfVectors;
-            }
-
-            @Override
-            public ByteVectorValues copy() {
-                return new ByteVectorValuesImpl(indexInput.clone());
-            }
-        }
-
+    public ByteVectorValues getByteValues(IndexInput indexInput) throws IOException {
         // Return default implementation
-        return new ByteVectorValuesImpl(indexInput);
+        return new ByteVectorValuesImpl(flatVectors.slice(indexInput, BYTE_VECTOR_VALUES_SLICE));
     }
 
     @Override
@@ -236,5 +175,91 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
         QUANTILES,
         // Alternate optimization of reconstruction error
         OPTIM
+    }
+
+    @RequiredArgsConstructor
+    public class FloatVectorValuesImpl extends FloatVectorValues implements HasIndexSlice {
+        final IndexInput indexInput;
+        final byte[] bytesBuffer = new byte[(int) oneVectorByteSize];
+        final float[] floatBuffer = new float[dimension];
+
+        @Override
+        public float[] vectorValue(int internalVectorId) throws IOException {
+            indexInput.seek(internalVectorId * oneVectorByteSize);
+            indexInput.readBytes(bytesBuffer, 0, bytesBuffer.length);
+            reconstructor.reconstruct(bytesBuffer, floatBuffer);
+            return floatBuffer;
+        }
+
+        /**
+         * Returns the vector byte length. Since this is fp16 we need to send oneVectorByteSize. This is important,
+         * otherwise Lucene will use the dimension * FP32 bytes which will cause error
+         */
+        @Override
+        public int getVectorByteLength() {
+            return (int) oneVectorByteSize;
+        }
+
+        @Override
+        public int dimension() {
+            return dimension;
+        }
+
+        @Override
+        public int size() {
+            return totalNumberOfVectors;
+        }
+
+        @Override
+        public FloatVectorValuesImpl copy() {
+            return new FloatVectorValuesImpl(indexInput.clone());
+        }
+
+        /**
+         * Returns an IndexInput from which to read this instance's values, or null if not available.
+         */
+        @Override
+        public IndexInput getSlice() {
+            return indexInput;
+        }
+    }
+
+    // TODO: implement HasIndexSlice function on this Vector Values. Currently its failing tests with
+    // MemorySegmentScorer. Will fix it in another PR.
+    @RequiredArgsConstructor
+    public class ByteVectorValuesImpl extends ByteVectorValues {
+        final IndexInput indexInput;
+        final byte[] buffer = new byte[(int) oneVectorByteSize];
+
+        @Override
+        public byte[] vectorValue(int internalVectorId) throws IOException {
+            indexInput.seek(internalVectorId * oneVectorByteSize);
+            indexInput.readBytes(buffer, 0, buffer.length);
+            reconstructor.reconstruct(buffer, buffer);
+            return buffer;
+        }
+
+        @Override
+        public int dimension() {
+            return dimension;
+        }
+
+        @Override
+        public int size() {
+            return totalNumberOfVectors;
+        }
+
+        /**
+         * Returns the vector byte length, defaults to dimension multiplied by float byte size
+         */
+        @Override
+        public int getVectorByteLength() {
+            return (int) oneVectorByteSize;
+        }
+
+        @Override
+        public ByteVectorValues copy() {
+            return new ByteVectorValuesImpl(indexInput.clone());
+        }
     }
 }
