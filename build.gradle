@@ -551,10 +551,6 @@ tasks.register('cmakeJniLib', Exec) {
     standardOutput = outputStream
 }
 
-tasks.matching { it.name == 'windowsPatches' }.configureEach {
-    mustRunAfter 'cmakeJniLib'
-}
-
 // Makes sure that `./gradlew clean` removes all JNI build artifacts
 tasks.clean.doFirst {
     // Delete JNI build directory
