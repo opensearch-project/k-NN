@@ -22,11 +22,14 @@ import org.opensearch.core.ParseField;
 import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.common.settings.SecureString;
+import org.opensearch.core.common.unit.ByteSizeUnit;
+import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.env.Environment;
 import org.opensearch.env.NodeEnvironment;
 import org.opensearch.index.IndexModule;
 import org.opensearch.index.IndexSettings;
+import org.opensearch.index.TieredMergePolicyProvider;
 import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.index.mapper.Mapper;
@@ -284,7 +287,18 @@ public class KNNPlugin extends Plugin
             @Override
             public Settings getAdditionalIndexSettings(String indexName, boolean isDataStreamIndex, Settings templateAndRequestSettings) {
                 if (templateAndRequestSettings.getAsBoolean(KNNSettings.KNN_INDEX, false)) {
-                    return Settings.builder().put(KNN_DERIVED_SOURCE_ENABLED, true).build();
+                    return Settings.builder()
+                        .put(KNN_DERIVED_SOURCE_ENABLED, true)
+                        // Aggressive merges for k-NN can hogg CPU which can degrade search performance
+                        // These settings are being overridden to make it less aggressive
+                        // Core has max_merge_at_once default as 30, which can make merges more aggressive
+                        .put(TieredMergePolicyProvider.INDEX_MERGE_POLICY_MAX_MERGE_AT_ONCE_SETTING.getKey(), 10)
+                        // Core has max_merge_at_once default as 16MB, which can make merges more aggressive
+                        .put(
+                            TieredMergePolicyProvider.INDEX_MERGE_POLICY_FLOOR_SEGMENT_SETTING.getKey(),
+                            new ByteSizeValue(2, ByteSizeUnit.MB)
+                        )
+                        .build();
                 }
                 return Settings.EMPTY;
             }
