@@ -13,6 +13,7 @@ import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.KnnVectorValues;
+import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.VectorScorer;
 import org.apache.lucene.util.BitSet;
@@ -99,6 +100,7 @@ public final class VectorScorers {
      * @param target    the byte query vector
      * @param vectorScorerMode determines whether to use scoring or rescoring
      * @param spaceType the space type defining the similarity function
+     * @param fieldInfo the field info for the vector field
      * @return a {@link VectorScorer} appropriate for the underlying vector storage format
      * @throws IOException if an I/O error occurs
      */
@@ -106,9 +108,10 @@ public final class VectorScorers {
         final KNNVectorValuesIterator.DocIdsIteratorValues docIdsIteratorValues,
         final byte[] target,
         final VectorScorerMode vectorScorerMode,
-        final SpaceType spaceType
+        final SpaceType spaceType,
+        final FieldInfo fieldInfo
     ) throws IOException {
-        return createScorer(docIdsIteratorValues, target, vectorScorerMode, spaceType, null, null);
+        return createScorer(docIdsIteratorValues, target, vectorScorerMode, spaceType, fieldInfo, null, null);
     }
 
     /**
@@ -120,6 +123,7 @@ public final class VectorScorers {
      * @param target    the byte query vector
      * @param vectorScorerMode determines whether to use scoring or rescoring
      * @param spaceType the space type defining the similarity function
+     * @param fieldInfo the field info for the vector field
      * @param acceptedChildrenIterator iterator over accepted child documents, or null if not nested
      * @param parentBitSet bit set identifying parent documents, or null if not nested
      * @return a {@link VectorScorer} appropriate for the underlying vector storage format
@@ -130,10 +134,11 @@ public final class VectorScorers {
         final byte[] target,
         final VectorScorerMode vectorScorerMode,
         final SpaceType spaceType,
+        final FieldInfo fieldInfo,
         @Nullable final DocIdSetIterator acceptedChildrenIterator,
         @Nullable final BitSet parentBitSet
     ) throws IOException {
-        final VectorScorer scorer = getBaseScorer(docIdsIteratorValues, target, vectorScorerMode, spaceType);
+        final VectorScorer scorer = getBaseScorer(docIdsIteratorValues, target, vectorScorerMode, spaceType, fieldInfo);
         return maybeWrapWithNestedScorer(scorer, acceptedChildrenIterator, parentBitSet);
     }
 
@@ -165,7 +170,8 @@ public final class VectorScorers {
         final KNNVectorValuesIterator.DocIdsIteratorValues docIdsIteratorValues,
         final byte[] target,
         final VectorScorerMode vectorScorerMode,
-        final SpaceType spaceType
+        final SpaceType spaceType,
+        final FieldInfo fieldInfo
     ) throws IOException {
         final DocIdSetIterator docIdSetIterator = docIdsIteratorValues.getDocIdSetIterator();
 
@@ -176,7 +182,9 @@ public final class VectorScorers {
 
         final KnnVectorValues knnVectorValues = docIdsIteratorValues.getKnnVectorValues();
         if (knnVectorValues instanceof ByteVectorValues byteVectorValues) {
-            return vectorScorerMode.createScorer(byteVectorValues, target);
+            return spaceType == SpaceType.HAMMING
+                ? createHammingDistanceScorer(fieldInfo, byteVectorValues, target, spaceType)
+                : vectorScorerMode.createScorer(byteVectorValues, target);
         }
         throw new IllegalArgumentException("Byte target requires ByteVectorValues but got " + knnVectorValues.getClass().getSimpleName());
     }
@@ -215,6 +223,59 @@ public final class VectorScorers {
         PrefetchableFlatVectorScorer scorer = new PrefetchableFlatVectorScorer(adcFlatVectorsScorer);
         final RandomVectorScorer randomVectorScorer = scorer.getRandomVectorScorer(
             spaceType.getKnnVectorSimilarityFunction().getVectorSimilarityFunction(),
+            byteVectorValues,
+            target
+        );
+        return new VectorScorer() {
+            final KnnVectorValues.DocIndexIterator iterator = byteVectorValues.iterator();
+
+            @Override
+            public float score() throws IOException {
+                return randomVectorScorer.score(iterator.docID());
+            }
+
+            @Override
+            public DocIdSetIterator iterator() {
+                return iterator;
+            }
+
+            @Override
+            public Bulk bulk(final DocIdSetIterator matchingDocs) {
+                return Bulk.fromRandomScorerSparse(randomVectorScorer, iterator, matchingDocs);
+            }
+        };
+    }
+
+    /**
+     * Creates a Hamming distance {@link VectorScorer} that scores a byte query vector
+     * against binary byte document vectors using Hamming distance.
+     *
+     * @param fieldInfo         the field info for the vector field
+     * @param byteVectorValues  the byte vector values from the segment
+     * @param target            the byte query vector
+     * @param spaceType         the space type defining the similarity function
+     * @return a {@link VectorScorer} using Hamming distance scoring
+     * @throws IOException if an I/O error occurs
+     */
+    // TODO: Remove once ByteVectorValues.scorer() is implemented to return the appropriate
+    // VectorScorer based on the distance function. At that point, VectorScorerMode.createScorer()
+    // will handle this case and this method will no longer be needed.
+    private static VectorScorer createHammingDistanceScorer(
+        final FieldInfo fieldInfo,
+        final ByteVectorValues byteVectorValues,
+        final byte[] target,
+        final SpaceType spaceType
+    ) throws IOException {
+        final FlatVectorsScorer hammingFlatVectorsScorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
+            fieldInfo,
+            spaceType.getKnnVectorSimilarityFunction(),
+            null
+        );
+        PrefetchableFlatVectorScorer scorer = new PrefetchableFlatVectorScorer(hammingFlatVectorsScorer);
+        // Hamming's KNNVectorSimilarityFunction does not map to a Lucene VectorSimilarityFunction,
+        // but HammingFlatVectorsScorer ignores this parameter, so we pass EUCLIDEAN as a placeholder.
+        final RandomVectorScorer randomVectorScorer = scorer.getRandomVectorScorer(
+            VectorSimilarityFunction.EUCLIDEAN,
             byteVectorValues,
             target
         );
