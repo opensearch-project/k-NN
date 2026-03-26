@@ -30,6 +30,8 @@ import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
+import org.opensearch.knn.index.util.WarmupUtil;
+import org.opensearch.knn.index.warmup.WarmUpCollector;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
@@ -124,7 +126,22 @@ public class NativeEngines990KnnVectorsReader extends AbstractNativeEnginesKnnVe
             ((QuantizationConfigKNNCollector) knnCollector).setQuantizationState(quantizationState);
             return;
         }
+
         final FieldInfo fieldInfo = fieldInfos.fieldInfo(field);
+        if (WarmUpCollector.isWarmUpRequest(knnCollector)) {
+            final VectorSearcher memoryOptimizedSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfo);
+            if (memoryOptimizedSearcher != null) {
+                // Warm up search parts
+                memoryOptimizedSearcher.warmUp();
+
+                // For quantized vectors, we should warm up .vec as well.
+                if (fieldInfo.getAttribute(QFRAMEWORK_CONFIG) != null) {
+                    WarmupUtil.readAll(flatVectorsReader.getFloatVectorValues(fieldInfo.getName()));
+                }
+            }
+            return;
+        }
+
         if (trySearchWithMemoryOptimizedSearch(fieldInfo, target, knnCollector, acceptDocs, true)) {
             return;
         }

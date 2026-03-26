@@ -25,6 +25,7 @@ import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.RobustUniqueRandomIterator;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
+import org.opensearch.knn.index.util.WarmupUtil;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.faiss.cagra.FaissCagraHNSW;
 
@@ -123,6 +124,21 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
             vectorSimilarityFunction,
             iterator
         );
+    }
+
+    @Override
+    public void warmUp() throws IOException {
+        // Warm up graph
+        final IndexInput warmUpIndexInput = indexInput.clone();
+        WarmupUtil.readAll(warmUpIndexInput);
+
+        // Warm up flat vectors
+        // This can warm up .veb, .vec or .faiss
+        if (faissIndex.getVectorEncoding() == VectorEncoding.FLOAT32) {
+            WarmupUtil.readAll(faissIndex.getFloatValues(warmUpIndexInput));
+        } else if (faissIndex.getVectorEncoding() == VectorEncoding.BYTE) {
+            WarmupUtil.readAll(faissIndex.getByteValues(warmUpIndexInput));
+        }
     }
 
     @Override

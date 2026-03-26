@@ -40,7 +40,7 @@ import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.mapper.Mode;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -120,7 +120,7 @@ public class MemoryOptimizedSearchWarmupLargeFileTests extends KNNTestCase {
                     .thenReturn(true);
 
                 // Use the fake directory instead of the real one
-                ArrayList<String> result = warmup.warmUp(leafReader, mapperService, TEST_INDEX, fakeDirectory);
+                List<String> result = warmup.warmUp(leafReader, mapperService, TEST_INDEX);
 
                 // Verify warmup completed successfully
                 assertEquals("Expected 1 warmed up field", 1, result.size());

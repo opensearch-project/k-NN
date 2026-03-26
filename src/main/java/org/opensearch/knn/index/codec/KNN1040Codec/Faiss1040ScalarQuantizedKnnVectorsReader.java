@@ -8,14 +8,14 @@ package org.opensearch.knn.index.codec.KNN1040Codec;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.search.AcceptDocs;
-import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.search.KnnCollector;
-import org.opensearch.knn.index.codec.nativeindex.AbstractNativeEnginesKnnVectorsReader;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsReader;
+import org.opensearch.knn.index.codec.nativeindex.AbstractNativeEnginesKnnVectorsReader;
+import org.opensearch.knn.index.warmup.WarmUpCollector;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
-import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
 
 import java.io.IOException;
 
@@ -55,17 +55,26 @@ public class Faiss1040ScalarQuantizedKnnVectorsReader extends AbstractNativeEngi
     public void search(String field, float[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
         final VectorSearcher memoryOptimizedSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfos.fieldInfo(field));
 
-        // On warmup, target is null. We load the searcher first to trigger memory-mapping of vectors(partial load),
-        // then throw instead of returning silently so the warmup call is detectable and can be validated in tests.
-        // TODO: Support MOS warmup properly
-        if (target == null) {
-            throw new FaissMemoryOptimizedSearcher.WarmupInitializationException("Null vector supplied for warmup");
-        }
-
         if (memoryOptimizedSearcher == null) {
             throw new IllegalStateException(
                 "Faiss scalar quantized format requires memory optimized search but searcher could not be loaded for field [" + field + "]"
             );
+        }
+
+        if (WarmUpCollector.isWarmUpRequest(knnCollector)) {
+            // Warm up search parts
+            memoryOptimizedSearcher.warmUp();
+
+            // Warm up full-precision vectors
+            // We cannot rely on WarmupUtil, which extracts the IndexInput from vector values and reads through it.
+            // Because, the IndexInput returned by vector values is backed by quantized vectors.
+            // Therefore, to warm up full-precision vectors, we need to load them explicitly as below.
+            final ScalarQuantizedFloatVectorValuesWithIndexInputSlice vectorValues =
+                (ScalarQuantizedFloatVectorValuesWithIndexInputSlice) flatVectorsReader.getFloatVectorValues(field);
+            for (int i = 0; i < vectorValues.size(); ++i) {
+                vectorValues.vectorValue(i);
+            }
+            return;
         }
 
         memoryOptimizedSearcher.search(target, knnCollector, acceptDocs);

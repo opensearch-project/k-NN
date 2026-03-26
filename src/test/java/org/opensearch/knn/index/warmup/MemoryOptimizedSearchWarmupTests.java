@@ -47,9 +47,9 @@ import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -177,7 +177,7 @@ public class MemoryOptimizedSearchWarmupTests extends KNNTestCase {
             indexWriter.close();
             LeafReader leafReader = reader.leaves().get(0).reader();
 
-            ArrayList<String> result = warmup.warmUp(leafReader, null, TEST_INDEX, directory);
+            List<String> result = warmup.warmUp(leafReader, null, TEST_INDEX);
             assertTrue("Expected empty result when mapper service is null for " + description, result.isEmpty());
         }
     }
@@ -195,7 +195,7 @@ public class MemoryOptimizedSearchWarmupTests extends KNNTestCase {
             MappedFieldType nonKnnFieldType = mock(MappedFieldType.class);
             when(mapperService.fieldType(KNN_FIELD)).thenReturn(nonKnnFieldType);
 
-            ArrayList<String> result = warmup.warmUp(leafReader, mapperService, TEST_INDEX, directory);
+            List<String> result = warmup.warmUp(leafReader, mapperService, TEST_INDEX);
             assertTrue("Expected empty result when field type is not KNN for " + description, result.isEmpty());
         }
     }
@@ -216,7 +216,7 @@ public class MemoryOptimizedSearchWarmupTests extends KNNTestCase {
                 supportSpecMock.when(() -> MemoryOptimizedSearchSupportSpec.isSupportedFieldType(eq(knnFieldType), anyString()))
                     .thenReturn(false);
 
-                ArrayList<String> result = warmup.warmUp(leafReader, mapperService, TEST_INDEX, directory);
+                List<String> result = warmup.warmUp(leafReader, mapperService, TEST_INDEX);
                 assertTrue("Expected empty result when memory optimized search not supported for " + description, result.isEmpty());
             }
         }
@@ -248,7 +248,7 @@ public class MemoryOptimizedSearchWarmupTests extends KNNTestCase {
                 supportSpecMock.when(() -> MemoryOptimizedSearchSupportSpec.isSupportedFieldType(eq(knnFieldType), anyString()))
                     .thenReturn(true);
 
-                ArrayList<String> result = warmup.warmUp(leafReader, mapperService, TEST_INDEX, directory);
+                List<String> result = warmup.warmUp(leafReader, mapperService, TEST_INDEX);
                 assertEquals("Expected 1 warmed up field for " + description, 1, result.size());
                 assertEquals("Expected field name to match for " + description, KNN_FIELD, result.get(0));
             }
@@ -280,7 +280,7 @@ public class MemoryOptimizedSearchWarmupTests extends KNNTestCase {
                 supportSpecMock.when(() -> MemoryOptimizedSearchSupportSpec.isSupportedFieldType(eq(knnFieldType), anyString()))
                     .thenReturn(true);
 
-                ArrayList<String> result = warmup.warmUp(leafReader, mapperService, TEST_INDEX, directory);
+                List<String> result = warmup.warmUp(leafReader, mapperService, TEST_INDEX);
                 assertEquals("Expected 1 warmed up field for " + description, 1, result.size());
                 assertEquals("Expected field name to match for " + description, KNN_FIELD, result.get(0));
             }
@@ -317,7 +317,7 @@ public class MemoryOptimizedSearchWarmupTests extends KNNTestCase {
                 supportSpecMock.when(() -> MemoryOptimizedSearchSupportSpec.isSupportedFieldType(eq(knnFieldType2), anyString()))
                     .thenReturn(true);
 
-                ArrayList<String> result = warmup.warmUp(leafReader, mapperService, TEST_INDEX, directory);
+                List<String> result = warmup.warmUp(leafReader, mapperService, TEST_INDEX);
                 assertEquals("Expected 2 warmed up fields for " + description, 2, result.size());
                 assertTrue("Expected field1 to be warmed up for " + description, result.contains(field1));
                 assertTrue("Expected field2 to be warmed up for " + description, result.contains(field2));

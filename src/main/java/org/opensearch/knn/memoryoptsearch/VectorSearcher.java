@@ -90,4 +90,6 @@ public interface VectorSearcher extends Closeable {
      * @param iterator the iterator the scorer should use for document traversal
      */
     ByteVectorValues getByteVectorValues(DocIndexIterator iterator) throws IOException;
+
+    void warmUp() throws IOException;
 }
