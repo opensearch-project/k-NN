@@ -505,7 +505,14 @@ dependencies {
 }
 
 task windowsPatches(type:Exec) {
-    commandLine 'cmd', '/c', "Powershell -File $rootDir\\scripts\\windowsScript.ps1"
+    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+        logger.lifecycle("This is windows, run windows scripts")
+        commandLine 'cmd', '/c', "Powershell -File $rootDir\\scripts\\windowsScript.ps1"
+    }
+    else {
+        logger.lifecycle("This is NOT windows, DO NOT run ps1 scripts")
+        commandLine 'echo', 'This is NOT windows, DO NOT run ps1 scripts - cmdline'
+    }
 }
 
 tasks.register('cmakeJniLib', Exec) {
@@ -532,7 +539,6 @@ tasks.register('cmakeJniLib', Exec) {
     def javaHome = Jvm.current().getJavaHome()
     logger.lifecycle("Java home directory used by gradle: $javaHome")
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-        dependsOn windowsPatches
         args.add("-G")
         args.add("Unix Makefiles")
         args.add("-DBLAS_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll")
@@ -554,6 +560,7 @@ tasks.clean.doFirst {
 
 tasks.register('buildJniLib', Exec) {
     dependsOn cmakeJniLib
+    dependsOn windowsPatches
     def args = []
     args.add("cmake")
     args.add("--build")
