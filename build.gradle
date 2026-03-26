@@ -511,6 +511,7 @@ task windowsPatches(type:Exec) {
     }
     else {
         logger.lifecycle("This is NOT windows, DO NOT run ps1 scripts")
+        commandLine 'echo', 'This is NOT windows, DO NOT run ps1 scripts - cmdline'
     }
 }
 
