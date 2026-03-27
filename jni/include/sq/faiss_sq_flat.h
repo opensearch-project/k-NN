@@ -259,7 +259,7 @@ namespace knn_jni {
         int32_t dimension;
 
         FaissSQFlat(int64_t _numVectors, int32_t _quantizedVectorBytes, float _centroidDp, int32_t _dimension, faiss::MetricType _metric)
-          : faiss::IndexBinary(_dimension, _metric),
+          : faiss::IndexBinary(_dimension, _metric, true),
             numVectors(_numVectors),
             quantizedVectorBytes(_quantizedVectorBytes),
             centroidDp(_centroidDp),
