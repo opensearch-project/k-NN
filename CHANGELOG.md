@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Add 32x support for SQ encoder on Faiss [#3193](https://github.com/opensearch-project/k-NN/pull/3193)
 * Faiss SQ 1bit MOS changes [#3182](https://github.com/opensearch-project/k-NN/pull/3182)
 * Support compression to 1 bit for Lucene's scalar quantizer [#3144](https://github.com/opensearch-project/k-NN/pull/3144)
+* Enable cosine similarity to return original vectors rather than normalized vectors with Faiss Engine [#3083](https://github.com/opensearch-project/k-NN/issues/3083)
 
 ### Maintenance
 * Improve unit tests by tightening asserts [#3112](https://github.com/opensearch-project/k-NN/pull/3112)
