@@ -91,5 +91,13 @@ public interface VectorSearcher extends Closeable {
      */
     ByteVectorValues getByteVectorValues(DocIndexIterator iterator) throws IOException;
 
+    /**
+     * Warms up the underlying vector data by reading it into the OS page cache.
+     * <p>
+     * Implementations should touch all on-disk structures (e.g., vector data, graph edges,
+     * quantization tables) so that subsequent searches avoid cold-read I/O latency.
+     *
+     * @throws IOException if an I/O error occurs during warmup
+     */
     void warmUp() throws IOException;
 }

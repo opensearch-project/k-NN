@@ -5,455 +5,324 @@
 
 package org.opensearch.knn.index.warmup;
 
-import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
-import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
-import org.apache.lucene.codecs.Codec;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.FieldType;
-import org.apache.lucene.document.KnnByteVectorField;
-import org.apache.lucene.document.KnnFloatVectorField;
-import org.apache.lucene.index.IndexOptions;
-import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.codecs.KnnVectorsReader;
+import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
+import org.apache.lucene.index.DocValuesSkipIndexType;
+import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.LeafReader;
-import org.apache.lucene.index.NoMergePolicy;
 import org.apache.lucene.index.SegmentReader;
-import org.apache.lucene.index.SerialMergeScheduler;
-import org.apache.lucene.index.VectorEncoding;
-import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.tests.index.RandomIndexWriter;
-import org.apache.lucene.tests.store.BaseDirectoryWrapper;
 import org.mockito.MockedStatic;
 import org.opensearch.common.lucene.Lucene;
-import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
-import org.opensearch.knn.index.codec.util.UnitTestCodec;
-import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
-import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
-import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
-import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
-import org.opensearch.knn.index.mapper.Mode;
-import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Parameterized tests for {@link MemoryOptimizedSearchWarmup} using actual Lucene segment readers.
- * Tests various index configurations including different compression levels, binary vectors,
- * disk-based indices, and ADC (Asymmetric Distance Computation) configurations.
- */
-@RequiredArgsConstructor
 public class MemoryOptimizedSearchWarmupTests extends KNNTestCase {
 
-    private static final Codec TESTING_CODEC = new UnitTestCodec(() -> new NativeEngines990KnnVectorsFormat(0));
-    private static final String TEST_INDEX = "test-index";
-    private static final String KNN_FIELD = "knn_field";
+    private static final String INDEX_NAME = "test-index";
+    private static final String FIELD_MEM_OPT = "mem_opt_field";
+    private static final String FIELD_REGULAR = "regular_field";
+    private static final String FIELD_NON_KNN = "non_knn_field";
 
-    // Test parameters
-    private final String description;
-    private final IndexConfig indexConfig;
+    public void testWarmUp_nullMapperService_returnsEmptyList() {
+        LeafReader leafReader = mock(LeafReader.class);
+        MemoryOptimizedSearchWarmup warmup = new MemoryOptimizedSearchWarmup();
 
-    private MemoryOptimizedSearchWarmup warmup;
-    private Directory directory;
-    private RandomIndexWriter indexWriter;
+        List<String> result = warmup.warmUp(leafReader, null, INDEX_NAME);
 
-    @ParametersFactory(argumentFormatting = "%1$s")
-    public static Collection<Object[]> parameters() {
-        return Arrays.asList(
-            // 1x compression (no compression) - Float HNSW with Flat encoder
-            new Object[] { "1x_compression_float", new IndexConfig(VectorDataType.FLOAT, "HNSW16,Flat", null) },
+        assertTrue(result.isEmpty());
+    }
 
-            // 2x compression - Float HNSW with SQ (Scalar Quantization) FP16
-            new Object[] { "2x_compression_fp16", new IndexConfig(VectorDataType.FLOAT, "HNSW16,SQfp16", null) },
+    public void testWarmUp_noMemoryOptimizedFields_returnsEmptyList() {
+        // Setup: one field that is NOT a KNN field
+        FieldInfo nonKnnField = createFieldInfo(FIELD_NON_KNN, Collections.emptyMap());
+        FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { nonKnnField });
 
-            // 4x compression - Byte vectors (SQ8)
-            new Object[] { "4x_compression_byte", new IndexConfig(VectorDataType.BYTE, "HNSW16,SQ8_direct_signed", null) },
+        LeafReader leafReader = mock(LeafReader.class);
+        when(leafReader.getFieldInfos()).thenReturn(fieldInfos);
 
-            // 8x compression - Binary quantization with 4 bits
-            new Object[] {
-                "8x_compression_binary_4bit",
-                new IndexConfig(
-                    VectorDataType.FLOAT,
-                    "BHNSW16,Flat",
-                    QuantizationConfig.builder().quantizationType(ScalarQuantizationType.FOUR_BIT).build()
-                ) },
+        SegmentReader segmentReader = mock(SegmentReader.class);
+        MapperService mapperService = mock(MapperService.class);
 
-            // 16x compression - Binary quantization with 2 bits
-            new Object[] {
-                "16x_compression_binary_2bit",
-                new IndexConfig(
-                    VectorDataType.FLOAT,
-                    "BHNSW16,Flat",
-                    QuantizationConfig.builder().quantizationType(ScalarQuantizationType.TWO_BIT).build()
-                ) },
+        try (MockedStatic<Lucene> luceneMock = mockStatic(Lucene.class)) {
+            luceneMock.when(() -> Lucene.segmentReader(leafReader)).thenReturn(segmentReader);
 
-            // 32x compression - Binary quantization with 1 bit
-            new Object[] {
-                "32x_compression_binary_1bit",
-                new IndexConfig(
-                    VectorDataType.FLOAT,
-                    "BHNSW16,Flat",
-                    QuantizationConfig.builder().quantizationType(ScalarQuantizationType.ONE_BIT).build()
-                ) },
+            MemoryOptimizedSearchWarmup warmup = new MemoryOptimizedSearchWarmup();
+            List<String> result = warmup.warmUp(leafReader, mapperService, INDEX_NAME);
 
-            // Disk-based 32x compression
-            new Object[] {
-                "disk_based_32x",
-                new IndexConfig(
-                    VectorDataType.FLOAT,
-                    "BHNSW16,Flat",
-                    QuantizationConfig.builder().quantizationType(ScalarQuantizationType.ONE_BIT).build(),
-                    Mode.ON_DISK
-                ) },
+            assertTrue(result.isEmpty());
+        }
+    }
 
-            // ADC 8x (4-bit quantization with ADC enabled)
-            new Object[] {
-                "adc_8x_4bit",
-                new IndexConfig(
-                    VectorDataType.FLOAT,
-                    "BHNSW16,Flat",
-                    QuantizationConfig.builder().quantizationType(ScalarQuantizationType.FOUR_BIT).enableADC(true).build()
-                ) },
+    public void testWarmUp_knnFieldNotMemoryOptimized_returnsEmptyList() {
+        // Setup: one KNN field that is NOT memory-optimized
+        Map<String, String> attrs = new HashMap<>();
+        attrs.put(KNNVectorFieldMapper.KNN_FIELD, "true");
+        FieldInfo regularKnnField = createFieldInfo(FIELD_REGULAR, attrs);
+        FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { regularKnnField });
 
-            // ADC 16x (2-bit quantization with ADC enabled)
-            new Object[] {
-                "adc_16x_2bit",
-                new IndexConfig(
-                    VectorDataType.FLOAT,
-                    "BHNSW16,Flat",
-                    QuantizationConfig.builder().quantizationType(ScalarQuantizationType.TWO_BIT).enableADC(true).build()
-                ) },
+        LeafReader leafReader = mock(LeafReader.class);
+        when(leafReader.getFieldInfos()).thenReturn(fieldInfos);
 
-            // ADC 32x (1-bit quantization with ADC enabled)
-            new Object[] {
-                "adc_32x_1bit",
-                new IndexConfig(
-                    VectorDataType.FLOAT,
-                    "BHNSW16,Flat",
-                    QuantizationConfig.builder().quantizationType(ScalarQuantizationType.ONE_BIT).enableADC(true).build()
-                ) }
+        SegmentReader segmentReader = mock(SegmentReader.class);
+        MapperService mapperService = mock(MapperService.class);
+
+        // Field type is KNNVectorFieldType but not supported for memory-optimized search
+        KNNVectorFieldType fieldType = mock(KNNVectorFieldType.class);
+        when(mapperService.fieldType(FIELD_REGULAR)).thenReturn(fieldType);
+
+        try (
+            MockedStatic<Lucene> luceneMock = mockStatic(Lucene.class);
+            MockedStatic<MemoryOptimizedSearchSupportSpec> specMock = mockStatic(MemoryOptimizedSearchSupportSpec.class)
+        ) {
+            luceneMock.when(() -> Lucene.segmentReader(leafReader)).thenReturn(segmentReader);
+            specMock.when(() -> MemoryOptimizedSearchSupportSpec.isSupportedFieldType(fieldType, INDEX_NAME)).thenReturn(false);
+
+            MemoryOptimizedSearchWarmup warmup = new MemoryOptimizedSearchWarmup();
+            List<String> result = warmup.warmUp(leafReader, mapperService, INDEX_NAME);
+
+            assertTrue(result.isEmpty());
+        }
+    }
+
+    public void testWarmUp_memoryOptimizedField_warmupSucceeds() throws IOException {
+        // Setup: one KNN field that IS memory-optimized
+        Map<String, String> attrs = new HashMap<>();
+        attrs.put(KNNVectorFieldMapper.KNN_FIELD, "true");
+        FieldInfo memOptField = createFieldInfo(FIELD_MEM_OPT, attrs);
+        FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { memOptField });
+
+        LeafReader leafReader = mock(LeafReader.class);
+        when(leafReader.getFieldInfos()).thenReturn(fieldInfos);
+
+        SegmentReader segmentReader = mock(SegmentReader.class);
+        WarmableKnnVectorsReader warmableReader = mock(WarmableKnnVectorsReader.class);
+        PerFieldKnnVectorsFormat.FieldsReader fieldsReader = mock(PerFieldKnnVectorsFormat.FieldsReader.class);
+        when(fieldsReader.getFieldReader(FIELD_MEM_OPT)).thenReturn(warmableReader);
+        when(segmentReader.getVectorReader()).thenReturn(fieldsReader);
+        doNothing().when(warmableReader).warmUp(eq(FIELD_MEM_OPT));
+
+        MapperService mapperService = mock(MapperService.class);
+        KNNVectorFieldType fieldType = mock(KNNVectorFieldType.class);
+        when(mapperService.fieldType(FIELD_MEM_OPT)).thenReturn(fieldType);
+
+        try (
+            MockedStatic<Lucene> luceneMock = mockStatic(Lucene.class);
+            MockedStatic<MemoryOptimizedSearchSupportSpec> specMock = mockStatic(MemoryOptimizedSearchSupportSpec.class)
+        ) {
+            luceneMock.when(() -> Lucene.segmentReader(leafReader)).thenReturn(segmentReader);
+            specMock.when(() -> MemoryOptimizedSearchSupportSpec.isSupportedFieldType(fieldType, INDEX_NAME)).thenReturn(true);
+
+            MemoryOptimizedSearchWarmup warmup = new MemoryOptimizedSearchWarmup();
+            List<String> result = warmup.warmUp(leafReader, mapperService, INDEX_NAME);
+
+            assertEquals(1, result.size());
+            assertEquals(FIELD_MEM_OPT, result.get(0));
+            verify(warmableReader).warmUp(eq(FIELD_MEM_OPT));
+        }
+    }
+
+    public void testWarmUp_memoryOptimizedField_warmupThrowsException_returnsEmptyList() throws IOException {
+        // Setup: one KNN field that IS memory-optimized but warmup throws
+        Map<String, String> attrs = new HashMap<>();
+        attrs.put(KNNVectorFieldMapper.KNN_FIELD, "true");
+        FieldInfo memOptField = createFieldInfo(FIELD_MEM_OPT, attrs);
+        FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { memOptField });
+
+        LeafReader leafReader = mock(LeafReader.class);
+        when(leafReader.getFieldInfos()).thenReturn(fieldInfos);
+
+        SegmentReader segmentReader = mock(SegmentReader.class);
+        WarmableKnnVectorsReader warmableReader = mock(WarmableKnnVectorsReader.class);
+        PerFieldKnnVectorsFormat.FieldsReader fieldsReader = mock(PerFieldKnnVectorsFormat.FieldsReader.class);
+        when(fieldsReader.getFieldReader(FIELD_MEM_OPT)).thenReturn(warmableReader);
+        when(segmentReader.getVectorReader()).thenReturn(fieldsReader);
+        doThrow(new RuntimeException("warmup failed")).when(warmableReader).warmUp(eq(FIELD_MEM_OPT));
+
+        MapperService mapperService = mock(MapperService.class);
+        KNNVectorFieldType fieldType = mock(KNNVectorFieldType.class);
+        when(mapperService.fieldType(FIELD_MEM_OPT)).thenReturn(fieldType);
+
+        try (
+            MockedStatic<Lucene> luceneMock = mockStatic(Lucene.class);
+            MockedStatic<MemoryOptimizedSearchSupportSpec> specMock = mockStatic(MemoryOptimizedSearchSupportSpec.class)
+        ) {
+            luceneMock.when(() -> Lucene.segmentReader(leafReader)).thenReturn(segmentReader);
+            specMock.when(() -> MemoryOptimizedSearchSupportSpec.isSupportedFieldType(fieldType, INDEX_NAME)).thenReturn(true);
+
+            MemoryOptimizedSearchWarmup warmup = new MemoryOptimizedSearchWarmup();
+            List<String> result = warmup.warmUp(leafReader, mapperService, INDEX_NAME);
+
+            assertTrue(result.isEmpty());
+        }
+    }
+
+    public void testWarmUp_mixedFields_onlyMemoryOptimizedFieldsReturned() throws IOException {
+        // Setup: one memory-optimized KNN field, one regular KNN field, one non-KNN field
+        Map<String, String> knnAttrs = new HashMap<>();
+        knnAttrs.put(KNNVectorFieldMapper.KNN_FIELD, "true");
+
+        FieldInfo memOptField = createFieldInfo(FIELD_MEM_OPT, knnAttrs);
+        FieldInfo regularField = createFieldInfo(FIELD_REGULAR, new HashMap<>(knnAttrs));
+        FieldInfo nonKnnField = createFieldInfo(FIELD_NON_KNN, Collections.emptyMap());
+        FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { memOptField, regularField, nonKnnField });
+
+        LeafReader leafReader = mock(LeafReader.class);
+        when(leafReader.getFieldInfos()).thenReturn(fieldInfos);
+
+        SegmentReader segmentReader = mock(SegmentReader.class);
+        WarmableKnnVectorsReader warmableReader = mock(WarmableKnnVectorsReader.class);
+        PerFieldKnnVectorsFormat.FieldsReader fieldsReader = mock(PerFieldKnnVectorsFormat.FieldsReader.class);
+        when(fieldsReader.getFieldReader(FIELD_MEM_OPT)).thenReturn(warmableReader);
+        when(segmentReader.getVectorReader()).thenReturn(fieldsReader);
+        doNothing().when(warmableReader).warmUp(eq(FIELD_MEM_OPT));
+
+        MapperService mapperService = mock(MapperService.class);
+        KNNVectorFieldType memOptFieldType = mock(KNNVectorFieldType.class);
+        KNNVectorFieldType regularFieldType = mock(KNNVectorFieldType.class);
+        when(mapperService.fieldType(FIELD_MEM_OPT)).thenReturn(memOptFieldType);
+        when(mapperService.fieldType(FIELD_REGULAR)).thenReturn(regularFieldType);
+
+        try (
+            MockedStatic<Lucene> luceneMock = mockStatic(Lucene.class);
+            MockedStatic<MemoryOptimizedSearchSupportSpec> specMock = mockStatic(MemoryOptimizedSearchSupportSpec.class)
+        ) {
+            luceneMock.when(() -> Lucene.segmentReader(leafReader)).thenReturn(segmentReader);
+            specMock.when(() -> MemoryOptimizedSearchSupportSpec.isSupportedFieldType(memOptFieldType, INDEX_NAME)).thenReturn(true);
+            specMock.when(() -> MemoryOptimizedSearchSupportSpec.isSupportedFieldType(regularFieldType, INDEX_NAME)).thenReturn(false);
+
+            MemoryOptimizedSearchWarmup warmup = new MemoryOptimizedSearchWarmup();
+            List<String> result = warmup.warmUp(leafReader, mapperService, INDEX_NAME);
+
+            assertEquals(1, result.size());
+            assertEquals(FIELD_MEM_OPT, result.get(0));
+            // Verify warmUp was only called for the memory-optimized field
+            verify(warmableReader).warmUp(eq(FIELD_MEM_OPT));
+            verify(warmableReader, never()).warmUp(eq(FIELD_REGULAR));
+        }
+    }
+
+    public void testWarmUp_multipleMemoryOptimizedFields_partialFailure() throws IOException {
+        // Setup: two memory-optimized fields, one succeeds and one fails
+        String field1 = "field_success";
+        String field2 = "field_fail";
+
+        Map<String, String> knnAttrs = new HashMap<>();
+        knnAttrs.put(KNNVectorFieldMapper.KNN_FIELD, "true");
+
+        FieldInfo fieldInfo1 = createFieldInfo(field1, new HashMap<>(knnAttrs));
+        FieldInfo fieldInfo2 = createFieldInfo(field2, new HashMap<>(knnAttrs));
+        FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { fieldInfo1, fieldInfo2 });
+
+        LeafReader leafReader = mock(LeafReader.class);
+        when(leafReader.getFieldInfos()).thenReturn(fieldInfos);
+
+        SegmentReader segmentReader = mock(SegmentReader.class);
+        WarmableKnnVectorsReader warmableReader1 = mock(WarmableKnnVectorsReader.class);
+        WarmableKnnVectorsReader warmableReader2 = mock(WarmableKnnVectorsReader.class);
+        PerFieldKnnVectorsFormat.FieldsReader fieldsReader = mock(PerFieldKnnVectorsFormat.FieldsReader.class);
+        when(fieldsReader.getFieldReader(field1)).thenReturn(warmableReader1);
+        when(fieldsReader.getFieldReader(field2)).thenReturn(warmableReader2);
+        when(segmentReader.getVectorReader()).thenReturn(fieldsReader);
+        doNothing().when(warmableReader1).warmUp(eq(field1));
+        doThrow(new RuntimeException("fail")).when(warmableReader2).warmUp(eq(field2));
+
+        MapperService mapperService = mock(MapperService.class);
+        KNNVectorFieldType fieldType1 = mock(KNNVectorFieldType.class);
+        KNNVectorFieldType fieldType2 = mock(KNNVectorFieldType.class);
+        when(mapperService.fieldType(field1)).thenReturn(fieldType1);
+        when(mapperService.fieldType(field2)).thenReturn(fieldType2);
+
+        try (
+            MockedStatic<Lucene> luceneMock = mockStatic(Lucene.class);
+            MockedStatic<MemoryOptimizedSearchSupportSpec> specMock = mockStatic(MemoryOptimizedSearchSupportSpec.class)
+        ) {
+            luceneMock.when(() -> Lucene.segmentReader(leafReader)).thenReturn(segmentReader);
+            specMock.when(() -> MemoryOptimizedSearchSupportSpec.isSupportedFieldType(fieldType1, INDEX_NAME)).thenReturn(true);
+            specMock.when(() -> MemoryOptimizedSearchSupportSpec.isSupportedFieldType(fieldType2, INDEX_NAME)).thenReturn(true);
+
+            MemoryOptimizedSearchWarmup warmup = new MemoryOptimizedSearchWarmup();
+            List<String> result = warmup.warmUp(leafReader, mapperService, INDEX_NAME);
+
+            assertEquals(1, result.size());
+            assertEquals(field1, result.get(0));
+        }
+    }
+
+    public void testWarmUp_fieldTypeNotKNNVectorFieldType_notIncluded() {
+        // Setup: KNN_FIELD attribute is set but the MappedFieldType is not KNNVectorFieldType
+        Map<String, String> attrs = new HashMap<>();
+        attrs.put(KNNVectorFieldMapper.KNN_FIELD, "true");
+        FieldInfo field = createFieldInfo(FIELD_REGULAR, attrs);
+        FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { field });
+
+        LeafReader leafReader = mock(LeafReader.class);
+        when(leafReader.getFieldInfos()).thenReturn(fieldInfos);
+
+        SegmentReader segmentReader = mock(SegmentReader.class);
+        MapperService mapperService = mock(MapperService.class);
+        // Return a non-KNNVectorFieldType
+        when(mapperService.fieldType(FIELD_REGULAR)).thenReturn(mock(org.opensearch.index.mapper.MappedFieldType.class));
+
+        try (MockedStatic<Lucene> luceneMock = mockStatic(Lucene.class)) {
+            luceneMock.when(() -> Lucene.segmentReader(leafReader)).thenReturn(segmentReader);
+
+            MemoryOptimizedSearchWarmup warmup = new MemoryOptimizedSearchWarmup();
+            List<String> result = warmup.warmUp(leafReader, mapperService, INDEX_NAME);
+
+            assertTrue(result.isEmpty());
+        }
+    }
+
+    private static int fieldCounter = 0;
+
+    /**
+     * Helper to create a FieldInfo with the given name and attributes.
+     */
+    private FieldInfo createFieldInfo(String name, Map<String, String> attributes) {
+        return new FieldInfo(
+            name,
+            fieldCounter++,
+            false,  // storeTermVector
+            false,  // omitNorms
+            false,  // storePayloads
+            org.apache.lucene.index.IndexOptions.NONE,
+            org.apache.lucene.index.DocValuesType.NONE,
+            DocValuesSkipIndexType.NONE,
+            -1,     // dvGen
+            attributes,
+            0,      // pointDimensionCount
+            0,      // pointIndexDimensionCount
+            0,      // pointNumBytes
+            0,      // vectorDimension
+            org.apache.lucene.index.VectorEncoding.FLOAT32,
+            org.apache.lucene.index.VectorSimilarityFunction.EUCLIDEAN,
+            false,  // softDeletesField
+            false   // parentField
         );
     }
 
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
-        warmup = new MemoryOptimizedSearchWarmup();
-    }
-
-    @Override
-    public void tearDown() throws Exception {
-        if (directory != null) {
-            directory.close();
-        }
-        super.tearDown();
-    }
-
-    public void testWarmUp_whenMapperServiceIsNull_thenReturnEmptyList() throws IOException {
-        setupDirectory();
-        addVectorDocument(KNN_FIELD);
-
-        try (IndexReader reader = indexWriter.getReader()) {
-            indexWriter.close();
-            LeafReader leafReader = reader.leaves().get(0).reader();
-
-            List<String> result = warmup.warmUp(leafReader, null, TEST_INDEX);
-            assertTrue("Expected empty result when mapper service is null for " + description, result.isEmpty());
-        }
-    }
-
-    public void testWarmUp_whenFieldTypeIsNotKnnVectorFieldType_thenSkipField() throws IOException {
-        setupDirectory();
-        addVectorDocument(KNN_FIELD);
-
-        try (IndexReader reader = indexWriter.getReader()) {
-            indexWriter.close();
-            LeafReader leafReader = reader.leaves().get(0).reader();
-            MapperService mapperService = mock(MapperService.class);
-
-            // Return a non-KNN field type
-            MappedFieldType nonKnnFieldType = mock(MappedFieldType.class);
-            when(mapperService.fieldType(KNN_FIELD)).thenReturn(nonKnnFieldType);
-
-            List<String> result = warmup.warmUp(leafReader, mapperService, TEST_INDEX);
-            assertTrue("Expected empty result when field type is not KNN for " + description, result.isEmpty());
-        }
-    }
-
-    public void testWarmUp_whenMemoryOptimizedSearchNotSupported_thenSkipField() throws IOException {
-        setupDirectory();
-        addVectorDocument(KNN_FIELD);
-
-        try (IndexReader reader = indexWriter.getReader()) {
-            indexWriter.close();
-            LeafReader leafReader = reader.leaves().get(0).reader();
-            MapperService mapperService = mock(MapperService.class);
-
-            KNNVectorFieldType knnFieldType = createMockedKnnFieldType();
-            when(mapperService.fieldType(KNN_FIELD)).thenReturn(knnFieldType);
-
-            try (MockedStatic<MemoryOptimizedSearchSupportSpec> supportSpecMock = mockStatic(MemoryOptimizedSearchSupportSpec.class)) {
-                supportSpecMock.when(() -> MemoryOptimizedSearchSupportSpec.isSupportedFieldType(eq(knnFieldType), anyString()))
-                    .thenReturn(false);
-
-                List<String> result = warmup.warmUp(leafReader, mapperService, TEST_INDEX);
-                assertTrue("Expected empty result when memory optimized search not supported for " + description, result.isEmpty());
-            }
-        }
-    }
-
-    @SneakyThrows
-    public void testWarmUp_thenWarmUpSuccessfully() {
-        setupDirectory();
-        addVectorDocument(KNN_FIELD);
-
-        try (IndexReader reader = indexWriter.getReader()) {
-            indexWriter.flush();
-            indexWriter.commit();
-            indexWriter.close();
-
-            IndexSearcher searcher = new IndexSearcher(reader);
-            LeafReader leafReader = searcher.getLeafContexts().get(0).reader();
-            SegmentReader segmentReader = Lucene.segmentReader(leafReader);
-
-            // Verify we have a real segment reader
-            assertNotNull("SegmentReader should not be null for " + description, segmentReader);
-            assertNotNull("SegmentInfo should not be null for " + description, segmentReader.getSegmentInfo());
-
-            MapperService mapperService = mock(MapperService.class);
-            KNNVectorFieldType knnFieldType = createMockedKnnFieldType();
-            when(mapperService.fieldType(KNN_FIELD)).thenReturn(knnFieldType);
-
-            try (MockedStatic<MemoryOptimizedSearchSupportSpec> supportSpecMock = mockStatic(MemoryOptimizedSearchSupportSpec.class)) {
-                supportSpecMock.when(() -> MemoryOptimizedSearchSupportSpec.isSupportedFieldType(eq(knnFieldType), anyString()))
-                    .thenReturn(true);
-
-                List<String> result = warmup.warmUp(leafReader, mapperService, TEST_INDEX);
-                assertEquals("Expected 1 warmed up field for " + description, 1, result.size());
-                assertEquals("Expected field name to match for " + description, KNN_FIELD, result.get(0));
-            }
-        }
-    }
-
-    @SneakyThrows
-    public void testWarmUp_whenMultipleVectors_thenWarmUpSuccessfully() {
-        setupDirectory();
-
-        // Add multiple vectors to the same field
-        addVectorDocument(KNN_FIELD);
-        addVectorDocument(KNN_FIELD);
-        addVectorDocument(KNN_FIELD);
-
-        try (IndexReader reader = indexWriter.getReader()) {
-            indexWriter.flush();
-            indexWriter.commit();
-            indexWriter.close();
-
-            IndexSearcher searcher = new IndexSearcher(reader);
-            LeafReader leafReader = searcher.getLeafContexts().get(0).reader();
-
-            MapperService mapperService = mock(MapperService.class);
-            KNNVectorFieldType knnFieldType = createMockedKnnFieldType();
-            when(mapperService.fieldType(KNN_FIELD)).thenReturn(knnFieldType);
-
-            try (MockedStatic<MemoryOptimizedSearchSupportSpec> supportSpecMock = mockStatic(MemoryOptimizedSearchSupportSpec.class)) {
-                supportSpecMock.when(() -> MemoryOptimizedSearchSupportSpec.isSupportedFieldType(eq(knnFieldType), anyString()))
-                    .thenReturn(true);
-
-                List<String> result = warmup.warmUp(leafReader, mapperService, TEST_INDEX);
-                assertEquals("Expected 1 warmed up field for " + description, 1, result.size());
-                assertEquals("Expected field name to match for " + description, KNN_FIELD, result.get(0));
-            }
-        }
-    }
-
-    @SneakyThrows
-    public void testWarmUp_whenMultipleFields_thenWarmUpAllSupportedFields() {
-        setupDirectory();
-
-        String field1 = "knn_field_1";
-        String field2 = "knn_field_2";
-
-        // Add a document with both fields to ensure proper vector file structure
-        addVectorDocumentWithMultipleFields(field1, field2);
-
-        try (IndexReader reader = indexWriter.getReader()) {
-            indexWriter.flush();
-            indexWriter.commit();
-            indexWriter.close();
-
-            IndexSearcher searcher = new IndexSearcher(reader);
-            LeafReader leafReader = searcher.getLeafContexts().get(0).reader();
-
-            MapperService mapperService = mock(MapperService.class);
-            KNNVectorFieldType knnFieldType1 = createMockedKnnFieldType();
-            KNNVectorFieldType knnFieldType2 = createMockedKnnFieldType();
-            when(mapperService.fieldType(field1)).thenReturn(knnFieldType1);
-            when(mapperService.fieldType(field2)).thenReturn(knnFieldType2);
-
-            try (MockedStatic<MemoryOptimizedSearchSupportSpec> supportSpecMock = mockStatic(MemoryOptimizedSearchSupportSpec.class)) {
-                supportSpecMock.when(() -> MemoryOptimizedSearchSupportSpec.isSupportedFieldType(eq(knnFieldType1), anyString()))
-                    .thenReturn(true);
-                supportSpecMock.when(() -> MemoryOptimizedSearchSupportSpec.isSupportedFieldType(eq(knnFieldType2), anyString()))
-                    .thenReturn(true);
-
-                List<String> result = warmup.warmUp(leafReader, mapperService, TEST_INDEX);
-                assertEquals("Expected 2 warmed up fields for " + description, 2, result.size());
-                assertTrue("Expected field1 to be warmed up for " + description, result.contains(field1));
-                assertTrue("Expected field2 to be warmed up for " + description, result.contains(field2));
-            }
-        }
-    }
-
-    // ==================== Helper Methods ====================
-
-    private void setupDirectory() throws IOException {
-        directory = newFSDirectory(createTempDir());
-        // Disable index checking on close since we're using native engine format
-        ((BaseDirectoryWrapper) directory).setCheckIndexOnClose(false);
-        indexWriter = createIndexWriter(directory);
-    }
-
-    private RandomIndexWriter createIndexWriter(Directory dir) throws IOException {
-        IndexWriterConfig iwc = newIndexWriterConfig();
-        iwc.setMergeScheduler(new SerialMergeScheduler());
-        iwc.setCodec(TESTING_CODEC);
-        iwc.setUseCompoundFile(false);
-        // Set merge policy to no merges so that we create a predictable number of segments
-        iwc.setMergePolicy(NoMergePolicy.INSTANCE);
-        return new RandomIndexWriter(random(), dir, iwc);
-    }
-
     /**
-     * Creates a mocked KNNVectorFieldType configured with the current test's mode.
-     * This ensures disk-based mode is properly reflected in the field type for future-proofing.
+     * Abstract helper that combines KnnVectorsReader with WarmableReader so
+     * Mockito can produce mocks matching the instanceof check in MemoryOptimizedSearchWarmup.
      */
-    private KNNVectorFieldType createMockedKnnFieldType() {
-        KNNVectorFieldType knnFieldType = mock(KNNVectorFieldType.class);
-        KNNMappingConfig mappingConfig = mock(KNNMappingConfig.class);
-        when(mappingConfig.getMode()).thenReturn(indexConfig.mode);
-        when(knnFieldType.getKnnMappingConfig()).thenReturn(mappingConfig);
-        return knnFieldType;
-    }
-
-    private void addVectorDocument(String fieldName) throws IOException {
-        Document doc = new Document();
-        Field vectorField = createVectorField(fieldName);
-        doc.add(vectorField);
-        indexWriter.addDocument(doc);
-    }
-
-    private void addVectorDocumentWithMultipleFields(String... fieldNames) throws IOException {
-        Document doc = new Document();
-        for (String fieldName : fieldNames) {
-            Field vectorField = createVectorField(fieldName);
-            doc.add(vectorField);
-        }
-        indexWriter.addDocument(doc);
-    }
-
-    private Field createVectorField(String fieldName) {
-        int dimension = getDimensionForConfig();
-        FieldType fieldType = createVectorFieldType(dimension);
-
-        if (indexConfig.vectorDataType == VectorDataType.BYTE) {
-            byte[] vector = generateByteVector(dimension);
-            return new KnnByteVectorField(fieldName, vector, fieldType);
-        } else {
-            float[] vector = generateFloatVector(dimension);
-            return new KnnFloatVectorField(fieldName, vector, fieldType);
-        }
-    }
-
-    private int getDimensionForConfig() {
-        // Binary quantization requires dimensions divisible by 8
-        if (indexConfig.quantizationConfig != null) {
-            return 128; // Use 128 dimensions for binary quantization
-        }
-        return 3; // Default dimension for simple tests
-    }
-
-    private float[] generateFloatVector(int dimension) {
-        float[] vector = new float[dimension];
-        for (int i = 0; i < dimension; i++) {
-            vector[i] = random().nextFloat() * 10 - 5; // Random values between -5 and 5
-        }
-        return vector;
-    }
-
-    private byte[] generateByteVector(int dimension) {
-        byte[] vector = new byte[dimension];
-        random().nextBytes(vector);
-        return vector;
-    }
-
-    private FieldType createVectorFieldType(int dimension) {
-        FieldType fieldType = new FieldType();
-        fieldType.setTokenized(false);
-        fieldType.setIndexOptions(IndexOptions.NONE);
-        fieldType.putAttribute(KNNVectorFieldMapper.KNN_FIELD, "true");
-        fieldType.putAttribute(KNNConstants.KNN_METHOD, KNNConstants.METHOD_HNSW);
-        fieldType.putAttribute(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName());
-        fieldType.putAttribute(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue());
-        fieldType.putAttribute(KNNConstants.HNSW_ALGO_M, "16");
-        fieldType.putAttribute(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION, "100");
-        fieldType.putAttribute(KNNConstants.VECTOR_DATA_TYPE_FIELD, indexConfig.vectorDataType.getValue());
-        fieldType.putAttribute(
-            KNNConstants.PARAMETERS,
-            "{ \"index_description\":\"" + indexConfig.indexDescription + "\", \"spaceType\": \"l2\"}"
-        );
-
-        // Add quantization config if present
-        if (indexConfig.quantizationConfig != null) {
-            fieldType.putAttribute(KNNConstants.QFRAMEWORK_CONFIG, QuantizationConfigParser.toCsv(indexConfig.quantizationConfig));
-        }
-
-        VectorEncoding encoding = (indexConfig.vectorDataType == VectorDataType.BYTE) ? VectorEncoding.BYTE : VectorEncoding.FLOAT32;
-        fieldType.setVectorAttributes(dimension, encoding, SpaceType.L2.getKnnVectorSimilarityFunction().getVectorSimilarityFunction());
-        fieldType.freeze();
-        return fieldType;
-    }
-
-    // ==================== Index Configuration ====================
-
-    /**
-     * Configuration for different index types being tested.
-     */
-    private static class IndexConfig {
-        final VectorDataType vectorDataType;
-        final String indexDescription;
-        final QuantizationConfig quantizationConfig;
-        final Mode mode;
-
-        IndexConfig(VectorDataType vectorDataType, String indexDescription, QuantizationConfig quantizationConfig) {
-            this(vectorDataType, indexDescription, quantizationConfig, Mode.NOT_CONFIGURED);
-        }
-
-        IndexConfig(VectorDataType vectorDataType, String indexDescription, QuantizationConfig quantizationConfig, Mode mode) {
-            this.vectorDataType = vectorDataType;
-            this.indexDescription = indexDescription;
-            this.quantizationConfig = quantizationConfig;
-            this.mode = mode;
-        }
-    }
+    abstract static class WarmableKnnVectorsReader extends KnnVectorsReader implements WarmableReader {}
 }

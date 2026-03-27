@@ -61,7 +61,7 @@ import static org.opensearch.knn.index.KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_M
 public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase {
     protected static final String INDEX_NAME = "target_index";
     protected static final int NUM_DOCUMENTS = 400;
-    protected static final int TOP_K = 20;
+    protected static final int TOP_K = 30;
     protected static final String EMPTY_PARAMS = "{}";
     protected static final Consumer<Settings.Builder> NO_ADDITIONAL_SETTINGS = settingsBuilder -> {};
     protected static final Consumer<Settings.Builder> NO_BUILD_HNSW = settingsBuilder -> {
@@ -189,6 +189,9 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
 
         refreshIndex(INDEX_NAME);
 
+        // Feature: warmup-delegation-tests, Property 5: Integration warmup success and search validity
+        doKnnWarmup(List.of(INDEX_NAME));
+
         // Do search tests
         doKnnSearchTest(documents, schema, indexingType, spaceType, isRadial, false, true);
         doKnnSearchTest(documents, schema, indexingType, spaceType, isRadial, false, false);
@@ -236,6 +239,10 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
                 + doFiltering
         );
 
+        // For approximate (non-exhaustive) top-k search, limit the expected answer set to TOP_K
+        // so that recall is computed meaningfully. For exhaustive search, keep all documents (topK=0).
+        final int topK = doExhaustiveSearch ? 0 : TOP_K;
+
         // Prepare a query, and do search.
         if (schema.vectorDataType == VectorDataType.FLOAT) {
             final float[] queryVector = SearchTestHelper.generateOneSingleFloatVector(
@@ -248,7 +255,8 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
                 queryVector,
                 spaceType.getKnnVectorSimilarityFunction(),
                 doFiltering,
-                isRadial
+                isRadial,
+                topK
             );
             final List<Documents.Result> results;
 
@@ -264,7 +272,7 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
                 );
             }
 
-            documents.validateResponse(results, indexingType, schema.mode());
+            documents.validateResponse(results, indexingType, schema.mode(), doFiltering);
         } else if (schema.vectorDataType == VectorDataType.BYTE) {
             final byte[] queryVector = SearchTestHelper.generateOneSingleByteVector(
                 DIMENSIONS,
@@ -276,7 +284,8 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
                 queryVector,
                 spaceType.getKnnVectorSimilarityFunction(),
                 doFiltering,
-                isRadial
+                isRadial,
+                topK
             );
             final List<Documents.Result> results;
 
@@ -292,7 +301,7 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
                 );
             }
 
-            documents.validateResponse(results, indexingType, schema.mode());
+            documents.validateResponse(results, indexingType, schema.mode(), doFiltering);
         } else if (schema.vectorDataType == VectorDataType.BINARY) {
             final byte[] queryVector = SearchTestHelper.generateOneSingleBinaryVector(DIMENSIONS);
             final float minSimil = documents.prepareAnswerSet(
@@ -300,7 +309,8 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
                 queryVector,
                 spaceType.getKnnVectorSimilarityFunction(),
                 doFiltering,
-                false
+                false,
+                topK
             );
 
             final List<Documents.Result> results;
@@ -317,7 +327,7 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
                 );
             }
 
-            documents.validateResponse(results, indexingType, schema.mode());
+            documents.validateResponse(results, indexingType, schema.mode(), doFiltering);
         } else {
             throw new AssertionError();
         }

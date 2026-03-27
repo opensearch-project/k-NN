@@ -14,7 +14,7 @@ import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.search.KnnCollector;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsReader;
 import org.opensearch.knn.index.codec.nativeindex.AbstractNativeEnginesKnnVectorsReader;
-import org.opensearch.knn.index.warmup.WarmUpCollector;
+import org.opensearch.knn.index.util.WarmupUtil;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 
 import java.io.IOException;
@@ -61,27 +61,46 @@ public class Faiss1040ScalarQuantizedKnnVectorsReader extends AbstractNativeEngi
             );
         }
 
-        if (WarmUpCollector.isWarmUpRequest(knnCollector)) {
-            // Warm up search parts
-            memoryOptimizedSearcher.warmUp();
-
-            // Warm up full-precision vectors
-            // We cannot rely on WarmupUtil, which extracts the IndexInput from vector values and reads through it.
-            // Because, the IndexInput returned by vector values is backed by quantized vectors.
-            // Therefore, to warm up full-precision vectors, we need to load them explicitly as below.
-            final ScalarQuantizedFloatVectorValuesWithIndexInputSlice vectorValues =
-                (ScalarQuantizedFloatVectorValuesWithIndexInputSlice) flatVectorsReader.getFloatVectorValues(field);
-            for (int i = 0; i < vectorValues.size(); ++i) {
-                vectorValues.vectorValue(i);
-            }
-            return;
-        }
-
         memoryOptimizedSearcher.search(target, knnCollector, acceptDocs);
     }
 
     @Override
     public void search(String field, byte[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
         throw new UnsupportedOperationException("Byte vector search is not supported for Faiss scalar quantized format");
+    }
+
+    /**
+     * Warms up the on-disk data for the given scalar-quantized field.
+     * <p>
+     * This warms up both the HNSW graph (via the memory-optimized searcher), quantized vectors and the
+     * full-precision vectors. The full-precision vectors cannot be warmed up through
+     * {@link WarmupUtil} because the {@link FloatVectorValues}
+     * returned by the flat vectors reader is backed by quantized data. Instead, each vector
+     * is read explicitly through the underlying
+     * {@link ScalarQuantizedFloatVectorValues}.
+     *
+     * @param fieldName the name of the vector field to warm up
+     * @throws IOException if an I/O error occurs while reading the underlying data
+     */
+    @Override
+    public void warmUp(final String fieldName) throws IOException {
+        // Warm up full-precision vectors
+        // We cannot rely on WarmupUtil, which extracts the IndexInput from vector values and reads through it.
+        // Because, the IndexInput returned by vector values is backed by quantized vectors.
+        // Therefore, to warm up full-precision vectors, we need to load them explicitly as below.
+        final ScalarQuantizedFloatVectorValues vectorValues = (ScalarQuantizedFloatVectorValues) flatVectorsReader.getFloatVectorValues(
+            fieldName
+        );
+        for (int i = 0; i < vectorValues.size(); ++i) {
+            vectorValues.vectorValue(i);
+        }
+
+        final VectorSearcher memoryOptimizedSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfos.fieldInfo(fieldName));
+        if (memoryOptimizedSearcher != null) {
+            // MOS is supported, warm up search parts
+            memoryOptimizedSearcher.warmUp();
+        } else {
+            log.warn("Memory optimized search is not supported for {}", fieldName);
+        }
     }
 }
