@@ -44,8 +44,20 @@ public class KNNFeatureFlags {
         Dynamic
     );
 
+    /**
+     * All feature flags which needs to be provided as setting should be added here.
+     * @return List of Feature flag settings
+     */
     public static List<Setting<?>> getFeatureFlags() {
         return ImmutableList.of(KNN_FORCE_EVICT_CACHE_ENABLED_SETTING, KNN_PREFETCH_ENABLED_SETTING);
+    }
+
+    /**
+     * All feature flags which when changed should trigger a cache rebuild
+     * @return List of Feature flag settings
+     */
+    public static List<Setting<?>> getFeatureFlagsWhichRebuildsCache() {
+        return ImmutableList.of(KNN_FORCE_EVICT_CACHE_ENABLED_SETTING);
     }
 
     /**
