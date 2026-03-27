@@ -9,6 +9,7 @@ import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.codec.KNN1040Codec.Faiss1040ScalarQuantizedKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.CodecFormatResolver;
@@ -38,6 +39,10 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
         this.nativeIndexBuildStrategyFactory = nativeIndexBuildStrategyFactory;
     }
 
+    /**
+     * Resolves the format for a specific field. Returns {@link Faiss1040ScalarQuantizedKnnVectorsFormat} when
+     * the encoder is sq with bits=1, otherwise falls back to the default native format.
+     */
     @Override
     public KnnVectorsFormat resolve(
         String field,
@@ -46,9 +51,10 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
         int defaultMaxConnections,
         int defaultBeamWidth
     ) {
-        throw new UnsupportedOperationException(
-            String.format("%s does not require field context, use resolve() instead", getClass().getSimpleName())
-        );
+        if (isSQOneBitEncoder(params)) {
+            return new Faiss1040ScalarQuantizedKnnVectorsFormat();
+        }
+        return resolve();
     }
 
     @Override
@@ -62,12 +68,14 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
      * Falls back to the default value when the setting is not explicitly configured.
      */
     private int getApproximateThresholdValue() {
-        // mapperService is already checked for null or valid instance type at caller,
-        // hence we don't need additional isPresent check here.
         final IndexSettings indexSettings = mapperService.get().getIndexSettings();
         final Integer approximateThresholdValue = indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING);
         return approximateThresholdValue != null
             ? approximateThresholdValue
             : KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE;
+    }
+
+    private static boolean isSQOneBitEncoder(Map<String, Object> params) {
+        return FaissSQEncoder.isSQOneBit(params);
     }
 }

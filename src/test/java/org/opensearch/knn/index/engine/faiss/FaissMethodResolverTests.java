@@ -283,4 +283,28 @@ public class FaissMethodResolverTests extends KNNTestCase {
         );
 
     }
+
+    public void testResolveMethod_whenV360WithExplicitBQ_thenUseBQ() {
+        // User explicitly specifies binary (QFrameBitEncoder) on 3.6.0+ — should be honored, not overridden by sq(bits=1)
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            new KNNMethodContext(
+                KNNEngine.FAISS,
+                SpaceType.L2,
+                new MethodComponentContext(
+                    METHOD_HNSW,
+                    Map.of(
+                        METHOD_ENCODER_PARAMETER,
+                        new MethodComponentContext(
+                            QFrameBitEncoder.NAME,
+                            Map.of(QFrameBitEncoder.BITCOUNT_PARAM, CompressionLevel.x32.numBitsForFloat32())
+                        )
+                    )
+                )
+            ),
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build(),
+            false,
+            SpaceType.L2
+        );
+        validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x32, SpaceType.L2, QFrameBitEncoder.NAME, true);
+    }
 }

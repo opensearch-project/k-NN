@@ -73,7 +73,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
                 .indexOutputWithBuffer(indexOutputWithBuffer)
                 .knnEngine(KNNEngine.NMSLIB)
                 .vectorDataType(VectorDataType.FLOAT)
-                .parameters(Map.of("index", "param"))
+                .indexParameters(Map.of("index", "param"))
                 .knnVectorValuesSupplier(() -> knnVectorValues)
                 .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
                 .build();
@@ -167,7 +167,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
                 .indexOutputWithBuffer(indexOutputWithBuffer)
                 .knnEngine(KNNEngine.FAISS)
                 .vectorDataType(VectorDataType.FLOAT)
-                .parameters(Map.of("index", "param"))
+                .indexParameters(Map.of("index", "param"))
                 .quantizationState(quantizationState)
                 .knnVectorValuesSupplier(() -> knnVectorValues)
                 .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
@@ -210,7 +210,13 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
             );
 
             mockedJNIService.verify(
-                () -> JNIService.writeIndex(eq(indexOutputWithBuffer), eq(100L), eq(KNNEngine.FAISS), eq(Map.of("index", "param")))
+                () -> JNIService.writeIndex(
+                    eq(indexOutputWithBuffer),
+                    eq(100L),
+                    eq(KNNEngine.FAISS),
+                    eq(Map.of("index", "param")),
+                    eq(false)
+                )
             );
             assertEquals(200L, vectorAddressCaptor.getValue().longValue());
             assertEquals(vectorAddressCaptor.getValue().longValue(), vectorAddressCaptor.getAllValues().get(0).longValue());
@@ -253,7 +259,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
                 .indexOutputWithBuffer(indexOutputWithBuffer)
                 .knnEngine(KNNEngine.NMSLIB)
                 .vectorDataType(VectorDataType.FLOAT)
-                .parameters(Map.of("model_id", "id", "model_blob", modelBlob))
+                .indexParameters(Map.of("model_id", "id", "model_blob", modelBlob))
                 .knnVectorValuesSupplier(() -> knnVectorValues)
                 .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
                 .build();

@@ -12,7 +12,9 @@ namespace knn_jni::simd::similarity_function {
         // Max inner product will transform inner product to v < 0 ? 1 / (1 - v) : (1 + v)
         FP16_MAXIMUM_INNER_PRODUCT,
         // L2 for FP16
-        FP16_L2
+        FP16_L2,
+        BBQ_IP,
+        BBQ_L2
     };
 
     struct SimilarityFunction;

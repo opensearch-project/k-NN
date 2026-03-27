@@ -5,9 +5,7 @@
 
 package org.opensearch.knn.memoryoptsearch.faiss;
 
-import lombok.NonNull;
 import org.apache.lucene.index.KnnVectorValues;
-import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.opensearch.knn.jni.SimdVectorComputeService;
 
@@ -21,21 +19,12 @@ import java.io.IOException;
  * memory-mapped vector chunks, and delegates all similarity scoring operations to the
  * {@link SimdVectorComputeService}. The underlying native library is expected to
  * leverage SIMD instructions (e.g., AVX, AVX512, or NEON) to accelerate computations.
+ * <p>
+ * Extends {@link AbstractRandomVectorScorer} so that it can be wrapped by
+ * {@link org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer} for
+ * prefetch-enabled bulk scoring during HNSW graph traversal.
  */
-public class NativeRandomVectorScorer implements RandomVectorScorer {
-
-    // Backing {@link KnnVectorValues} used for document–vector association.
-    @NonNull
-    private final KnnVectorValues knnVectorValues;
-
-    // Array of address–size pairs describing memory-mapped vector chunks.
-    private long[] addressAndSize;
-
-    // Maximum vector id available for scoring.
-    private int maxOrd;
-
-    // Index value of the native similarity function type.
-    private int nativeFunctionTypeOrd;
+public class NativeRandomVectorScorer extends RandomVectorScorer.AbstractRandomVectorScorer {
 
     /**
      * Constructs a native-backed scorer for computing similarity between the given query
@@ -52,11 +41,8 @@ public class NativeRandomVectorScorer implements RandomVectorScorer {
         final MMapVectorValues mmapVectorValues,
         final SimdVectorComputeService.SimilarityFunctionType similarityFunctionType
     ) {
-        this.knnVectorValues = knnVectorValues;
-        this.addressAndSize = mmapVectorValues.getAddressAndSize();
-        this.maxOrd = knnVectorValues.size();
-        this.nativeFunctionTypeOrd = similarityFunctionType.ordinal();
-        SimdVectorComputeService.saveSearchContext(query, addressAndSize, nativeFunctionTypeOrd);
+        super(knnVectorValues);
+        SimdVectorComputeService.saveSearchContext(query, mmapVectorValues.getAddressAndSize(), similarityFunctionType.ordinal());
     }
 
     /**
@@ -68,12 +54,7 @@ public class NativeRandomVectorScorer implements RandomVectorScorer {
      */
     @Override
     public float bulkScore(final int[] internalVectorIds, final float[] scores, final int numVectors) {
-        SimdVectorComputeService.scoreSimilarityInBulk(internalVectorIds, scores, numVectors);
-        float max = scores[0];
-        for (float v : scores) {
-            if (v > max) max = v;
-        }
-        return max;
+        return SimdVectorComputeService.scoreSimilarityInBulk(internalVectorIds, scores, numVectors);
     }
 
     /**
@@ -86,37 +67,5 @@ public class NativeRandomVectorScorer implements RandomVectorScorer {
     @Override
     public float score(final int internalVectorId) throws IOException {
         return SimdVectorComputeService.scoreSimilarity(internalVectorId);
-    }
-
-    /**
-     * Returns the maximum vector id for scoring.
-     *
-     * @return the maximum vector id
-     */
-    @Override
-    public int maxOrd() {
-        return maxOrd;
-    }
-
-    /**
-     * Maps an internal vector ordinal to its corresponding document ID.
-     *
-     * @param ord the internal vector id
-     * @return the document ID associated with the given vector id
-     */
-    @Override
-    public int ordToDoc(int ord) {
-        return knnVectorValues.ordToDoc(ord);
-    }
-
-    /**
-     * Returns a filtered {@link Bits} view representing accepted documents.
-     *
-     * @param acceptDocs the bit set of accepted documents
-     * @return a {@link Bits} object describing acceptable vector ids for scoring
-     */
-    @Override
-    public Bits getAcceptOrds(Bits acceptDocs) {
-        return knnVectorValues.getAcceptOrds(acceptDocs);
     }
 }

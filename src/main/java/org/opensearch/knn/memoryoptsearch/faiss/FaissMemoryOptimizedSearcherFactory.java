@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.memoryoptsearch.faiss;
 
+import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
+import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.FieldInfo;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.store.Directory;
@@ -30,13 +32,20 @@ public class FaissMemoryOptimizedSearcherFactory implements VectorSearcherFactor
         final Directory directory,
         final String fileName,
         final FieldInfo fieldInfo,
-        final IOContext ioContext
+        final IOContext ioContext,
+        final FlatVectorsReader flatVectorsReader
     ) throws IOException {
         final IndexInput indexInput = directory.openInput(fileName, ioContext);
-
         try {
             // Try load it. Not all FAISS index types are currently supported at the moment.
-            return new FaissMemoryOptimizedSearcher(indexInput, fieldInfo);
+            final FaissIndex faissIndex = FaissIndex.load(indexInput);
+            FaissFlatIndexFactory.maybeSetFlatBinaryIndex(faissIndex, fieldInfo, flatVectorsReader);
+            final FlatVectorsScorer vectorScorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
+                fieldInfo,
+                faissIndex.getVectorSimilarityFunction(),
+                flatVectorsReader.getFlatVectorScorer()
+            );
+            return new FaissMemoryOptimizedSearcher(indexInput, faissIndex, fieldInfo, vectorScorer);
         } catch (UnsupportedFaissIndexException e) {
             // Clean up input stream.
             try {

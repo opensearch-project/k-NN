@@ -6,12 +6,17 @@
 package org.opensearch.knn.memoryoptsearch;
 
 import lombok.SneakyThrows;
+import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.codec.KNN1040Codec.Faiss104ScalarQuantizedVectorScorer;
 import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
 
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -24,10 +29,18 @@ public class FlatVectorsScorerProviderTests extends KNNTestCase {
     private static final byte[] BYTE_QUERY = new byte[] { 12, 77, 100, 4 };
     private static final byte[] BYTE_VECTOR = new byte[] { 1, 3, 0, 90 };
 
+    private static final FlatVectorsScorer VECTOR_SCORER = FlatVectorScorerUtil.getLucene99FlatVectorsScorer();
+
     @SneakyThrows
     public void testHammingScoring() {
+        FieldInfo fieldInfo = mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.HAMMING.getValue());
         // Get hamming scorer
-        final FlatVectorsScorer scorer = FlatVectorsScorerProvider.getFlatVectorsScorer(KNNVectorSimilarityFunction.HAMMING);
+        final FlatVectorsScorer scorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
+            fieldInfo,
+            KNNVectorSimilarityFunction.HAMMING,
+            VECTOR_SCORER
+        );
 
         // Test byte[] vector and query
         final ByteVectorValues byteVectorValues = mock(ByteVectorValues.class);
@@ -57,27 +70,55 @@ public class FlatVectorsScorerProviderTests extends KNNTestCase {
         }
     }
 
+    public void testNullDelegateScorerThrowsException() {
+        FieldInfo fieldInfo = mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> FlatVectorsScorerProvider.getFlatVectorsScorer(fieldInfo, KNNVectorSimilarityFunction.EUCLIDEAN, null)
+        );
+    }
+
+    public void testFaissSQScoring_whenSQFieldInfo_thenReturnsFaiss104ScalarQuantizedVectorScorer() {
+        FieldInfo fieldInfo = mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(KNNConstants.SQ_CONFIG)).thenReturn("bits=1");
+
+        final FlatVectorsScorer scorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
+            fieldInfo,
+            KNNVectorSimilarityFunction.EUCLIDEAN,
+            VECTOR_SCORER
+        );
+
+        assertTrue(scorer instanceof Faiss104ScalarQuantizedVectorScorer);
+    }
+
     public void testNonHammingScoring() {
+        FieldInfo fieldInfo = mock(FieldInfo.class);
         // Test L2
-        doTest(KNNVectorSimilarityFunction.EUCLIDEAN, true);
-        doTest(KNNVectorSimilarityFunction.EUCLIDEAN, false);
+        when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+        doTest(KNNVectorSimilarityFunction.EUCLIDEAN, true, fieldInfo);
+        doTest(KNNVectorSimilarityFunction.EUCLIDEAN, false, fieldInfo);
 
         // Test DotProduct
-        doTest(KNNVectorSimilarityFunction.DOT_PRODUCT, true);
-        doTest(KNNVectorSimilarityFunction.DOT_PRODUCT, false);
+        doTest(KNNVectorSimilarityFunction.DOT_PRODUCT, true, fieldInfo);
+        doTest(KNNVectorSimilarityFunction.DOT_PRODUCT, false, fieldInfo);
 
         // Test Cosine
-        doTest(KNNVectorSimilarityFunction.COSINE, true);
-        doTest(KNNVectorSimilarityFunction.COSINE, false);
+        doTest(KNNVectorSimilarityFunction.COSINE, true, fieldInfo);
+        doTest(KNNVectorSimilarityFunction.COSINE, false, fieldInfo);
 
         // Test Maximum Inner Product
-        doTest(KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT, true);
-        doTest(KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT, false);
+        doTest(KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT, true, fieldInfo);
+        doTest(KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT, false, fieldInfo);
     }
 
     @SneakyThrows
-    private void doTest(final KNNVectorSimilarityFunction knnVectorSimilarityFunction, final boolean isFloat) {
-        final FlatVectorsScorer scorer = FlatVectorsScorerProvider.getFlatVectorsScorer(knnVectorSimilarityFunction);
+    private void doTest(final KNNVectorSimilarityFunction knnVectorSimilarityFunction, final boolean isFloat, final FieldInfo fieldInfo) {
+        final FlatVectorsScorer scorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
+            fieldInfo,
+            knnVectorSimilarityFunction,
+            VECTOR_SCORER
+        );
 
         if (isFloat) {
             final FloatVectorValues vectorValues = mock(FloatVectorValues.class);
