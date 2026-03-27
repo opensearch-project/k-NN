@@ -56,7 +56,10 @@ import static org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectors
  */
 public class MemOptimizedScalarQuantizedIndexBuildStrategyTests extends KNNTestCase {
 
-    private static final int DIMENSION = 128;
+    // 4 -> lower dimension test
+    // 128 -> test dimension that's multiple of 8
+    // 333 -> test odd dimension
+    private static final int[] DIMENSIONS = new int[] { 4, 128, 333 };
     private static final int NUM_VECTORS = 1234;
     private static final String FIELD_NAME = "test_field";
     private static final String SEGMENT_NAME = "_0";
@@ -64,60 +67,98 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategyTests extends KNNTestC
     @SneakyThrows
     public void testBuildDenseInnerProduct() {
         int[] docIds = sequentialDocIds(NUM_VECTORS);
-        doBuildAndVerify(docIds, VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT, SpaceType.INNER_PRODUCT.getValue(), 1);
+        doBuildAndVerifyForMultipleDimensions(
+            docIds,
+            VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT,
+            SpaceType.INNER_PRODUCT.getValue(),
+            1
+        );
     }
 
     @SneakyThrows
     public void testBuildSparseInnerProduct() {
         int[] docIds = sparseDocIds(NUM_VECTORS);
-        doBuildAndVerify(docIds, VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT, SpaceType.INNER_PRODUCT.getValue(), 1);
+        doBuildAndVerifyForMultipleDimensions(
+            docIds,
+            VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT,
+            SpaceType.INNER_PRODUCT.getValue(),
+            1
+        );
     }
 
     @SneakyThrows
     public void testBuildDenseL2() {
         int[] docIds = sequentialDocIds(NUM_VECTORS);
-        doBuildAndVerify(docIds, VectorSimilarityFunction.EUCLIDEAN, SpaceType.L2.getValue(), 1);
+        doBuildAndVerifyForMultipleDimensions(docIds, VectorSimilarityFunction.EUCLIDEAN, SpaceType.L2.getValue(), 1);
     }
 
     @SneakyThrows
     public void testBuildSparseL2() {
         int[] docIds = sparseDocIds(NUM_VECTORS);
-        doBuildAndVerify(docIds, VectorSimilarityFunction.EUCLIDEAN, SpaceType.L2.getValue(), 1);
+        doBuildAndVerifyForMultipleDimensions(docIds, VectorSimilarityFunction.EUCLIDEAN, SpaceType.L2.getValue(), 1);
     }
 
     @SneakyThrows
     public void testBuildDenseInnerProductMultiThreaded() {
         int[] docIds = sequentialDocIds(NUM_VECTORS);
-        doBuildAndVerify(docIds, VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT, SpaceType.INNER_PRODUCT.getValue(), 4);
+        doBuildAndVerifyForMultipleDimensions(
+            docIds,
+            VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT,
+            SpaceType.INNER_PRODUCT.getValue(),
+            4
+        );
     }
 
     @SneakyThrows
     public void testBuildSparseInnerProductMultiThreaded() {
         int[] docIds = sparseDocIds(NUM_VECTORS);
-        doBuildAndVerify(docIds, VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT, SpaceType.INNER_PRODUCT.getValue(), 4);
+        doBuildAndVerifyForMultipleDimensions(
+            docIds,
+            VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT,
+            SpaceType.INNER_PRODUCT.getValue(),
+            4
+        );
     }
 
     @SneakyThrows
     public void testBuildDenseL2MultiThreaded() {
         int[] docIds = sequentialDocIds(NUM_VECTORS);
-        doBuildAndVerify(docIds, VectorSimilarityFunction.EUCLIDEAN, SpaceType.L2.getValue(), 4);
+        doBuildAndVerifyForMultipleDimensions(docIds, VectorSimilarityFunction.EUCLIDEAN, SpaceType.L2.getValue(), 4);
     }
 
     @SneakyThrows
     public void testBuildSparseL2MultiThreaded() {
         int[] docIds = sparseDocIds(NUM_VECTORS);
-        doBuildAndVerify(docIds, VectorSimilarityFunction.EUCLIDEAN, SpaceType.L2.getValue(), 4);
+        doBuildAndVerifyForMultipleDimensions(docIds, VectorSimilarityFunction.EUCLIDEAN, SpaceType.L2.getValue(), 4);
     }
 
     @SneakyThrows
-    private void doBuildAndVerify(int[] docIds, VectorSimilarityFunction similarityFunction, String spaceType, int indexThreadQty) {
+    private void doBuildAndVerifyForMultipleDimensions(
+        int[] docIds,
+        VectorSimilarityFunction similarityFunction,
+        String spaceType,
+        int indexThreadQty
+    ) {
+        for (int dimension : DIMENSIONS) {
+            doBuildAndVerify(dimension, docIds, similarityFunction, spaceType, indexThreadQty);
+        }
+    }
+
+    @SneakyThrows
+    private void doBuildAndVerify(
+        int dimension,
+        int[] docIds,
+        VectorSimilarityFunction similarityFunction,
+        String spaceType,
+        int indexThreadQty
+    ) {
         final int maxDoc = docIds[docIds.length - 1] + 1;
-        final float[][] vectors = generateRandomVectors(NUM_VECTORS, DIMENSION);
+        final float[][] vectors = generateRandomVectors(NUM_VECTORS, dimension);
         final byte[] segmentId = StringHelper.randomId();
 
         try (Directory directory = newDirectory()) {
             // Step 1: Build .vec + .veb files via Lucene102 binary quantized format
-            final FieldInfo fieldInfo = createFieldInfo(similarityFunction);
+            final FieldInfo fieldInfo = createFieldInfo(similarityFunction, dimension);
             final FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { fieldInfo });
             final SegmentInfo segmentInfo = new SegmentInfo(
                 directory,
@@ -204,7 +245,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategyTests extends KNNTestC
         }
     }
 
-    private static FieldInfo createFieldInfo(VectorSimilarityFunction similarityFunction) {
+    private static FieldInfo createFieldInfo(VectorSimilarityFunction similarityFunction, int dimension) {
         return new FieldInfo(
             FIELD_NAME,
             0,
@@ -219,7 +260,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategyTests extends KNNTestC
             0,
             0,
             0,
-            DIMENSION,
+            dimension,
             VectorEncoding.FLOAT32,
             similarityFunction,
             false,
