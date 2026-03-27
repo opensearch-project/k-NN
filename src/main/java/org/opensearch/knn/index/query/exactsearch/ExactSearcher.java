@@ -28,7 +28,6 @@ import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.query.MemoryOptimizedSearchScoreConverter;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -70,18 +69,13 @@ public class ExactSearcher {
         // so pass null to avoid double consumption of the same iterator.
         final boolean isNested = context.getParentsFilter() != null;
         final DocIdSetIterator matchedDocs = isNested ? null : context.getMatchedDocsIterator();
-        final TopDocs topDocs;
         if (context.getRadius() != null) {
-            topDocs = doRadialSearch(leafReaderContext, context, vectorScorer, matchedDocs);
-        } else if (matchedDocs != null && context.numberOfMatchedDocs <= context.getK()) {
-            topDocs = scoreAllDocs(vectorScorer, matchedDocs);
+            return doRadialSearch(leafReaderContext, context, vectorScorer, matchedDocs);
+        } else if (context.getMatchedDocsIterator() != null && context.numberOfMatchedDocs <= context.getK()) {
+            return scoreAllDocs(vectorScorer, matchedDocs);
         } else {
-            topDocs = searchTopK(vectorScorer, matchedDocs, context.getK());
+            return searchTopK(vectorScorer, matchedDocs, context.getK());
         }
-        if (fieldInfo != null && FieldInfoExtractor.getSpaceType(modelDao, fieldInfo) == SpaceType.COSINESIMIL) {
-            MemoryOptimizedSearchScoreConverter.convertToCosineScore(topDocs.scoreDocs);
-        }
-        return topDocs;
     }
 
     /**
@@ -222,7 +216,6 @@ public class ExactSearcher {
         final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
         final VectorScorerMode scorerMode = context.isUseQuantizedVectorsForSearch() ? VectorScorerMode.SCORE : VectorScorerMode.RESCORE;
         final boolean isNestedRequired = context.getParentsFilter() != null;
-        final DocIdSetIterator acceptedChildrenIterator = isNestedRequired ? context.getMatchedDocsIterator() : null;
         final BitSet parentBitSet = isNestedRequired ? context.getParentsFilter().getBitSet(leafReaderContext) : null;
 
         final KNNVectorValues<?> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
@@ -236,7 +229,7 @@ public class ExactSearcher {
                 scorerMode,
                 spaceType,
                 fieldInfo,
-                acceptedChildrenIterator,
+                context.getMatchedDocsIterator(),
                 parentBitSet
             );
         }
@@ -253,7 +246,7 @@ public class ExactSearcher {
                 scorerMode,
                 spaceType,
                 fieldInfo,
-                acceptedChildrenIterator,
+                context.getMatchedDocsIterator(),
                 parentBitSet
             );
         }
@@ -268,7 +261,7 @@ public class ExactSearcher {
                 scorerMode,
                 spaceType,
                 fieldInfo,
-                acceptedChildrenIterator,
+                context.getMatchedDocsIterator(),
                 parentBitSet
             );
         }
@@ -286,7 +279,7 @@ public class ExactSearcher {
                 scorerMode,
                 spaceType,
                 fieldInfo,
-                acceptedChildrenIterator,
+                context.getMatchedDocsIterator(),
                 parentBitSet
             );
         }
@@ -298,7 +291,7 @@ public class ExactSearcher {
             scorerMode,
             SpaceType.HAMMING,
             fieldInfo,
-            acceptedChildrenIterator,
+            context.getMatchedDocsIterator(),
             parentBitSet
         );
     }

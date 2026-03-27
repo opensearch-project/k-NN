@@ -18,6 +18,7 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.VectorScorer;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
+import org.apache.lucene.util.hnsw.RandomVectorScorerSupplier;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
@@ -215,11 +216,17 @@ public final class VectorScorers {
     ) throws IOException {
         // We don't need to delegate since we know it is already ADC.
         // This will be removed once ADC Scorer is integrated into the reader.
-        final FlatVectorsScorer adcFlatVectorsScorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
+        FlatVectorsScorer adcFlatVectorsScorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
             fieldInfo,
             spaceType.getKnnVectorSimilarityFunction(),
             null
         );
+        // For COSINESIMIL, the ADCFlatVectorsScorer produces scores in INNER_PRODUCT format
+        // (used by MemoryOptimizedKNNWeight which post-converts via convertToCosineScore).
+        // In the exact search path there is no post-conversion, so we wrap the scorer to convert here.
+        if (spaceType == SpaceType.COSINESIMIL) {
+            adcFlatVectorsScorer = new CosineADCFlatVectorsScorer(adcFlatVectorsScorer);
+        }
         PrefetchableFlatVectorScorer scorer = new PrefetchableFlatVectorScorer(adcFlatVectorsScorer);
         final RandomVectorScorer randomVectorScorer = scorer.getRandomVectorScorer(
             spaceType.getKnnVectorSimilarityFunction().getVectorSimilarityFunction(),
@@ -231,7 +238,7 @@ public final class VectorScorers {
 
             @Override
             public float score() throws IOException {
-                return randomVectorScorer.score(iterator.docID());
+                return randomVectorScorer.score(iterator.index());
             }
 
             @Override
@@ -244,6 +251,56 @@ public final class VectorScorers {
                 return Bulk.fromRandomScorerSparse(randomVectorScorer, iterator, matchingDocs);
             }
         };
+    }
+
+    /**
+     * Wraps an ADC {@link FlatVectorsScorer} to convert INNER_PRODUCT-format scores to
+     * COSINESIMIL-format. The ADCFlatVectorsScorer uses INNER_PRODUCT.scoreTranslation for
+     * cosine, which the MemoryOptimized path post-converts. In the exact search path there
+     * is no post-conversion, so this wrapper applies it at the scorer level.
+     */
+    private static class CosineADCFlatVectorsScorer implements FlatVectorsScorer {
+        private final FlatVectorsScorer delegate;
+
+        CosineADCFlatVectorsScorer(FlatVectorsScorer delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public RandomVectorScorerSupplier getRandomVectorScorerSupplier(
+            VectorSimilarityFunction similarityFunction,
+            KnnVectorValues vectorValues
+        ) throws IOException {
+            return delegate.getRandomVectorScorerSupplier(similarityFunction, vectorValues);
+        }
+
+        @Override
+        public RandomVectorScorer getRandomVectorScorer(
+            VectorSimilarityFunction similarityFunction,
+            KnnVectorValues vectorValues,
+            float[] target
+        ) throws IOException {
+            final RandomVectorScorer inner = delegate.getRandomVectorScorer(similarityFunction, vectorValues, target);
+            return new RandomVectorScorer.AbstractRandomVectorScorer(vectorValues) {
+                @Override
+                public float score(int node) throws IOException {
+                    float ipScore = inner.score(node);
+                    // Reverse INNER_PRODUCT.scoreTranslation to recover the raw inner product value,
+                    // then apply the COSINESIMIL score translation.
+                    float ip = ipScore >= 1 ? ipScore - 1 : 1 - 1 / ipScore;
+                    return SpaceType.COSINESIMIL.scoreTranslation(1 - ip);
+                }
+            };
+        }
+
+        @Override
+        public RandomVectorScorer getRandomVectorScorer(
+            VectorSimilarityFunction similarityFunction,
+            KnnVectorValues vectorValues,
+            byte[] target
+        ) throws IOException {
+            return delegate.getRandomVectorScorer(similarityFunction, vectorValues, target);
+        }
     }
 
     /**
@@ -284,7 +341,7 @@ public final class VectorScorers {
 
             @Override
             public float score() throws IOException {
-                return randomVectorScorer.score(iterator.docID());
+                return randomVectorScorer.score(iterator.index());
             }
 
             @Override

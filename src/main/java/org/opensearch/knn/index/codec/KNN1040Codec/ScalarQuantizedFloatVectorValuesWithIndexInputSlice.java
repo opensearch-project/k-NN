@@ -74,4 +74,9 @@ class ScalarQuantizedFloatVectorValuesWithIndexInputSlice extends FloatVectorVal
     public VectorScorer scorer(float[] target) throws IOException {
         return floatVectorValues.scorer(target);
     }
+
+    @Override
+    public VectorScorer rescorer(final float[] target) throws IOException {
+        return floatVectorValues.rescorer(target);
+    }
 }
