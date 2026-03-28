@@ -32,6 +32,7 @@ import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.InfoStream;
 import org.apache.lucene.util.StringHelper;
+import org.apache.lucene.util.VectorUtil;
 import org.apache.lucene.util.Version;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.junit.Test;
@@ -39,6 +40,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.codec.KNN1040Codec.Faiss104ScalarQuantizedVectorScorer;
 
 import java.lang.reflect.Field;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -59,6 +61,14 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
 
     private static final String FIELD_NAME = "vector";
     private static final int NUM_VECTORS = 500;
+
+    @Test
+    public void testBBQCosineScoring() {
+        for (int dim : Arrays.asList(1, 7, 56, 57, 77, 128, 512, 777, 1024)) {
+            System.out.println("Dimension=" + dim);
+            doTest(VectorSimilarityFunction.COSINE, dim);
+        }
+    }
 
     @Test
     public void testBBQEuclideanScoring() {
@@ -105,7 +115,7 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
         );
         final FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { fieldInfo });
 
-        final java.nio.file.Path tempDir = createTempDir();
+        final Path tempDir = createTempDir();
         try (MMapDirectory dir = new MMapDirectory(tempDir)) {
             // Build SegmentInfo
             final SegmentInfo segmentInfo = new SegmentInfo(
@@ -147,7 +157,13 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
                 FlatFieldVectorsWriter<float[]> fieldWriter = (FlatFieldVectorsWriter<float[]>) writer.addField(fieldInfo);
 
                 for (int i = 0; i < NUM_VECTORS; i++) {
-                    fieldWriter.addValue(i, randomVector(dimension));
+                    float[] vec = similarityFunction == VectorSimilarityFunction.COSINE
+                        ? randomCosineVector(dimension)
+                        : randomVector(dimension);
+                    if (similarityFunction == VectorSimilarityFunction.COSINE) {
+                        VectorUtil.l2normalize(vec);
+                    }
+                    fieldWriter.addValue(i, vec);
                 }
 
                 writer.flush(NUM_VECTORS, null);
@@ -157,7 +173,12 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
             final SegmentReadState readState = new SegmentReadState(dir, segmentInfo, fieldInfos, IOContext.DEFAULT);
 
             // ---- Step 2: Lucene scorer (source of truth) ----
-            final float[] queryVector = randomVector(dimension);
+            float[] queryVector = similarityFunction == VectorSimilarityFunction.COSINE
+                ? randomCosineVector(dimension)
+                : randomVector(dimension);
+            if (similarityFunction == VectorSimilarityFunction.COSINE) {
+                VectorUtil.l2normalize(queryVector);
+            }
             final RandomVectorScorer truthScorer;
             try (
                 FlatVectorsReader truthReader = new Lucene104ScalarQuantizedVectorsReader(
@@ -180,11 +201,15 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
                 assertNotNull("Test scorer should not be null", testScorer);
 
                 // ---- Step 4: Compare scores ----
+                final boolean isCosine = similarityFunction == VectorSimilarityFunction.COSINE;
                 int maxOrd = truthScorer.maxOrd();
                 assertEquals("maxOrd mismatch", maxOrd, testScorer.maxOrd());
 
                 for (int ord = 0; ord < maxOrd; ord++) {
                     float actual = testScorer.score(ord);
+                    if (isCosine) {
+                        actual = convertMaxIpToCosineScore(actual);
+                    }
                     float expected = truthScorer.score(ord);
                     assertEquals("Score mismatch at ord=" + ord + " for " + similarityFunction, expected, actual, 1e-2);
                 }
@@ -201,11 +226,15 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
                     }
                     testScorer.bulkScore(ords, bulkScores, batchSize);
                     for (int j = 0; j < batchSize; j++) {
+                        float actualBulk = bulkScores[j];
+                        if (isCosine) {
+                            actualBulk = convertMaxIpToCosineScore(actualBulk);
+                        }
                         float expected = truthScorer.score(ords[j]);
                         assertEquals(
                             "Bulk score mismatch at ord=" + ords[j] + " (batch=" + batchSize + ") for " + similarityFunction,
                             expected,
-                            bulkScores[j],
+                            actualBulk,
                             1e-2
                         );
                     }
@@ -233,5 +262,39 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
             v[i] = ThreadLocalRandom.current().nextFloat() * 2 - 1;
         }
         return v;
+    }
+
+    /**
+     * Generates a random vector with sufficient variance to avoid zero-length vectors
+     * after centroid centering during cosine quantization.
+     */
+    private static float[] randomCosineVector(int dimension) {
+        float[] v = new float[dimension];
+        for (int i = 0; i < dimension; i++) {
+            v[i] = ThreadLocalRandom.current().nextFloat() * 2 - 1;
+        }
+        // Ensure the vector has meaningful magnitude by setting a component based on index
+        v[0] = ThreadLocalRandom.current().nextFloat() * 0.5f + 0.5f;
+        if (dimension > 1) {
+            v[dimension - 1] = -(ThreadLocalRandom.current().nextFloat() * 0.5f + 0.5f);
+        }
+        return v;
+    }
+
+    /**
+     * Converts a Faiss MAX_IP score (used internally for cosine) to the Lucene cosine score.
+     * Faiss uses MAX_IP under the hood for cosine similarity on normalized vectors.
+     * The MAX_IP transform maps: ip >= 0 → 1 + ip, ip < 0 → 1 / (1 - ip).
+     * This reverses that, then applies the cosine score formula: (1 + ip) / 2.
+     */
+    private static float convertMaxIpToCosineScore(float maxIpScore) {
+        float innerProductValue;
+        if (maxIpScore >= 1) {
+            innerProductValue = maxIpScore - 1;
+        } else {
+            innerProductValue = 1 - 1 / maxIpScore;
+        }
+        innerProductValue = Math.clamp(innerProductValue, -1, 1);
+        return Math.max((1 + innerProductValue) / 2.0f, 0.0f);
     }
 }

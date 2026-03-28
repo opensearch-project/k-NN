@@ -57,9 +57,10 @@ import static org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectors
 public class MemOptimizedScalarQuantizedIndexBuildStrategyTests extends KNNTestCase {
 
     // 4 -> lower dimension test
+    // 56 -> non-multiple-of-8 quantized bytes (7 bytes), regression test for remainder loop bug
     // 128 -> test dimension that's multiple of 8
     // 333 -> test odd dimension
-    private static final int[] DIMENSIONS = new int[] { 4, 128, 333 };
+    private static final int[] DIMENSIONS = new int[] { 4, 56, 128, 333 };
     private static final int NUM_VECTORS = 1234;
     private static final String FIELD_NAME = "test_field";
     private static final String SEGMENT_NAME = "_0";
