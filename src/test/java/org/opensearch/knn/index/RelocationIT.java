@@ -34,6 +34,9 @@ public class RelocationIT extends KNNRestTestCase {
 
         int dimension = 768;
         int numNodes = 2;
+
+        // Wait for all nodes to join the cluster and ensure cluster health is green
+        waitForClusterHealthGreen(Integer.toString(numNodes));
         Request nodesNamesRequest = new Request("GET", "_cat/nodes?h=name");
         Response response = client().performRequest(nodesNamesRequest);
         assertOK(response);
@@ -62,7 +65,6 @@ public class RelocationIT extends KNNRestTestCase {
                 VectorDataType.FLOAT
             )
         );
-        waitForClusterHealthGreen(Integer.toString(numNodes));
 
         logger.info("bulk Write docs");
         for (int i = 0; i < 10; i++) {
