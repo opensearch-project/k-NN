@@ -254,17 +254,12 @@ public final class VectorScorers {
     }
 
     /**
-     * Wraps an ADC {@link FlatVectorsScorer} to convert INNER_PRODUCT-format scores to
-     * COSINESIMIL-format. The ADCFlatVectorsScorer uses INNER_PRODUCT.scoreTranslation for
-     * cosine, which the MemoryOptimized path post-converts. In the exact search path there
-     * is no post-conversion, so this wrapper applies it at the scorer level.
-     */
-    private static class CosineADCFlatVectorsScorer implements FlatVectorsScorer {
-        private final FlatVectorsScorer delegate;
-
-        CosineADCFlatVectorsScorer(FlatVectorsScorer delegate) {
-            this.delegate = delegate;
-        }
+         * Wraps an ADC {@link FlatVectorsScorer} to convert INNER_PRODUCT-format scores to
+         * COSINESIMIL-format. The ADCFlatVectorsScorer uses INNER_PRODUCT.scoreTranslation for
+         * cosine, which the MemoryOptimized path post-converts. In the exact search path there
+         * is no post-conversion, so this wrapper applies it at the scorer level.
+         */
+    private record CosineADCFlatVectorsScorer(FlatVectorsScorer delegate) implements FlatVectorsScorer {
 
         @Override
         public RandomVectorScorerSupplier getRandomVectorScorerSupplier(
@@ -336,6 +331,7 @@ public final class VectorScorers {
             byteVectorValues,
             target
         );
+
         return new VectorScorer() {
             final KnnVectorValues.DocIndexIterator iterator = byteVectorValues.iterator();
 
