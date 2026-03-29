@@ -432,7 +432,7 @@ public class ExactSearcher {
 
     /**
      * Immutable context object that encapsulates all parameters required to execute an exact search.
-     * Constructed via the Lombok {@link Builder} pattern to avoid constructor parameter explosion.
+     * Constructed via the Lombok {@code @Builder} pattern to avoid constructor parameter explosion.
      */
     @Value
     @Builder
@@ -470,7 +470,7 @@ public class ExactSearcher {
          * A {@link BitSetProducer} that identifies parent documents in a nested document structure.
          * When non-null, indicates that the search operates over nested (child) vectors and the
          * results must be mapped back to parent document IDs. In filtered nested search scenarios,
-         * the matched docs contain parent IDs and a {@code NestedVectorIdsExactKNNIterator} is used.
+         * the matched docs contain parent IDs and a nested vector scorer is used.
          */
         BitSetProducer parentsFilter;
 
