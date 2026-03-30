@@ -28,6 +28,8 @@ import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
 
 import java.io.IOException;
 
+import static org.opensearch.knn.index.query.MemoryOptimizedSearchScoreConverter.convertInnerProductScoreToCosineScore;
+
 /**
  * Static factory for creating {@link VectorScorer} instances from {@link KNNVectorValuesIterator.DocIdsIteratorValues}.
  *
@@ -254,11 +256,15 @@ public final class VectorScorers {
     }
 
     /**
-         * Wraps an ADC {@link FlatVectorsScorer} to convert INNER_PRODUCT-format scores to
-         * COSINESIMIL-format. The ADCFlatVectorsScorer uses INNER_PRODUCT.scoreTranslation for
-         * cosine, which the MemoryOptimized path post-converts. In the exact search path there
-         * is no post-conversion, so this wrapper applies it at the scorer level.
-         */
+     * Wraps an ADC {@link FlatVectorsScorer} to convert INNER_PRODUCT-format scores to
+     * COSINESIMIL-format. The ADCFlatVectorsScorer uses INNER_PRODUCT.scoreTranslation for
+     * cosine, which the MemoryOptimized path post-converts. In the exact search path there
+     * is no post-conversion, so this wrapper applies it at the scorer level.
+     */
+    // TODO: Move this cosine score conversion into ADCFlatVectorsScorer itself so that it directly
+    // produces COSINESIMIL-format scores. This would eliminate the need for both this wrapper and
+    // the post-conversion in MemoryOptimizedKNNWeight (convertToCosineScore), keeping the
+    // conversion logic in a single place.
     private record CosineADCFlatVectorsScorer(FlatVectorsScorer delegate) implements FlatVectorsScorer {
 
         @Override
@@ -279,11 +285,7 @@ public final class VectorScorers {
             return new RandomVectorScorer.AbstractRandomVectorScorer(vectorValues) {
                 @Override
                 public float score(int node) throws IOException {
-                    float ipScore = inner.score(node);
-                    // Reverse INNER_PRODUCT.scoreTranslation to recover the raw inner product value,
-                    // then apply the COSINESIMIL score translation.
-                    float ip = ipScore >= 1 ? ipScore - 1 : 1 - 1 / ipScore;
-                    return SpaceType.COSINESIMIL.scoreTranslation(1 - ip);
+                    return convertInnerProductScoreToCosineScore(inner.score(node));
                 }
             };
         }
