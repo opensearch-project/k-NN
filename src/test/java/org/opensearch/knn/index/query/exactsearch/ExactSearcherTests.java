@@ -22,14 +22,13 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
-import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
-import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
@@ -43,7 +42,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -52,6 +50,7 @@ import static org.opensearch.knn.KNNRestTestCase.INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 
 public class ExactSearcherTests extends KNNTestCase {
@@ -313,6 +312,7 @@ public class ExactSearcherTests extends KNNTestCase {
             final FieldInfos fieldInfos = mock(FieldInfos.class);
             final FieldInfo fieldInfo = mock(FieldInfo.class);
             when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(spaceType.getValue());
+            when(fieldInfo.getAttribute(QFRAMEWORK_CONFIG)).thenReturn("type=binary,bits=2,random_rotation=false,enable_adc=true");
             when(reader.getFieldInfos()).thenReturn(fieldInfos);
             when(fieldInfos.fieldInfo(FIELD_NAME)).thenReturn(fieldInfo);
 
@@ -362,23 +362,31 @@ public class ExactSearcherTests extends KNNTestCase {
 
     @SneakyThrows
     private void doTestRadialSearch_whenNoEngineFiles_thenSuccess(final boolean memoryOptimizedSearchEnabled) {
+        // Prepare data before mocking static factory
+        final float[] queryVector = new float[] { 0.1f, 2.0f, 3.0f };
+        final SpaceType spaceType = randomFrom(SpaceType.L2, SpaceType.INNER_PRODUCT);
+        final List<float[]> dataVectors = Arrays.asList(
+            new float[] { 11.0f, 12.0f, 13.0f },
+            new float[] { 14.0f, 15.0f, 16.0f },
+            new float[] { 17.0f, 18.0f, 19.0f }
+        );
+        final List<Float> expectedScores = dataVectors.stream()
+            .map(vector -> spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector))
+            .sorted(Comparator.reverseOrder())
+            .collect(Collectors.toList());
+        final Float score = Collections.min(expectedScores);
+        final TestVectorValues.PreDefinedFloatVectorValues preDefinedFloatVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            dataVectors,
+            spaceType.getKnnVectorSimilarityFunction().getVectorSimilarityFunction()
+        );
+        final KNNVectorValues<float[]> knnFloatVectorValues = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.FLOAT,
+            preDefinedFloatVectorValues
+        );
+
         try (MockedStatic<KNNVectorValuesFactory> valuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class)) {
-            // Prepare data
-            final float[] queryVector = new float[] { 0.1f, 2.0f, 3.0f };
-            final SpaceType spaceType = randomFrom(SpaceType.L2, SpaceType.INNER_PRODUCT);
-            final List<float[]> dataVectors = Arrays.asList(
-                new float[] { 11.0f, 12.0f, 13.0f },
-                new float[] { 14.0f, 15.0f, 16.0f },
-                new float[] { 17.0f, 18.0f, 19.0f }
-            );
-            final List<Float> expectedScores = dataVectors.stream()
-                .map(vector -> spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector))
-                .sorted(Comparator.reverseOrder())
-                .collect(Collectors.toList());
-            final Float score = Collections.min(expectedScores);
             // Since memory optimized searching relies on Lucene's score framework, we can use minScore as a radius without having to
-            // convert
-            // it. We should not convert it as it treats minScore as a distance.
+            // convert it. We should not convert it as it treats minScore as a distance.
             final float radius = memoryOptimizedSearchEnabled ? score : KNNEngine.FAISS.scoreToRadialThreshold(score, spaceType);
             final int maxResults = 1000;
             final KNNQuery.Context context = mock(KNNQuery.Context.class);
@@ -443,15 +451,8 @@ public class ExactSearcherTests extends KNNTestCase {
             );
             when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(spaceType.getValue());
 
-            // Mocking float vector values
-            KNNFloatVectorValues floatVectorValues = mock(KNNFloatVectorValues.class);
-            DocIdSetIterator docIdSetIterator = mock(DocIdSetIterator.class);
-            KNNVectorValuesIterator knnVectorValuesIterator = mock(KNNVectorValuesIterator.class);
-            when(knnVectorValuesIterator.getDocIdSetIterator()).thenReturn(docIdSetIterator);
-            when(floatVectorValues.getVectorValuesIterator()).thenReturn(knnVectorValuesIterator);
-            valuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader)).thenReturn(floatVectorValues);
-            when(floatVectorValues.nextDoc()).thenReturn(0, 1, 2, NO_MORE_DOCS);
-            when(floatVectorValues.getVector()).thenReturn(dataVectors.get(0), dataVectors.get(1), dataVectors.get(2));
+            valuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader))
+                .thenReturn(knnFloatVectorValues);
 
             // Now, perform exact search and do a validation
             final TopDocs topDocs = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContextBuilder.build());
