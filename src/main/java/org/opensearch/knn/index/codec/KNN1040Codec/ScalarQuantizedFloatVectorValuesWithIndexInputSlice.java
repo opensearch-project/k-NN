@@ -74,4 +74,17 @@ class ScalarQuantizedFloatVectorValuesWithIndexInputSlice extends FloatVectorVal
     public VectorScorer scorer(float[] target) throws IOException {
         return floatVectorValues.scorer(target);
     }
+
+    /**
+     * Returns a {@link VectorScorer} for rescoring candidates against the given target vector
+     * using full-precision vectors. Delegates to the underlying {@link FloatVectorValues}.
+     *
+     * @param target the query vector to score against
+     * @return a {@link VectorScorer} for exact rescoring, or {@code null} if not supported
+     * @throws IOException if an I/O error occurs
+     */
+    @Override
+    public VectorScorer rescorer(final float[] target) throws IOException {
+        return floatVectorValues.rescorer(target);
+    }
 }
