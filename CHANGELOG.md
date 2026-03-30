@@ -43,4 +43,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Add VectorScorers for BinaryDocValues and nested best child scoring [#3179](https://github.com/opensearch-project/k-NN/pull/3179)
 * Introduce NativeEngines990KnnVectorsScorer to decouple native SIMD scoring selection from FaissMemoryOptimizedSearcher [#3184](https://github.com/opensearch-project/k-NN/pull/3184)
 * Add scorer-aware ByteVectorValues wrapper for FAISS Index [#3192](https://github.com/opensearch-project/k-NN/pull/3192)
+* Add Hamming distance scorer for byte vectors in VectorScorers [#3214](https://github.com/opensearch-project/k-NN/pull/3214)
 * Introduce VectorScorers to create VectorScorer instances based on the underlying vector storage format [#3183](https://github.com/opensearch-project/k-NN/pull/3183)
