@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.query.scorers;
 
 import lombok.SneakyThrows;
+import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.KnnVectorValues;
@@ -14,13 +15,16 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.VectorScorer;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.FixedBitSet;
+import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.mockito.MockedStatic;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
+import org.opensearch.knn.index.query.MemoryOptimizedSearchScoreConverter;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
+import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -29,6 +33,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -274,6 +279,106 @@ public class VectorScorersTests extends KNNTestCase {
         );
 
         assertTrue(scorer instanceof NestedBestChildVectorScorer);
+    }
+
+    // ──────────────────────────────────────────────
+    // CosineADCFlatVectorsScorer
+    // ──────────────────────────────────────────────
+
+    @SneakyThrows
+    public void testFloatTarget_withByteVectorValues_cosineSpaceType_appliesCosineScoreConversion() {
+        float[] query = { 1.0f, 2.0f };
+        List<byte[]> docs = List.of(new byte[] { 1, 2 }, new byte[] { 3, 4 });
+        TestVectorValues.PreDefinedByteVectorValues byteVectorValues = new TestVectorValues.PreDefinedByteVectorValues(docs);
+
+        KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
+        when(iteratorValues.getDocIdSetIterator()).thenReturn(byteVectorValues.iterator());
+        when(iteratorValues.getKnnVectorValues()).thenReturn(byteVectorValues);
+
+        when(fieldInfo.getAttribute(QFRAMEWORK_CONFIG)).thenReturn("adc_config");
+        when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.COSINESIMIL.getValue());
+        QuantizationConfig adcConfig = QuantizationConfig.builder().enableADC(true).build();
+
+        // Known IP-format scores the inner ADC scorer will return for each doc
+        float[] ipScores = { 1.5f, 0.5f };
+
+        // Build a mock FlatVectorsScorer that returns known IP-format scores
+        RandomVectorScorer mockRandomScorer = mock(RandomVectorScorer.class);
+        when(mockRandomScorer.score(0)).thenReturn(ipScores[0]);
+        when(mockRandomScorer.score(1)).thenReturn(ipScores[1]);
+
+        FlatVectorsScorer mockFlatScorer = mock(FlatVectorsScorer.class);
+        when(mockFlatScorer.getRandomVectorScorer(any(VectorSimilarityFunction.class), any(KnnVectorValues.class), any(float[].class)))
+            .thenReturn(mockRandomScorer);
+
+        try (
+            MockedStatic<QuantizationConfigParser> parserMock = mockStatic(QuantizationConfigParser.class);
+            MockedStatic<FlatVectorsScorerProvider> providerMock = mockStatic(FlatVectorsScorerProvider.class)
+        ) {
+            parserMock.when(() -> QuantizationConfigParser.fromCsv(anyString())).thenReturn(adcConfig);
+            providerMock.when(() -> FlatVectorsScorerProvider.getFlatVectorsScorer(any(), any(), any())).thenReturn(mockFlatScorer);
+
+            VectorScorer scorer = VectorScorers.createScorer(
+                iteratorValues,
+                query,
+                VectorScorerMode.SCORE,
+                SpaceType.COSINESIMIL,
+                fieldInfo
+            );
+
+            assertNotNull(scorer);
+
+            // Verify scores are converted from IP format to cosine format
+            Map<Integer, Float> expectedScores = new HashMap<>();
+            for (int i = 0; i < ipScores.length; i++) {
+                expectedScores.put(i, MemoryOptimizedSearchScoreConverter.convertInnerProductScoreToCosineScore(ipScores[i]));
+            }
+            assertScores(expectedScores, scorer);
+        }
+    }
+
+    @SneakyThrows
+    public void testFloatTarget_withByteVectorValues_cosineSpaceType_negativeIpScore() {
+        float[] query = { 1.0f, 2.0f };
+        List<byte[]> docs = List.of(new byte[] { 1, 2 });
+        TestVectorValues.PreDefinedByteVectorValues byteVectorValues = new TestVectorValues.PreDefinedByteVectorValues(docs);
+
+        KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
+        when(iteratorValues.getDocIdSetIterator()).thenReturn(byteVectorValues.iterator());
+        when(iteratorValues.getKnnVectorValues()).thenReturn(byteVectorValues);
+
+        when(fieldInfo.getAttribute(QFRAMEWORK_CONFIG)).thenReturn("adc_config");
+        when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.COSINESIMIL.getValue());
+        QuantizationConfig adcConfig = QuantizationConfig.builder().enableADC(true).build();
+
+        // IP score < 1 exercises the other branch: ip = 1 - 1/ipScore
+        float ipScore = 0.25f;
+        RandomVectorScorer mockRandomScorer = mock(RandomVectorScorer.class);
+        when(mockRandomScorer.score(0)).thenReturn(ipScore);
+
+        FlatVectorsScorer mockFlatScorer = mock(FlatVectorsScorer.class);
+        when(mockFlatScorer.getRandomVectorScorer(any(VectorSimilarityFunction.class), any(KnnVectorValues.class), any(float[].class)))
+            .thenReturn(mockRandomScorer);
+
+        try (
+            MockedStatic<QuantizationConfigParser> parserMock = mockStatic(QuantizationConfigParser.class);
+            MockedStatic<FlatVectorsScorerProvider> providerMock = mockStatic(FlatVectorsScorerProvider.class)
+        ) {
+            parserMock.when(() -> QuantizationConfigParser.fromCsv(anyString())).thenReturn(adcConfig);
+            providerMock.when(() -> FlatVectorsScorerProvider.getFlatVectorsScorer(any(), any(), any())).thenReturn(mockFlatScorer);
+
+            VectorScorer scorer = VectorScorers.createScorer(
+                iteratorValues,
+                query,
+                VectorScorerMode.SCORE,
+                SpaceType.COSINESIMIL,
+                fieldInfo
+            );
+
+            // Reverse INNER_PRODUCT.scoreTranslation for ipScore < 1
+            float expected = MemoryOptimizedSearchScoreConverter.convertInnerProductScoreToCosineScore(ipScore);
+            assertScores(Map.of(0, expected), scorer);
+        }
     }
 
     // ──────────────────────────────────────────────
