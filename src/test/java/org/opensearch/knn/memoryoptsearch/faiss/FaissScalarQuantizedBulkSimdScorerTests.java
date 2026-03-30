@@ -63,7 +63,7 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
     private static final int NUM_VECTORS = 500;
 
     @Test
-    public void testBBQCosineScoring() {
+    public void testSQCosineScoring() {
         for (int dim : Arrays.asList(1, 7, 56, 57, 77, 128, 512, 777, 1024)) {
             System.out.println("Dimension=" + dim);
             doTest(VectorSimilarityFunction.COSINE, dim);
@@ -71,7 +71,7 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
     }
 
     @Test
-    public void testBBQEuclideanScoring() {
+    public void testSQEuclideanScoring() {
         for (int dim : Arrays.asList(1, 7, 77, 128, 512, 777, 1024, 10240, 30000, 65535)) {
             System.out.println("Dimension=" + dim);
             doTest(VectorSimilarityFunction.EUCLIDEAN, dim);
@@ -79,7 +79,7 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
     }
 
     @Test
-    public void testBBQMaxInnerProductScoring() {
+    public void testSQMaxInnerProductScoring() {
         for (int dim : Arrays.asList(1, 7, 77, 128, 512, 777, 1024, 10240, 30000, 65535)) {
             System.out.println("Dimension=" + dim);
             doTest(VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT, dim);

@@ -27,7 +27,7 @@ import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
 
 /**
- * Memory-optimized build strategy for Faiss BBQ (Binary Quantized) HNSW indexes.
+ * Memory-optimized build strategy for Faiss SQ (Binary Quantized) HNSW indexes.
  *
  * <h2>Architecture Overview</h2>
  * This strategy builds a Faiss HNSW graph on top of 1-bit binary quantized vectors.
@@ -43,8 +43,8 @@ import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorV
  *       duplicating the flat vector storage — the quantized vectors remain in Lucene's .veb file</li>
  * </ol>
  *
- * <h2>BBQ Quantization</h2>
- * BBQ quantizes each float vector component down to 1 bit, producing a compact binary code.
+ * <h2>SQ Quantization</h2>
+ * SQ quantizes each float vector component down to 1 bit, producing a compact binary code.
  * To preserve distance accuracy, each quantized vector is accompanied by correction factors:
  * <ul>
  *   <li>{@code lowerInterval} (float) — lower bound of the quantization interval</li>
@@ -64,7 +64,7 @@ import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorV
  *
  * <h2>SIMD-Accelerated Search</h2>
  * During search, the ADC distance computation between 4-bit query vectors and 1-bit data vectors
- * is offloaded to native SIMD code (AVX512 / ARM NEON) via {@code FaissBBQNativeRandomVectorScorer}
+ * is offloaded to native SIMD code (AVX512 / ARM NEON) via {@code Faiss104ScalarQuantizedVectorScorer}
  * for maximum throughput.
  *
  * @see NativeIndexBuildStrategy
@@ -80,7 +80,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
     }
 
     /**
-     * Main entry point: builds a Faiss BBQ HNSW index and writes it to disk.
+     * Main entry point: builds a Faiss SQ HNSW index and writes it to disk.
      *
      * <p>The high-level flow is:
      * <ol>
@@ -88,8 +88,8 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
      *   <li>Retrieve the {@link QuantizedByteVectorValues} from the build strategy params
      *       (provided by the writer, which handles the FlatVectorsReader lifecycle)</li>
      *   <li>Extract the centroid dot-product and quantized vector byte size from the quantized values,
-     *       which are needed to initialize the native Faiss BBQ index structure</li>
-     *   <li>Initialize the Faiss BBQ index in C++ via JNI, allocating off-heap memory for the
+     *       which are needed to initialize the native Faiss SQ index structure</li>
+     *   <li>Initialize the Faiss SQ index in C++ via JNI, allocating off-heap memory for the
      *       HNSW graph and quantized vector storage</li>
      *   <li>Delegate to {@link #doBuildAndWriteIndex} for the actual data transfer and graph construction</li>
      * </ol>
@@ -129,7 +129,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
         // - Off-heap storage for quantized vectors and correction factors
         // The index is identified by a memory address (pointer) returned from C++.
         final long indexMemoryAddress = AccessController.doPrivileged(
-            (PrivilegedAction<Long>) () -> JNIService.initFaissBBQIndex(
+            (PrivilegedAction<Long>) () -> JNIService.initFaissSQIndex(
                 indexInfo.getTotalLiveDocs(),
                 knnVectorValues.dimension(),
                 indexParameters,
@@ -142,10 +142,10 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
         try {
             doBuildAndWriteIndex(indexMemoryAddress, binarizedVectorValues, knnVectorValues, indexInfo, indexParameters, quantizedVecBytes);
         } catch (final Exception e) {
-            // Release the native Faiss BBQ index to prevent off-heap memory leaks.
+            // Release the native Faiss SQ index to prevent off-heap memory leaks.
             // The indexMemoryAddress points to faiss::IndexBinaryIDMap* which owns the entire
             // hierarchy (IndexBinaryIDMap → FaissSQHnsw → FaissSQFlat) via own_fields = true.
-            JNIService.releaseBBQIndex(indexMemoryAddress, indexInfo.getKnnEngine());
+            JNIService.releaseSQIndex(indexMemoryAddress, indexInfo.getKnnEngine());
             throw e;
         }
     }
@@ -169,7 +169,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
      *       .veb file and are accessed at search time via {@code FaissScalarQuantizedFlatIndex}</li>
      * </ol>
      *
-     * @param indexMemoryAddress    pointer to the native Faiss BBQ index in off-heap memory
+     * @param indexMemoryAddress    pointer to the native Faiss SQ index in off-heap memory
      * @param binarizedVectorValues provides access to quantized binary codes and correction factors
      * @param knnVectorValues       iterator over document IDs associated with vectors
      * @param indexInfo             build parameters including output buffer and engine configuration
@@ -204,10 +204,10 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
                 knnVectorValues.nextDoc();
             }
 
-            // addDocsToBBQIndex triggers HNSW insertion for the batch. The native code
+            // addDocsToSQIndex triggers HNSW insertion for the batch. The native code
             // references quantized vectors by ordinal (numAdded + offset) from the data
             // that was already transferred in Phase 1.
-            JNIService.addDocsToBBQIndex(indexMemoryAddress, docIds, i, numAdded, indexInfo.getKnnEngine());
+            JNIService.addDocsToSQIndex(indexMemoryAddress, docIds, i, numAdded, indexInfo.getKnnEngine());
             numAdded += i;
         }
 
@@ -268,7 +268,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
      * All float and int values are serialized in little-endian byte order to match the
      * native (x86/ARM) memory layout, avoiding byte-swapping overhead in the C++ layer.
      *
-     * @param indexMemoryAddress    pointer to the native Faiss BBQ index
+     * @param indexMemoryAddress    pointer to the native Faiss SQ index
      * @param binarizedVectorValues provides quantized binary codes and correction factors
      * @param quantizedVecBytes     byte length of a single quantized binary code
      */
@@ -347,7 +347,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
             // Transfer this batch of packed [binaryCode + correctionFactors] to the native
             // Faiss index. The C++ side unpacks the buffer and stores vectors sequentially
             // by ordinal, so they can be referenced during HNSW graph construction.
-            JNIService.passBBQVectorsWithCorrectionFactors(indexMemoryAddress, buffer, loopSize, knnEngine);
+            JNIService.passSQVectorsWithCorrectionFactors(indexMemoryAddress, buffer, loopSize, knnEngine);
 
             i += loopSize;
         }

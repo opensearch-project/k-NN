@@ -48,7 +48,7 @@ import static org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectors
  * Tests for {@link MemOptimizedScalarQuantizedIndexBuildStrategy}.
  * <p>
  * Each test writes vectors through Lucene's binary quantized format to produce .vec and .veb files,
- * then invokes the BBQ build strategy to construct a Faiss HNSW index from those files.
+ * then invokes the SQ build strategy to construct a Faiss HNSW index from those files.
  * We verify the .faiss file is written successfully (non-zero size).
  * <p>
  * Dense case: doc_id == vector_ordinal (sequential IDs, no gaps)
@@ -185,10 +185,10 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategyTests extends KNNTestC
                 FIELD_NAME
             );
 
-            final Lucene104ScalarQuantizedVectorsFormat bbqFormat = new Lucene104ScalarQuantizedVectorsFormat(SINGLE_BIT_QUERY_NIBBLE);
+            final Lucene104ScalarQuantizedVectorsFormat sqFormat = new Lucene104ScalarQuantizedVectorsFormat(SINGLE_BIT_QUERY_NIBBLE);
             final DocsWithFieldSet docsWithFieldSet;
             final Map<Integer, float[]> docIdToVector = new HashMap<>();
-            try (FlatVectorsWriter flatWriter = bbqFormat.fieldsWriter(writeState)) {
+            try (FlatVectorsWriter flatWriter = sqFormat.fieldsWriter(writeState)) {
                 final FlatFieldVectorsWriter fieldWriter = flatWriter.addField(fieldInfo);
                 for (int i = 0; i < vectors.length; i++) {
                     fieldWriter.addValue(docIds[i], vectors[i]);
@@ -199,7 +199,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategyTests extends KNNTestC
                 flatWriter.finish();
             }
 
-            // Step 2: Build the Faiss BBQ HNSW index
+            // Step 2: Build the Faiss SQ HNSW index
             final Map<String, Object> parameters = buildIndexParameters(spaceType, indexThreadQty);
             final String faissFileName = SEGMENT_NAME + "_" + FIELD_NAME + ".faiss";
 
@@ -213,7 +213,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategyTests extends KNNTestC
             );
 
             try (
-                final FlatVectorsReader flatVectorsReader = bbqFormat.fieldsReader(readState);
+                final FlatVectorsReader flatVectorsReader = sqFormat.fieldsReader(readState);
                 final IndexOutput indexOutput = directory.createOutput(faissFileName, IOContext.DEFAULT)
             ) {
                 // Extract QuantizedByteVectorValues via reflection (same as the writer)

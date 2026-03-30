@@ -54,7 +54,7 @@ public class KNNVectorFieldType extends MappedFieldType {
     /**
      * When {@code true}, memory-optimized search is always applied for this field regardless of the
      * cluster-level setting. This is determined at mapping time based on the encoder type
-     * (e.g., FAISS BBQ encoder always requires memory-optimized search).
+     * (e.g., FAISS SQ encoder always requires memory-optimized search).
      *
      * @see MemoryOptimizedSearchSupportSpec#isAlwaysUseMemoryOptimizedSearch(java.util.Optional)
      */

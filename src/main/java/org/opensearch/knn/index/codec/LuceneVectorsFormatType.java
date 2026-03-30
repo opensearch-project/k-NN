@@ -32,7 +32,7 @@ public enum LuceneVectorsFormatType {
     SCALAR_QUANTIZED,
 
     /**
-     * Flat vector format (e.g., BBQ flat via Lucene).
+     * Flat vector format (e.g., SQ flat via Lucene).
      */
     FLAT
 }
