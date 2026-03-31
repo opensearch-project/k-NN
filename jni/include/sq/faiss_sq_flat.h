@@ -120,10 +120,6 @@ namespace knn_jni {
         /// compute distance of vector i to current query
         float operator()(faiss::idx_t i) final {
             const uint8_t* target = data + i * oneElementByteSize;
-            // quantizedVectorBytes is always a multiple of 8 per the Java-side contract
-            // (FaissService.java: "byte length of a single 1-bit quantized vector, always
-            // 64-bit aligned"). The IsBytesMultipleOf8=false path is a safety fallback to
-            // avoid UB on unaligned pointer reads, not to handle non-multiple-of-8 sizes.
             const uint64_t words = quantizedVectorBytes >> 3; // divide by 8
             uint32_t dp = 0;
 
@@ -134,12 +130,16 @@ namespace knn_jni {
                     dp += __builtin_popcountll(q[j] & t[j]);
                 }
             } else {
-                // Slower
                 for (size_t j = 0; j < words; ++j) {
                     uint64_t queryWord, targetWord;
                     std::memcpy(&queryWord, query + j * 8, sizeof(uint64_t));
                     std::memcpy(&targetWord, target + j * 8, sizeof(uint64_t));
                     dp += __builtin_popcountll(queryWord & targetWord);
+                }
+                // Remainder bytes that don't fill a full 8-byte word
+                const uint64_t remainStart = words * 8;
+                for (uint64_t r = remainStart; r < quantizedVectorBytes; ++r) {
+                    dp += __builtin_popcount((query[r] & target[r]) & 0xFF);
                 }
             }
 
@@ -178,7 +178,6 @@ namespace knn_jni {
                     dp4 += __builtin_popcountll(q[i] & t4[i]);
                 }
             } else {
-                // Slower
                 for (size_t i = 0; i < words; ++i) {
                     uint64_t queryWord;
                     std::memcpy(&queryWord, query + i * 8, sizeof(uint64_t));
@@ -191,6 +190,15 @@ namespace knn_jni {
                     dp2 += __builtin_popcountll(queryWord & w2);
                     dp3 += __builtin_popcountll(queryWord & w3);
                     dp4 += __builtin_popcountll(queryWord & w4);
+                }
+                // Remainder bytes that don't fill a full 8-byte word
+                const uint64_t remainStart = words * 8;
+                for (uint64_t r = remainStart; r < quantizedVectorBytes; ++r) {
+                    const uint8_t qb = query[r];
+                    dp1 += __builtin_popcount((qb & target1[r]) & 0xFF);
+                    dp2 += __builtin_popcount((qb & target2[r]) & 0xFF);
+                    dp3 += __builtin_popcount((qb & target3[r]) & 0xFF);
+                    dp4 += __builtin_popcount((qb & target4[r]) & 0xFF);
                 }
             }
 
@@ -215,12 +223,16 @@ namespace knn_jni {
                     dp += __builtin_popcountll(t1[k] & t2[k]);
                 }
             } else {
-                // Slower
                 for (size_t k = 0; k < words; ++k) {
                     uint64_t w1, w2;
                     std::memcpy(&w1, target1 + k * 8, sizeof(uint64_t));
                     std::memcpy(&w2, target2 + k * 8, sizeof(uint64_t));
                     dp += __builtin_popcountll(w1 & w2);
+                }
+                // Remainder bytes that don't fill a full 8-byte word
+                const uint64_t remainStart = words * 8;
+                for (uint64_t r = remainStart; r < quantizedVectorBytes; ++r) {
+                    dp += __builtin_popcount((target1[r] & target2[r]) & 0xFF);
                 }
             }
 
@@ -280,6 +292,11 @@ namespace knn_jni {
         }
 
         faiss::DistanceComputer* get_distance_computer() const {
+            // When quantizedVectorBytes is a multiple of 8, oneElementSize is also a
+            // multiple of 8 (quantizedVectorBytes + 16 bytes of correction factors),
+            // so element starts are 8-byte aligned and we can use the fast
+            // reinterpret_cast<uint64_t*> path. Otherwise we fall back to memcpy
+            // with a byte remainder loop for the trailing bytes.
             const bool aligned = (oneElementSize % 8) == 0;
             if (metric_type == faiss::MetricType::METRIC_L2) {
                 if (aligned) {
