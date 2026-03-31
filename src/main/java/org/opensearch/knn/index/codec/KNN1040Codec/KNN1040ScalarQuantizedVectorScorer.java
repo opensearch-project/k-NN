@@ -155,10 +155,9 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
         // We make a copy as the quantization process mutates the input
         final float[] targetCopy = ArrayUtil.copyOfSubArray(target, 0, target.length);
 
-        // For cosine similarity, Lucene's OptimizedScalarQuantizer asserts the query is a unit vector.
-        // FAISS already normalizes the query, so we only normalize if it isn't already. But, we need to
-        // normalize the query vector when using Lucene engine.
-        KNN1040ScalarQuantizedUtils.normalizeIfNeeded(targetCopy, similarityFunction);
+        // For cosine similarity, the query vector is expected to already be normalized.
+        // Normalization is performed upfront in KNNQueryBuilder via VectorTransformerFactory
+        // for Lucene cosine with SQ 1-bit and flat methods and for Faiss.
 
         // Perform scalar quantization
         final OptimizedScalarQuantizer.QuantizationResult targetCorrectiveTerms = quantizer.scalarQuantize(

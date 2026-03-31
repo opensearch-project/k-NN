@@ -31,9 +31,9 @@ public class KNN1040HnswScalarQuantizedVectorsFormatTests extends KNNTestCase {
             1,
             null
         );
-        String str = format.toString();
-        assertTrue(str.contains("maxConn=32"));
-        assertTrue(str.contains("beamWidth=200"));
+        assertNotNull(format);
+        assertEquals("KNN1040HnswScalarQuantizedVectorsFormat", format.getName());
+        assertEquals(KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE), format.getMaxDimensions("any_field"));
     }
 
     public void testGetMaxDimensions_returnsLuceneMax() {

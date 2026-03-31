@@ -8,8 +8,6 @@ package org.opensearch.knn.index.codec.KNN1040Codec;
 import lombok.experimental.UtilityClass;
 import org.apache.lucene.codecs.lucene104.QuantizedByteVectorValues;
 import org.apache.lucene.index.KnnVectorValues;
-import org.apache.lucene.index.VectorSimilarityFunction;
-import org.apache.lucene.util.VectorUtil;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -46,19 +44,6 @@ class KNN1040ScalarQuantizedUtils {
      * and {@code throwExceptionIfNotFound} is {@code false}
      * @throws IOException if extraction fails and {@code throwExceptionIfNotFound} is {@code true}
      */
-    /**
-     * Normalizes the vector in place if the similarity function is COSINE and the vector is not already a unit vector.
-     * FAISS already normalizes query vectors for cosine, so this avoids redundant work while ensuring
-     * Lucene's {@link org.apache.lucene.util.quantization.OptimizedScalarQuantizer} assertion is satisfied.
-     *
-     * @param vector the vector to conditionally normalize
-     * @param similarityFunction the similarity function in use
-     */
-    public static void normalizeIfNeeded(final float[] vector, final VectorSimilarityFunction similarityFunction) {
-        if (similarityFunction == VectorSimilarityFunction.COSINE && !VectorUtil.isUnitVector(vector)) {
-            VectorUtil.l2normalize(vector);
-        }
-    }
 
     public static QuantizedByteVectorValues extractQuantizedByteVectorValues(final KnnVectorValues floatVectorValues) throws IOException {
         try {
