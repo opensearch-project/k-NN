@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index;
 
+import lombok.extern.log4j.Log4j2;
 import org.junit.BeforeClass;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
@@ -18,6 +19,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
 
+@Log4j2
 public class RelocationIT extends KNNRestTestCase {
 
     private static final String INDEX_NAME = "relocation-knn-index";
@@ -31,6 +33,9 @@ public class RelocationIT extends KNNRestTestCase {
     }
 
     public void testForcemerge_whenRelocation_and_abortSuccess() throws Exception {
+        if (!ensureMinDataNodesCountForRelocation()) {
+            return;
+        }
 
         int dimension = 768;
         int numNodes = 2;
@@ -104,5 +109,20 @@ public class RelocationIT extends KNNRestTestCase {
             Thread.sleep(1000 * 1);
         }
         write.join();
+    }
+
+    private boolean ensureMinDataNodesCountForRelocation() {
+        int dataNodeCount = getDataNodeCount();
+        if (dataNodeCount < 2) {
+            log.warn(
+                "Not running relocation test named: "
+                    + "testForcemerge_whenRelocation_and_abortSuccess, as data nodes count is not at least 2. "
+                    + "Actual datanode count : {}",
+                dataNodeCount
+            );
+            assertTrue(true);
+            return false;
+        }
+        return true;
     }
 }
