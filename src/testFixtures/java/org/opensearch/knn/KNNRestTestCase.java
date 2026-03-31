@@ -1110,7 +1110,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected void deleteKnnDoc(String index, String docId) throws IOException {
         // Put KNN mapping
-        Request request = new Request("DELETE", "/" + index + "/_doc/" + docId + "?refresh");
+        Request request = new Request("DELETE", "/" + index + "/_doc/" + docId + "?refresh=true");
 
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
