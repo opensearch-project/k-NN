@@ -215,8 +215,9 @@ public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantize
                 targetCorrectiveTerms.quantizedComponentSum(),
                 addressAndSize,
                 similarityFunction == VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT
-                    ? SimdVectorComputeService.SimilarityFunctionType.BBQ_IP.ordinal()
-                    : SimdVectorComputeService.SimilarityFunctionType.BBQ_L2.ordinal(),
+                    || similarityFunction == VectorSimilarityFunction.COSINE
+                        ? SimdVectorComputeService.SimilarityFunctionType.BBQ_IP.ordinal()
+                        : SimdVectorComputeService.SimilarityFunctionType.BBQ_L2.ordinal(),
                 dimension,
                 centroidDp
             );
