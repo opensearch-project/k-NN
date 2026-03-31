@@ -89,11 +89,7 @@ class NestedBestChildVectorScorer implements VectorScorer {
      * @param childrenVectorScorer             the underlying scorer that computes similarity scores for
      *                                 individual child documents against the query vector.
      */
-    public NestedBestChildVectorScorer(
-        @Nullable DocIdSetIterator filterIdsIterator,
-        BitSet parentBitSet,
-        VectorScorer childrenVectorScorer
-    ) {
+    NestedBestChildVectorScorer(@Nullable DocIdSetIterator filterIdsIterator, BitSet parentBitSet, VectorScorer childrenVectorScorer) {
         this.childrenVectorScorer = childrenVectorScorer;
         this.parentBitSet = parentBitSet;
         DocIdSetIterator vectorIterator = childrenVectorScorer.iterator();

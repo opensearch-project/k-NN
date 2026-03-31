@@ -10,8 +10,10 @@ import lombok.SneakyThrows;
 import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
+import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.search.AcceptDocs;
@@ -55,6 +57,8 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
 import org.opensearch.knn.index.vectorvalues.VectorValueExtractorStrategy;
 import org.opensearch.knn.jni.JNIService;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissHNSW;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissIdMapIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
 import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
@@ -76,6 +80,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toMap;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.ADC_ENABLED_FAISS_INDEX_INTERNAL_PARAMETER;
@@ -328,12 +333,35 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    public void testGetByteVectorValues_returnsDifferentInstancesPerCall() {
+        FieldInfo fieldInfo = mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+        FaissIdMapIndex faissIndex = mock(FaissIdMapIndex.class);
+        Mockito.when(faissIndex.getByteValues(any())).thenReturn(mock(ByteVectorValues.class));
+        Mockito.when(faissIndex.getVectorSimilarityFunction()).thenReturn(SpaceType.L2.getKnnVectorSimilarityFunction());
+        Mockito.when(faissIndex.getFaissHnsw()).thenReturn(mock(FaissHNSW.class));
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
+            mock(IndexInput.class),
+            faissIndex,
+            fieldInfo,
+            FlatVectorsScorerProvider.getFlatVectorsScorer(fieldInfo, KNNVectorSimilarityFunction.EUCLIDEAN, SCORER)
+        );
+
+        final var first = searcher.getByteVectorValues(mock(KnnVectorValues.DocIndexIterator.class));
+        final var second = searcher.getByteVectorValues(mock(KnnVectorValues.DocIndexIterator.class));
+        assertNotSame("getByteVectorValues() should return a new instance per call", first, second);
+    }
+
+    @SneakyThrows
     private void doSearchTest(final TestingSpec testingSpec, final IndexingType indexingType) {
         final List<SpaceType> spaceTypes;
-        if (testingSpec.dataType != VectorDataType.BINARY) {
-            spaceTypes = Arrays.asList(SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.COSINESIMIL);
-        } else {
+        if (testingSpec.dataType == VectorDataType.BINARY) {
             spaceTypes = Arrays.asList(SpaceType.HAMMING);
+        } else if (testingSpec.dataType == VectorDataType.BYTE) {
+            // Byte vectors cannot be L2-normalized, so cosine similarity is not supported.
+            spaceTypes = Arrays.asList(SpaceType.L2, SpaceType.INNER_PRODUCT);
+        } else {
+            spaceTypes = Arrays.asList(SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.COSINESIMIL);
         }
 
         for (final SpaceType spaceType : spaceTypes) {
@@ -625,7 +653,9 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             // Set up basic parameters
             try (final IndexOutput indexOutput = directory.createOutput(fileName, IOContext.DEFAULT)) {
                 final BuildIndexParams.BuildIndexParamsBuilder builder = BuildIndexParams.builder();
-                builder.fieldName(TARGET_FIELD)
+                FieldInfo fieldInfo = mock(FieldInfo.class);
+                when(fieldInfo.getName()).thenReturn(TARGET_FIELD);
+                builder.field(fieldInfo.getName())
                     .knnEngine(KNNEngine.FAISS)
                     .vectorDataType(testingSpec.dataType)
                     .indexOutputWithBuffer(new IndexOutputWithBuffer(indexOutput));
@@ -650,7 +680,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                     parameters.put(QFRAMEWORK_CONFIG, "type=binary,bits=1,random_rotation=false,enable_adc=true");
                 }
 
-                builder.parameters(parameters);
+                builder.indexParameters(parameters);
 
                 // Set up vectors
                 final List<Integer> documentIds = indexingType.generateDocumentIds(numberOfTotalDocsInSegment);

@@ -8,6 +8,9 @@ package org.opensearch.knn.memoryoptsearch.faiss.vectorvalues;
 import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.util.Bits;
+import org.apache.lucene.util.packed.DirectMonotonicReader;
+import org.opensearch.knn.memoryoptsearch.faiss.WrappedFloatVectorValues;
 
 import java.io.IOException;
 
@@ -66,5 +69,85 @@ public class FaissFloatVectorValues extends FloatVectorValues implements HasInde
     @Override
     public IndexInput getSlice() {
         return indexInput;
+    }
+
+    /**
+     * A {@link FloatVectorValues} wrapper for sparse or nested cases that maps internal vector IDs
+     * to Lucene document IDs via a {@link DirectMonotonicReader}.
+     * <p>
+     * Delegates vector reads to the wrapped {@link FloatVectorValues} and translates ordinals
+     * in {@link #ordToDoc(int)} and {@link #getAcceptOrds(Bits)}.
+     */
+    public static class SparseFloatVectorValuesImpl extends WrappedFloatVectorValues implements HasIndexSlice {
+        private final DirectMonotonicReader idMappingReader;
+
+        public SparseFloatVectorValuesImpl(final FloatVectorValues vectorValues, final DirectMonotonicReader idMappingReader) {
+            super(vectorValues);
+            this.idMappingReader = idMappingReader;
+            if ((vectorValues instanceof HasIndexSlice) == false) {
+                throw new IllegalArgumentException(
+                    "SparseFloatVectorValuesImpl needs an instance of "
+                        + "FloatVectorValues which implements HasIndexSlice interface. "
+                        + vectorValues.getClass().getCanonicalName()
+                        + " doesn't implement "
+                        + HasIndexSlice.class
+                        + "interface"
+                );
+            }
+        }
+
+        @Override
+        public float[] vectorValue(int internalVectorId) throws IOException {
+            return floatVectorValues.vectorValue(internalVectorId);
+        }
+
+        @Override
+        public int dimension() {
+            return floatVectorValues.dimension();
+        }
+
+        @Override
+        public int ordToDoc(int internalVectorId) {
+            return (int) idMappingReader.get(internalVectorId);
+        }
+
+        @Override
+        public int getVectorByteLength() {
+            return floatVectorValues.getVectorByteLength();
+        }
+
+        @Override
+        public Bits getAcceptOrds(final Bits acceptDocs) {
+            if (acceptDocs != null) {
+                return new Bits() {
+                    @Override
+                    public boolean get(int internalVectorId) {
+                        return acceptDocs.get((int) idMappingReader.get(internalVectorId));
+                    }
+
+                    @Override
+                    public int length() {
+                        return floatVectorValues.size();
+                    }
+                };
+            }
+            return null;
+        }
+
+        @Override
+        public int size() {
+            return floatVectorValues.size();
+        }
+
+        @Override
+        public FloatVectorValues copy() throws IOException {
+            return new SparseFloatVectorValuesImpl(floatVectorValues.copy(), idMappingReader);
+        }
+
+        @Override
+        public IndexInput getSlice() {
+            // Since in constructor we are already validating the instance type we don't need another validation here
+            return ((HasIndexSlice) floatVectorValues).getSlice();
+        }
     }
 }

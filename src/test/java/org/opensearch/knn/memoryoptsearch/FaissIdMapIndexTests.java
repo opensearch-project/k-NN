@@ -21,6 +21,8 @@ import org.opensearch.knn.memoryoptsearch.faiss.FaissHNSWIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIdMapIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissBinaryIndex;
+import org.opensearch.knn.memoryoptsearch.faiss.vectorvalues.FaissByteVectorValues;
+import org.opensearch.knn.memoryoptsearch.faiss.vectorvalues.FaissFloatVectorValues;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -262,12 +264,28 @@ public class FaissIdMapIndexTests extends KNNTestCase {
             mockStaticFaissIndex.when(() -> FaissIndex.load(any())).thenReturn(nestedIndex);
 
             // Byte vectors
-            final ByteVectorValues mockByteValues = mock(ByteVectorValues.class);
+            final Bits mockBitsFromByteVectors = mock(Bits.class);
+            final AtomicInteger idx1 = new AtomicInteger(0);
+            doAnswer((Answer<Void>) invocation -> {
+                final int convertedDocId = invocation.getArgument(0);
+                assertEquals(mappingTable[idx1.getAndIncrement()], convertedDocId);
+                return null;
+            }).when(mockBitsFromByteVectors).get(anyInt());
+
+            final ByteVectorValues mockByteValues = mock(FaissByteVectorValues.class);
+
             when(nestedIndex.getByteValues(any())).thenReturn(mockByteValues);
             when(mockByteValues.size()).thenReturn(Math.toIntExact(totalNumberOfVectors));
 
             // Float vectors
-            final FloatVectorValues mockFloatValues = mock(FloatVectorValues.class);
+            final Bits mockBitsFromFloatVectors = mock(Bits.class);
+            final AtomicInteger idx2 = new AtomicInteger(0);
+            doAnswer((Answer<Void>) invocation -> {
+                final int convertedDocId = invocation.getArgument(0);
+                assertEquals(mappingTable[idx2.getAndIncrement()], convertedDocId);
+                return null;
+            }).when(mockBitsFromFloatVectors).get(anyInt());
+            final FloatVectorValues mockFloatValues = mock(FaissFloatVectorValues.class);
             when(nestedIndex.getFloatValues(any())).thenReturn(mockFloatValues);
             when(mockFloatValues.size()).thenReturn(Math.toIntExact(totalNumberOfVectors));
 

@@ -10,6 +10,7 @@ import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.KnnVectorValues;
+import org.apache.lucene.index.KnnVectorValues.DocIndexIterator;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.AcceptDocs;
@@ -52,6 +53,10 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     private final VectorSimilarityFunction vectorSimilarityFunction;
     private boolean isAdc;
 
+    /**
+     * Constructor that accepts a pre-loaded {@link FaissIndex}. The factory is responsible for
+     * loading the index and applying any transformations (e.g., replacing null flat storage for Faiss SQ (for 1 bit)).
+     */
     public FaissMemoryOptimizedSearcher(
         final IndexInput indexInput,
         final FaissIndex faissIndex,
@@ -70,7 +75,6 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
 
         this.isAdc = FieldInfoExtractor.isAdc(fieldInfo);
         this.flatVectorsScorer = flatVectorsScorer;
-
         this.hnsw = extractFaissHnsw(faissIndex);
     }
 
@@ -107,14 +111,18 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     }
 
     /**
-     * Returns byte vector values from the FAISS index.
-     *
-     * @return byte vector values
-     * @throws IOException if an I/O error occurs
+     * Returns a {@link FaissScorableByteVectorValues} that wraps the raw byte vectors from the
+     * FAISS index with scoring support via {@link FlatVectorsScorer}.
+     * <p>Each call creates a new instance backed by a fresh index input slice.
      */
     @Override
-    public ByteVectorValues getByteVectorValues() throws IOException {
-        return faissIndex.getByteValues(indexInput.clone());
+    public ByteVectorValues getByteVectorValues(DocIndexIterator iterator) throws IOException {
+        return new FaissScorableByteVectorValues(
+            faissIndex.getByteValues(indexInput.clone()),
+            flatVectorsScorer,
+            vectorSimilarityFunction,
+            iterator
+        );
     }
 
     @Override

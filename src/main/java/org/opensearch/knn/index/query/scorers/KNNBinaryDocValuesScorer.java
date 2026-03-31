@@ -33,7 +33,7 @@ import java.io.IOException;
  *       {@link BytesRef}.</li>
  * </ul>
  */
-public class KNNBinaryDocValuesScorer implements VectorScorer {
+class KNNBinaryDocValuesScorer implements VectorScorer {
 
     private final BinaryDocValues binaryDocValues;
     private final ScoreFunction scoreFunction;

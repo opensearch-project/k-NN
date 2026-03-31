@@ -464,7 +464,7 @@ public class TestUtils {
             JNIService.insertToIndex(ids, address, dimension, parameters, indexAddress, engine);
             try (IndexOutput indexOutput = directory.createOutput(fileName, IOContext.DEFAULT)) {
                 final IndexOutputWithBuffer indexOutputWithBuffer = new IndexOutputWithBuffer(indexOutput);
-                JNIService.writeIndex(indexOutputWithBuffer, indexAddress, engine, parameters);
+                JNIService.writeIndex(indexOutputWithBuffer, indexAddress, engine, parameters, false);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

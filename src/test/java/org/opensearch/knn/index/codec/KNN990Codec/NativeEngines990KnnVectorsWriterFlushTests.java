@@ -43,7 +43,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
@@ -185,7 +184,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
                 nativeIndexWriterMockedStatic.when(
-                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
+                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory, null)
                 ).thenReturn(nativeIndexWriter);
             });
 
@@ -215,9 +214,13 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                     throw new RuntimeException(e);
                 }
             });
-            final Long expectedTimesGetVectorValuesIsCalled = vectorsPerField.stream().filter(Predicate.not(Map::isEmpty)).count();
+            final long expectedTimesGetVectorValuesIsCalled = vectorsPerField.stream().filter(m -> !m.isEmpty()).count();
             knnVectorValuesFactoryMockedStatic.verify(
-                () -> KNNVectorValuesFactory.getVectorValuesSupplier(any(VectorDataType.class), any(DocsWithFieldSet.class), any()),
+                () -> KNNVectorValuesFactory.getVectorValuesSupplier(
+                    any(VectorDataType.class),
+                    any(DocsWithFieldSet.class),
+                    any(Map.class)
+                ),
                 times(Math.toIntExact(expectedTimesGetVectorValuesIsCalled))
             );
         }
@@ -277,7 +280,13 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                 }
 
                 nativeIndexWriterMockedStatic.when(
-                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState, nativeIndexBuildStrategyFactory)
+                    () -> NativeIndexWriter.getWriter(
+                        fieldInfo,
+                        segmentWriteState,
+                        quantizationState,
+                        nativeIndexBuildStrategyFactory,
+                        null
+                    )
                 ).thenReturn(nativeIndexWriter);
             });
             doAnswer(answer -> {
@@ -310,9 +319,13 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                     throw new RuntimeException(e);
                 }
             });
-            final Long expectedTimesGetVectorValuesIsCalled = vectorsPerField.stream().filter(Predicate.not(Map::isEmpty)).count();
+            final long expectedTimesGetVectorValuesIsCalled = vectorsPerField.stream().filter(m -> !m.isEmpty()).count();
             knnVectorValuesFactoryMockedStatic.verify(
-                () -> KNNVectorValuesFactory.getVectorValuesSupplier(any(VectorDataType.class), any(DocsWithFieldSet.class), any()),
+                () -> KNNVectorValuesFactory.getVectorValuesSupplier(
+                    any(VectorDataType.class),
+                    any(DocsWithFieldSet.class),
+                    any(Map.class)
+                ),
                 times(Math.toIntExact(expectedTimesGetVectorValuesIsCalled))
             );
         }
@@ -370,7 +383,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
                 nativeIndexWriterMockedStatic.when(
-                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
+                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory, null)
                 ).thenReturn(nativeIndexWriter);
             });
 
@@ -445,7 +458,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
                 nativeIndexWriterMockedStatic.when(
-                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
+                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory, null)
                 ).thenReturn(nativeIndexWriter);
             });
 
@@ -520,7 +533,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
                 nativeIndexWriterMockedStatic.when(
-                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
+                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory, null)
                 ).thenReturn(nativeIndexWriter);
             });
 
@@ -604,7 +617,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
                 nativeIndexWriterMockedStatic.when(
-                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory)
+                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory, null)
                 ).thenReturn(nativeIndexWriter);
             });
 
@@ -698,7 +711,13 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                 }
 
                 nativeIndexWriterMockedStatic.when(
-                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState, nativeIndexBuildStrategyFactory)
+                    () -> NativeIndexWriter.getWriter(
+                        fieldInfo,
+                        segmentWriteState,
+                        quantizationState,
+                        nativeIndexBuildStrategyFactory,
+                        null
+                    )
                 ).thenReturn(nativeIndexWriter);
             });
             doAnswer(answer -> {
@@ -727,9 +746,13 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                     throw new RuntimeException(e);
                 }
             });
-            final Long expectedTimesGetVectorValuesIsCalled = vectorsPerField.stream().filter(Predicate.not(Map::isEmpty)).count();
+            final long expectedTimesGetVectorValuesIsCalled = vectorsPerField.stream().filter(m -> !m.isEmpty()).count();
             knnVectorValuesFactoryMockedStatic.verify(
-                () -> KNNVectorValuesFactory.getVectorValuesSupplier(any(VectorDataType.class), any(DocsWithFieldSet.class), any()),
+                () -> KNNVectorValuesFactory.getVectorValuesSupplier(
+                    any(VectorDataType.class),
+                    any(DocsWithFieldSet.class),
+                    any(Map.class)
+                ),
                 times(Math.toIntExact(expectedTimesGetVectorValuesIsCalled))
             );
         }
@@ -798,7 +821,13 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                 }
 
                 nativeIndexWriterMockedStatic.when(
-                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState, nativeIndexBuildStrategyFactory)
+                    () -> NativeIndexWriter.getWriter(
+                        fieldInfo,
+                        segmentWriteState,
+                        quantizationState,
+                        nativeIndexBuildStrategyFactory,
+                        null
+                    )
                 ).thenReturn(nativeIndexWriter);
             });
             doAnswer(answer -> {
@@ -827,9 +856,13 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                     throw new RuntimeException(e);
                 }
             });
-            final Long expectedTimesGetVectorValuesIsCalled = vectorsPerField.stream().filter(Predicate.not(Map::isEmpty)).count();
+            final long expectedTimesGetVectorValuesIsCalled = vectorsPerField.stream().filter(m -> !m.isEmpty()).count();
             knnVectorValuesFactoryMockedStatic.verify(
-                () -> KNNVectorValuesFactory.getVectorValuesSupplier(any(VectorDataType.class), any(DocsWithFieldSet.class), any()),
+                () -> KNNVectorValuesFactory.getVectorValuesSupplier(
+                    any(VectorDataType.class),
+                    any(DocsWithFieldSet.class),
+                    any(Map.class)
+                ),
                 times(Math.toIntExact(expectedTimesGetVectorValuesIsCalled))
             );
         }

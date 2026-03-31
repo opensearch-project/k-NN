@@ -16,6 +16,8 @@ import org.apache.lucene.util.hnsw.RandomVectorScorerSupplier;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.codec.KNN1040Codec.Faiss104ScalarQuantizedVectorScorer;
+import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
 import java.io.IOException;
@@ -42,25 +44,32 @@ public class FlatVectorsScorerProvider {
      * Returns the appropriate {@link FlatVectorsScorer} for the given field.
      * Selects an ADC, Hamming, or delegate scorer based on the field's quantization config and space type.
      *
-     * @param fieldInfo       the field info containing space type and quantization attributes
-     * @param delegateScorer  the default scorer to fall back to when no specialized scorer applies
+     * @param fieldInfo           the field info containing space type and quantization attributes
+     * @param similarityFunction  the similarity function used for scoring
+     * @param delegateScorer      the default scorer to fall back to when no specialized scorer applies; must not be null
      * @return the resolved {@link FlatVectorsScorer}
+     * @throws IllegalArgumentException if delegateScorer is null and no specialized scorer applies
      */
     public static FlatVectorsScorer getFlatVectorsScorer(
         final FieldInfo fieldInfo,
         final KNNVectorSimilarityFunction similarityFunction,
         final FlatVectorsScorer delegateScorer
     ) {
+        // TODO: Refactor with a Resolver
         // Handle Special case of ADC first.
         if (FieldInfoExtractor.isAdc(fieldInfo)) {
             return ADC_FLAT_SCORERS.get(FieldInfoExtractor.getSpaceType(null, fieldInfo));
         } else if (KNNVectorSimilarityFunction.HAMMING == similarityFunction) {
             // Since Lucene doesn't provide hamming distance scorer, we return our own hamming distance scorer
             return HAMMING_VECTOR_SCORER;
-        } else {
-            // For all other cases just return the delegate scorer.
-            return delegateScorer;
-        }
+        } else if (FieldInfoExtractor.isSQField(fieldInfo)
+            && FieldInfoExtractor.extractSQConfig(fieldInfo).getBits() == FaissSQEncoder.Bits.ONE.getValue()) {
+                return new Faiss104ScalarQuantizedVectorScorer(delegateScorer);
+            } else if (delegateScorer != null) {
+                // For all other cases, return the delegate scorer
+                return delegateScorer;
+            }
+        throw new IllegalArgumentException("delegateScorer must not be null");
     }
 
     private static class ADCFlatVectorsScorer implements FlatVectorsScorer {

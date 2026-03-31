@@ -7,6 +7,7 @@ package org.opensearch.knn.index.engine;
 
 import org.opensearch.Version;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
@@ -18,6 +19,8 @@ import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+
+import static org.opensearch.knn.common.KNNConstants.ENCODER_BINARY;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_BINARY;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
@@ -45,6 +48,11 @@ public class MemoryOptimizedSearchSupportSpec {
      * @return True if memory optimized search should be used otherwise False.
      */
     public static boolean isSupportedFieldType(final KNNVectorFieldType fieldType, final String indexName) {
+        // If the field is configured to always use memory optimized search, return true
+        if (fieldType.isAlwaysUseMemoryOptimizedSearch()) {
+            return true;
+        }
+
         if (fieldType.isMemoryOptimizedSearchAvailable()) {
             if (KNNSettings.isMemoryOptimizedKnnSearchModeEnabled(indexName)) {
                 final boolean shouldBlockMemoryOptimizedSearch = fieldType.getIndexCreatedVersion() == null
@@ -81,7 +89,7 @@ public class MemoryOptimizedSearchSupportSpec {
      *
      * @param methodContextOpt   Optional method context.
      * @param quantizationConfig Quantization configuration.
-     * @param modelId Model id.
+     * @param modelId            Model id.
      * @return True if memory-optimized-search is supported, otherwise false.
      */
     public static boolean isSupportedFieldType(
@@ -140,5 +148,19 @@ public class MemoryOptimizedSearchSupportSpec {
         return quantizationType == ScalarQuantizationType.ONE_BIT
             || quantizationType == ScalarQuantizationType.TWO_BIT
             || quantizationType == ScalarQuantizationType.FOUR_BIT;
+    }
+
+    /**
+     * Determines whether memory-optimized search must always be used for the given KNN method context,
+     * regardless of the cluster-level memory-optimized search setting. Currently, this returns {@code true}
+     * only when the encoder is sq with bits=1 (1-bit quantization), as these indices always require
+     * memory-optimized search for correctness.
+     *
+     * @param knnMethodContext Optional method context containing engine, space type, and encoder information.
+     * @return {@code true} if memory-optimized search should always be enabled, {@code false} otherwise.
+     */
+    public static boolean isAlwaysUseMemoryOptimizedSearch(final Optional<KNNMethodContext> knnMethodContext) {
+        return knnMethodContext.isPresent()
+            && FaissSQEncoder.isSQOneBit(knnMethodContext.get().getMethodComponentContext().getParameters());
     }
 }
