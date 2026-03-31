@@ -39,8 +39,8 @@ public class BuildIndexParams {
     SegmentWriteState segmentWriteState;
     boolean isFlush;
     /**
-     * Optional quantized byte vector values for BBQ (Binary Quantized) index building.
-     * Provided by Faiss104ScalarQuantizedKnnVectorsWriter, null for non-BBQ fields.
+     * Optional quantized byte vector values for SQ (Binary Quantized) index building.
+     * Provided by Faiss104ScalarQuantizedKnnVectorsWriter, null for non-SQ fields.
      */
     @Nullable
     QuantizedByteVectorValues quantizedByteVectorValues;

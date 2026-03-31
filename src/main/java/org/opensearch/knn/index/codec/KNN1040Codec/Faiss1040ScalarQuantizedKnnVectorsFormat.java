@@ -18,7 +18,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import java.io.IOException;
 
 /**
- * Dedicated format for Faiss BBQ (Better Binary Quantization) vector fields.
+ * Dedicated format for Faiss SQ vector fields.
  *
  * <p>Uses Lucene's {@link Lucene104ScalarQuantizedVectorsFormat} with 1-bit quantization
  * ({@link ScalarEncoding#SINGLE_BIT_QUERY_NIBBLE}) for flat vector storage (.vec/.veq files),

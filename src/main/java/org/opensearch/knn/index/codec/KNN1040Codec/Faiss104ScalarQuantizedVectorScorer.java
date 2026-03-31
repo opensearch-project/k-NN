@@ -127,7 +127,7 @@ public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantize
 
         // We only support 32x quantization with 4 bit query quantization for search.
         if (scalarEncoding != SINGLE_BIT_QUERY_NIBBLE) {
-            throw new IllegalStateException("Faiss BBQ only supports SINGLE_BIT_QUERY_NIBBLE encoding.");
+            throw new IllegalStateException("SQ only supports SINGLE_BIT_QUERY_NIBBLE encoding.");
         }
 
         // Validate dimensionality
@@ -207,7 +207,7 @@ public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantize
             super(knnVectorValues);
 
             // Initialize native SIMD search context
-            SimdVectorComputeService.saveBBQSearchContext(
+            SimdVectorComputeService.saveSQSearchContext(
                 targetQuantized,
                 targetCorrectiveTerms.lowerInterval(),
                 targetCorrectiveTerms.upperInterval(),
@@ -216,8 +216,8 @@ public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantize
                 addressAndSize,
                 similarityFunction == VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT
                     || similarityFunction == VectorSimilarityFunction.COSINE
-                        ? SimdVectorComputeService.SimilarityFunctionType.BBQ_IP.ordinal()
-                        : SimdVectorComputeService.SimilarityFunctionType.BBQ_L2.ordinal(),
+                        ? SimdVectorComputeService.SimilarityFunctionType.SQ_IP.ordinal()
+                        : SimdVectorComputeService.SimilarityFunctionType.SQ_L2.ordinal(),
                 dimension,
                 centroidDp
             );

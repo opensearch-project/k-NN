@@ -13,7 +13,7 @@ import java.util.Collections;
 import java.util.Map;
 
 /**
- * Search context for the Lucene flat (BBQ) method. The flat method performs
+ * Search context for the Lucene flat (SQ) method. The flat method performs
  * exact nearest-neighbor search using 1-bit scalar quantization and does not
  * expose any search-time parameters.
  */

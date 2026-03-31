@@ -24,11 +24,11 @@ public class SimdVectorComputeService {
         FP16_MAXIMUM_INNER_PRODUCT,
         // FP16 Maximum Inner Product. The result will be the same as we acquired from VectorSimilarityFunction.EUCLIDEAN.
         FP16_L2,
-        BBQ_IP,
-        BBQ_L2
+        SQ_IP,
+        SQ_L2
     }
 
-    public static native void saveBBQSearchContext(
+    public static native void saveSQSearchContext(
         byte[] quantizedQuery,
         float queryLowerInterval,
         float queryUpperInterval,
