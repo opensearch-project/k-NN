@@ -355,10 +355,13 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
     @SneakyThrows
     private void doSearchTest(final TestingSpec testingSpec, final IndexingType indexingType) {
         final List<SpaceType> spaceTypes;
-        if (testingSpec.dataType != VectorDataType.BINARY) {
-            spaceTypes = Arrays.asList(SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.COSINESIMIL);
-        } else {
+        if (testingSpec.dataType == VectorDataType.BINARY) {
             spaceTypes = Arrays.asList(SpaceType.HAMMING);
+        } else if (testingSpec.dataType == VectorDataType.BYTE) {
+            // Byte vectors cannot be L2-normalized, so cosine similarity is not supported.
+            spaceTypes = Arrays.asList(SpaceType.L2, SpaceType.INNER_PRODUCT);
+        } else {
+            spaceTypes = Arrays.asList(SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.COSINESIMIL);
         }
 
         for (final SpaceType spaceType : spaceTypes) {
