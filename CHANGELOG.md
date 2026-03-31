@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased 3.6](https://github.com/opensearch-project/k-NN/compare/main...HEAD)
 ### Features
-* Support Lucene BBQ Flat for 1 bit [#3154](https://github.com/opensearch-project/k-NN/pull/3154)
+* Support Lucene SQ Flat for 1 bit [#3154](https://github.com/opensearch-project/k-NN/pull/3154)
 * Add 32x support for SQ encoder on Faiss [#3193](https://github.com/opensearch-project/k-NN/pull/3193)
 * Faiss SQ 1bit MOS changes [#3182](https://github.com/opensearch-project/k-NN/pull/3182)
 * Support compression to 1 bit for Lucene's scalar quantizer [#3144](https://github.com/opensearch-project/k-NN/pull/3144)
@@ -27,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix radial search bug returning 0 results for IndexHNSWCagra [#3201](https://github.com/opensearch-project/k-NN/pull/3201)
 
 ### Refactoring
+* Refactor ExactSearcher to use VectorScorer instead of ExactKNNIterator [#3207](https://github.com/opensearch-project/k-NN/pull/3207)
 
 ### Enhancements
 * Make Merge in nativeEngine can Abort [#2529](https://github.com/opensearch-project/k-NN/pull/2529)

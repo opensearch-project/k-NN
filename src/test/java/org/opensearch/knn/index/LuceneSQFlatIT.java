@@ -6,6 +6,7 @@
 package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multimap;
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.After;
@@ -29,10 +30,19 @@ import java.util.Locale;
 
 import static org.apache.lucene.tests.util.LuceneTestCase.expectThrows;
 import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.EXPAND_NESTED;
+import static org.opensearch.knn.common.KNNConstants.K;
+import static org.opensearch.knn.common.KNNConstants.KNN;
+import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
+import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.PATH;
+import static org.opensearch.knn.common.KNNConstants.QUERY;
+import static org.opensearch.knn.common.KNNConstants.TYPE_NESTED;
+import static org.opensearch.knn.common.KNNConstants.VECTOR;
 
-public class LuceneBBQFlatIT extends KNNRestTestCase {
+public class LuceneSQFlatIT extends KNNRestTestCase {
 
     private static final int DIMENSION = 128;
     private static final String PROPERTIES_FIELD = "properties";
@@ -366,6 +376,170 @@ public class LuceneBBQFlatIT extends KNNRestTestCase {
             .endObject()
             .endObject();
         createKnnIndex(INDEX_NAME, builder.toString());
+    }
+
+    @SneakyThrows
+    public void testExpandNestedDocs_withFlatMethod() {
+        int numberOfNestedVectors = 2;
+        int numberOfDocs = 3;
+        int k = numberOfDocs;
+
+        // Create nested index with flat method
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES_FIELD)
+            .startObject(NESTED_FIELD_NAME)
+            .field(TYPE_FIELD, "nested")
+            .startObject(PROPERTIES_FIELD)
+            .startObject(NESTED_VECTOR_FIELD)
+            .field(TYPE_FIELD, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD, DIMENSION)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, METHOD_FLAT)
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        createKnnIndex(INDEX_NAME, builder.toString());
+
+        // Index docs, each with numberOfNestedVectors nested vectors
+        for (int i = 0; i < numberOfDocs; i++) {
+            NestedKnnDocBuilder docBuilder = NestedKnnDocBuilder.create(NESTED_FIELD_NAME);
+            for (int j = 0; j < numberOfNestedVectors; j++) {
+                Float[] vector = new Float[DIMENSION];
+                for (int d = 0; d < DIMENSION; d++) {
+                    vector[d] = (float) (i * numberOfNestedVectors + j + 1);
+                }
+                docBuilder.addVectors(NESTED_VECTOR_FIELD, vector);
+            }
+            addKnnDoc(INDEX_NAME, Integer.toString(i), docBuilder.build());
+        }
+        refreshIndex(INDEX_NAME);
+
+        // Query with expand_nested_docs=true — expect all nested docs per parent returned via inner_hits
+        Float[] queryVector = new Float[DIMENSION];
+        for (int d = 0; d < DIMENSION; d++) {
+            queryVector[d] = 1.0f;
+        }
+        Response response = queryNestedFieldWithExpandNestedDocs(INDEX_NAME, k, queryVector);
+        String entity = EntityUtils.toString(response.getEntity());
+
+        Multimap<String, Integer> docIdToOffsets = parseInnerHits(entity, NESTED_FIELD_NAME);
+        assertEquals(numberOfDocs, docIdToOffsets.keySet().size());
+        for (String docId : docIdToOffsets.keySet()) {
+            assertEquals(
+                "Each parent doc should have all nested vectors in inner_hits",
+                numberOfNestedVectors,
+                docIdToOffsets.get(docId).size()
+            );
+        }
+    }
+
+    private Response queryNestedFieldWithExpandNestedDocs(final String index, final int k, final Float[] vector) throws IOException {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(QUERY)
+            .startObject(TYPE_NESTED)
+            .field(PATH, NESTED_FIELD_NAME)
+            .startObject(QUERY)
+            .startObject(KNN)
+            .startObject(NESTED_FIELD_NAME + "." + NESTED_VECTOR_FIELD)
+            .field(VECTOR, vector)
+            .field(K, k)
+            .field(EXPAND_NESTED, true)
+            .endObject()
+            .endObject()
+            .endObject()
+            .startObject("inner_hits")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        Request request = new Request("POST", "/" + index + "/_search");
+        request.setJsonEntity(builder.toString());
+        Response response = client().performRequest(request);
+        assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        return response;
+    }
+
+    @SneakyThrows
+    public void testRadialSearch_withMinScore() {
+        createFlatIndex(SpaceType.L2);
+        indexTestDocs();
+
+        // L2 scores from all-1s query: doc0(all 1s)=1.0, doc1(all 2s)=1/(1+128), doc2..doc4 even lower
+        // Only doc0 should have score >= 0.9
+        float minScore = 0.9f;
+        int[] expectedResultCounts = { 1, 1, 1 };
+        float[][] queryVectors = { generateVector(DIMENSION, 1.0f), generateVector(DIMENSION, 1.0f), generateVector(DIMENSION, 1.0f) };
+
+        validateRadiusSearchResults(queryVectors, null, minScore, expectedResultCounts);
+    }
+
+    @SneakyThrows
+    public void testRadialSearch_withMaxDistance() {
+        createFlatIndex(SpaceType.L2);
+        indexTestDocs();
+
+        // L2 squared distances from all-1s query: doc0=0, doc1=128*(2-1)^2=128, doc2=128*(3-1)^2=512, ...
+        // Only doc0 and doc1 should be within maxDistance=200
+        float maxDistance = 200.0f;
+        int[] expectedResultCounts = { 2, 2, 2 };
+        float[][] queryVectors = { generateVector(DIMENSION, 1.0f), generateVector(DIMENSION, 1.0f), generateVector(DIMENSION, 1.0f) };
+
+        validateRadiusSearchResults(queryVectors, maxDistance, null, expectedResultCounts);
+    }
+
+    private void validateRadiusSearchResults(
+        final float[][] queryVectors,
+        final Float maxDistance,
+        final Float minScore,
+        final int[] expectedResultCounts
+    ) throws Exception {
+        for (int i = 0; i < queryVectors.length; i++) {
+            XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("query")
+                .startObject("knn")
+                .startObject(FIELD_NAME)
+                .field("vector", queryVectors[i]);
+            if (maxDistance != null) {
+                builder.field(MAX_DISTANCE, maxDistance);
+            } else if (minScore != null) {
+                builder.field(MIN_SCORE, minScore);
+            } else {
+                throw new IllegalArgumentException("Either maxDistance or minScore must be provided");
+            }
+            builder.endObject().endObject().endObject().endObject();
+
+            String responseBody = EntityUtils.toString(searchKNNIndex(INDEX_NAME, builder, expectedResultCounts[i]).getEntity());
+            List<KNNResult> results = parseSearchResponse(responseBody, FIELD_NAME);
+            assertEquals(expectedResultCounts[i], results.size());
+
+            List<Float> scores = parseSearchResponseScore(responseBody, FIELD_NAME);
+            for (int j = 0; j < results.size(); j++) {
+                if (minScore != null) {
+                    assertTrue(
+                        String.format(Locale.ROOT, "Score %.4f should be >= minScore %.4f", scores.get(j), minScore),
+                        scores.get(j) >= minScore - 0.001f
+                    );
+                }
+                if (maxDistance != null) {
+                    float score = scores.get(j);
+                    // L2 score = 1 / (1 + distance), so distance = (1/score) - 1
+                    float distance = (1.0f / score) - 1.0f;
+                    assertTrue(
+                        String.format(Locale.ROOT, "Distance %.4f should be <= maxDistance %.4f", distance, maxDistance),
+                        distance <= maxDistance + 0.001f
+                    );
+                }
+            }
+        }
     }
 
     private void indexTestDocs() throws Exception {
