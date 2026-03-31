@@ -10,6 +10,7 @@ import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.KnnVectorValues;
+import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.DocAndFloatFeatureBuffer;
 import org.apache.lucene.search.DocIdSetIterator;
@@ -31,6 +32,10 @@ public class FaissScorableByteVectorValuesTests extends KNNTestCase {
 
     private static final int DIMENSION = 4;
     private static final List<byte[]> VECTORS = List.of(new byte[] { 1, 2, 3, 4 }, new byte[] { 5, 6, 7, 8 }, new byte[] { 9, 10, 11, 12 });
+
+    public void testAllByteVectorValuesMethodsAreOverridden() {
+        assertAllMethodsOverridden(ByteVectorValues.class, FaissScorableByteVectorValues.class);
+    }
 
     public void testNullDelegateThrows() {
         expectThrows(
@@ -234,6 +239,37 @@ public class FaissScorableByteVectorValuesTests extends KNNTestCase {
         // scorer's iterator should be the same override instance
         final VectorScorer scorer = wrapper.scorer(target);
         assertSame(overrideIterator, scorer.iterator());
+    }
+
+    @SneakyThrows
+    public void testDelegatesRescorer() {
+        final byte[] target = new byte[] { 1, 2, 3, 4 };
+        final VectorScorer expectedScorer = mock(VectorScorer.class);
+
+        final ByteVectorValues delegate = mock(ByteVectorValues.class);
+        when(delegate.rescorer(target)).thenReturn(expectedScorer);
+
+        final FaissScorableByteVectorValues wrapper = new FaissScorableByteVectorValues(
+            delegate,
+            mock(FlatVectorsScorer.class),
+            VectorSimilarityFunction.EUCLIDEAN,
+            null
+        );
+
+        assertSame(expectedScorer, wrapper.rescorer(target));
+        verify(delegate).rescorer(target);
+    }
+
+    @SneakyThrows
+    public void testDelegatesGetEncoding() {
+        final FaissScorableByteVectorValues wrapper = createWrapper();
+        assertEquals(VectorEncoding.BYTE, wrapper.getEncoding());
+    }
+
+    @SneakyThrows
+    public void testDelegatesGetVectorByteLength() {
+        final FaissScorableByteVectorValues wrapper = createWrapper();
+        assertEquals(DIMENSION, wrapper.getVectorByteLength());
     }
 
     @SneakyThrows

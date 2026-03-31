@@ -7,6 +7,7 @@ package org.opensearch.knn.memoryoptsearch.faiss;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.VectorScorer;
@@ -79,6 +80,21 @@ public class FaissScorableByteVectorValues extends ByteVectorValues implements H
     @Override
     public FaissScorableByteVectorValues copy() throws IOException {
         return new FaissScorableByteVectorValues(delegate.copy(), flatVectorsScorer, similarityFunction, overrideIterator);
+    }
+
+    @Override
+    public int getVectorByteLength() {
+        return delegate.getVectorByteLength();
+    }
+
+    @Override
+    public VectorEncoding getEncoding() {
+        return delegate.getEncoding();
+    }
+
+    @Override
+    public VectorScorer rescorer(byte[] target) throws IOException {
+        return delegate.rescorer(target);
     }
 
     @Override
