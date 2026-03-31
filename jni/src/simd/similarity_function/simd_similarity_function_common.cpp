@@ -233,8 +233,8 @@ SimdVectorSearchContext* SimilarityFunction::saveSearchContext(
         // Assign query to Faiss function
         THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction->set_query(
             reinterpret_cast<float*>(THREAD_LOCAL_SIMD_VEC_SRCH_CTX.queryVectorSimdAligned));
-    } else if (nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::BBQ_IP)
-               || nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::BBQ_L2)) {
+    } else if (nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ_IP)
+               || nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ_L2)) {
          // Set similarity function to offload similarity calculation
          THREAD_LOCAL_SIMD_VEC_SRCH_CTX.similarityFunction =
              selectSimilarityFunction(static_cast<NativeSimilarityFunctionType>(nativeFunctionTypeOrd));

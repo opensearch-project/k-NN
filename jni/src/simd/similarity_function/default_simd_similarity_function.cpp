@@ -47,7 +47,7 @@ DefaultFP16SimilarityFunction<FaissScoreToLuceneScoreTransform::l2TransformBulk,
 
 
 //
-// BBQ (ADC: 4-bit query x 1-bit data) - Default (non-SIMD) implementation
+// SQ (ADC: 4-bit query x 1-bit data) - Default (non-SIMD) implementation
 //
 // Pure C++ implementation written for compiler auto-vectorization with -O3.
 // No SIMD intrinsics. Uses __builtin_popcount[ll] and std::memcpy.
@@ -157,7 +157,7 @@ static FORCE_INLINE void default4bitDotProductBatch(
 }
 
 template <bool IsMaxIP>
-struct DefaultBBQSimilarityFunction final : SimilarityFunction {
+struct DefaultSQSimilarityFunction final : SimilarityFunction {
     HOT_SPOT void calculateSimilarityInBulk(SimdVectorSearchContext* srchContext,
                                             int32_t* internalVectorIds,
                                             float* scores,
@@ -290,12 +290,12 @@ struct DefaultBBQSimilarityFunction final : SimilarityFunction {
 };
 
 //
-// BBQ
+// SQ
 //
 // 1. Max IP
-DefaultBBQSimilarityFunction<true> BBQ_IP_SIMIL_FUNC;
+DefaultSQSimilarityFunction<true> SQ_IP_SIMIL_FUNC;
 // 2. L2
-DefaultBBQSimilarityFunction<false> BBQ_L2_SIMIL_FUNC;
+DefaultSQSimilarityFunction<false> SQ_L2_SIMIL_FUNC;
 
 #ifndef __NO_SELECT_FUNCTION
 SimilarityFunction* SimilarityFunction::selectSimilarityFunction(const NativeSimilarityFunctionType nativeFunctionType) {
@@ -303,10 +303,10 @@ SimilarityFunction* SimilarityFunction::selectSimilarityFunction(const NativeSim
         return &DEFAULT_FP16_MAX_INNER_PRODUCT_SIMIL_FUNC;
     } else if (nativeFunctionType == NativeSimilarityFunctionType::FP16_L2) {
         return &DEFAULT_FP16_L2_SIMIL_FUNC;
-    } else if (nativeFunctionType == NativeSimilarityFunctionType::BBQ_IP) {
-        return &BBQ_IP_SIMIL_FUNC;
-    } else if (nativeFunctionType == NativeSimilarityFunctionType::BBQ_L2) {
-        return &BBQ_L2_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ_IP) {
+        return &SQ_IP_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ_L2) {
+        return &SQ_L2_SIMIL_FUNC;
     }
 
     throw std::runtime_error("Invalid native similarity function type was given, nativeFunctionType="

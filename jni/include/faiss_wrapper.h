@@ -21,7 +21,7 @@ namespace knn_jni {
     namespace faiss_wrapper {
         jlong InitIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jlong numDocs, jint dimJ, jobject parametersJ, IndexService *indexService);
 
-        jlong InitFaissBBQIndex(knn_jni::JNIUtilInterface *jniUtil,
+        jlong InitFaissSQIndex(knn_jni::JNIUtilInterface *jniUtil,
                                 JNIEnv *env,
                                 jlong numDocs,
                                 jint dimJ,
