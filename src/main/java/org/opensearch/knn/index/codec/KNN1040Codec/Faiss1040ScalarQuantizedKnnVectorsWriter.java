@@ -28,13 +28,13 @@ import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
 import java.io.IOException;
 
 /**
- * Writer for Faiss BBQ vector fields. Unlike {@link org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsWriter}
+ * Writer for Faiss SQ vector fields. Unlike {@link org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsWriter}
  * which handles multiple fields, this writer handles exactly one field per format instance
- * (since each BBQ field gets its own dedicated format via per-field routing).
+ * (since each SQ field gets its own dedicated format via per-field routing).
  *
  * <p>Write path:
  * <ol>
- *   <li>Flat vectors are written by Lucene's BBQ flat writer (.vec + .veq/.vemq files)</li>
+ *   <li>Flat vectors are written by Lucene's SQ flat writer (.vec + .veq/.vemq files)</li>
  *   <li>HNSW graph is built by native Faiss via {@link NativeIndexWriter} (.faiss file)</li>
  * </ol>
  *
@@ -46,7 +46,7 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
 
     private final SegmentWriteState segmentWriteState;
     private final FlatVectorsWriter flatVectorsWriter;
-    // Single field — BBQ gets a dedicated format per field via BasePerFieldKnnVectorsFormat
+    // Single field — SQ gets a dedicated format per field via BasePerFieldKnnVectorsFormat
     private FlatFieldVectorsWriter<?> fieldWriter;
     private FieldInfo fieldInfo;
     private boolean finished;
@@ -83,7 +83,7 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
     }
 
     /**
-     * Flushes flat vectors first (Lucene BBQ format), then builds the native HNSW graph.
+     * Flushes flat vectors first (Lucene SQ format), then builds the native HNSW graph.
      *
      * <p>The flat writer is flushed, finished, and closed before the native build so that
      * the .vec and .veb files are fully written and file handles released. The writer then

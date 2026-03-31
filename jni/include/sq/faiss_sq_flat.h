@@ -1,5 +1,5 @@
-#ifndef KNNPLUGIN_JNI_FAISS_BBQ_FLAT_H
-#define KNNPLUGIN_JNI_FAISS_BBQ_FLAT_H
+#ifndef KNNPLUGIN_JNI_FAISS_SQ_FLAT_H
+#define KNNPLUGIN_JNI_FAISS_SQ_FLAT_H
 
 #include "faiss/Index.h"
 #include "faiss/IndexBinary.h"
@@ -341,4 +341,4 @@ namespace knn_jni {
 
 }
 
-#endif //KNNPLUGIN_JNI_FAISS_BBQ_FLAT_H
+#endif //KNNPLUGIN_JNI_FAISS_SQ_FLAT_H
