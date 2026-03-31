@@ -27,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix radial search bug returning 0 results for IndexHNSWCagra [#3201](https://github.com/opensearch-project/k-NN/pull/3201)
 
 ### Refactoring
+* Refactor ExactSearcher to use VectorScorer instead of ExactKNNIterator [#3207](https://github.com/opensearch-project/k-NN/pull/3207)
 
 ### Enhancements
 * Make Merge in nativeEngine can Abort [#2529](https://github.com/opensearch-project/k-NN/pull/2529)
