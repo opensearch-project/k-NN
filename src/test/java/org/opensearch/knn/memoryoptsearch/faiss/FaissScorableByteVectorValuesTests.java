@@ -7,12 +7,14 @@ package org.opensearch.knn.memoryoptsearch.faiss;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
+import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.DocAndFloatFeatureBuffer;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.VectorScorer;
+import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues.PreDefinedByteVectorValues;
@@ -234,6 +236,28 @@ public class FaissScorableByteVectorValuesTests extends KNNTestCase {
         assertSame(overrideIterator, scorer.iterator());
     }
 
+    @SneakyThrows
+    public void testGetSliceReturnsNullWhenDelegateDoesNotSupportIt() {
+        final FaissScorableByteVectorValues wrapper = createWrapper();
+        assertNull(wrapper.getSlice());
+    }
+
+    @SneakyThrows
+    public void testGetSliceReturnsDelegateSlice() {
+        final IndexInput expectedSlice = mock(IndexInput.class);
+        final ByteVectorValues delegate = mock(ByteVectorValuesWithSlice.class);
+        when(((HasIndexSlice) delegate).getSlice()).thenReturn(expectedSlice);
+
+        final FaissScorableByteVectorValues wrapper = new FaissScorableByteVectorValues(
+            delegate,
+            mock(FlatVectorsScorer.class),
+            VectorSimilarityFunction.EUCLIDEAN,
+            null
+        );
+
+        assertSame(expectedSlice, wrapper.getSlice());
+    }
+
     private static FaissScorableByteVectorValues createWrapper() {
         return new FaissScorableByteVectorValues(
             new PreDefinedByteVectorValues(VECTORS),
@@ -242,4 +266,9 @@ public class FaissScorableByteVectorValuesTests extends KNNTestCase {
             null
         );
     }
+
+    /**
+     * Abstract class combining {@link ByteVectorValues} and {@link HasIndexSlice} for mocking.
+     */
+    private static abstract class ByteVectorValuesWithSlice extends ByteVectorValues implements HasIndexSlice {}
 }

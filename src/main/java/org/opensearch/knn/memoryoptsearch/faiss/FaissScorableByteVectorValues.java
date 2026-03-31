@@ -5,11 +5,12 @@
 package org.opensearch.knn.memoryoptsearch.faiss;
 
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
+import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.ByteVectorValues;
-import org.apache.lucene.index.KnnVectorValues.DocIndexIterator;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.VectorScorer;
+import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 
@@ -26,7 +27,7 @@ import java.io.IOException;
  * When present, both {@link #iterator()} and the scorer returned by {@link #scorer(byte[])}
  * use this iterator instead of the delegate's default one.
  */
-public class FaissScorableByteVectorValues extends ByteVectorValues {
+public class FaissScorableByteVectorValues extends ByteVectorValues implements HasIndexSlice {
 
     private final ByteVectorValues delegate;
     private final FlatVectorsScorer flatVectorsScorer;
@@ -122,5 +123,17 @@ public class FaissScorableByteVectorValues extends ByteVectorValues {
                 return Bulk.fromRandomScorerSparse(rvs, iterator, matchingDocs);
             }
         };
+    }
+
+    /**
+     * Returns the underlying {@link IndexInput} slice if the delegate supports
+     * {@link HasIndexSlice}, otherwise returns {@code null}.
+     */
+    @Override
+    public IndexInput getSlice() {
+        if (delegate instanceof HasIndexSlice supportsIndexSlice) {
+            return supportsIndexSlice.getSlice();
+        }
+        return null;
     }
 }
