@@ -37,7 +37,7 @@ import java.util.function.Function;
  * for HNSW, {@link Lucene99RWHnswScalarQuantizedVectorsFormat} for scalar quantization (to
  * preserve the {@code confidenceInterval} parameter), and
  * {@link Lucene104ScalarQuantizedVectorsFormat} with {@code SINGLE_BIT_QUERY_NIBBLE} encoding
- * for the flat BBQ method.
+ * for the flat SQ method.
  */
 public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVectorsFormat {
 

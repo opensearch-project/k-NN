@@ -104,7 +104,7 @@ public:
      */
     jlong initIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric, std::string indexDescription, int dim, int numVectors, int threadCount, std::unordered_map<std::string, jobject> parameters) final;
 
-    jlong initFaissBBQIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric,
+    jlong initFaissSQIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric,
                             std::string indexDescription, int dim, int numVectors, int threadCount,
                             std::unordered_map<std::string, jobject> parameters, float centroidDp, int quantizedVectorBytes);
 

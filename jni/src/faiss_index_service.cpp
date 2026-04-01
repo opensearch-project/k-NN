@@ -206,7 +206,7 @@ jlong BinaryIndexService::initIndex(
     return reinterpret_cast<jlong>(idMap.release());
 }
 
-jlong BinaryIndexService::initFaissBBQIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric,
+jlong BinaryIndexService::initFaissSQIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric,
                                             std::string indexDescription, int dim, int numVectors, int threadCount,
                                             std::unordered_map<std::string, jobject> parameters, float centroidDp, int quantizedVectorBytes) {
     if (auto it = parameters.find(M); it == parameters.end()) {
@@ -216,8 +216,8 @@ jlong BinaryIndexService::initFaissBBQIndex(knn_jni::JNIUtilInterface *jniUtil, 
     // Extract `m` from the binary index
     const int32_t m = jniUtil->ConvertJavaObjectToCppInteger(env, parameters[M]);
 
-    // Create Faiss BBQ HNSW Index
-    std::unique_ptr<knn_jni::FaissSQHnsw> faissBBQHnsw (new knn_jni::FaissSQHnsw(
+    // Create Faiss SQ HNSW Index
+    std::unique_ptr<knn_jni::FaissSQHnsw> faissSQHnsw (new knn_jni::FaissSQHnsw(
         m, new knn_jni::FaissSQFlat(numVectors, quantizedVectorBytes, centroidDp, dim, metric)));
 
     // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
@@ -226,10 +226,10 @@ jlong BinaryIndexService::initFaissBBQIndex(knn_jni::JNIUtilInterface *jniUtil, 
     }
 
     // Add extra parameters that cant be configured with the index factory
-    SetExtraParameters<faiss::IndexBinary, faiss::IndexBinaryIVF, faiss::IndexBinaryHNSW>(jniUtil, env, parameters, faissBBQHnsw.get());
+    SetExtraParameters<faiss::IndexBinary, faiss::IndexBinaryIVF, faiss::IndexBinaryHNSW>(jniUtil, env, parameters, faissSQHnsw.get());
 
     // Creating id-mapping top layer
-    std::unique_ptr<faiss::IndexBinaryIDMap> idMap (faissMethods->indexBinaryIdMap(faissBBQHnsw.release()));
+    std::unique_ptr<faiss::IndexBinaryIDMap> idMap (faissMethods->indexBinaryIdMap(faissSQHnsw.release()));
 
     // Makes sure the index is deleted when the destructor is called, this cannot be passed in the constructor
     idMap->own_fields = true;
