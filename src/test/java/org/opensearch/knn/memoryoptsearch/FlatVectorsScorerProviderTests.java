@@ -17,6 +17,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNN1040Codec.KNN1040ScalarQuantizedVectorScorer;
+import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer;
 import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
 
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -96,6 +97,12 @@ public class FlatVectorsScorerProviderTests extends KNNTestCase {
         KNN1040ScalarQuantizedVectorScorer scorer = FlatVectorsScorerProvider.getKNN1040ScalarQuantizedVectorScorer(VECTOR_SCORER);
         assertNotNull(scorer);
         assertTrue(scorer instanceof KNN1040ScalarQuantizedVectorScorer);
+    }
+
+    public void testGetPrefetchableLucene99FlatVectorsScorer_returnsPrefetchableScorer() {
+        FlatVectorsScorer scorer = FlatVectorsScorerProvider.getPrefetchableLucene99FlatVectorsScorer();
+        assertNotNull(scorer);
+        assertTrue(scorer instanceof PrefetchableFlatVectorScorer);
     }
 
     public void testNonHammingScoring() {

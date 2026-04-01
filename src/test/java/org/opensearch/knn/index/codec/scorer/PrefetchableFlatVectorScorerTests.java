@@ -18,9 +18,6 @@ public class PrefetchableFlatVectorScorerTests extends KNNTestCase {
     @Test
     public void testDeclaredMethodsOverridden() {
         assertAllMethodsOverridden(FlatVectorsScorer.class, PrefetchableFlatVectorScorer.class);
-        assertAllMethodsOverridden(
-            PrefetchableFlatVectorScorer.PrefetchableRandomVectorScorer.class.getSuperclass(),
-            PrefetchableFlatVectorScorer.PrefetchableRandomVectorScorer.class
-        );
+        assertAllMethodsOverridden(PrefetchableRandomVectorScorer.class.getSuperclass(), PrefetchableRandomVectorScorer.class);
     }
 }
