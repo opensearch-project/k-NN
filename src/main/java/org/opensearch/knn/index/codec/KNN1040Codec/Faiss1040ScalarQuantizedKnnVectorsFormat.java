@@ -52,17 +52,17 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
     }
 
     /**
-     * Wraps the Lucene flat vectors reader with {@link Faiss1040PrefetchSupportKnnVectorReader} so that
+     * Wraps the Lucene flat vectors reader with {@link Faiss1040ScalarQuantizedFlatVectorsReader} so that
      * the {@link org.apache.lucene.index.FloatVectorValues} returned by the reader implement
      * {@link org.apache.lucene.codecs.lucene95.HasIndexSlice}. This is required because Lucene's
-     * prefetch-enabled HNSW traversal expects all vector values to expose an {@link org.apache.lucene.store.IndexInput}
-     * for I/O prefetching, but Lucene's {@code ScalarQuantizedVectorValues} does not implement that interface.
+     * HNSW traversal expects all vector values to expose an {@link org.apache.lucene.store.IndexInput},
+     * but Lucene's {@code ScalarQuantizedVectorValues} does not implement that interface.
      */
     @Override
     public KnnVectorsReader fieldsReader(SegmentReadState state) throws IOException {
         return new Faiss1040ScalarQuantizedKnnVectorsReader(
             state,
-            new Faiss1040PrefetchSupportKnnVectorReader(faissSqFlatFormat.fieldsReader(state))
+            new Faiss1040ScalarQuantizedFlatVectorsReader(faissSqFlatFormat.fieldsReader(state))
         );
     }
 
