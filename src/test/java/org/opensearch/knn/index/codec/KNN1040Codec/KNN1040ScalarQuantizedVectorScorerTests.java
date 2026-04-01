@@ -29,7 +29,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @Log4j2
-public class Faiss104ScalarQuantizedVectorScorerTests extends KNNTestCase {
+public class KNN1040ScalarQuantizedVectorScorerTests extends KNNTestCase {
 
     /**
      * A concrete stub extending KnnVectorValues that declares the private field
@@ -65,7 +65,7 @@ public class Faiss104ScalarQuantizedVectorScorerTests extends KNNTestCase {
         final FlatVectorsScorer mockDelegate = mock(FlatVectorsScorer.class);
 
         // Create the scorer under test
-        final Faiss104ScalarQuantizedVectorScorer scorer = new Faiss104ScalarQuantizedVectorScorer(mockDelegate);
+        final KNN1040ScalarQuantizedVectorScorer scorer = new KNN1040ScalarQuantizedVectorScorer(mockDelegate);
 
         // Set up QuantizedByteVectorValues mock with all methods needed by the parent class
         final int dimension = 8;
