@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix FaissIdMap honor the given acceptOrds for sparse case. [#3196](https://github.com/opensearch-project/k-NN/pull/3196)
 * Fix radial search bug returning 0 results for IndexHNSWCagra [#3201](https://github.com/opensearch-project/k-NN/pull/3201)
 * Fix default encoder to SQ 1 bit for faiss 32x compression [#3210](https://github.com/opensearch-project/k-NN/pull/3210)
+* Implement HasIndexSlice interface in FaissScorableByteVectorValues to support prefetch optimization [#3240](https://github.com/opensearch-project/k-NN/pull/3240)
 
 ### Refactoring
 * Refactor ExactSearcher to use VectorScorer instead of ExactKNNIterator [#3207](https://github.com/opensearch-project/k-NN/pull/3207)
