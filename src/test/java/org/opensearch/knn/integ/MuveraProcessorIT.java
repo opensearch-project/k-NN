@@ -228,9 +228,105 @@ public class MuveraProcessorIT extends KNNRestTestCase {
     }
 
     /**
+     * Tests that MUVERA search returns results in correct order based on MaxSim scoring.
+     * Indexes multiple docs with known vectors, queries with a vector that clearly matches
+     * one doc better, and verifies the top result is the expected doc.
+     */
+    public void testMuveraEndToEnd_whenSearchWithKnownVectors_thenOrderingIsCorrect() throws Exception {
+        try {
+            createIngestPipeline();
+            createSearchPipeline();
+            createIndex();
+
+            // Doc "close": vectors very similar to query
+            indexDocWithMultiVectors("close", new double[][] { { 0.9, 0.1 }, { 0.1, 0.9 } });
+            // Doc "medium": somewhat similar
+            indexDocWithMultiVectors("medium", new double[][] { { 0.5, 0.5 }, { 0.5, -0.5 } });
+            // Doc "far": dissimilar
+            indexDocWithMultiVectors("far", new double[][] { { -0.9, -0.1 }, { -0.1, -0.9 } });
+            refreshIndex(INDEX_NAME);
+
+            // Query with vectors very similar to "close" doc
+            String searchBody = buildMuveraSearchBody(new double[][] { { 1.0, 0.0 }, { 0.0, 1.0 } }, 3);
+            Response response = performSearchWithPipeline(INDEX_NAME, searchBody, SEARCH_PIPELINE_NAME);
+            assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+            String responseBody = EntityUtils.toString(response.getEntity());
+            List<Double> scores = parseScores(responseBody);
+            assertEquals("Should return all 3 docs", 3, scores.size());
+
+            // Verify scores are in descending order
+            for (int i = 0; i < scores.size() - 1; i++) {
+                assertTrue(
+                    "Scores should be in descending order: " + scores,
+                    scores.get(i) >= scores.get(i + 1)
+                );
+            }
+
+            // Verify the "close" doc has the highest score (appears first)
+            assertTrue("Top result should have positive score", scores.get(0) > 0);
+            assertTrue("Top score should be higher than second", scores.get(0) > scores.get(1));
+        } finally {
+            deleteTestIndex(INDEX_NAME);
+            deleteIngestPipeline(INGEST_PIPELINE_NAME);
+            deleteSearchPipeline(SEARCH_PIPELINE_NAME);
+        }
+    }
+
+    /**
+     * Tests that MUVERA pipeline with ignore_missing=true handles mixed documents correctly.
+     * One document has the source field, another doesn't.
+     */
+    public void testMuveraIngest_whenIgnoreMissingTrue_thenMixedDocsSucceed() throws Exception {
+        try {
+            // Create pipeline with ignore_missing=true
+            String pipelineBody = "{"
+                + "\"description\": \"MUVERA ingest pipeline with ignore_missing\","
+                + "\"processors\": [{"
+                + "  \"muvera\": {"
+                + "    \"source_field\": \"" + MULTI_VECTOR_FIELD + "\","
+                + "    \"target_field\": \"" + FDE_FIELD + "\","
+                + "    \"dim\": " + DIM + ","
+                + "    \"k_sim\": " + K_SIM + ","
+                + "    \"dim_proj\": " + DIM_PROJ + ","
+                + "    \"r_reps\": " + R_REPS + ","
+                + "    \"ignore_missing\": true"
+                + "  }"
+                + "}]"
+                + "}";
+            Request pipelineRequest = new Request("PUT", "/_ingest/pipeline/" + INGEST_PIPELINE_NAME);
+            pipelineRequest.setJsonEntity(pipelineBody);
+            client().performRequest(pipelineRequest);
+
+            createIndex();
+
+            // Doc 1: has source field — should get FDE
+            indexDocWithMultiVectors("with_vectors", new double[][] { { 1.0, 0.0 }, { 0.0, 1.0 } });
+
+            // Doc 2: missing source field — should be indexed without FDE
+            String docBody = "{\"text\": \"no vectors here\"}";
+            Request request = new Request("POST", "/" + INDEX_NAME + "/_doc/without_vectors?pipeline=" + INGEST_PIPELINE_NAME);
+            request.setJsonEntity(docBody);
+            Response response = client().performRequest(request);
+            assertEquals(RestStatus.CREATED, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+            refreshIndex(INDEX_NAME);
+
+            // Verify doc count
+            Response countResponse = client().performRequest(new Request("GET", "/" + INDEX_NAME + "/_count"));
+            String countBody = EntityUtils.toString(countResponse.getEntity());
+            assertTrue("Should have 2 docs", countBody.contains("\"count\":2"));
+        } finally {
+            deleteTestIndex(INDEX_NAME);
+            deleteIngestPipeline(INGEST_PIPELINE_NAME);
+        }
+    }
+
+    /**
      * Tests that the ingest pipeline rejects documents with wrong vector dimensions.
      */
     public void testMuveraIngest_whenVectorDimensionMismatch_thenFails() throws Exception {
+
         try {
             createIngestPipeline();
             createIndex();

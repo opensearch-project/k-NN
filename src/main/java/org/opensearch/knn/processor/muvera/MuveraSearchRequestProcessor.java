@@ -297,7 +297,7 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
             int kSim = ConfigurationUtils.readIntProperty(TYPE, tag, config, "k_sim", 4);
             int dimProj = ConfigurationUtils.readIntProperty(TYPE, tag, config, "dim_proj", 8);
             int rReps = ConfigurationUtils.readIntProperty(TYPE, tag, config, "r_reps", 20);
-            long seed = readLongProperty(TYPE, tag, config, "seed", 42L);
+            long seed = MuveraProcessorUtils.readLongProperty(TYPE, tag, config, "seed", 42L);
             int oversampleFactor = ConfigurationUtils.readIntProperty(TYPE, tag, config, "oversample_factor", 4);
             if (oversampleFactor <= 0) {
                 throw ConfigurationUtils.newConfigurationException(
@@ -376,33 +376,6 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
                 oversampleFactor
             );
         }
-
-        private static long readLongProperty(
-            String processorType,
-            String processorTag,
-            Map<String, Object> config,
-            String propertyName,
-            long defaultValue
-        ) {
-            Object value = config.remove(propertyName);
-            if (value == null) {
-                return defaultValue;
-            }
-            try {
-                return Long.parseLong(value.toString());
-            } catch (NumberFormatException e) {
-                throw new IllegalArgumentException(
-                    "["
-                        + processorType
-                        + "] processor ["
-                        + processorTag
-                        + "] property ["
-                        + propertyName
-                        + "] is not a valid long: ["
-                        + value
-                        + "]"
-                );
-            }
         }
     }
 }

@@ -204,7 +204,7 @@ public class MuveraIngestProcessor extends AbstractProcessor {
             int kSim = ConfigurationUtils.readIntProperty(TYPE, tag, config, "k_sim", 4);
             int dimProj = ConfigurationUtils.readIntProperty(TYPE, tag, config, "dim_proj", 8);
             int rReps = ConfigurationUtils.readIntProperty(TYPE, tag, config, "r_reps", 20);
-            long seed = readLongProperty(TYPE, tag, config, "seed", 42L);
+            long seed = MuveraProcessorUtils.readLongProperty(TYPE, tag, config, "seed", 42L);
 
             MuveraEncoder encoder = new MuveraEncoder(dim, kSim, dimProj, rReps, seed);
             int computedDimension = encoder.getEmbeddingSize();
@@ -267,33 +267,4 @@ public class MuveraIngestProcessor extends AbstractProcessor {
                 tag, description, sourceField, targetField, encoder, dim, computedDimension, ignoreMissing
             );
         }
-
-        private static long readLongProperty(
-            String processorType,
-            String processorTag,
-            Map<String, Object> config,
-            String propertyName,
-            long defaultValue
-        ) {
-            Object value = config.remove(propertyName);
-            if (value == null) {
-                return defaultValue;
-            }
-            try {
-                return Long.parseLong(value.toString());
-            } catch (NumberFormatException e) {
-                throw new IllegalArgumentException(
-                    "["
-                        + processorType
-                        + "] processor ["
-                        + processorTag
-                        + "] property ["
-                        + propertyName
-                        + "] is not a valid long: ["
-                        + value
-                        + "]"
-                );
-            }
-        }
-    }
 }
