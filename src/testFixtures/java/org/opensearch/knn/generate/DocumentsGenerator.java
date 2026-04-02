@@ -29,7 +29,7 @@ import java.util.List;
  *
  * For sparse case, it will make only 80% document have KNN field. As a result, 20% of document will not have knn field.
  * Also for testing filtering functionality, filter_field will have either filter-0 or filter-1. Therefore, applying filter will cut off
- * half of documents. See {@link Documents#validateResponse(List, IndexingType, Mode)}
+ * half of documents. See {@link Documents#validateResponse(List, IndexingType, Mode, boolean)}
  */
 @RequiredArgsConstructor
 public abstract class DocumentsGenerator {
