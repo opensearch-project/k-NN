@@ -208,7 +208,7 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
 
         // Determine result size from the request
         int resultSize = request.source().size() > 0 ? request.source().size() : 10;
-        int prefetchK = resultSize * oversampleFactor;
+        int prefetchK = Math.min(resultSize * oversampleFactor, 10_000);
 
         // Build knn query on FDE field to replace the inner query (match_all)
         KNNQueryBuilder knnQuery = KNNQueryBuilder.builder().fieldName(targetField).vector(queryFde).k(prefetchK).build();
