@@ -22,7 +22,6 @@ import org.apache.lucene.util.hnsw.RandomVectorScorerSupplier;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
 import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
 
@@ -229,8 +228,7 @@ public final class VectorScorers {
         if (spaceType == SpaceType.COSINESIMIL) {
             adcFlatVectorsScorer = new CosineADCFlatVectorsScorer(adcFlatVectorsScorer);
         }
-        PrefetchableFlatVectorScorer scorer = new PrefetchableFlatVectorScorer(adcFlatVectorsScorer);
-        final RandomVectorScorer randomVectorScorer = scorer.getRandomVectorScorer(
+        final RandomVectorScorer randomVectorScorer = adcFlatVectorsScorer.getRandomVectorScorer(
             spaceType.getKnnVectorSimilarityFunction().getVectorSimilarityFunction(),
             byteVectorValues,
             target
@@ -325,10 +323,9 @@ public final class VectorScorers {
             spaceType.getKnnVectorSimilarityFunction(),
             null
         );
-        PrefetchableFlatVectorScorer scorer = new PrefetchableFlatVectorScorer(hammingFlatVectorsScorer);
         // Hamming's KNNVectorSimilarityFunction does not map to a Lucene VectorSimilarityFunction,
         // but HammingFlatVectorsScorer ignores this parameter, so we pass EUCLIDEAN as a placeholder.
-        final RandomVectorScorer randomVectorScorer = scorer.getRandomVectorScorer(
+        final RandomVectorScorer randomVectorScorer = hammingFlatVectorsScorer.getRandomVectorScorer(
             VectorSimilarityFunction.EUCLIDEAN,
             byteVectorValues,
             target
