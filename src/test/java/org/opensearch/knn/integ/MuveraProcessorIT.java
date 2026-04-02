@@ -228,6 +228,68 @@ public class MuveraProcessorIT extends KNNRestTestCase {
     }
 
     /**
+     * Tests that search pipeline with ignore_failure=true passes through on malformed query.
+     */
+    public void testMuveraSearch_whenIgnoreFailureTrue_thenMalformedQueryPassesThrough() throws Exception {
+        String pipelineName = SEARCH_PIPELINE_NAME + "-ignore-failure";
+        try {
+            createIngestPipeline();
+            createIndex();
+            indexDocuments();
+            refreshIndex(INDEX_NAME);
+
+            // Create search pipeline with ignore_failure=true
+            String pipelineBody = "{"
+                + "\"request_processors\": [{"
+                + "  \"muvera_query\": {"
+                + "    \"target_field\": \"" + FDE_FIELD + "\","
+                + "    \"dim\": " + DIM + ","
+                + "    \"k_sim\": " + K_SIM + ","
+                + "    \"dim_proj\": " + DIM_PROJ + ","
+                + "    \"r_reps\": " + R_REPS + ","
+                + "    \"seed\": " + SEED + ","
+                + "    \"oversample_factor\": 2,"
+                + "    \"ignore_failure\": true"
+                + "  }"
+                + "}]"
+                + "}";
+            Request pipelineRequest = new Request("PUT", "/_search/pipeline/" + pipelineName);
+            pipelineRequest.setJsonEntity(pipelineBody);
+            client().performRequest(pipelineRequest);
+
+            // Query with wrong dimension — should not fail because ignore_failure=true
+            String searchBody = buildMuveraSearchBody(new double[][] { { 1.0, 0.0, 0.5 } }, 5);
+            Response response = performSearchWithPipeline(INDEX_NAME, searchBody, pipelineName);
+            assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        } finally {
+            deleteTestIndex(INDEX_NAME);
+            deleteIngestPipeline(INGEST_PIPELINE_NAME);
+            deleteSearchPipeline(pipelineName);
+        }
+    }
+
+    /**
+     * Tests that ingest pipeline with ignore_missing=false rejects documents without source field.
+     */
+    public void testMuveraIngest_whenIgnoreMissingFalse_thenMissingSourceFails() throws Exception {
+        try {
+            createIngestPipeline(); // default ignore_missing=false
+            createIndex();
+
+            // Index a document without the source field
+            String docBody = "{\"text\": \"no vectors\"}";
+            Request request = new Request("POST", "/" + INDEX_NAME + "/_doc/no_vectors?pipeline=" + INGEST_PIPELINE_NAME);
+            request.setJsonEntity(docBody);
+            ResponseException e = expectThrows(ResponseException.class, () -> client().performRequest(request));
+            String errorBody = EntityUtils.toString(e.getResponse().getEntity());
+            assertTrue("Error should mention missing field", errorBody.contains("not present"));
+        } finally {
+            deleteTestIndex(INDEX_NAME);
+            deleteIngestPipeline(INGEST_PIPELINE_NAME);
+        }
+    }
+
+    /**
      * Tests that MUVERA search returns results in correct order based on MaxSim scoring.
      * Indexes multiple docs with known vectors, queries with a vector that clearly matches
      * one doc better, and verifies the top result is the expected doc.
