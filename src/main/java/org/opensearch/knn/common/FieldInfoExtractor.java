@@ -11,11 +11,16 @@ import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.VectorEncoding;
 import org.opensearch.common.Nullable;
+import org.opensearch.index.mapper.MappedFieldType;
+import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.engine.faiss.SQConfig;
 import org.opensearch.knn.index.engine.faiss.SQConfigParser;
+import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 
@@ -85,6 +90,38 @@ public class FieldInfoExtractor {
             return QuantizationConfig.EMPTY;
         }
         return QuantizationConfigParser.fromCsv(quantizationConfigString);
+    }
+
+    /**
+     * Checks whether the given field has a quantization framework configuration attribute.
+     *
+     * @param fieldInfo {@link FieldInfo}
+     * @return {@code true} if the field has a non-empty {@code qframework_config} attribute, {@code false} otherwise
+     */
+    public static boolean hasQuantizationConfig(final FieldInfo fieldInfo) {
+        final String quantizationConfigString = fieldInfo.getAttribute(QFRAMEWORK_CONFIG);
+        return StringUtils.isEmpty(quantizationConfigString) == false;
+    }
+
+    /**
+     * Checks whether a field is a k-NN vector field that supports memory-optimized search.
+     *
+     * @param fieldInfo     the field metadata
+     * @param mapperService the mapper service for resolving the field's mapped type
+     * @param indexName     the index name, passed to the support-spec check
+     * @return {@code true} if the field is eligible for memory-optimized search warmup
+     */
+    public static boolean isMemoryOptimizedSearchField(
+        final FieldInfo fieldInfo,
+        final MapperService mapperService,
+        final String indexName
+    ) {
+        if (fieldInfo.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD) == false) {
+            return false;
+        }
+        final MappedFieldType fieldType = mapperService.fieldType(fieldInfo.getName());
+        return fieldType instanceof KNNVectorFieldType knnFieldType
+            && MemoryOptimizedSearchSupportSpec.isSupportedFieldType(knnFieldType, indexName);
     }
 
     /**
