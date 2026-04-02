@@ -91,7 +91,8 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
      *       which are needed to initialize the native Faiss SQ index structure</li>
      *   <li>Initialize the Faiss SQ index in C++ via JNI, allocating off-heap memory for the
      *       HNSW graph and quantized vector storage</li>
-     *   <li>Delegate to {@link #doBuildAndWriteIndex} for the actual data transfer and graph construction</li>
+     *   <li>Delegate to {@link #doBuildIndex} and {@link #writeIndex} for the actual data transfer,
+     *       graph construction, and serialization</li>
      * </ol>
      *
      * @param indexInfo contains all parameters needed for index construction, including vector values,
@@ -139,8 +140,14 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
             )
         );
 
+        // Track whether writeIndex (Phase 3) was reached. Once writeIndex is called,
+        // the native C++ side wraps the pointer in a unique_ptr that frees the index on exit
+        // (even if writeIndex itself throws). Calling releaseSQIndex after that would be a
+        // double-free (and SIGSEGV).
         try {
-            doBuildAndWriteIndex(indexMemoryAddress, binarizedVectorValues, knnVectorValues, indexInfo, indexParameters, quantizedVecBytes);
+            // Phase 1 + 2: transfer vectors and build HNSW graph.
+            // If these fail, Java still owns the native memory and must release it.
+            doBuildIndex(indexMemoryAddress, binarizedVectorValues, knnVectorValues, indexInfo, indexParameters, quantizedVecBytes);
         } catch (final Exception e) {
             // Release the native Faiss SQ index to prevent off-heap memory leaks.
             // The indexMemoryAddress points to faiss::IndexBinaryIDMap* which owns the entire
@@ -148,26 +155,22 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
             JNIService.releaseSQIndex(indexMemoryAddress, indexInfo.getKnnEngine());
             throw e;
         }
+
+        // Phase 3: write index to disk.
+        // writeIndex takes ownership of the native pointer via unique_ptr in C++,
+        // so the memory is freed regardless of success or failure — no cleanup needed here.
+        writeIndex(indexMemoryAddress, indexInfo, indexParameters);
     }
 
     /**
-     * Performs the core index building workflow after native memory has been allocated.
+     * Performs Phase 1 (quantized vector transfer) and Phase 2 (HNSW graph construction)
+     * of the index building workflow after native memory has been allocated.
      *
-     * <p>The process has three distinct phases:
-     * <ol>
-     *   <li><b>Quantized vector transfer</b>: Copies all binary quantized vectors and their
-     *       correction factors from the provided {@link QuantizedByteVectorValues} into the
-     *       native Faiss index's off-heap memory via
-     *       {@link #passQuantizedVectorsAndCorrectionFactors}</li>
-     *   <li><b>HNSW graph construction</b>: Streams document IDs in batches of 1024 to the
-     *       native layer, which uses them to build the HNSW graph. The quantized vectors
-     *       are already in off-heap memory from phase 1, so Faiss can access them directly
-     *       by ordinal offset during graph construction</li>
-     *   <li><b>Index serialization</b>: Writes the HNSW graph to disk using
-     *       {@code IO_FLAG_SKIP_STORAGE}, which omits the flat vector storage section and
-     *       writes a "null" placeholder instead. The quantized vectors remain in Lucene's
-     *       .veb file and are accessed at search time via {@code FaissScalarQuantizedFlatIndex}</li>
-     * </ol>
+     * <p>After this method returns, the caller is responsible for either:
+     * <ul>
+     *   <li>Calling {@link #writeIndex} to serialize and transfer ownership to C++, or</li>
+     *   <li>Calling {@link JNIService#releaseSQIndex} to free the native memory on failure</li>
+     * </ul>
      *
      * @param indexMemoryAddress    pointer to the native Faiss SQ index in off-heap memory
      * @param binarizedVectorValues provides access to quantized binary codes and correction factors
@@ -176,7 +179,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
      * @param indexParameters       engine-specific parameters (e.g., HNSW M, efConstruction)
      * @param quantizedVecBytes     byte length of a single quantized vector
      */
-    private void doBuildAndWriteIndex(
+    private void doBuildIndex(
         final long indexMemoryAddress,
         final QuantizedByteVectorValues binarizedVectorValues,
         final KNNVectorValues<?> knnVectorValues,
@@ -210,8 +213,17 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
             JNIService.addDocsToSQIndex(indexMemoryAddress, docIds, i, numAdded, indexInfo.getKnnEngine());
             numAdded += i;
         }
+    }
 
-        // Phase 3: Serialize the in-memory HNSW graph to disk.
+    /**
+     * Phase 3: Serialize the in-memory HNSW graph to disk.
+     *
+     * <p>IMPORTANT: This method transfers ownership of the native index memory to C++.
+     * The native {@code BinaryIndexService::writeIndex} wraps the pointer in a {@code unique_ptr},
+     * which frees the memory when the function exits (whether successfully or via exception).
+     * Callers must NOT call {@code releaseSQndex} after invoking this method.
+     */
+    private void writeIndex(final long indexMemoryAddress, final BuildIndexParams indexInfo, final Map<String, Object> indexParameters) {
         // The IO_FLAG_SKIP_STORAGE flag (set in native code) causes Faiss to write only the
         // HNSW graph structure (adjacency lists, entry point, levels) and emit a "null" section
         // name where the flat vector storage would normally go. At search time, this "null"
