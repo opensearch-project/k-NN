@@ -36,7 +36,7 @@ public interface VectorTransformer {
         }
     }
 
-    default float computeL2Norm(final float[] vector) {
+    default float getTransformNormFactor(final float[] vector) {
         return 1.0f;
     }
 }

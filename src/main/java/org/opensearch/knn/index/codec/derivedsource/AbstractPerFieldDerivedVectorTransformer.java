@@ -59,18 +59,19 @@ public abstract class AbstractPerFieldDerivedVectorTransformer implements PerFie
             VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(fieldInfo);
             Object deserialized = KNNVectorFieldMapperUtil.deserializeStoredVector(vectorBytesRef, vectorDataType);
             if (deserialized instanceof float[] floatVector) {
-                float norm = normSupplier.get();
-                if (norm != 1.0f) {
-                    KNNVectorUtil.denormalize(floatVector, norm, true);
-                }
+                denormalizeIfNeeded(floatVector, normSupplier);
             }
             return deserialized;
         }
         float[] vector = (float[]) vectorCloneSupplier.get();
+        denormalizeIfNeeded(vector, normSupplier);
+        return vector;
+    }
+
+    private void denormalizeIfNeeded(float[] vector, CheckedSupplier<Float, IOException> normSupplier) throws IOException {
         float norm = normSupplier.get();
         if (norm != 1.0f) {
             KNNVectorUtil.denormalize(vector, norm, true);
         }
-        return vector;
     }
 }

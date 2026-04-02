@@ -888,4 +888,107 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
         deleteKNNIndex(indexDisabled);
     }
 
+    /**
+     * Test that Faiss + cosinesimil + derived source correctly rejects zero vectors at index time.
+     * A zero vector has L2 norm of 0, which makes cosine similarity undefined.
+     * Both derived-source-enabled and disabled indices should reject zero vectors consistently.
+     * Also verifies that normal vectors indexed alongside the rejection attempt are unaffected.
+     */
+    @SneakyThrows
+    public void testCosineSimDerivedSourceWithZeroVector() {
+        String indexEnabled = "cosine-derived-zero-enabled";
+        String indexDisabled = "cosine-derived-zero-disabled";
+        String fieldName = "test_vector";
+        int dimension = 8;
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject("method")
+            .field("engine", "faiss")
+            .field("space_type", "cosinesimil")
+            .field("name", "hnsw")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(
+            indexEnabled,
+            Settings.builder().put("index.knn", true).put("index.knn.derived_source.enabled", true).build(),
+            mapping
+        );
+        createKnnIndex(
+            indexDisabled,
+            Settings.builder().put("index.knn", true).put("index.knn.derived_source.enabled", false).build(),
+            mapping
+        );
+
+        // Zero vector should be rejected for cosinesimil
+        Float[] zeroVector = new Float[dimension];
+        for (int j = 0; j < dimension; j++) {
+            zeroVector[j] = 0.0f;
+        }
+
+        ResponseException enabledEx = expectThrows(
+            ResponseException.class,
+            () -> addKnnDoc(indexEnabled, "0", fieldName, zeroVector)
+        );
+        assertTrue(
+            "Derived enabled: should reject zero vector for cosinesimil",
+            enabledEx.getMessage().contains("zero vector is not supported")
+        );
+
+        ResponseException disabledEx = expectThrows(
+            ResponseException.class,
+            () -> addKnnDoc(indexDisabled, "0", fieldName, zeroVector)
+        );
+        assertTrue(
+            "Derived disabled: should reject zero vector for cosinesimil",
+            disabledEx.getMessage().contains("zero vector is not supported")
+        );
+
+        // Normal vectors should still work after the rejection
+        Float[] normalVector = new Float[] { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+        addKnnDoc(indexEnabled, "1", fieldName, normalVector);
+        addKnnDoc(indexDisabled, "1", fieldName, normalVector);
+
+        refreshAllIndices();
+
+        Map<String, Object> sourceEnabled = getKnnDoc(indexEnabled, "1");
+        List<Double> vectorEnabled = (List<Double>) sourceEnabled.get(fieldName);
+        assertNotNull("Normal vector should be retrievable after zero vector rejection", vectorEnabled);
+        assertEquals(dimension, vectorEnabled.size());
+        for (int j = 0; j < dimension; j++) {
+            assertEquals(
+                "Normal vector dim " + j + " should match original",
+                normalVector[j],
+                vectorEnabled.get(j).floatValue(),
+                1e-4f
+            );
+        }
+
+        // Verify after force merge
+        forceMergeKnnIndex(indexEnabled, 1);
+        refreshAllIndices();
+
+        Map<String, Object> mergedSource = getKnnDoc(indexEnabled, "1");
+        List<Double> mergedVector = (List<Double>) mergedSource.get(fieldName);
+        for (int j = 0; j < dimension; j++) {
+            assertEquals(
+                "After merge - normal vector dim " + j + " should match original",
+                normalVector[j],
+                mergedVector.get(j).floatValue(),
+                1e-4f
+            );
+        }
+
+        deleteKNNIndex(indexEnabled);
+        deleteKNNIndex(indexDisabled);
+    }
+
 }

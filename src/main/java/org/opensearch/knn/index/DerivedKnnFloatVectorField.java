@@ -28,6 +28,10 @@ public class DerivedKnnFloatVectorField extends KnnFloatVectorField {
      * @param vector vector for the field
      * @param isDerivedEnabled boolean to indicate if derived source is enabled
      */
+    public DerivedKnnFloatVectorField(String name, float[] vector, boolean isDerivedEnabled) {
+        this(name, vector, isDerivedEnabled, 1.0f);
+    }
+
     public DerivedKnnFloatVectorField(String name, float[] vector, boolean isDerivedEnabled, float norm) {
         super(name, vector);
         this.isDerivedEnabled = isDerivedEnabled;
@@ -41,6 +45,10 @@ public class DerivedKnnFloatVectorField extends KnnFloatVectorField {
      * @param fieldType FieldType of the field
      * @param isDerivedEnabled boolean to indicate if derived source is enabled
      */
+    public DerivedKnnFloatVectorField(String name, float[] vector, FieldType fieldType, boolean isDerivedEnabled) {
+        this(name, vector, fieldType, isDerivedEnabled, 1.0f);
+    }
+
     public DerivedKnnFloatVectorField(String name, float[] vector, FieldType fieldType, boolean isDerivedEnabled, float norm) {
         super(name, vector, fieldType);
         this.isDerivedEnabled = isDerivedEnabled;

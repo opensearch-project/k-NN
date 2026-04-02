@@ -45,13 +45,13 @@ public class NormalizeVectorTransformer implements VectorTransformer {
     }
 
     /**
-     * Calculate L2 norm of a given float vector.
+     * Calculate L2 norm of a given float vector as the norm factor for transformation.
      *
      * @param vector the vector
      * @return L2 norm of the vector
      */
     @Override
-    public float computeL2Norm(final float[] vector) {
+    public float getTransformNormFactor(final float[] vector) {
         float dot = VectorUtil.dotProduct(vector, vector);
         return (float) Math.sqrt(dot);
     }

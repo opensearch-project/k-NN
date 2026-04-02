@@ -45,7 +45,7 @@ public class DerivedSourceIndexOperationListenerTests extends KNNTestCase {
         BytesReference originalSource = bStream.bytes();
 
         ParseContext.Document document = new ParseContext.Document();
-        document.add(new DerivedKnnFloatVectorField(fieldName, backendVector, true, 1.0f));
+        document.add(new DerivedKnnFloatVectorField(fieldName, backendVector, true));
         document.add(new StoredField(SourceFieldMapper.NAME, originalSource.toBytesRef()));
 
         Engine.Index operation = new Engine.Index(

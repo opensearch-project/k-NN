@@ -81,6 +81,10 @@ public class KNNVectorUtil {
      * @return the denormalized vector
      */
     public static float[] denormalize(float[] vector, float norm, boolean inplace) {
+        Objects.requireNonNull(vector, "vector must no be null");
+        if (norm <= 0 || !Float.isFinite(norm)) {
+            throw new IllegalArgumentException(("norm must be a positive finite value, got: " + norm));
+        }
         float[] result = inplace ? vector : Arrays.copyOf(vector, vector.length);
         for (int i = 0; i < result.length; i++) {
             result[i] *= norm;

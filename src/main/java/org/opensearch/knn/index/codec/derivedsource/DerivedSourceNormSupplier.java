@@ -39,7 +39,9 @@ public interface DerivedSourceNormSupplier {
     static DerivedSourceNormSupplier fromDocValues(CheckedSupplier<NumericDocValues, IOException> supplier) {
         return (docId) -> {
             NumericDocValues dv = supplier.get();
-            dv.advance(docId);
+            if (!dv.advanceExact(docId)) {
+                return 1.0f;
+            }
             return Float.intBitsToFloat((int) dv.longValue());
         };
     }
