@@ -20,6 +20,10 @@ public class MuveraIngestProcessorTests extends KNNTestCase {
     private static final String TARGET_FIELD = "muvera_fde";
 
     private MuveraIngestProcessor createProcessor(int dim, int kSim, int dimProj, int rReps) {
+        return createProcessor(dim, kSim, dimProj, rReps, false);
+    }
+
+    private MuveraIngestProcessor createProcessor(int dim, int kSim, int dimProj, int rReps, boolean ignoreMissing) {
         MuveraEncoder encoder = new MuveraEncoder(dim, kSim, dimProj, rReps, 42L);
         return new MuveraIngestProcessor(
             "test_tag",
@@ -28,7 +32,8 @@ public class MuveraIngestProcessorTests extends KNNTestCase {
             TARGET_FIELD,
             encoder,
             dim,
-            encoder.getEmbeddingSize()
+            encoder.getEmbeddingSize(),
+            ignoreMissing
         );
     }
 
@@ -176,6 +181,109 @@ public class MuveraIngestProcessorTests extends KNNTestCase {
         config.put("dim_proj", 2);
         config.put("r_reps", 2);
         config.put("fde_dimension", 8); // correct: 2 * 2 * 2
+
+        Processor processor = factory.create(Map.of(), "tag", null, config);
+        assertNotNull(processor);
+    }
+
+    // ignoreMissing tests
+
+    public void testIgnoreMissingTrue_MissingSourceField_Succeeds() throws Exception {
+        MuveraIngestProcessor processor = createProcessor(4, 1, 2, 2, true);
+
+        Map<String, Object> source = new HashMap<>();
+        IngestDocument doc = new IngestDocument(source, new HashMap<>());
+
+        IngestDocument result = processor.execute(doc);
+        assertNotNull(result);
+        assertFalse(doc.hasField(TARGET_FIELD));
+    }
+
+    public void testIgnoreMissingTrue_NullSourceField_Succeeds() throws Exception {
+        MuveraIngestProcessor processor = createProcessor(4, 1, 2, 2, true);
+
+        Map<String, Object> source = new HashMap<>();
+        source.put(SOURCE_FIELD, null);
+        IngestDocument doc = new IngestDocument(source, new HashMap<>());
+
+        IngestDocument result = processor.execute(doc);
+        assertNotNull(result);
+        assertFalse(doc.hasField(TARGET_FIELD));
+    }
+
+    public void testIgnoreMissingTrue_ValidSource_ProducesFde() throws Exception {
+        MuveraIngestProcessor processor = createProcessor(4, 1, 2, 2, true);
+
+        Map<String, Object> source = new HashMap<>();
+        source.put(SOURCE_FIELD, Arrays.asList(Arrays.asList(1.0, 0.0, 0.0, 0.0)));
+        IngestDocument doc = new IngestDocument(source, new HashMap<>());
+
+        processor.execute(doc);
+        assertTrue(doc.hasField(TARGET_FIELD));
+    }
+
+    public void testIgnoreMissingFalse_MissingSourceField_Throws() {
+        MuveraIngestProcessor processor = createProcessor(4, 1, 2, 2, false);
+
+        Map<String, Object> source = new HashMap<>();
+        IngestDocument doc = new IngestDocument(source, new HashMap<>());
+
+        IllegalArgumentException e = expectThrows(IllegalArgumentException.class, () -> processor.execute(doc));
+        assertTrue(e.getMessage().contains("not present"));
+    }
+
+    public void testIgnoreMissingFalse_NullSourceField_Throws() {
+        MuveraIngestProcessor processor = createProcessor(4, 1, 2, 2, false);
+
+        Map<String, Object> source = new HashMap<>();
+        source.put(SOURCE_FIELD, null);
+        IngestDocument doc = new IngestDocument(source, new HashMap<>());
+
+        IllegalArgumentException e = expectThrows(IllegalArgumentException.class, () -> processor.execute(doc));
+        assertTrue(e.getMessage().contains("is null"));
+    }
+
+    public void testTwoDocuments_IgnoreMissingTrue_OneWithSourceOneWithout() throws Exception {
+        MuveraIngestProcessor processor = createProcessor(4, 1, 2, 2, true);
+
+        // Doc 1: has source field — produces FDE
+        Map<String, Object> source1 = new HashMap<>();
+        source1.put(SOURCE_FIELD, Arrays.asList(Arrays.asList(1.0, 0.0, 0.0, 0.0)));
+        IngestDocument doc1 = new IngestDocument(source1, new HashMap<>());
+        processor.execute(doc1);
+        assertTrue(doc1.hasField(TARGET_FIELD));
+
+        // Doc 2: missing source field — skipped silently
+        Map<String, Object> source2 = new HashMap<>();
+        IngestDocument doc2 = new IngestDocument(source2, new HashMap<>());
+        processor.execute(doc2);
+        assertFalse(doc2.hasField(TARGET_FIELD));
+    }
+
+    public void testTwoDocuments_IgnoreMissingFalse_SecondDocFails() throws Exception {
+        MuveraIngestProcessor processor = createProcessor(4, 1, 2, 2, false);
+
+        // Doc 1: has source field — succeeds
+        Map<String, Object> source1 = new HashMap<>();
+        source1.put(SOURCE_FIELD, Arrays.asList(Arrays.asList(1.0, 0.0, 0.0, 0.0)));
+        IngestDocument doc1 = new IngestDocument(source1, new HashMap<>());
+        processor.execute(doc1);
+        assertTrue(doc1.hasField(TARGET_FIELD));
+
+        // Doc 2: missing source field — fails
+        Map<String, Object> source2 = new HashMap<>();
+        IngestDocument doc2 = new IngestDocument(source2, new HashMap<>());
+        expectThrows(IllegalArgumentException.class, () -> processor.execute(doc2));
+    }
+
+    public void testFactoryReadsIgnoreMissing() throws Exception {
+        MuveraIngestProcessor.Factory factory = new MuveraIngestProcessor.Factory();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put("source_field", SOURCE_FIELD);
+        config.put("target_field", TARGET_FIELD);
+        config.put("dim", 4);
+        config.put("ignore_missing", true);
 
         Processor processor = factory.create(Map.of(), "tag", null, config);
         assertNotNull(processor);

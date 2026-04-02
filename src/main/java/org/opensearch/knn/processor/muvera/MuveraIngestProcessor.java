@@ -56,6 +56,7 @@ public class MuveraIngestProcessor extends AbstractProcessor {
     private final MuveraEncoder encoder;
     private final int dim;
     private final int fdeDimension;
+    private final boolean ignoreMissing;
 
     MuveraIngestProcessor(
         String tag,
@@ -64,7 +65,8 @@ public class MuveraIngestProcessor extends AbstractProcessor {
         String targetField,
         MuveraEncoder encoder,
         int dim,
-        int fdeDimension
+        int fdeDimension,
+        boolean ignoreMissing
     ) {
         super(tag, description);
         this.sourceField = sourceField;
@@ -72,12 +74,23 @@ public class MuveraIngestProcessor extends AbstractProcessor {
         this.encoder = encoder;
         this.dim = dim;
         this.fdeDimension = fdeDimension;
+        this.ignoreMissing = ignoreMissing;
     }
 
     @Override
     public IngestDocument execute(IngestDocument document) throws Exception {
+        if (document.hasField(sourceField) == false) {
+            if (ignoreMissing) {
+                return document;
+            }
+            throw new IllegalArgumentException("field [" + sourceField + "] not present, cannot generate MUVERA encoding");
+        }
+
         Object sourceValue = document.getFieldValue(sourceField, Object.class);
         if (sourceValue == null) {
+            if (ignoreMissing) {
+                return document;
+            }
             throw new IllegalArgumentException("field [" + sourceField + "] is null, cannot generate MUVERA encoding");
         }
 
@@ -248,7 +261,11 @@ public class MuveraIngestProcessor extends AbstractProcessor {
                     + ")";
             }
 
-            return new MuveraIngestProcessor(tag, description, sourceField, targetField, encoder, dim, computedDimension);
+            boolean ignoreMissing = ConfigurationUtils.readBooleanProperty(TYPE, tag, config, "ignore_missing", false);
+
+            return new MuveraIngestProcessor(
+                tag, description, sourceField, targetField, encoder, dim, computedDimension, ignoreMissing
+            );
         }
 
         private static long readLongProperty(
