@@ -25,13 +25,13 @@ import java.io.IOException;
 public class KNN1040ScalarQuantizedVectorsFormat extends Lucene104ScalarQuantizedVectorsFormat {
 
     private static final KNN1040ScalarQuantizedVectorScorer KNN_1040_SCALAR_QUANTIZED_VECTOR_SCORER = FlatVectorsScorerProvider
-        .getKNN1040ScalarQuantizedVectorScorer(FlatVectorsScorerProvider.getPrefetchableLucene99FlatVectorsScorer());
+        .getKNN1040ScalarQuantizedVectorScorer(FlatVectorsScorerProvider.getLucene99FlatVectorsScorer());
 
     // Must use the default Lucene scorer here, not KNN_1040_SCALAR_QUANTIZED_VECTOR_SCORER.
     // KNN1040ScalarQuantizedVectorScorer.getRandomVectorScorer(float[]) always assumes quantized
     // vectors and will fail (NPE/exception) when called with raw OffHeapFloatVectorValues.
     private static final Lucene99FlatVectorsFormat RAW_VECTOR_FORMAT = new Lucene99FlatVectorsFormat(
-        FlatVectorsScorerProvider.getPrefetchableLucene99FlatVectorsScorer()
+        FlatVectorsScorerProvider.getLucene99FlatVectorsScorer()
     );
 
     private final ScalarEncoding encoding;

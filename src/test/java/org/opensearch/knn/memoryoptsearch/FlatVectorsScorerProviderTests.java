@@ -99,8 +99,8 @@ public class FlatVectorsScorerProviderTests extends KNNTestCase {
         assertTrue(scorer instanceof KNN1040ScalarQuantizedVectorScorer);
     }
 
-    public void testGetPrefetchableLucene99FlatVectorsScorer_returnsPrefetchableScorer() {
-        FlatVectorsScorer scorer = FlatVectorsScorerProvider.getPrefetchableLucene99FlatVectorsScorer();
+    public void testGetLucene99FlatVectorsScorer_returnsScorer() {
+        FlatVectorsScorer scorer = FlatVectorsScorerProvider.getLucene99FlatVectorsScorer();
         assertNotNull(scorer);
         assertTrue(scorer instanceof PrefetchableFlatVectorScorer);
     }

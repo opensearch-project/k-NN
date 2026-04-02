@@ -16,7 +16,7 @@ import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.apache.lucene.util.quantization.OptimizedScalarQuantizer;
-import org.opensearch.knn.index.codec.scorer.PrefetchableRandomVectorScorer;
+import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer.PrefetchableRandomVectorScorer;
 import org.opensearch.knn.jni.SimdVectorComputeService;
 import org.opensearch.knn.memoryoptsearch.MemorySegmentAddressExtractorUtil;
 import org.opensearch.knn.memoryoptsearch.faiss.WrappedFloatVectorValues;
@@ -109,12 +109,7 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
         final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(indexInput, 0, indexInput.length());
         if (addressAndSize != null) {
             // Try bulk SIMD
-            return (RandomVectorScorer.AbstractRandomVectorScorer) bulkSimdRandomVectorScorer(
-                quantizedByteVectorValues,
-                target,
-                addressAndSize,
-                similarityFunction
-            );
+            return bulkSimdRandomVectorScorer(quantizedByteVectorValues, target, addressAndSize, similarityFunction);
         }
 
         // Fallback
@@ -146,7 +141,7 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
      * @return a SIMD-accelerated scorer
      * @throws IOException if quantization or initialization fails
      */
-    private RandomVectorScorer bulkSimdRandomVectorScorer(
+    private BulkSimdRandomVectorScorer bulkSimdRandomVectorScorer(
         final QuantizedByteVectorValues quantizedByteVectorValues,
         final float[] target,
         final long[] addressAndSize,

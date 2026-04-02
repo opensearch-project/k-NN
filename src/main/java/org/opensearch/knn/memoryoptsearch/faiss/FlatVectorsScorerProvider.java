@@ -40,7 +40,7 @@ public class FlatVectorsScorerProvider {
      *
      * @return a prefetch-enabled {@link FlatVectorsScorer}
      */
-    public static FlatVectorsScorer getPrefetchableLucene99FlatVectorsScorer() {
+    public static FlatVectorsScorer getLucene99FlatVectorsScorer() {
         return PREFETCHABLE_LUCENE99_SCORER;
     }
 
