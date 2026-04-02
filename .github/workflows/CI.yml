@@ -170,26 +170,20 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
 
-      - name: Install MinGW Using Scoop
-        run: |
-          iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
-          scoop bucket add main
-          scoop install mingw
+      - name: Install MinGW Using Chocolatey
+        run: choco install mingw -y --no-progress
 
       - name: Add MinGW to PATH
         run: |
-          echo "C:/Users/runneradmin/scoop/apps/mingw/current/bin" >> $env:GITHUB_PATH
+          echo "C:/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin" >> $env:GITHUB_PATH
           Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
           refreshenv
 
-      - name: Install Zlib Using Scoop
+      - name: Install Zlib
         run: |
-          echo "C:/Users/runneradmin/scoop/shims" >> $env:GITHUB_PATH
-          Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
-          refreshenv
-          scoop bucket add extras
-          scoop install zlib
-          regedit /s "C:\\Users\\runneradmin\\scoop\\apps\\zlib\\current\\register.reg"
+          curl -L -o zlib.7z https://raw.githubusercontent.com/ScoopInstaller/Binary/master/zlib/zlib-1.2.12-windows-32bit-vc14.2.7z
+          7z x zlib.7z -oC:\zlib
+          echo "CMAKE_PREFIX_PATH=C:\zlib" >> $env:GITHUB_ENV
 
       - name: Download OpenBLAS
         run: |
