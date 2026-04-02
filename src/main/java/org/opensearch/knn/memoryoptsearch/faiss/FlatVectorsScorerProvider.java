@@ -6,6 +6,7 @@
 package org.opensearch.knn.memoryoptsearch.faiss;
 
 import lombok.experimental.UtilityClass;
+import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
@@ -17,6 +18,7 @@ import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNN1040Codec.KNN1040ScalarQuantizedVectorScorer;
+import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer;
 import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
@@ -26,16 +28,37 @@ import java.util.Map;
 
 @UtilityClass
 public class FlatVectorsScorerProvider {
-    private static final FlatVectorsScorer HAMMING_VECTOR_SCORER = new HammingFlatVectorsScorer();
+    private static final FlatVectorsScorer PREFETCHABLE_LUCENE99_SCORER = new PrefetchableFlatVectorScorer(
+        FlatVectorScorerUtil.getLucene99FlatVectorsScorer()
+    );
+    private static final FlatVectorsScorer HAMMING_VECTOR_SCORER = new PrefetchableFlatVectorScorer(new HammingFlatVectorsScorer());
     private static final Map<SpaceType, FlatVectorsScorer> ADC_FLAT_SCORERS = initializeAdcFlatScorers();
+
+    /**
+     * Returns Lucene's default flat vectors scorer wrapped with prefetching.
+     * Reusable across any format or reader that needs a prefetch-enabled Lucene99 scorer.
+     *
+     * @return a prefetch-enabled {@link FlatVectorsScorer}
+     */
+    public static FlatVectorsScorer getLucene99FlatVectorsScorer() {
+        return PREFETCHABLE_LUCENE99_SCORER;
+    }
 
     private static Map<SpaceType, FlatVectorsScorer> initializeAdcFlatScorers() {
         Map<SpaceType, FlatVectorsScorer> scorers = new EnumMap<>(SpaceType.class);
-        scorers.put(SpaceType.L2, new ADCFlatVectorsScorer(KNNVectorSimilarityFunction.EUCLIDEAN, SpaceType.L2));
-        scorers.put(SpaceType.COSINESIMIL, new ADCFlatVectorsScorer(KNNVectorSimilarityFunction.COSINE, SpaceType.COSINESIMIL));
+        scorers.put(
+            SpaceType.L2,
+            new PrefetchableFlatVectorScorer(new ADCFlatVectorsScorer(KNNVectorSimilarityFunction.EUCLIDEAN, SpaceType.L2))
+        );
+        scorers.put(
+            SpaceType.COSINESIMIL,
+            new PrefetchableFlatVectorScorer(new ADCFlatVectorsScorer(KNNVectorSimilarityFunction.COSINE, SpaceType.COSINESIMIL))
+        );
         scorers.put(
             SpaceType.INNER_PRODUCT,
-            new ADCFlatVectorsScorer(KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT, SpaceType.INNER_PRODUCT)
+            new PrefetchableFlatVectorScorer(
+                new ADCFlatVectorsScorer(KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT, SpaceType.INNER_PRODUCT)
+            )
         );
         return scorers;
     }
