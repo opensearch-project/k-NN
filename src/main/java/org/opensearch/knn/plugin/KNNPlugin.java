@@ -94,6 +94,8 @@ import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
 import org.opensearch.knn.search.extension.MMRSearchExtBuilder;
 
+import org.opensearch.knn.search.processor.KNNDefaultExcludesProcessor;
+import org.opensearch.knn.search.processor.KNNSearchPipelineInitializer;
 import org.opensearch.knn.search.processor.mmr.MMRKnnQueryTransformer;
 import org.opensearch.knn.search.processor.mmr.MMROverSampleProcessor;
 import org.opensearch.knn.search.processor.mmr.MMRQueryTransformer;
@@ -122,6 +124,7 @@ import org.opensearch.script.ScriptEngine;
 import org.opensearch.script.ScriptService;
 import org.opensearch.search.SearchExtBuilder;
 import org.opensearch.search.deciders.ConcurrentSearchRequestDecider;
+import org.opensearch.search.pipeline.Processor;
 import org.opensearch.search.pipeline.SearchRequestProcessor;
 import org.opensearch.search.pipeline.SearchResponseProcessor;
 import org.opensearch.search.pipeline.SystemGeneratedProcessor;
@@ -267,6 +270,9 @@ public class KNNPlugin extends Plugin
 
         clusterService.addListener(TrainingJobClusterStateListener.getInstance());
 
+        // Creates a default search pipeline for knn
+        KNNSearchPipelineInitializer.initialize(client, clusterService);
+
         knnStats = new KNNStats();
 
         // Create and provide the KNN query converter for gRPC transport
@@ -282,13 +288,18 @@ public class KNNPlugin extends Plugin
 
     @Override
     public Collection<IndexSettingProvider> getAdditionalIndexSettingProviders() {
-        // Default derived source feature to true for knn indices.
         return ImmutableList.of(new IndexSettingProvider() {
             @Override
             public Settings getAdditionalIndexSettings(String indexName, boolean isDataStreamIndex, Settings templateAndRequestSettings) {
                 if (templateAndRequestSettings.getAsBoolean(KNNSettings.KNN_INDEX, false)) {
-                    return Settings.builder()
-                        .put(KNN_DERIVED_SOURCE_ENABLED, true)
+                    Settings.Builder builder = Settings.builder();
+                    if (!IndexSettings.DEFAULT_SEARCH_PIPELINE.exists(templateAndRequestSettings)) {
+                        builder.put(
+                            IndexSettings.DEFAULT_SEARCH_PIPELINE.getKey(),
+                            KNNSearchPipelineInitializer.KNN_DEFAULT_SEARCH_PIPELINE_NAME
+                        );
+                    }
+                    return builder.put(KNN_DERIVED_SOURCE_ENABLED, true)
                         // Aggressive merges for k-NN can hogg CPU which can degrade search performance
                         // These settings are being overridden to make it less aggressive
                         // Core has max_merge_at_once default as 30, which can make merges more aggressive
@@ -305,6 +316,7 @@ public class KNNPlugin extends Plugin
         });
     }
 
+    @Override
     public List<RestHandler> getRestHandlers(
         Settings settings,
         RestController restController,
@@ -472,8 +484,6 @@ public class KNNPlugin extends Plugin
 
     @Override
     public void onNodeStarted(DiscoveryNode localNode) {
-        // Attempt to fetch a cb tier from node attributes and cache the result.
-        // Get this node's circuit breaker tier attribute
         Optional<String> tierAttribute = Optional.ofNullable(localNode.getAttributes().get(KNN_CIRCUIT_BREAKER_TIER));
         if (tierAttribute.isPresent()) {
             KNNSettings.state().setNodeCbAttribute(tierAttribute);
@@ -499,6 +509,11 @@ public class KNNPlugin extends Plugin
     @Override
     public List<SearchExtSpec<?>> getSearchExts() {
         return List.of(new SearchExtSpec<SearchExtBuilder>(MMRSearchExtBuilder.NAME, MMRSearchExtBuilder::new, MMRSearchExtBuilder::parse));
+    }
+
+    @Override
+    public Map<String, Processor.Factory<SearchRequestProcessor>> getRequestProcessors(Parameters parameters) {
+        return Map.of(KNNDefaultExcludesProcessor.TYPE, new KNNDefaultExcludesProcessor.Factory());
     }
 
     @Override
