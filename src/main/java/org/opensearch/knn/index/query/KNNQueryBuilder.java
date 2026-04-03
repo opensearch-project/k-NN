@@ -489,9 +489,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             }
 
             if ((knnMappingConfig.getQuantizationConfig() != QuantizationConfig.EMPTY)
-                // If engine is Faiss and compression level is 32x, then it's using Faiss SQ which has null QuantizationConfig.
-                // In that case, we should block radial search as well.
-                || (knnEngine == FAISS && knnMappingConfig.getCompressionLevel() == CompressionLevel.x32)) {
+                // If compression level is 32x, then radial search should be blocked.
+                || (knnMappingConfig.getCompressionLevel() == CompressionLevel.x32)) {
                 throw new UnsupportedOperationException("Radial search is not supported for indices which have quantization enabled");
             }
         }

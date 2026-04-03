@@ -468,78 +468,49 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testRadialSearch_withMinScore() {
+    public void testRadialSearch_withMaxDistance_onLuceneFlat_thenBlocked() {
         createFlatIndex(SpaceType.L2);
         indexTestDocs();
 
-        // L2 scores from all-1s query: doc0(all 1s)=1.0, doc1(all 2s)=1/(1+128), doc2..doc4 even lower
-        // Only doc0 should have score >= 0.9
-        float minScore = 0.9f;
-        int[] expectedResultCounts = { 1, 1, 1 };
-        float[][] queryVectors = { generateVector(DIMENSION, 1.0f), generateVector(DIMENSION, 1.0f), generateVector(DIMENSION, 1.0f) };
+        XContentBuilder query = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("knn")
+            .startObject(FIELD_NAME)
+            .field("vector", generateVector(DIMENSION, 1.0f))
+            .field(MAX_DISTANCE, 100.0f)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Request request = new Request("POST", "/" + INDEX_NAME + "/_search");
+        request.setJsonEntity(query.toString());
 
-        validateRadiusSearchResults(queryVectors, null, minScore, expectedResultCounts);
+        ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
+        assertTrue(ex.getMessage().contains("Radial search is not supported for indices which have quantization enabled"));
     }
 
     @SneakyThrows
-    public void testRadialSearch_withMaxDistance() {
+    public void testRadialSearch_withMinScore_onLuceneFlat_thenBlocked() {
         createFlatIndex(SpaceType.L2);
         indexTestDocs();
 
-        // L2 squared distances from all-1s query: doc0=0, doc1=128*(2-1)^2=128, doc2=128*(3-1)^2=512, ...
-        // Only doc0 and doc1 should be within maxDistance=200
-        float maxDistance = 200.0f;
-        int[] expectedResultCounts = { 2, 2, 2 };
-        float[][] queryVectors = { generateVector(DIMENSION, 1.0f), generateVector(DIMENSION, 1.0f), generateVector(DIMENSION, 1.0f) };
+        XContentBuilder query = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("knn")
+            .startObject(FIELD_NAME)
+            .field("vector", generateVector(DIMENSION, 1.0f))
+            .field(MIN_SCORE, 0.01f)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Request request = new Request("POST", "/" + INDEX_NAME + "/_search");
+        request.setJsonEntity(query.toString());
 
-        validateRadiusSearchResults(queryVectors, maxDistance, null, expectedResultCounts);
-    }
-
-    private void validateRadiusSearchResults(
-        final float[][] queryVectors,
-        final Float maxDistance,
-        final Float minScore,
-        final int[] expectedResultCounts
-    ) throws Exception {
-        for (int i = 0; i < queryVectors.length; i++) {
-            XContentBuilder builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject("query")
-                .startObject("knn")
-                .startObject(FIELD_NAME)
-                .field("vector", queryVectors[i]);
-            if (maxDistance != null) {
-                builder.field(MAX_DISTANCE, maxDistance);
-            } else if (minScore != null) {
-                builder.field(MIN_SCORE, minScore);
-            } else {
-                throw new IllegalArgumentException("Either maxDistance or minScore must be provided");
-            }
-            builder.endObject().endObject().endObject().endObject();
-
-            String responseBody = EntityUtils.toString(searchKNNIndex(INDEX_NAME, builder, expectedResultCounts[i]).getEntity());
-            List<KNNResult> results = parseSearchResponse(responseBody, FIELD_NAME);
-            assertEquals(expectedResultCounts[i], results.size());
-
-            List<Float> scores = parseSearchResponseScore(responseBody, FIELD_NAME);
-            for (int j = 0; j < results.size(); j++) {
-                if (minScore != null) {
-                    assertTrue(
-                        String.format(Locale.ROOT, "Score %.4f should be >= minScore %.4f", scores.get(j), minScore),
-                        scores.get(j) >= minScore - 0.001f
-                    );
-                }
-                if (maxDistance != null) {
-                    float score = scores.get(j);
-                    // L2 score = 1 / (1 + distance), so distance = (1/score) - 1
-                    float distance = (1.0f / score) - 1.0f;
-                    assertTrue(
-                        String.format(Locale.ROOT, "Distance %.4f should be <= maxDistance %.4f", distance, maxDistance),
-                        distance <= maxDistance + 0.001f
-                    );
-                }
-            }
-        }
+        ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
+        assertTrue(ex.getMessage().contains("Radial search is not supported for indices which have quantization enabled"));
     }
 
     private void indexTestDocs() throws Exception {
