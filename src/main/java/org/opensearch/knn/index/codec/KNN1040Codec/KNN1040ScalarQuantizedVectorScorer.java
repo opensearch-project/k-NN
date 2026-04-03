@@ -16,6 +16,7 @@ import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.apache.lucene.util.quantization.OptimizedScalarQuantizer;
+import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer.PrefetchableRandomVectorScorer;
 import org.opensearch.knn.jni.SimdVectorComputeService;
 import org.opensearch.knn.memoryoptsearch.MemorySegmentAddressExtractorUtil;
 import org.opensearch.knn.memoryoptsearch.faiss.WrappedFloatVectorValues;
@@ -40,6 +41,10 @@ import static org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectors
  *
  * <p>The SIMD path uses a precomputed search context and performs scoring in native code
  * (e.g., AVX-512), significantly improving throughput for large-scale vector search.
+ *
+ * <p>All scorers returned by {@link #getRandomVectorScorer} are wrapped with
+ * {@link PrefetchableRandomVectorScorer} to prefetch vector data ahead of bulk scoring
+ * operations, improving cache locality and reducing I/O latency during graph traversal.
  */
 @Log4j2
 public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantizedVectorScorer {
@@ -92,16 +97,28 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
             quantizedByteVectorValues = KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(vectorValues);
         }
 
-        // Try bulk SIMD
+        return new PrefetchableRandomVectorScorer(getScorer(similarityFunction, quantizedByteVectorValues, target));
+    }
+
+    private RandomVectorScorer.AbstractRandomVectorScorer getScorer(
+        final VectorSimilarityFunction similarityFunction,
+        final QuantizedByteVectorValues quantizedByteVectorValues,
+        final float[] target
+    ) throws IOException {
         final IndexInput indexInput = quantizedByteVectorValues.getSlice();
         final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(indexInput, 0, indexInput.length());
         if (addressAndSize != null) {
+            // Try bulk SIMD
             return bulkSimdRandomVectorScorer(quantizedByteVectorValues, target, addressAndSize, similarityFunction);
         }
 
         // Fallback
         log.warn("Bulk SIMD for SQ is not supported, falling back to Lucene's random vector scorer");
-        return super.getRandomVectorScorer(similarityFunction, quantizedByteVectorValues, target);
+        return (RandomVectorScorer.AbstractRandomVectorScorer) super.getRandomVectorScorer(
+            similarityFunction,
+            quantizedByteVectorValues,
+            target
+        );
     }
 
     /**
@@ -124,7 +141,7 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
      * @return a SIMD-accelerated scorer
      * @throws IOException if quantization or initialization fails
      */
-    private RandomVectorScorer bulkSimdRandomVectorScorer(
+    private BulkSimdRandomVectorScorer bulkSimdRandomVectorScorer(
         final QuantizedByteVectorValues quantizedByteVectorValues,
         final float[] target,
         final long[] addressAndSize,
