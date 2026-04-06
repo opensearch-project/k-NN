@@ -9,7 +9,6 @@ import org.apache.lucene.backward_codecs.lucene99.Lucene99RWHnswScalarQuantizedV
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.index.mapper.MapperService;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.backward_codecs.BasePerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN9120Codec.KNN9120HnswBinaryVectorsFormat;
@@ -18,13 +17,50 @@ import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Class provides per field format implementation for Lucene Knn vector type
  */
 public class KNN9120PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat {
     private static final Tuple<Integer, ExecutorService> DEFAULT_MERGE_THREAD_COUNT_AND_EXECUTOR_SERVICE = Tuple.tuple(1, null);
+    private static final ThreadPoolExecutor mergeExecutor;
+    private static volatile int mergeThreadCount;
+
+    static {
+        // Use SynchronousQueue so maximumPoolSize governs actual thread creation (matching Lucene's
+        // ConcurrentMergeScheduler.CachedExecutor pattern). CallerRunsPolicy provides graceful
+        // degradation if a resize races with an in-flight merge submission.
+        mergeExecutor = new ThreadPoolExecutor(
+            0,
+            1,
+            60L,
+            TimeUnit.SECONDS,
+            new SynchronousQueue<>(),
+            new ThreadPoolExecutor.CallerRunsPolicy()
+        );
+        mergeExecutor.allowCoreThreadTimeOut(true);
+    }
+
+    /**
+     * Called by KNNSettings when knn.algo_param.index_thread_qty changes at runtime.
+     * Resizes the shared merge executor pool without creating a new instance.
+     */
+    public static void updateMergeThreadCount(int newCount) {
+        mergeThreadCount = newCount;
+        int targetCore = Math.max(newCount, 0);
+        int targetMax = Math.max(newCount, 1);
+        // Always adjust in the safe order to avoid core > max invariant violation
+        if (targetMax >= mergeExecutor.getMaximumPoolSize()) {
+            mergeExecutor.setMaximumPoolSize(targetMax);
+            mergeExecutor.setCorePoolSize(targetCore);
+        } else {
+            mergeExecutor.setCorePoolSize(targetCore);
+            mergeExecutor.setMaximumPoolSize(targetMax);
+        }
+    }
 
     public KNN9120PerFieldKnnVectorsFormat(final Optional<MapperService> mapperService) {
         this(mapperService, new NativeIndexBuildStrategyFactory());
@@ -93,15 +129,10 @@ public class KNN9120PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsForma
     }
 
     private static Tuple<Integer, ExecutorService> getMergeThreadCountAndExecutorService() {
-        // To ensure that only once we are fetching the settings per segment, we are fetching the num threads once while
-        // creating the executors
-        int mergeThreadCount = KNNSettings.getIndexThreadQty();
-        // We need to return null whenever the merge threads are <=1, as lucene assumes that if number of threads are 1
-        // then we should be giving a null value of the executor
-        if (mergeThreadCount <= 1) {
+        int threadCount = mergeThreadCount;
+        if (threadCount <= 1) {
             return DEFAULT_MERGE_THREAD_COUNT_AND_EXECUTOR_SERVICE;
-        } else {
-            return Tuple.tuple(mergeThreadCount, Executors.newFixedThreadPool(mergeThreadCount));
         }
+        return Tuple.tuple(threadCount, mergeExecutor);
     }
 }
