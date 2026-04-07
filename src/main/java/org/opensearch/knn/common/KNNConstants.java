@@ -207,6 +207,8 @@ public class KNNConstants {
 
     // mmr
     public static final String MMR = "mmr";
+    public static final String MMR_EXPLAIN = "mmr_explain";
+    public static final String EXPLAIN = "explain";
     public static final String DIVERSITY = "diversity";
     public static final String CANDIDATES = "candidates";
     public static final String VECTOR_FIELD_PATH = "vector_field_path";

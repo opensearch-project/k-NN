@@ -9,6 +9,7 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.opensearch.Version;
 import org.opensearch.core.ParseField;
 import org.opensearch.core.common.ParsingException;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -29,6 +30,7 @@ import java.util.Objects;
 
 import static org.opensearch.knn.common.KNNConstants.CANDIDATES;
 import static org.opensearch.knn.common.KNNConstants.DIVERSITY;
+import static org.opensearch.knn.common.KNNConstants.EXPLAIN;
 import static org.opensearch.knn.common.KNNConstants.MMR;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_FIELD_DATA_TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_FIELD_PATH;
@@ -45,6 +47,11 @@ public class MMRSearchExtBuilder extends SearchExtBuilder {
 
     public static final String NAME = MMR;
 
+    // TODO: Change to Version.V_3_7_0 once it's available. Using V_3_6_0 as a placeholder for backward compatibility
+    // during rolling upgrades. The explain field was introduced after 3.6.0 and should only be serialized to nodes
+    // that support it.
+    private static final Version MMR_EXPLAIN_MIN_VERSION = Version.V_3_6_0;
+
     // Used to control the weight of the diversity, range is from [0,1]. (diversity = 1) prioritizes maximum diversity
     // which means the documents are selected just based on how different they are from already chosen documents.
     public static final ParseField DIVERSITY_FIELD = new ParseField(DIVERSITY);
@@ -59,12 +66,15 @@ public class MMRSearchExtBuilder extends SearchExtBuilder {
     // Space type of the vector field which is used to decide the similarity function. Optional. If not provided we
     // should auto resolve it from the index mapping.
     public static final ParseField VECTOR_FIELD_SPACE_TYPE_FIELD = new ParseField(VECTOR_FIELD_SPACE_TYPE);
+    // Flag to enable MMR explain info in the response. Optional. Defaults to false.
+    public static final ParseField EXPLAIN_FIELD = new ParseField(EXPLAIN);
 
     private Float diversity;
     private Integer candidates;
     private String vectorFieldPath;
     private VectorDataType vectorFieldDataType;
     private SpaceType spaceType;
+    private Boolean explain;
 
     public static class Builder {
         private Float diversity;
@@ -72,6 +82,7 @@ public class MMRSearchExtBuilder extends SearchExtBuilder {
         private String vectorFieldPath;
         private VectorDataType vectorFieldDataType;
         private SpaceType spaceType;
+        private Boolean explain;
 
         public Builder() {}
 
@@ -121,10 +132,15 @@ public class MMRSearchExtBuilder extends SearchExtBuilder {
             return this;
         }
 
+        public Builder explain(Boolean explain) {
+            this.explain = explain;
+            return this;
+        }
+
         public MMRSearchExtBuilder build() {
             setDefault();
             validate();
-            return new MMRSearchExtBuilder(diversity, candidates, vectorFieldPath, vectorFieldDataType, spaceType);
+            return new MMRSearchExtBuilder(diversity, candidates, vectorFieldPath, vectorFieldDataType, spaceType, explain);
         }
 
         private void setDefault() {
@@ -170,6 +186,9 @@ public class MMRSearchExtBuilder extends SearchExtBuilder {
         if (spaceTypeStr != null) {
             spaceType = SpaceType.getSpace(spaceTypeStr);
         }
+        if (in.getVersion().onOrAfter(MMR_EXPLAIN_MIN_VERSION)) {
+            explain = in.readOptionalBoolean();
+        }
     }
 
     @Override
@@ -179,6 +198,9 @@ public class MMRSearchExtBuilder extends SearchExtBuilder {
         out.writeOptionalString(vectorFieldPath);
         out.writeOptionalString(vectorFieldDataType == null ? null : vectorFieldDataType.getValue());
         out.writeOptionalString(spaceType == null ? null : spaceType.getValue());
+        if (out.getVersion().onOrAfter(MMR_EXPLAIN_MIN_VERSION)) {
+            out.writeOptionalBoolean(explain);
+        }
     }
 
     @Override
@@ -204,13 +226,16 @@ public class MMRSearchExtBuilder extends SearchExtBuilder {
         if (spaceType != null) {
             builder.field(VECTOR_FIELD_SPACE_TYPE_FIELD.getPreferredName(), spaceType.getValue());
         }
+        if (explain != null) {
+            builder.field(EXPLAIN_FIELD.getPreferredName(), explain);
+        }
         builder.endObject();
         return builder;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(diversity, candidates, vectorFieldPath, vectorFieldDataType, spaceType);
+        return Objects.hash(diversity, candidates, vectorFieldPath, vectorFieldDataType, spaceType, explain);
     }
 
     @Override
@@ -224,6 +249,7 @@ public class MMRSearchExtBuilder extends SearchExtBuilder {
         equalsBuilder.append(vectorFieldPath, other.vectorFieldPath);
         equalsBuilder.append(vectorFieldDataType, other.vectorFieldDataType);
         equalsBuilder.append(spaceType, other.spaceType);
+        equalsBuilder.append(explain, other.explain);
         return equalsBuilder.isEquals();
     }
 
@@ -246,6 +272,8 @@ public class MMRSearchExtBuilder extends SearchExtBuilder {
                     builder.vectorFieldDataType(parser.text());
                 } else if (VECTOR_FIELD_SPACE_TYPE_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
                     builder.spaceType(parser.text());
+                } else if (EXPLAIN_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
+                    builder.explain(parser.booleanValue());
                 } else {
                     throw unsupportedField(parser, currentFieldName);
                 }
