@@ -259,10 +259,10 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
     }
 
     @Override
-    protected List<Field> getFieldsForFloatVector(final float[] array, boolean isDerivedSourceEnabled) {
+    protected List<Field> getFieldsForFloatVector(final float[] array, boolean isDerivedSourceEnabled, float norm) {
         if (this.isLuceneEngine) {
             final List<Field> fields = new ArrayList<>();
-            fields.add(new DerivedKnnFloatVectorField(name(), array, fieldType, isDerivedSourceEnabled));
+            fields.add(new DerivedKnnFloatVectorField(name(), array, fieldType, isDerivedSourceEnabled, norm));
             if (hasDocValues && vectorFieldType != null) {
                 fields.add(new VectorField(name(), array, vectorFieldType));
             }
@@ -271,7 +271,7 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
             }
             return fields;
         }
-        return super.getFieldsForFloatVector(array, isDerivedSourceEnabled);
+        return super.getFieldsForFloatVector(array, isDerivedSourceEnabled, norm);
     }
 
     @Override

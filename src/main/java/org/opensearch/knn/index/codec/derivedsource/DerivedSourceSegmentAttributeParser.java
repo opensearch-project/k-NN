@@ -60,4 +60,5 @@ public class DerivedSourceSegmentAttributeParser {
         String fieldName = isNested ? NESTED_DERIVED_SOURCE_FIELD : DERIVED_SOURCE_FIELD;
         segmentInfo.putAttribute(fieldName, String.join(DELIMETER, fields));
     }
+
 }

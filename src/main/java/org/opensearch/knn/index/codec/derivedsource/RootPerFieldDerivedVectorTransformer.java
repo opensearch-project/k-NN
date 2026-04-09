@@ -16,27 +16,32 @@ public class RootPerFieldDerivedVectorTransformer extends AbstractPerFieldDerive
 
     private final FieldInfo fieldInfo;
     private final CheckedSupplier<KNNVectorValues<?>, IOException> vectorValuesSupplier;
+    private final DerivedSourceNormSupplier normSupplier;
     private KNNVectorValues<?> vectorValues;
+    private int currentDocId;
 
     /**
      * Constructor for RootPerFieldDerivedVectorTransformer.
      *
      * @param fieldInfo FieldInfo for the field to create the injector for
      * @param derivedSourceReaders {@link DerivedSourceReaders} instance
+     * @param normSupplier supplier for L2 norm values
      */
-    public RootPerFieldDerivedVectorTransformer(FieldInfo fieldInfo, DerivedSourceReaders derivedSourceReaders) {
+    public RootPerFieldDerivedVectorTransformer(FieldInfo fieldInfo, DerivedSourceReaders derivedSourceReaders, DerivedSourceNormSupplier normSupplier) {
         this.fieldInfo = fieldInfo;
         this.vectorValuesSupplier = () -> KNNVectorValuesFactory.getVectorValues(
             fieldInfo,
             derivedSourceReaders.getDocValuesProducer(),
             derivedSourceReaders.getKnnVectorsReader()
         );
+        this.normSupplier = normSupplier;
     }
 
     @Override
     public void setCurrentDoc(int offset, int docId) throws IOException {
         vectorValues = vectorValuesSupplier.get();
         vectorValues.advance(docId);
+        currentDocId = docId;
     }
 
     @Override
@@ -46,7 +51,12 @@ public class RootPerFieldDerivedVectorTransformer extends AbstractPerFieldDerive
         }
 
         try {
-            return formatVector(fieldInfo, vectorValues::getVector, vectorValues::conditionalCloneVector);
+            return formatVector(
+                fieldInfo,
+                vectorValues::getVector,
+                vectorValues::conditionalCloneVector,
+                () -> normSupplier.getNorm(currentDocId)
+            );
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

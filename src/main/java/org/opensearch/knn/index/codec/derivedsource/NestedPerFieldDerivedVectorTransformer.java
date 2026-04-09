@@ -15,16 +15,24 @@ public class NestedPerFieldDerivedVectorTransformer extends AbstractPerFieldDeri
 
     private final FieldInfo childFieldInfo;
     private final DerivedSourceReaders derivedSourceReaders;
+    private final DerivedSourceNormSupplier normSupplier;
     private KNNVectorValues<?> vectorValues;
+    private int currentOffset;
 
     /**
      *
      * @param childFieldInfo FieldInfo of the child field
      * @param derivedSourceReaders Readers for access segment info
+     * @param normSupplier supplier for L2 norm values
      */
-    public NestedPerFieldDerivedVectorTransformer(FieldInfo childFieldInfo, DerivedSourceReaders derivedSourceReaders) {
+    public NestedPerFieldDerivedVectorTransformer(
+        FieldInfo childFieldInfo,
+        DerivedSourceReaders derivedSourceReaders,
+        DerivedSourceNormSupplier normSupplier
+    ) {
         this.childFieldInfo = childFieldInfo;
         this.derivedSourceReaders = derivedSourceReaders;
+        this.normSupplier = normSupplier;
     }
 
     @Override
@@ -34,7 +42,12 @@ public class NestedPerFieldDerivedVectorTransformer extends AbstractPerFieldDeri
         }
 
         try {
-            Object vector = formatVector(childFieldInfo, vectorValues::getVector, vectorValues::conditionalCloneVector);
+            Object vector = formatVector(
+                childFieldInfo,
+                vectorValues::getVector,
+                vectorValues::conditionalCloneVector,
+                () -> normSupplier.getNorm(currentOffset)
+            );
             vectorValues.nextDoc();
             return vector;
         } catch (IOException e) {
@@ -50,5 +63,6 @@ public class NestedPerFieldDerivedVectorTransformer extends AbstractPerFieldDeri
             derivedSourceReaders.getKnnVectorsReader()
         );
         vectorValues.advance(offset);
+        currentOffset = offset;
     }
 }

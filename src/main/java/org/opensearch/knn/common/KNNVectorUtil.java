@@ -8,6 +8,7 @@ package org.opensearch.knn.common;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -59,5 +60,35 @@ public class KNNVectorUtil {
             intArray[i] = integerList.get(i);
         }
         return intArray;
+    }
+
+    /**
+     * Get the doc values field name used to store the L2 norm for a given vector field.
+     *
+     * @param fieldName the vector field name
+     * @return the norm field name
+     */
+    public static String getNormFieldName(String fieldName) {
+        return KNNConstants.NORM_FIELD_PREFIX + fieldName;
+    }
+
+    /**
+     * Denormalize a normalized vector by multiplying each element by the given L2 norm.
+     *
+     * @param vector the normalized vector
+     * @param norm the L2 norm to restore
+     * @param inplace if true, modifies the input array; if false, returns a new array
+     * @return the denormalized vector
+     */
+    public static float[] denormalize(float[] vector, float norm, boolean inplace) {
+        Objects.requireNonNull(vector, "vector must not be null");
+        if (norm <= 0 || !Float.isFinite(norm)) {
+            throw new IllegalArgumentException("norm must be a positive finite value, got: " + norm);
+        }
+        float[] result = inplace ? vector : Arrays.copyOf(vector, vector.length);
+        for (int i = 0; i < result.length; i++) {
+            result[i] *= norm;
+        }
+        return result;
     }
 }

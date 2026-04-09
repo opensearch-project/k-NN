@@ -22,6 +22,7 @@ import org.opensearch.index.engine.Engine;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.index.mapper.SourceFieldMapper;
 import org.opensearch.index.shard.IndexingOperationListener;
+import org.opensearch.knn.common.KNNVectorUtil;
 import org.opensearch.knn.index.DerivedKnnByteVectorField;
 import org.opensearch.knn.index.DerivedKnnFloatVectorField;
 import org.opensearch.knn.index.VectorDataType;
@@ -106,8 +107,12 @@ public class DerivedSourceIndexOperationListener implements IndexingOperationLis
             for (Iterator<IndexableField> it = document.iterator(); it.hasNext();) {
                 IndexableField indexableField = it.next();
                 if (indexableField instanceof DerivedKnnFloatVectorField knnVectorFieldType && knnVectorFieldType.isDerivedEnabled()) {
-                    injectedVectors.computeIfAbsent(indexableField.name(), k -> new ArrayList<>())
-                        .add(formatVector(VectorDataType.FLOAT, knnVectorFieldType.vectorValue()));
+                    Object vector = formatVector(VectorDataType.FLOAT, knnVectorFieldType.vectorValue());
+                    float norm = knnVectorFieldType.getVectorNorm();
+                    if (norm != 1.0f && vector instanceof float[] floatVector) {
+                        vector = KNNVectorUtil.denormalize(floatVector, norm, false);
+                    }
+                    injectedVectors.computeIfAbsent(indexableField.name(), k -> new ArrayList<>()).add(vector);
                 }
 
                 if (indexableField instanceof DerivedKnnByteVectorField knnByteVectorField && knnByteVectorField.isDerivedEnabled()) {

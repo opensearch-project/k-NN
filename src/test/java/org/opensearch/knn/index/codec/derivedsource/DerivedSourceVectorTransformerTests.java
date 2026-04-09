@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.codec.derivedsource;
 
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentReadState;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -164,7 +165,8 @@ public class DerivedSourceVectorTransformerTests extends OpenSearchTestCase {
                 () -> PerFieldDerivedVectorTransformerFactory.create(
                     Mockito.any(FieldInfo.class),
                     Mockito.anyBoolean(),
-                    Mockito.any(DerivedSourceReaders.class)
+                    Mockito.any(DerivedSourceReaders.class),
+                    Mockito.any(FieldInfos.class)
                 )
             ).thenReturn(Mockito.mock(PerFieldDerivedVectorTransformer.class));
 
