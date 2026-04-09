@@ -793,8 +793,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             final float[] array = floatsArrayOptional.get();
             getVectorValidator().validateVector(array);
             VectorTransformer transformer = getVectorTransformer();
-            float norm = transformer.getTransformNormFactor(array);
-            transformer.transform(array, true);
+            float norm = transformer.transformAndGetNorm(array);
             context.doc().addAll(getFieldsForFloatVector(array, isDerivedEnabled(context), norm));
         } else {
             throw new IllegalArgumentException(

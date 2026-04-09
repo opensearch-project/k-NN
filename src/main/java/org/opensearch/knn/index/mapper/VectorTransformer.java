@@ -25,6 +25,19 @@ public interface VectorTransformer {
     }
 
     /**
+     * Transform a float vector in place and returns norm
+     * @param vector The input vector to transform (must not be null)
+     * @return norm float norm value
+     * @throws IllegalArgumentException if the input vector is null
+     */
+    default float transformAndGetNorm(final float[] vector) {
+        if (vector == null) {
+            throw new IllegalArgumentException("Input vector cannot be null");
+        }
+        return 1.0f;
+    }
+
+    /**
      * Transforms a byte vector in place.
      *
      * @param vector The input vector to transform (must not be null)
@@ -36,7 +49,4 @@ public interface VectorTransformer {
         }
     }
 
-    default float getTransformNormFactor(final float[] vector) {
-        return 1.0f;
-    }
 }

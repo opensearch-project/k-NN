@@ -25,12 +25,9 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.mapper.SourceFieldMapper;
-import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec.KNN9120DerivedSourceStoredFieldsReader;
 import org.opensearch.knn.index.codec.derivedsource.DerivedFieldInfo;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceSegmentAttributeParser;
-import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.util.IndexUtil;
 
@@ -39,7 +36,6 @@ import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -54,7 +50,6 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
 
     private final Set<String> knownVectorFields = new HashSet<>();
     private final Set<String> knownNestedVectorFields = new HashSet<>();
-    private final Set<String> knownNormFields = new HashSet<>();
 
     private Function<Map<String, Object>, Map<String, Object>> vectorMask;
 
@@ -154,25 +149,10 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
                         knownVectorFields.add(fieldName);
                     }
                     allFields.add(fieldName);
-
-                    if (needsNormField(knnVectorFieldType)) {
-                        knownNormFields.add(fieldName);
-                    }
                 }
             }
         }
         vectorMask = buildMask(allFields);
-    }
-
-    /**
-     * Determines if a vector field needs a norm doc values field for denormalization.
-     * This is only needed for Faiss engine with cosine similarity, where vectors are normalized at index time.
-     */
-    private static boolean needsNormField(KNNVectorFieldType fieldType) {
-        Optional<KNNMethodContext> context = fieldType.getKnnMappingConfig().getKnnMethodContext();
-        return context.isPresent()
-            && context.get().getKnnEngine() == KNNEngine.FAISS
-            && context.get().getSpaceType() == SpaceType.COSINESIMIL;
     }
 
     /**
@@ -195,7 +175,6 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
 
         Set<String> vectorFields = new HashSet<>();
         Set<String> nestedVectorFields = new HashSet<>();
-        Set<String> normFields = new HashSet<>();
 
         for (int i = 0; i < mergeState.storedFieldsReaders.length; i++) {
             StoredFieldsReader reader = mergeState.storedFieldsReaders[i];
@@ -208,7 +187,6 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
                         vectorFields.add(fieldInfo.name());
                     }
                 }
-                normFields.addAll(knnReader.getNormFields());
             }
         }
 
@@ -223,9 +201,6 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
         }
         if (!nestedVectorFields.isEmpty()) {
             DerivedSourceSegmentAttributeParser.addDerivedVectorFieldsSegmentInfoAttribute(segmentInfo, nestedVectorFields, true);
-        }
-        if (!normFields.isEmpty()) {
-            DerivedSourceSegmentAttributeParser.addNormDerivedVectorFieldsAttribute(segmentInfo, normFields);
         }
 
         // Store delegate codec name to be used by reader side
@@ -320,10 +295,6 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
 
         if (!knownNestedVectorFields.isEmpty()) {
             DerivedSourceSegmentAttributeParser.addDerivedVectorFieldsSegmentInfoAttribute(segmentInfo, knownNestedVectorFields, true);
-        }
-
-        if (!knownNormFields.isEmpty()) {
-            DerivedSourceSegmentAttributeParser.addNormDerivedVectorFieldsAttribute(segmentInfo, knownNormFields);
         }
 
         delegate.finish(i);

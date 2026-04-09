@@ -62,11 +62,9 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
         }
         SegmentReadState segmentReadState = new SegmentReadState(directory, segmentInfo, fieldInfos, ioContext);
         DerivedSourceReaders derivedSourceReaders = derivedSourceReadersSupplier.getReaders(segmentReadState);
-        List<String> normFields = DerivedSourceSegmentAttributeParser.parseNormDerivedVectorFields(segmentInfo);
         return new KNN10010DerivedSourceStoredFieldsReader(
             delegatingFormat.fieldsReader(directory, segmentInfo, fieldInfos, ioContext),
             derivedVectorFields,
-            normFields,
             derivedSourceReaders,
             segmentReadState
         );

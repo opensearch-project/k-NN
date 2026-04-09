@@ -991,4 +991,106 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
         deleteKNNIndex(indexDisabled);
     }
 
+    /**
+     * Test that merging segments with different norm doc values correctly reconstructs _source.
+     * Scenario: two separate flushes create two segments each with their own norm doc values,
+     * then a force merge combines them into one segment. After merge, _source reconstruction
+     * must still return the original (non-normalized) vectors for documents from both segments.
+     */
+    @SneakyThrows
+    public void testCosineSimDerivedSourceMultiSegmentMerge() {
+        String indexName = "cosine-derived-multi-segment";
+        String fieldName = "test_vector";
+        int dimension = 8;
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject("method")
+            .field("engine", "faiss")
+            .field("space_type", "cosinesimil")
+            .field("name", "hnsw")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(
+            indexName,
+            Settings.builder().put("index.knn", true).put("index.knn.derived_source.enabled", true).build(),
+            mapping
+        );
+
+        Random random = new Random(42);
+        int docsPerSegment = 5;
+        float[][] allVectors = new float[docsPerSegment * 2][dimension];
+
+        // Segment 1: index first batch and flush
+        for (int i = 0; i < docsPerSegment; i++) {
+            for (int j = 0; j < dimension; j++) {
+                allVectors[i][j] = random.nextFloat() * 10 - 5;
+            }
+            Float[] vector = new Float[dimension];
+            for (int j = 0; j < dimension; j++) {
+                vector[j] = allVectors[i][j];
+            }
+            addKnnDoc(indexName, String.valueOf(i), fieldName, vector);
+        }
+        flushIndex(indexName);
+
+        // Segment 2: index second batch and flush
+        for (int i = docsPerSegment; i < docsPerSegment * 2; i++) {
+            for (int j = 0; j < dimension; j++) {
+                allVectors[i][j] = random.nextFloat() * 10 - 5;
+            }
+            Float[] vector = new Float[dimension];
+            for (int j = 0; j < dimension; j++) {
+                vector[j] = allVectors[i][j];
+            }
+            addKnnDoc(indexName, String.valueOf(i), fieldName, vector);
+        }
+        flushIndex(indexName);
+
+        // Verify _source before merge (each segment has its own norm doc values)
+        refreshAllIndices();
+        for (int i = 0; i < docsPerSegment * 2; i++) {
+            Map<String, Object> source = getKnnDoc(indexName, String.valueOf(i));
+            List<Double> sourceVector = (List<Double>) source.get(fieldName);
+            assertNotNull("Before merge: vector should not be null for doc " + i, sourceVector);
+            for (int j = 0; j < dimension; j++) {
+                assertEquals(
+                    "Before merge - Doc " + i + " dim " + j,
+                    allVectors[i][j],
+                    sourceVector.get(j).floatValue(),
+                    1e-4f
+                );
+            }
+        }
+
+        // Force merge into a single segment
+        forceMergeKnnIndex(indexName, 1);
+        refreshAllIndices();
+
+        // Verify _source after merge (norm doc values from both segments must be preserved)
+        for (int i = 0; i < docsPerSegment * 2; i++) {
+            Map<String, Object> source = getKnnDoc(indexName, String.valueOf(i));
+            List<Double> sourceVector = (List<Double>) source.get(fieldName);
+            assertNotNull("After merge: vector should not be null for doc " + i, sourceVector);
+            for (int j = 0; j < dimension; j++) {
+                assertEquals(
+                    "After merge - Doc " + i + " dim " + j,
+                    allVectors[i][j],
+                    sourceVector.get(j).floatValue(),
+                    1e-4f
+                );
+            }
+        }
+
+        deleteKNNIndex(indexName);
+    }
+
 }
