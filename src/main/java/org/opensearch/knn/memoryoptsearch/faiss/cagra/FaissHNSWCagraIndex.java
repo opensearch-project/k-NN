@@ -75,7 +75,10 @@ public class FaissHNSWCagraIndex extends AbstractFaissHNSWIndex {
         faissHnsw.load(input, getTotalNumberOfVectors());
         ((FaissCagraHNSW) faissHnsw).setNumBaseLevelSearchEntryPoints(numBaseLevelSearchEntryPoint);
 
-        // Partial load flat vector storage
+        // Partial load flat vector storage.
+        // When IO_FLAG_SKIP_STORAGE was used (e.g., skip_stored_vectors remote build for SQ 1-bit),
+        // Faiss writes a "null" section and FaissIndex.load returns FaissEmptyIndex.
+        // FaissFlatIndexFactory will replace it with the real flat storage after loading.
         flatVectors = FaissIndex.load(input);
     }
 
