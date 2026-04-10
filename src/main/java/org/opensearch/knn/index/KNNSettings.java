@@ -20,6 +20,7 @@ import org.opensearch.common.settings.SecureSetting;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.settings.SecureString;
 import org.opensearch.core.common.unit.ByteSizeUnit;
@@ -1019,25 +1020,27 @@ public class KNNSettings {
         ClusterUpdateSettingsRequest clusterUpdateSettingsRequest = new ClusterUpdateSettingsRequest();
         Settings circuitBreakerSettings = Settings.builder().put(KNNSettings.KNN_CIRCUIT_BREAKER_TRIGGERED, flag).build();
         clusterUpdateSettingsRequest.persistentSettings(circuitBreakerSettings);
-        client.admin().cluster().updateSettings(clusterUpdateSettingsRequest, new ActionListener<ClusterUpdateSettingsResponse>() {
-            @Override
-            public void onResponse(ClusterUpdateSettingsResponse clusterUpdateSettingsResponse) {
-                logger.debug(
-                    "Cluster setting {}, acknowledged: {} ",
-                    clusterUpdateSettingsRequest.persistentSettings(),
-                    clusterUpdateSettingsResponse.isAcknowledged()
-                );
-            }
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            client.admin().cluster().updateSettings(clusterUpdateSettingsRequest, new ActionListener<ClusterUpdateSettingsResponse>() {
+                @Override
+                public void onResponse(ClusterUpdateSettingsResponse clusterUpdateSettingsResponse) {
+                    logger.debug(
+                        "Cluster setting {}, acknowledged: {} ",
+                        clusterUpdateSettingsRequest.persistentSettings(),
+                        clusterUpdateSettingsResponse.isAcknowledged()
+                    );
+                }
 
-            @Override
-            public void onFailure(Exception e) {
-                logger.info(
-                    "Exception while updating circuit breaker setting {} to {}",
-                    clusterUpdateSettingsRequest.persistentSettings(),
-                    e.getMessage()
-                );
-            }
-        });
+                @Override
+                public void onFailure(Exception e) {
+                    logger.info(
+                        "Exception while updating circuit breaker setting {} to {}",
+                        clusterUpdateSettingsRequest.persistentSettings(),
+                        e.getMessage()
+                    );
+                }
+            });
+        }
     }
 
     public static ByteSizeValue getVectorStreamingMemoryLimit() {
