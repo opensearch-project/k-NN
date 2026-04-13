@@ -148,11 +148,18 @@ public class FlatVectorsScorerProvider {
                         return SpaceType.L2.scoreTranslation(KNNScoringUtil.l2SquaredADC(target, quantizedByteVector));
                     }
                 };
-                case INNER_PRODUCT, COSINESIMIL -> new RandomVectorScorer.AbstractRandomVectorScorer(knnVectorValues) {
+                case INNER_PRODUCT -> new RandomVectorScorer.AbstractRandomVectorScorer(knnVectorValues) {
                     @Override
                     public float score(int internalVectorId) throws IOException {
                         final byte[] quantizedByteVector = byteVectorValues.vectorValue(internalVectorId);
                         return SpaceType.INNER_PRODUCT.scoreTranslation(-1 * KNNScoringUtil.innerProductADC(target, quantizedByteVector));
+                    }
+                };
+                case COSINESIMIL -> new RandomVectorScorer.AbstractRandomVectorScorer(knnVectorValues) {
+                    @Override
+                    public float score(int internalVectorId) throws IOException {
+                        final byte[] quantizedByteVector = byteVectorValues.vectorValue(internalVectorId);
+                        return SpaceType.COSINESIMIL.scoreTranslation(1 - KNNScoringUtil.innerProductADC(target, quantizedByteVector));
                     }
                 };
                 default -> throw new IllegalArgumentException("Unsupported space type: " + spaceType);

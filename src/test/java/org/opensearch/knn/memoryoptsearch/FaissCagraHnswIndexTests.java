@@ -21,6 +21,7 @@ import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOConsumer;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
 
@@ -30,6 +31,7 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.memoryoptsearch.FaissHNSWTests.loadHnswBinary;
 
 public class FaissCagraHnswIndexTests extends KNNTestCase {
@@ -50,10 +52,12 @@ public class FaissCagraHnswIndexTests extends KNNTestCase {
             // Instantiate memory optimized searcher
             // TODO: adc placeholder. isAdc false and SpaceType L2 are noops for the MemoryOptimizedSearcher here.
             final FaissIndex faissIndex = FaissIndex.load(input);
+            final FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+            Mockito.when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
             final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
                 input,
                 faissIndex,
-                Mockito.mock(FieldInfo.class),
+                fieldInfo,
                 FlatVectorScorerUtil.getLucene99FlatVectorsScorer()
             );
 
