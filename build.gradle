@@ -308,6 +308,9 @@ javadoc {
     if (javaExt.sourceCompatibility <= JavaVersion.VERSION_21 || javaExt.targetCompatibility <= JavaVersion.VERSION_21) {
         exclude("org/opensearch/knn/memoryoptsearch/MemorySegmentAddressExtractorJDK22.java")
     }
+
+    // Enable jdk.incubator.vector module for Javadoc generation
+    options.addStringOption('-add-modules', 'jdk.incubator.vector')
 }
 compileTestFixturesJava {
     options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
