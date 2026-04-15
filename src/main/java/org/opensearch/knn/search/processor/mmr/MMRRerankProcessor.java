@@ -28,6 +28,7 @@ import java.io.IOException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -35,6 +36,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
+import static org.opensearch.knn.common.KNNConstants.MMR_EXPLAIN;
 import static org.opensearch.knn.common.KNNConstants.MMR_RERANK_CONTEXT;
 import static org.opensearch.knn.search.processor.mmr.MMRUtil.extractVectorFromHit;
 import static org.opensearch.knn.search.processor.mmr.MMRUtil.shouldGenerateMMRProcessor;
@@ -81,14 +83,22 @@ public class MMRRerankProcessor implements SearchResponseProcessor, SystemGenera
             isFloatVector
         );
 
+        final boolean explainEnabled = Boolean.TRUE.equals(mmrContext.getExplain());
+        final Map<String, MMRExplainInfo> explainInfoMap = explainEnabled ? new LinkedHashMap<>() : null;
+
         final List<SearchHit> selected = selectHitsWithMMR(
             candidates,
             docVectors,
             similarityFunction,
             diversity,
             originalQuerySize,
-            isFloatVector
+            isFloatVector,
+            explainInfoMap
         );
+
+        if (explainEnabled) {
+            injectExplainInfo(selected, explainInfoMap);
+        }
 
         applyFetchSourceFilterIfNeeded(selected, mmrContext);
 
@@ -193,15 +203,18 @@ public class MMRRerankProcessor implements SearchResponseProcessor, SystemGenera
         KNNVectorSimilarityFunction similarityFunction,
         float diversity,
         int targetSize,
-        boolean isFloatVector
+        boolean isFloatVector,
+        Map<String, MMRExplainInfo> explainInfoMap
     ) {
         List<SearchHit> selected = new ArrayList<>();
         Map<String, Float> simCache = new HashMap<>();
+        final boolean collectExplain = explainInfoMap != null;
 
         while (selected.size() < targetSize && !candidates.isEmpty()) {
 
             Pair<SearchHit, Double> bestCandidate = null;
             double bestScore = Double.NEGATIVE_INFINITY;
+            float bestMaxSimToSelected = 0.0f;
 
             for (SearchHit candidate : candidates) {
                 String candidateId = candidate.getId();
@@ -227,18 +240,51 @@ public class MMRRerankProcessor implements SearchResponseProcessor, SystemGenera
                 double score = (1 - diversity) * candidate.getScore() - diversity * maxSimToSelected;
                 if (score > bestScore) {
                     bestScore = score;
+                    bestMaxSimToSelected = maxSimToSelected;
                     bestCandidate = Pair.of(candidate, score);
                 }
             }
 
             if (bestCandidate != null) {
                 SearchHit bestHit = bestCandidate.getLeft();
+
+                if (collectExplain) {
+                    MMRExplainInfo explainInfo = MMRExplainInfo.builder()
+                        .originalScore(bestHit.getScore())
+                        .maxSimilarityToSelected(bestMaxSimToSelected)
+                        .mmrScore(bestCandidate.getRight())
+                        .diversity(diversity)
+                        .build();
+                    explainInfoMap.put(bestHit.getId(), explainInfo);
+                }
+
                 selected.add(bestHit);
                 candidates.remove(bestHit);
             }
         }
 
         return selected;
+    }
+
+    /**
+     * Injects MMR explain info into each selected hit's _source as an "mmr_explain" field.
+     */
+    private void injectExplainInfo(List<SearchHit> selected, Map<String, MMRExplainInfo> explainInfoMap) throws IOException {
+        for (SearchHit hit : selected) {
+            MMRExplainInfo explainInfo = explainInfoMap.get(hit.getId());
+            if (explainInfo == null) {
+                throw new IllegalStateException(
+                    String.format(
+                        Locale.ROOT,
+                        "MMR explain info not found for selected hit [%s]. This indicates an internal inconsistency in the MMR selection process.",
+                        hit.getId()
+                    )
+                );
+            }
+            Map<String, Object> source = hit.getSourceAsMap();
+            source.put(MMR_EXPLAIN, explainInfo.toMap());
+            hit.sourceRef(BytesReference.bytes(XContentFactory.jsonBuilder().map(source)));
+        }
     }
 
     private void applyFetchSourceFilterIfNeeded(List<SearchHit> hits, MMRRerankContext mmrContext) throws IOException {

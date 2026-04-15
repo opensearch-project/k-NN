@@ -15,7 +15,7 @@ buildscript {
     ext {
         // build.version_qualifier parameter applies to knn plugin artifacts only. OpenSearch version must be set
         // explicitly as 'opensearch.version' property, for instance opensearch.version=2.0.0-rc1-SNAPSHOT
-        opensearch_version = System.getProperty("opensearch.version", "3.6.0-SNAPSHOT")
+        opensearch_version = System.getProperty("opensearch.version", "3.7.0-SNAPSHOT")
         version_qualifier = System.getProperty("build.version_qualifier", "")
         opensearch_group = "org.opensearch"
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
@@ -506,11 +506,18 @@ dependencies {
     implementation "org.slf4j:slf4j-api:${versions.slf4j}"
     zipArchive group: 'org.opensearch.plugin', name:'opensearch-security', version: "${opensearch_build}"
     // Commenting this out till CustomCodec plugin is ready after Lucene 10.4.0 upgrade in OS Core.
-    //zipArchive group: 'org.opensearch.plugin', name:'opensearch-custom-codecs', version: "${opensearch_build}"
+    zipArchive group: 'org.opensearch.plugin', name:'opensearch-custom-codecs', version: "${opensearch_build}"
 }
 
 task windowsPatches(type:Exec) {
-    commandLine 'cmd', '/c', "Powershell -File $rootDir\\scripts\\windowsScript.ps1"
+    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+        logger.lifecycle("This is windows, run windows scripts")
+        commandLine 'cmd', '/c', "Powershell -File $rootDir\\scripts\\windowsScript.ps1"
+    }
+    else {
+        logger.lifecycle("This is NOT windows, DO NOT run ps1 scripts")
+        commandLine 'echo', 'This is NOT windows, DO NOT run ps1 scripts - cmdline'
+    }
 }
 
 tasks.register('cmakeJniLib', Exec) {
@@ -537,7 +544,6 @@ tasks.register('cmakeJniLib', Exec) {
     def javaHome = Jvm.current().getJavaHome()
     logger.lifecycle("Java home directory used by gradle: $javaHome")
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-        dependsOn windowsPatches
         args.add("-G")
         args.add("Unix Makefiles")
         args.add("-DBLAS_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll")
@@ -559,6 +565,7 @@ tasks.clean.doFirst {
 
 tasks.register('buildJniLib', Exec) {
     dependsOn cmakeJniLib
+    dependsOn windowsPatches
     def args = []
     args.add("cmake")
     args.add("--build")
@@ -659,8 +666,6 @@ integTest {
     commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes)
     filter {
         excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
-        // Excluding till custom codec plugin upgrades
-        excludeTestsMatching "org.opensearch.knn.integ.codecs.CustomCodecsIT"
     }
     mustRunAfter test
 }
@@ -671,8 +676,6 @@ task integTestRemoteIndexBuild(type: RestIntegTestTask) {
         // Temporarily skipping this test class, see: https://github.com/opensearch-project/k-NN/issues/2726
         excludeTestsMatching "org.opensearch.knn.index.SegmentReplicationIT"
         excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
-        // Excluding till custom codec plugin upgrades
-        excludeTestsMatching "org.opensearch.knn.integ.codecs.CustomCodecsIT"
     }
     systemProperty("test.remoteBuild", System.getProperty("test.remoteBuild"))
     systemProperty("test.bucket", System.getProperty("test.bucket"))
@@ -699,7 +702,7 @@ def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
     if (System.getProperty("security.enabled") != null) {
         configureSecurityPlugin(cluster)
     }
-    /*else {
+    else {
         // Only install custom codecs plugin
         configurations.zipArchive.asFileTree.filter(f -> f.name.contains("custom-codecs")).each {
             cluster.plugin(provider(new Callable<RegularFile>() {
@@ -714,7 +717,7 @@ def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
             }
           }))
        }
-    }*/
+    }
 
     cluster.plugin(project.tasks.bundlePlugin.archiveFile)
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {

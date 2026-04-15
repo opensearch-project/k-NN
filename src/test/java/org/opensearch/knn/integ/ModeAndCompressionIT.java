@@ -311,6 +311,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         String mode = Mode.ON_DISK.getName();
         String compressionLevel = CompressionLevel.x32.getName();
         String indexName = INDEX_NAME + compressionLevel;
+        // Explicitly use binary encoder to test BQ rescoring behavior
         builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
@@ -319,6 +320,18 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
             .field("dimension", DIMENSION)
             .field(MODE_PARAMETER, mode)
             .field(COMPRESSION_LEVEL_PARAMETER, compressionLevel)
+            .startObject(KNN_METHOD)
+            .field(NAME, "hnsw")
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, "binary")
+            .startObject(PARAMETERS)
+            .field("bits", 1)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
             .endObject()
             .endObject()
             .endObject();
@@ -501,7 +514,10 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
             // since we are going to delete a document, so its better to have 1 more extra doc so that we can re-use some tests
             addKNNDocs(indexName, FIELD_NAME, DIMENSION, 0, NUM_DOCS + 1);
             addNonKNNDoc(indexName, String.valueOf(NUM_DOCS + 2), FIELD_NAME_NON_KNN, "Hello world");
-            deleteKnnDoc(indexName, "0");
+            // Delete the last doc (furthest from query vector) to avoid SQ 1-bit's better recall
+            // pulling a deleted doc into top-k results
+            deleteKnnDoc(indexName, String.valueOf(NUM_DOCS));
+            flushIndex(indexName);
             validateGreenIndex(indexName);
             validateSearch(
                 indexName,

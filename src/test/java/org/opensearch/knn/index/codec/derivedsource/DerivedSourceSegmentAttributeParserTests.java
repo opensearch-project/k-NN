@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -30,17 +31,25 @@ public class DerivedSourceSegmentAttributeParserTests extends KNNTestCase {
 
         DerivedSourceSegmentAttributeParser.addDerivedVectorFieldsSegmentInfoAttribute(
             mockSegmentInfo,
-            List.of("test", "test2.nested", "vector"),
+            Set.of("test", "test2.nested", "vector"),
             false
         );
-        assertEquals("test,test2.nested,vector", fakeAttributes.get(DERIVED_SOURCE_FIELD));
+        Set<String> expected = Set.of("test", "test2.nested", "vector");
+        Set<String> actual = Set.of(fakeAttributes.get(DERIVED_SOURCE_FIELD).split(","));
+        assertEquals(expected, actual);
         fakeAttributes.remove(DERIVED_SOURCE_FIELD);
 
-        DerivedSourceSegmentAttributeParser.addDerivedVectorFieldsSegmentInfoAttribute(mockSegmentInfo, List.of("test"), false);
+        DerivedSourceSegmentAttributeParser.addDerivedVectorFieldsSegmentInfoAttribute(mockSegmentInfo, Set.of("test"), false);
         assertEquals("test", fakeAttributes.get(DERIVED_SOURCE_FIELD));
 
-        DerivedSourceSegmentAttributeParser.addDerivedVectorFieldsSegmentInfoAttribute(mockSegmentInfo, List.of("", "", "", "", ""), false);
-        assertEquals(",,,,", fakeAttributes.get(DERIVED_SOURCE_FIELD));
+        DerivedSourceSegmentAttributeParser.addDerivedVectorFieldsSegmentInfoAttribute(
+            mockSegmentInfo,
+            Set.of("a", "", "c", "d", "e"),
+            false
+        );
+        Set<String> expected2 = Set.of("a", "", "c", "d", "e");
+        Set<String> actual2 = Set.of(fakeAttributes.get(DERIVED_SOURCE_FIELD).split(",", -1));
+        assertEquals(expected2, actual2);
     }
 
     public void testParseDerivedVectorFields() {

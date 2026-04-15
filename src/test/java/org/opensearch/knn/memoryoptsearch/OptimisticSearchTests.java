@@ -19,8 +19,12 @@ import org.apache.lucene.search.TaskExecutor;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.Weight;
+import org.apache.lucene.search.join.BitSetProducer;
+import org.apache.lucene.search.join.DiversifyingNearestChildrenKnnCollectorManager;
+import org.apache.lucene.search.knn.TopKnnCollectorManager;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
@@ -29,13 +33,16 @@ import org.opensearch.knn.index.query.PerLeafResult;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.memoryoptsearch.MemoryOptimizedKNNWeight;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
+import org.opensearch.lucene.ReentrantKnnCollectorManager;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -223,6 +230,126 @@ public class OptimisticSearchTests {
 
             // Scores should be the same
             assertEquals("Invalid scores acquired. Answer=" + answerScores + ", got=" + acquiredScores, answerScores, acquiredScores);
+        }
+    }
+
+    @Test
+    @SneakyThrows
+    public void testOptimisticSearchNestedUseDiversifyingCollector() {
+        // When parentsFilter is set (nested index), the reentrant search should use
+        // DiversifyingNearestChildrenKnnCollectorManager instead of TopKnnCollectorManager.
+        dotTstOptimisticSearchCollectorType(true);
+    }
+
+    @Test
+    @SneakyThrows
+    public void testOptimisticSearchNonNestedUseTopKCollector() {
+        // When parentsFilter is null (non-nested), the reentrant search should use TopKnnCollectorManager.
+        dotTstOptimisticSearchCollectorType(false);
+    }
+
+    @SneakyThrows
+    private void dotTstOptimisticSearchCollectorType(final boolean isNested) {
+        try (MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)) {
+            mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any())).thenReturn(false);
+
+            // Set parentsFilter based on nested or non-nested
+            if (isNested) {
+                when(knnQuery.getParentsFilter()).thenReturn(mock(BitSetProducer.class));
+            } else {
+                when(knnQuery.getParentsFilter()).thenReturn(null);
+            }
+
+            final NativeEngineKnnVectorQuery query = new NativeEngineKnnVectorQuery(knnQuery, QueryUtils.getInstance(), false);
+
+            // Use 3 segments with 2 re-entering to trigger reentrantSearch
+            final int numSegments = 3;
+            final int numSegmentsForReentering = 2;
+
+            // Create answer sets for 1st phase search
+            final List<List<ScoreDoc>> searchResults = new ArrayList<>();
+            for (int i = 0; i < numSegments; i++) {
+                searchResults.add(new ArrayList<>());
+            }
+
+            final float kthLargestScore = (numSegments * DEFAULT_K - DEFAULT_K) + 0.123F;
+            for (int i = 0, j = 0; i < numSegments * DEFAULT_K; j = (j + 1) % numSegments) {
+                final float score = i + 0.123F;
+                final List<ScoreDoc> scoreDocs = searchResults.get(j);
+                int prevDocId = -1;
+                if (scoreDocs.isEmpty() == false) {
+                    prevDocId = scoreDocs.get(scoreDocs.size() - 1).doc;
+                }
+                if (j >= numSegmentsForReentering || score >= kthLargestScore) {
+                    scoreDocs.add(new ScoreDoc(prevDocId + 1, score));
+                    ++i;
+                }
+            }
+
+            for (List<ScoreDoc> scoreDocs : searchResults) {
+                scoreDocs.sort((a, b) -> Float.compare(b.score, a.score));
+            }
+
+            final List<PerLeafResult> perLeafResults = new ArrayList<>();
+            for (int i = 0; i < numSegments; i++) {
+                perLeafResults.add(
+                    new PerLeafResult(
+                        null,
+                        0,
+                        new TopDocs(
+                            new TotalHits(searchResults.get(i).size(), TotalHits.Relation.EQUAL_TO),
+                            searchResults.get(i).toArray(new ScoreDoc[0])
+                        ),
+                        PerLeafResult.SearchMode.APPROXIMATE_SEARCH
+                    )
+                );
+            }
+
+            // Create segments
+            final List<LeafReaderContext> leafReaderContexts = new ArrayList<>();
+            final int numDocsInSegment = 1000;
+            for (int i = 0, docBase = 0; i < numSegments; ++i, docBase += numDocsInSegment) {
+                final SegmentReader mockSegmentReader = mock(SegmentReader.class);
+                when(mockSegmentReader.getSegmentName()).thenReturn("_" + i + "_165_target_field.faiss");
+                when(mockSegmentReader.maxDoc()).thenReturn(numDocsInSegment);
+
+                final LeafReaderContext leafReaderContext = createLeafReaderContext(i, docBase, mockSegmentReader);
+                when(mockSegmentReader.getContext()).thenReturn(leafReaderContext);
+
+                leafReaderContexts.add(leafReaderContext);
+
+                when(knnWeight.searchLeaf(eq(leafReaderContext), anyInt())).thenReturn(perLeafResults.get(i));
+                when(knnWeight.approximateSearch(eq(leafReaderContext), any(), anyInt(), anyInt())).thenReturn(
+                    perLeafResults.get(i).getResult()
+                );
+            }
+
+            when(parentIndexReader.leaves()).thenReturn(leafReaderContexts);
+
+            // Execute search
+            query.createWeight(searcher, ScoreMode.TOP_DOCS_WITH_SCORES, 1.0f);
+
+            // Capture the ReentrantKnnCollectorManager passed to setReentrantKNNCollectorManager
+            ArgumentCaptor<ReentrantKnnCollectorManager> captor = ArgumentCaptor.forClass(ReentrantKnnCollectorManager.class);
+            verify(knnWeight, times(1)).setReentrantKNNCollectorManager(captor.capture());
+
+            // Use reflection to extract the inner knnCollectorManager
+            final ReentrantKnnCollectorManager captured = captor.getValue();
+            Field delegateField = ReentrantKnnCollectorManager.class.getDeclaredField("knnCollectorManager");
+            delegateField.setAccessible(true);
+            Object innerCollectorManager = delegateField.get(captured);
+
+            if (isNested) {
+                assertTrue(
+                    "Expected DiversifyingNearestChildrenKnnCollectorManager for nested, got " + innerCollectorManager.getClass(),
+                    innerCollectorManager instanceof DiversifyingNearestChildrenKnnCollectorManager
+                );
+            } else {
+                assertTrue(
+                    "Expected TopKnnCollectorManager for non-nested, got " + innerCollectorManager.getClass(),
+                    innerCollectorManager instanceof TopKnnCollectorManager
+                );
+            }
         }
     }
 

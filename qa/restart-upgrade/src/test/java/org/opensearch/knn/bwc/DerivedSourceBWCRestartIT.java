@@ -92,6 +92,30 @@ public class DerivedSourceBWCRestartIT extends DerivedSourceTestCase {
         }
     }
 
+    public void testDerivedEnabledSettingPreservedOnUpgrade() throws IOException {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        String indexName = getIndexName("knn-bwc", "derived-enabled-", false);
+        if (isRunningAgainstOldCluster()) {
+            String fieldName = "test";
+            int dimension = 16;
+            XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(fieldName)
+                .field("type", "knn_vector")
+                .field("dimension", dimension)
+                .endObject()
+                .endObject()
+                .endObject();
+            String mapping = builder.toString();
+            Settings settings = Settings.builder().put("index.knn", true).put("index.knn.derived_source.enabled", true).build();
+            createKnnIndex(indexName, settings, mapping);
+            validateDerivedSetting(indexName, true);
+        } else {
+            validateDerivedSetting(indexName, true);
+        }
+    }
+
     @Override
     protected final boolean preserveIndicesUponCompletion() {
         return true;

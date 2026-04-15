@@ -15,7 +15,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.opensearch.Version;
 import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNResult;
@@ -28,6 +30,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 import java.util.TreeMap;
 
@@ -36,6 +39,7 @@ import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
+import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
@@ -109,6 +113,7 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
                 .field(NAME, ENCODER_SQ)
                 .startObject(PARAMETERS)
                 .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+                .field(SQ_BITS, 16)
                 .endObject()
                 .endObject()
                 .endObject()
@@ -185,6 +190,7 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
                 .field(NAME, ENCODER_SQ)
                 .startObject(PARAMETERS)
                 .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+                .field(SQ_BITS, 16)
                 .field(FAISS_SQ_CLIP, true)
                 .endObject()
                 .endObject()
@@ -258,6 +264,7 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
                 .field(NAME, ENCODER_SQ)
                 .startObject(PARAMETERS)
                 .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+                .field(SQ_BITS, 16)
                 .endObject()
                 .endObject()
                 .endObject()
@@ -312,6 +319,7 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
                 .field(NAME, ENCODER_SQ)
                 .startObject(PARAMETERS)
                 .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+                .field(SQ_BITS, 16)
                 .field(FAISS_SQ_CLIP, true)
                 .endObject()
                 .endObject()
@@ -400,6 +408,274 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
         // Assert that all docs are ingested
         refreshAllNonSystemIndices();
         assertEquals(numDocs, getDocCount(indexName));
+    }
+
+    /**
+     * Tests that a legacy SQ FP16 index (created without bits param on the old cluster)
+     * survives restart upgrade and is still queryable on the new cluster.
+     */
+    public void testLegacySQFP16_onOldClusterThenUpgraded_thenSucceed() throws Exception {
+        if (isSQFP16Supported(getBWCVersion()) == false) {
+            logger.info("Skipping test as SQ FP16 is not supported in version: {}", getBWCVersion());
+            return;
+        }
+        String indexName = testIndex + "-legacy-fp16";
+        int k = 5;
+        if (isRunningAgainstOldCluster()) {
+            // Create legacy SQ FP16 index without bits (pre-3.6.0 format)
+            XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(TEST_FIELD)
+                .field("type", "knn_vector")
+                .field("dimension", DIMENSION)
+                .startObject("method")
+                .field(NAME, "hnsw")
+                .field(KNN_ENGINE, FAISS_NAME)
+                .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+                .startObject(PARAMETERS)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, ENCODER_SQ)
+                .startObject(PARAMETERS)
+                .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+            createKnnIndex(indexName, builder.toString());
+            addKNNDocs(indexName, TEST_FIELD, DIMENSION, 0, NUM_DOCS);
+        } else {
+            // After upgrade: verify legacy index is queryable and force merge works
+            validateKNNSearch(indexName, TEST_FIELD, DIMENSION, NUM_DOCS, k);
+            addKNNDocs(indexName, TEST_FIELD, DIMENSION, NUM_DOCS, NUM_DOCS);
+            forceMergeKnnIndex(indexName);
+            validateKNNSearch(indexName, TEST_FIELD, DIMENSION, 2 * NUM_DOCS, k);
+            deleteKNNIndex(indexName);
+        }
+    }
+
+    /**
+     * Tests that a legacy SQ FP16 index with clip=true (created without bits on the old cluster)
+     * survives restart upgrade and is still queryable.
+     */
+    public void testLegacySQFP16WithClip_onOldClusterThenUpgraded_thenSucceed() throws Exception {
+        if (isSQFP16Supported(getBWCVersion()) == false) {
+            logger.info("Skipping test as SQ FP16 is not supported in version: {}", getBWCVersion());
+            return;
+        }
+        String indexName = testIndex + "-legacy-fp16-clip";
+        int k = 5;
+        if (isRunningAgainstOldCluster()) {
+            XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(TEST_FIELD)
+                .field("type", "knn_vector")
+                .field("dimension", DIMENSION)
+                .startObject("method")
+                .field(NAME, "hnsw")
+                .field(KNN_ENGINE, FAISS_NAME)
+                .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+                .startObject(PARAMETERS)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, ENCODER_SQ)
+                .startObject(PARAMETERS)
+                .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+                .field(FAISS_SQ_CLIP, true)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+            createKnnIndex(indexName, builder.toString());
+            addKNNDocs(indexName, TEST_FIELD, DIMENSION, 0, NUM_DOCS);
+        } else {
+            validateKNNSearch(indexName, TEST_FIELD, DIMENSION, NUM_DOCS, k);
+            addKNNDocs(indexName, TEST_FIELD, DIMENSION, NUM_DOCS, NUM_DOCS);
+            forceMergeKnnIndex(indexName);
+            validateKNNSearch(indexName, TEST_FIELD, DIMENSION, 2 * NUM_DOCS, k);
+            deleteKNNIndex(indexName);
+        }
+    }
+
+    /**
+     * Tests that a legacy SQ FP16 index with mode=on_disk (created without bits on the old cluster)
+     * survives restart upgrade. On the old cluster, on_disk + fp16 resolves to x2 compression.
+     */
+    public void testLegacySQFP16WithOnDisk_onOldClusterThenUpgraded_thenSucceed() throws Exception {
+        if (isModeSupported(getBWCVersion()) == false) {
+            logger.info("Skipping test as mode parameter is not supported in version: {}", getBWCVersion());
+            return;
+        }
+        String indexName = testIndex + "-legacy-fp16-ondisk";
+        int k = 5;
+        if (isRunningAgainstOldCluster()) {
+            XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(TEST_FIELD)
+                .field("type", "knn_vector")
+                .field("dimension", DIMENSION)
+                .field("mode", "on_disk")
+                .startObject("method")
+                .field(NAME, "hnsw")
+                .field(KNN_ENGINE, FAISS_NAME)
+                .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+                .startObject(PARAMETERS)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, ENCODER_SQ)
+                .startObject(PARAMETERS)
+                .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+            createKnnIndex(indexName, builder.toString());
+            addKNNDocs(indexName, TEST_FIELD, DIMENSION, 0, NUM_DOCS);
+        } else {
+            validateKNNSearch(indexName, TEST_FIELD, DIMENSION, NUM_DOCS, k);
+            addKNNDocs(indexName, TEST_FIELD, DIMENSION, NUM_DOCS, NUM_DOCS);
+            forceMergeKnnIndex(indexName);
+            validateKNNSearch(indexName, TEST_FIELD, DIMENSION, 2 * NUM_DOCS, k);
+            deleteKNNIndex(indexName);
+        }
+    }
+
+    /**
+     * Validates that new mapping scenarios work correctly on the upgraded cluster.
+     * These test the encoder validation logic introduced with the bits parameter.
+     */
+    public void testSQMappingValidation_onUpgradedCluster_thenSucceed() throws Exception {
+        if (isRunningAgainstOldCluster()) {
+            return;
+        }
+
+        // bits=1 without type should succeed
+        String bits1Index = testIndex + "-bits1";
+        XContentBuilder bits1Builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(TEST_FIELD)
+            .field("type", "knn_vector")
+            .field("dimension", DIMENSION)
+            .startObject("method")
+            .field(NAME, "hnsw")
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(SQ_BITS, 1)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        createKnnIndex(bits1Index, bits1Builder.toString());
+        deleteKNNIndex(bits1Index);
+
+        // bits=16 without type should succeed
+        String bits16Index = testIndex + "-bits16-notype";
+        XContentBuilder bits16Builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(TEST_FIELD)
+            .field("type", "knn_vector")
+            .field("dimension", DIMENSION)
+            .startObject("method")
+            .field(NAME, "hnsw")
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(SQ_BITS, 16)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        createKnnIndex(bits16Index, bits16Builder.toString());
+        deleteKNNIndex(bits16Index);
+
+        // sq without bits on 3.6.0+ should be rejected
+        String noBitsMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(TEST_FIELD)
+            .field("type", "knn_vector")
+            .field("dimension", DIMENSION)
+            .startObject("method")
+            .field(NAME, "hnsw")
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+        expectThrows(ResponseException.class, () -> createKnnIndex(testIndex + "-nobits", noBitsMapping));
+
+        // bits=1 with type=fp16 should be rejected
+        String bits1TypeMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(TEST_FIELD)
+            .field("type", "knn_vector")
+            .field("dimension", DIMENSION)
+            .startObject("method")
+            .field(NAME, "hnsw")
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(SQ_BITS, 1)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+        expectThrows(ResponseException.class, () -> createKnnIndex(testIndex + "-bits1type", bits1TypeMapping));
+    }
+
+    private boolean isSQFP16Supported(final Optional<String> bwcVersion) {
+        if (bwcVersion.isEmpty()) {
+            return false;
+        }
+        String versionString = bwcVersion.get().replace("-SNAPSHOT", "");
+        return Version.fromString(versionString).onOrAfter(Version.V_2_13_0);
+    }
+
+    private boolean isModeSupported(final Optional<String> bwcVersion) {
+        if (bwcVersion.isEmpty()) {
+            return false;
+        }
+        String versionString = bwcVersion.get().replace("-SNAPSHOT", "");
+        return Version.fromString(versionString).onOrAfter(Version.V_2_17_0);
     }
 
 }

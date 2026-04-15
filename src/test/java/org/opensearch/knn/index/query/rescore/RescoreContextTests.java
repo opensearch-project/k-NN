@@ -82,4 +82,37 @@ public class RescoreContextTests extends KNNTestCase {
         rescoreContext = RescoreContext.builder().oversampleFactor(oversample).userProvided(true).build();  // User provided
         assertEquals(MIN_FIRST_PASS_RESULTS, rescoreContext.getFirstPassK(finalK, isShardLevelRescoringDisabled, dimension));
     }
+
+    public void testGetFirstPassK_whenAllowOverrideOversampleFactorIsFalse_thenDimensionBasedOverrideIsSkipped() {
+        // Simulates SQ encoder behavior: oversampleFactor is fixed and should NOT be overridden by dimension-based logic
+        float oversample = RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR; // 2.0f
+        int finalK = 100;
+
+        // Even though shard-level rescoring is disabled and userProvided is false,
+        // allowOverrideOversampleFactor=false should prevent dimension-based override
+        RescoreContext rescoreContext = RescoreContext.builder()
+            .oversampleFactor(oversample)
+            .userProvided(false)
+            .allowOverrideOversampleFactor(false)
+            .build();
+
+        // dimension < 768 would normally trigger 3x oversampling, but allowOverrideOversampleFactor=false keeps it at 2x
+        assertEquals(200, rescoreContext.getFirstPassK(finalK, true, 500));
+
+        // dimension >= 768 && < 1000 would normally trigger 2x, stays at 2x (same value but for different reason)
+        rescoreContext = RescoreContext.builder()
+            .oversampleFactor(oversample)
+            .userProvided(false)
+            .allowOverrideOversampleFactor(false)
+            .build();
+        assertEquals(200, rescoreContext.getFirstPassK(finalK, true, 800));
+
+        // dimension >= 1000 would normally trigger 1x (no oversampling), but stays at 2x
+        rescoreContext = RescoreContext.builder()
+            .oversampleFactor(oversample)
+            .userProvided(false)
+            .allowOverrideOversampleFactor(false)
+            .build();
+        assertEquals(200, rescoreContext.getFirstPassK(finalK, true, 1200));
+    }
 }
