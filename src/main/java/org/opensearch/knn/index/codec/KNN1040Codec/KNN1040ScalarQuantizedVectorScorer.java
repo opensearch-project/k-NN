@@ -210,6 +210,8 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
      * and reused across all scoring calls.
      */
     private static class BulkSimdRandomVectorScorer extends RandomVectorScorer.AbstractRandomVectorScorer {
+        private final boolean isCosine;
+
         /**
          * Constructs a SIMD-backed scorer and initializes the native search context.
          *
@@ -220,7 +222,7 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
          * @param targetCorrectiveTerms correction terms from quantization
          * @param addressAndSize        raw memory location of vector data
          * @param knnVectorValues       vector storage abstraction
-         * @param similarityFunction    similarity function (IP or L2)
+         * @param similarityFunction    similarity function (IP, COSINE, or L2)
          * @param dimension             vector dimensionality
          * @param centroidDp            centroid dot-product correction
          */
@@ -234,8 +236,11 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
             final float centroidDp
         ) {
             super(knnVectorValues);
+            this.isCosine = similarityFunction == VectorSimilarityFunction.COSINE;
 
-            // Initialize native SIMD search context
+            // Initialize native SIMD search context.
+            // COSINE uses the same SQ_IP SIMD kernel (dot product on normalized vectors),
+            // then scores are post-processed in Java to apply the Lucene cosine transform.
             SimdVectorComputeService.saveSQSearchContext(
                 targetQuantized,
                 targetCorrectiveTerms.lowerInterval(),
@@ -265,7 +270,13 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
          */
         @Override
         public float bulkScore(final int[] internalVectorIds, final float[] scores, final int numVectors) {
-            return SimdVectorComputeService.scoreSimilarityInBulk(internalVectorIds, scores, numVectors);
+            final float result = SimdVectorComputeService.scoreSimilarityInBulk(internalVectorIds, scores, numVectors);
+            if (isCosine) {
+                for (int i = 0; i < numVectors; i++) {
+                    scores[i] = maxIpToCosine(scores[i]);
+                }
+            }
+            return result;
         }
 
         /**
@@ -277,7 +288,19 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
          */
         @Override
         public float score(final int internalVectorId) {
-            return SimdVectorComputeService.scoreSimilarity(internalVectorId);
+            final float score = SimdVectorComputeService.scoreSimilarity(internalVectorId);
+            return isCosine ? maxIpToCosine(score) : score;
+        }
+
+        /**
+         * Converts a Max Inner Product score to a Lucene cosine score.
+         * Reverses the Max-IP transform to recover the raw dot product,
+         * clamps to [-1, 1] (BBQ quantization can produce values slightly outside this range),
+         * then applies the Lucene cosine formula: max((1 + dot) / 2, 0).
+         */
+        private static float maxIpToCosine(final float maxIpScore) {
+            final float dot = maxIpScore >= 1.0f ? maxIpScore - 1.0f : 1.0f - 1.0f / maxIpScore;
+            return Math.max((1.0f + Math.min(dot, 1.0f)) / 2.0f, 0.0f);
         }
     }
 }

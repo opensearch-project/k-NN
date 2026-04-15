@@ -25,7 +25,10 @@ public class SimdVectorComputeService {
         // FP16 Maximum Inner Product. The result will be the same as we acquired from VectorSimilarityFunction.EUCLIDEAN.
         FP16_L2,
         SQ_IP,
-        SQ_L2
+        SQ_L2,
+        // FP16 Cosine Similarity. Vectors are pre-normalized so the dot product yields cosine similarity.
+        // The score transform is: max((1 + cosine) / 2, 0), matching Lucene's VectorSimilarityFunction.COSINE.
+        FP16_COSINE
     }
 
     public static native void saveSQSearchContext(

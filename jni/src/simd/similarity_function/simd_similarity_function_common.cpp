@@ -234,6 +234,24 @@ SimdVectorSearchContext* SimilarityFunction::saveSearchContext(
         // Assign query to Faiss function
         THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction->set_query(
             reinterpret_cast<float*>(THREAD_LOCAL_SIMD_VEC_SRCH_CTX.queryVectorSimdAligned));
+    } else if (nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::FP16_COSINE)) {
+        // Set similarity function for cosine similarity.
+        // The bulk SIMD kernel computes the same dot product as IP, but applies a cosine-specific
+        // score transform: max((1 + dot) / 2, 0).
+        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.similarityFunction = selectSimilarityFunction(
+            NativeSimilarityFunctionType::FP16_COSINE);
+
+        // FP16 vector bytes = 2bytes * dimension
+        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.oneVectorByteSize = 2 * dimension;
+
+        // Use inner product distance computer since the underlying math is the same for normalized vectors
+        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction.reset(
+             faiss::ScalarQuantizer {static_cast<size_t>(dimension), faiss::ScalarQuantizer::QuantizerType::QT_fp16}
+                                    .get_distance_computer(faiss::MetricType::METRIC_INNER_PRODUCT));
+
+        // Assign query to Faiss function
+        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction->set_query(
+            reinterpret_cast<float*>(THREAD_LOCAL_SIMD_VEC_SRCH_CTX.queryVectorSimdAligned));
     } else if (nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ_IP)
                || nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ_L2)) {
          // Set similarity function to offload similarity calculation

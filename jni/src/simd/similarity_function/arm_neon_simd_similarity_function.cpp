@@ -158,6 +158,23 @@ struct ArmNeonFP16L2 final : BaseSimilarityFunction<BulkScoreTransformFunc, Scor
 };
 
 //
+// FP16 Cosine Similarity — delegates to ArmNeonFP16MaxIP with cosine score transform.
+//
+template <BulkScoreTransform BulkScoreTransformFunc, ScoreTransform ScoreTransformFunc>
+struct ArmNeonFP16Cosine final : BaseSimilarityFunction<BulkScoreTransformFunc, ScoreTransformFunc> {
+    void calculateSimilarityInBulk(SimdVectorSearchContext* srchContext,
+                                   int32_t* internalVectorIds,
+                                   float* scores,
+                                   const int32_t numVectors) {
+        // Reuses the IP dot product kernel; cosine score transform is injected via template parameters.
+        ipKernel.calculateSimilarityInBulk(srchContext, internalVectorIds, scores, numVectors);
+    }
+
+  private:
+    ArmNeonFP16MaxIP<BulkScoreTransformFunc, ScoreTransformFunc> ipKernel;
+};
+
+//
 // SQ (ADC: 4-bit query x 1-bit data) - NEON SIMD implementation
 //
 // The query is 4-bit quantized and transposed into 4 bit planes (via transposeHalfByte).
@@ -437,6 +454,8 @@ struct ArmNeonSQSimilarityFunction final : SimilarityFunction {
 ArmNeonFP16MaxIP<FaissScoreToLuceneScoreTransform::ipToMaxIpTransformBulk, FaissScoreToLuceneScoreTransform::ipToMaxIpTransform> FP16_MAX_INNER_PRODUCT_SIMIL_FUNC;
 // 2. L2
 ArmNeonFP16L2<FaissScoreToLuceneScoreTransform::l2TransformBulk, FaissScoreToLuceneScoreTransform::l2Transform> FP16_L2_SIMIL_FUNC;
+// 3. Cosine similarity
+ArmNeonFP16Cosine<FaissScoreToLuceneScoreTransform::cosineTransformBulk, FaissScoreToLuceneScoreTransform::cosineTransform> FP16_COSINE_SIMIL_FUNC;
 
 //
 // SQ
@@ -452,6 +471,8 @@ SimilarityFunction* SimilarityFunction::selectSimilarityFunction(const NativeSim
         return &FP16_MAX_INNER_PRODUCT_SIMIL_FUNC;
     } else if (nativeFunctionType == NativeSimilarityFunctionType::FP16_L2) {
         return &FP16_L2_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::FP16_COSINE) {
+        return &FP16_COSINE_SIMIL_FUNC;
     } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ_IP) {
         return &SQ_IP_SIMIL_FUNC;
     } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ_L2) {

@@ -158,12 +158,10 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
 
     @Override
     protected SpaceType convertUserToMethodSpaceType(SpaceType spaceType) {
-        // While FAISS doesn't directly support cosine similarity, we can leverage the mathematical
-        // relationship between cosine similarity and inner product for normalized vectors to add support.
-        // When ||a|| = ||b|| = 1, cos(θ) = a · b
-        if (spaceType == SpaceType.COSINESIMIL) {
-            return SpaceType.INNER_PRODUCT;
-        }
+        // Cosine similarity now has its own dedicated SIMD scoring path (FP16_COSINE).
+        // We no longer silently convert it to INNER_PRODUCT.
+        // The underlying FAISS index still uses METRIC_INNER_PRODUCT (since FAISS has no native cosine metric), but the space type
+        // identity is preserved so the correct score transform is applied during search.
         return super.convertUserToMethodSpaceType(spaceType);
     }
 

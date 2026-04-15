@@ -64,7 +64,6 @@ import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.query.FilterIdsSelector;
 import org.opensearch.knn.index.query.KNNQueryResult;
-import org.opensearch.knn.index.query.MemoryOptimizedSearchScoreConverter;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.vectorvalues.KNNByteVectorValues;
@@ -738,9 +737,6 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         // Make results
         final TopDocs topDocs = knnCollector.topDocs();
         final ScoreDoc[] scoreDocs = topDocs.scoreDocs;
-        if (spaceType == SpaceType.COSINESIMIL) {
-            MemoryOptimizedSearchScoreConverter.convertToCosineScore(scoreDocs);
-        }
         assertTrue(scoreDocs.length >= k);
         final List<KNNQueryResult> results = new ArrayList<>();
         for (int i = 0; i < k; ++i) {
