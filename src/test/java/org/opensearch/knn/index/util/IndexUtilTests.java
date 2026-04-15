@@ -457,4 +457,69 @@ public class IndexUtilTests extends KNNTestCase {
 
         assertEquals(expectedDerivedEnabled, result);
     }
+
+    /**
+     * Helper to create a MapperService mock with the required call chain for isDerivedEnabledForIndex.
+     * Sets up: documentMapper().sourceMapper().enabled(), getIndexSettings().isDerivedSourceEnabled(),
+     * getIndexSettings().getSettings(), and getIndexSettings().isSegRepLocalEnabled().
+     */
+    private MapperService buildMockMapperServiceForDerived(
+        boolean sourceEnabled,
+        boolean coreDerivedSourceEnabled,
+        boolean knnDerivedSourceEnabled,
+        boolean segRepLocalEnabled
+    ) {
+        MapperService mapperService = mock(MapperService.class);
+
+        // Mock documentMapper().sourceMapper().enabled()
+        org.opensearch.index.mapper.DocumentMapper documentMapper = mock(org.opensearch.index.mapper.DocumentMapper.class);
+        org.opensearch.index.mapper.SourceFieldMapper sourceFieldMapper = mock(org.opensearch.index.mapper.SourceFieldMapper.class);
+        when(sourceFieldMapper.enabled()).thenReturn(sourceEnabled);
+        when(documentMapper.sourceMapper()).thenReturn(sourceFieldMapper);
+        when(mapperService.documentMapper()).thenReturn(documentMapper);
+
+        // Mock getIndexSettings()
+        org.opensearch.index.IndexSettings indexSettings = mock(org.opensearch.index.IndexSettings.class);
+        when(indexSettings.isDerivedSourceEnabled()).thenReturn(coreDerivedSourceEnabled);
+        when(indexSettings.isSegRepLocalEnabled()).thenReturn(segRepLocalEnabled);
+
+        Settings settings = Settings.builder().put(KNNSettings.KNN_DERIVED_SOURCE_ENABLED, knnDerivedSourceEnabled).build();
+        when(indexSettings.getSettings()).thenReturn(settings);
+        when(mapperService.getIndexSettings()).thenReturn(indexSettings);
+        when(mapperService.getIndexSettings().getIndexVersionCreated()).thenReturn(Version.CURRENT);
+
+        return mapperService;
+    }
+
+    public void testIsDerivedEnabledForIndex_whenCoreDerivedSourceEnabled_thenReturnFalse() {
+        // Core derived source is ON → should return false (core takes precedence over KNN derived source)
+        MapperService mapperService = buildMockMapperServiceForDerived(true, true, true, false);
+        assertFalse(IndexUtil.isDerivedEnabledForIndex(mapperService));
+    }
+
+    public void testIsDerivedEnabledForIndex_whenCoreDerivedSourceDisabledAndKnnDerivedSourceEnabled_thenReturnTrue() {
+        // Core derived source is OFF, KNN derived source is ON, source enabled, no seg rep → should return true
+        MapperService mapperService = buildMockMapperServiceForDerived(true, false, true, false);
+        assertTrue(IndexUtil.isDerivedEnabledForIndex(mapperService));
+    }
+
+    public void testIsDerivedEnabledForIndex_whenMapperServiceNull_thenReturnFalse() {
+        assertFalse(IndexUtil.isDerivedEnabledForIndex(null));
+    }
+
+    public void testIsDerivedEnabledForIndex_whenSourceDisabled_thenReturnFalse() {
+        MapperService mapperService = buildMockMapperServiceForDerived(false, false, true, false);
+        assertFalse(IndexUtil.isDerivedEnabledForIndex(mapperService));
+    }
+
+    public void testIsDerivedEnabledForIndex_whenKnnDerivedSourceDisabled_thenReturnFalse() {
+        MapperService mapperService = buildMockMapperServiceForDerived(true, false, false, false);
+        assertFalse(IndexUtil.isDerivedEnabledForIndex(mapperService));
+    }
+
+    public void testIsDerivedEnabledForIndex_whenSegRepLocalEnabled_thenReturnFalse() {
+        MapperService mapperService = buildMockMapperServiceForDerived(true, false, true, true);
+        assertFalse(IndexUtil.isDerivedEnabledForIndex(mapperService));
+    }
+
 }

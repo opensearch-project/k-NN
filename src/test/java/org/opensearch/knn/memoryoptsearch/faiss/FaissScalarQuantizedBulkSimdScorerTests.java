@@ -37,7 +37,7 @@ import org.apache.lucene.util.Version;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.junit.Test;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.codec.KNN1040Codec.Faiss104ScalarQuantizedVectorScorer;
+import org.opensearch.knn.index.codec.KNN1040Codec.KNN1040ScalarQuantizedVectorScorer;
 
 import java.lang.reflect.Field;
 import java.nio.file.Path;
@@ -48,13 +48,13 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Tests that the native SIMD SQ scorer ({@link Faiss104ScalarQuantizedVectorScorer}) produces scores
+ * Tests that the native SIMD SQ scorer ({@link KNN1040ScalarQuantizedVectorScorer}) produces scores
  * matching Lucene's {@link Lucene104ScalarQuantizedVectorScorer} (the source of truth).
  * <p>
  * Uses the Lucene codec pipeline directly:
  * 1. {@link Lucene104ScalarQuantizedVectorsFormat#fieldsWriter} to quantize and write vectors.
  * 2. {@link Lucene104ScalarQuantizedVectorsReader} with {@link Lucene104ScalarQuantizedVectorScorer} → truth.
- * 3. {@link Lucene104ScalarQuantizedVectorsReader} with {@link Faiss104ScalarQuantizedVectorScorer} → test subject.
+ * 3. {@link Lucene104ScalarQuantizedVectorsReader} with {@link KNN1040ScalarQuantizedVectorScorer} → test subject.
  * 4. Compare scores.
  */
 public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
@@ -63,7 +63,7 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
     private static final int NUM_VECTORS = 500;
 
     @Test
-    public void testBBQCosineScoring() {
+    public void testSQCosineScoring() {
         for (int dim : Arrays.asList(1, 7, 56, 57, 77, 128, 512, 777, 1024)) {
             System.out.println("Dimension=" + dim);
             doTest(VectorSimilarityFunction.COSINE, dim);
@@ -71,7 +71,7 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
     }
 
     @Test
-    public void testBBQEuclideanScoring() {
+    public void testSQEuclideanScoring() {
         for (int dim : Arrays.asList(1, 7, 77, 128, 512, 777, 1024, 10240, 30000, 65535)) {
             System.out.println("Dimension=" + dim);
             doTest(VectorSimilarityFunction.EUCLIDEAN, dim);
@@ -79,7 +79,7 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
     }
 
     @Test
-    public void testBBQMaxInnerProductScoring() {
+    public void testSQMaxInnerProductScoring() {
         for (int dim : Arrays.asList(1, 7, 77, 128, 512, 777, 1024, 10240, 30000, 65535)) {
             System.out.println("Dimension=" + dim);
             doTest(VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT, dim);
@@ -191,7 +191,7 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
                 assertNotNull("Truth scorer should not be null", truthScorer);
 
                 // ---- Step 3: SIMD scorer (test subject) ----
-                final Faiss104ScalarQuantizedVectorScorer simdFlatScorer = new Faiss104ScalarQuantizedVectorScorer(defaultScorer);
+                final KNN1040ScalarQuantizedVectorScorer simdFlatScorer = new KNN1040ScalarQuantizedVectorScorer(defaultScorer);
 
                 RandomVectorScorer testScorer = simdFlatScorer.getRandomVectorScorer(
                     similarityFunction,

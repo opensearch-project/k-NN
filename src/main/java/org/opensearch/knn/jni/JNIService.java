@@ -474,7 +474,7 @@ public class JNIService {
         throw new IllegalArgumentException(String.format(Locale.ROOT, "RadiusQueryIndex not supported for provided engine"));
     }
 
-    public static long initFaissBBQIndex(
+    public static long initFaissSQIndex(
         final int totalLiveDocs,
         final int dimension,
         final Map<String, Object> indexParameters,
@@ -483,15 +483,15 @@ public class JNIService {
         final KNNEngine knnEngine
     ) {
         if (KNNEngine.FAISS == knnEngine) {
-            return FaissService.initFaissBBQIndex(totalLiveDocs, dimension, indexParameters, centroidDp, quantizedVecBytes);
+            return FaissService.initFaissSQIndex(totalLiveDocs, dimension, indexParameters, centroidDp, quantizedVecBytes);
         }
 
         throw new IllegalArgumentException(
-            String.format(Locale.ROOT, "initFaissBBQIndex not supported for provided engine : %s", knnEngine.getName())
+            String.format(Locale.ROOT, "initFaissSQIndex not supported for provided engine : %s", knnEngine.getName())
         );
     }
 
-    public static void addDocsToBBQIndex(
+    public static void addDocsToSQIndex(
         final long indexMemoryAddress,
         final int[] docIds,
         final int numDocs,
@@ -500,16 +500,16 @@ public class JNIService {
     ) {
 
         if (KNNEngine.FAISS == knnEngine) {
-            FaissService.addDocsToBBQIndex(indexMemoryAddress, docIds, numDocs, numAdded);
+            FaissService.addDocsToSQIndex(indexMemoryAddress, docIds, numDocs, numAdded);
             return;
         }
 
         throw new IllegalArgumentException(
-            String.format(Locale.ROOT, "addDocsToBBQIndex not supported for provided engine : %s", knnEngine.getName())
+            String.format(Locale.ROOT, "addDocsToSQIndex not supported for provided engine : %s", knnEngine.getName())
         );
     }
 
-    public static void passBBQVectorsWithCorrectionFactors(
+    public static void passSQVectorsWithCorrectionFactors(
         final long indexMemoryAddress,
         final byte[] buffer,
         final int loopSize,
@@ -519,23 +519,23 @@ public class JNIService {
         Objects.requireNonNull(buffer);
 
         if (KNNEngine.FAISS == knnEngine) {
-            FaissService.passBBQVectorsWithCorrectionFactors(indexMemoryAddress, buffer, loopSize);
+            FaissService.passSQVectorsWithCorrectionFactors(indexMemoryAddress, buffer, loopSize);
             return;
         }
 
         throw new IllegalArgumentException(
-            String.format(Locale.ROOT, "passBBQVectorsWithCorrectionFactors not supported for provided engine : %s", knnEngine.getName())
+            String.format(Locale.ROOT, "passSQVectorsWithCorrectionFactors not supported for provided engine : %s", knnEngine.getName())
         );
     }
 
-    public static void releaseBBQIndex(final long indexMemoryAddress, final KNNEngine knnEngine) {
+    public static void releaseSQIndex(final long indexMemoryAddress, final KNNEngine knnEngine) {
         if (KNNEngine.FAISS == knnEngine) {
-            FaissService.releaseFaissBBQIndex(indexMemoryAddress);
+            FaissService.releaseFaissSQIndex(indexMemoryAddress);
             return;
         }
 
         throw new IllegalArgumentException(
-            String.format(Locale.ROOT, "releaseFaissBBQIndex not supported for provided engine : %s", knnEngine.getName())
+            String.format(Locale.ROOT, "releaseFaissSQIndex not supported for provided engine : %s", knnEngine.getName())
         );
     }
 }

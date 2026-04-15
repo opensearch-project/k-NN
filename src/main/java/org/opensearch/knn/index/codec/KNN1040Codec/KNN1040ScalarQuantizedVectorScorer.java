@@ -16,6 +16,7 @@ import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.apache.lucene.util.quantization.OptimizedScalarQuantizer;
+import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer.PrefetchableRandomVectorScorer;
 import org.opensearch.knn.jni.SimdVectorComputeService;
 import org.opensearch.knn.memoryoptsearch.MemorySegmentAddressExtractorUtil;
 import org.opensearch.knn.memoryoptsearch.faiss.WrappedFloatVectorValues;
@@ -40,27 +41,36 @@ import static org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectors
  *
  * <p>The SIMD path uses a precomputed search context and performs scoring in native code
  * (e.g., AVX-512), significantly improving throughput for large-scale vector search.
+ *
+ * <p>All scorers returned by {@link #getRandomVectorScorer} are wrapped with
+ * {@link PrefetchableRandomVectorScorer} to prefetch vector data ahead of bulk scoring
+ * operations, improving cache locality and reducing I/O latency during graph traversal.
  */
 @Log4j2
-public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantizedVectorScorer {
+public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantizedVectorScorer {
     /**
      * Creates a new scorer that wraps a non-quantized delegate scorer.
      *
      * @param delegate fallback scorer used when SIMD acceleration is not applicable
      */
-    public Faiss104ScalarQuantizedVectorScorer(final FlatVectorsScorer delegate) {
+    public KNN1040ScalarQuantizedVectorScorer(final FlatVectorsScorer delegate) {
         super(delegate);
     }
 
     /**
      * Returns a {@link RandomVectorScorer} for the given query vector.
      *
+     * <p><b>Important:</b> This method only supports {@link QuantizedByteVectorValues}. It will fail
+     * with an exception if called with raw (non-quantized) vector values such as
+     * {@code OffHeapFloatVectorValues}. Callers must ensure that this scorer is not used as the
+     * scorer for raw vector formats (e.g., {@link org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat}).
+     *
      * <p>This method attempts to construct a SIMD-accelerated scorer when the input vectors
      * are quantized and backed by memory that can be accessed directly (e.g., via a memory segment).
-     * Otherwise, it falls back to the default implementation.
+     * Otherwise, it falls back to the parent's quantized scoring implementation.
      *
      * @param similarityFunction the similarity function (e.g., inner product or L2)
-     * @param vectorValues       the vector storage
+     * @param vectorValues       the quantized vector storage (must be {@link QuantizedByteVectorValues})
      * @param target             the query vector (float32)
      * @return a scorer capable of computing similarity scores
      * @throws IOException if an error occurs while accessing vector data
@@ -78,22 +88,37 @@ public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantize
             vectorValues = WrappedFloatVectorValues.getBottomFloatVectorValues(vectorValues);
         }
 
-        // Extract QuantizedByteVectorValues from `vectorValues`.
-        // This should not be null, otherwise it can't get entroid + correction factors.
-        final QuantizedByteVectorValues quantizedByteVectorValues = Faiss1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(
-            vectorValues
-        );
+        final QuantizedByteVectorValues quantizedByteVectorValues;
+        if (vectorValues instanceof QuantizedByteVectorValues) {
+            quantizedByteVectorValues = (QuantizedByteVectorValues) vectorValues;
+        } else {
+            // Extract QuantizedByteVectorValues from `vectorValues`.
+            // This should not be null, otherwise it can't get entroid + correction factors.
+            quantizedByteVectorValues = KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(vectorValues);
+        }
 
-        // Try bulk SIMD
+        return new PrefetchableRandomVectorScorer(getScorer(similarityFunction, quantizedByteVectorValues, target));
+    }
+
+    private RandomVectorScorer.AbstractRandomVectorScorer getScorer(
+        final VectorSimilarityFunction similarityFunction,
+        final QuantizedByteVectorValues quantizedByteVectorValues,
+        final float[] target
+    ) throws IOException {
         final IndexInput indexInput = quantizedByteVectorValues.getSlice();
         final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(indexInput, 0, indexInput.length());
         if (addressAndSize != null) {
+            // Try bulk SIMD
             return bulkSimdRandomVectorScorer(quantizedByteVectorValues, target, addressAndSize, similarityFunction);
         }
 
         // Fallback
-        log.warn("Bulk SIMD for Faiss SQ is not supported, falling back to Lucene's random vector scorer");
-        return super.getRandomVectorScorer(similarityFunction, quantizedByteVectorValues, target);
+        log.warn("Bulk SIMD for SQ is not supported, falling back to Lucene's random vector scorer");
+        return (RandomVectorScorer.AbstractRandomVectorScorer) super.getRandomVectorScorer(
+            similarityFunction,
+            quantizedByteVectorValues,
+            target
+        );
     }
 
     /**
@@ -116,7 +141,7 @@ public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantize
      * @return a SIMD-accelerated scorer
      * @throws IOException if quantization or initialization fails
      */
-    private RandomVectorScorer bulkSimdRandomVectorScorer(
+    private BulkSimdRandomVectorScorer bulkSimdRandomVectorScorer(
         final QuantizedByteVectorValues quantizedByteVectorValues,
         final float[] target,
         final long[] addressAndSize,
@@ -127,7 +152,7 @@ public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantize
 
         // We only support 32x quantization with 4 bit query quantization for search.
         if (scalarEncoding != SINGLE_BIT_QUERY_NIBBLE) {
-            throw new IllegalStateException("Faiss BBQ only supports SINGLE_BIT_QUERY_NIBBLE encoding.");
+            throw new IllegalStateException(String.format("SQ only supports %s encoding.", SINGLE_BIT_QUERY_NIBBLE));
         }
 
         // Validate dimensionality
@@ -146,6 +171,10 @@ public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantize
 
         // We make a copy as the quantization process mutates the input
         final float[] targetCopy = ArrayUtil.copyOfSubArray(target, 0, target.length);
+
+        // For cosine similarity, the query vector is expected to already be normalized.
+        // Normalization is performed upfront in KNNQueryBuilder via VectorTransformerFactory
+        // for Lucene cosine with SQ 1-bit and flat methods and for Faiss.
 
         // Perform scalar quantization
         final OptimizedScalarQuantizer.QuantizationResult targetCorrectiveTerms = quantizer.scalarQuantize(
@@ -207,7 +236,7 @@ public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantize
             super(knnVectorValues);
 
             // Initialize native SIMD search context
-            SimdVectorComputeService.saveBBQSearchContext(
+            SimdVectorComputeService.saveSQSearchContext(
                 targetQuantized,
                 targetCorrectiveTerms.lowerInterval(),
                 targetCorrectiveTerms.upperInterval(),
@@ -216,8 +245,8 @@ public class Faiss104ScalarQuantizedVectorScorer extends Lucene104ScalarQuantize
                 addressAndSize,
                 similarityFunction == VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT
                     || similarityFunction == VectorSimilarityFunction.COSINE
-                        ? SimdVectorComputeService.SimilarityFunctionType.BBQ_IP.ordinal()
-                        : SimdVectorComputeService.SimilarityFunctionType.BBQ_L2.ordinal(),
+                        ? SimdVectorComputeService.SimilarityFunctionType.SQ_IP.ordinal()
+                        : SimdVectorComputeService.SimilarityFunctionType.SQ_L2.ordinal(),
                 dimension,
                 centroidDp
             );

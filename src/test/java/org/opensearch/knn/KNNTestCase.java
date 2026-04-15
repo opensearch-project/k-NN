@@ -34,6 +34,8 @@ import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -199,6 +201,27 @@ public class KNNTestCase extends OpenSearchTestCase {
      */
     protected int adjustDimensionForSearch(final int dimension, final VectorDataType vectorDataType) {
         return VectorDataType.BINARY == vectorDataType ? dimension / Byte.SIZE : dimension;
+    }
+
+    /**
+     * Asserts that all non-final, non-static methods declared in {@code superClass} are
+     * explicitly overridden in {@code implClass} with the same return type.
+     */
+    protected static void assertAllMethodsOverridden(Class<?> superClass, Class<?> implClass) {
+        for (final Method superMethod : superClass.getDeclaredMethods()) {
+            final int modifiers = superMethod.getModifiers();
+            if (Modifier.isFinal(modifiers)) continue;
+            if (Modifier.isStatic(modifiers)) continue;
+            try {
+                final Method overridden = implClass.getDeclaredMethod(superMethod.getName(), superMethod.getParameterTypes());
+                assertTrue(
+                    "Return type of '" + overridden + "' must be assignable to '" + superMethod.getReturnType() + "'",
+                    superMethod.getReturnType().isAssignableFrom(overridden.getReturnType())
+                );
+            } catch (NoSuchMethodException e) {
+                fail(implClass.getSimpleName() + " needs to override '" + superMethod + "'");
+            }
+        }
     }
 
     /**

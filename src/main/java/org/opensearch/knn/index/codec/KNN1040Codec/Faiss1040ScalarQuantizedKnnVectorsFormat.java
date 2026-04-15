@@ -18,7 +18,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import java.io.IOException;
 
 /**
- * Dedicated format for Faiss BBQ (Better Binary Quantization) vector fields.
+ * Dedicated format for Faiss SQ vector fields.
  *
  * <p>Uses Lucene's {@link Lucene104ScalarQuantizedVectorsFormat} with 1-bit quantization
  * ({@link ScalarEncoding#SINGLE_BIT_QUERY_NIBBLE}) for flat vector storage (.vec/.veq files),
@@ -52,17 +52,17 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
     }
 
     /**
-     * Wraps the Lucene flat vectors reader with {@link Faiss1040PrefetchSupportKnnVectorReader} so that
+     * Wraps the Lucene flat vectors reader with {@link Faiss1040ScalarQuantizedFlatVectorsReader} so that
      * the {@link org.apache.lucene.index.FloatVectorValues} returned by the reader implement
      * {@link org.apache.lucene.codecs.lucene95.HasIndexSlice}. This is required because Lucene's
-     * prefetch-enabled HNSW traversal expects all vector values to expose an {@link org.apache.lucene.store.IndexInput}
-     * for I/O prefetching, but Lucene's {@code ScalarQuantizedVectorValues} does not implement that interface.
+     * HNSW traversal expects all vector values to expose an {@link org.apache.lucene.store.IndexInput},
+     * but Lucene's {@code ScalarQuantizedVectorValues} does not implement that interface.
      */
     @Override
     public KnnVectorsReader fieldsReader(SegmentReadState state) throws IOException {
         return new Faiss1040ScalarQuantizedKnnVectorsReader(
             state,
-            new Faiss1040PrefetchSupportKnnVectorReader(faissSqFlatFormat.fieldsReader(state))
+            new Faiss1040ScalarQuantizedFlatVectorsReader(faissSqFlatFormat.fieldsReader(state))
         );
     }
 

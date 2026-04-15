@@ -11,6 +11,7 @@ import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
 import org.apache.lucene.codecs.lucene104.QuantizedByteVectorValues;
+import org.apache.lucene.util.quantization.OptimizedScalarQuantizer;
 import org.apache.lucene.index.DocValuesSkipIndexType;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.DocsWithFieldSet;
@@ -29,13 +30,17 @@ import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.util.InfoStream;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
+import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
+import org.opensearch.knn.jni.JNIService;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -43,12 +48,20 @@ import java.util.Map;
 import java.util.Random;
 
 import static org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyFloat;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Tests for {@link MemOptimizedScalarQuantizedIndexBuildStrategy}.
  * <p>
  * Each test writes vectors through Lucene's binary quantized format to produce .vec and .veb files,
- * then invokes the BBQ build strategy to construct a Faiss HNSW index from those files.
+ * then invokes the SQ build strategy to construct a Faiss HNSW index from those files.
  * We verify the .faiss file is written successfully (non-zero size).
  * <p>
  * Dense case: doc_id == vector_ordinal (sequential IDs, no gaps)
@@ -185,10 +198,10 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategyTests extends KNNTestC
                 FIELD_NAME
             );
 
-            final Lucene104ScalarQuantizedVectorsFormat bbqFormat = new Lucene104ScalarQuantizedVectorsFormat(SINGLE_BIT_QUERY_NIBBLE);
+            final Lucene104ScalarQuantizedVectorsFormat sqFormat = new Lucene104ScalarQuantizedVectorsFormat(SINGLE_BIT_QUERY_NIBBLE);
             final DocsWithFieldSet docsWithFieldSet;
             final Map<Integer, float[]> docIdToVector = new HashMap<>();
-            try (FlatVectorsWriter flatWriter = bbqFormat.fieldsWriter(writeState)) {
+            try (FlatVectorsWriter flatWriter = sqFormat.fieldsWriter(writeState)) {
                 final FlatFieldVectorsWriter fieldWriter = flatWriter.addField(fieldInfo);
                 for (int i = 0; i < vectors.length; i++) {
                     fieldWriter.addValue(docIds[i], vectors[i]);
@@ -199,7 +212,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategyTests extends KNNTestC
                 flatWriter.finish();
             }
 
-            // Step 2: Build the Faiss BBQ HNSW index
+            // Step 2: Build the Faiss SQ HNSW index
             final Map<String, Object> parameters = buildIndexParameters(spaceType, indexThreadQty);
             final String faissFileName = SEGMENT_NAME + "_" + FIELD_NAME + ".faiss";
 
@@ -213,7 +226,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategyTests extends KNNTestC
             );
 
             try (
-                final FlatVectorsReader flatVectorsReader = bbqFormat.fieldsReader(readState);
+                final FlatVectorsReader flatVectorsReader = sqFormat.fieldsReader(readState);
                 final IndexOutput indexOutput = directory.createOutput(faissFileName, IOContext.DEFAULT)
             ) {
                 // Extract QuantizedByteVectorValues via reflection (same as the writer)
@@ -243,6 +256,65 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategyTests extends KNNTestC
 
             // Step 3: Verify the .faiss file was written with non-zero size
             assertTrue("Faiss index file should have been written with non-zero size", directory.fileLength(faissFileName) > 0);
+        }
+    }
+
+    @SneakyThrows
+    public void testBuildAndWriteIndex_releasesIndexOnBuildFailure() {
+        // Given: mock JNIService so initFaissSQIndex returns a fake address,
+        // and passSQVectorsWithCorrectionFactors throws to simulate a Phase 1 failure.
+        final long fakeIndexAddress = 42L;
+
+        KNNFloatVectorValues knnVectorValues = mock(KNNFloatVectorValues.class);
+        when(knnVectorValues.docId()).thenReturn(-1).thenReturn(0);
+        when(knnVectorValues.nextDoc()).thenReturn(0);
+        when(knnVectorValues.getVector()).thenReturn(new float[] { 1.0f, 2.0f });
+        when(knnVectorValues.dimension()).thenReturn(2);
+
+        QuantizedByteVectorValues quantizedValues = mock(QuantizedByteVectorValues.class);
+        when(quantizedValues.vectorValue(0)).thenReturn(new byte[] { 0x01 });
+        when(quantizedValues.getCentroidDP()).thenReturn(1.0f);
+        when(quantizedValues.size()).thenReturn(1);
+        when(quantizedValues.getCorrectiveTerms(0)).thenReturn(new OptimizedScalarQuantizer.QuantizationResult(0.0f, 1.0f, 0.0f, 0));
+
+        IndexOutputWithBuffer indexOutputWithBuffer = mock(IndexOutputWithBuffer.class);
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("index", "param");
+
+        BuildIndexParams buildIndexParams = BuildIndexParams.builder()
+            .indexOutputWithBuffer(indexOutputWithBuffer)
+            .knnEngine(KNNEngine.FAISS)
+            .vectorDataType(VectorDataType.FLOAT)
+            .indexParameters(params)
+            .knnVectorValuesSupplier(() -> knnVectorValues)
+            .totalLiveDocs(1)
+            .quantizedByteVectorValues(quantizedValues)
+            .build();
+
+        try (MockedStatic<JNIService> mockedJNIService = Mockito.mockStatic(JNIService.class)) {
+            mockedJNIService.when(
+                () -> JNIService.initFaissSQIndex(anyInt(), anyInt(), anyMap(), anyFloat(), anyInt(), any(KNNEngine.class))
+            ).thenReturn(fakeIndexAddress);
+
+            // Phase 1 throws
+            mockedJNIService.when(
+                () -> JNIService.passSQVectorsWithCorrectionFactors(anyLong(), any(byte[].class), anyInt(), any(KNNEngine.class))
+            ).thenThrow(new RuntimeException("Simulated Phase 1 failure"));
+
+            // When
+            RuntimeException thrown = expectThrows(
+                RuntimeException.class,
+                () -> MemOptimizedScalarQuantizedIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams)
+            );
+
+            // Then
+            assertEquals("Simulated Phase 1 failure", thrown.getMessage());
+            mockedJNIService.verify(() -> JNIService.releaseSQIndex(eq(fakeIndexAddress), eq(KNNEngine.FAISS)));
+            mockedJNIService.verify(
+                () -> JNIService.writeIndex(any(), anyLong(), any(KNNEngine.class), anyMap(), eq(true)),
+                Mockito.never()
+            );
         }
     }
 

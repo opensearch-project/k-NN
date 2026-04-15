@@ -14,8 +14,7 @@ import org.opensearch.knn.index.mapper.Mode;
  * This is testing Faiss SQ 32x for all possible combinations.
  */
 public class MOSFaissSQIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
-    // Explicit BQ encoder params to pin x32 tests to binary quantizer (not BBQ).
-    // These tests validate MOS off-heap behavior which is specific to the BQ code path.
+    // These tests validate MOS off-heap behavior which is specific to the SQ code path.
     private static final String SQ_ENCODER_PARAMS = """
         {"encoder": {"name": "sq", "parameters": {"bits": 1}}}""";
 

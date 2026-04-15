@@ -75,7 +75,7 @@ public class PrefetchableFlatVectorScorer implements FlatVectorsScorer {
      * #bulkScore} to prefetch the required vectors before scoring.
      */
     @Log4j2
-    static class PrefetchableRandomVectorScorer extends RandomVectorScorer.AbstractRandomVectorScorer {
+    public static class PrefetchableRandomVectorScorer extends RandomVectorScorer.AbstractRandomVectorScorer {
 
         private final RandomVectorScorer.AbstractRandomVectorScorer delegate;
 
@@ -108,7 +108,7 @@ public class PrefetchableFlatVectorScorer implements FlatVectorsScorer {
          */
         @Override
         public float bulkScore(int[] nodes, float[] scores, int numNodes) throws IOException {
-            PrefetchableVectorValuesHelper.mayBeDoPrefetch(values(), nodes, numNodes);
+            PrefetchableVectorValuesHelper.doPrefetch(values(), nodes, numNodes);
             return delegate.bulkScore(nodes, scores, numNodes);
         }
 
