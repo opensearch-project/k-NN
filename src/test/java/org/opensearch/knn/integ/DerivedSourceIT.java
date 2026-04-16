@@ -28,6 +28,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.opensearch.knn.DerivedSourceUtils.DERIVED_ENABLED_WITH_SEGREP_SETTINGS;
 import static org.opensearch.knn.DerivedSourceUtils.TEST_DIMENSION;
 import static org.opensearch.knn.DerivedSourceUtils.randomVectorSupplier;
@@ -489,13 +490,14 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             new String[] { VECTOR_FIELD_1 }
         );
 
-        // Test 4: Both includes and excludes - excludes override includes
-        assertSourceFiltering(
-            indexName,
-            new String[] { VECTOR_FIELD_1, VECTOR_FIELD_2, TEXT_FIELD },
-            new String[] { VECTOR_FIELD_2 },
-            new String[] { VECTOR_FIELD_1, TEXT_FIELD },
-            new String[] { VECTOR_FIELD_2, VECTOR_FIELD_3 }
+        // Test 4: Both includes and excludes - throws IllegalArgumentException because vector field cannot be in both includes and excludes
+        ResponseException ex = expectThrows(
+            ResponseException.class,
+            () -> sourceFiltering(indexName, new String[] { VECTOR_FIELD_1, VECTOR_FIELD_2, TEXT_FIELD }, new String[] { VECTOR_FIELD_2 })
+        );
+        assertThat(
+            ex.getMessage(),
+            containsString("The same entry [" + VECTOR_FIELD_2 + "] cannot be both included and excluded in _source.")
         );
 
         // Test 5: Wildcard includes - only matching fields returned
