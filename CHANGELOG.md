@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 3.7](https://github.com/opensearch-project/k-NN/compare/main...HEAD)
 ### Features
 * Add debug mode to MMR rerank that injects per-hit scoring details (original_score, max_similarity_to_selected, mmr_score, mmr_formula) into _source via the `debug` flag in the mmr search extension [#3254](https://github.com/opensearch-project/k-NN/pull/3254)
-
+* Support derived source for knn with other fields [#3260](https://github.com/opensearch-project/k-NN/pull/3260)
 
 ### Maintenance
 
