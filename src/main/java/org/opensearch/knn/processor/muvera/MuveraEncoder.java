@@ -28,8 +28,8 @@ public class MuveraEncoder {
     private final int dimProj;
     private final int rReps;
     private final int numPartitions;
-    private final double[][] simhashVectors;
-    private final double[][][] dimReductionProjections;
+    private final float[][] simhashVectors;
+    private final float[][][] dimReductionProjections;
 
     /**
      * Maximum allowed FDE dimension. Matches the k-NN engine max dimension limit (16,000)
@@ -79,19 +79,19 @@ public class MuveraEncoder {
         Random rng = new Random(seed);
 
         // SimHash hyperplanes: rReps sets of kSim hyperplanes, each dim-dimensional
-        simhashVectors = new double[rReps][kSim * dim];
+        simhashVectors = new float[rReps][kSim * dim];
         for (int r = 0; r < rReps; r++) {
             for (int i = 0; i < kSim * dim; i++) {
-                simhashVectors[r][i] = rng.nextGaussian();
+                simhashVectors[r][i] = (float) rng.nextGaussian();
             }
         }
 
         // Random projection matrices with entries in {-1, +1}
-        dimReductionProjections = new double[rReps][dim][dimProj];
+        dimReductionProjections = new float[rReps][dim][dimProj];
         for (int r = 0; r < rReps; r++) {
             for (int i = 0; i < dim; i++) {
                 for (int j = 0; j < dimProj; j++) {
-                    dimReductionProjections[r][i][j] = rng.nextBoolean() ? 1.0 : -1.0;
+                    dimReductionProjections[r][i][j] = rng.nextBoolean() ? 1.0f : -1.0f;
                 }
             }
         }
@@ -107,10 +107,10 @@ public class MuveraEncoder {
     private int getClusterId(double[] vector, int repIndex) {
         int clusterId = 0;
         for (int k = 0; k < kSim; k++) {
-            double dot = 0;
+            float dot = 0;
             int offset = k * dim;
             for (int d = 0; d < this.dim; d++) {
-                dot += vector[d] * simhashVectors[repIndex][offset + d];
+                dot += (float) vector[d] * simhashVectors[repIndex][offset + d];
             }
             if (dot > 0) {
                 clusterId |= (1 << k);
@@ -135,14 +135,22 @@ public class MuveraEncoder {
         int nVectors = vectors.length;
         float[] output = new float[getEmbeddingSize()];
         int outOffset = 0;
-        double scale = 1.0 / Math.sqrt(dimProj);
+        float scale = (float) (1.0 / Math.sqrt(dimProj));
+
+        // Pre-allocate reusable arrays to avoid per-repetition allocation
+        double[][] centers = new double[numPartitions][dim];
+        int[] counts = new int[numPartitions];
+        List<List<Integer>> clusterVecIndices = new ArrayList<>(numPartitions);
+        for (int i = 0; i < numPartitions; i++) {
+            clusterVecIndices.add(new ArrayList<>());
+        }
 
         for (int r = 0; r < rReps; r++) {
-            double[][] centers = new double[numPartitions][dim];
-            int[] counts = new int[numPartitions];
-            List<List<Integer>> clusterVecIndices = new ArrayList<>(numPartitions);
-            for (int i = 0; i < numPartitions; i++) {
-                clusterVecIndices.add(new ArrayList<>());
+            // Reset reusable arrays
+            for (int c = 0; c < numPartitions; c++) {
+                java.util.Arrays.fill(centers[c], 0.0);
+                counts[c] = 0;
+                clusterVecIndices.get(c).clear();
             }
 
             // Assign vectors to clusters and accumulate
@@ -192,11 +200,11 @@ public class MuveraEncoder {
             // Random projection: centers[c] (dim) x projection (dim x dimProj) -> projected (dimProj)
             for (int c = 0; c < numPartitions; c++) {
                 for (int j = 0; j < dimProj; j++) {
-                    double val = 0;
+                    float val = 0;
                     for (int d = 0; d < dim; d++) {
-                        val += centers[c][d] * dimReductionProjections[r][d][j];
+                        val += (float) centers[c][d] * dimReductionProjections[r][d][j];
                     }
-                    output[outOffset++] = (float) (scale * val);
+                    output[outOffset++] = scale * val;
                 }
             }
         }

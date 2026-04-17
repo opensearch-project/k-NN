@@ -247,6 +247,9 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
         }
 
         int resultSize = request.source().size() > 0 ? request.source().size() : 10;
+        // Cap prefetchK to prevent excessively large HNSW searches when resultSize * oversampleFactor
+        // is very high (e.g. size=1000 with oversample_factor=100). Large k values degrade HNSW
+        // performance and provide diminishing recall improvements.
         int prefetchK = Math.min(resultSize * oversampleFactor, 10_000);
 
         KNNQueryBuilder knnQuery = KNNQueryBuilder.builder().fieldName(targetField).vector(queryFde).k(prefetchK).build();
