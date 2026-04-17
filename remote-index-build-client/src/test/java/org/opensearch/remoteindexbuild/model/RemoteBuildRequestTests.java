@@ -30,6 +30,7 @@ import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.DIMEN
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.DOC_COUNT;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.DOC_ID_FILE_EXTENSION;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.DOC_ID_PATH;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.SKIP_STORED_VECTORS;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.INDEX_PARAMETERS;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.KNN_ENGINE;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
@@ -94,6 +95,44 @@ public class RemoteBuildRequestTests extends OpenSearchSingleNodeTestCase {
         assertEquals(expectedMap, generatedMap);
     }
 
+    public void testToXContentWithSkipStoredVectors() throws IOException {
+        RemoteBuildRequest request = RemoteBuildRequest.builder()
+            .repositoryType(S3)
+            .containerName(TEST_BUCKET)
+            .vectorPath(MOCK_FULL_PATH + VECTOR_BLOB_FILE_EXTENSION)
+            .docIdPath(MOCK_FULL_PATH + DOC_ID_FILE_EXTENSION)
+            .tenantId(TEST_CLUSTER)
+            .dimension(2)
+            .docCount(2)
+            .vectorDataType(FLOAT)
+            .engine(FAISS)
+            .indexParameters(
+                RemoteFaissHNSWIndexParameters.builder()
+                    .algorithm(HNSW_ALGORITHM)
+                    .spaceType(L2_SPACE_TYPE)
+                    .efConstruction(94)
+                    .efSearch(89)
+                    .m(14)
+                    .build()
+            )
+            .skipStoredVectors(true)
+            .build();
+
+        String jsonRequest;
+        try (XContentBuilder builder = JsonXContent.contentBuilder()) {
+            request.toXContent(builder, ToXContentObject.EMPTY_PARAMS);
+            jsonRequest = builder.toString();
+        }
+
+        XContentParser parser = JsonXContent.jsonXContent.createParser(
+            NamedXContentRegistry.EMPTY,
+            DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+            jsonRequest
+        );
+        Map<String, Object> map = parser.map();
+        assertEquals(true, map.get(SKIP_STORED_VECTORS));
+    }
+
     /**
      * Get a mock JSON build request
      * <p>
@@ -116,7 +155,8 @@ public class RemoteBuildRequestTests extends OpenSearchSingleNodeTestCase {
      *       "ef_construction": 94,
      *       "ef_search": 89
      *     }
-     *   }
+     *   },
+     *   "skip_stored_vectors": false
      * }}</pre>
      */
     public String getMockExpectedJson() {
@@ -190,7 +230,11 @@ public class RemoteBuildRequestTests extends OpenSearchSingleNodeTestCase {
             + METHOD_PARAMETER_M
             + "\":14"
             + "}"
-            + "}"
+            + "},"
+            + "\""
+            + SKIP_STORED_VECTORS
+            + "\":"
+            + false
             + "}";
     }
 }

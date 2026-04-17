@@ -12,6 +12,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissBinaryHnswIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissBinaryIndex;
+import org.opensearch.knn.memoryoptsearch.faiss.cagra.FaissHNSWCagraIndex;
 
 import java.lang.reflect.Field;
 
@@ -148,6 +149,66 @@ public class FaissFlatIndexFactoryTests extends KNNTestCase {
             fail("Expected IllegalStateException");
         } catch (IllegalStateException e) {
             assertTrue(e.getMessage().contains(FaissEmptyIndex.class.getName()));
+        }
+    }
+
+    @SneakyThrows
+    public void testMaybeSetFlatIndex_whenCagraWithEmptyFlatVectors_thenSetsFlatIndex() {
+        FlatVectorsReader mockReader = mock(FlatVectorsReader.class);
+
+        FaissHNSWCagraIndex cagraIndex = new FaissHNSWCagraIndex(FaissHNSWCagraIndex.IHNC);
+        cagraIndex.setFlatVectors(FaissEmptyIndex.INSTANCE);
+
+        FaissIdMapIndex idMapIndex = mock(FaissIdMapIndex.class);
+        when(idMapIndex.getNestedIndex()).thenReturn(cagraIndex);
+
+        FieldInfo fieldInfo = mock(FieldInfo.class);
+        when(fieldInfo.getName()).thenReturn("test_field");
+        when(fieldInfo.getAttribute(SQ_CONFIG)).thenReturn("bits=1");
+
+        FaissFlatIndexFactory.maybeSetFlatBinaryIndex(idMapIndex, fieldInfo, mockReader);
+
+        assertNotNull(cagraIndex.getFlatVectors());
+        assertFalse(FaissEmptyIndex.isEmptyIndex(cagraIndex.getFlatVectors()));
+        assertTrue(cagraIndex.getFlatVectors() instanceof FaissScalarQuantizedFlatIndex);
+    }
+
+    @SneakyThrows
+    public void testMaybeSetFlatIndex_whenCagraWithExistingFlatVectors_thenNoOp() {
+        FlatVectorsReader mockReader = mock(FlatVectorsReader.class);
+
+        FaissHNSWCagraIndex cagraIndex = new FaissHNSWCagraIndex(FaissHNSWCagraIndex.IHNC);
+        FaissIndex existingFlat = mock(FaissIndex.class);
+        cagraIndex.setFlatVectors(existingFlat);
+
+        FaissIdMapIndex idMapIndex = mock(FaissIdMapIndex.class);
+        when(idMapIndex.getNestedIndex()).thenReturn(cagraIndex);
+
+        FieldInfo fieldInfo = mock(FieldInfo.class);
+        when(fieldInfo.getName()).thenReturn("test_field");
+
+        FaissFlatIndexFactory.maybeSetFlatBinaryIndex(idMapIndex, fieldInfo, mockReader);
+
+        assertSame(existingFlat, cagraIndex.getFlatVectors());
+    }
+
+    @SneakyThrows
+    public void testMaybeSetFlatIndex_whenCagraWithEmptyFlatVectorsAndNonSQField_thenThrows() {
+        FlatVectorsReader mockReader = mock(FlatVectorsReader.class);
+
+        FaissHNSWCagraIndex cagraIndex = new FaissHNSWCagraIndex(FaissHNSWCagraIndex.IHNC);
+        cagraIndex.setFlatVectors(FaissEmptyIndex.INSTANCE);
+
+        FaissIdMapIndex idMapIndex = mock(FaissIdMapIndex.class);
+        when(idMapIndex.getNestedIndex()).thenReturn(cagraIndex);
+
+        FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test_field").build();
+
+        try {
+            FaissFlatIndexFactory.maybeSetFlatBinaryIndex(idMapIndex, fieldInfo, mockReader);
+            fail("Expected IllegalStateException");
+        } catch (IllegalStateException e) {
+            assertTrue(e.getMessage().contains("CAGRA"));
         }
     }
 }

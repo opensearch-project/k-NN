@@ -1190,7 +1190,7 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    protected Response sourceFiltering(String indexName, String[] includes, String[] excludes) {
+    protected Response searchWithSourceIncludesExcludes(String indexName, String[] includes, String[] excludes) {
         XContentBuilder searchBuilder = XContentFactory.jsonBuilder().startObject().startObject("_source");
 
         if (includes != null) {
@@ -1215,7 +1215,7 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
         String[] expectedPresent,
         String[] expectedAbsent
     ) {
-        Response response = sourceFiltering(indexName, includes, excludes);
+        Response response = searchWithSourceIncludesExcludes(indexName, includes, excludes);
 
         Map<String, Object> responseMap = entityAsMap(response);
         Map<String, Object> hits = (Map<String, Object>) responseMap.get("hits");

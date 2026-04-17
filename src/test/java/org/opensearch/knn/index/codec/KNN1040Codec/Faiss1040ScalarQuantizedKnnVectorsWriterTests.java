@@ -35,6 +35,7 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -83,7 +84,8 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
         objectUnderTest = new Faiss1040ScalarQuantizedKnnVectorsWriter(
             segmentWriteState,
             flatVectorsWriter,
-            quantizedFlatVectorsReaderSupplier
+            quantizedFlatVectorsReaderSupplier,
+            new NativeIndexBuildStrategyFactory()
         );
         mockedFlatFieldVectorsWriter = mock(FlatFieldVectorsWriter.class);
         Mockito.doNothing().when(mockedFlatFieldVectorsWriter).addValue(Mockito.anyInt(), Mockito.any());

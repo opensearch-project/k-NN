@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
@@ -18,6 +19,7 @@ public class MOSFaissSQIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
     private static final String SQ_ENCODER_PARAMS = """
         {"encoder": {"name": "sq", "parameters": {"bits": 1}}}""";
 
+    @ExpectRemoteBuildValidation
     public void testNonNestedDiskBasedIndexWithIP() {
         // ANN search
         doTestNonNestedIndex(
@@ -45,6 +47,7 @@ public class MOSFaissSQIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
         // We don't support radial search for nested index
     }
 
+    @ExpectRemoteBuildValidation
     public void testNonNestedDiskBasedIndexWithL2() {
         // ANN search
         doTestNonNestedIndex(
@@ -72,6 +75,7 @@ public class MOSFaissSQIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
         // We don't support radial search for nested index
     }
 
+    @ExpectRemoteBuildValidation
     public void testNonNestedDiskBasedIndexWithCosine() {
         // ANN search
         doTestNonNestedIndex(
