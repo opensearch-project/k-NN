@@ -104,10 +104,6 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
 
     @Override
     public SearchRequest processRequest(SearchRequest request, PipelineProcessingContext requestContext) throws Exception {
-        logger.info("[{}] processRequest called WITH context, query type: {}",
-            TYPE, request.source() != null && request.source().query() != null
-                ? request.source().query().getClass().getSimpleName() : "null");
-
         if (request.source() == null) {
             return request;
         }
@@ -115,11 +111,8 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
         // Extract multi-vectors from the template query content
         double[][] multiVectors = extractQueryVectors(request);
         if (multiVectors == null) {
-            logger.info("[{}] No query_vectors found, passing through", TYPE);
             return request;
         }
-
-        logger.info("[{}] Extracted {} query vectors, encoding FDE", TYPE, multiVectors.length);
 
         // Encode query multi-vectors into FDE
         float[] queryFde = encoder.processQuery(multiVectors);
@@ -143,7 +136,6 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
         // Set the FDE vector as a pipeline context attribute.
         // The template query resolves ${target_field} from these attributes during query rewrite.
         requestContext.setAttribute(targetField, fdeList);
-        logger.info("[{}] Set context attribute '{}' with {} floats", TYPE, targetField, fdeList.size());
 
         return request;
     }
