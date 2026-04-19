@@ -267,4 +267,5 @@ public class MuveraIngestProcessor extends AbstractProcessor {
                 tag, description, sourceField, targetField, encoder, dim, computedDimension, ignoreMissing
             );
         }
+    }
 }
