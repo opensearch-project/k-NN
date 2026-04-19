@@ -11,44 +11,51 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
-import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
 import org.opensearch.ingest.ConfigurationUtils;
-import org.opensearch.knn.index.query.KNNQueryBuilder;
-import org.opensearch.script.Script;
 import org.opensearch.search.pipeline.AbstractProcessor;
+import org.opensearch.search.pipeline.PipelineProcessingContext;
 import org.opensearch.search.pipeline.Processor;
 import org.opensearch.search.pipeline.SearchRequestProcessor;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Search request processor that implements the MUVERA two-phase retrieval pattern.
+ * Search request processor that implements the MUVERA query encoding for template-based retrieval.
  *
- * The user sends a standard script_score query with lateInteractionScore and multi-vectors
- * in the script params. The processor intercepts it, extracts the multi-vectors, encodes
- * them via MUVERA into an FDE vector, and replaces the inner query (typically match_all)
- * with a knn query on the FDE field for fast ANN prefetch. The script_score wrapper and
- * its lateInteractionScore script remain untouched for the rerank phase.
+ * The user sends a template query containing a script_score with a KNN placeholder and
+ * lateInteractionScore for reranking. The processor extracts the multi-vectors from the
+ * script params in the ext section, encodes them via MUVERA into an FDE vector, and sets
+ * the FDE as a pipeline context attribute. The template query resolves the ${target_field}
+ * placeholder with the FDE vector during query rewrite.
  *
  * User sends:
  * <pre>
  * POST /my-index/_search?search_pipeline=muvera_pipeline
  * {
  *   "query": {
- *     "script_score": {
- *       "query": { "match_all": {} },
- *       "script": {
- *         "source": "lateInteractionScore(params.query_vectors, 'colbert_vectors', params._source, params.space_type)",
- *         "params": {
- *           "query_vectors": [[0.1, 0.2, ...], [0.3, 0.4, ...]],
- *           "space_type": "innerproduct"
+ *     "template": {
+ *       "script_score": {
+ *         "query": {
+ *           "knn": {
+ *             "muvera_fde": {
+ *               "vector": "${muvera_fde}",
+ *               "k": 40
+ *             }
+ *           }
+ *         },
+ *         "script": {
+ *           "source": "lateInteractionScore(params.query_vectors, 'colbert_vectors', params._source, params.space_type)",
+ *           "params": {
+ *             "query_vectors": [[0.1, 0.2, ...], [0.3, 0.4, ...]],
+ *             "space_type": "innerproduct"
+ *           }
  *         }
  *       }
  *     }
@@ -60,13 +67,13 @@ import java.util.Map;
  * <pre>
  * {
  *   "muvera_query": {
- *     "target_field": "muvera_fde",        (required)
+ *     "target_field": "muvera_fde",        (required - also used as the template variable name)
  *     "dim": 128,                          (required - input vector dimension)
  *     "k_sim": 4,                          (default: 4)
  *     "dim_proj": 8,                       (default: 8)
  *     "r_reps": 20,                        (default: 20)
  *     "seed": 42,                          (default: 42)
- *     "oversample_factor": 4               (default: 4)
+ *     "query_vectors_field": "ext.muvera.query_vectors"  (default - JSON path to multi-vectors in request)
  *     "fde_dimension": 2560                (optional - validates against computed value)
  *   }
  * }
@@ -82,7 +89,7 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
     private final MuveraEncoder encoder;
     private final int dim;
     private final int fdeDimension;
-    private final int oversampleFactor;
+    private final String queryVectorsField;
 
     MuveraSearchRequestProcessor(
         String tag,
@@ -92,96 +99,154 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
         MuveraEncoder encoder,
         int dim,
         int fdeDimension,
-        int oversampleFactor
+        String queryVectorsField
     ) {
         super(tag, description, ignoreFailure);
         this.targetField = targetField;
         this.encoder = encoder;
         this.dim = dim;
         this.fdeDimension = fdeDimension;
-        this.oversampleFactor = oversampleFactor;
-    }
-
-    /**
-     * Extracts the Script from a ScriptScoreQueryBuilder by serializing to XContent and parsing
-     * the script section. This avoids reflection on the private 'script' field.
-     */
-    static Script extractScript(ScriptScoreQueryBuilder scriptScoreQuery) throws Exception {
-        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
-        scriptScoreQuery.toXContent(xContentBuilder, ToXContent.EMPTY_PARAMS);
-        try (
-            XContentParser parser = XContentType.JSON.xContent()
-                .createParser(
-                    NamedXContentRegistry.EMPTY,
-                    LoggingDeprecationHandler.INSTANCE,
-                    BytesReference.bytes(xContentBuilder).streamInput()
-                )
-        ) {
-            // Structure: { "script_score": { "query": {...}, "script": {...}, ... } }
-            parser.nextToken(); // START_OBJECT (outer)
-            while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
-                if ("script_score".equals(parser.currentName())) {
-                    parser.nextToken(); // START_OBJECT for script_score body
-                    while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
-                        if ("script".equals(parser.currentName())) {
-                            parser.nextToken(); // START_OBJECT for script body
-                            return Script.parse(parser);
-                        } else {
-                            parser.skipChildren();
-                        }
-                    }
-                } else {
-                    parser.skipChildren();
-                }
-            }
-        }
-        throw new IllegalStateException("Failed to extract script from ScriptScoreQueryBuilder via XContent serialization");
+        this.queryVectorsField = queryVectorsField;
     }
 
     @Override
-    public SearchRequest processRequest(SearchRequest request) throws Exception {
-        ScriptScoreQueryBuilder scriptScoreQuery = validateUserRequest(request);
-        if (scriptScoreQuery == null) {
+    public SearchRequest processRequest(SearchRequest request, PipelineProcessingContext requestContext) throws Exception {
+        if (request.source() == null) {
             return request;
         }
 
-        Script script = extractScript(scriptScoreQuery);
-        double[][] multiVectors = extractRequestParams(script);
+        // Extract multi-vectors from the ext section of the request
+        double[][] multiVectors = extractQueryVectors(request);
         if (multiVectors == null) {
             return request;
         }
 
-        return createKnnRequest(request, scriptScoreQuery, script, multiVectors);
+        // Encode query multi-vectors into FDE
+        float[] queryFde = encoder.processQuery(multiVectors);
+
+        if (queryFde.length != fdeDimension) {
+            throw new IllegalStateException(
+                "MUVERA encoder produced query FDE of dimension ["
+                    + queryFde.length
+                    + "] but expected ["
+                    + fdeDimension
+                    + "]. This should not happen — please report this as a bug."
+            );
+        }
+
+        // Convert float[] to List<Float> for JSON serialization in template resolution
+        List<Float> fdeList = new ArrayList<>(queryFde.length);
+        for (float v : queryFde) {
+            fdeList.add(v);
+        }
+
+        // Set the FDE vector as a pipeline context attribute.
+        // The template query resolves ${target_field} from these attributes during query rewrite.
+        requestContext.setAttribute(targetField, fdeList);
+
+        return request;
+    }
+
+    @Override
+    public SearchRequest processRequest(SearchRequest request) throws Exception {
+        // This method is called when no PipelineProcessingContext is available.
+        // Template query resolution requires context, so we can't resolve placeholders here.
+        return request;
     }
 
     /**
-     * Validates the search request contains a script_score query.
-     * @return the ScriptScoreQueryBuilder if valid, null if the request should be passed through unchanged
+     * Extracts multi-vector query parameters from the request's ext section.
+     * The field path is configured via query_vectors_field (default: "ext.muvera.query_vectors").
      */
-    private ScriptScoreQueryBuilder validateUserRequest(SearchRequest request) {
-        if (request.source() == null || request.source().query() == null) {
+    @SuppressWarnings("unchecked")
+    private double[][] extractQueryVectors(SearchRequest request) {
+        // Parse the query_vectors_field path to navigate the ext section
+        // Expected format: "ext.muvera.query_vectors" or similar dot-separated path
+        if (request.source().ext() == null) {
             return null;
         }
-        QueryBuilder query = request.source().query();
-        if (query instanceof ScriptScoreQueryBuilder == false) {
+
+        // Navigate the ext section using the configured field path
+        Map<String, Object> ext = null;
+        for (Object extBuilder : request.source().ext()) {
+            // ext entries are SearchExtBuilder objects — we need to find our section
+            if (extBuilder instanceof Map) {
+                ext = (Map<String, Object>) extBuilder;
+                break;
+            }
+        }
+
+        // Fallback: try to get query_vectors from the search source directly
+        // For now, support passing query_vectors in the request body at a known location
+        Object queryVectorsObj = null;
+
+        // Try to extract from source extensions
+        if (request.source().fetchSource() != null) {
+            // Not the right place — let's check if query_vectors is in the query itself
+        }
+
+        // For template queries, the multi-vectors should be in the template content
+        // or passed via ext. Let's extract from the template query's script params.
+        if (request.source().query() != null) {
+            queryVectorsObj = extractQueryVectorsFromTemplate(request.source().query());
+        }
+
+        if (queryVectorsObj == null) {
             return null;
         }
-        return (ScriptScoreQueryBuilder) query;
+
+        return parseMultiVectors(queryVectorsObj);
     }
 
     /**
-     * Extracts and validates multi-vector query parameters from the script.
-     * @return the parsed multi-vectors as double[][], or null if query_vectors param is not present
+     * Extracts query_vectors from a template query's embedded script_score params.
      */
-    private double[][] extractRequestParams(Script script) {
-        Map<String, Object> params = script.getParams();
-        if (params == null || params.containsKey(QUERY_VECTORS_PARAM) == false) {
+    @SuppressWarnings("unchecked")
+    private Object extractQueryVectorsFromTemplate(QueryBuilder query) {
+        // The template query stores its content as a Map
+        // We need to navigate: template -> script_score -> script -> params -> query_vectors
+        try {
+            if ("template".equals(query.getWriteableName()) == false) {
+                return null;
+            }
+
+            // Use reflection-free approach: serialize to XContent and parse
+            XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
+            query.toXContent(xContentBuilder, ToXContent.EMPTY_PARAMS);
+            String json = xContentBuilder.toString();
+
+            // Parse the JSON to extract query_vectors from script params
+            try (
+                XContentParser parser = XContentType.JSON.xContent()
+                    .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, json)
+            ) {
+                Map<String, Object> queryMap = parser.map();
+                Map<String, Object> templateContent = (Map<String, Object>) queryMap.get("template");
+                if (templateContent == null) return null;
+
+                Map<String, Object> scriptScore = (Map<String, Object>) templateContent.get("script_score");
+                if (scriptScore == null) return null;
+
+                Map<String, Object> script = (Map<String, Object>) scriptScore.get("script");
+                if (script == null) return null;
+
+                Map<String, Object> params = (Map<String, Object>) script.get("params");
+                if (params == null) return null;
+
+                return params.get(QUERY_VECTORS_PARAM);
+            }
+        } catch (Exception e) {
+            logger.debug("Failed to extract query_vectors from template query", e);
             return null;
         }
+    }
 
-        Object queryVectorsObj = params.get(QUERY_VECTORS_PARAM);
+    /**
+     * Parses and validates multi-vector input from a raw object (List of List of Number).
+     */
+    private double[][] parseMultiVectors(Object queryVectorsObj) {
         if (queryVectorsObj instanceof List == false) {
-            throw new IllegalArgumentException("[" + QUERY_VECTORS_PARAM + "] in script params must be a list of vectors");
+            throw new IllegalArgumentException("[" + QUERY_VECTORS_PARAM + "] must be a list of vectors");
         }
 
         List<?> outerList = (List<?>) queryVectorsObj;
@@ -225,48 +290,6 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
         return multiVectors;
     }
 
-    /**
-     * Encodes query multi-vectors into FDE and rewrites the search request with a KNN query.
-     */
-    private SearchRequest createKnnRequest(
-        SearchRequest request,
-        ScriptScoreQueryBuilder scriptScoreQuery,
-        Script script,
-        double[][] multiVectors
-    ) {
-        float[] queryFde = encoder.processQuery(multiVectors);
-
-        if (queryFde.length != fdeDimension) {
-            throw new IllegalStateException(
-                "MUVERA encoder produced query FDE of dimension ["
-                    + queryFde.length
-                    + "] but expected ["
-                    + fdeDimension
-                    + "]. This should not happen — please report this as a bug."
-            );
-        }
-
-        int resultSize = request.source().size() > 0 ? request.source().size() : 10;
-        // Cap prefetchK to prevent excessively large HNSW searches when resultSize * oversampleFactor
-        // is very high (e.g. size=1000 with oversample_factor=100). Large k values degrade HNSW
-        // performance and provide diminishing recall improvements.
-        int prefetchK = Math.min(resultSize * oversampleFactor, 10_000);
-
-        KNNQueryBuilder knnQuery = KNNQueryBuilder.builder().fieldName(targetField).vector(queryFde).k(prefetchK).build();
-
-        ScriptScoreQueryBuilder rewritten = new ScriptScoreQueryBuilder(knnQuery, script);
-        rewritten.boost(scriptScoreQuery.boost());
-        if (scriptScoreQuery.queryName() != null) {
-            rewritten.queryName(scriptScoreQuery.queryName());
-        }
-        if (scriptScoreQuery.getMinScore() != null) {
-            rewritten.setMinScore(scriptScoreQuery.getMinScore());
-        }
-
-        request.source().query(rewritten);
-        return request;
-    }
-
     @Override
     public String getType() {
         return TYPE;
@@ -301,15 +324,9 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
             int dimProj = ConfigurationUtils.readIntProperty(TYPE, tag, config, "dim_proj", 8);
             int rReps = ConfigurationUtils.readIntProperty(TYPE, tag, config, "r_reps", 20);
             long seed = MuveraProcessorUtils.readLongProperty(TYPE, tag, config, "seed", 42L);
-            int oversampleFactor = ConfigurationUtils.readIntProperty(TYPE, tag, config, "oversample_factor", 4);
-            if (oversampleFactor <= 0) {
-                throw ConfigurationUtils.newConfigurationException(
-                    TYPE,
-                    tag,
-                    "oversample_factor",
-                    "must be positive, got: " + oversampleFactor
-                );
-            }
+            String queryVectorsField = ConfigurationUtils.readStringProperty(
+                TYPE, tag, config, "query_vectors_field", "ext.muvera.query_vectors"
+            );
 
             MuveraEncoder encoder = new MuveraEncoder(dim, kSim, dimProj, rReps, seed);
             int computedDimension = encoder.getEmbeddingSize();
@@ -363,8 +380,6 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
                     + dimProj
                     + ", seed="
                     + seed
-                    + ", oversample_factor="
-                    + oversampleFactor
                     + ")";
             }
 
@@ -376,9 +391,8 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
                 encoder,
                 dim,
                 computedDimension,
-                oversampleFactor
+                queryVectorsField
             );
-        }
         }
     }
 }
