@@ -8,13 +8,6 @@ package org.opensearch.knn.processor.muvera;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchRequest;
-import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.common.xcontent.LoggingDeprecationHandler;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
-import org.opensearch.core.xcontent.ToXContent;
-import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.ingest.ConfigurationUtils;
 import org.opensearch.search.pipeline.AbstractProcessor;
@@ -160,85 +153,44 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
      */
     @SuppressWarnings("unchecked")
     private double[][] extractQueryVectors(SearchRequest request) {
-        // Parse the query_vectors_field path to navigate the ext section
-        // Expected format: "ext.muvera.query_vectors" or similar dot-separated path
-        if (request.source().ext() == null) {
+        if (request.source().query() == null) {
             return null;
         }
 
-        // Navigate the ext section using the configured field path
-        Map<String, Object> ext = null;
-        for (Object extBuilder : request.source().ext()) {
-            // ext entries are SearchExtBuilder objects — we need to find our section
-            if (extBuilder instanceof Map) {
-                ext = (Map<String, Object>) extBuilder;
-                break;
+        QueryBuilder query = request.source().query();
+
+        // Check if it's a template query and extract content directly
+        if (query instanceof org.opensearch.index.query.TemplateQueryBuilder) {
+            org.opensearch.index.query.TemplateQueryBuilder templateQuery =
+                (org.opensearch.index.query.TemplateQueryBuilder) query;
+            Map<String, Object> content = templateQuery.getContent();
+            Object queryVectorsObj = extractQueryVectorsFromContent(content);
+            if (queryVectorsObj != null) {
+                return parseMultiVectors(queryVectorsObj);
             }
         }
 
-        // Fallback: try to get query_vectors from the search source directly
-        // For now, support passing query_vectors in the request body at a known location
-        Object queryVectorsObj = null;
-
-        // Try to extract from source extensions
-        if (request.source().fetchSource() != null) {
-            // Not the right place — let's check if query_vectors is in the query itself
-        }
-
-        // For template queries, the multi-vectors should be in the template content
-        // or passed via ext. Let's extract from the template query's script params.
-        if (request.source().query() != null) {
-            queryVectorsObj = extractQueryVectorsFromTemplate(request.source().query());
-        }
-
-        if (queryVectorsObj == null) {
-            return null;
-        }
-
-        return parseMultiVectors(queryVectorsObj);
+        return null;
     }
 
     /**
-     * Extracts query_vectors from a template query's embedded script_score params.
+     * Navigates the template content map to find query_vectors in script_score params.
+     * Path: script_score -> script -> params -> query_vectors
      */
     @SuppressWarnings("unchecked")
-    private Object extractQueryVectorsFromTemplate(QueryBuilder query) {
-        // The template query stores its content as a Map
-        // We need to navigate: template -> script_score -> script -> params -> query_vectors
-        try {
-            if ("template".equals(query.getWriteableName()) == false) {
-                return null;
-            }
+    private Object extractQueryVectorsFromContent(Map<String, Object> content) {
+        if (content == null) return null;
 
-            // Use reflection-free approach: serialize to XContent and parse
-            XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
-            query.toXContent(xContentBuilder, ToXContent.EMPTY_PARAMS);
-            String json = xContentBuilder.toString();
+        Map<String, Object> scriptScore = (Map<String, Object>) content.get("script_score");
+        if (scriptScore == null) return null;
 
-            // Parse the JSON to extract query_vectors from script params
-            try (
-                XContentParser parser = XContentType.JSON.xContent()
-                    .createParser(NamedXContentRegistry.EMPTY, LoggingDeprecationHandler.INSTANCE, json)
-            ) {
-                Map<String, Object> queryMap = parser.map();
-                Map<String, Object> templateContent = (Map<String, Object>) queryMap.get("template");
-                if (templateContent == null) return null;
+        Map<String, Object> script = (Map<String, Object>) scriptScore.get("script");
+        if (script == null) return null;
 
-                Map<String, Object> scriptScore = (Map<String, Object>) templateContent.get("script_score");
-                if (scriptScore == null) return null;
+        Map<String, Object> params = (Map<String, Object>) script.get("params");
+        if (params == null) return null;
 
-                Map<String, Object> script = (Map<String, Object>) scriptScore.get("script");
-                if (script == null) return null;
-
-                Map<String, Object> params = (Map<String, Object>) script.get("params");
-                if (params == null) return null;
-
-                return params.get(QUERY_VECTORS_PARAM);
-            }
-        } catch (Exception e) {
-            logger.debug("Failed to extract query_vectors from template query", e);
-            return null;
-        }
+        return params.get(QUERY_VECTORS_PARAM);
     }
 
     /**
