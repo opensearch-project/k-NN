@@ -161,8 +161,7 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
 
         // Check if it's a template query and extract content directly
         if (query instanceof org.opensearch.index.query.TemplateQueryBuilder) {
-            org.opensearch.index.query.TemplateQueryBuilder templateQuery =
-                (org.opensearch.index.query.TemplateQueryBuilder) query;
+            org.opensearch.index.query.TemplateQueryBuilder templateQuery = (org.opensearch.index.query.TemplateQueryBuilder) query;
             Map<String, Object> content = templateQuery.getContent();
             Object queryVectorsObj = extractQueryVectorsFromContent(content);
             if (queryVectorsObj != null) {
@@ -211,9 +210,7 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
         for (int t = 0; t < numTokens; t++) {
             Object vecObj = outerList.get(t);
             if (vecObj instanceof List == false) {
-                throw new IllegalArgumentException(
-                    "[" + QUERY_VECTORS_PARAM + "] element at index [" + t + "] must be a list of numbers"
-                );
+                throw new IllegalArgumentException("[" + QUERY_VECTORS_PARAM + "] element at index [" + t + "] must be a list of numbers");
             }
             List<?> tokenVec = (List<?>) vecObj;
             if (tokenVec.size() != dim) {
@@ -232,9 +229,7 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
             for (int d = 0; d < dim; d++) {
                 Object numObj = tokenVec.get(d);
                 if (numObj instanceof Number == false) {
-                    throw new IllegalArgumentException(
-                        "[" + QUERY_VECTORS_PARAM + "] element at [" + t + "][" + d + "] is not a number"
-                    );
+                    throw new IllegalArgumentException("[" + QUERY_VECTORS_PARAM + "] element at [" + t + "][" + d + "] is not a number");
                 }
                 multiVectors[t][d] = ((Number) numObj).doubleValue();
             }
@@ -277,7 +272,11 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
             int rReps = ConfigurationUtils.readIntProperty(TYPE, tag, config, "r_reps", 20);
             long seed = MuveraProcessorUtils.readLongProperty(TYPE, tag, config, "seed", 42L);
             String queryVectorsField = ConfigurationUtils.readStringProperty(
-                TYPE, tag, config, "query_vectors_field", "ext.muvera.query_vectors"
+                TYPE,
+                tag,
+                config,
+                "query_vectors_field",
+                "ext.muvera.query_vectors"
             );
 
             MuveraEncoder encoder = new MuveraEncoder(dim, kSim, dimProj, rReps, seed);

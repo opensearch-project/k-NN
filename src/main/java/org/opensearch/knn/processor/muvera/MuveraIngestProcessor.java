@@ -263,9 +263,7 @@ public class MuveraIngestProcessor extends AbstractProcessor {
 
             boolean ignoreMissing = ConfigurationUtils.readBooleanProperty(TYPE, tag, config, "ignore_missing", false);
 
-            return new MuveraIngestProcessor(
-                tag, description, sourceField, targetField, encoder, dim, computedDimension, ignoreMissing
-            );
+            return new MuveraIngestProcessor(tag, description, sourceField, targetField, encoder, dim, computedDimension, ignoreMissing);
         }
     }
 }

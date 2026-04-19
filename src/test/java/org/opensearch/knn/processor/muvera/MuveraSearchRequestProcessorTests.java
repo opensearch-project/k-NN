@@ -94,10 +94,7 @@ public class MuveraSearchRequestProcessorTests extends KNNTestCase {
     public void testProcessRequestSetsContextAttribute() throws Exception {
         MuveraSearchRequestProcessor processor = createProcessor();
 
-        List<List<Double>> queryVectors = Arrays.asList(
-            Arrays.asList(1.0, 0.0, 0.0, 0.0),
-            Arrays.asList(0.0, 1.0, 0.0, 0.0)
-        );
+        List<List<Double>> queryVectors = Arrays.asList(Arrays.asList(1.0, 0.0, 0.0, 0.0), Arrays.asList(0.0, 1.0, 0.0, 0.0));
         SearchRequest request = buildTemplateRequest(queryVectors);
         PipelineProcessingContext context = new PipelineProcessingContext();
 

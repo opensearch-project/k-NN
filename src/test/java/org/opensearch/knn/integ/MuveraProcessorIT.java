@@ -18,12 +18,12 @@ import java.util.List;
 /**
  * Integration tests for MUVERA ingest and search request processors.
  *
- * Tests the end-to-end flow:
- * 1. Create ingest pipeline with muvera processor to encode multi-vectors into FDE at index time
- * 2. Create search pipeline with muvera_query processor to encode query multi-vectors and replace
- *    match_all with knn query for ANN prefetch
- * 3. Index documents with multi-vectors through the ingest pipeline
- * 4. Search using script_score with lateInteractionScore through the search pipeline
+ * The user sends a template query with a KNN placeholder (${muvera_fde}) and a
+ * script_score reranking step. The search request processor extracts the query
+ * multi-vectors from the script params, encodes them into an FDE via MUVERA, and
+ * sets the FDE as a pipeline context attribute. The template query resolves the
+ * placeholder during query rewrite, so the KNN search runs with the FDE vector
+ * and the script_score reranks the prefetched candidates with lateInteractionScore.
  */
 public class MuveraProcessorIT extends KNNRestTestCase {
 
@@ -33,7 +33,7 @@ public class MuveraProcessorIT extends KNNRestTestCase {
     private static final String MULTI_VECTOR_FIELD = "colbert_vectors";
     private static final String FDE_FIELD = "muvera_fde";
 
-    // Use small MUVERA params for fast tests: FDE dim = 2 * 2 * 2 = 8
+    // Small MUVERA params for fast tests: FDE dim = r_reps * 2^k_sim * dim_proj = 2 * 2 * 2 = 8
     private static final int DIM = 2;
     private static final int K_SIM = 1;
     private static final int DIM_PROJ = 2;
@@ -42,9 +42,8 @@ public class MuveraProcessorIT extends KNNRestTestCase {
     private static final long SEED = 42L;
 
     /**
-     * Tests the full MUVERA ingest + search pipeline flow end-to-end.
-     * Creates pipelines, indexes documents with multi-vectors, and searches
-     * using script_score with lateInteractionScore reranking over ANN prefetch.
+     * Tests the full MUVERA ingest + search pipeline flow end-to-end with the
+     * template query format.
      */
     public void testMuveraEndToEnd_whenIngestAndSearch_thenReturnsResults() throws Exception {
         try {
@@ -54,7 +53,6 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             indexDocuments();
             refreshIndex(INDEX_NAME);
 
-            // Search with script_score + lateInteractionScore through the search pipeline
             String searchBody = buildMuveraSearchBody(new double[][] { { 1.0, 0.0 }, { 0.0, 1.0 } }, 5);
             Response response = performSearchWithPipeline(INDEX_NAME, searchBody, SEARCH_PIPELINE_NAME);
             assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -81,11 +79,9 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             indexDocuments();
             refreshIndex(INDEX_NAME);
 
-            // Retrieve doc and verify FDE field exists
             Response getResponse = client().performRequest(new Request("GET", "/" + INDEX_NAME + "/_doc/1"));
             String body = EntityUtils.toString(getResponse.getEntity());
             assertTrue("Document should contain FDE field", body.contains(FDE_FIELD));
-            // Original multi-vector field should also be preserved
             assertTrue("Document should preserve multi-vector field", body.contains(MULTI_VECTOR_FIELD));
         } finally {
             deleteTestIndex(INDEX_NAME);
@@ -176,9 +172,9 @@ public class MuveraProcessorIT extends KNNRestTestCase {
     }
 
     /**
-     * Tests that the search pipeline passes through non-script_score queries unchanged.
+     * Tests that the search pipeline passes through non-template queries unchanged.
      */
-    public void testMuveraSearch_whenNonScriptScoreQuery_thenPassesThrough() throws Exception {
+    public void testMuveraSearch_whenNonTemplateQuery_thenPassesThrough() throws Exception {
         try {
             createIngestPipeline();
             createSearchPipeline();
@@ -186,7 +182,6 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             indexDocuments();
             refreshIndex(INDEX_NAME);
 
-            // Simple match_all query (not script_score) through the MUVERA search pipeline
             String searchBody = "{\"query\": {\"match_all\": {}}, \"size\": 5}";
             Response response = performSearchWithPipeline(INDEX_NAME, searchBody, SEARCH_PIPELINE_NAME);
             assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -228,9 +223,11 @@ public class MuveraProcessorIT extends KNNRestTestCase {
     }
 
     /**
-     * Tests that search pipeline with ignore_failure=true passes through on malformed query.
+     * Tests that search pipeline with ignore_failure=true swallows the dimension error.
+     * Because the template placeholder won't be resolved, the KNN query will fail
+     * downstream — but the processor itself should not break the request.
      */
-    public void testMuveraSearch_whenIgnoreFailureTrue_thenMalformedQueryPassesThrough() throws Exception {
+    public void testMuveraSearch_whenIgnoreFailureTrue_thenProcessorDoesNotFail() throws Exception {
         String pipelineName = SEARCH_PIPELINE_NAME + "-ignore-failure";
         try {
             createIngestPipeline();
@@ -238,17 +235,27 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             indexDocuments();
             refreshIndex(INDEX_NAME);
 
-            // Create search pipeline with ignore_failure=true
             String pipelineBody = "{"
                 + "\"request_processors\": [{"
                 + "  \"muvera_query\": {"
-                + "    \"target_field\": \"" + FDE_FIELD + "\","
-                + "    \"dim\": " + DIM + ","
-                + "    \"k_sim\": " + K_SIM + ","
-                + "    \"dim_proj\": " + DIM_PROJ + ","
-                + "    \"r_reps\": " + R_REPS + ","
-                + "    \"seed\": " + SEED + ","
-                + "    \"oversample_factor\": 2,"
+                + "    \"target_field\": \""
+                + FDE_FIELD
+                + "\","
+                + "    \"dim\": "
+                + DIM
+                + ","
+                + "    \"k_sim\": "
+                + K_SIM
+                + ","
+                + "    \"dim_proj\": "
+                + DIM_PROJ
+                + ","
+                + "    \"r_reps\": "
+                + R_REPS
+                + ","
+                + "    \"seed\": "
+                + SEED
+                + ","
                 + "    \"ignore_failure\": true"
                 + "  }"
                 + "}]"
@@ -257,10 +264,25 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             pipelineRequest.setJsonEntity(pipelineBody);
             client().performRequest(pipelineRequest);
 
-            // Query with wrong dimension — should not fail because ignore_failure=true
+            // Query with wrong dimension — processor should not propagate the failure
             String searchBody = buildMuveraSearchBody(new double[][] { { 1.0, 0.0, 0.5 } }, 5);
-            Response response = performSearchWithPipeline(INDEX_NAME, searchBody, pipelineName);
-            assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+            // We expect the search to either succeed (unresolved template) or fail with a
+            // downstream error — just assert the processor itself was tolerant.
+            try {
+                Response response = performSearchWithPipeline(INDEX_NAME, searchBody, pipelineName);
+                // Any non-5xx response is acceptable — proves the processor didn't hard-fail.
+                int status = response.getStatusLine().getStatusCode();
+                assertTrue("Processor should not cause a 5xx", status < 500);
+            } catch (ResponseException e) {
+                // If the template placeholder stays unresolved, the search may fail — but the
+                // error must not contain the MUVERA dimension-mismatch message (that means the
+                // processor did propagate the failure despite ignore_failure=true).
+                String body = EntityUtils.toString(e.getResponse().getEntity());
+                assertFalse(
+                    "Processor should swallow its own error when ignore_failure=true, body: " + body,
+                    body.contains("vector at index") && body.contains("has dimension")
+                );
+            }
         } finally {
             deleteTestIndex(INDEX_NAME);
             deleteIngestPipeline(INGEST_PIPELINE_NAME);
@@ -276,7 +298,6 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             createIngestPipeline(); // default ignore_missing=false
             createIndex();
 
-            // Index a document without the source field
             String docBody = "{\"text\": \"no vectors\"}";
             Request request = new Request("POST", "/" + INDEX_NAME + "/_doc/no_vectors?pipeline=" + INGEST_PIPELINE_NAME);
             request.setJsonEntity(docBody);
@@ -290,9 +311,7 @@ public class MuveraProcessorIT extends KNNRestTestCase {
     }
 
     /**
-     * Tests that MUVERA search returns results in correct order based on MaxSim scoring.
-     * Indexes multiple docs with known vectors, queries with a vector that clearly matches
-     * one doc better, and verifies the top result is the expected doc.
+     * Tests that MUVERA search returns results in descending score order based on lateInteractionScore.
      */
     public void testMuveraEndToEnd_whenSearchWithKnownVectors_thenOrderingIsCorrect() throws Exception {
         try {
@@ -300,15 +319,11 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             createSearchPipeline();
             createIndex();
 
-            // Doc "close": vectors very similar to query
             indexDocWithMultiVectors("close", new double[][] { { 0.9, 0.1 }, { 0.1, 0.9 } });
-            // Doc "medium": somewhat similar
             indexDocWithMultiVectors("medium", new double[][] { { 0.5, 0.5 }, { 0.5, -0.5 } });
-            // Doc "far": dissimilar
             indexDocWithMultiVectors("far", new double[][] { { -0.9, -0.1 }, { -0.1, -0.9 } });
             refreshIndex(INDEX_NAME);
 
-            // Query with vectors very similar to "close" doc
             String searchBody = buildMuveraSearchBody(new double[][] { { 1.0, 0.0 }, { 0.0, 1.0 } }, 3);
             Response response = performSearchWithPipeline(INDEX_NAME, searchBody, SEARCH_PIPELINE_NAME);
             assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -317,15 +332,10 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             List<Double> scores = parseScores(responseBody);
             assertEquals("Should return all 3 docs", 3, scores.size());
 
-            // Verify scores are in descending order
             for (int i = 0; i < scores.size() - 1; i++) {
-                assertTrue(
-                    "Scores should be in descending order: " + scores,
-                    scores.get(i) >= scores.get(i + 1)
-                );
+                assertTrue("Scores should be in descending order: " + scores, scores.get(i) >= scores.get(i + 1));
             }
 
-            // Verify the "close" doc has the highest score (appears first)
             assertTrue("Top result should have positive score", scores.get(0) > 0);
             assertTrue("Top score should be higher than second", scores.get(0) > scores.get(1));
         } finally {
@@ -337,21 +347,31 @@ public class MuveraProcessorIT extends KNNRestTestCase {
 
     /**
      * Tests that MUVERA pipeline with ignore_missing=true handles mixed documents correctly.
-     * One document has the source field, another doesn't.
      */
     public void testMuveraIngest_whenIgnoreMissingTrue_thenMixedDocsSucceed() throws Exception {
         try {
-            // Create pipeline with ignore_missing=true
             String pipelineBody = "{"
                 + "\"description\": \"MUVERA ingest pipeline with ignore_missing\","
                 + "\"processors\": [{"
                 + "  \"muvera\": {"
-                + "    \"source_field\": \"" + MULTI_VECTOR_FIELD + "\","
-                + "    \"target_field\": \"" + FDE_FIELD + "\","
-                + "    \"dim\": " + DIM + ","
-                + "    \"k_sim\": " + K_SIM + ","
-                + "    \"dim_proj\": " + DIM_PROJ + ","
-                + "    \"r_reps\": " + R_REPS + ","
+                + "    \"source_field\": \""
+                + MULTI_VECTOR_FIELD
+                + "\","
+                + "    \"target_field\": \""
+                + FDE_FIELD
+                + "\","
+                + "    \"dim\": "
+                + DIM
+                + ","
+                + "    \"k_sim\": "
+                + K_SIM
+                + ","
+                + "    \"dim_proj\": "
+                + DIM_PROJ
+                + ","
+                + "    \"r_reps\": "
+                + R_REPS
+                + ","
                 + "    \"ignore_missing\": true"
                 + "  }"
                 + "}]"
@@ -362,10 +382,8 @@ public class MuveraProcessorIT extends KNNRestTestCase {
 
             createIndex();
 
-            // Doc 1: has source field — should get FDE
             indexDocWithMultiVectors("with_vectors", new double[][] { { 1.0, 0.0 }, { 0.0, 1.0 } });
 
-            // Doc 2: missing source field — should be indexed without FDE
             String docBody = "{\"text\": \"no vectors here\"}";
             Request request = new Request("POST", "/" + INDEX_NAME + "/_doc/without_vectors?pipeline=" + INGEST_PIPELINE_NAME);
             request.setJsonEntity(docBody);
@@ -374,7 +392,6 @@ public class MuveraProcessorIT extends KNNRestTestCase {
 
             refreshIndex(INDEX_NAME);
 
-            // Verify doc count
             Response countResponse = client().performRequest(new Request("GET", "/" + INDEX_NAME + "/_count"));
             String countBody = EntityUtils.toString(countResponse.getEntity());
             assertTrue("Should have 2 docs", countBody.contains("\"count\":2"));
@@ -388,12 +405,10 @@ public class MuveraProcessorIT extends KNNRestTestCase {
      * Tests that the ingest pipeline rejects documents with wrong vector dimensions.
      */
     public void testMuveraIngest_whenVectorDimensionMismatch_thenFails() throws Exception {
-
         try {
             createIngestPipeline();
             createIndex();
 
-            // Index a document with dim=3 vectors but processor expects dim=2
             String docBody = "{" + "\"" + MULTI_VECTOR_FIELD + "\": [[1.0, 0.0, 0.5], [0.0, 1.0, 0.5]]" + "}";
             Request request = new Request("POST", "/" + INDEX_NAME + "/_doc/bad_doc?pipeline=" + INGEST_PIPELINE_NAME);
             request.setJsonEntity(docBody);
@@ -406,7 +421,7 @@ public class MuveraProcessorIT extends KNNRestTestCase {
         }
     }
 
-    // ---- Helper methods ----
+    // ---- Helpers ----
 
     private void createIngestPipeline() throws IOException {
         String pipelineBody = "{"
@@ -464,8 +479,6 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             + ","
             + "    \"seed\": "
             + SEED
-            + ","
-            + "    \"oversample_factor\": 2"
             + "  }"
             + "}]"
             + "}";
@@ -485,6 +498,9 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             + "    \"type\": \"knn_vector\","
             + "    \"dimension\": "
             + FDE_DIM
+            + ","
+            + "    \"space_type\": \"innerproduct\","
+            + "    \"method\": {\"name\": \"hnsw\", \"engine\": \"faiss\"}"
             + "  },"
             + "  \""
             + MULTI_VECTOR_FIELD
@@ -498,11 +514,8 @@ public class MuveraProcessorIT extends KNNRestTestCase {
     }
 
     private void indexDocuments() throws IOException {
-        // Document 1: two token vectors
         indexDocWithMultiVectors("1", new double[][] { { 1.0, 0.0 }, { 0.0, 1.0 } });
-        // Document 2: two token vectors (different)
         indexDocWithMultiVectors("2", new double[][] { { 0.5, 0.5 }, { -0.5, 0.5 } });
-        // Document 3: single token vector
         indexDocWithMultiVectors("3", new double[][] { { 0.3, 0.7 } });
     }
 
@@ -526,6 +539,24 @@ public class MuveraProcessorIT extends KNNRestTestCase {
         assertEquals(RestStatus.CREATED, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
+    /**
+     * Builds a template query search body:
+     * <pre>
+     * {
+     *   "query": {
+     *     "template": {
+     *       "script_score": {
+     *         "query": { "knn": { "muvera_fde": { "vector": "${muvera_fde}", "k": N } } },
+     *         "script": {
+     *           "source": "lateInteractionScore(params.query_vectors, 'colbert_vectors', params._source, params.space_type)",
+     *           "params": { "query_vectors": [...], "space_type": "innerproduct" }
+     *         }
+     *       }
+     *     }
+     *   }
+     * }
+     * </pre>
+     */
     private String buildMuveraSearchBody(double[][] queryVectors, int size) {
         StringBuilder qvBuilder = new StringBuilder("[");
         for (int i = 0; i < queryVectors.length; i++) {
@@ -544,15 +575,31 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             + size
             + ","
             + "\"query\": {"
-            + "  \"script_score\": {"
-            + "    \"query\": {\"match_all\": {}},"
-            + "    \"script\": {"
-            + "      \"source\": \"lateInteractionScore(params.query_vectors, '"
+            + "  \"template\": {"
+            + "    \"script_score\": {"
+            + "      \"query\": {"
+            + "        \"knn\": {"
+            + "          \""
+            + FDE_FIELD
+            + "\": {"
+            + "            \"vector\": \"${"
+            + FDE_FIELD
+            + "}\","
+            + "            \"k\": "
+            + size
+            + "          }"
+            + "        }"
+            + "      },"
+            + "      \"script\": {"
+            + "        \"source\": \"lateInteractionScore(params.query_vectors, '"
             + MULTI_VECTOR_FIELD
-            + "', params._source)\","
-            + "      \"params\": {"
-            + "        \"query_vectors\": "
+            + "', params._source, params.space_type)\","
+            + "        \"params\": {"
+            + "          \"query_vectors\": "
             + qvBuilder.toString()
+            + ","
+            + "          \"space_type\": \"innerproduct\""
+            + "        }"
             + "      }"
             + "    }"
             + "  }"
@@ -579,7 +626,7 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             Request request = new Request("DELETE", "/_ingest/pipeline/" + pipelineId);
             client().performRequest(request);
         } catch (Exception e) {
-            // Ignore — pipeline may not exist
+            // Ignore
         }
     }
 
@@ -588,7 +635,7 @@ public class MuveraProcessorIT extends KNNRestTestCase {
             Request request = new Request("DELETE", "/_search/pipeline/" + pipelineId);
             client().performRequest(request);
         } catch (Exception e) {
-            // Ignore — pipeline may not exist
+            // Ignore
         }
     }
 }
