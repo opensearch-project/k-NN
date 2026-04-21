@@ -19,3 +19,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 
 ### Enhancements
+* Add the bulkscore logic in MOS when K is greater than number of docs in segment [#3285](https://github.com/opensearch-project/k-NN/pull/3285)
