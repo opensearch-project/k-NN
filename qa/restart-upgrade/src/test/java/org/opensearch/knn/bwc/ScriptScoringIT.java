@@ -14,7 +14,7 @@ import org.opensearch.knn.IDVectorProducer;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.core.rest.RestStatus;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -86,7 +86,7 @@ public class ScriptScoringIT extends AbstractRestartUpgradeTestCase {
             createKnnIndex(
                 testIndex,
                 createKNNDefaultScriptScoreSettings(),
-                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, "hnsw", KNNEngine.FAISS.getName(), SpaceType.DEFAULT.getValue(), false)
+                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, "hnsw", BuiltinKNNEngine.FAISS.getName(), SpaceType.DEFAULT.getValue(), false)
             );
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
@@ -105,7 +105,14 @@ public class ScriptScoringIT extends AbstractRestartUpgradeTestCase {
             createKnnIndex(
                 testIndex,
                 createKNNDefaultScriptScoreSettings(),
-                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, "hnsw", KNNEngine.NMSLIB.getName(), SpaceType.DEFAULT.getValue(), false)
+                createKnnIndexMapping(
+                    TEST_FIELD,
+                    DIMENSIONS,
+                    "hnsw",
+                    BuiltinKNNEngine.NMSLIB.getName(),
+                    SpaceType.DEFAULT.getValue(),
+                    false
+                )
             );
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
@@ -124,7 +131,14 @@ public class ScriptScoringIT extends AbstractRestartUpgradeTestCase {
             createKnnIndex(
                 testIndex,
                 createKNNDefaultScriptScoreSettings(),
-                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, "hnsw", KNNEngine.LUCENE.getName(), SpaceType.DEFAULT.getValue(), false)
+                createKnnIndexMapping(
+                    TEST_FIELD,
+                    DIMENSIONS,
+                    "hnsw",
+                    BuiltinKNNEngine.LUCENE.getName(),
+                    SpaceType.DEFAULT.getValue(),
+                    false
+                )
             );
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {

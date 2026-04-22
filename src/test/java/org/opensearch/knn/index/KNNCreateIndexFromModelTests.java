@@ -23,6 +23,7 @@ import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelDao;
@@ -45,7 +46,7 @@ public class KNNCreateIndexFromModelTests extends KNNSingleNodeTestCase {
 
         // Create a model offline
         String modelId = "test-model";
-        KNNEngine knnEngine = KNNEngine.FAISS;
+        KNNEngine knnEngine = BuiltinKNNEngine.FAISS;
         SpaceType spaceType = SpaceType.L2;
         int dimension = 3;
 
@@ -55,7 +56,7 @@ public class KNNCreateIndexFromModelTests extends KNNSingleNodeTestCase {
             ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, "Flat", SPACE_TYPE, spaceType.getValue()),
             dimension,
             vectorsPointer,
-            KNNEngine.FAISS
+            BuiltinKNNEngine.FAISS
         );
 
         // Setup model

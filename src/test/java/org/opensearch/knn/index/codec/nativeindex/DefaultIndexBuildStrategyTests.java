@@ -17,7 +17,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransfer;
 import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransferFactory;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
@@ -71,7 +71,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
             IndexOutputWithBuffer indexOutputWithBuffer = Mockito.mock(IndexOutputWithBuffer.class);
             BuildIndexParams buildIndexParams = BuildIndexParams.builder()
                 .indexOutputWithBuffer(indexOutputWithBuffer)
-                .knnEngine(KNNEngine.NMSLIB)
+                .knnEngine(BuiltinKNNEngine.NMSLIB)
                 .vectorDataType(VectorDataType.FLOAT)
                 .indexParameters(Map.of("index", "param"))
                 .knnVectorValuesSupplier(() -> knnVectorValues)
@@ -89,7 +89,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
                     eq(knnVectorValues.dimension()),
                     eq(indexOutputWithBuffer),
                     eq(Map.of("index", "param")),
-                    eq(KNNEngine.NMSLIB)
+                    eq(BuiltinKNNEngine.NMSLIB)
                 )
             );
             mockedJNIService.verifyNoMoreInteractions();
@@ -128,7 +128,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
 
             // Limits transfer to 2 vectors
             mockedKNNSettings.when(KNNSettings::getVectorStreamingMemoryLimit).thenReturn(new ByteSizeValue(16));
-            mockedJNIService.when(() -> JNIService.initIndex(3, 2, Map.of("index", "param"), KNNEngine.FAISS)).thenReturn(100L);
+            mockedJNIService.when(() -> JNIService.initIndex(3, 2, Map.of("index", "param"), BuiltinKNNEngine.FAISS)).thenReturn(100L);
 
             OffHeapVectorTransfer offHeapVectorTransfer = mock(OffHeapVectorTransfer.class);
             mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 8, 3))
@@ -165,7 +165,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
             IndexOutputWithBuffer indexOutputWithBuffer = Mockito.mock(IndexOutputWithBuffer.class);
             BuildIndexParams buildIndexParams = BuildIndexParams.builder()
                 .indexOutputWithBuffer(indexOutputWithBuffer)
-                .knnEngine(KNNEngine.FAISS)
+                .knnEngine(BuiltinKNNEngine.FAISS)
                 .vectorDataType(VectorDataType.FLOAT)
                 .indexParameters(Map.of("index", "param"))
                 .quantizationState(quantizationState)
@@ -182,7 +182,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
                     knnVectorValues.totalLiveDocs(),
                     knnVectorValues.dimension(),
                     Map.of("index", "param"),
-                    KNNEngine.FAISS
+                    BuiltinKNNEngine.FAISS
                 )
             );
 
@@ -193,7 +193,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
                     eq(knnVectorValues.dimension()),
                     eq(Map.of("index", "param")),
                     eq(100L),
-                    eq(KNNEngine.FAISS)
+                    eq(BuiltinKNNEngine.FAISS)
                 )
             );
 
@@ -205,7 +205,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
                     eq(knnVectorValues.dimension()),
                     eq(Map.of("index", "param")),
                     eq(100L),
-                    eq(KNNEngine.FAISS)
+                    eq(BuiltinKNNEngine.FAISS)
                 )
             );
 
@@ -213,7 +213,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
                 () -> JNIService.writeIndex(
                     eq(indexOutputWithBuffer),
                     eq(100L),
-                    eq(KNNEngine.FAISS),
+                    eq(BuiltinKNNEngine.FAISS),
                     eq(Map.of("index", "param")),
                     eq(false)
                 )
@@ -257,7 +257,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
             IndexOutputWithBuffer indexOutputWithBuffer = Mockito.mock(IndexOutputWithBuffer.class);
             BuildIndexParams buildIndexParams = BuildIndexParams.builder()
                 .indexOutputWithBuffer(indexOutputWithBuffer)
-                .knnEngine(KNNEngine.NMSLIB)
+                .knnEngine(BuiltinKNNEngine.NMSLIB)
                 .vectorDataType(VectorDataType.FLOAT)
                 .indexParameters(Map.of("model_id", "id", "model_blob", modelBlob))
                 .knnVectorValuesSupplier(() -> knnVectorValues)
@@ -276,7 +276,7 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
                     eq(indexOutputWithBuffer),
                     eq(modelBlob),
                     eq(Map.of("model_id", "id", "model_blob", modelBlob)),
-                    eq(KNNEngine.NMSLIB)
+                    eq(BuiltinKNNEngine.NMSLIB)
                 )
             );
             mockedJNIService.verifyNoMoreInteractions();

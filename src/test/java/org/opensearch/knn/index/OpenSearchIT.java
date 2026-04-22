@@ -31,6 +31,7 @@ import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 import org.opensearch.core.rest.RestStatus;
@@ -71,7 +72,7 @@ public class OpenSearchIT extends KNNRestTestCase {
     @ExpectRemoteBuildValidation
     public void testEndToEnd() throws Exception {
         String indexName = "test-index-1";
-        KNNEngine knnEngine = KNNEngine.FAISS; // Only FAISS is used
+        KNNEngine knnEngine = BuiltinKNNEngine.FAISS; // Only FAISS is used
         String fieldName = "test-field";
         SpaceType spaceType = SpaceType.L2; // Using L2 similarity for FAISS
 
@@ -242,7 +243,7 @@ public class OpenSearchIT extends KNNRestTestCase {
         String engine;
         String spaceType;
         if (valid) {
-            engine = randomFrom(KNNEngine.FAISS, KNNEngine.LUCENE).getName();
+            engine = randomFrom(BuiltinKNNEngine.FAISS, BuiltinKNNEngine.LUCENE).getName();
             spaceType = SpaceType.L2.getValue();
         } else {
             engine = randomFrom(KNNConstants.LUCENE_NAME);
@@ -288,16 +289,16 @@ public class OpenSearchIT extends KNNRestTestCase {
             () -> createKnnIndex(
                 INDEX_NAME,
                 settings,
-                createKnnIndexMapping(FIELD_NAME, KNNEngine.getMaxDimensionByEngine(KNNEngine.DEFAULT) + 1)
+                createKnnIndexMapping(FIELD_NAME, BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.DEFAULT) + 1)
             )
         );
         assertThat(
             ex.getMessage(),
             containsString(
                 "Dimension value cannot be greater than "
-                    + KNNEngine.getMaxDimensionByEngine(KNNEngine.DEFAULT)
+                    + BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.DEFAULT)
                     + " for vector with engine: "
-                    + KNNEngine.DEFAULT.getName()
+                    + BuiltinKNNEngine.DEFAULT.getName()
             )
         );
     }
@@ -458,8 +459,8 @@ public class OpenSearchIT extends KNNRestTestCase {
     @Ignore
     public void testCacheClear_whenCloseIndex() throws Exception {
         String indexName = "test-index-1";
-        KNNEngine knnEngine1 = KNNEngine.NMSLIB;
-        KNNEngine knnEngine2 = KNNEngine.FAISS;
+        KNNEngine knnEngine1 = BuiltinKNNEngine.NMSLIB;
+        KNNEngine knnEngine2 = BuiltinKNNEngine.FAISS;
         String fieldName1 = "test-field-1";
         String fieldName2 = "test-field-2";
         SpaceType spaceType1 = SpaceType.COSINESIMIL;
@@ -587,7 +588,10 @@ public class OpenSearchIT extends KNNRestTestCase {
             INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MAX
         );
         final Settings settings = Settings.builder().put(buildKNNIndexSettings(buildVectorDataStructureThreshold)).build();
-        final String knnIndexMapping = createKnnIndexMapping(FIELD_NAME, KNNEngine.getMaxDimensionByEngine(KNNEngine.DEFAULT));
+        final String knnIndexMapping = createKnnIndexMapping(
+            FIELD_NAME,
+            BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.DEFAULT)
+        );
         final String indexName = "test-index-with-build-graph-settings";
         createKnnIndex(indexName, settings, knnIndexMapping);
         final String buildVectorDataStructureThresholdSetting = getIndexSettingByName(
@@ -604,7 +608,10 @@ public class OpenSearchIT extends KNNRestTestCase {
     }
 
     public void testKNNIndex_whenBuildThresholdIsNotProvided_thenShouldNotReturnSetting() throws Exception {
-        final String knnIndexMapping = createKnnIndexMapping(FIELD_NAME, KNNEngine.getMaxDimensionByEngine(KNNEngine.DEFAULT));
+        final String knnIndexMapping = createKnnIndexMapping(
+            FIELD_NAME,
+            BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.DEFAULT)
+        );
         final String indexName = "test-index-with-build-graph-settings";
         createKnnIndex(indexName, getDefaultIndexSettings(), knnIndexMapping);
         final String buildVectorDataStructureThresholdSetting = getIndexSettingByName(
@@ -619,7 +626,10 @@ public class OpenSearchIT extends KNNRestTestCase {
     }
 
     public void testKNNIndex_whenGetIndexSettingWithDefaultIsCalled_thenReturnDefaultBuildGraphThresholdValue() throws Exception {
-        final String knnIndexMapping = createKnnIndexMapping(FIELD_NAME, KNNEngine.getMaxDimensionByEngine(KNNEngine.DEFAULT));
+        final String knnIndexMapping = createKnnIndexMapping(
+            FIELD_NAME,
+            BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.DEFAULT)
+        );
         final String indexName = "test-index-with-build-vector-graph-settings";
         createKnnIndex(indexName, getDefaultIndexSettings(), knnIndexMapping);
         final String buildVectorDataStructureThresholdSetting = getIndexSettingByName(
@@ -657,7 +667,7 @@ public class OpenSearchIT extends KNNRestTestCase {
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName()) // FAISS only
+            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName()) // FAISS only
             .startObject(KNNConstants.PARAMETERS)
             .endObject()
             .endObject()
@@ -725,7 +735,7 @@ public class OpenSearchIT extends KNNRestTestCase {
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
             .startObject(KNNConstants.PARAMETERS)
             .endObject()
             .endObject()
@@ -780,7 +790,7 @@ public class OpenSearchIT extends KNNRestTestCase {
             () -> createKnnIndex(
                 INDEX_NAME,
                 settings,
-                createKnnIndexMapping(FIELD_NAME, 2, "hnsw", KNNEngine.FAISS.getName(), SpaceType.DEFAULT.getValue(), false)
+                createKnnIndexMapping(FIELD_NAME, 2, "hnsw", BuiltinKNNEngine.FAISS.getName(), SpaceType.DEFAULT.getValue(), false)
             )
         );
         String expMessage = "Cannot set modelId or method parameters when index.knn setting is false";
@@ -811,7 +821,7 @@ public class OpenSearchIT extends KNNRestTestCase {
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
             .startObject(KNNConstants.PARAMETERS)
             .endObject()
             .endObject()
@@ -821,7 +831,7 @@ public class OpenSearchIT extends KNNRestTestCase {
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
             .startObject(KNNConstants.PARAMETERS)
             .endObject()
             .endObject()

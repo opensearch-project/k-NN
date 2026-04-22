@@ -21,6 +21,7 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.jni.JNICommons;
@@ -451,7 +452,7 @@ public class TestUtils {
         Map<String, Object> parameters,
         KNNEngine engine
     ) {
-        if (engine != KNNEngine.FAISS) {
+        if (engine != BuiltinKNNEngine.FAISS) {
             try (IndexOutput indexOutput = directory.createOutput(fileName, IOContext.DEFAULT)) {
                 final IndexOutputWithBuffer indexOutputWithBuffer = new IndexOutputWithBuffer(indexOutput);
                 JNIService.createIndex(ids, address, dimension, indexOutputWithBuffer, parameters, engine);

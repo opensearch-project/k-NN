@@ -172,7 +172,7 @@ public class AbstractKNNMethodTests extends KNNTestCase {
         assertEquals(
             expectedMap,
             knnMethod.getKNNLibraryIndexingContext(
-                new KNNMethodContext(KNNEngine.DEFAULT, spaceType, new MethodComponentContext(methodName, generatedMap)),
+                new KNNMethodContext(BuiltinKNNEngine.DEFAULT, spaceType, new MethodComponentContext(methodName, generatedMap)),
                 knnMethodConfigContext
             ).getLibraryParameters()
         );

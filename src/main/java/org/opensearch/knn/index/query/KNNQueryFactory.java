@@ -11,6 +11,7 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.lucenelib.OSKnnByteVectorQuery;
@@ -25,7 +26,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.EXPAND_NESTED;
-import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_NESTED_FIELDS;
+import static org.opensearch.knn.index.engine.BuiltinKNNEngine.ENGINES_SUPPORTING_NESTED_FIELDS;
 
 /**
  * Creates the Lucene k-NN queries
@@ -72,7 +73,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
             );
         }
 
-        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
+        if (BuiltinKNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
             final Query validatedFilterQuery = validateFilterQuerySupport(filterQuery, createQueryRequest.getKnnEngine());
 
             log.debug(
@@ -176,7 +177,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
 
     private static Query validateFilterQuerySupport(final Query filterQuery, final KNNEngine knnEngine) {
         log.debug("filter query {}, knnEngine {}", filterQuery, knnEngine);
-        if (filterQuery != null && KNNEngine.getEnginesThatSupportsFilters().contains(knnEngine)) {
+        if (filterQuery != null && BuiltinKNNEngine.getEnginesThatSupportsFilters().contains(knnEngine)) {
             return filterQuery;
         }
         return null;

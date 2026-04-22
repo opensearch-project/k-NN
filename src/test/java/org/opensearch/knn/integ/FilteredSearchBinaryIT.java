@@ -17,6 +17,7 @@ import org.opensearch.knn.KNNJsonQueryBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.Arrays;
@@ -35,7 +36,7 @@ public class FilteredSearchBinaryIT extends KNNRestTestCase {
 
     @ParametersFactory
     public static Collection<Object[]> parameters() {
-        return Arrays.asList(new Object[] { KNNEngine.LUCENE }, new Object[] { KNNEngine.FAISS });
+        return Arrays.asList(new Object[] { BuiltinKNNEngine.LUCENE }, new Object[] { BuiltinKNNEngine.FAISS });
     }
 
     @SneakyThrows

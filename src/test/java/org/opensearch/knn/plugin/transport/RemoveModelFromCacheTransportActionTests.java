@@ -21,7 +21,7 @@ import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.indices.Model;
@@ -74,7 +74,7 @@ public class RemoveModelFromCacheTransportActionTests extends KNNSingleNodeTestC
         String modelId = "test-model-id";
         Model model = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.L2,
                 16,
                 ModelState.CREATED,

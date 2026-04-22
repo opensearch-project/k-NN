@@ -51,63 +51,63 @@ public class KNNEngineTests extends KNNTestCase {
      * Check that version from engine and library match
      */
     public void testDelegateLibraryFunctions() {
-        assertEquals(Nmslib.INSTANCE.getVersion(), KNNEngine.NMSLIB.getVersion());
-        assertEquals(Faiss.INSTANCE.getVersion(), KNNEngine.FAISS.getVersion());
-        assertEquals(Lucene.INSTANCE.getVersion(), KNNEngine.LUCENE.getVersion());
+        assertEquals(Nmslib.INSTANCE.getVersion(), BuiltinKNNEngine.NMSLIB.getVersion());
+        assertEquals(Faiss.INSTANCE.getVersion(), BuiltinKNNEngine.FAISS.getVersion());
+        assertEquals(Lucene.INSTANCE.getVersion(), BuiltinKNNEngine.LUCENE.getVersion());
 
         // Validate that deprecated engines have correct deprecation versions
-        assertTrue(KNNEngine.NMSLIB.getRestrictedFromVersion() != null);
-        assertFalse(KNNEngine.FAISS.isRestricted(Version.V_3_0_0)); // FAISS should not be deprecated
+        assertTrue(BuiltinKNNEngine.NMSLIB.getRestrictedFromVersion() != null);
+        assertFalse(BuiltinKNNEngine.FAISS.isRestricted(Version.V_3_0_0)); // FAISS should not be deprecated
     }
 
     /**
      * Test that deprecated engines are correctly flagged
      */
     public void testIsRestricted() {
-        Version deprecatedVersion = KNNEngine.NMSLIB.getRestrictedFromVersion();
+        Version deprecatedVersion = BuiltinKNNEngine.NMSLIB.getRestrictedFromVersion();
         assertNotNull(deprecatedVersion);
-        assertTrue(KNNEngine.NMSLIB.isRestricted(Version.V_3_0_0)); // Should return true for later versions
+        assertTrue(BuiltinKNNEngine.NMSLIB.isRestricted(Version.V_3_0_0)); // Should return true for later versions
 
-        assertFalse(KNNEngine.FAISS.isRestricted(Version.V_2_19_0)); // FAISS should not be deprecated
-        assertFalse(KNNEngine.LUCENE.isRestricted(Version.V_2_19_0)); // LUCENE should not be deprecated
+        assertFalse(BuiltinKNNEngine.FAISS.isRestricted(Version.V_2_19_0)); // FAISS should not be deprecated
+        assertFalse(BuiltinKNNEngine.LUCENE.isRestricted(Version.V_2_19_0)); // LUCENE should not be deprecated
     }
 
     public void testGetDefaultEngine_thenReturnFAISS() {
-        assertEquals(KNNEngine.FAISS, KNNEngine.DEFAULT);
+        assertEquals(BuiltinKNNEngine.FAISS, BuiltinKNNEngine.DEFAULT);
     }
 
     /**
      * Test name getter
      */
     public void testGetName() {
-        assertEquals(NMSLIB_NAME, KNNEngine.NMSLIB.getName());
+        assertEquals(NMSLIB_NAME, BuiltinKNNEngine.NMSLIB.getName());
     }
 
     /**
      * Test engine getter
      */
     public void testGetEngine() {
-        assertEquals(KNNEngine.NMSLIB, KNNEngine.getEngine(NMSLIB_NAME));
-        expectThrows(IllegalArgumentException.class, () -> KNNEngine.getEngine("invalid"));
+        assertEquals(BuiltinKNNEngine.NMSLIB, BuiltinKNNEngine.getEngine(NMSLIB_NAME));
+        expectThrows(IllegalArgumentException.class, () -> BuiltinKNNEngine.getEngine("invalid"));
     }
 
     public void testGetEngineFromPath() {
         String hnswPath1 = "test" + Nmslib.EXTENSION;
-        assertEquals(KNNEngine.NMSLIB, KNNEngine.getEngineNameFromPath(hnswPath1));
+        assertEquals(BuiltinKNNEngine.NMSLIB, BuiltinKNNEngine.getEngineNameFromPath(hnswPath1));
         String hnswPath2 = "test" + Nmslib.EXTENSION + COMPOUND_EXTENSION;
-        assertEquals(KNNEngine.NMSLIB, KNNEngine.getEngineNameFromPath(hnswPath2));
+        assertEquals(BuiltinKNNEngine.NMSLIB, BuiltinKNNEngine.getEngineNameFromPath(hnswPath2));
 
         String faissPath1 = "test" + FAISS_EXTENSION;
-        assertEquals(KNNEngine.FAISS, KNNEngine.getEngineNameFromPath(faissPath1));
+        assertEquals(BuiltinKNNEngine.FAISS, BuiltinKNNEngine.getEngineNameFromPath(faissPath1));
         String faissPath2 = "test" + FAISS_EXTENSION + COMPOUND_EXTENSION;
-        assertEquals(KNNEngine.FAISS, KNNEngine.getEngineNameFromPath(faissPath2));
+        assertEquals(BuiltinKNNEngine.FAISS, BuiltinKNNEngine.getEngineNameFromPath(faissPath2));
 
         String invalidPath = "test.invalid";
-        expectThrows(IllegalArgumentException.class, () -> KNNEngine.getEngineNameFromPath(invalidPath));
+        expectThrows(IllegalArgumentException.class, () -> BuiltinKNNEngine.getEngineNameFromPath(invalidPath));
     }
 
     public void testMmapFileExtensions() {
-        final List<String> mmapExtensions = Arrays.stream(KNNEngine.values())
+        final List<String> mmapExtensions = Arrays.stream(BuiltinKNNEngine.values())
             .filter(engine -> engine != KNNEngine.UNDEFINED)
             .flatMap(engine -> engine.mmapFileExtensions().stream())
             .collect(Collectors.toList());
@@ -122,8 +122,8 @@ public class KNNEngineTests extends KNNTestCase {
      */
     @SneakyThrows
     public void testSupportsRemoteIndexBuild() {
-        KNNEngine Faiss = KNNEngine.FAISS;
-        KNNEngine Lucene = KNNEngine.LUCENE;
+        KNNEngine Faiss = BuiltinKNNEngine.FAISS;
+        KNNEngine Lucene = BuiltinKNNEngine.LUCENE;
 
         // Faiss
         // FP32, FP16

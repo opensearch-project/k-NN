@@ -10,7 +10,7 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -28,7 +28,7 @@ public class LuceneFlatMethodResolverTests extends KNNTestCase {
 
     public void testResolveMethod_whenFlatMethod_thenResolveWithX32Compression() {
         KNNMethodContext flatMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.L2,
             new MethodComponentContext(METHOD_FLAT, Map.of())
         );
@@ -39,14 +39,14 @@ public class LuceneFlatMethodResolverTests extends KNNTestCase {
             SpaceType.L2
         );
         assertEquals(METHOD_FLAT, resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getName());
-        assertEquals(KNNEngine.LUCENE, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
+        assertEquals(BuiltinKNNEngine.LUCENE, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
         assertEquals(SpaceType.L2, resolvedMethodContext.getKnnMethodContext().getSpaceType());
         assertEquals(CompressionLevel.x32, resolvedMethodContext.getCompressionLevel());
     }
 
     public void testResolveMethod_whenFlatMethodWithExplicitX32Compression_thenResolve() {
         KNNMethodContext flatMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.COSINESIMIL,
             new MethodComponentContext(METHOD_FLAT, Map.of())
         );
@@ -70,7 +70,7 @@ public class LuceneFlatMethodResolverTests extends KNNTestCase {
                 continue;
             }
             KNNMethodContext flatMethodContext = new KNNMethodContext(
-                KNNEngine.LUCENE,
+                BuiltinKNNEngine.LUCENE,
                 SpaceType.L2,
                 new MethodComponentContext(METHOD_FLAT, Map.of())
             );
@@ -92,7 +92,7 @@ public class LuceneFlatMethodResolverTests extends KNNTestCase {
 
     public void testResolveMethod_whenFlatMethodWithParameters_thenThrow() {
         KNNMethodContext flatMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.L2,
             new MethodComponentContext(METHOD_FLAT, Map.of("some_param", 10))
         );
@@ -109,7 +109,7 @@ public class LuceneFlatMethodResolverTests extends KNNTestCase {
 
     public void testResolveMethod_whenFlatMethodWithMode_thenThrow() {
         KNNMethodContext flatMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.L2,
             new MethodComponentContext(METHOD_FLAT, Map.of())
         );
@@ -143,7 +143,7 @@ public class LuceneFlatMethodResolverTests extends KNNTestCase {
 
     public void testResolveMethod_whenFlatMethodWithTraining_thenThrow() {
         KNNMethodContext flatMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.L2,
             new MethodComponentContext(METHOD_FLAT, Map.of())
         );

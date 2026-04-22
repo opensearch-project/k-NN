@@ -26,7 +26,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -166,7 +166,7 @@ public class ExplainTests extends KNNWeightTestCase {
 
         final Map<String, String> attributesMap = ImmutableMap.of(
             KNN_ENGINE,
-            KNNEngine.FAISS.getName(),
+            BuiltinKNNEngine.FAISS.getName(),
             SPACE_TYPE,
             SpaceType.L2.getValue()
         );
@@ -243,7 +243,7 @@ public class ExplainTests extends KNNWeightTestCase {
             SPACE_TYPE,
             spaceType.getValue(),
             KNN_ENGINE,
-            KNNEngine.FAISS.getName(),
+            BuiltinKNNEngine.FAISS.getName(),
             PARAMETERS,
             String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
         );
@@ -314,7 +314,7 @@ public class ExplainTests extends KNNWeightTestCase {
         final int[] filterDocIds = new int[] { 0, 1, 2, 3, 4, 5 };
         final Map<String, String> attributesMap = ImmutableMap.of(
             KNN_ENGINE,
-            KNNEngine.FAISS.getName(),
+            BuiltinKNNEngine.FAISS.getName(),
             SPACE_TYPE,
             SpaceType.L2.getValue()
         );
@@ -368,7 +368,7 @@ public class ExplainTests extends KNNWeightTestCase {
                 SpaceType.L2.explainScoreTranslation(DOC_ID_TO_SCORES.get(docId))
             );
             Explanation nestedDetail = explanation.getDetails()[0].getDetails()[0];
-            assertTrue(nestedDetail.getDescription().contains(KNNEngine.FAISS.name()));
+            assertTrue(nestedDetail.getDescription().contains(BuiltinKNNEngine.FAISS.name()));
             assertEquals(DOC_ID_TO_SCORES.get(docId), nestedDetail.getValue().floatValue(), 0.01f);
             assertEquals(score, knnScorer.score(), 0.01f);
         }
@@ -391,7 +391,7 @@ public class ExplainTests extends KNNWeightTestCase {
         final int[] filterDocIds = new int[] { 0, 1, 2, 3, 4, 5 };
         final Map<String, String> attributesMap = ImmutableMap.of(
             KNN_ENGINE,
-            KNNEngine.FAISS.getName(),
+            BuiltinKNNEngine.FAISS.getName(),
             SPACE_TYPE,
             SpaceType.L2.getValue()
         );
@@ -468,7 +468,7 @@ public class ExplainTests extends KNNWeightTestCase {
             SPACE_TYPE,
             spaceType.getValue(),
             KNN_ENGINE,
-            KNNEngine.FAISS.getName(),
+            BuiltinKNNEngine.FAISS.getName(),
             PARAMETERS,
             String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
         );
@@ -521,7 +521,7 @@ public class ExplainTests extends KNNWeightTestCase {
         final int[] filterDocIds = new int[] { 0, 1, 2, 3, 4, 5 };
         final Map<String, String> attributesMap = ImmutableMap.of(
             KNN_ENGINE,
-            KNNEngine.FAISS.getName(),
+            BuiltinKNNEngine.FAISS.getName(),
             SPACE_TYPE,
             SpaceType.HAMMING.name(),
             PARAMETERS,
@@ -584,7 +584,7 @@ public class ExplainTests extends KNNWeightTestCase {
         final int[] filterDocIds = new int[] { 0, 1, 2, 3, 4, 5 };
         final Map<String, String> attributesMap = ImmutableMap.of(
             KNN_ENGINE,
-            KNNEngine.FAISS.getName(),
+            BuiltinKNNEngine.FAISS.getName(),
             SPACE_TYPE,
             SpaceType.L2.name(),
             PARAMETERS,
@@ -636,7 +636,7 @@ public class ExplainTests extends KNNWeightTestCase {
         final int[] filterDocIds = new int[] { 0 };
         final Map<String, String> attributesMap = ImmutableMap.of(
             KNN_ENGINE,
-            KNNEngine.FAISS.getName(),
+            BuiltinKNNEngine.FAISS.getName(),
             SPACE_TYPE,
             SpaceType.L2.name(),
             PARAMETERS,
@@ -691,7 +691,7 @@ public class ExplainTests extends KNNWeightTestCase {
         final int[] filterDocIds = new int[] { 0, 1, 2, 3, 4, 5 };
         final Map<String, String> attributesMap = ImmutableMap.of(
             KNN_ENGINE,
-            KNNEngine.FAISS.getName(),
+            BuiltinKNNEngine.FAISS.getName(),
             SPACE_TYPE,
             SpaceType.L2.getValue()
         );
@@ -749,7 +749,7 @@ public class ExplainTests extends KNNWeightTestCase {
                 " search since exact search is disabled,"
             );
             Explanation nestedDetail = explanation.getDetails()[0].getDetails()[0];
-            assertTrue(nestedDetail.getDescription().contains(KNNEngine.FAISS.name()));
+            assertTrue(nestedDetail.getDescription().contains(BuiltinKNNEngine.FAISS.name()));
             assertEquals(DOC_ID_TO_SCORES.get(docId), nestedDetail.getValue().floatValue(), 0.01f);
             assertEquals(score, knnScorer.score(), 0.01f);
         }
@@ -780,7 +780,7 @@ public class ExplainTests extends KNNWeightTestCase {
             SPACE_TYPE,
             SpaceType.L2.getValue(),
             KNN_ENGINE,
-            KNNEngine.FAISS.getName(),
+            BuiltinKNNEngine.FAISS.getName(),
             PARAMETERS,
             String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
         );
@@ -838,7 +838,7 @@ public class ExplainTests extends KNNWeightTestCase {
                 SpaceType.L2.explainScoreTranslation(DOC_ID_TO_SCORES.get(docId))
             );
             Explanation nestedDetail = explanation.getDetails()[0].getDetails()[0];
-            assertTrue(nestedDetail.getDescription().contains(KNNEngine.FAISS.name()));
+            assertTrue(nestedDetail.getDescription().contains(BuiltinKNNEngine.FAISS.name()));
             assertEquals(DOC_ID_TO_SCORES.get(docId), nestedDetail.getValue().floatValue(), 0.01f);
         }
         assertEquals(docIdSetIterator.cost(), actualDocIds.size());
@@ -872,7 +872,7 @@ public class ExplainTests extends KNNWeightTestCase {
             SPACE_TYPE,
             spaceType.getValue(),
             KNN_ENGINE,
-            KNNEngine.FAISS.getName(),
+            BuiltinKNNEngine.FAISS.getName(),
             PARAMETERS,
             String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
         );

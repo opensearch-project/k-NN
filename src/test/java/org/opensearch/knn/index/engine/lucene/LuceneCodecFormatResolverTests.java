@@ -10,7 +10,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KnnVectorsFormatContext;
 import org.opensearch.knn.index.codec.LuceneVectorsFormatType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 
@@ -45,7 +45,7 @@ public class LuceneCodecFormatResolverTests extends KNNTestCase {
 
     public void testResolve_whenFlatMethod_thenReturnFlatFormat() {
         KNNMethodContext flatContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.L2,
             new MethodComponentContext(METHOD_FLAT, Collections.emptyMap())
         );
@@ -71,7 +71,11 @@ public class LuceneCodecFormatResolverTests extends KNNTestCase {
         params.put(METHOD_PARAMETER_M, 16);
         params.put(METHOD_PARAMETER_EF_CONSTRUCTION, 100);
 
-        KNNMethodContext sqContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, new MethodComponentContext(METHOD_HNSW, params));
+        KNNMethodContext sqContext = new KNNMethodContext(
+            BuiltinKNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, params)
+        );
 
         Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
             LuceneVectorsFormatType.SCALAR_QUANTIZED,
@@ -87,7 +91,7 @@ public class LuceneCodecFormatResolverTests extends KNNTestCase {
 
     public void testResolve_whenHnswWithoutEncoder_thenReturnHnswFormat() {
         KNNMethodContext hnswContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.L2,
             new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_PARAMETER_M, 32, METHOD_PARAMETER_EF_CONSTRUCTION, 256))
         );
@@ -105,7 +109,7 @@ public class LuceneCodecFormatResolverTests extends KNNTestCase {
 
     public void testResolve_whenFormatTypeNotRegistered_thenThrowIllegalStateException() {
         KNNMethodContext flatContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.L2,
             new MethodComponentContext(METHOD_FLAT, Collections.emptyMap())
         );
@@ -132,7 +136,7 @@ public class LuceneCodecFormatResolverTests extends KNNTestCase {
         params.put(METHOD_PARAMETER_EF_CONSTRUCTION, customEf);
 
         KNNMethodContext methodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.COSINESIMIL,
             new MethodComponentContext(METHOD_HNSW, params)
         );
@@ -159,7 +163,7 @@ public class LuceneCodecFormatResolverTests extends KNNTestCase {
 
     public void testResolve_whenHnswWithNullParams_thenReturnHnswFormat() {
         KNNMethodContext hnswContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.L2,
             new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
         );
@@ -189,7 +193,11 @@ public class LuceneCodecFormatResolverTests extends KNNTestCase {
         params.put(METHOD_PARAMETER_M, 16);
         params.put(METHOD_PARAMETER_EF_CONSTRUCTION, 100);
 
-        KNNMethodContext sqContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, new MethodComponentContext(METHOD_HNSW, params));
+        KNNMethodContext sqContext = new KNNMethodContext(
+            BuiltinKNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, params)
+        );
 
         Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
             LuceneVectorsFormatType.SCALAR_QUANTIZED,
@@ -213,7 +221,11 @@ public class LuceneCodecFormatResolverTests extends KNNTestCase {
         params.put(METHOD_PARAMETER_M, 32);
         params.put(METHOD_PARAMETER_EF_CONSTRUCTION, 200);
 
-        KNNMethodContext sqContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, new MethodComponentContext(METHOD_HNSW, params));
+        KNNMethodContext sqContext = new KNNMethodContext(
+            BuiltinKNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, params)
+        );
 
         final KnnVectorsFormatContext[] capturedContext = new KnnVectorsFormatContext[1];
         Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(

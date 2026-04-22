@@ -11,7 +11,7 @@ import org.apache.lucene.store.IndexInput;
 import org.junit.Test;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
@@ -46,11 +46,20 @@ public class BinaryCagraHammingScoreConversionTests extends KNNTestCase {
             }
 
             // Search
-            results = JNIService.queryBinaryIndex(indexPointer, queryVector, k, Collections.emptyMap(), KNNEngine.FAISS, null, 0, null);
+            results = JNIService.queryBinaryIndex(
+                indexPointer,
+                queryVector,
+                k,
+                Collections.emptyMap(),
+                BuiltinKNNEngine.FAISS,
+                null,
+                0,
+                null
+            );
 
             assertEquals(k, results.length);
         } finally {
-            JNIService.free(indexPointer, KNNEngine.FAISS);
+            JNIService.free(indexPointer, BuiltinKNNEngine.FAISS);
         }
 
         // Validate score value

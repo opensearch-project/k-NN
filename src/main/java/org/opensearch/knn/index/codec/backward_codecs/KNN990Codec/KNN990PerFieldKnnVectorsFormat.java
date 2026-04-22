@@ -9,7 +9,7 @@ import org.apache.lucene.backward_codecs.lucene99.Lucene99HnswScalarQuantizedVec
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.backward_codecs.BasePerFieldKnnVectorsFormat;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 
 import java.util.Optional;
 
@@ -49,6 +49,6 @@ public class KNN990PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat
      * @return Maximum constant dimension set by KNNEngine
      */
     public int getMaxDimensions(String fieldName) {
-        return KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE);
+        return BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.LUCENE);
     }
 }

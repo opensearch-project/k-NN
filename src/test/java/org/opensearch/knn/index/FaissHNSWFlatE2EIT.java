@@ -26,7 +26,7 @@ import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
@@ -106,7 +106,7 @@ public class FaissHNSWFlatE2EIT extends KNNRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
             .startObject(PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
@@ -170,7 +170,7 @@ public class FaissHNSWFlatE2EIT extends KNNRestTestCase {
             for (int j = 0; j < k; j++) {
                 float[] primitiveArray = knnResults.get(j).getVector();
                 assertEquals(
-                    KNNEngine.FAISS.score(KNNScoringUtil.l2Squared(testData.queries[i], primitiveArray), spaceType),
+                    BuiltinKNNEngine.FAISS.score(KNNScoringUtil.l2Squared(testData.queries[i], primitiveArray), spaceType),
                     actualScores.get(j),
                     0.0001
                 );
