@@ -493,7 +493,11 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
         // Test 4: Both includes and excludes - throws IllegalArgumentException because vector field cannot be in both includes and excludes
         ResponseException ex = expectThrows(
             ResponseException.class,
-            () -> sourceFiltering(indexName, new String[] { VECTOR_FIELD_1, VECTOR_FIELD_2, TEXT_FIELD }, new String[] { VECTOR_FIELD_2 })
+            () -> searchWithSourceIncludesExcludes(
+                indexName,
+                new String[] { VECTOR_FIELD_1, VECTOR_FIELD_2, TEXT_FIELD },
+                new String[] { VECTOR_FIELD_2 }
+            )
         );
         assertThat(
             ex.getMessage(),

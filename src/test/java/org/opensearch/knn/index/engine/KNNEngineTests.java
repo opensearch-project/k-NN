@@ -29,6 +29,7 @@ import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.COMPOUND_EXTENSION;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.FAISS_EXTENSION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -137,6 +138,9 @@ public class KNNEngineTests extends KNNTestCase {
 
         // Quantized case
         assertTrue(Faiss.supportsRemoteIndexBuild(createMockKnnLibraryIndexingContextParamsQuantized()));
+
+        // SQ 1-bit
+        assertTrue(Faiss.supportsRemoteIndexBuild(createMockKnnLibraryIndexingContextParamsSQOneBit()));
 
         // IVF all must fail
         assertFalse(Faiss.supportsRemoteIndexBuild(createMockKnnLibraryIndexingContextParamsByte(METHOD_IVF)));
@@ -340,6 +344,33 @@ public class KNNEngineTests extends KNNTestCase {
             .field(METHOD_PARAMETER_EF_CONSTRUCTION, 28)
             .startObject(METHOD_ENCODER_PARAMETER)
             .field(NAME, ENCODER_FLAT)
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        return Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+    }
+
+    @SneakyThrows
+    private KNNLibraryIndexingContext createMockKnnLibraryIndexingContextParamsSQOneBit() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, L2.getValue())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_EF_SEARCH, 24)
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, 28)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(SQ_BITS, 1)
+            .endObject()
             .endObject()
             .endObject()
             .endObject();

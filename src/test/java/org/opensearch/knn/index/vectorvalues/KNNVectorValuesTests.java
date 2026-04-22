@@ -107,6 +107,74 @@ public class KNNVectorValuesTests extends KNNTestCase {
         return docsWithFieldSet;
     }
 
+    @SneakyThrows
+    public void testListBasedFloatVectorValues_whenGetVectorCalledTwice_thenReturnsSameVector() {
+        final List<float[]> vectors = List.of(new float[] { 1, 2 }, new float[] { 3, 4 }, new float[] { 5, 6 });
+        final DocsWithFieldSet docsWithFieldSet = getDocIdSetIterator(vectors.size());
+
+        final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.FLOAT,
+            docsWithFieldSet,
+            vectors
+        );
+
+        knnVectorValues.nextDoc();
+
+        float[] first = (float[]) knnVectorValues.getVector();
+        float[] second = (float[]) knnVectorValues.getVector();
+        assertArrayEquals(first, second, 0.0f);
+        assertArrayEquals(new float[] { 1, 2 }, first, 0.0f);
+
+        knnVectorValues.nextDoc();
+        float[] third = (float[]) knnVectorValues.getVector();
+        assertArrayEquals(new float[] { 3, 4 }, third, 0.0f);
+    }
+
+    @SneakyThrows
+    public void testListBasedFloatVectorValues_whenNormalIteration_thenReturnsCorrectVectors() {
+        final List<float[]> vectors = List.of(new float[] { 1, 2 }, new float[] { 3, 4 }, new float[] { 5, 6 });
+        final DocsWithFieldSet docsWithFieldSet = getDocIdSetIterator(vectors.size());
+
+        final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.FLOAT,
+            docsWithFieldSet,
+            vectors
+        );
+
+        int i = 0;
+        while (knnVectorValues.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
+            float[] vector = (float[]) knnVectorValues.getVector();
+            assertArrayEquals(vectors.get(i), vector, 0.0f);
+            i++;
+        }
+        assertEquals(vectors.size(), i);
+    }
+
+    @SneakyThrows
+    public void testListBasedFloatVectorValues_whenSparseDocIds_thenReturnsCorrectVectors() {
+        final List<float[]> vectors = List.of(new float[] { 1, 2 }, new float[] { 3, 4 }, new float[] { 5, 6 });
+        final DocsWithFieldSet docsWithFieldSet = new DocsWithFieldSet();
+        docsWithFieldSet.add(1);
+        docsWithFieldSet.add(4);
+        docsWithFieldSet.add(7);
+
+        final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.FLOAT,
+            docsWithFieldSet,
+            vectors
+        );
+
+        knnVectorValues.nextDoc();
+        assertArrayEquals(new float[] { 1, 2 }, (float[]) knnVectorValues.getVector(), 0.0f);
+        assertArrayEquals(new float[] { 1, 2 }, (float[]) knnVectorValues.getVector(), 0.0f);
+
+        knnVectorValues.nextDoc();
+        assertArrayEquals(new float[] { 3, 4 }, (float[]) knnVectorValues.getVector(), 0.0f);
+
+        knnVectorValues.nextDoc();
+        assertArrayEquals(new float[] { 5, 6 }, (float[]) knnVectorValues.getVector(), 0.0f);
+    }
+
     private class CompareVectorValues<T> {
         void validateVectorValues(
             KNNVectorValues<T> vectorValues,
