@@ -98,7 +98,7 @@ public class KNNIndexShard {
             for (final LeafReaderContext leafReaderContext : searcher.getIndexReader().leaves()) {
                 // Load memory optimized searcher in a single segment first.
                 final Set<String> loadedFieldNames = new HashSet<>(
-                    memoryOptimizedSearchWarmup.warmUp(leafReaderContext.reader(), mapperService, indexName, directory)
+                    memoryOptimizedSearchWarmup.warmUp(leafReaderContext.reader(), mapperService, indexName)
                 );
                 log.info("[KNN] Loaded memory optimized searchers for fields {}", loadedFieldNames);
 

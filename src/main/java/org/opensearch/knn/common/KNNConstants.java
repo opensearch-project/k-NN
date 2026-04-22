@@ -17,6 +17,7 @@ public class KNNConstants {
     public static final String NAME = "name";
     public static final String PARAMETERS = "parameters";
     public static final String METHOD_HNSW = "hnsw";
+    public static final String METHOD_FLAT = "flat";
     public static final String TYPE = "type";
     public static final String TYPE_NESTED = "nested";
     public static final String PATH = "path";
@@ -75,6 +76,7 @@ public class KNNConstants {
     public static final String SEARCH_SIZE_PARAMETER = "search_size";
 
     public static final String QFRAMEWORK_CONFIG = "qframe_config";
+    public static final String SQ_CONFIG = "sq_config";
 
     public static final String VECTOR_DATA_TYPE_FIELD = "data_type";
     public static final String EXPAND_NESTED = "expand_nested_docs";
@@ -104,6 +106,9 @@ public class KNNConstants {
     public static final double MAXIMUM_CONFIDENCE_INTERVAL = 1.0;
     public static final String LUCENE_SQ_BITS = "bits";
     public static final int LUCENE_SQ_DEFAULT_BITS = 7;
+    public static final int LUCENE_SCALAR_QUANTIZER_DEFAULT_BITS_AFTER_V360 = 1;
+    public static final String MAX_CONNECTIONS = "max_connections";
+    public static final String BEAM_WIDTH = "beam_width";
 
     // nmslib specific constants
     @Deprecated(since = "2.19.0", forRemoval = true)
@@ -131,6 +136,7 @@ public class KNNConstants {
     public static final String FAISS_FLAT_DESCRIPTION = "Flat";
     public static final String FAISS_PQ_DESCRIPTION = "PQ";
     public static final String ENCODER_SQ = "sq";
+    public static final String SQ_BITS = "bits";
     public static final String FAISS_SQ_DESCRIPTION = "SQ";
     public static final String FAISS_SQ_TYPE = "type";
     public static final String FAISS_SQ_ENCODER_FP16 = "fp16";
@@ -201,6 +207,8 @@ public class KNNConstants {
 
     // mmr
     public static final String MMR = "mmr";
+    public static final String MMR_EXPLAIN = "mmr_explain";
+    public static final String EXPLAIN = "explain";
     public static final String DIVERSITY = "diversity";
     public static final String CANDIDATES = "candidates";
     public static final String VECTOR_FIELD_PATH = "vector_field_path";
@@ -210,4 +218,6 @@ public class KNNConstants {
 
     // Bit manipulation constants for quantization
     public static final int BYTE_ALIGNMENT_MASK = 7; // Used for rounding up to nearest byte (Byte.SIZE - 1)
+    // Define here: https://github.com/opensearch-project/remote-vector-index-builder/blob/main/API.md#index-parameters
+    public static final int MIN_DOCS_FOR_REMOTE_INDEX_BUILD = 4;
 }

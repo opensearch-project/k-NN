@@ -99,7 +99,7 @@ public class KNN10010DerivedSourceStoredFieldsReader extends StoredFieldsReader 
             return new KNN10010DerivedSourceStoredFieldsReader(
                 delegate.clone(),
                 derivedVectorFields,
-                derivedSourceReaders.cloneWithMerge(),
+                derivedSourceReaders.clone(),
                 segmentReadState,
                 shouldInject
             );
@@ -130,7 +130,7 @@ public class KNN10010DerivedSourceStoredFieldsReader extends StoredFieldsReader 
             return new KNN10010DerivedSourceStoredFieldsReader(
                 delegate.getMergeInstance(),
                 derivedVectorFields,
-                derivedSourceReaders.cloneWithMerge(),
+                derivedSourceReaders.getMergeInstance(),
                 segmentReadState,
                 false
             );
@@ -152,4 +152,13 @@ public class KNN10010DerivedSourceStoredFieldsReader extends StoredFieldsReader 
         }
         return storedFieldsReader;
     }
+
+    /**
+     * Returns the list of derived vector fields for this reader.
+     * Used during merge to collect field names from source segments.
+     */
+    public List<DerivedFieldInfo> getDerivedVectorFields() {
+        return derivedVectorFields;
+    }
+
 }

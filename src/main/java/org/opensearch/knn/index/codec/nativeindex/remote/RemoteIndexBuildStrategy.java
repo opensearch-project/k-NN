@@ -196,7 +196,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             );
             success = true;
         } catch (InterruptedException | IOException e) {
-            throw new RuntimeException(String.format("Repository write failed for vector field [%s]", indexInfo.getFieldName()), e);
+            throw new RuntimeException(String.format("Repository write failed for vector field [%s]", indexInfo.getField()), e);
         } finally {
             metrics.endRepositoryWriteMetrics(success);
         }
@@ -230,7 +230,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             success = true;
             return remoteBuildResponse;
         } catch (IOException e) {
-            throw new RuntimeException(String.format("Submit vector build failed for vector field [%s]", indexInfo.getFieldName()), e);
+            throw new RuntimeException(String.format("Submit vector build failed for vector field [%s]", indexInfo.getField()), e);
         } finally {
             metrics.endBuildRequestMetrics(success);
         }
@@ -256,7 +256,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             remoteBuildStatusResponse = waiter.awaitVectorBuild(remoteBuildStatusRequest);
             return remoteBuildStatusResponse;
         } catch (InterruptedException | IOException e) {
-            throw new RuntimeException(String.format("Await index build failed for vector field [%s]", indexInfo.getFieldName()), e);
+            throw new RuntimeException(String.format("Await index build failed for vector field [%s]", indexInfo.getField()), e);
         } finally {
             metrics.endWaitingMetrics();
         }
@@ -281,7 +281,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         } catch (TerminalIOException e) {
             throw e;
         } catch (Exception e) {
-            throw new RuntimeException(String.format("Repository read failed for vector field [%s]", indexInfo.getFieldName()), e);
+            throw new RuntimeException(String.format("Repository read failed for vector field [%s]", indexInfo.getField()), e);
         } finally {
             metrics.endRepositoryReadMetrics(success);
         }
@@ -316,10 +316,10 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
      * Helper method to get repository context. Generates a unique UUID for the blobName so should only be used once.
      */
     @VisibleForTesting
-    RepositoryContext getRepositoryContext(BuildIndexParams indexInfo) throws IOException {
+    RepositoryContext getRepositoryContext(BuildIndexParams indexInfo) throws TerminalIOException {
         BlobStoreRepository repository = getRepository();
         BlobPath blobPath = repository.basePath().add(indexSettings.getUUID() + VECTORS_PATH);
-        String blobName = UUIDs.base64UUID() + "_" + indexInfo.getFieldName() + "_" + indexInfo.getSegmentWriteState().segmentInfo.name;
+        String blobName = UUIDs.base64UUID() + "_" + indexInfo.getField() + "_" + indexInfo.getSegmentWriteState().segmentInfo.name;
         VectorRepositoryAccessor vectorRepositoryAccessor = new DefaultVectorRepositoryAccessor(
             repository.blobStore().blobContainer(blobPath)
         );
@@ -328,12 +328,26 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
 
     private static String determineVectorDataType(final VectorDataType dataType, final Map<String, Object> parameters) {
         if (dataType == VectorDataType.FLOAT) {
+            // SQ 1-bit sends fp32 vectors. Once support is added for building 1 bit SQ graphs
+            // in the Remote Vector Index Builder, then this can be modified to send 1 bit SQ vectors.
+            if (FaissHNSWMethod.isSQOneBitIndex(dataType, parameters)) {
+                return dataType.getValue();
+            }
             if (FaissHNSWMethod.isFloat16Index(dataType, parameters)) {
                 return FLOAT16_VECTOR_TYPE_STRING;
             }
         }
 
         return dataType.getValue();
+    }
+
+    /**
+     * Determines whether the Remote Vector Index Builder (RVIB) should skip writing flat vector storage (IO_FLAG_SKIP_STORAGE).
+     * When true, the RVIB writes only the HNSW graph, and the data node stitches it with locally-stored
+     * flat vectors at search time via {@link org.opensearch.knn.memoryoptsearch.faiss.FaissFlatIndexFactory}.
+     */
+    private static boolean shouldSkipStoredVectors(final VectorDataType vectorDataType, final Map<String, Object> parameters) {
+        return FaissHNSWMethod.isSQOneBitIndex(vectorDataType, parameters);
     }
 
     /**
@@ -379,6 +393,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             .vectorDataType(vectorDataType)
             .engine(indexInfo.getKnnEngine().getName())
             .indexParameters(indexInfo.getKnnEngine().createRemoteIndexingParameters(parameters))
+            .skipStoredVectors(shouldSkipStoredVectors(indexInfo.getVectorDataType(), parameters))
             .build();
     }
 }

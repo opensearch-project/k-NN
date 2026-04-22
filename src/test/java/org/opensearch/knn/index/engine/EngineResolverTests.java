@@ -20,6 +20,8 @@ import java.util.Map;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
+import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
+
 public class EngineResolverTests extends KNNTestCase {
 
     private static final EngineResolver ENGINE_RESOLVER = EngineResolver.INSTANCE;
@@ -282,6 +284,19 @@ public class EngineResolverTests extends KNNTestCase {
                 false,
                 Version.CURRENT
             )
+        );
+    }
+
+    public void testResolveEngine_whenFlatMethodWithNoEngine_thenLucene() {
+        KNNMethodContext flatMethodContext = new KNNMethodContext(
+            KNNEngine.UNDEFINED,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_FLAT, Map.of()),
+            false
+        );
+        assertEquals(
+            KNNEngine.LUCENE,
+            ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), flatMethodContext, null, false)
         );
     }
 

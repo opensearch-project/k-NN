@@ -7,8 +7,11 @@ package org.opensearch.knn.index.codec.KNN990Codec;
 
 import com.google.common.collect.ImmutableSet;
 import lombok.SneakyThrows;
+import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.FloatVectorValues;
+import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentInfo;
@@ -22,6 +25,7 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.codec.nativeindex.AbstractNativeEnginesKnnVectorsReader;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -52,7 +56,7 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
         // Load vector searchers
         final NativeEngines990KnnVectorsReader reader = createReader(fieldInfos, Collections.emptySet(), null);
 
-        final NativeEngines990KnnVectorsReader.VectorSearcherHolder vectorSearchers = getVectorSearcherHolders(reader);
+        final AbstractNativeEnginesKnnVectorsReader.VectorSearcherHolder vectorSearchers = getVectorSearcherHolders(reader);
         assertFalse(vectorSearchers.isSet());
     }
 
@@ -77,7 +81,7 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
         FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("field1")
             .fieldNumber(0)
             .addAttribute(KNN_ENGINE, KNNEngine.FAISS.getName())
-            .addAttribute(QFRAMEWORK_CONFIG, "some-value")
+            .addAttribute(QFRAMEWORK_CONFIG, "type=binary,bits=2")
             .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
             .build();
 
@@ -87,18 +91,21 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
         KNNEngine mockFaiss = spy(KNNEngine.FAISS);
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
         VectorSearcher mockSearcher = mock(VectorSearcher.class);
-        when(mockSearcher.getByteVectorValues()).thenReturn(mock(ByteVectorValues.class));
+        when(mockSearcher.getByteVectorValues(any())).thenReturn(mock(ByteVectorValues.class));
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
-        when(mockFactory.createVectorSearcher(any(), any(), any(), any())).thenReturn(mockSearcher);
+        when(mockFactory.createVectorSearcher(any(), any(), any(), any(), any())).thenReturn(mockSearcher);
 
+        final FloatVectorValues mockFloatValues = mock(FloatVectorValues.class);
+        when(mockFloatValues.iterator()).thenReturn(mock(KnnVectorValues.DocIndexIterator.class));
         final FlatVectorsReader flatVectorsReader = mock(FlatVectorsReader.class);
+        when(flatVectorsReader.getFloatVectorValues("field1")).thenReturn(mockFloatValues);
         try (MockedStatic<KNNEngine> mockedStatic = mockStatic(KNNEngine.class)) {
             mockedStatic.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
             final Set<String> filesInSegment = Set.of("_0_165_field1.faiss");
             mockedStatic.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
             NativeEngines990KnnVectorsReader reader = createReader(fieldInfos, filesInSegment, flatVectorsReader);
             reader.getByteVectorValues("field1");
-            verify(mockSearcher).getByteVectorValues();
+            verify(mockSearcher).getByteVectorValues(any());
             verify(flatVectorsReader, Mockito.never()).getByteVectorValues("field1");
         }
     }
@@ -124,7 +131,7 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
     public void testWhenMemoryOptimizedSearchIsEnabled_mixedCase() {
         KNNEngine mockFaiss = spy(KNNEngine.FAISS);
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
-        when(mockFactory.createVectorSearcher(any(), any(), any(), any())).thenReturn(mock(VectorSearcher.class));
+        when(mockFactory.createVectorSearcher(any(), any(), any(), any(), any())).thenReturn(mock(VectorSearcher.class));
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
         try (MockedStatic<KNNEngine> mockedStatic = mockStatic(KNNEngine.class)) {
             // Prepare field infos
@@ -154,10 +161,11 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
             });
 
             mockedStatic.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
-
-            final NativeEngines990KnnVectorsReader reader_field_2 = createReader(fieldInfos, filesInSegment, null);
-            final NativeEngines990KnnVectorsReader reader_field_3 = createReader(fieldInfos, filesInSegment, null);
-            final NativeEngines990KnnVectorsReader reader_field_4 = createReader(fieldInfos, filesInSegment, null);
+            FlatVectorsReader flatVectorsReader = mock(FlatVectorsReader.class);
+            when(flatVectorsReader.getFlatVectorScorer()).thenReturn(FlatVectorScorerUtil.getLucene99FlatVectorsScorer());
+            final NativeEngines990KnnVectorsReader reader_field_2 = createReader(fieldInfos, filesInSegment, flatVectorsReader);
+            final NativeEngines990KnnVectorsReader reader_field_3 = createReader(fieldInfos, filesInSegment, flatVectorsReader);
+            final NativeEngines990KnnVectorsReader reader_field_4 = createReader(fieldInfos, filesInSegment, flatVectorsReader);
 
             assertFalse(getVectorSearcherHolders(reader_field_2).isSet());
             assertFalse(getVectorSearcherHolders(reader_field_3).isSet());
@@ -208,12 +216,11 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    private static NativeEngines990KnnVectorsReader.VectorSearcherHolder getVectorSearcherHolders(
+    private static AbstractNativeEnginesKnnVectorsReader.VectorSearcherHolder getVectorSearcherHolders(
         final NativeEngines990KnnVectorsReader reader
     ) {
-        // Get searcher table
-        final Field tableField = NativeEngines990KnnVectorsReader.class.getDeclaredField("vectorSearcherHolder");
+        final Field tableField = AbstractNativeEnginesKnnVectorsReader.class.getDeclaredField("vectorSearcherHolder");
         tableField.setAccessible(true);
-        return (NativeEngines990KnnVectorsReader.VectorSearcherHolder) tableField.get(reader);
+        return (AbstractNativeEnginesKnnVectorsReader.VectorSearcherHolder) tableField.get(reader);
     }
 }

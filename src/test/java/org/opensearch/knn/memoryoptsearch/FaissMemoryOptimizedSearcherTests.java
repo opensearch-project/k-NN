@@ -7,17 +7,32 @@ package org.opensearch.knn.memoryoptsearch;
 
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import org.apache.lucene.codecs.KnnFieldVectorsWriter;
+import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
+import org.apache.lucene.codecs.hnsw.FlatVectorsFormat;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
+import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
+import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
+import org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat;
+import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.DocValuesSkipIndexType;
+import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.IndexOptions;
+import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
+import org.apache.lucene.index.SegmentWriteState;
+import org.apache.lucene.index.VectorEncoding;
+import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopKnnCollector;
+import org.apache.lucene.search.knn.KnnSearchStrategy;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
@@ -25,6 +40,10 @@ import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.store.NIOFSDirectory;
 import org.apache.lucene.util.FixedBitSet;
+import org.apache.lucene.util.InfoStream;
+import org.apache.lucene.util.StringHelper;
+import org.apache.lucene.util.Version;
+import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.generate.IndexingType;
@@ -36,7 +55,11 @@ import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsRead
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.codec.nativeindex.MemoryOptimizedSearchIndexingSupport;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
+import org.opensearch.knn.index.codec.scorer.NativeEngines990KnnVectorsScorer;
+import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.query.FilterIdsSelector;
@@ -50,7 +73,11 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
 import org.opensearch.knn.index.vectorvalues.VectorValueExtractorStrategy;
 import org.opensearch.knn.jni.JNIService;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissHNSW;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissIdMapIndex;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
+import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
@@ -61,14 +88,17 @@ import java.lang.reflect.Constructor;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toMap;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.ADC_ENABLED_FAISS_INDEX_INTERNAL_PARAMETER;
@@ -112,6 +142,9 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
     private static final int TOTAL_NUM_DOCS_IN_SEGMENT = 300;
     private static final int TOP_K = 30;
     private static final float NO_FILTERING = Float.NaN;
+    private static final FlatVectorsScorer SCORER = new NativeEngines990KnnVectorsScorer(
+        FlatVectorScorerUtil.getLucene99FlatVectorsScorer()
+    );
 
     public void test32xQuantizedBinaryIndexType() {
         final TestingSpec testingSpec = new TestingSpec(
@@ -122,6 +155,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             FLOAT32_ENCODER_PARAMETERS
         );
         testingSpec.quantizationParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
+        testingSpec.quantizationConfig = QuantizationConfig.builder().quantizationType(ScalarQuantizationType.ONE_BIT).build();
 
         // Test a dense case where all docs have KNN field.
         doSearchTest(testingSpec, IndexingType.DENSE);
@@ -145,6 +179,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             FLOAT32_ENCODER_PARAMETERS
         );
         testingSpec.quantizationParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.TWO_BIT).build();
+        testingSpec.quantizationConfig = QuantizationConfig.builder().quantizationType(ScalarQuantizationType.TWO_BIT).build();
 
         // Test a dense case where all docs have KNN field.
         doSearchTest(testingSpec, IndexingType.DENSE);
@@ -168,6 +203,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             FLOAT32_ENCODER_PARAMETERS
         );
         testingSpec.quantizationParams = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.FOUR_BIT).build();
+        testingSpec.quantizationConfig = QuantizationConfig.builder().quantizationType(ScalarQuantizationType.FOUR_BIT).build();
 
         // Test a dense case where all docs have KNN field.
         doSearchTest(testingSpec, IndexingType.DENSE);
@@ -275,8 +311,10 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             .sqType(ScalarQuantizationType.ONE_BIT)
             .enableADC(true)
             .build();
-
-        adcEnabledSpec.isAdcEnabled = true;
+        adcEnabledSpec.quantizationConfig = QuantizationConfig.builder()
+            .quantizationType(ScalarQuantizationType.ONE_BIT)
+            .enableADC(true)
+            .build();
 
         doSearchTest(adcEnabledSpec, IndexingType.DENSE, spaceType, true, 0.8f);
         doSearchTest(adcEnabledSpec, IndexingType.DENSE, spaceType, true, NO_FILTERING);
@@ -311,19 +349,69 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         doTestADCWithBinaryQuantization(SpaceType.COSINESIMIL);
     }
 
-    public void testWarmupInitializationException_whenNullVectorSupplied_thenThrowsException() {
-        assertThrows(FaissMemoryOptimizedSearcher.WarmupInitializationException.class, () -> {
-            throw new FaissMemoryOptimizedSearcher.WarmupInitializationException("Null vector supplied for warmup");
-        });
+    @SneakyThrows
+    public void testGetByteVectorValues_returnsDifferentInstancesPerCall() {
+        FieldInfo fieldInfo = mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+        FaissIdMapIndex faissIndex = mock(FaissIdMapIndex.class);
+        Mockito.when(faissIndex.getByteValues(any())).thenReturn(mock(ByteVectorValues.class));
+        Mockito.when(faissIndex.getVectorSimilarityFunction()).thenReturn(SpaceType.L2.getKnnVectorSimilarityFunction());
+        Mockito.when(faissIndex.getFaissHnsw()).thenReturn(mock(FaissHNSW.class));
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
+            mock(IndexInput.class),
+            faissIndex,
+            fieldInfo,
+            FlatVectorsScorerProvider.getFlatVectorsScorer(fieldInfo, KNNVectorSimilarityFunction.EUCLIDEAN, SCORER)
+        );
+
+        final var first = searcher.getByteVectorValues(mock(KnnVectorValues.DocIndexIterator.class));
+        final var second = searcher.getByteVectorValues(mock(KnnVectorValues.DocIndexIterator.class));
+        assertNotSame("getByteVectorValues() should return a new instance per call", first, second);
+    }
+
+    @SneakyThrows
+    public void testWarmUp_byteVectorEncoding_warmsUpByteValues() {
+        FieldInfo fieldInfo = mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+
+        FaissIdMapIndex faissIndex = mock(FaissIdMapIndex.class);
+        Mockito.when(faissIndex.getVectorSimilarityFunction()).thenReturn(SpaceType.L2.getKnnVectorSimilarityFunction());
+        Mockito.when(faissIndex.getFaissHnsw()).thenReturn(mock(FaissHNSW.class));
+        Mockito.when(faissIndex.getVectorEncoding()).thenReturn(VectorEncoding.BYTE);
+
+        ByteVectorValues mockByteValues = mock(ByteVectorValues.class);
+        when(mockByteValues.size()).thenReturn(3);
+        Mockito.when(faissIndex.getByteValues(any())).thenReturn(mockByteValues);
+
+        IndexInput mockIndexInput = mock(IndexInput.class);
+        when(mockIndexInput.clone()).thenReturn(mockIndexInput);
+        when(mockIndexInput.length()).thenReturn(0L);
+
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
+            mockIndexInput,
+            faissIndex,
+            fieldInfo,
+            FlatVectorsScorerProvider.getFlatVectorsScorer(fieldInfo, KNNVectorSimilarityFunction.EUCLIDEAN, SCORER)
+        );
+
+        searcher.warmUp();
+
+        // Verify byte vector values were warmed up (readAll iterates through all values)
+        for (int i = 0; i < 3; i++) {
+            Mockito.verify(mockByteValues).vectorValue(i);
+        }
     }
 
     @SneakyThrows
     private void doSearchTest(final TestingSpec testingSpec, final IndexingType indexingType) {
         final List<SpaceType> spaceTypes;
-        if (testingSpec.dataType != VectorDataType.BINARY) {
-            spaceTypes = Arrays.asList(SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.COSINESIMIL);
-        } else {
+        if (testingSpec.dataType == VectorDataType.BINARY) {
             spaceTypes = Arrays.asList(SpaceType.HAMMING);
+        } else if (testingSpec.dataType == VectorDataType.BYTE) {
+            // Byte vectors cannot be L2-normalized, so cosine similarity is not supported.
+            spaceTypes = Arrays.asList(SpaceType.L2, SpaceType.INNER_PRODUCT);
+        } else {
+            spaceTypes = Arrays.asList(SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.COSINESIMIL);
         }
 
         for (final SpaceType spaceType : spaceTypes) {
@@ -357,7 +445,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         try (final Directory directory = newFSDirectory(buildInfo.tempDirPath)) {
             try (final IndexInput input = directory.openInput(buildInfo.faissIndexFile, IOContext.READONCE)) {
                 final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(input);
-                if (testingSpec.isAdcEnabled) {
+                if (testingSpec.quantizationConfig != null && testingSpec.quantizationConfig.enableADC) {
                     buildInfo.parameters.put("data_type", VectorDataType.FLOAT.getValue());
                     buildInfo.parameters.put(ADC_ENABLED_FAISS_INDEX_INTERNAL_PARAMETER, true);
                     buildInfo.parameters.put("quantization_level", "ScalarQuantizationParams_1");
@@ -417,7 +505,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                 FilterIdsSelector.FilterIdsSelectorType.BATCH.getValue(),
                 parentIds
             );
-        } else if (testingSpec.isAdcEnabled) {
+        } else if (testingSpec.quantizationConfig != null && testingSpec.quantizationConfig.enableADC) {
             float[] rawFloat = generateOneSingleFloatVector(
                 DIMENSIONS,
                 testingSpec.minValue,
@@ -474,7 +562,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
 
         JNIService.free(indexPointer, KNNEngine.FAISS);
 
-        // Score transform in Faiss
+        // Score transform in Faiss (source of truth)
         for (int i = 0; i < resultsFromFaiss.length; i++) {
             resultsFromFaiss[i] = new KNNQueryResult(
                 resultsFromFaiss[i].getId(),
@@ -486,7 +574,9 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final KNNQueryResult[] resultsFromVectorReader = doSearchViaVectorReader(
             buildInfo,
             queryForVectorReader,
-            testingSpec.isAdcEnabled ? VectorDataType.FLOAT : testingSpec.dataType,
+            testingSpec.quantizationConfig != null && testingSpec.quantizationConfig.enableADC
+                ? VectorDataType.FLOAT
+                : testingSpec.dataType,
             filteredIds,
             k,
             doExhaustiveSearch,
@@ -498,7 +588,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         validateResults(
             buildInfo.documentIds,
             buildInfo.vectors,
-            testingSpec.isAdcEnabled
+            testingSpec.quantizationConfig != null && testingSpec.quantizationConfig.enableADC
                 ? convertToFloatArray(
                     (byte[]) QuantizationService.getInstance()
                         .quantize(
@@ -513,7 +603,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             resultsFromVectorReader,
             spaceType.getKnnVectorSimilarityFunction(),
             TOP_K,
-            testingSpec.isAdcEnabled
+            testingSpec.quantizationConfig != null && testingSpec.quantizationConfig.enableADC
         );
     }
 
@@ -538,7 +628,8 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             fieldInfoBuilder.addAttribute(KNNConstants.SPACE_TYPE, (String) buildInfo.parameters.get(SPACE_TYPE));
         }
 
-        if (buildInfo.parameters.containsKey(QFRAMEWORK_CONFIG)) {
+        final boolean isQuantizedIndex = buildInfo.parameters.containsKey(QFRAMEWORK_CONFIG);
+        if (isQuantizedIndex) {
             fieldInfoBuilder.addAttribute(QFRAMEWORK_CONFIG, (String) buildInfo.parameters.get(QFRAMEWORK_CONFIG));
         }
 
@@ -572,14 +663,66 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         AcceptDocs acceptDocs = AcceptDocs.fromLiveDocs(fixedBitSet, buildInfo.documentIds.getLast() + 10);
 
         // Make SegmentReadState and do search
-        try (final Directory directory = directoryClass.getConstructor(Path.class).newInstance(buildInfo.tempDirPath)) {
-            final SegmentReadState readState = new SegmentReadState(directory, segmentInfo, fieldInfos, IOContext.DEFAULT);
-            try (
-                NativeEngines990KnnVectorsReader vectorsReader = new NativeEngines990KnnVectorsReader(
-                    readState,
-                    mock(FlatVectorsReader.class)
-                )
-            ) {
+        try (final Directory rawDirectory = directoryClass.getConstructor(Path.class).newInstance(buildInfo.tempDirPath)) {
+            // Write real flat vectors to the directory so we can create a real FlatVectorsReader
+            final String segmentName = "_flat";
+
+            // Create a single SegmentInfo for flat vectors (shared between write and read)
+            final byte[] flatSegId = StringHelper.randomId();
+            final SegmentInfo flatSegInfo = new SegmentInfo(
+                rawDirectory,
+                Version.LATEST,
+                Version.LATEST,
+                segmentName,
+                buildInfo.documentIds.isEmpty() ? 0 : buildInfo.documentIds.getLast() + 1,
+                false,
+                false,
+                null,
+                Collections.emptyMap(),
+                flatSegId,
+                Collections.emptyMap(),
+                null
+            );
+
+            // Create flat vector FieldInfo
+            final FieldInfo flatFieldInfo = createFlatVectorFieldInfo(vectorField, vectorDataType, spaceType);
+            final FieldInfos flatFieldInfos = new FieldInfos(new FieldInfo[] { flatFieldInfo });
+
+            writeFlatVectors(rawDirectory, flatSegInfo, flatFieldInfos, flatFieldInfo, buildInfo, vectorDataType);
+
+            // Wrap directory with spy to track file reads during warmup
+            final ReadTrackingDirectory spyDirectory = new ReadTrackingDirectory(rawDirectory);
+
+            // Create a real FlatVectorsReader from the written flat vectors
+            final SegmentReadState flatReadState = new SegmentReadState(spyDirectory, flatSegInfo, flatFieldInfos, IOContext.DEFAULT);
+            final FlatVectorsFormat flatFormat = new Lucene99FlatVectorsFormat(new PrefetchableFlatVectorScorer(SCORER));
+            final FlatVectorsReader realFlatVectorsReader = flatFormat.fieldsReader(flatReadState);
+
+            // Create the main SegmentReadState with the spy directory
+            final SegmentReadState readState = new SegmentReadState(spyDirectory, segmentInfo, fieldInfos, IOContext.DEFAULT);
+
+            try (NativeEngines990KnnVectorsReader vectorsReader = new NativeEngines990KnnVectorsReader(readState, realFlatVectorsReader)) {
+                // Warmup: invoke warmup via WarmableReader before search
+                // Reset read flags so we only track reads that happen during warmup
+                spyDirectory.resetReadFlags();
+                vectorsReader.warmUp(TARGET_FIELD);
+
+                // Assert file read patterns based on field type
+                assertTrue("Warmup should read .faiss file, but it was not read", spyDirectory.wasExtensionRead(".faiss"));
+                if (isQuantizedIndex) {
+                    // Feature: warmup-delegation-tests, Property 3: Qframe warmup reads .faiss and .vec
+                    assertTrue("Warmup for qframe field should read .vec file, but it was not read", spyDirectory.wasExtensionRead(".vec"));
+                } else {
+                    // Feature: warmup-delegation-tests, Property 2: Non-qframe warmup reads only .faiss
+                    if (spyDirectory.hasTrackedExtension(".vec")) {
+                        assertFalse(
+                            "Warmup for non-qframe field should NOT read .vec file, but it was read",
+                            spyDirectory.wasExtensionRead(".vec")
+                        );
+                    }
+                }
+
+                // Proceed with normal search
                 if (vectorDataType == VectorDataType.FLOAT) {
                     vectorsReader.search(TARGET_FIELD, (float[]) query, knnCollector, acceptDocs);
                 } else if (vectorDataType == VectorDataType.BYTE || vectorDataType == VectorDataType.BINARY) {
@@ -587,6 +730,8 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                 } else {
                     throw new AssertionError();
                 }
+            } finally {
+                realFlatVectorsReader.close();
             }
         }
 
@@ -604,6 +749,106 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         return results.toArray(new KNNQueryResult[0]);
     }
 
+    /**
+     * Creates a FieldInfo suitable for Lucene99FlatVectorsFormat.
+     * Uses FLOAT32 encoding for float and binary types, BYTE encoding for byte type.
+     */
+    private static FieldInfo createFlatVectorFieldInfo(FieldInfo original, VectorDataType dataType, SpaceType spaceType) {
+        final VectorEncoding encoding = (dataType == VectorDataType.BYTE) ? VectorEncoding.BYTE : VectorEncoding.FLOAT32;
+
+        return new FieldInfo(
+            original.getName(),
+            original.number,
+            false,
+            false,
+            false,
+            IndexOptions.NONE,
+            DocValuesType.NONE,
+            DocValuesSkipIndexType.NONE,
+            -1,
+            original.attributes(),
+            0,
+            0,
+            0,
+            DIMENSIONS,
+            encoding,
+            // Since we don't use this function for scoring, and this is merely for warm-up testing (which just loads vectors)
+            // We can hard code L2 in here
+            VectorSimilarityFunction.EUCLIDEAN,
+            false,
+            false
+        );
+    }
+
+    /**
+     * Writes real vectors from BuildInfo to the directory using Lucene99FlatVectorsFormat so that a real
+     * FlatVectorsReader can be created for warmup testing.
+     *
+     * - Float: writes the actual float vectors from BuildInfo.vectors.floatVectors
+     * - Byte: writes the actual byte vectors from BuildInfo.vectors.byteVectors
+     * - Binary: writes randomly generated float vectors (binary indices don't read .vec during warmup anyway)
+     */
+    @SneakyThrows
+    private static void writeFlatVectors(
+        Directory directory,
+        SegmentInfo segInfo,
+        FieldInfos flatFieldInfos,
+        FieldInfo flatFieldInfo,
+        BuildInfo buildInfo,
+        VectorDataType dataType
+    ) {
+        final SegmentWriteState writeState = new SegmentWriteState(
+            InfoStream.NO_OUTPUT,
+            directory,
+            segInfo,
+            flatFieldInfos,
+            null,
+            IOContext.DEFAULT
+        );
+
+        final FlatVectorsFormat flatFormat = new Lucene99FlatVectorsFormat(new PrefetchableFlatVectorScorer(SCORER));
+
+        final int numVectors = buildInfo.documentIds.size();
+        final int maxDoc = buildInfo.documentIds.isEmpty() ? 0 : buildInfo.documentIds.getLast() + 1;
+
+        try (FlatVectorsWriter flatWriter = flatFormat.fieldsWriter(writeState)) {
+            if (dataType == VectorDataType.BYTE) {
+                // Write actual byte vectors
+                @SuppressWarnings("unchecked")
+                KnnFieldVectorsWriter<byte[]> fieldWriter = (KnnFieldVectorsWriter<byte[]>) flatWriter.addField(flatFieldInfo);
+                for (int i = 0; i < numVectors; i++) {
+                    int docId = buildInfo.documentIds.get(i);
+                    byte[] vec = buildInfo.vectors.byteVectors.get(docId);
+                    if (vec != null) {
+                        fieldWriter.addValue(docId, vec);
+                    }
+                }
+            } else {
+                final List<float[]> floatVectors;
+                if (buildInfo.parameters.containsKey(QFRAMEWORK_CONFIG)) {
+                    // Use original vectors if it's quantized
+                    floatVectors = buildInfo.originalVectors.floatVectors;
+                } else {
+                    floatVectors = buildInfo.vectors.floatVectors;
+                }
+
+                // FP32, FP16 and quantized index
+                // Write actual float vectors
+                @SuppressWarnings("unchecked")
+                KnnFieldVectorsWriter<float[]> fieldWriter = (KnnFieldVectorsWriter<float[]>) flatWriter.addField(flatFieldInfo);
+                for (int i = 0; i < numVectors; i++) {
+                    int docId = buildInfo.documentIds.get(i);
+                    float[] vec = floatVectors.get(docId);
+                    if (vec != null) {
+                        fieldWriter.addValue(docId, vec);
+                    }
+                }
+            }
+            flatWriter.flush(maxDoc, null);
+            flatWriter.finish();
+        }
+    }
+
     @SneakyThrows
     private BuildInfo buildFaissIndex(
         final TestingSpec testingSpec,
@@ -618,7 +863,9 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             // Set up basic parameters
             try (final IndexOutput indexOutput = directory.createOutput(fileName, IOContext.DEFAULT)) {
                 final BuildIndexParams.BuildIndexParamsBuilder builder = BuildIndexParams.builder();
-                builder.fieldName(TARGET_FIELD)
+                FieldInfo fieldInfo = mock(FieldInfo.class);
+                when(fieldInfo.getName()).thenReturn(TARGET_FIELD);
+                builder.field(fieldInfo.getName())
                     .knnEngine(KNNEngine.FAISS)
                     .vectorDataType(testingSpec.dataType)
                     .indexOutputWithBuffer(new IndexOutputWithBuffer(indexOutput));
@@ -639,11 +886,11 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                 methodParameters.put(METHOD_ENCODER_PARAMETER, testingSpec.encoderParameters);
 
                 // unit test for ADC, bit of a shortcut so we can hand build the quantization config.
-                if (testingSpec.isAdcEnabled) {
-                    parameters.put(QFRAMEWORK_CONFIG, "type=binary,bits=1,random_rotation=false,enable_adc=true");
+                if (testingSpec.quantizationConfig != null) {
+                    parameters.put(QFRAMEWORK_CONFIG, QuantizationConfigParser.toCsv(testingSpec.quantizationConfig));
                 }
 
-                builder.parameters(parameters);
+                builder.indexParameters(parameters);
 
                 // Set up vectors
                 final List<Integer> documentIds = indexingType.generateDocumentIds(numberOfTotalDocsInSegment);
@@ -708,6 +955,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                         return null;
                     }).toList();
                     buildInfo.vectors = new SearchTestHelper.Vectors(VectorDataType.BINARY, quantizedVectors);
+                    buildInfo.originalVectors = new SearchTestHelper.Vectors(floatVectors);
 
                     // Set values supplier
                     // floatVectorValues is already exhausted, need to create a new one.
@@ -897,6 +1145,550 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         return constructor.newInstance(iterator);
     }
 
+    /**
+     * When searching a CAGRA HNSW index with a non-seeded collector, the searcher should inject
+     * RandomEntryPointsKnnSearchStrategy. This test verifies the search completes successfully
+     * and returns valid results with the default (non-seeded) strategy.
+     */
+    @SneakyThrows
+    public void testCagraSearch_whenNonSeededCollector_thenSearchSucceeds() {
+        final int dimension = 768;
+        final int totalVectors = 300;
+        final int k = 100;
+
+        final IndexInput input = FaissHNSWTests.loadHnswBinary("data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin");
+        FieldInfo fieldInfo = mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
+            input,
+            FaissIndex.load(input),
+            fieldInfo,
+            FlatVectorsScorerProvider.getFlatVectorsScorer(fieldInfo, KNNVectorSimilarityFunction.EUCLIDEAN, SCORER)
+        );
+
+        // Use a non-seeded strategy (default HNSW strategy)
+        final KnnCollector knnCollector = new TopKnnCollector(k, Integer.MAX_VALUE, KnnSearchStrategy.Hnsw.DEFAULT);
+        final AcceptDocs acceptDocs = AcceptDocs.fromLiveDocs(null, totalVectors);
+
+        // Build a random query
+        final float[] query = new float[dimension];
+        for (int i = 0; i < dimension; i++) {
+            query[i] = (float) Math.random();
+        }
+
+        // Search should succeed — RandomEntryPointsKnnSearchStrategy is used internally for CAGRA
+        searcher.search(query, knnCollector, acceptDocs);
+        final TopDocs topDocs = knnCollector.topDocs();
+        assertTrue("Should return results for non-seeded CAGRA search", topDocs.scoreDocs.length > 0);
+    }
+
+    /**
+     * When searching a CAGRA HNSW index with a collector that already has a Seeded strategy,
+     * the searcher should honor the existing seeded entry points and NOT override them with
+     * RandomEntryPointsKnnSearchStrategy. This test verifies the search completes successfully
+     * using the provided seeded strategy.
+     */
+    @SneakyThrows
+    public void testCagraSearch_whenSeededCollector_thenHonorsSeededStrategy() {
+        final int dimension = 768;
+        final int totalVectors = 300;
+        final int k = 100;
+
+        final IndexInput input = FaissHNSWTests.loadHnswBinary("data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin");
+        FieldInfo mockedFieldInfo = mock(FieldInfo.class);
+        Mockito.when(mockedFieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
+            input,
+            FaissIndex.load(input),
+            mockedFieldInfo,
+            FlatVectorsScorerProvider.getFlatVectorsScorer(mockedFieldInfo, KNNVectorSimilarityFunction.EUCLIDEAN, SCORER)
+        );
+
+        // Create a Seeded strategy with known seed entry points
+        final int numSeeds = 5;
+        final DocIdSetIterator seedDocs = new DocIdSetIterator() {
+            private int current = -1;
+
+            @Override
+            public int docID() {
+                return current;
+            }
+
+            @Override
+            public int nextDoc() {
+                current++;
+                if (current >= numSeeds) {
+                    return NO_MORE_DOCS;
+                }
+                // Use first few vector ordinals as seeds
+                return current * 10;
+            }
+
+            @Override
+            public int advance(int target) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public long cost() {
+                return numSeeds;
+            }
+        };
+
+        final KnnSearchStrategy seededStrategy = new KnnSearchStrategy.Seeded(seedDocs, numSeeds, KnnSearchStrategy.Hnsw.DEFAULT);
+        final KnnCollector knnCollector = new TopKnnCollector(k, Integer.MAX_VALUE, seededStrategy);
+        final AcceptDocs acceptDocs = AcceptDocs.fromLiveDocs(null, totalVectors);
+
+        // Build a random query
+        final float[] query = new float[dimension];
+        for (int i = 0; i < dimension; i++) {
+            query[i] = (float) Math.random();
+        }
+
+        // Search should succeed — the seeded strategy should be honored, not replaced
+        searcher.search(query, knnCollector, acceptDocs);
+        final TopDocs topDocs = knnCollector.topDocs();
+        assertTrue("Should return results for seeded CAGRA search", topDocs.scoreDocs.length > 0);
+    }
+
+    /**
+     * Verifies that when a seeded collector is used on a CAGRA index, the search results
+     * are still valid (reasonable recall) compared to exhaustive search, confirming the
+     * seeded entry points are being properly used for graph traversal.
+     */
+    @SneakyThrows
+    public void testCagraSearch_whenSeededCollector_thenResultsHaveReasonableRecall() {
+        final int dimension = 768;
+        final int totalVectors = 300;
+        final int k = 30;
+
+        final IndexInput input = FaissHNSWTests.loadHnswBinary("data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin");
+
+        // Build a random query
+        final float[] query = new float[dimension];
+        for (int i = 0; i < dimension; i++) {
+            query[i] = (float) Math.random();
+        }
+
+        // First, do exhaustive search to get ground truth
+        FieldInfo mockedFieldInfo = mock(FieldInfo.class);
+        Mockito.when(mockedFieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+        final FaissMemoryOptimizedSearcher exhaustiveSearcher = new FaissMemoryOptimizedSearcher(
+            input,
+            FaissIndex.load(input),
+            mockedFieldInfo,
+            FlatVectorsScorerProvider.getFlatVectorsScorer(mockedFieldInfo, KNNVectorSimilarityFunction.EUCLIDEAN, SCORER)
+        );
+        final KnnCollector exhaustiveCollector = new TopKnnCollector(totalVectors, Integer.MAX_VALUE, KnnSearchStrategy.Hnsw.DEFAULT);
+        final AcceptDocs acceptDocs = AcceptDocs.fromLiveDocs(null, totalVectors);
+        exhaustiveSearcher.search(query, exhaustiveCollector, acceptDocs);
+        final TopDocs exhaustiveTopDocs = exhaustiveCollector.topDocs();
+        final Set<Integer> groundTruth = Arrays.stream(exhaustiveTopDocs.scoreDocs)
+            .limit(k)
+            .mapToInt(sd -> sd.doc)
+            .boxed()
+            .collect(Collectors.toSet());
+
+        // Now search with a seeded collector on a fresh searcher
+        input.seek(0);
+        final FaissMemoryOptimizedSearcher seededSearcher = new FaissMemoryOptimizedSearcher(
+            input,
+            FaissIndex.load(input),
+            mockedFieldInfo,
+            FlatVectorsScorerProvider.getFlatVectorsScorer(mockedFieldInfo, KNNVectorSimilarityFunction.EUCLIDEAN, SCORER)
+        );
+
+        final int numSeeds = 3;
+        final DocIdSetIterator seedDocs = new DocIdSetIterator() {
+            private int current = -1;
+
+            @Override
+            public int docID() {
+                return current;
+            }
+
+            @Override
+            public int nextDoc() {
+                current++;
+                if (current >= numSeeds) {
+                    return NO_MORE_DOCS;
+                }
+                return current * 50;
+            }
+
+            @Override
+            public int advance(int target) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public long cost() {
+                return numSeeds;
+            }
+        };
+
+        final KnnSearchStrategy seededStrategy = new KnnSearchStrategy.Seeded(seedDocs, numSeeds, KnnSearchStrategy.Hnsw.DEFAULT);
+        final KnnCollector seededCollector = new TopKnnCollector(k, Integer.MAX_VALUE, seededStrategy);
+        seededSearcher.search(query, seededCollector, acceptDocs);
+        final TopDocs seededTopDocs = seededCollector.topDocs();
+
+        // Verify recall is reasonable
+        int matchCount = 0;
+        for (ScoreDoc sd : seededTopDocs.scoreDocs) {
+            if (groundTruth.contains(sd.doc)) {
+                matchCount++;
+            }
+        }
+        final float recall = (float) matchCount / k;
+        assertTrue("Seeded CAGRA search recall should be > 0.5, was " + recall, recall > 0.5);
+    }
+
+    // Feature: warmup-delegation-tests, Property 2: Non-qframe warmup reads only .faiss
+    // Feature: warmup-delegation-tests, Property 3: Qframe warmup reads .faiss and .vec
+
+    /**
+     * An IndexInput wrapper that delegates all operations to the underlying IndexInput
+     * and tracks whether any read method was called via a {@code wasRead} flag.
+     * Used by the spy Directory to verify warmup file-read patterns.
+     */
+    static class ReadTrackingIndexInput extends IndexInput {
+        private final IndexInput delegate;
+        volatile boolean wasRead = false;
+
+        ReadTrackingIndexInput(String resourceDescription, IndexInput delegate) {
+            super(resourceDescription);
+            this.delegate = delegate;
+        }
+
+        private void markRead() {
+            wasRead = true;
+        }
+
+        @Override
+        public byte readByte() throws IOException {
+            markRead();
+            return delegate.readByte();
+        }
+
+        @Override
+        public void readBytes(byte[] b, int offset, int len) throws IOException {
+            markRead();
+            delegate.readBytes(b, offset, len);
+        }
+
+        @Override
+        public void readFloats(float[] floats, int offset, int len) throws IOException {
+            markRead();
+            delegate.readFloats(floats, offset, len);
+        }
+
+        @Override
+        public void readInts(int[] dst, int offset, int len) throws IOException {
+            markRead();
+            delegate.readInts(dst, offset, len);
+        }
+
+        @Override
+        public void readLongs(long[] dst, int offset, int len) throws IOException {
+            markRead();
+            delegate.readLongs(dst, offset, len);
+        }
+
+        @Override
+        public short readShort() throws IOException {
+            markRead();
+            return delegate.readShort();
+        }
+
+        @Override
+        public int readInt() throws IOException {
+            markRead();
+            return delegate.readInt();
+        }
+
+        @Override
+        public long readLong() throws IOException {
+            markRead();
+            return delegate.readLong();
+        }
+
+        @Override
+        public void close() throws IOException {
+            delegate.close();
+        }
+
+        @Override
+        public long getFilePointer() {
+            return delegate.getFilePointer();
+        }
+
+        @Override
+        public void seek(long pos) throws IOException {
+            delegate.seek(pos);
+        }
+
+        @Override
+        public long length() {
+            return delegate.length();
+        }
+
+        @Override
+        public IndexInput slice(String sliceDescription, long offset, long length) throws IOException {
+            return new ReadTrackingIndexInput(sliceDescription, delegate.slice(sliceDescription, offset, length)) {
+                {
+                    // Share the wasRead flag with the parent so any read on a slice is tracked
+                    // We achieve this by overriding markRead to also set the parent's flag
+                }
+
+                @Override
+                public byte readByte() throws IOException {
+                    ReadTrackingIndexInput.this.markRead();
+                    return super.readByte();
+                }
+
+                @Override
+                public void readBytes(byte[] b, int off, int len) throws IOException {
+                    ReadTrackingIndexInput.this.markRead();
+                    super.readBytes(b, off, len);
+                }
+
+                @Override
+                public void readFloats(float[] floats, int off, int len) throws IOException {
+                    ReadTrackingIndexInput.this.markRead();
+                    super.readFloats(floats, off, len);
+                }
+
+                @Override
+                public void readInts(int[] dst, int off, int len) throws IOException {
+                    ReadTrackingIndexInput.this.markRead();
+                    super.readInts(dst, off, len);
+                }
+
+                @Override
+                public void readLongs(long[] dst, int off, int len) throws IOException {
+                    ReadTrackingIndexInput.this.markRead();
+                    super.readLongs(dst, off, len);
+                }
+
+                @Override
+                public short readShort() throws IOException {
+                    ReadTrackingIndexInput.this.markRead();
+                    return super.readShort();
+                }
+
+                @Override
+                public int readInt() throws IOException {
+                    ReadTrackingIndexInput.this.markRead();
+                    return super.readInt();
+                }
+
+                @Override
+                public long readLong() throws IOException {
+                    ReadTrackingIndexInput.this.markRead();
+                    return super.readLong();
+                }
+            };
+        }
+
+        @Override
+        public IndexInput clone() {
+            ReadTrackingIndexInput cloned = new ReadTrackingIndexInput(toString(), delegate.clone());
+            // Share the wasRead flag: reads on the clone should mark the original as read
+            return new ReadTrackingIndexInput(toString(), cloned.delegate) {
+                @Override
+                public byte readByte() throws IOException {
+                    ReadTrackingIndexInput.this.markRead();
+                    return super.readByte();
+                }
+
+                @Override
+                public void readBytes(byte[] b, int off, int len) throws IOException {
+                    ReadTrackingIndexInput.this.markRead();
+                    super.readBytes(b, off, len);
+                }
+
+                @Override
+                public void readFloats(float[] floats, int off, int len) throws IOException {
+                    ReadTrackingIndexInput.this.markRead();
+                    super.readFloats(floats, off, len);
+                }
+
+                @Override
+                public void readInts(int[] dst, int off, int len) throws IOException {
+                    ReadTrackingIndexInput.this.markRead();
+                    super.readInts(dst, off, len);
+                }
+
+                @Override
+                public void readLongs(long[] dst, int off, int len) throws IOException {
+                    ReadTrackingIndexInput.this.markRead();
+                    super.readLongs(dst, off, len);
+                }
+
+                @Override
+                public short readShort() throws IOException {
+                    ReadTrackingIndexInput.this.markRead();
+                    return super.readShort();
+                }
+
+                @Override
+                public int readInt() throws IOException {
+                    ReadTrackingIndexInput.this.markRead();
+                    return super.readInt();
+                }
+
+                @Override
+                public long readLong() throws IOException {
+                    ReadTrackingIndexInput.this.markRead();
+                    return super.readLong();
+                }
+
+                @Override
+                public IndexInput clone() {
+                    ReadTrackingIndexInput.this.markRead();
+                    return ReadTrackingIndexInput.this.clone();
+                }
+
+                @Override
+                public IndexInput slice(String sliceDescription, long offset, long length) throws IOException {
+                    return ReadTrackingIndexInput.this.slice(sliceDescription, offset, length);
+                }
+            };
+        }
+
+        @Override
+        public void prefetch(long offset, long length) throws IOException {
+            delegate.prefetch(offset, length);
+        }
+    }
+
+    /**
+     * A spy Directory wrapper that intercepts {@code openInput()} calls, wraps returned
+     * {@link IndexInput} objects with {@link ReadTrackingIndexInput}, and stores them in a
+     * map keyed by file name. Only tracks files with extensions {@code .faiss}, {@code .vec},
+     * or {@code .veb}.
+     */
+    static class ReadTrackingDirectory extends Directory {
+        private static final Set<String> TRACKED_EXTENSIONS = Set.of(".faiss", ".vec", ".veb", ".veq");
+        private final Directory delegate;
+        final Map<String, ReadTrackingIndexInput> trackedInputs = new ConcurrentHashMap<>();
+
+        ReadTrackingDirectory(Directory delegate) {
+            this.delegate = delegate;
+        }
+
+        private static boolean shouldTrack(String name) {
+            for (String ext : TRACKED_EXTENSIONS) {
+                if (name.endsWith(ext)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        public IndexInput openInput(String name, IOContext context) throws IOException {
+            IndexInput input = delegate.openInput(name, context);
+            if (shouldTrack(name)) {
+                ReadTrackingIndexInput tracked = new ReadTrackingIndexInput(name, input);
+                trackedInputs.put(name, tracked);
+                return tracked;
+            }
+            return input;
+        }
+
+        @Override
+        public String[] listAll() throws IOException {
+            return delegate.listAll();
+        }
+
+        @Override
+        public void deleteFile(String name) throws IOException {
+            delegate.deleteFile(name);
+        }
+
+        @Override
+        public long fileLength(String name) throws IOException {
+            return delegate.fileLength(name);
+        }
+
+        @Override
+        public IndexOutput createOutput(String name, IOContext context) throws IOException {
+            return delegate.createOutput(name, context);
+        }
+
+        @Override
+        public IndexOutput createTempOutput(String prefix, String suffix, IOContext context) throws IOException {
+            return delegate.createTempOutput(prefix, suffix, context);
+        }
+
+        @Override
+        public void sync(java.util.Collection<String> names) throws IOException {
+            delegate.sync(names);
+        }
+
+        @Override
+        public void syncMetaData() throws IOException {
+            delegate.syncMetaData();
+        }
+
+        @Override
+        public void rename(String source, String dest) throws IOException {
+            delegate.rename(source, dest);
+        }
+
+        @Override
+        public java.util.Set<String> getPendingDeletions() throws IOException {
+            return delegate.getPendingDeletions();
+        }
+
+        @Override
+        public org.apache.lucene.store.Lock obtainLock(String name) throws IOException {
+            return delegate.obtainLock(name);
+        }
+
+        @Override
+        public void close() throws IOException {
+            delegate.close();
+        }
+
+        /**
+         * Returns whether the tracked file with the given extension was read.
+         * Searches all tracked inputs for a file name ending with the given extension.
+         */
+        boolean wasExtensionRead(String extension) {
+            for (Map.Entry<String, ReadTrackingIndexInput> entry : trackedInputs.entrySet()) {
+                if (entry.getKey().endsWith(extension) && entry.getValue().wasRead) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /**
+         * Returns whether a tracked file with the given extension exists in the tracked inputs.
+         */
+        boolean hasTrackedExtension(String extension) {
+            for (String name : trackedInputs.keySet()) {
+                if (name.endsWith(extension)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /**
+         * Resets all read tracking flags without clearing the tracked inputs map.
+         * This allows tracking reads that happen after this point while keeping
+         * the same IndexInput wrappers.
+         */
+        void resetReadFlags() {
+            for (ReadTrackingIndexInput input : trackedInputs.values()) {
+                input.wasRead = false;
+            }
+        }
+    }
+
     @RequiredArgsConstructor
     static class BuildInfo {
         final Path tempDirPath;
@@ -904,6 +1696,8 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final Map<String, Object> parameters;
         final List<Integer> documentIds;
         SearchTestHelper.Vectors vectors;
+        // This build might involve quantization having original vectors and resulting compressed vectors in `vectors` member variable.
+        SearchTestHelper.Vectors originalVectors;
     }
 
     @RequiredArgsConstructor
@@ -915,7 +1709,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         public final Map<String, Object> encoderParameters;
         public ScalarQuantizationParams quantizationParams;
         public QuantizationState quantizationState;
-        public boolean isAdcEnabled = false;
+        public QuantizationConfig quantizationConfig;
         public Class directoryClass = MMapDirectory.class;
     }
 }

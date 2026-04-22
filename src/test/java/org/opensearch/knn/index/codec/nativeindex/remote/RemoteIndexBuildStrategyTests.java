@@ -41,6 +41,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN_SETTING;
@@ -169,7 +170,7 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         when(mockBlobStore.blobContainer(blobPath)).thenReturn(blobContainer);
         when(blobContainer.path()).thenReturn(blobPath);
 
-        String blobName = MOCK_UUID + "_" + buildIndexParams.getFieldName() + "_" + MOCK_SEGMENT_STATE;
+        String blobName = MOCK_UUID + "_" + buildIndexParams.getField() + "_" + MOCK_SEGMENT_STATE;
 
         // example: VectorRepositoryAccessor vectorAccessor = new DefaultVectorRepositoryAccessor(blobContainer);
         // vectorAccessor.writeToRepository(blobName...)
@@ -196,6 +197,31 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         assertEquals(TEST_CLUSTER, request.getTenantId());
         assertEquals(3, request.getDocCount());
         assertEquals(2, request.getDimension());
+        assertFalse(request.isSkipStoredVectors());
+    }
+
+    public void testBuildRequestSQOneBit() throws IOException {
+        RemoteBuildRequest request = RemoteIndexBuildStrategy.buildRemoteBuildRequest(
+            createTestIndexSettings(),
+            buildIndexParams,
+            createTestRepositoryMetadata(),
+            MOCK_FULL_PATH,
+            getMockSQOneBitParameterMap()
+        );
+        assertEquals(VectorDataType.FLOAT.getValue(), request.getVectorDataType());
+        assertTrue(request.isSkipStoredVectors());
+    }
+
+    public void testBuildRequestFP16() throws IOException {
+        RemoteBuildRequest request = RemoteIndexBuildStrategy.buildRemoteBuildRequest(
+            createTestIndexSettings(),
+            buildIndexParams,
+            createTestRepositoryMetadata(),
+            MOCK_FULL_PATH,
+            getMockFP16ParameterMap()
+        );
+        assertEquals("half_float", request.getVectorDataType());
+        assertFalse(request.isSkipStoredVectors());
     }
 
     public Map<String, Object> getMockParameterMap() {
@@ -220,6 +246,58 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
             METHOD_HNSW,
             VECTOR_DATA_TYPE_FIELD,
             VectorDataType.BYTE.getValue(),
+            PARAMETERS,
+            innerParams
+        );
+    }
+
+    public Map<String, Object> getMockSQOneBitParameterMap() {
+        Map<String, Object> encoderParams = Map.of(NAME, ENCODER_SQ, SQ_BITS, 1);
+        Map<String, Object> innerParams = Map.of(
+            METHOD_PARAMETER_EF_SEARCH,
+            24,
+            METHOD_PARAMETER_EF_CONSTRUCTION,
+            28,
+            METHOD_PARAMETER_M,
+            12,
+            METHOD_ENCODER_PARAMETER,
+            encoderParams
+        );
+        return Map.of(
+            INDEX_DESCRIPTION_PARAMETER,
+            "HNSW12,Flat",
+            SPACE_TYPE,
+            INNER_PRODUCT.getValue(),
+            NAME,
+            METHOD_HNSW,
+            VECTOR_DATA_TYPE_FIELD,
+            VectorDataType.FLOAT.getValue(),
+            PARAMETERS,
+            innerParams
+        );
+    }
+
+    public Map<String, Object> getMockFP16ParameterMap() {
+        Map<String, Object> encoderParams = Map.of(NAME, ENCODER_SQ);
+        Map<String, Object> innerParams = Map.of(
+            METHOD_PARAMETER_EF_SEARCH,
+            24,
+            METHOD_PARAMETER_EF_CONSTRUCTION,
+            28,
+            METHOD_PARAMETER_M,
+            12,
+            METHOD_ENCODER_PARAMETER,
+            encoderParams
+        );
+        return Map.of(
+            INDEX_DESCRIPTION_PARAMETER,
+            "HNSW12,SQfp16",
+            SPACE_TYPE,
+            INNER_PRODUCT.getValue(),
+            NAME,
+            METHOD_HNSW,
+            VECTOR_DATA_TYPE_FIELD,
+            VectorDataType.FLOAT.getValue(),
             PARAMETERS,
             innerParams
         );

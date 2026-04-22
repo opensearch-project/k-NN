@@ -25,7 +25,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.backward_codecs.KNN10010Codec.KNN10010Codec;
-import org.opensearch.knn.index.codec.KNN9120Codec.KNN9120PerFieldKnnVectorsFormat;
+import org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec.KNN9120PerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;

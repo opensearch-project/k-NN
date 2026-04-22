@@ -154,6 +154,62 @@ jlong knn_jni::faiss_wrapper::InitIndex(knn_jni::JNIUtilInterface * jniUtil, JNI
                                    std::move(subParametersCpp));
 }
 
+jlong knn_jni::faiss_wrapper::InitFaissSQIndex(knn_jni::JNIUtilInterface *jniUtil,
+                                                JNIEnv *env,
+                                                jlong numDocsJ,
+                                                jint dimJ,
+                                                jobject parametersJ,
+                                                BinaryIndexService *indexService,
+                                                jfloat centroidDp,
+                                                jint quantizedVecBytes) {
+    if (dimJ <= 0) {
+        throw std::runtime_error("Vectors dimensions cannot be less than or equal to 0");
+    }
+
+    if (parametersJ == nullptr) {
+        throw std::runtime_error("Parameters cannot be null");
+    }
+
+    // parametersJ is a Java Map<String, Object>. ConvertJavaMapToCppMap converts it to a c++ map<string, jobject>
+    // so that it is easier to access.
+    auto parametersCpp = jniUtil->ConvertJavaMapToCppMap(env, parametersJ);
+
+    // Parse space type
+    jobject spaceTypeJ = knn_jni::GetJObjectFromMapOrThrow(parametersCpp, knn_jni::SPACE_TYPE);
+    std::string spaceTypeCpp(jniUtil->ConvertJavaObjectToCppString(env, spaceTypeJ));
+    faiss::MetricType metric = TranslateSpaceToMetric(spaceTypeCpp);
+    jniUtil->DeleteLocalRef(env, spaceTypeJ);
+
+    // Index description
+    jobject indexDescriptionJ = knn_jni::GetJObjectFromMapOrThrow(parametersCpp, knn_jni::INDEX_DESCRIPTION);
+    std::string indexDescriptionCpp(jniUtil->ConvertJavaObjectToCppString(env, indexDescriptionJ));
+    jniUtil->DeleteLocalRef(env, indexDescriptionJ);
+
+    // Thread count
+    int32_t threadCount = 0;
+    if (auto it = parametersCpp.find(knn_jni::INDEX_THREAD_QUANTITY); it != parametersCpp.end()) {
+        threadCount = jniUtil->ConvertJavaObjectToCppInteger(env, it->second);
+    }
+
+    // Extra parameters
+    std::unordered_map<std::string, jobject> subParametersCpp;
+    if (auto it = parametersCpp.find(knn_jni::PARAMETERS); it != parametersCpp.end()) {
+        subParametersCpp = jniUtil->ConvertJavaMapToCppMap(env, it->second);
+    }
+
+    // Create Faiss SQ index
+    return indexService->initFaissSQIndex(jniUtil,
+                                           env,
+                                           metric,
+                                           std::move(indexDescriptionCpp),
+                                           (int32_t) dimJ,
+                                           (int32_t) numDocsJ,
+                                           threadCount,
+                                           std::move(subParametersCpp),
+                                           centroidDp,
+                                           quantizedVecBytes);
+}
+
 void knn_jni::faiss_wrapper::InsertToIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ, jlong vectorsAddressJ, jint dimJ,
                                          jlong index_ptr, jint threadCount, IndexService* indexService) {
     if (idsJ == nullptr) {
@@ -185,7 +241,8 @@ void knn_jni::faiss_wrapper::InsertToIndex(knn_jni::JNIUtilInterface * jniUtil, 
 }
 
 void knn_jni::faiss_wrapper::WriteIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env,
-                                        jobject output, jlong index_ptr, IndexService* indexService) {
+                                        jobject output, jlong index_ptr, IndexService* indexService,
+                                        bool skipFlat) {
 
     if (output == nullptr) {
         throw std::runtime_error("Index output stream cannot be null");
@@ -196,7 +253,7 @@ void knn_jni::faiss_wrapper::WriteIndex(knn_jni::JNIUtilInterface * jniUtil, JNI
     knn_jni::stream::FaissOpenSearchIOWriter writer {&mediator};
 
     // Create index.
-    indexService->writeIndex(&writer, index_ptr);
+    indexService->writeIndex(&writer, index_ptr, skipFlat);
 }
 
 void knn_jni::faiss_wrapper::CreateIndexFromTemplate(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,

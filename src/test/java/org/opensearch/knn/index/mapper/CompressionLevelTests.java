@@ -7,7 +7,9 @@ package org.opensearch.knn.index.mapper;
 
 import org.opensearch.core.common.Strings;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
+import org.opensearch.Version;
 
 public class CompressionLevelTests extends KNNTestCase {
 
@@ -116,5 +118,99 @@ public class CompressionLevelTests extends KNNTestCase {
         // NOT_CONFIGURED with dimension <= 1000 should return a RescoreContext with an oversample factor of 5.0f
         rescoreContext = CompressionLevel.NOT_CONFIGURED.getDefaultRescoreContext(mode, belowThresholdDimension);
         assertNull(rescoreContext);
+
+        // These tests test the 32x compression techniques, ensure that the correct rescoring factor is set for FAISS ADC/RR and Lucene
+        // Scalar Quantizer
+        rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(
+            mode,
+            belowThresholdDimension,
+            Version.CURRENT,
+            false,
+            KNNEngine.LUCENE
+        );
+        assertNotNull(rescoreContext);
+        assertEquals(2.0f, rescoreContext.getOversampleFactor(), 0.0f);
+        assertFalse(rescoreContext.isUserProvided());
+
+        // x32 with Lucene engine and dimension > 1000
+        rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(
+            mode,
+            aboveThresholdDimension,
+            Version.CURRENT,
+            false,
+            KNNEngine.LUCENE
+        );
+        assertNotNull(rescoreContext);
+        assertEquals(2.0f, rescoreContext.getOversampleFactor(), 0.0f);
+        assertFalse(rescoreContext.isUserProvided());
+
+        // x32 with Faiss engine should return default behavior (not special Lucene handling)
+        rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(
+            mode,
+            belowThresholdDimension,
+            Version.CURRENT,
+            false,
+            KNNEngine.FAISS
+        );
+        assertNotNull(rescoreContext);
+        assertEquals(5.0f, rescoreContext.getOversampleFactor(), 0.0f);
+        assertFalse(rescoreContext.isUserProvided());
+
+        // x32 with null engine should return default behavior
+        rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(mode, belowThresholdDimension, Version.CURRENT, false, null);
+        assertNotNull(rescoreContext);
+        assertEquals(5.0f, rescoreContext.getOversampleFactor(), 0.0f);
+        assertFalse(rescoreContext.isUserProvided());
+    }
+
+    public void testGetDefaultRescoreContext_whenFlatMethod_thenReturnFlatOversampleFactor() {
+        // flat method uses x32 compression — mode is NOT_CONFIGURED since flat doesn't support mode
+        RescoreContext rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(
+            Mode.NOT_CONFIGURED,
+            500,
+            org.opensearch.Version.CURRENT,
+            true
+        );
+        assertNotNull(rescoreContext);
+        assertEquals(2.0f, rescoreContext.getOversampleFactor(), 0.0f);
+        assertFalse(rescoreContext.isUserProvided());
+
+        // isFlatMethod=false on x32 with NOT_CONFIGURED mode should return null (no mode for rescore)
+        rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(Mode.NOT_CONFIGURED, 500, Version.CURRENT, false);
+        assertNull(rescoreContext);
+    }
+
+    public void testGetDefaultRescoreContext_whenSQOneBitEncoder_thenReturnFixedOversampleFactor() {
+        // sq(bits=1) encoder with x32 compression should return fixed oversample factor
+        RescoreContext rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(
+            Mode.NOT_CONFIGURED,
+            500,
+            Version.CURRENT,
+            false,
+            true
+        );
+        assertNotNull(rescoreContext);
+        assertEquals(RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR, rescoreContext.getOversampleFactor(), 0.0f);
+        assertFalse(rescoreContext.isUserProvided());
+        assertFalse(rescoreContext.isAllowOverrideOversampleFactor());
+
+        // sq(bits=1) should also work with ON_DISK mode and high dimension
+        rescoreContext = CompressionLevel.x32.getDefaultRescoreContext(Mode.ON_DISK, 1500, Version.CURRENT, false, true);
+        assertNotNull(rescoreContext);
+        assertEquals(RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR, rescoreContext.getOversampleFactor(), 0.0f);
+        assertFalse(rescoreContext.isAllowOverrideOversampleFactor());
+    }
+
+    public void testGetDefaultRescoreContext_whenNonSQOneBitEncoder_thenFallsBackToNormalLogic() {
+        // Non-sq(bits=1) encoder should fall through to normal compression level logic
+        RescoreContext rescoreContext = CompressionLevel.x8.getDefaultRescoreContext(Mode.ON_DISK, 500, Version.CURRENT, false, false);
+        assertNotNull(rescoreContext);
+        // x8 with dimension <= 1000 should use 5.0f oversample (normal logic)
+        assertEquals(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD, rescoreContext.getOversampleFactor(), 0.0f);
+
+        // null encoder should also fall through
+        rescoreContext = CompressionLevel.x8.getDefaultRescoreContext(Mode.ON_DISK, 500, Version.CURRENT, false, false);
+        assertNotNull(rescoreContext);
+        assertEquals(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD, rescoreContext.getOversampleFactor(), 0.0f);
     }
 }

@@ -6,6 +6,7 @@
 package org.opensearch.knn.memoryoptsearch;
 
 import lombok.SneakyThrows;
+import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexInput;
@@ -80,6 +81,27 @@ public class FaissIndexBinaryFlatTests extends KNNTestCase {
         // Validate the last vector values
         vector = values.vectorValue(values.size() - 1);
         assertArrayEquals(LAST_VECTOR, vector);
+        assertEquals(CODE_SIZE, values.getVectorByteLength());
+        assertTrue(values instanceof HasIndexSlice);
+        assertNotNull(((HasIndexSlice) values).getSlice());
+
+        // validate copy instance is correct is or not
+        final ByteVectorValues copiedInstance = values.copy();
+        assertEquals(BINARY_DIMENSION, copiedInstance.dimension());
+        assertEquals(NUM_VECTORS, copiedInstance.size());
+
+        // Validate the first vector values
+        vector = copiedInstance.vectorValue(0);
+        assertArrayEquals(FIRST_VECTOR, vector);
+
+        // Validate the last vector values
+        vector = copiedInstance.vectorValue(copiedInstance.size() - 1);
+        assertArrayEquals(LAST_VECTOR, vector);
+
+        assertEquals(CODE_SIZE, copiedInstance.getVectorByteLength());
+        assertTrue(copiedInstance instanceof HasIndexSlice);
+        assertNotNull(((HasIndexSlice) copiedInstance).getSlice());
+
     }
 
     @SneakyThrows

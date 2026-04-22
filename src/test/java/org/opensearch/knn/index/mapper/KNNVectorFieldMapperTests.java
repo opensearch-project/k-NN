@@ -2571,13 +2571,14 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertFalse(builder.getOriginalParameters().getResolvedKnnMethodContext().getMethodComponentContext().getParameters().isEmpty());
 
         if (shouldUsesBinaryQFramework) {
-            assertEquals(
-                QFrameBitEncoder.NAME,
-                ((MethodComponentContext) builder.getOriginalParameters()
-                    .getResolvedKnnMethodContext()
-                    .getMethodComponentContext()
-                    .getParameters()
-                    .get(METHOD_ENCODER_PARAMETER)).getName()
+            String encoderName = ((MethodComponentContext) builder.getOriginalParameters()
+                .getResolvedKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER)).getName();
+            assertTrue(
+                "Expected binary, sq(bits=1) encoder but got: " + encoderName,
+                QFrameBitEncoder.NAME.equals(encoderName) || ENCODER_SQ.equals(encoderName)
             );
             assertEquals(
                 expectedResolvedCompressionLevel.numBitsForFloat32(),

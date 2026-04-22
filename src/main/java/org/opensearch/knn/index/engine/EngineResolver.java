@@ -17,6 +17,7 @@ import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.Locale;
 
+import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 import static org.opensearch.knn.index.engine.KNNEngine.DEPRECATED_ENGINES;
 
 /**
@@ -93,6 +94,11 @@ public final class EngineResolver {
         if (requiresTraining) {
             // Faiss is the only engine that supports training, so we default to faiss here for now
             return KNNEngine.FAISS;
+        }
+
+        // Flat method is only supported by Lucene
+        if (knnMethodContext != null && METHOD_FLAT.equalsIgnoreCase(knnMethodContext.getMethodComponentContext().getName())) {
+            return KNNEngine.LUCENE;
         }
 
         Mode mode = knnMethodConfigContext.getMode();

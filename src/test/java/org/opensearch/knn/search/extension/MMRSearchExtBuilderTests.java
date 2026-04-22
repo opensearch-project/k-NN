@@ -6,6 +6,7 @@
 package org.opensearch.knn.search.extension;
 
 import org.junit.Before;
+import org.opensearch.Version;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.io.stream.BytesStreamOutput;
@@ -172,6 +173,90 @@ public class MMRSearchExtBuilderTests extends MMRTestCase {
             String expectedError = "[mmr] query extension does not support [unsupported_field]";
             assertEquals(expectedError, ex.getMessage());
         }
+    }
+
+    public void testSerializationRoundTrip_whenExplainEnabled_thenPreserved() throws IOException {
+        MMRSearchExtBuilder original = new MMRSearchExtBuilder.Builder().diversity(0.6f)
+            .candidates(20)
+            .vectorFieldPath("vec")
+            .spaceType("l2")
+            .vectorFieldDataType("byte")
+            .explain(true)
+            .build();
+
+        BytesStreamOutput out = new BytesStreamOutput();
+        original.writeTo(out);
+
+        MMRSearchExtBuilder deserialized = new MMRSearchExtBuilder(out.bytes().streamInput());
+
+        assertEquals(original, deserialized);
+        assertEquals(true, deserialized.getExplain());
+    }
+
+    public void testSerializationRoundTrip_whenExplainDisabled_thenPreserved() throws IOException {
+        MMRSearchExtBuilder original = new MMRSearchExtBuilder.Builder().diversity(0.6f).explain(false).build();
+
+        BytesStreamOutput out = new BytesStreamOutput();
+        original.writeTo(out);
+
+        MMRSearchExtBuilder deserialized = new MMRSearchExtBuilder(out.bytes().streamInput());
+
+        assertEquals(original, deserialized);
+        assertEquals(false, deserialized.getExplain());
+    }
+
+    public void testSerialization_whenOlderVersion_thenExplainNotSerialized() throws IOException {
+        MMRSearchExtBuilder original = new MMRSearchExtBuilder.Builder().diversity(0.6f)
+            .candidates(20)
+            .vectorFieldPath("vec")
+            .spaceType("l2")
+            .explain(true)
+            .build();
+
+        // Simulate writing to an older node that doesn't support explain (pre-3.7.0)
+        BytesStreamOutput out = new BytesStreamOutput();
+        out.setVersion(Version.V_3_6_0);
+        original.writeTo(out);
+
+        // Simulate reading from an older node stream
+        var streamInput = out.bytes().streamInput();
+        streamInput.setVersion(Version.V_3_6_0);
+        MMRSearchExtBuilder deserialized = new MMRSearchExtBuilder(streamInput);
+
+        // Explain should be null since older version doesn't support it
+        assertNull("Explain should be null when deserialized from older version stream", deserialized.getExplain());
+        // Other fields should still be preserved
+        assertEquals(0.6f, deserialized.getDiversity(), DELTA);
+        assertEquals(20, (int) deserialized.getCandidates());
+        assertEquals("vec", deserialized.getVectorFieldPath());
+        assertEquals(SpaceType.L2, deserialized.getSpaceType());
+    }
+
+    public void testToXContentAndParse_whenExplainEnabled_thenPreserved() throws IOException {
+        MMRSearchExtBuilder original = new MMRSearchExtBuilder.Builder().diversity(0.9f).candidates(15).explain(true).build();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
+        xContentBuilder.startObject();
+        original.toXContent(xContentBuilder, ToXContent.EMPTY_PARAMS);
+        xContentBuilder.endObject();
+
+        try (XContentParser parser = createParser(xContentBuilder)) {
+            parser.nextToken(); // start object
+            parser.nextToken(); // field name "mmr"
+            parser.nextToken(); // start object
+            MMRSearchExtBuilder parsed = MMRSearchExtBuilder.parse(parser);
+
+            assertEquals(original, parsed);
+            assertEquals(true, parsed.getExplain());
+        }
+    }
+
+    public void testEqualsAndHashCode_whenExplainDiffers_thenNotEqual() {
+        MMRSearchExtBuilder withExplain = new MMRSearchExtBuilder.Builder().diversity(0.7f).explain(true).build();
+        MMRSearchExtBuilder withoutExplain = new MMRSearchExtBuilder.Builder().diversity(0.7f).build();
+
+        assertNotEquals(withExplain, withoutExplain);
+        assertNotEquals(withExplain.hashCode(), withoutExplain.hashCode());
     }
 
     public void testParse_whenMMRProcessorsNotEnabled_thenException() throws IOException {
