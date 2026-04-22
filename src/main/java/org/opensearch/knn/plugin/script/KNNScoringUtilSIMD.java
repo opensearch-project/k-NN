@@ -155,6 +155,4 @@ final class KNNScoringUtilSIMD {
         return score;
     }
 
-
-
 }

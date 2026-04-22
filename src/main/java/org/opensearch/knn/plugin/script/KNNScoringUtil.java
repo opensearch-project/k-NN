@@ -24,13 +24,21 @@ import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValu
 
 public class KNNScoringUtil {
     private static Logger logger = LogManager.getLogger(KNNScoringUtil.class);
-    private static final MethodHandle L2_SQUARED_ADC_SIMD;
-    private static final MethodHandle INNER_PRODUCT_ADC_SIMD;
-    private static volatile boolean SIMD_ENABLED = true;
+
+    /**
+     * ADC computation strategy (SIMD or scalar).
+     */
+    @FunctionalInterface
+    private interface ADCOperator {
+        float compute(float[] queryVector, byte[] inputVector);
+    }
+
+    private static final ADCOperator L2_SQUARED_ADC_FUNC;
+    private static final ADCOperator INNER_PRODUCT_ADC_FUNC;
 
     static {
-        MethodHandle l2Squared = null;
-        MethodHandle innerProduct = null;
+        MethodHandle l2Handle = null;
+        MethodHandle ipHandle = null;
         try {
             // Check if the Vector API module is available at runtime.
             Class.forName("jdk.incubator.vector.FloatVector");
@@ -39,24 +47,39 @@ public class KNNScoringUtil {
             Class<?> simdClass = Class.forName("org.opensearch.knn.plugin.script.KNNScoringUtilSIMD");
             MethodHandles.Lookup lookup = MethodHandles.lookup();
 
-            l2Squared = lookup.findStatic(
+            l2Handle = lookup.findStatic(
                     simdClass,
                     "l2SquaredADC",
                     MethodType.methodType(float.class, float[].class, byte[].class)
             );
-            innerProduct = lookup.findStatic(
+            ipHandle = lookup.findStatic(
                     simdClass,
                     "innerProductADC",
                     MethodType.methodType(float.class, float[].class, byte[].class)
             );
         } catch (Throwable t) {
             // Fallback to scalar implementation if Vector API module or SIMD class is unavailable.
-            logger.debug("SIMD Vector API not available, falling back to scalar ADC computation");
+            logger.warn("SIMD Vector API not available, falling back to scalar ADC computation");
         }
-        L2_SQUARED_ADC_SIMD = l2Squared;
-        INNER_PRODUCT_ADC_SIMD = innerProduct;
-    }
+        final MethodHandle finalL2 = l2Handle;
+        final MethodHandle finalIP = ipHandle;
 
+        L2_SQUARED_ADC_FUNC = (finalL2 != null) ? (queryVector, inputVector) -> {
+            try {
+                return (float) finalL2.invokeExact(queryVector, inputVector);
+            } catch (Throwable t) {
+                throw new AssertionError("SIMD l2SquaredADC failed unexpectedly", t);
+            }
+        } : KNNScoringUtil::l2SquaredADCScalar;
+
+        INNER_PRODUCT_ADC_FUNC = (finalIP != null) ? (queryVector, inputVector) -> {
+            try {
+                return (float) finalIP.invokeExact(queryVector, inputVector);
+            } catch (Throwable t) {
+                throw new AssertionError("SIMD innerProductADC failed unexpectedly", t);
+            }
+        } : KNNScoringUtil::innerProductADCScalar;
+    }
 
     /**
      * checks both query vector and input vector has equal dimension
@@ -162,16 +185,7 @@ public class KNNScoringUtil {
         if (queryVector.length != inputVector.length * 8) {
             throw new IllegalArgumentException("queryVector.length must equal inputVector.length * 8");
         }
-
-        if (SIMD_ENABLED && L2_SQUARED_ADC_SIMD != null) {
-            try{
-                return (float) L2_SQUARED_ADC_SIMD.invokeExact(queryVector, inputVector);
-            } catch (Throwable t) {
-                SIMD_ENABLED = false;
-                logger.warn("SIMD ADC failed unexpectedly. Permanent fallback to scalar enabled.", t);
-            }
-        }
-        return l2SquaredADCScalar(queryVector, inputVector);
+        return L2_SQUARED_ADC_FUNC.compute(queryVector, inputVector);
     }
 
     public static float l2SquaredADCScalar(float[] queryVector, byte[] inputVector) {
@@ -203,19 +217,10 @@ public class KNNScoringUtil {
      * @throws IllegalArgumentException if queryVector length is not compatible with inputVector length (queryVector.length != inputVector.length * 8)
      */
     public static float innerProductADC(float[] queryVector, byte[] inputVector) {
-        if(queryVector.length != inputVector.length * 8){
+        if(queryVector.length != inputVector.length * 8) {
             throw new IllegalArgumentException("queryVector.length must equal inputVector.length * 8");
         }
-
-        if (SIMD_ENABLED && INNER_PRODUCT_ADC_SIMD != null) {
-            try{
-                return (float) INNER_PRODUCT_ADC_SIMD.invokeExact(queryVector, inputVector);
-            } catch (Throwable t) {
-                SIMD_ENABLED = false;
-                logger.warn("SIMD ADC failed unexpectedly. Permanent fallback to scalar enabled.", t);
-            }
-        }
-        return innerProductADCScalar(queryVector, inputVector);
+        return INNER_PRODUCT_ADC_FUNC.compute(queryVector, inputVector);
     }
 
     public static float innerProductADCScalar(float[] queryVector, byte[] inputVector) {
