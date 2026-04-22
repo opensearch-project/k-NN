@@ -16,6 +16,7 @@ import org.opensearch.knn.KNNJsonQueryBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.List;
@@ -36,7 +37,7 @@ public class FilteredSearchByteIT extends KNNRestTestCase {
 
     private void validateFilteredSearchWithFaissHnswByte(final String indexName, final boolean doExactSearch) throws Exception {
         String filterFieldName = "parking";
-        createKnnByteIndex(indexName, FIELD_NAME, 3, KNNEngine.FAISS);
+        createKnnByteIndex(indexName, FIELD_NAME, 3, BuiltinKNNEngine.FAISS);
 
         for (byte i = 1; i < 4; i++) {
             addKnnDocWithAttributes(

@@ -22,6 +22,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.SpaceTypeResolver;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.EngineResolver;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.mapper.CompressionLevel;
@@ -135,7 +136,7 @@ public class RestTrainModelHandler extends BaseRestHandler {
                 && ensureSpaceTypeNotSet(topLevelSpaceType)) {
                     topLevelSpaceType = SpaceType.getSpace(parser.text());
                 } else if ((KNNConstants.KNN_ENGINE.equals(fieldName)) && ensureEngineNotSet(topLevelEngine)) {
-                    topLevelEngine = KNNEngine.getEngine(parser.text());
+                    topLevelEngine = BuiltinKNNEngine.getEngine(parser.text());
                 } else {
                     throw new IllegalArgumentException("Unable to parse token. \"" + fieldName + "\" is not a valid " + "parameter.");
                 }
@@ -161,7 +162,7 @@ public class RestTrainModelHandler extends BaseRestHandler {
             topLevelSpaceType = SpaceTypeResolver.getDefaultSpaceType(vectorDataType);
         }
         if ((knnMethodContext == null || knnMethodContext.getKnnEngine() == KNNEngine.UNDEFINED) && topLevelEngine == KNNEngine.UNDEFINED) {
-            topLevelEngine = KNNEngine.FAISS;
+            topLevelEngine = BuiltinKNNEngine.FAISS;
         }
 
         ensureIfSetThenEquals(
@@ -255,7 +256,7 @@ public class RestTrainModelHandler extends BaseRestHandler {
     }
 
     private boolean ensureEngineNotSet(KNNEngine knnEngine) {
-        if (knnEngine != KNNEngine.UNDEFINED) {
+        if (knnEngine != BuiltinKNNEngine.UNDEFINED) {
             throw new IllegalArgumentException("Unable to parse KNNEngine as it is duplicated.");
         }
         return true;

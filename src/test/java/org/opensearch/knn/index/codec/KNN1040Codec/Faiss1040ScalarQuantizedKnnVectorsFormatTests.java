@@ -26,7 +26,7 @@ import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 
 import java.util.Iterator;
 import java.util.Map;
@@ -47,10 +47,10 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormatTests extends KNNTestCase {
     }
 
     public void testGetMaxDimensions_thenUsesLuceneEngine() {
-        try (MockedStatic<KNNEngine> mockedKNNEngine = Mockito.mockStatic(KNNEngine.class)) {
-            mockedKNNEngine.when(() -> KNNEngine.getMaxDimensionByEngine(KNNEngine.FAISS)).thenReturn(16000);
+        try (MockedStatic<BuiltinKNNEngine> mockedKNNEngine = Mockito.mockStatic(BuiltinKNNEngine.class)) {
+            mockedKNNEngine.when(() -> BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.FAISS)).thenReturn(16000);
             assertEquals(16000, new Faiss1040ScalarQuantizedKnnVectorsFormat().getMaxDimensions("test-field"));
-            mockedKNNEngine.verify(() -> KNNEngine.getMaxDimensionByEngine(KNNEngine.FAISS));
+            mockedKNNEngine.verify(() -> BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.FAISS));
         }
     }
 

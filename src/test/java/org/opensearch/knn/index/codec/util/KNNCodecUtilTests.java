@@ -11,6 +11,7 @@ import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.junit.Assert;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
@@ -46,7 +47,7 @@ public class KNNCodecUtilTests extends TestCase {
 
     public void testGetKNNEngines() {
         SegmentInfo segmentInfo = mock(SegmentInfo.class);
-        KNNEngine knnEngine = KNNEngine.FAISS;
+        KNNEngine knnEngine = BuiltinKNNEngine.FAISS;
         Set<String> SEGMENT_MULTI_FIELD_FILES_FAISS = Set.of("_0.cfe", "_0_2011_long_target_field.faissc", "_0_2011_target_field.faissc");
         when(segmentInfo.getUseCompoundFile()).thenReturn(true);
         when(segmentInfo.files()).thenReturn(SEGMENT_MULTI_FIELD_FILES_FAISS);

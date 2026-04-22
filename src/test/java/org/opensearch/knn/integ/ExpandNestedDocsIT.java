@@ -24,6 +24,7 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.Mode;
 
@@ -80,21 +81,33 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
         int dimension = 1;
         return Arrays.asList(
             $$(
-                $("Lucene with byte format and in memory mode", KNNEngine.LUCENE, VectorDataType.BYTE, Mode.NOT_CONFIGURED, dimension),
-                $("Lucene with float format and in memory mode", KNNEngine.LUCENE, VectorDataType.FLOAT, Mode.NOT_CONFIGURED, dimension),
-                $("Lucene with float format and on_disk mode", KNNEngine.LUCENE, VectorDataType.FLOAT, Mode.ON_DISK, dimension),
+                $(
+                    "Lucene with byte format and in memory mode",
+                    BuiltinKNNEngine.LUCENE,
+                    VectorDataType.BYTE,
+                    Mode.NOT_CONFIGURED,
+                    dimension
+                ),
+                $(
+                    "Lucene with float format and in memory mode",
+                    BuiltinKNNEngine.LUCENE,
+                    VectorDataType.FLOAT,
+                    Mode.NOT_CONFIGURED,
+                    dimension
+                ),
+                $("Lucene with float format and on_disk mode", BuiltinKNNEngine.LUCENE, VectorDataType.FLOAT, Mode.ON_DISK, dimension),
                 $(
                     "Faiss with binary format and in memory mode",
-                    KNNEngine.FAISS,
+                    BuiltinKNNEngine.FAISS,
                     VectorDataType.BINARY,
                     Mode.NOT_CONFIGURED,
                     dimension * 8
                 ),
-                $("Faiss with byte format and in memory mode", KNNEngine.FAISS, VectorDataType.BYTE, Mode.NOT_CONFIGURED, dimension),
-                $("Faiss with float format and in memory mode", KNNEngine.FAISS, VectorDataType.FLOAT, Mode.IN_MEMORY, dimension),
+                $("Faiss with byte format and in memory mode", BuiltinKNNEngine.FAISS, VectorDataType.BYTE, Mode.NOT_CONFIGURED, dimension),
+                $("Faiss with float format and in memory mode", BuiltinKNNEngine.FAISS, VectorDataType.FLOAT, Mode.IN_MEMORY, dimension),
                 $(
                     "Faiss with float format and on disk mode",
-                    KNNEngine.FAISS,
+                    BuiltinKNNEngine.FAISS,
                     VectorDataType.FLOAT,
                     Mode.ON_DISK,
                     // Currently, on disk mode only supports dimension of multiple of 8
@@ -106,7 +119,7 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testExpandNestedDocs_whenFilteredOnParentDoc_thenReturnAllNestedDoc() {
-        if (engine == KNNEngine.NMSLIB) {
+        if (engine == BuiltinKNNEngine.NMSLIB) {
             // NMSLIB does not support filtering
             return;
         }
@@ -137,7 +150,7 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testExpandNestedDocs_whenFilteredOnNestedFieldDoc_thenReturnFilteredNestedDoc() {
-        if (engine == KNNEngine.NMSLIB) {
+        if (engine == BuiltinKNNEngine.NMSLIB) {
             // NMSLIB does not support filtering
             return;
         }
@@ -188,7 +201,7 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
         // Run
         Float[] queryVector = createVector();
         // NMSLIB does not support dedup per parent documents. Therefore, we need to multiply the k by number of nestedFields.
-        int k = engine == KNNEngine.NMSLIB ? numberOfDocuments * numberOfNestedFields : numberOfDocuments;
+        int k = engine == BuiltinKNNEngine.NMSLIB ? numberOfDocuments * numberOfNestedFields : numberOfDocuments;
         Response response = queryNestedFieldWithExpandNestedDocs(INDEX_NAME, k, queryVector);
 
         // Verify
@@ -203,7 +216,7 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testExpandNestedDocs_whenFewChildHasNoVectors_thenReturnCorrectResult() {
-        if (engine == KNNEngine.NMSLIB) {
+        if (engine == BuiltinKNNEngine.NMSLIB) {
             // NMSLIB does not support filtering
             return;
         }
@@ -250,7 +263,7 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testExpandNestedDocsWithFilters_whenFewChildHasNoVectors_thenReturnCorrectResult() {
-        if (engine == KNNEngine.NMSLIB) {
+        if (engine == BuiltinKNNEngine.NMSLIB) {
             // NMSLIB does not support filtering
             return;
         }

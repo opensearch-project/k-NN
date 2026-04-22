@@ -21,7 +21,7 @@ import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -64,7 +64,7 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
         // Setup the model
         String modelId = "test-model";
         ModelMetadata modelMetadata = new ModelMetadata(
-            KNNEngine.DEFAULT,
+            BuiltinKNNEngine.DEFAULT,
             SpaceType.L2,
             128,
             ModelState.CREATED,

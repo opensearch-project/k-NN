@@ -6,11 +6,11 @@
 package org.opensearch.knn.memoryoptsearch;
 
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 
 public class FaissEngineTests extends KNNTestCase {
     public void testNonFaissEngineToReturnNullSearcher() {
-        assertNull(KNNEngine.LUCENE.getVectorSearcherFactory());
-        assertNull(KNNEngine.NMSLIB.getVectorSearcherFactory());
+        assertNull(BuiltinKNNEngine.LUCENE.getVectorSearcherFactory());
+        assertNull(BuiltinKNNEngine.NMSLIB.getVectorSearcherFactory());
     }
 }

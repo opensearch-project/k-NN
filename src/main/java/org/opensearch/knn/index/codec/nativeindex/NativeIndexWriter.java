@@ -25,6 +25,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
@@ -276,7 +277,7 @@ public class NativeIndexWriter {
     }
 
     private void maybeAddBinaryPrefixForFaissBWC(KNNEngine knnEngine, Map<String, Object> parameters, Map<String, String> fieldAttributes) {
-        if (KNNEngine.FAISS != knnEngine) {
+        if (BuiltinKNNEngine.FAISS != knnEngine) {
             return;
         }
 

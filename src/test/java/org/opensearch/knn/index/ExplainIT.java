@@ -16,7 +16,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.KNNRestTestCase;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
@@ -301,7 +301,7 @@ public class ExplainIT extends KNNRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
-            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .endObject()

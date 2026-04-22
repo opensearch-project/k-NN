@@ -10,7 +10,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
@@ -48,7 +48,7 @@ public class LuceneTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext1 = KNNMethodContext.parse(in);
-        assertNull(KNNEngine.LUCENE.validateMethod(knnMethodContext1, knnMethodConfigContext));
+        assertNull(BuiltinKNNEngine.LUCENE.validateMethod(knnMethodContext1, knnMethodConfigContext));
 
         // Invalid parameter
         String invalidParameter = "invalid";
@@ -62,7 +62,7 @@ public class LuceneTests extends KNNTestCase {
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext2 = KNNMethodContext.parse(in);
         knnMethodContext2.setSpaceType(SpaceType.L2);
-        assertNotNull(KNNEngine.LUCENE.validateMethod(knnMethodContext2, knnMethodConfigContext));
+        assertNotNull(BuiltinKNNEngine.LUCENE.validateMethod(knnMethodContext2, knnMethodConfigContext));
 
         // Valid parameter, invalid value
         int invalidEfConstruction = -1;
@@ -76,7 +76,7 @@ public class LuceneTests extends KNNTestCase {
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext3 = KNNMethodContext.parse(in);
         knnMethodContext3.setSpaceType(SpaceType.L2);
-        assertNotNull(KNNEngine.LUCENE.validateMethod(knnMethodContext3, knnMethodConfigContext));
+        assertNotNull(BuiltinKNNEngine.LUCENE.validateMethod(knnMethodContext3, knnMethodConfigContext));
 
         // Unsupported space type
         SpaceType invalidSpaceType = SpaceType.LINF; // Not currently supported
@@ -87,7 +87,7 @@ public class LuceneTests extends KNNTestCase {
             .endObject();
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext4 = KNNMethodContext.parse(in);
-        assertNotNull(KNNEngine.LUCENE.validateMethod(knnMethodContext4, knnMethodConfigContext));
+        assertNotNull(BuiltinKNNEngine.LUCENE.validateMethod(knnMethodContext4, knnMethodConfigContext));
 
         // Check INNER_PRODUCT is supported with Lucene Engine
         xContentBuilder = XContentFactory.jsonBuilder()
@@ -101,7 +101,7 @@ public class LuceneTests extends KNNTestCase {
             .endObject();
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext5 = KNNMethodContext.parse(in);
-        assertNull(KNNEngine.LUCENE.validateMethod(knnMethodContext5, knnMethodConfigContext));
+        assertNull(BuiltinKNNEngine.LUCENE.validateMethod(knnMethodContext5, knnMethodConfigContext));
     }
 
     public void testGetExtension() {

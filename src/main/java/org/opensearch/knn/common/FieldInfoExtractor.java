@@ -15,6 +15,7 @@ import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.engine.faiss.SQConfig;
@@ -53,8 +54,8 @@ public class FieldInfoExtractor {
         if (modelMetadata != null) {
             return modelMetadata.getKnnEngine();
         }
-        final String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
-        return KNNEngine.getEngine(engineName);
+        final String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.DEFAULT.getName());
+        return BuiltinKNNEngine.getEngine(engineName);
     }
 
     /**

@@ -27,7 +27,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
-import static org.opensearch.knn.index.engine.KNNEngine.LUCENE;
+import static org.opensearch.knn.index.engine.BuiltinKNNEngine.LUCENE;
 
 public class KNN1040CodecTest extends KNNCodecTestCase {
 

@@ -14,6 +14,7 @@ import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80BinaryDocValues;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
@@ -152,7 +153,7 @@ public class KNNCodecUtil {
      */
     private static KNNEngine getNativeKNNEngine(@NonNull FieldInfo field) {
         final KNNEngine engine = FieldInfoExtractor.extractKNNEngine(field);
-        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(engine)) {
+        if (BuiltinKNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(engine)) {
             return engine;
         }
         return null;

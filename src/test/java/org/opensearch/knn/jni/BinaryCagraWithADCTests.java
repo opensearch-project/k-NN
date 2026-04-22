@@ -10,7 +10,7 @@ import org.junit.Test;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
 
@@ -36,7 +36,7 @@ public class BinaryCagraWithADCTests extends KNNTestCase {
             SpaceType.INNER_PRODUCT.getValue()
         );
 
-        long indexPointer = JNIService.loadIndex(indexInputWithBuffer, params, KNNEngine.FAISS);
+        long indexPointer = JNIService.loadIndex(indexInputWithBuffer, params, BuiltinKNNEngine.FAISS);
         try {
             int dimension = 768;
             float[] queryVector = new float[dimension];
@@ -50,7 +50,7 @@ public class BinaryCagraWithADCTests extends KNNTestCase {
                 queryVector,
                 k,
                 Collections.emptyMap(),
-                KNNEngine.FAISS,
+                BuiltinKNNEngine.FAISS,
                 null,
                 0,
                 null
@@ -58,7 +58,7 @@ public class BinaryCagraWithADCTests extends KNNTestCase {
 
             assertEquals(k, results.length);
         } finally {
-            JNIService.free(indexPointer, KNNEngine.FAISS);
+            JNIService.free(indexPointer, BuiltinKNNEngine.FAISS);
         }
     }
 }

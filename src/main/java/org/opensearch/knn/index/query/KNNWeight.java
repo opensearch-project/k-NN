@@ -32,6 +32,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
@@ -479,8 +480,8 @@ public abstract class KNNWeight extends Weight {
             spaceType = modelMetadata.getSpaceType();
             vectorDataType = modelMetadata.getVectorDataType();
         } else {
-            final String engineName = fieldInfo.attributes().getOrDefault(KNN_ENGINE, KNNEngine.DEFAULT.getName());
-            knnEngine = KNNEngine.getEngine(engineName);
+            final String engineName = fieldInfo.attributes().getOrDefault(KNN_ENGINE, BuiltinKNNEngine.DEFAULT.getName());
+            knnEngine = BuiltinKNNEngine.getEngine(engineName);
             final String spaceTypeName = fieldInfo.attributes().getOrDefault(SPACE_TYPE, SpaceType.L2.getValue());
             spaceType = SpaceType.getSpace(spaceTypeName);
             vectorDataType = VectorDataType.get(
@@ -568,7 +569,7 @@ public abstract class KNNWeight extends Weight {
     protected void addExplainIfRequired(final KNNQueryResult[] results, final KNNEngine knnEngine, final SpaceType spaceType) {
         if (knnQuery.isExplain()) {
             Arrays.stream(results).forEach(result -> {
-                if (KNNEngine.FAISS.getName().equals(knnEngine.getName()) && SpaceType.INNER_PRODUCT.equals(spaceType)) {
+                if (BuiltinKNNEngine.FAISS.getName().equals(knnEngine.getName()) && SpaceType.INNER_PRODUCT.equals(spaceType)) {
                     knnExplanation.addRawScore(result.getId(), -1 * result.getScore());
                 } else {
                     knnExplanation.addRawScore(result.getId(), result.getScore());
@@ -580,7 +581,7 @@ public abstract class KNNWeight extends Weight {
     protected void addExplainIfRequired(final TopDocs results, final KNNEngine knnEngine, final SpaceType spaceType) {
         if (knnQuery.isExplain()) {
             Arrays.stream(results.scoreDocs).forEach(result -> {
-                if (KNNEngine.FAISS.getName().equals(knnEngine.getName()) && SpaceType.INNER_PRODUCT.equals(spaceType)) {
+                if (BuiltinKNNEngine.FAISS.getName().equals(knnEngine.getName()) && SpaceType.INNER_PRODUCT.equals(spaceType)) {
                     knnExplanation.addRawScore(result.doc, -1 * result.score);
                 } else {
                     knnExplanation.addRawScore(result.doc, result.score);

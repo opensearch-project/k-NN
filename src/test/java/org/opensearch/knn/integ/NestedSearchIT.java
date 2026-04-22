@@ -17,7 +17,7 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 import org.opensearch.knn.index.mapper.Mode;
 
@@ -63,7 +63,7 @@ public class NestedSearchIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testNestedSearchWithLucene_whenKIsTwo_thenReturnTwoResults() {
-        createKnnIndex(2, KNNEngine.LUCENE.getName());
+        createKnnIndex(2, BuiltinKNNEngine.LUCENE.getName());
 
         int totalDocCount = 15;
         for (int i = 0; i < totalDocCount; i++) {
@@ -88,7 +88,7 @@ public class NestedSearchIT extends KNNRestTestCase {
     @SneakyThrows
     @ExpectRemoteBuildValidation
     public void testNestedSearchWithFaiss_whenKIsTwo_thenReturnTwoResults() {
-        createKnnIndex(2, KNNEngine.FAISS.getName());
+        createKnnIndex(2, BuiltinKNNEngine.FAISS.getName());
 
         int totalDocCount = 15;
         for (int i = 0; i < totalDocCount; i++) {
@@ -112,20 +112,20 @@ public class NestedSearchIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testNestedSearchWithFaiss_whenKIsTwo_SomeNestedDocsHasNoVectors_thenReturnTwoResults() {
-        createKnnIndex(2, KNNEngine.FAISS.getName());
+        createKnnIndex(2, BuiltinKNNEngine.FAISS.getName());
         indexAndTestKNNIndexWithVectorAndNonVectorField();
     }
 
     @SneakyThrows
     public void testNestedSearchWithOnDisk_whenKIsTwo_SomeNestedDocsHasNoVectors_thenReturnTwoResults() {
-        createKnnIndex(2, KNNEngine.FAISS.getName(), Mode.ON_DISK);
+        createKnnIndex(2, BuiltinKNNEngine.FAISS.getName(), Mode.ON_DISK);
         indexAndTestKNNIndexWithVectorAndNonVectorField();
     }
 
     @SneakyThrows
     @ExpectRemoteBuildValidation
     public void testNestedSearchWithFaiss_whenRescoreEnabled_thenSucceed() {
-        createKnnIndex(2, KNNEngine.FAISS.getName());
+        createKnnIndex(2, BuiltinKNNEngine.FAISS.getName());
 
         int totalDocCount = 15;
         for (int i = 0; i < totalDocCount; i++) {
@@ -176,7 +176,7 @@ public class NestedSearchIT extends KNNRestTestCase {
     @SneakyThrows
     @ExpectRemoteBuildValidation
     public void testNestedSearchWithFaiss_whenDoingExactSearch_thenReturnCorrectResults() {
-        createKnnIndex(3, KNNEngine.FAISS.getName());
+        createKnnIndex(3, BuiltinKNNEngine.FAISS.getName());
 
         for (int i = 1; i < 4; i++) {
             float value = (float) i;
@@ -235,7 +235,7 @@ public class NestedSearchIT extends KNNRestTestCase {
     @SneakyThrows
     @ExpectRemoteBuildValidation
     public void testNestedWithFaiss_whenFilter_whenDoRadialSearch_thenReturnCorrectResults() {
-        createKnnIndex(3, KNNEngine.FAISS.getName());
+        createKnnIndex(3, BuiltinKNNEngine.FAISS.getName());
 
         for (int i = 1; i < 4; i++) {
             float value = (float) i;

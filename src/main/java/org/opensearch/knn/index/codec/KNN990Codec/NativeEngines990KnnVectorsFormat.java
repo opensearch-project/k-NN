@@ -24,7 +24,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.codec.scorer.NativeEngines990KnnVectorsScorer;
 import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 
 import java.io.IOException;
 
@@ -98,7 +98,7 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
      */
     @Override
     public int getMaxDimensions(final String fieldName) {
-        return KNNEngine.getMaxDimensionByEngine(KNNEngine.FAISS);
+        return BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.FAISS);
     }
 
     @Override

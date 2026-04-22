@@ -107,7 +107,7 @@ import org.opensearch.knn.index.SpaceType;
 import static org.opensearch.knn.index.SpaceType.L2;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec.ParentChildHelper;
-import static org.opensearch.knn.index.engine.KNNEngine.FAISS;
+import static org.opensearch.knn.index.engine.BuiltinKNNEngine.FAISS;
 import org.opensearch.knn.index.mapper.Mode;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
 import org.opensearch.knn.index.query.KNNQueryBuilder;

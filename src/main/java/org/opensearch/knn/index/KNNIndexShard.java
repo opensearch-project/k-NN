@@ -21,6 +21,7 @@ import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -134,7 +135,7 @@ public class KNNIndexShard {
                         NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
                         getParametersAtLoading(
                             engineFileContext.getSpaceType(),
-                            KNNEngine.getEngineNameFromPath(engineFileContext.getVectorFileName()),
+                            BuiltinKNNEngine.getEngineNameFromPath(engineFileContext.getVectorFileName()),
                             getIndexName(),
                             engineFileContext.getVectorDataType(),
                             engineFileContext.getSegmentLevelQuantizationInfo()
@@ -195,7 +196,7 @@ public class KNNIndexShard {
     List<EngineFileContext> getAllEngineFileContexts(final Set<String> loadedFieldNames, final LeafReaderContext leafReaderContext)
         throws IOException {
         List<EngineFileContext> engineFiles = new ArrayList<>();
-        for (KNNEngine knnEngine : KNNEngine.getEnginesThatCreateCustomSegmentFiles()) {
+        for (KNNEngine knnEngine : BuiltinKNNEngine.getEnginesThatCreateCustomSegmentFiles()) {
             engineFiles.addAll(getEngineFileContexts(loadedFieldNames, leafReaderContext, knnEngine));
         }
         return engineFiles;

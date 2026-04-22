@@ -7,7 +7,7 @@ package org.opensearch.knn.index.codec.KNN1040Codec;
 
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 
 import static org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE;
 
@@ -28,7 +28,7 @@ public class KNN1040ScalarQuantizedVectorsFormatTests extends KNNTestCase {
 
     public void testGetMaxDimensions_returnsLuceneMax() {
         KNN1040ScalarQuantizedVectorsFormat format = new KNN1040ScalarQuantizedVectorsFormat();
-        assertEquals(KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE), format.getMaxDimensions("any_field"));
+        assertEquals(BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.LUCENE), format.getMaxDimensions("any_field"));
     }
 
     public void testGetName_returnsClassName() {

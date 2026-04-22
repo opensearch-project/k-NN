@@ -12,7 +12,7 @@ import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
@@ -59,7 +59,7 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
     // After resolution, flat method always has x32 compression set in the mapping config
     private KNNVectorFieldType buildFlatFieldType() {
         KNNMethodContext flatMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.L2,
             new MethodComponentContext(METHOD_FLAT, Map.of())
         );
@@ -111,7 +111,7 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
 
     private KNNVectorFieldType buildSQOneBitFieldType() {
         KNNMethodContext sqOneBitMethodContext = new KNNMethodContext(
-            KNNEngine.FAISS,
+            BuiltinKNNEngine.FAISS,
             SpaceType.L2,
             new MethodComponentContext(
                 METHOD_HNSW,
@@ -124,7 +124,7 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
 
     public void testKNNVectorFieldType_whenNonSQOneBitEncoder_thenAlwaysUseMemoryOptimizedSearchIsFalse() {
         KNNMethodContext flatMethodContext = new KNNMethodContext(
-            KNNEngine.FAISS,
+            BuiltinKNNEngine.FAISS,
             SpaceType.L2,
             new MethodComponentContext(
                 METHOD_HNSW,

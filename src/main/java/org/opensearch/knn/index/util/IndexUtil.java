@@ -27,6 +27,7 @@ import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.request.MethodParameter;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -286,7 +287,7 @@ public class IndexUtil {
 
         // For nmslib, we need to add the dynamic ef_search parameter that needs to be passed in when the
         // hnsw graphs are loaded into memory
-        if (KNNEngine.NMSLIB.equals(knnEngine)) {
+        if (BuiltinKNNEngine.NMSLIB.equals(knnEngine)) {
             loadParameters.put(HNSW_ALGO_EF_SEARCH, KNNSettings.getEfSearchParam(indexName));
         }
         loadParameters.put(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
@@ -341,7 +342,7 @@ public class IndexUtil {
      * @return true if it is binary index
      */
     public static boolean isBinaryIndex(KNNEngine knnEngine, Map<String, Object> parameters) {
-        return KNNEngine.FAISS == knnEngine
+        return BuiltinKNNEngine.FAISS == knnEngine
             && parameters.get(VECTOR_DATA_TYPE_FIELD) != null
             && parameters.get(VECTOR_DATA_TYPE_FIELD).toString().equals(VectorDataType.BINARY.getValue());
     }
@@ -353,7 +354,7 @@ public class IndexUtil {
      * @return true if ADC is enabled
      */
     public static boolean isADCEnabled(KNNEngine knnEngine, Map<String, Object> parameters) {
-        return KNNEngine.FAISS == knnEngine
+        return BuiltinKNNEngine.FAISS == knnEngine
             && parameters != null
             && parameters.get(ADC_ENABLED_FAISS_INDEX_INTERNAL_PARAMETER) != null
             && (boolean) parameters.get(ADC_ENABLED_FAISS_INDEX_INTERNAL_PARAMETER);

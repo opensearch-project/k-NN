@@ -85,7 +85,7 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
      * @throws IOException on stream failure
      */
     public KNNMethodContext(StreamInput in) throws IOException {
-        this.knnEngine = KNNEngine.getEngine(in.readString());
+        this.knnEngine = BuiltinKNNEngine.getEngine(in.readString());
         this.spaceType = SpaceType.getSpace(in.readString());
         this.methodComponentContext = new MethodComponentContext(in);
         this.isEngineConfigured = true;
@@ -166,7 +166,7 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
 
                 if (value != null) {
                     try {
-                        engine = KNNEngine.getEngine((String) value);
+                        engine = BuiltinKNNEngine.getEngine((String) value);
                     } catch (IllegalArgumentException iae) {
                         throw new MapperParsingException("Invalid " + KNN_ENGINE + ": " + value);
                     }

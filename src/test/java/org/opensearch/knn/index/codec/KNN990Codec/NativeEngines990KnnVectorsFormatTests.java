@@ -57,7 +57,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.UnitTestCodec;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -297,14 +297,14 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
     }
 
     public void testGetMaxDimensions_whenCalled_thenUseFaissEngine() {
-        try (MockedStatic<KNNEngine> mockedKNNEngine = Mockito.mockStatic(KNNEngine.class)) {
-            mockedKNNEngine.when(() -> KNNEngine.getMaxDimensionByEngine(KNNEngine.FAISS)).thenReturn(16000);
+        try (MockedStatic<BuiltinKNNEngine> mockedKNNEngine = Mockito.mockStatic(BuiltinKNNEngine.class)) {
+            mockedKNNEngine.when(() -> BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.FAISS)).thenReturn(16000);
 
             NativeEngines990KnnVectorsFormat format = new NativeEngines990KnnVectorsFormat();
             int result = format.getMaxDimensions("test-field");
 
             assertEquals(16000, result);
-            mockedKNNEngine.verify(() -> KNNEngine.getMaxDimensionByEngine(KNNEngine.FAISS));
+            mockedKNNEngine.verify(() -> BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.FAISS));
         }
     }
 
@@ -359,7 +359,7 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         nativeVectorField.setIndexOptions(IndexOptions.NONE);
         nativeVectorField.putAttribute(KNNVectorFieldMapper.KNN_FIELD, "true");
         nativeVectorField.putAttribute(KNNConstants.KNN_METHOD, KNNConstants.METHOD_HNSW);
-        nativeVectorField.putAttribute(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName());
+        nativeVectorField.putAttribute(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName());
         nativeVectorField.putAttribute(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue());
         nativeVectorField.putAttribute(KNNConstants.HNSW_ALGO_M, "32");
         nativeVectorField.putAttribute(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION, "512");

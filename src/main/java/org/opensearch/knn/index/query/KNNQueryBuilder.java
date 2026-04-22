@@ -27,6 +27,7 @@ import org.opensearch.index.query.WithFieldName;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorQueryType;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
@@ -59,8 +60,8 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
 import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
-import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
-import static org.opensearch.knn.index.engine.KNNEngine.FAISS;
+import static org.opensearch.knn.index.engine.BuiltinKNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
+import static org.opensearch.knn.index.engine.BuiltinKNNEngine.FAISS;
 import static org.opensearch.knn.index.engine.validation.ParameterValidator.validateParameters;
 import static org.opensearch.knn.index.query.parser.MethodParametersParser.validateMethodParameters;
 import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_OVERSAMPLE_PARAMETER;
@@ -564,9 +565,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 spaceType.validateVector(vector);
         }
 
-        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine)
+        if (BuiltinKNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine)
             && filter != null
-            && !KNNEngine.getEnginesThatSupportsFilters().contains(knnEngine)) {
+            && !BuiltinKNNEngine.getEnginesThatSupportsFilters().contains(knnEngine)) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Engine [%s] does not support filters", knnEngine));
         }
 
@@ -644,7 +645,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
      * @return True when it should use Lucene query False otherwise.
      */
     private static boolean isUsingLuceneQuery(final KNNEngine engine, final boolean memoryOptimizedSearchEnabled) {
-        return memoryOptimizedSearchEnabled || engine == KNNEngine.LUCENE;
+        return memoryOptimizedSearchEnabled || engine == BuiltinKNNEngine.LUCENE;
     }
 
     private ModelMetadata getModelMetadataForField(String modelId) {

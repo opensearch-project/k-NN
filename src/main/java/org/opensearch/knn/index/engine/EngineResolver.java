@@ -18,7 +18,7 @@ import org.opensearch.knn.index.mapper.Mode;
 import java.util.Locale;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
-import static org.opensearch.knn.index.engine.KNNEngine.DEPRECATED_ENGINES;
+import static org.opensearch.knn.index.engine.BuiltinKNNEngine.DEPRECATED_ENGINES;
 
 /**
  * Figures out what {@link KNNEngine} to use based on configuration details
@@ -93,12 +93,12 @@ public final class EngineResolver {
         // Handle training case
         if (requiresTraining) {
             // Faiss is the only engine that supports training, so we default to faiss here for now
-            return KNNEngine.FAISS;
+            return BuiltinKNNEngine.FAISS;
         }
 
         // Flat method is only supported by Lucene
         if (knnMethodContext != null && METHOD_FLAT.equalsIgnoreCase(knnMethodContext.getMethodComponentContext().getName())) {
-            return KNNEngine.LUCENE;
+            return BuiltinKNNEngine.LUCENE;
         }
 
         Mode mode = knnMethodConfigContext.getMode();
@@ -106,18 +106,18 @@ public final class EngineResolver {
 
         // If both mode and compression are not specified, we can just default
         if (Mode.isConfigured(mode) == false && CompressionLevel.isConfigured(compressionLevel) == false) {
-            return KNNEngine.DEFAULT;
+            return BuiltinKNNEngine.DEFAULT;
         }
 
         if (compressionLevel == CompressionLevel.x4) {
             // Lucene is only engine that supports 4x - so we have to default to it here.
-            return KNNEngine.LUCENE;
+            return BuiltinKNNEngine.LUCENE;
         }
         if (CompressionLevel.isConfigured(compressionLevel) == false || compressionLevel == CompressionLevel.x1) {
             // For 1x or no compression, we need to default to faiss if mode is provided and use nmslib otherwise based on version check
             return resolveEngineForX1OrNoCompression(mode, version);
         }
-        return KNNEngine.FAISS;
+        return BuiltinKNNEngine.FAISS;
     }
 
     private boolean hasUserConfiguredMethodEngine(KNNMethodContext knnMethodContext) {
@@ -161,9 +161,9 @@ public final class EngineResolver {
 
     private KNNEngine resolveEngineForX1OrNoCompression(Mode mode, Version version) {
         if (version != null && version.onOrAfter(Version.V_2_19_0)) {
-            return KNNEngine.FAISS;
+            return BuiltinKNNEngine.FAISS;
         }
-        return mode == Mode.ON_DISK ? KNNEngine.FAISS : KNNEngine.NMSLIB;
+        return mode == Mode.ON_DISK ? BuiltinKNNEngine.FAISS : BuiltinKNNEngine.NMSLIB;
     }
 
     private KNNEngine logAndReturnEngine(KNNEngine knnEngine) {
@@ -178,7 +178,7 @@ public final class EngineResolver {
             return KNNEngine.UNDEFINED;
         }
 
-        return KNNEngine.getEngine(knnEngineString);
+        return BuiltinKNNEngine.getEngine(knnEngineString);
     }
 
     private KNNEngine validateTopLevelEngine(
@@ -187,10 +187,10 @@ public final class EngineResolver {
         boolean requiresTraining
     ) {
         KNNEngine topLevelEngine = getEngineFromString(topLevelEngineString);
-        if (requiresTraining && topLevelEngine != KNNEngine.FAISS) {
+        if (requiresTraining && topLevelEngine != BuiltinKNNEngine.FAISS) {
             throw new MapperParsingException(String.format(Locale.ROOT, "Cannot specify engine other than FAISS for training"));
         }
-        if (knnMethodConfigContext.getCompressionLevel() == CompressionLevel.x4 && topLevelEngine != KNNEngine.LUCENE) {
+        if (knnMethodConfigContext.getCompressionLevel() == CompressionLevel.x4 && topLevelEngine != BuiltinKNNEngine.LUCENE) {
             throw new MapperParsingException(String.format(Locale.ROOT, "Lucene is the only engine that supports 4x compression"));
         }
         return topLevelEngine;

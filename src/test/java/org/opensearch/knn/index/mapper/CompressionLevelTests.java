@@ -7,7 +7,7 @@ package org.opensearch.knn.index.mapper;
 
 import org.opensearch.core.common.Strings;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.Version;
 
@@ -126,7 +126,7 @@ public class CompressionLevelTests extends KNNTestCase {
             belowThresholdDimension,
             Version.CURRENT,
             false,
-            KNNEngine.LUCENE
+            BuiltinKNNEngine.LUCENE
         );
         assertNotNull(rescoreContext);
         assertEquals(2.0f, rescoreContext.getOversampleFactor(), 0.0f);
@@ -138,7 +138,7 @@ public class CompressionLevelTests extends KNNTestCase {
             aboveThresholdDimension,
             Version.CURRENT,
             false,
-            KNNEngine.LUCENE
+            BuiltinKNNEngine.LUCENE
         );
         assertNotNull(rescoreContext);
         assertEquals(2.0f, rescoreContext.getOversampleFactor(), 0.0f);
@@ -150,7 +150,7 @@ public class CompressionLevelTests extends KNNTestCase {
             belowThresholdDimension,
             Version.CURRENT,
             false,
-            KNNEngine.FAISS
+            BuiltinKNNEngine.FAISS
         );
         assertNotNull(rescoreContext);
         assertEquals(5.0f, rescoreContext.getOversampleFactor(), 0.0f);

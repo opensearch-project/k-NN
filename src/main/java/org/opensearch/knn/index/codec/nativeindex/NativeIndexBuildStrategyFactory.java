@@ -10,6 +10,7 @@ import org.apache.lucene.index.FieldInfo;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
@@ -59,7 +60,7 @@ public final class NativeIndexBuildStrategyFactory {
     ) throws IOException {
         final KNNEngine knnEngine = extractKNNEngine(fieldInfo);
         final boolean isTemplate = fieldInfo.attributes().containsKey(MODEL_ID);
-        final boolean iterative = !isTemplate && KNNEngine.FAISS == knnEngine;
+        final boolean iterative = !isTemplate && BuiltinKNNEngine.FAISS == knnEngine;
         final boolean isFaissSQOneBitField = FieldInfoExtractor.isSQField(fieldInfo)
             && FieldInfoExtractor.extractSQConfig(fieldInfo).getBits() == FaissSQEncoder.Bits.ONE.getValue();
 

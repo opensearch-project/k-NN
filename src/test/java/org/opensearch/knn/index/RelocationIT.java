@@ -10,7 +10,7 @@ import org.junit.BeforeClass;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.knn.KNNRestTestCase;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.common.settings.Settings;
 
 import java.io.IOException;
@@ -64,7 +64,7 @@ public class RelocationIT extends KNNRestTestCase {
                 TEST_FIELD,
                 dimension,
                 METHOD_HNSW,
-                KNNEngine.FAISS.getName(),
+                BuiltinKNNEngine.FAISS.getName(),
                 SpaceType.INNER_PRODUCT.getValue(),
                 true,
                 VectorDataType.FLOAT

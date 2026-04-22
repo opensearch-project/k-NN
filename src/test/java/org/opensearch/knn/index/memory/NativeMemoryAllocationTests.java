@@ -25,6 +25,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.jni.JNICommons;
@@ -70,7 +71,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         // Create basic nmslib HNSW index
         Path tempDirPath = createTempDir();
         try (Directory directory = newFSDirectory(tempDirPath)) {
-            KNNEngine knnEngine = KNNEngine.NMSLIB;
+            KNNEngine knnEngine = BuiltinKNNEngine.NMSLIB;
             String indexFileName = "test1" + knnEngine.getExtension();
             int numVectors = 10;
             int dimension = 10;
@@ -122,7 +123,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
     @SneakyThrows
     public void testClose_whenBinaryFiass_thenSuccess() {
         Path tempDirPath = createTempDir();
-        KNNEngine knnEngine = KNNEngine.FAISS;
+        KNNEngine knnEngine = BuiltinKNNEngine.FAISS;
         String indexFileName = "test1" + knnEngine.getExtension();
         try (Directory directory = newFSDirectory(tempDirPath)) {
             int numVectors = 10;
@@ -343,7 +344,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
     }
 
     public void testIndexAllocation_getKnnEngine() {
-        KNNEngine knnEngine = KNNEngine.DEFAULT;
+        KNNEngine knnEngine = BuiltinKNNEngine.DEFAULT;
         NativeMemoryAllocation.IndexAllocation indexAllocation = new NativeMemoryAllocation.IndexAllocation(
             null,
             0,

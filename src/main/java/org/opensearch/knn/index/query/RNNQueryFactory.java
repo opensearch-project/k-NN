@@ -20,6 +20,7 @@ import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 /**
@@ -74,7 +75,7 @@ public class RNNQueryFactory extends BaseQueryFactory {
         final Map<String, ?> methodParameters = createQueryRequest.getMethodParameters();
         final boolean memoryOptimizedSearchEnabled = createQueryRequest.isMemoryOptimizedSearchEnabled();
 
-        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
+        if (BuiltinKNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
             BitSetProducer parentFilter = null;
             QueryShardContext context = createQueryRequest.getContext().get();
 

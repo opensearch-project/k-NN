@@ -18,7 +18,7 @@ import org.opensearch.knn.index.codec.backward_codecs.BasePerFieldKnnVectorsForm
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.faiss.FaissCodecFormatResolver;
@@ -81,7 +81,7 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
 
         @Override
         public int getMaxDimensions(String fieldName) {
-            return KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE);
+            return BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.LUCENE);
         }
     }
 
@@ -99,7 +99,7 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
 
         @Override
         public int getMaxDimensions(String fieldName) {
-            return KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE);
+            return BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.LUCENE);
         }
     }
 
@@ -126,7 +126,7 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
 
         @Override
         public int getMaxDimensions(String fieldName) {
-            return KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE);
+            return BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.LUCENE);
         }
     }
 
@@ -148,7 +148,7 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
      */
     public void testGetKnnVectorsFormatForField_whenLuceneHnsw_thenReturnHnswFormat() {
         KNNMethodContext hnswMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.L2,
             new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_PARAMETER_M, 32, METHOD_PARAMETER_EF_CONSTRUCTION, 256))
         );
@@ -171,7 +171,7 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
      */
     public void testGetKnnVectorsFormatForField_whenLuceneFlat_thenReturnFlatFormat() {
         KNNMethodContext flatMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.L2,
             new MethodComponentContext(METHOD_FLAT, Collections.emptyMap())
         );
@@ -204,7 +204,7 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
         params.put(METHOD_PARAMETER_EF_CONSTRUCTION, 100);
 
         KNNMethodContext sqMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.L2,
             new MethodComponentContext(METHOD_HNSW, params)
         );
@@ -229,7 +229,7 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
      */
     public void testGetKnnVectorsFormatForField_whenFormatNotRegistered_thenThrowException() {
         KNNMethodContext flatMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.L2,
             new MethodComponentContext(METHOD_FLAT, Collections.emptyMap())
         );
@@ -258,7 +258,7 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
         params.put(METHOD_PARAMETER_EF_CONSTRUCTION, customEf);
 
         KNNMethodContext methodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.COSINESIMIL,
             new MethodComponentContext(METHOD_HNSW, params)
         );
@@ -306,7 +306,7 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
      */
     public void testGetKnnVectorsFormatForField_whenNativeEngine_thenReturnNativeFormat() {
         KNNMethodContext faissMethodContext = new KNNMethodContext(
-            KNNEngine.FAISS,
+            BuiltinKNNEngine.FAISS,
             SpaceType.L2,
             new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 256))
         );
@@ -334,7 +334,7 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
      */
     public void testGetKnnVectorsFormatForField_legacyHnswWithoutEncoder_thenReturnHnswFormat() {
         KNNMethodContext hnswMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.L2,
             new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_PARAMETER_M, 32, METHOD_PARAMETER_EF_CONSTRUCTION, 256))
         );
@@ -376,7 +376,7 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
         params.put(METHOD_PARAMETER_EF_CONSTRUCTION, 100);
 
         KNNMethodContext sqMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.L2,
             new MethodComponentContext(METHOD_HNSW, params)
         );
@@ -446,7 +446,7 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
 
         // 4. FAISS engine → NativeEngines990KnnVectorsFormat
         KNNMethodContext faissContext = new KNNMethodContext(
-            KNNEngine.FAISS,
+            BuiltinKNNEngine.FAISS,
             SpaceType.L2,
             new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 256))
         );
@@ -457,7 +457,7 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
 
         // 5. FAISS engine with different params
         KNNMethodContext faissContext2 = new KNNMethodContext(
-            KNNEngine.FAISS,
+            BuiltinKNNEngine.FAISS,
             SpaceType.INNER_PRODUCT,
             new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_PARAMETER_M, 32, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
         );
@@ -507,7 +507,7 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
 
         // 3. FAISS engine → NativeEngines990KnnVectorsFormat
         KNNMethodContext faissContext = new KNNMethodContext(
-            KNNEngine.FAISS,
+            BuiltinKNNEngine.FAISS,
             SpaceType.L2,
             new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 256))
         );
@@ -529,7 +529,7 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
         params.put(METHOD_PARAMETER_M, m);
         params.put(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction);
 
-        return new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, new MethodComponentContext(METHOD_HNSW, params));
+        return new KNNMethodContext(BuiltinKNNEngine.LUCENE, SpaceType.L2, new MethodComponentContext(METHOD_HNSW, params));
     }
 
     /**
@@ -595,7 +595,7 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
         MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 1));
         MethodComponentContext hnswContext = new MethodComponentContext("hnsw", Map.of(METHOD_ENCODER_PARAMETER, encoderContext));
         KNNMethodContext methodContext = mock(KNNMethodContext.class);
-        when(methodContext.getKnnEngine()).thenReturn(KNNEngine.FAISS);
+        when(methodContext.getKnnEngine()).thenReturn(BuiltinKNNEngine.FAISS);
         when(methodContext.getMethodComponentContext()).thenReturn(hnswContext);
 
         MapperService mapperService = mockMapperService(TEST_FIELD, methodContext);
@@ -608,7 +608,7 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
         MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 16));
         MethodComponentContext hnswContext = new MethodComponentContext("hnsw", Map.of(METHOD_ENCODER_PARAMETER, encoderContext));
         KNNMethodContext methodContext = mock(KNNMethodContext.class);
-        when(methodContext.getKnnEngine()).thenReturn(KNNEngine.FAISS);
+        when(methodContext.getKnnEngine()).thenReturn(BuiltinKNNEngine.FAISS);
         when(methodContext.getMethodComponentContext()).thenReturn(hnswContext);
 
         MapperService mapperService = mockMapperService(TEST_FIELD, methodContext);
