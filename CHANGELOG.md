@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Add debug mode to MMR rerank that injects per-hit scoring details (original_score, max_similarity_to_selected, mmr_score, mmr_formula) into _source via the `debug` flag in the mmr search extension [#3254](https://github.com/opensearch-project/k-NN/pull/3254)
 * Support derived source for knn with other fields [#3260](https://github.com/opensearch-project/k-NN/pull/3260)
 * Added support for 1 bit SQ with remote build [#3270](https://github.com/opensearch-project/k-NN/pull/3270)
+* Add BFloat16 (BF16) scalar quantization support [#3190](https://github.com/opensearch-project/k-NN/pull/3190)
 
 ### Maintenance
 

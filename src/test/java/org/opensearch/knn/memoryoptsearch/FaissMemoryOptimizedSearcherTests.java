@@ -106,6 +106,7 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_BF16;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.INDEX_THREAD_QTY;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
@@ -135,6 +136,13 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         ENCODER_SQ,
         PARAMETERS,
         Map.of(TYPE, FAISS_SQ_ENCODER_FP16, FAISS_SQ_CLIP, false)
+    );
+    private static final String BFLOAT16_HNSW_INDEX_DESCRIPTION = "HNSW16,SQbf16";
+    private static final Map<String, Object> BFLOAT16_ENCODER_PARAMETERS = Map.of(
+        NAME,
+        ENCODER_SQ,
+        PARAMETERS,
+        Map.of(TYPE, FAISS_SQ_ENCODER_BF16, FAISS_SQ_CLIP, false)
     );
     private static final String BINARY_HSNW_INDEX_DESCRIPTION = "BHNSW16,Flat";
     private static final Map<String, Object> EMTPY_ENCODER_PARAMETERS = Map.of();
@@ -285,6 +293,48 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         if (useNIOFSDirectory) {
             testingSpec.directoryClass = NIOFSDirectory.class;
         }
+
+        // Test a dense case where all docs have KNN field.
+        doSearchTest(testingSpec, IndexingType.DENSE);
+
+        // Test a sparse case where some docs don't have KNN field
+        doSearchTest(testingSpec, IndexingType.SPARSE);
+
+        // Test a sparse nested case where some parent docs don't have KNN field
+        doSearchTest(testingSpec, IndexingType.SPARSE_NESTED);
+
+        // Test a dense nested case where ALL parent docs have KNN field.
+        doSearchTest(testingSpec, IndexingType.DENSE_NESTED);
+    }
+
+    public void testBFloat16IndexType() {
+        // Validate mmap optimized logic for BF16.
+        doTestBFloat16IndexType(false);
+    }
+
+    public void testBFloat16IndexTypeWithNIOFSDirectory() {
+        // For BF16, it applies a different logic for non-mmap Directory.
+        // Therefore, configuring NIOFSDirectory to validate the logic.
+        doTestBFloat16IndexType(true);
+    }
+
+    public void doTestBFloat16IndexType(final boolean useNIOFSDirectory) {
+        // Use a small range since BF16 is coarse
+        final TestingSpec testingSpec = new TestingSpec(
+            VectorDataType.FLOAT,
+            BFLOAT16_HNSW_INDEX_DESCRIPTION,
+            -1,
+            1,
+            BFLOAT16_ENCODER_PARAMETERS
+        );
+
+        if (useNIOFSDirectory) {
+            testingSpec.directoryClass = NIOFSDirectory.class;
+        }
+
+        // BF16 has only 8 bits of mantissa (vs 11 and 24 for FP16 and FP32 respectively).
+        // Use a relaxed tolerance that accounts for this reduced precision.
+        testingSpec.scoreTolerance = 1.0;
 
         // Test a dense case where all docs have KNN field.
         doSearchTest(testingSpec, IndexingType.DENSE);
@@ -603,7 +653,8 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             resultsFromVectorReader,
             spaceType.getKnnVectorSimilarityFunction(),
             TOP_K,
-            testingSpec.quantizationConfig != null && testingSpec.quantizationConfig.enableADC
+            testingSpec.quantizationConfig != null && testingSpec.quantizationConfig.enableADC,
+            testingSpec.scoreTolerance
         );
     }
 
@@ -983,7 +1034,8 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         KNNQueryResult[] resultsFromVectorReader,
         KNNVectorSimilarityFunction similarityFunction,
         final int topK,
-        final boolean isAdc
+        final boolean isAdc,
+        final double scoreTolerance
     ) {
         final Set<Integer> answerDocIds = getKnnAnswerSetForVectors(documentIds, vectors, query, filteredIds, similarityFunction, topK);
 
@@ -1024,7 +1076,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                 if (faissIdScores.containsKey(result.getId())) {
                     final float scoreFromReader = result.getScore();
                     final float faissScore = faissIdScores.get(result.getId());
-                    assertEquals(faissScore, scoreFromReader, 1e-3);
+                    assertEquals(faissScore, scoreFromReader, scoreTolerance);
                 }
             }
         }
@@ -1711,5 +1763,6 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         public QuantizationState quantizationState;
         public QuantizationConfig quantizationConfig;
         public Class directoryClass = MMapDirectory.class;
+        public double scoreTolerance = 1e-3;
     }
 }
