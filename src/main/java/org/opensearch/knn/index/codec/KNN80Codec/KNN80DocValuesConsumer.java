@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.codec.KNN80Codec;
 
 import lombok.extern.log4j.Log4j2;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.codecs.DocValuesConsumer;
@@ -15,12 +16,18 @@ import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.opensearch.common.StopWatch;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
+import org.opensearch.knn.index.vectorvalues.NormalizingKNNFloatVectorValues;
+import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
 
 import java.io.IOException;
@@ -67,15 +74,49 @@ class KNN80DocValuesConsumer extends DocValuesConsumer {
 
     public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge) throws IOException {
         final VectorDataType vectorDataType = extractVectorDataType(field);
-        final KNNVectorValues<?> knnVectorValues = KNNVectorValuesFactory.getVectorValues(vectorDataType, valuesProducer.getBinary(field));
+        KNNVectorValues<?> knnVectorValues = KNNVectorValuesFactory.getVectorValues(vectorDataType, valuesProducer.getBinary(field));
 
+        // Faiss does not natively support cosine similarity. When the field is configured for
+        // Faiss + cosine, we store the original (unnormalized) vectors in doc values and only
+        // normalize when feeding vectors to the native index build path. This keeps doc values
+        // consistent with what the user indexed and enables derived source to return the original
+        // vector. See issue #3083.
+        if (needsNormalizationForFaissBuild(field, vectorDataType)) {
+            knnVectorValues = new NormalizingKNNFloatVectorValues((KNNFloatVectorValues) knnVectorValues);
+        }
+
+        final KNNVectorValues<?> finalVectorValues = knnVectorValues;
         // For BDV it is fine to use knnVectorValues.totalLiveDocs() as we already run the full loop to calculate total
         // live docs
         if (isMerge) {
-            NativeIndexWriter.getWriter(field, state).mergeIndex(() -> knnVectorValues, (int) knnVectorValues.totalLiveDocs());
+            NativeIndexWriter.getWriter(field, state).mergeIndex(() -> finalVectorValues, (int) finalVectorValues.totalLiveDocs());
         } else {
-            NativeIndexWriter.getWriter(field, state).flushIndex(() -> knnVectorValues, (int) knnVectorValues.totalLiveDocs());
+            NativeIndexWriter.getWriter(field, state).flushIndex(() -> finalVectorValues, (int) finalVectorValues.totalLiveDocs());
         }
+    }
+
+    /**
+     * Returns true when the vectors fed to the native (Faiss) build must be L2-normalized because
+     * the user-facing space type is cosine similarity. Model-based fields resolve the space type
+     * through {@link ModelUtil#getModelMetadata(String)} which reads from cluster state (no network I/O).
+     */
+    private boolean needsNormalizationForFaissBuild(FieldInfo field, VectorDataType vectorDataType) {
+        if (vectorDataType != VectorDataType.FLOAT) {
+            return false;
+        }
+        if (extractKNNEngine(field) != KNNEngine.FAISS) {
+            return false;
+        }
+        final String spaceTypeStr = field.getAttribute(KNNConstants.SPACE_TYPE);
+        if (StringUtils.isNotEmpty(spaceTypeStr)) {
+            return SpaceType.COSINESIMIL.getValue().equals(spaceTypeStr);
+        }
+        final String modelId = field.getAttribute(KNNConstants.MODEL_ID);
+        if (StringUtils.isNotEmpty(modelId)) {
+            final ModelMetadata modelMetadata = ModelUtil.getModelMetadata(modelId);
+            return modelMetadata != null && modelMetadata.getSpaceType() == SpaceType.COSINESIMIL;
+        }
+        return false;
     }
 
     /**
