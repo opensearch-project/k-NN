@@ -17,7 +17,10 @@ import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.memoryoptsearch.FaissHNSWTests;
+
+import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 
 /**
  * Unit tests for {@link FaissMemoryOptimizedSearcher#createKnnCollector} to verify
@@ -34,12 +37,9 @@ public class CagraKnnCollectorCreationTests extends KNNTestCase {
     @SneakyThrows
     public void testCreateKnnCollector_whenNonSeeded_thenWrapsWithRandomEntryPoints() {
         final IndexInput input = FaissHNSWTests.loadHnswBinary("data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin");
-        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
-            input,
-            FaissIndex.load(input),
-            Mockito.mock(FieldInfo.class),
-            SCORER
-        );
+        final FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, FaissIndex.load(input), fieldInfo, SCORER);
 
         // Create a non-seeded collector
         final KnnCollector originalCollector = new TopKnnCollector(100, Integer.MAX_VALUE, KnnSearchStrategy.Hnsw.DEFAULT);
@@ -66,12 +66,9 @@ public class CagraKnnCollectorCreationTests extends KNNTestCase {
     @SneakyThrows
     public void testCreateKnnCollector_whenSeeded_thenPreservesOriginalStrategy() {
         final IndexInput input = FaissHNSWTests.loadHnswBinary("data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin");
-        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
-            input,
-            FaissIndex.load(input),
-            Mockito.mock(FieldInfo.class),
-            SCORER
-        );
+        final FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, FaissIndex.load(input), fieldInfo, SCORER);
 
         // Create a seeded strategy
         final DocIdSetIterator seedDocs = new DocIdSetIterator() {
