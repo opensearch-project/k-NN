@@ -28,8 +28,6 @@ import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
-import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.scorers.VectorScorerMode;
 import org.opensearch.knn.index.query.scorers.VectorScorers;
@@ -384,46 +382,11 @@ public class ExactSearcher {
                 parentBitSet
             );
         }
-
-        // Float vector path
-        final SegmentLevelQuantizationInfo quantizationInfo = SegmentLevelQuantizationInfo.build(reader, fieldInfo, context.getField());
-
-        if (quantizationInfo == null || scorerMode == VectorScorerMode.RESCORE) {
-            return VectorScorers.createScorer(
-                iteratorValues,
-                context.getFloatQueryVector(),
-                scorerMode,
-                spaceType,
-                fieldInfo,
-                context.getMatchedDocsIterator(),
-                parentBitSet
-            );
-        }
-
-        // Quantized path — need byte vector values
-        final KNNVectorValues<?> quantizedValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader, true);
-        final KNNVectorValuesIterator.DocIdsIteratorValues quantizedIteratorValues =
-            (KNNVectorValuesIterator.DocIdsIteratorValues) quantizedValues.getVectorValuesIterator();
-
-        if (SegmentLevelQuantizationUtil.isAdcEnabled(quantizationInfo)) {
-            SegmentLevelQuantizationUtil.transformVectorWithADC(context.getFloatQueryVector(), quantizationInfo, spaceType);
-            return VectorScorers.createScorer(
-                quantizedIteratorValues,
-                context.getFloatQueryVector(),
-                scorerMode,
-                spaceType,
-                fieldInfo,
-                context.getMatchedDocsIterator(),
-                parentBitSet
-            );
-        }
-
-        final byte[] quantizedQueryVector = SegmentLevelQuantizationUtil.quantizeVector(context.getFloatQueryVector(), quantizationInfo);
         return VectorScorers.createScorer(
-            quantizedIteratorValues,
-            quantizedQueryVector,
+            iteratorValues,
+            context.getFloatQueryVector(),
             scorerMode,
-            SpaceType.HAMMING,
+            spaceType,
             fieldInfo,
             context.getMatchedDocsIterator(),
             parentBitSet
