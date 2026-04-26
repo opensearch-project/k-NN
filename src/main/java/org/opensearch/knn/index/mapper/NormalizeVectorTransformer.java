@@ -5,6 +5,8 @@
 package org.opensearch.knn.index.mapper;
 
 import org.apache.lucene.util.VectorUtil;
+import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
+import org.opensearch.knn.index.vectorvalues.NormalizingKNNFloatVectorValues;
 
 import java.util.Arrays;
 
@@ -36,6 +38,15 @@ public class NormalizeVectorTransformer implements VectorTransformer {
     @Override
     public void transform(byte[] vector) {
         throw new UnsupportedOperationException("Byte array normalization is not supported");
+    }
+
+    /**
+     * Returns a {@link NormalizingKNNFloatVectorValues} that L2-normalizes vectors on demand
+     * without mutating the underlying data.
+     */
+    @Override
+    public KNNFloatVectorValues wrap(final KNNFloatVectorValues delegate) {
+        return new NormalizingKNNFloatVectorValues(delegate);
     }
 
     private void validateVector(float[] vector) {
