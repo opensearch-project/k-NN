@@ -92,6 +92,7 @@ public final class VectorTransformerFactory {
      * </ul>
      *
      * @param fieldInfo field metadata from the Lucene segment
+     *
      * @return a {@link VectorTransformer}, possibly {@link #NOOP_VECTOR_TRANSFORMER}
      */
     public static VectorTransformer getVectorTransformer(final FieldInfo fieldInfo, boolean resolveMethodComponentContext) {

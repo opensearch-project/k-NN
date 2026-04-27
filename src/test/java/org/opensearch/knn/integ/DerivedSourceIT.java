@@ -886,13 +886,14 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             assertNotNull("Derived source disabled: vector should not be null for doc " + i, sourceVectorDisabled);
             assertEquals(dimension, sourceVectorEnabled.size());
 
-            // Compare with original vector - allow small floating point tolerance due to norm * denorm roundtrip
+            // Compare with original vector. Normalization now happens only on the native index build path,
+            // so BinaryDocValues keep the user-indexed vectors bit-for-bit.
             for (int j = 0; j < dimension; j++) {
                 assertEquals(
                         "Doc " + i + " dim " + j + ": derived source vector should match original",
                         originalVectors[i][j],
                         sourceVectorEnabled.get(j).floatValue(),
-                        1e-4f
+                        0.0f
                 );
             }
         }
@@ -910,7 +911,7 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
                         "After merge - Doc " + i + " dim " + j + ": derived source vector should match original",
                         originalVectors[i][j],
                         sourceVector.get(j).floatValue(),
-                        1e-4f
+                        0.0f
                 );
             }
         }
@@ -999,7 +1000,7 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
                     "Normal vector dim " + j + " should match original",
                     normalVector[j],
                     vectorEnabled.get(j).floatValue(),
-                    1e-4f
+                    0.0f
             );
         }
 
@@ -1014,7 +1015,7 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
                     "After merge - normal vector dim " + j + " should match original",
                     normalVector[j],
                     mergedVector.get(j).floatValue(),
-                    1e-4f
+                    0.0f
             );
         }
 
@@ -1097,7 +1098,7 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
                         "Before merge - Doc " + i + " dim " + j,
                         allVectors[i][j],
                         sourceVector.get(j).floatValue(),
-                        1e-4f
+                        0.0f
                 );
             }
         }
@@ -1116,7 +1117,7 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
                         "After merge - Doc " + i + " dim " + j,
                         allVectors[i][j],
                         sourceVector.get(j).floatValue(),
-                        1e-4f
+                        0.0f
                 );
             }
         }
