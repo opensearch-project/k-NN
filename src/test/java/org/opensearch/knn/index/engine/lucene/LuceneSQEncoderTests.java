@@ -134,6 +134,34 @@ public class LuceneSQEncoderTests extends KNNTestCase {
         callValidateEncoderParams(Version.CURRENT, CompressionLevel.x4, Map.of(LUCENE_SQ_BITS, 7));
     }
 
+    public void testCalculateCompressionLevel_whenBits1InMethodComponentContext_thenX32() {
+        LuceneSQEncoder encoder = new LuceneSQEncoder();
+        MethodComponentContext mcc = new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 1));
+        KNNMethodConfigContext context = KNNMethodConfigContext.builder().versionCreated(Version.CURRENT).build();
+        assertEquals(CompressionLevel.x32, encoder.calculateCompressionLevel(mcc, context));
+    }
+
+    public void testCalculateCompressionLevel_whenBits7InMethodComponentContext_thenX4() {
+        LuceneSQEncoder encoder = new LuceneSQEncoder();
+        MethodComponentContext mcc = new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 7));
+        KNNMethodConfigContext context = KNNMethodConfigContext.builder().versionCreated(Version.CURRENT).build();
+        assertEquals(CompressionLevel.x4, encoder.calculateCompressionLevel(mcc, context));
+    }
+
+    public void testCalculateCompressionLevel_whenBits1AndExplicitCompressionX32_thenX32() {
+        LuceneSQEncoder encoder = new LuceneSQEncoder();
+        MethodComponentContext mcc = new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 1));
+        KNNMethodConfigContext context = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .compressionLevel(CompressionLevel.x32)
+            .build();
+        assertEquals(CompressionLevel.x32, encoder.calculateCompressionLevel(mcc, context));
+    }
+
+    public void testValidate_whenBits1WithX32Compression_explicitOnDisk_thenOk() {
+        callValidateEncoderParams(Version.CURRENT, CompressionLevel.x32, Map.of(LUCENE_SQ_BITS, 1));
+    }
+
     private void callValidateEncoderParams(Version version, CompressionLevel compressionLevel, Map<String, Object> encoderParams) {
         KNNMethodConfigContext configContext = KNNMethodConfigContext.builder()
             .versionCreated(version)

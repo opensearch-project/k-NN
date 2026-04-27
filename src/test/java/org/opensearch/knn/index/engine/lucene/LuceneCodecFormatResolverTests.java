@@ -21,6 +21,7 @@ import java.util.function.Function;
 
 import static org.mockito.Mockito.mock;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -176,5 +177,62 @@ public class LuceneCodecFormatResolverTests extends KNNTestCase {
     public void testResolve_whenNoArgCalled_thenThrowUnsupportedOperationException() {
         LuceneCodecFormatResolver resolver = new LuceneCodecFormatResolver(Map.of());
         expectThrows(UnsupportedOperationException.class, resolver::resolve);
+    }
+
+    public void testResolve_whenHnswWithSQOneBitEncoder_thenReturnSQFormat() {
+        Map<String, Object> encoderParams = new HashMap<>();
+        encoderParams.put(LUCENE_SQ_BITS, 1);
+        MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, encoderParams);
+
+        Map<String, Object> params = new HashMap<>();
+        params.put(METHOD_ENCODER_PARAMETER, encoderContext);
+        params.put(METHOD_PARAMETER_M, 16);
+        params.put(METHOD_PARAMETER_EF_CONSTRUCTION, 100);
+
+        KNNMethodContext sqContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, new MethodComponentContext(METHOD_HNSW, params));
+
+        Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
+            LuceneVectorsFormatType.SCALAR_QUANTIZED,
+            ctx -> SQ_FORMAT,
+            LuceneVectorsFormatType.HNSW,
+            ctx -> HNSW_FORMAT
+        );
+
+        LuceneCodecFormatResolver resolver = new LuceneCodecFormatResolver(resolvers);
+        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, sqContext, params, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH);
+        assertSame("SQ with bits=1 should route to SCALAR_QUANTIZED resolver", SQ_FORMAT, result);
+    }
+
+    public void testResolve_whenHnswWithSQOneBitEncoder_thenContextContainsBitsParam() {
+        Map<String, Object> encoderParams = new HashMap<>();
+        encoderParams.put(LUCENE_SQ_BITS, 1);
+        MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, encoderParams);
+
+        Map<String, Object> params = new HashMap<>();
+        params.put(METHOD_ENCODER_PARAMETER, encoderContext);
+        params.put(METHOD_PARAMETER_M, 32);
+        params.put(METHOD_PARAMETER_EF_CONSTRUCTION, 200);
+
+        KNNMethodContext sqContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, new MethodComponentContext(METHOD_HNSW, params));
+
+        final KnnVectorsFormatContext[] capturedContext = new KnnVectorsFormatContext[1];
+        Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
+            LuceneVectorsFormatType.SCALAR_QUANTIZED,
+            ctx -> {
+                capturedContext[0] = ctx;
+                return SQ_FORMAT;
+            },
+            LuceneVectorsFormatType.HNSW,
+            ctx -> HNSW_FORMAT
+        );
+
+        LuceneCodecFormatResolver resolver = new LuceneCodecFormatResolver(resolvers);
+        resolver.resolve(TEST_FIELD, sqContext, params, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH);
+
+        assertNotNull(capturedContext[0]);
+        assertEquals(TEST_FIELD, capturedContext[0].getField());
+        Object encoder = capturedContext[0].getParams().get(METHOD_ENCODER_PARAMETER);
+        assertTrue(encoder instanceof MethodComponentContext);
+        assertEquals(1, ((MethodComponentContext) encoder).getParameters().get(LUCENE_SQ_BITS));
     }
 }

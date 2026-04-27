@@ -300,6 +300,30 @@ public class EngineResolverTests extends KNNTestCase {
         );
     }
 
+    public void testResolveEngine_whenOnDiskWith32xCompression_thenFaiss() {
+        assertEquals(
+            KNNEngine.FAISS,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().mode(Mode.ON_DISK).compressionLevel(CompressionLevel.x32).build(),
+                null,
+                null,
+                false
+            )
+        );
+    }
+
+    public void testResolveEngine_whenInMemoryWith1xCompression_thenFaiss() {
+        assertEquals(
+            KNNEngine.FAISS,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().mode(Mode.IN_MEMORY).compressionLevel(CompressionLevel.x1).build(),
+                null,
+                null,
+                false
+            )
+        );
+    }
+
     public void testValidateTopLevelEngine() throws IOException {
         // only top-level defined; set to faiss with compression 4x
         expectThrows(
@@ -324,5 +348,65 @@ public class EngineResolverTests extends KNNTestCase {
                 Version.CURRENT
             )
         );
+    }
+
+    public void testResolveEngine_whenNoModeNoCompressionAcrossVersions_thenDefault() {
+        // TODO: [DEFAULT_FLIP] After Step 4, split into: indexVersionCreated < V_3_7_0 → assert DEFAULT,
+        // indexVersionCreated >= V_3_7_0 → assert x32 default triggers engine resolution
+        Version[] versions = new Version[] { Version.V_2_18_0, Version.V_3_0_0, Version.V_3_5_0, Version.V_3_6_0, Version.CURRENT };
+
+        for (Version version : versions) {
+            assertEquals(
+                "Expected DEFAULT engine for version " + version + " with no mode/compression",
+                KNNEngine.DEFAULT,
+                ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), null, null, false, version)
+            );
+        }
+    }
+
+    public void testResolveEngine_whenInMemoryModeAcrossVersions_thenVersionDeterminesEngine() {
+        assertEquals(
+            KNNEngine.NMSLIB,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().mode(Mode.IN_MEMORY).build(),
+                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY, false),
+                null,
+                false,
+                Version.V_2_18_0
+            )
+        );
+
+        Version[] postV219Versions = new Version[] { Version.V_3_0_0, Version.V_3_5_0, Version.V_3_6_0, Version.CURRENT };
+        for (Version version : postV219Versions) {
+            assertEquals(
+                "Expected FAISS for version " + version + " with IN_MEMORY mode",
+                KNNEngine.FAISS,
+                ENGINE_RESOLVER.resolveEngine(
+                    KNNMethodConfigContext.builder().mode(Mode.IN_MEMORY).build(),
+                    new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY, false),
+                    null,
+                    false,
+                    version
+                )
+            );
+        }
+    }
+
+    public void testResolveEngine_when32xCompressionAcrossVersions_thenAlwaysFaiss() {
+        Version[] versions = new Version[] { Version.V_3_5_0, Version.V_3_6_0, Version.CURRENT };
+
+        for (Version version : versions) {
+            assertEquals(
+                "Expected FAISS for version " + version + " with x32 compression",
+                KNNEngine.FAISS,
+                ENGINE_RESOLVER.resolveEngine(
+                    KNNMethodConfigContext.builder().compressionLevel(CompressionLevel.x32).build(),
+                    null,
+                    null,
+                    false,
+                    version
+                )
+            );
+        }
     }
 }
