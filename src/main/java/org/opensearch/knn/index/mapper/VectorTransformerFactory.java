@@ -94,14 +94,16 @@ public final class VectorTransformerFactory {
      * @param fieldInfo field metadata from the Lucene segment
      * @return a {@link VectorTransformer}, possibly {@link #NOOP_VECTOR_TRANSFORMER}
      */
-    public static VectorTransformer getVectorTransformer(final FieldInfo fieldInfo) {
+    public static VectorTransformer getVectorTransformer(final FieldInfo fieldInfo, boolean resolveMethodComponentContext) {
         final KNNEngine engine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
         final SpaceType spaceType = resolveSpaceTypeFromFieldInfo(fieldInfo);
         if (spaceType == null) {
             return NOOP_VECTOR_TRANSFORMER;
         }
-        final MethodComponentContext methodCtx = resolveMethodComponentContextFromFieldInfo(fieldInfo);
-        return getVectorTransformer(engine, spaceType, methodCtx);
+        if(resolveMethodComponentContext) {
+            return getVectorTransformer(engine, spaceType, resolveMethodComponentContextFromFieldInfo(fieldInfo));
+        }
+        return getVectorTransformer(engine, spaceType, null);
     }
 
     private static SpaceType resolveSpaceTypeFromFieldInfo(final FieldInfo fieldInfo) {

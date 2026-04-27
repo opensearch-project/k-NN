@@ -77,7 +77,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer {
         // builder. For Faiss + cosine this yields a normalized stream while BinaryDocValues keep the
         // original vectors untouched. For all other combinations the factory returns a no-op and
         // knnVectorValues is passed through unchanged. See issue #3083.
-        final VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(field);
+        final VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(field, false);
         if (knnVectorValues instanceof KNNFloatVectorValues floatVectorValues) {
             knnVectorValues = transformer.wrap(floatVectorValues);
         } else if (knnVectorValues instanceof KNNByteVectorValues byteVectorValues) {

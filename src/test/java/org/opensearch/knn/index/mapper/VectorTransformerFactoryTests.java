@@ -93,25 +93,25 @@ public class VectorTransformerFactoryTests extends KNNTestCase {
 
     public void testGetVectorTransformer_fromFieldInfo_faissCosine_returnsNormalizer() throws Exception {
         FieldInfo fieldInfo = buildFieldInfoWithParameters(KNNEngine.FAISS, SpaceType.COSINESIMIL, METHOD_HNSW, new HashMap<>());
-        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(fieldInfo);
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(fieldInfo, true);
         assertTrue(transformer instanceof NormalizeVectorTransformer);
     }
 
     public void testGetVectorTransformer_fromFieldInfo_faissL2_returnsNoop() throws Exception {
         FieldInfo fieldInfo = buildFieldInfoWithParameters(KNNEngine.FAISS, SpaceType.L2, METHOD_HNSW, new HashMap<>());
-        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(fieldInfo);
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(fieldInfo, true);
         assertSame(VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER, transformer);
     }
 
     public void testGetVectorTransformer_fromFieldInfo_missingAttributes_returnsNoop() {
         FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test_field").build();
-        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(fieldInfo);
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(fieldInfo, true);
         assertSame(VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER, transformer);
     }
 
     public void testGetVectorTransformer_fromFieldInfo_luceneCosineFlat_returnsNormalizer() throws Exception {
         FieldInfo fieldInfo = buildFieldInfoWithParameters(KNNEngine.LUCENE, SpaceType.COSINESIMIL, METHOD_FLAT, new HashMap<>());
-        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(fieldInfo);
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(fieldInfo, true);
         assertTrue(transformer instanceof NormalizeVectorTransformer);
     }
 
@@ -125,13 +125,13 @@ public class VectorTransformerFactoryTests extends KNNTestCase {
         encoderMap.put(KNNConstants.PARAMETERS, Map.of(LUCENE_SQ_BITS, 1));
         Map<String, Object> hnswParams = new HashMap<>(Map.of(METHOD_ENCODER_PARAMETER, encoderMap));
         FieldInfo fieldInfo = buildFieldInfoWithParameters(KNNEngine.LUCENE, SpaceType.COSINESIMIL, METHOD_HNSW, hnswParams);
-        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(fieldInfo);
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(fieldInfo, true);
         assertTrue(transformer instanceof NormalizeVectorTransformer);
     }
 
     public void testGetVectorTransformer_fromFieldInfo_luceneCosineHnswNoEncoder_returnsNoop() throws Exception {
         FieldInfo fieldInfo = buildFieldInfoWithParameters(KNNEngine.LUCENE, SpaceType.COSINESIMIL, METHOD_HNSW, new HashMap<>());
-        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(fieldInfo);
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(fieldInfo, true);
         assertSame(VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER, transformer);
     }
 
