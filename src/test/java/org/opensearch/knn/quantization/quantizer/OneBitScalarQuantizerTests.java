@@ -397,6 +397,200 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
         assertSame(firstByteArray, thirdByteArray);
     }
 
+    public void testOneBitConfig_producesOneBitPerDimension() {
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
+        assertEquals(1, params.getSqType().getId());
+
+        float[] thresholds8D = new float[8];
+        OneBitScalarQuantizationState state8D = OneBitScalarQuantizationState.builder()
+            .quantizationParams(params)
+            .meanThresholds(thresholds8D)
+            .build();
+        assertEquals(1, state8D.getBytesPerVector());
+        assertEquals(8, state8D.getDimensions());
+
+        float[] thresholds16D = new float[16];
+        OneBitScalarQuantizationState state16D = OneBitScalarQuantizationState.builder()
+            .quantizationParams(params)
+            .meanThresholds(thresholds16D)
+            .build();
+        assertEquals(2, state16D.getBytesPerVector());
+        assertEquals(16, state16D.getDimensions());
+
+        float[] thresholds128D = new float[128];
+        OneBitScalarQuantizationState state128D = OneBitScalarQuantizationState.builder()
+            .quantizationParams(params)
+            .meanThresholds(thresholds128D)
+            .build();
+        assertEquals(16, state128D.getBytesPerVector());
+        assertEquals(128, state128D.getDimensions());
+        // FP32 uses 4 bytes per dimension; 1-bit uses 1 bit per dimension → 32x compression
+        int fp32Bytes = 128 * Float.BYTES;
+        assertEquals(32, fp32Bytes / state128D.getBytesPerVector());
+    }
+
+    public void testOneBitConfig_unalignedDimensions_bytesPerVector() {
+        ScalarQuantizationParams params = ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build();
+
+        float[] thresholds3D = new float[3];
+        OneBitScalarQuantizationState state3D = OneBitScalarQuantizationState.builder()
+            .quantizationParams(params)
+            .meanThresholds(thresholds3D)
+            .build();
+        assertEquals(1, state3D.getBytesPerVector());
+        assertEquals(8, state3D.getDimensions());
+
+        float[] thresholds9D = new float[9];
+        OneBitScalarQuantizationState state9D = OneBitScalarQuantizationState.builder()
+            .quantizationParams(params)
+            .meanThresholds(thresholds9D)
+            .build();
+        assertEquals(2, state9D.getBytesPerVector());
+        assertEquals(16, state9D.getDimensions());
+    }
+
+    public void testOneBitQuantize_roundTripErrorIsBounded() throws IOException {
+        float[][] vectors = {
+            { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f },
+            { 8.0f, 7.0f, 6.0f, 5.0f, 4.0f, 3.0f, 2.0f, 1.0f },
+            { 4.0f, 4.0f, 4.0f, 4.0f, 5.0f, 5.0f, 5.0f, 5.0f },
+            { 1.5f, 3.5f, 5.5f, 7.5f, 2.5f, 4.5f, 6.5f, 8.5f } };
+
+        TrainingRequest<float[]> trainingRequest = new TrainingRequest<float[]>(vectors.length) {
+            @Override
+            public float[] getVectorAtThePosition(int position) {
+                return vectors[position];
+            }
+
+            @Override
+            public void resetVectorValues() {
+                // No-op
+            }
+        };
+
+        OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer();
+        OneBitScalarQuantizationState state = (OneBitScalarQuantizationState) quantizer.train(trainingRequest);
+        float[] thresholds = state.getMeanThresholds();
+
+        BinaryQuantizationOutput output = new BinaryQuantizationOutput(1);
+        for (float[] vector : vectors) {
+            quantizer.quantize(vector, state, output);
+            byte[] quantized = output.getQuantizedVector();
+
+            // Reconstruct: bit=1 → aboveThresholdMean, bit=0 → belowThresholdMean
+            float[] aboveMeans = state.getAboveThresholdMeans();
+            float[] belowMeans = state.getBelowThresholdMeans();
+            float[] reconstructed = new float[vector.length];
+            for (int d = 0; d < vector.length; d++) {
+                int byteIndex = d >> 3;
+                int bitIndex = 7 - (d & 7);
+                boolean bitSet = (quantized[byteIndex] & (1 << bitIndex)) != 0;
+                reconstructed[d] = bitSet ? aboveMeans[d] : belowMeans[d];
+            }
+
+            for (int d = 0; d < vector.length; d++) {
+                float error = Math.abs(vector[d] - reconstructed[d]);
+                float spread = Math.abs(aboveMeans[d] - belowMeans[d]);
+                assertTrue(
+                    "Reconstruction error " + error + " exceeds data spread " + spread + " at dimension " + d,
+                    error <= spread + 1e-6f
+                );
+            }
+        }
+    }
+
+    public void testOneBitQuantize_consistentBitAssignment() throws IOException {
+        float[] thresholds = { 4.0f, 5.0f, 6.0f, 7.0f, 3.0f, 4.0f, 5.0f, 6.0f };
+        OneBitScalarQuantizationState state = OneBitScalarQuantizationState.builder()
+            .quantizationParams(ScalarQuantizationParams.builder().sqType(ScalarQuantizationType.ONE_BIT).build())
+            .meanThresholds(thresholds)
+            .build();
+
+        OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer();
+        BinaryQuantizationOutput output = new BinaryQuantizationOutput(1);
+
+        float[] allAbove = { 5.0f, 6.0f, 7.0f, 8.0f, 4.0f, 5.0f, 6.0f, 7.0f };
+        quantizer.quantize(allAbove, state, output);
+        byte[] result = output.getQuantizedVector();
+        assertEquals("All bits should be 1 → 0xFF", (byte) 0xFF, result[0]);
+
+        float[] allBelow = { 3.0f, 4.0f, 5.0f, 6.0f, 2.0f, 3.0f, 4.0f, 5.0f };
+        output.prepareQuantizedVector(allBelow.length);
+        quantizer.quantize(allBelow, state, output);
+        result = output.getQuantizedVector();
+        assertEquals("All bits should be 0 → 0x00", (byte) 0x00, result[0]);
+    }
+
+    public void testTrain_withSingleVector() throws IOException {
+        float[][] vectors = { { 5.0f, 10.0f, 15.0f } };
+        TrainingRequest<float[]> trainingRequest = new TrainingRequest<float[]>(vectors.length) {
+            @Override
+            public float[] getVectorAtThePosition(int position) {
+                return vectors[position];
+            }
+
+            @Override
+            public void resetVectorValues() {
+                // No-op
+            }
+        };
+
+        OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer();
+        OneBitScalarQuantizationState state = (OneBitScalarQuantizationState) quantizer.train(trainingRequest);
+        assertNotNull(state);
+        assertNotNull(state.getMeanThresholds());
+        assertEquals(3, state.getMeanThresholds().length);
+        assertArrayEquals(new float[] { 5.0f, 10.0f, 15.0f }, state.getMeanThresholds(), 0.001f);
+    }
+
+    public void testTrain_withLargeNumberOfVectors() throws IOException {
+        int numVectors = 1000;
+        int dimensions = 64;
+        float[][] vectors = new float[numVectors][dimensions];
+        for (int i = 0; i < numVectors; i++) {
+            for (int d = 0; d < dimensions; d++) {
+                vectors[i][d] = (float) (i * dimensions + d) / (numVectors * dimensions);
+            }
+        }
+
+        TrainingRequest<float[]> trainingRequest = new TrainingRequest<float[]>(vectors.length) {
+            @Override
+            public float[] getVectorAtThePosition(int position) {
+                return vectors[position];
+            }
+
+            @Override
+            public void resetVectorValues() {
+                // No-op
+            }
+        };
+
+        OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer();
+        OneBitScalarQuantizationState state = (OneBitScalarQuantizationState) quantizer.train(trainingRequest);
+        assertNotNull(state);
+        float[] thresholds = state.getMeanThresholds();
+        assertEquals(dimensions, thresholds.length);
+        assertEquals(8, state.getBytesPerVector());
+    }
+
+    public void testTrain_withEmptyVectorSet_throwsException() {
+        float[][] vectors = {};
+        TrainingRequest<float[]> trainingRequest = new TrainingRequest<float[]>(vectors.length) {
+            @Override
+            public float[] getVectorAtThePosition(int position) {
+                return vectors[position];
+            }
+
+            @Override
+            public void resetVectorValues() {
+                // No-op
+            }
+        };
+
+        OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer();
+        expectThrows(IllegalArgumentException.class, () -> quantizer.train(trainingRequest));
+    }
+
     public void testQuantize_withMultipleVectors_inLoop() throws IOException {
         OneBitScalarQuantizer oneBitQuantizer = new OneBitScalarQuantizer();
         float[][] vectors = { { 1.0f, 2.0f, 3.0f, 4.0f }, { 2.0f, 3.0f, 4.0f, 5.0f }, { 1.5f, 2.5f, 3.5f, 4.5f } };

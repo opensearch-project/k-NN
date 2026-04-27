@@ -13,6 +13,7 @@ import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.tests.util.LuceneTestCase.AwaitsFix;
 import org.junit.Assert;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -2548,6 +2549,204 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             buildParserContext(indexName, settings)
         );
         assertNotNull(builder3);
+    }
+
+    @SneakyThrows
+    public void testTypeParser_whenInvalidCompressionLevel_thenReject() {
+        int dimension = 16;
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder invalidCompressionBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, "99x")
+            .endObject();
+        expectThrows(
+            MapperParsingException.class,
+            () -> typeParser.parse(
+                TEST_FIELD_NAME,
+                xContentBuilderToMap(invalidCompressionBuilder),
+                buildParserContext(TEST_INDEX_NAME, settings)
+            )
+        );
+
+        XContentBuilder numericCompressionBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, 32)
+            .endObject();
+        expectThrows(
+            MapperParsingException.class,
+            () -> typeParser.parse(
+                TEST_FIELD_NAME,
+                xContentBuilderToMap(numericCompressionBuilder),
+                buildParserContext(TEST_INDEX_NAME, settings)
+            )
+        );
+
+        XContentBuilder emptyCompressionBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, "")
+            .endObject();
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(emptyCompressionBuilder),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        assertEquals(CompressionLevel.NOT_CONFIGURED, CompressionLevel.fromName(builder.getOriginalParameters().getCompressionLevel()));
+    }
+
+    @SneakyThrows
+    public void testTypeParser_whenCompression1x_thenFP32NoQuantization() {
+        int dimension = 16;
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder x1Builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x1.getName())
+            .endObject();
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(x1Builder),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        assertEquals(CompressionLevel.x1, CompressionLevel.fromName(builder.getOriginalParameters().getCompressionLevel()));
+        assertEquals(CompressionLevel.x1, builder.getKnnMethodConfigContext().getCompressionLevel());
+
+        XContentBuilder x1InMemoryBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x1.getName())
+            .field(MODE_PARAMETER, Mode.IN_MEMORY.getName())
+            .endObject();
+        builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(x1InMemoryBuilder),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        validateBuilderAfterParsing(
+            builder,
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            VectorDataType.FLOAT,
+            CompressionLevel.x1,
+            CompressionLevel.x1,
+            Mode.IN_MEMORY,
+            false
+        );
+    }
+
+    @SneakyThrows
+    public void testTypeParser_whenEncoderFlat_thenFP32NoQuantization() {
+        int dimension = 16;
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder flatEncoderBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, "flat")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(flatEncoderBuilder),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        assertEquals(CompressionLevel.x1, builder.getKnnMethodConfigContext().getCompressionLevel());
+        assertFalse(builder.getOriginalParameters().isLegacyMapping());
+    }
+
+    @SneakyThrows
+    public void testTypeParser_whenOnDiskWith32xCompression_thenSuccess() {
+        int dimension = 16;
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder onDisk32xBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x32.getName())
+            .endObject();
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(onDisk32xBuilder),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        validateBuilderAfterParsing(
+            builder,
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            VectorDataType.FLOAT,
+            CompressionLevel.x32,
+            CompressionLevel.x32,
+            Mode.ON_DISK,
+            true
+        );
+    }
+
+    @SneakyThrows
+    public void testTypeParser_whenInMemoryWith1xCompression_thenSuccess() {
+        int dimension = 16;
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder inMemory1xBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(MODE_PARAMETER, Mode.IN_MEMORY.getName())
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x1.getName())
+            .endObject();
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(inMemory1xBuilder),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        validateBuilderAfterParsing(
+            builder,
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            VectorDataType.FLOAT,
+            CompressionLevel.x1,
+            CompressionLevel.x1,
+            Mode.IN_MEMORY,
+            false
+        );
+    }
+
+    @AwaitsFix(bugUrl = "https://github.com/opensearch-project/k-NN/issues/3290")
+    public void testModeDeprecationWarning_placeholder() {
+        // TODO: [DEFAULT_FLIP] After Step 4, mode parameter is deprecated and derived from compression_level.
+        // Add warning assertions here to verify that:
+        // - Using mode=on_disk emits a deprecation warning after 3.7.0
+        // - Using mode=in_memory emits a deprecation warning after 3.7.0
+        // - compression_level alone (without mode) does not emit a deprecation warning
+        // - mode is correctly inferred from compression_level: x32 → on_disk behavior, x1 → in_memory behavior
     }
 
     private void validateBuilderAfterParsing(
