@@ -290,6 +290,7 @@ publishing {
 
 compileJava {
     options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
+    options.compilerArgs.addAll(['--add-modules', 'jdk.incubator.vector'])
 
     // Since MemorySegment is not available until JDK22, exclude it when packaging and only include it for Java22+.
     def javaExt = project.extensions.getByType(JavaPluginExtension)
@@ -299,6 +300,7 @@ compileJava {
 }
 compileTestJava {
     options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
+    options.compilerArgs.addAll(['--add-modules', 'jdk.incubator.vector'])
 }
 javadoc {
     // Block generating Java doc as it will complain MemorySegment is under preview for Java21.
