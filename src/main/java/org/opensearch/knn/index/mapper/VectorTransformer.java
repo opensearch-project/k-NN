@@ -4,6 +4,9 @@
  */
 package org.opensearch.knn.index.mapper;
 
+import org.opensearch.knn.index.vectorvalues.KNNByteVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
+
 /**
  * Defines operations for transforming vectors in the k-NN search context.
  * Implementations can modify vectors while preserving their dimensional properties
@@ -34,5 +37,30 @@ public interface VectorTransformer {
         if (vector == null) {
             throw new IllegalArgumentException("Input vector cannot be null");
         }
+    }
+
+    /**
+     * Wraps a {@link KNNFloatVectorValues} stream so that each vector returned by {@code getVector()}
+     * is transformed on demand. Default implementation is a pass-through.
+     *
+     * <p>Used by codec-layer components (e.g. {@code KNN80DocValuesConsumer}) to apply vector
+     * transformations to the stream of vectors fed into native index builders, without mutating
+     * the original vectors stored in {@code BinaryDocValues}.
+     *
+     * @param delegate the underlying stream of float vectors
+     * @return a stream that applies the transformation on the fly; returns {@code delegate} unchanged
+     *         for no-op implementations
+     */
+    default KNNFloatVectorValues wrap(final KNNFloatVectorValues delegate) {
+        return delegate;
+    }
+
+    /**
+     * Wraps a {@link KNNByteVectorValues} stream. Default implementation is a pass-through.
+     * Kept symmetric with {@link #wrap(KNNFloatVectorValues)} so callers can apply transformations
+     * uniformly regardless of the vector element type.
+     */
+    default KNNByteVectorValues wrap(final KNNByteVectorValues delegate) {
+        return delegate;
     }
 }

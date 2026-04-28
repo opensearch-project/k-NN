@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 
 ### Bug Fixes
+* Preserve original (unnormalized) vectors in doc values for Faiss + cosine similarity so that derived source returns the user-indexed vector [#3083](https://github.com/opensearch-project/k-NN/issues/3083)
 
 ### Refactoring
 

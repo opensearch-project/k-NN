@@ -19,6 +19,10 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.mapper.VectorTransformer;
+import org.opensearch.knn.index.mapper.VectorTransformerFactory;
+import org.opensearch.knn.index.vectorvalues.KNNByteVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
@@ -67,14 +71,26 @@ class KNN80DocValuesConsumer extends DocValuesConsumer {
 
     public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge) throws IOException {
         final VectorDataType vectorDataType = extractVectorDataType(field);
-        final KNNVectorValues<?> knnVectorValues = KNNVectorValuesFactory.getVectorValues(vectorDataType, valuesProducer.getBinary(field));
+        KNNVectorValues<?> knnVectorValues = KNNVectorValuesFactory.getVectorValues(vectorDataType, valuesProducer.getBinary(field));
 
+        // Apply the field-configured VectorTransformer to the stream of vectors fed into the native
+        // builder. For Faiss + cosine this yields a normalized stream while BinaryDocValues keep the
+        // original vectors untouched. For all other combinations the factory returns a no-op and
+        // knnVectorValues is passed through unchanged. See issue #3083.
+        final VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(field, false);
+        if (knnVectorValues instanceof KNNFloatVectorValues floatVectorValues) {
+            knnVectorValues = transformer.wrap(floatVectorValues);
+        } else if (knnVectorValues instanceof KNNByteVectorValues byteVectorValues) {
+            knnVectorValues = transformer.wrap(byteVectorValues);
+        }
+
+        final KNNVectorValues<?> finalVectorValues = knnVectorValues;
         // For BDV it is fine to use knnVectorValues.totalLiveDocs() as we already run the full loop to calculate total
         // live docs
         if (isMerge) {
-            NativeIndexWriter.getWriter(field, state).mergeIndex(() -> knnVectorValues, (int) knnVectorValues.totalLiveDocs());
+            NativeIndexWriter.getWriter(field, state).mergeIndex(() -> finalVectorValues, (int) finalVectorValues.totalLiveDocs());
         } else {
-            NativeIndexWriter.getWriter(field, state).flushIndex(() -> knnVectorValues, (int) knnVectorValues.totalLiveDocs());
+            NativeIndexWriter.getWriter(field, state).flushIndex(() -> finalVectorValues, (int) finalVectorValues.totalLiveDocs());
         }
     }
 

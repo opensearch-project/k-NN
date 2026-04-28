@@ -6,6 +6,12 @@
 package org.opensearch.knn.index.mapper;
 
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.knn.index.vectorvalues.NormalizingKNNFloatVectorValues;
+import org.opensearch.knn.index.vectorvalues.TestVectorValues;
+
+import java.util.List;
 
 public class NormalizeVectorTransformerTests extends KNNTestCase {
     private final NormalizeVectorTransformer transformer = new NormalizeVectorTransformer();
@@ -50,6 +56,19 @@ public class NormalizeVectorTransformerTests extends KNNTestCase {
 
         // Verify the magnitude is 1
         assertEquals(1.0f, calculateMagnitude(transformedVector), DELTA);
+    }
+
+    public void testWrap_returnsNormalizingKNNFloatVectorValues() throws Exception {
+        KNNVectorValues<?> delegate = TestVectorValues.createKNNFloatVectorValues(List.of(new float[] { -3.0f, 4.0f }));
+        KNNFloatVectorValues wrapped = transformer.wrap((KNNFloatVectorValues) delegate);
+
+        assertTrue(wrapped instanceof NormalizingKNNFloatVectorValues);
+
+        wrapped.nextDoc();
+        float[] normalized = wrapped.getVector();
+        assertEquals(-0.6f, normalized[0], DELTA);
+        assertEquals(0.8f, normalized[1], DELTA);
+        assertEquals(1.0f, calculateMagnitude(normalized), DELTA);
     }
 
     private float calculateMagnitude(float[] vector) {

@@ -818,5 +818,315 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             );
         }
     }
+    /**
+     * Test that Faiss + cosinesimil + derived source returns original (non-normalized) vectors in _source.
+     * When cosine similarity is used with Faiss engine, vectors are L2-normalized at index time.
+     * With derived source enabled, the _source should still return the original vectors by using
+     * the stored norm to denormalize.
+     */
+    @SneakyThrows
+    public void testCosineSimDerivedSourceReturnsOriginalVector() {
+        String indexEnabled = "cosine-derived-enabled";
+        String indexDisabled = "cosine-derived-disabled";
+        String fieldName = "test_vector";
+        int dimension = 8;
+        int docCount = 10;
+
+        String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(fieldName)
+                .field("type", "knn_vector")
+                .field("dimension", dimension)
+                .startObject("method")
+                .field("engine", "faiss")
+                .field("space_type", "cosinesimil")
+                .field("name", "hnsw")
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
+
+        // Create index with derived source enabled
+        createKnnIndex(
+                indexEnabled,
+                Settings.builder().put("index.knn", true).put("index.knn.derived_source.enabled", true).build(),
+                mapping
+        );
+        // Create index with derived source disabled (baseline)
+        createKnnIndex(
+                indexDisabled,
+                Settings.builder().put("index.knn", true).put("index.knn.derived_source.enabled", false).build(),
+                mapping
+        );
+
+        // Index documents with non-unit vectors
+        Random random = new Random(42);
+        float[][] originalVectors = new float[docCount][dimension];
+        for (int i = 0; i < docCount; i++) {
+            for (int j = 0; j < dimension; j++) {
+                originalVectors[i][j] = random.nextFloat() * 10 - 5; // range [-5, 5]
+            }
+            Float[] vector = new Float[dimension];
+            for (int j = 0; j < dimension; j++) {
+                vector[j] = originalVectors[i][j];
+            }
+            addKnnDoc(indexEnabled, String.valueOf(i), fieldName, vector);
+            addKnnDoc(indexDisabled, String.valueOf(i), fieldName, vector);
+        }
+
+        refreshAllIndices();
+
+        // Verify _source returns original vectors (not normalized) for both indices
+        for (int i = 0; i < docCount; i++) {
+            Map<String, Object> sourceEnabled = getKnnDoc(indexEnabled, String.valueOf(i));
+            Map<String, Object> sourceDisabled = getKnnDoc(indexDisabled, String.valueOf(i));
+
+            List<Double> sourceVectorEnabled = (List<Double>) sourceEnabled.get(fieldName);
+            List<Double> sourceVectorDisabled = (List<Double>) sourceDisabled.get(fieldName);
+
+            assertNotNull("Derived source enabled: vector should not be null for doc " + i, sourceVectorEnabled);
+            assertNotNull("Derived source disabled: vector should not be null for doc " + i, sourceVectorDisabled);
+            assertEquals(dimension, sourceVectorEnabled.size());
+
+            // Compare with original vector. Normalization now happens only on the native index build path,
+            // so BinaryDocValues keep the user-indexed vectors bit-for-bit.
+            for (int j = 0; j < dimension; j++) {
+                assertEquals(
+                        "Doc " + i + " dim " + j + ": derived source vector should match original",
+                        originalVectors[i][j],
+                        sourceVectorEnabled.get(j).floatValue(),
+                        0.0f
+                );
+            }
+        }
+
+        // Verify after force merge (reads from segment doc values, not translog)
+        forceMergeKnnIndex(indexEnabled, 1);
+        refreshAllIndices();
+
+        for (int i = 0; i < docCount; i++) {
+            Map<String, Object> sourceEnabled = getKnnDoc(indexEnabled, String.valueOf(i));
+            List<Double> sourceVector = (List<Double>) sourceEnabled.get(fieldName);
+
+            for (int j = 0; j < dimension; j++) {
+                assertEquals(
+                        "After merge - Doc " + i + " dim " + j + ": derived source vector should match original",
+                        originalVectors[i][j],
+                        sourceVector.get(j).floatValue(),
+                        0.0f
+                );
+            }
+        }
+
+        deleteKNNIndex(indexEnabled);
+        deleteKNNIndex(indexDisabled);
+    }
+
+    /**
+     * Test that Faiss + cosinesimil + derived source correctly rejects zero vectors at index time.
+     * A zero vector has L2 norm of 0, which makes cosine similarity undefined.
+     * Both derived-source-enabled and disabled indices should reject zero vectors consistently.
+     * Also verifies that normal vectors indexed alongside the rejection attempt are unaffected.
+     */
+    @SneakyThrows
+    public void testCosineSimDerivedSourceWithZeroVector() {
+        String indexEnabled = "cosine-derived-zero-enabled";
+        String indexDisabled = "cosine-derived-zero-disabled";
+        String fieldName = "test_vector";
+        int dimension = 8;
+
+        String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(fieldName)
+                .field("type", "knn_vector")
+                .field("dimension", dimension)
+                .startObject("method")
+                .field("engine", "faiss")
+                .field("space_type", "cosinesimil")
+                .field("name", "hnsw")
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
+
+        createKnnIndex(
+                indexEnabled,
+                Settings.builder().put("index.knn", true).put("index.knn.derived_source.enabled", true).build(),
+                mapping
+        );
+        createKnnIndex(
+                indexDisabled,
+                Settings.builder().put("index.knn", true).put("index.knn.derived_source.enabled", false).build(),
+                mapping
+        );
+
+        // Zero vector should be rejected for cosinesimil
+        Float[] zeroVector = new Float[dimension];
+        for (int j = 0; j < dimension; j++) {
+            zeroVector[j] = 0.0f;
+        }
+
+        ResponseException enabledEx = expectThrows(
+                ResponseException.class,
+                () -> addKnnDoc(indexEnabled, "0", fieldName, zeroVector)
+        );
+        assertTrue(
+                "Derived enabled: should reject zero vector for cosinesimil",
+                enabledEx.getMessage().contains("zero vector is not supported")
+        );
+
+        ResponseException disabledEx = expectThrows(
+                ResponseException.class,
+                () -> addKnnDoc(indexDisabled, "0", fieldName, zeroVector)
+        );
+        assertTrue(
+                "Derived disabled: should reject zero vector for cosinesimil",
+                disabledEx.getMessage().contains("zero vector is not supported")
+        );
+
+        // Normal vectors should still work after the rejection
+        Float[] normalVector = new Float[] { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+        addKnnDoc(indexEnabled, "1", fieldName, normalVector);
+        addKnnDoc(indexDisabled, "1", fieldName, normalVector);
+
+        refreshAllIndices();
+
+        Map<String, Object> sourceEnabled = getKnnDoc(indexEnabled, "1");
+        List<Double> vectorEnabled = (List<Double>) sourceEnabled.get(fieldName);
+        assertNotNull("Normal vector should be retrievable after zero vector rejection", vectorEnabled);
+        assertEquals(dimension, vectorEnabled.size());
+        for (int j = 0; j < dimension; j++) {
+            assertEquals(
+                    "Normal vector dim " + j + " should match original",
+                    normalVector[j],
+                    vectorEnabled.get(j).floatValue(),
+                    0.0f
+            );
+        }
+
+        // Verify after force merge
+        forceMergeKnnIndex(indexEnabled, 1);
+        refreshAllIndices();
+
+        Map<String, Object> mergedSource = getKnnDoc(indexEnabled, "1");
+        List<Double> mergedVector = (List<Double>) mergedSource.get(fieldName);
+        for (int j = 0; j < dimension; j++) {
+            assertEquals(
+                    "After merge - normal vector dim " + j + " should match original",
+                    normalVector[j],
+                    mergedVector.get(j).floatValue(),
+                    0.0f
+            );
+        }
+
+        deleteKNNIndex(indexEnabled);
+        deleteKNNIndex(indexDisabled);
+    }
+
+    /**
+     * Test that merging segments with different norm doc values correctly reconstructs _source.
+     * Scenario: two separate flushes create two segments each with their own norm doc values,
+     * then a force merge combines them into one segment. After merge, _source reconstruction
+     * must still return the original (non-normalized) vectors for documents from both segments.
+     */
+    @SneakyThrows
+    public void testCosineSimDerivedSourceMultiSegmentMerge() {
+        String indexName = "cosine-derived-multi-segment";
+        String fieldName = "test_vector";
+        int dimension = 8;
+
+        String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(fieldName)
+                .field("type", "knn_vector")
+                .field("dimension", dimension)
+                .startObject("method")
+                .field("engine", "faiss")
+                .field("space_type", "cosinesimil")
+                .field("name", "hnsw")
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
+
+        createKnnIndex(
+                indexName,
+                Settings.builder().put("index.knn", true).put("index.knn.derived_source.enabled", true).build(),
+                mapping
+        );
+
+        Random random = new Random(42);
+        int docsPerSegment = 5;
+        float[][] allVectors = new float[docsPerSegment * 2][dimension];
+
+        // Segment 1: index first batch and flush
+        for (int i = 0; i < docsPerSegment; i++) {
+            for (int j = 0; j < dimension; j++) {
+                allVectors[i][j] = random.nextFloat() * 10 - 5;
+            }
+            Float[] vector = new Float[dimension];
+            for (int j = 0; j < dimension; j++) {
+                vector[j] = allVectors[i][j];
+            }
+            addKnnDoc(indexName, String.valueOf(i), fieldName, vector);
+        }
+        flushIndex(indexName);
+
+        // Segment 2: index second batch and flush
+        for (int i = docsPerSegment; i < docsPerSegment * 2; i++) {
+            for (int j = 0; j < dimension; j++) {
+                allVectors[i][j] = random.nextFloat() * 10 - 5;
+            }
+            Float[] vector = new Float[dimension];
+            for (int j = 0; j < dimension; j++) {
+                vector[j] = allVectors[i][j];
+            }
+            addKnnDoc(indexName, String.valueOf(i), fieldName, vector);
+        }
+        flushIndex(indexName);
+
+        // Verify _source before merge (each segment has its own norm doc values)
+        refreshAllIndices();
+        for (int i = 0; i < docsPerSegment * 2; i++) {
+            Map<String, Object> source = getKnnDoc(indexName, String.valueOf(i));
+            List<Double> sourceVector = (List<Double>) source.get(fieldName);
+            assertNotNull("Before merge: vector should not be null for doc " + i, sourceVector);
+            for (int j = 0; j < dimension; j++) {
+                assertEquals(
+                        "Before merge - Doc " + i + " dim " + j,
+                        allVectors[i][j],
+                        sourceVector.get(j).floatValue(),
+                        0.0f
+                );
+            }
+        }
+
+        // Force merge into a single segment
+        forceMergeKnnIndex(indexName, 1);
+        refreshAllIndices();
+
+        // Verify _source after merge (norm doc values from both segments must be preserved)
+        for (int i = 0; i < docsPerSegment * 2; i++) {
+            Map<String, Object> source = getKnnDoc(indexName, String.valueOf(i));
+            List<Double> sourceVector = (List<Double>) source.get(fieldName);
+            assertNotNull("After merge: vector should not be null for doc " + i, sourceVector);
+            for (int j = 0; j < dimension; j++) {
+                assertEquals(
+                        "After merge - Doc " + i + " dim " + j,
+                        allVectors[i][j],
+                        sourceVector.get(j).floatValue(),
+                        0.0f
+                );
+            }
+        }
+
+        deleteKNNIndex(indexName);
+    }
 
 }

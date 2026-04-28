@@ -789,7 +789,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
             final float[] array = floatsArrayOptional.get();
             getVectorValidator().validateVector(array);
-            getVectorTransformer().transform(array, true);
+            // Intentionally NOT normalizing the vector here even for Faiss+cosine. Normalization for Faiss
+            // cosine is deferred to the native index build path so that BinaryDocValues keeps the original
+            // (unnormalized) vectors. See issue #3083 for context.
             context.doc().addAll(getFieldsForFloatVector(array, isDerivedEnabled(context)));
         } else {
             throw new IllegalArgumentException(

@@ -7,10 +7,22 @@ package org.opensearch.knn.index.mapper;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.lucene.index.FieldInfo;
+import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.core.common.bytes.BytesArray;
+import org.opensearch.core.xcontent.DeprecationHandler;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.knn.common.FieldInfoExtractor;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelUtil;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
@@ -53,6 +65,96 @@ public final class VectorTransformerFactory {
         final MethodComponentContext methodComponentContext
     ) {
         return shouldNormalizeVector(knnEngine, spaceType, methodComponentContext) ? DEFAULT_VECTOR_TRANSFORMER : NOOP_VECTOR_TRANSFORMER;
+    }
+
+    /**
+     * Returns the {@link VectorTransformer} for a field by reading the required metadata directly
+     * from the {@link FieldInfo}. Intended for codec-layer callers that do not have access to a
+     * resolved {@link MethodComponentContext}.
+     *
+     * <p>Space type resolution:
+     * <ul>
+     *   <li>Primary source: {@link FieldInfo#getAttribute(String)} with key {@link KNNConstants#SPACE_TYPE}.</li>
+     *   <li>Fallback: {@link ModelMetadata#getSpaceType()} via {@link ModelUtil#getModelMetadata(String)} when
+     *       the field is model-based. Reads cluster state (no network I/O).</li>
+     * </ul>
+     *
+     * <p>{@link MethodComponentContext} resolution:
+     * <ul>
+     *   <li>Primary source: {@link FieldInfo#getAttribute(String)} with key {@link KNNConstants#PARAMETERS}.
+     *       The attribute value is the JSON serialization of
+     *       {@code KNNLibraryIndexingContext.getLibraryParameters()} and is parsed back into a
+     *       {@link MethodComponentContext} so that Lucene-specific normalization conditions
+     *       (flat / SQ 1-bit) are evaluated identically to the query-time path.</li>
+     *   <li>Fallback: {@link ModelMetadata#getMethodComponentContext()} for model-based fields.</li>
+     *   <li>If neither is available (e.g. legacy fields without the PARAMETERS attribute), {@code null}
+     *       is used and Lucene-specific conditions are skipped.</li>
+     * </ul>
+     *
+     * @param fieldInfo field metadata from the Lucene segment
+     *
+     * @return a {@link VectorTransformer}, possibly {@link #NOOP_VECTOR_TRANSFORMER}
+     */
+    public static VectorTransformer getVectorTransformer(final FieldInfo fieldInfo, boolean resolveMethodComponentContext) {
+        final KNNEngine engine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
+        final SpaceType spaceType = resolveSpaceTypeFromFieldInfo(fieldInfo);
+        if (spaceType == null) {
+            return NOOP_VECTOR_TRANSFORMER;
+        }
+        if(resolveMethodComponentContext) {
+            return getVectorTransformer(engine, spaceType, resolveMethodComponentContextFromFieldInfo(fieldInfo));
+        }
+        return getVectorTransformer(engine, spaceType, null);
+    }
+
+    private static SpaceType resolveSpaceTypeFromFieldInfo(final FieldInfo fieldInfo) {
+        final String spaceTypeStr = fieldInfo.getAttribute(KNNConstants.SPACE_TYPE);
+        if (StringUtils.isNotEmpty(spaceTypeStr)) {
+            return SpaceType.getSpace(spaceTypeStr);
+        }
+        final String modelId = fieldInfo.getAttribute(KNNConstants.MODEL_ID);
+        if (StringUtils.isNotEmpty(modelId)) {
+            final ModelMetadata metadata = ModelUtil.getModelMetadata(modelId);
+            return metadata != null ? metadata.getSpaceType() : null;
+        }
+        return null;
+    }
+
+    private static MethodComponentContext resolveMethodComponentContextFromFieldInfo(final FieldInfo fieldInfo) {
+        final String parametersString = fieldInfo.getAttribute(KNNConstants.PARAMETERS);
+        if (StringUtils.isNotEmpty(parametersString)) {
+            try {
+                final Map<String, Object> parsed = XContentHelper.createParser(
+                    NamedXContentRegistry.EMPTY,
+                    DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                    new BytesArray(parametersString),
+                    MediaTypeRegistry.getDefaultMediaType()
+                ).map();
+                // The JSON written by EngineFieldMapper contains top-level keys beyond NAME/PARAMETERS
+                // (e.g. space_type, vector_data_type, index_description). MethodComponentContext.parse
+                // rejects unknown keys, so we narrow down to the two fields it understands before parsing.
+                final Map<String, Object> methodMap = new HashMap<>();
+                if (parsed.containsKey(KNNConstants.NAME)) {
+                    methodMap.put(KNNConstants.NAME, parsed.get(KNNConstants.NAME));
+                }
+                if (parsed.containsKey(KNNConstants.PARAMETERS)) {
+                    methodMap.put(KNNConstants.PARAMETERS, parsed.get(KNNConstants.PARAMETERS));
+                }
+                if (!methodMap.isEmpty()) {
+                    return MethodComponentContext.parse(methodMap);
+                }
+            } catch (Exception e) {
+                // If parsing fails for any reason, fall through to other resolution paths.
+            }
+        }
+        final String modelId = fieldInfo.getAttribute(KNNConstants.MODEL_ID);
+        if (StringUtils.isNotEmpty(modelId)) {
+            final ModelMetadata metadata = ModelUtil.getModelMetadata(modelId);
+            if (metadata != null && metadata.getMethodComponentContext() != null) {
+                return metadata.getMethodComponentContext();
+            }
+        }
+        return null;
     }
 
     private static boolean shouldNormalizeVector(
