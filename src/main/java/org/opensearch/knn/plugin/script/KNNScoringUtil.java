@@ -5,10 +5,6 @@
 
 package org.opensearch.knn.plugin.script;
 
-import java.math.BigInteger;
-import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.util.VectorUtil;
@@ -16,10 +12,74 @@ import org.opensearch.knn.index.KNNVectorScriptDocValues;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.math.BigInteger;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
 
 public class KNNScoringUtil {
     private static Logger logger = LogManager.getLogger(KNNScoringUtil.class);
+
+    /**
+     * ADC computation strategy (SIMD or scalar).
+     */
+    @FunctionalInterface
+    private interface ADCOperator {
+        float compute(float[] queryVector, byte[] inputVector);
+    }
+
+    private static final ADCOperator L2_SQUARED_ADC_FUNC;
+    private static final ADCOperator INNER_PRODUCT_ADC_FUNC;
+
+    static {
+        MethodHandle l2Handle = null;
+        MethodHandle ipHandle = null;
+        try {
+            // Check if the Vector API module is available at runtime.
+            Class.forName("jdk.incubator.vector.FloatVector");
+
+            // Use reflection to load SIMD class to avoid direct dependency and ClassLoader errors when Vector API is disabled.
+            Class<?> simdClass = Class.forName("org.opensearch.knn.plugin.script.KNNScoringUtilSIMD");
+            MethodHandles.Lookup lookup = MethodHandles.lookup();
+
+            l2Handle = lookup.findStatic(
+                    simdClass,
+                    "l2SquaredADC",
+                    MethodType.methodType(float.class, float[].class, byte[].class)
+            );
+            ipHandle = lookup.findStatic(
+                    simdClass,
+                    "innerProductADC",
+                    MethodType.methodType(float.class, float[].class, byte[].class)
+            );
+        } catch (Throwable t) {
+            // Fallback to scalar implementation if Vector API module or SIMD class is unavailable.
+            logger.warn("SIMD Vector API not available, falling back to scalar ADC computation");
+        }
+        final MethodHandle finalL2 = l2Handle;
+        final MethodHandle finalIP = ipHandle;
+
+        L2_SQUARED_ADC_FUNC = (finalL2 != null) ? (queryVector, inputVector) -> {
+            try {
+                return (float) finalL2.invokeExact(queryVector, inputVector);
+            } catch (Throwable t) {
+                throw new AssertionError("SIMD l2SquaredADC failed unexpectedly", t);
+            }
+        } : KNNScoringUtil::l2SquaredADCScalar;
+
+        INNER_PRODUCT_ADC_FUNC = (finalIP != null) ? (queryVector, inputVector) -> {
+            try {
+                return (float) finalIP.invokeExact(queryVector, inputVector);
+            } catch (Throwable t) {
+                throw new AssertionError("SIMD innerProductADC failed unexpectedly", t);
+            }
+        } : KNNScoringUtil::innerProductADCScalar;
+    }
 
     /**
      * checks both query vector and input vector has equal dimension
@@ -112,13 +172,9 @@ public class KNNScoringUtil {
     }
 
     /**
-     * Calculates the L2 squared distance between a float query vector and a binary document vector using ADC (Asymmetric Distance Computation).
-     * This method implements a specialized version of L2 distance calculation where one vector is in binary format (compressed)
-     * and the other is in float format (uncompressed).
-     *
-     * TODO: For now this will be very inefficient. We can in the future optimize through the following:
-     * Use FloatVector.SPECIES_PREFERRED for SIMD processing in chunks with reduceLanes(),
-     * Configure build.gradle with --add-modules jdk.incubator.vector --enable-preview flags into the VectorUtils class.
+     * Calculates the L2 squared distance between a float query vector and a binary document vector using ADC.
+     * Attempts to use SIMD (FloatVector.SPECIES_PREFERRED) for vectorized processing.
+     * If SIMD is unavailable, disabled, or fails at runtime, it falls back to a scalar implementation.
      *
      * @param queryVector The uncompressed query vector in float format
      * @param inputVector The compressed document vector in binary format, where each bit represents a dimension
@@ -126,8 +182,13 @@ public class KNNScoringUtil {
      * @throws IllegalArgumentException if queryVector length is not compatible with inputVector length (queryVector.length != inputVector.length * 8)
      */
     public static float l2SquaredADC(float[] queryVector, byte[] inputVector) {
-        // we cannot defer to VectorUtil as it does not support ADC.
-        // TODO: add batching logic similar to C++ to improve performance.
+        if (queryVector.length != inputVector.length * 8) {
+            throw new IllegalArgumentException("queryVector.length must equal inputVector.length * 8");
+        }
+        return L2_SQUARED_ADC_FUNC.compute(queryVector, inputVector);
+    }
+
+    public static float l2SquaredADCScalar(float[] queryVector, byte[] inputVector) {
         float score = 0;
 
         for (int i = 0; i < queryVector.length; ++i) {
@@ -143,16 +204,12 @@ public class KNNScoringUtil {
     }
 
     /**
-     * Calculates the inner product similarity between a float query vector and a binary document vector using ADC
-     * (Asymmetric Distance Computation). This method is useful for similarity searches where one vector is compressed
-     * in binary format and the other remains in float format.
+     * Calculates the inner product similarity between a float query vector and a binary document vector using ADC.
+     * Attempts to use SIMD (FloatVector.SPECIES_PREFERRED) for vectorized processing.
+     * If SIMD is unavailable, disabled, or fails at runtime, it falls back to a scalar implementation.
      *
      * The inner product is calculated by summing the products of corresponding elements, where the binary vector's
      * elements are interpreted as 0 or 1.
-     *
-     * TODO: For now this will be very inefficient. We can in the future optimize through the following:
-     * Use FloatVector.SPECIES_PREFERRED for SIMD processing in chunks with reduceLanes(),
-     * Configure build.gradle with --add-modules jdk.incubator.vector --enable-preview flags into the VectorUtils class.
      *
      * @param queryVector The uncompressed query vector in float format
      * @param inputVector The compressed document vector in binary format, where each bit represents a dimension
@@ -160,6 +217,13 @@ public class KNNScoringUtil {
      * @throws IllegalArgumentException if queryVector length is not compatible with inputVector length (queryVector.length != inputVector.length * 8)
      */
     public static float innerProductADC(float[] queryVector, byte[] inputVector) {
+        if(queryVector.length != inputVector.length * 8) {
+            throw new IllegalArgumentException("queryVector.length must equal inputVector.length * 8");
+        }
+        return INNER_PRODUCT_ADC_FUNC.compute(queryVector, inputVector);
+    }
+
+    public static float innerProductADCScalar(float[] queryVector, byte[] inputVector) {
         float score = 0;
 
         for (int i = 0; i < queryVector.length; ++i) {

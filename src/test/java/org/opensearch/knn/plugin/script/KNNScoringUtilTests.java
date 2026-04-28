@@ -5,8 +5,11 @@
 
 package org.opensearch.knn.plugin.script;
 
-import java.util.Arrays;
-import java.util.Locale;
+import org.apache.lucene.document.BinaryDocValuesField;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.index.*;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.tests.analysis.MockAnalyzer;
 import org.apache.lucene.util.BytesRef;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -15,26 +18,18 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNVectorScriptDocValues;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.apache.lucene.tests.analysis.MockAnalyzer;
-import org.apache.lucene.document.BinaryDocValuesField;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.LeafReaderContext;
-import org.apache.lucene.index.NoMergePolicy;
-import org.apache.lucene.store.Directory;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 
 import java.io.IOException;
 import java.math.BigInteger;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.BiFunction;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.plugin.script.KNNScoringUtil.innerProductADC;
-import static org.opensearch.knn.plugin.script.KNNScoringUtil.l2SquaredADC;
+import static org.opensearch.knn.plugin.script.KNNScoringUtil.*;
 
 public class KNNScoringUtilTests extends KNNTestCase {
 
@@ -303,6 +298,28 @@ public class KNNScoringUtilTests extends KNNTestCase {
         // The bits extracted will be: [1,0,1,0,0,0,0,0,1,...]
         float expected4 = 0.25f + 1.0f + 2.25f + 4.0f + 4.0f + 0.25f + 2.25f + 6.25f; // = 20.25f
         assertEquals(expected4, l2SquaredADC(queryVector4, inputVector4), 0.0001f);
+
+        // Test 5: Verify tail loop
+        float[] queryVector5 = new float[24];
+        byte[] inputVector5  = new byte[3];
+        Arrays.fill(queryVector5, 1.0f);
+        Arrays.fill(inputVector5, (byte) 0b11111111);
+        // Expected: diff = (1-1)² = 0
+        assertEquals(0.0f, l2SquaredADC(queryVector5, inputVector5), 0.0001f);
+
+        // Test 6: Large vector - ensures SIMD loop runs multiple iterations
+        int dim = 1024;
+        float[] queryVector6 = new float[dim];
+        byte[] inputVector6 = new byte[dim / 8];
+        Arrays.fill(queryVector6, 0.0f);
+        Arrays.fill(inputVector6, (byte) 0b11111111);
+        // Expected: 1024 * (1-0)² = 1024.0f
+        assertEquals(1024.0f, l2SquaredADC(queryVector6, inputVector6), 0.0001f);
+
+        // Test 7: IllegalArgumentException
+        expectThrows(IllegalArgumentException.class, () ->
+                l2SquaredADC(new float[8], new byte[2]) // 8 != 2*8=16
+        );
     }
 
     public void testInnerProductADC() {
@@ -332,6 +349,59 @@ public class KNNScoringUtilTests extends KNNTestCase {
         float expected4 = 0.5f * 1 + 1.0f * 0 + (-0.5f) * 1 + 2.0f * 0 + 0.0f * 0 + 0.0f * 0 + 0.0f * 0 + 0.0f * 0 + (-1.0f) * 1 + 0.5f * 0
             + 1.5f * 0 + 2.5f * 0 + 0.0f * 0 + 0.0f * 0 + 0.0f * 0 + 0.0f * 0; // = 0.5 - 0.5 - 1.0 = -1.0f
         assertEquals(expected4, innerProductADC(queryVector4, inputVector4), 0.0001f);
+
+        // Test 5: Verify tail loop
+        float[] queryVector5 = new float[24];
+        byte[] inputVector5  = new byte[3];
+        Arrays.fill(queryVector5, 2.0f);
+        Arrays.fill(inputVector5, (byte) 0b11111111);
+        // Expected: 24 * (1 * 2.0f)  = 48.0f
+        assertEquals(48.0f, innerProductADC(queryVector5, inputVector5), 0.0001f);
+
+        // Test 6: Large vector - ensures SIMD loop runs multiple iterations
+        int dim = 1024;
+        float[] queryVector6 = new float[dim];
+        byte[] inputVector6 = new byte[dim / 8];
+        Arrays.fill(queryVector6, 1.0f);
+        Arrays.fill(inputVector6, (byte) 0b11111111);
+        // Expected: 1024 * (1 * 1.0f) = 1024.0f
+        assertEquals(1024.0f, innerProductADC(queryVector6, inputVector6), 0.0001f);
+
+        // Test 7: IllegalArgumentException
+        expectThrows(IllegalArgumentException.class, () ->
+                innerProductADC(new float[8], new byte[2]) // 8 != 2*8=16
+        );
+    }
+
+    public void testADCRandomizedSIMDvsScalar() {
+        // Test various sizes, including non-multiples of vector lanes.
+        int[] dimensions = { 16, 32, 64, 128, 256, 512, 1024, 1032, 1040, 2048 };
+
+        for (int dim : dimensions) {
+            float[] queryVector = new float[dim];
+            byte[] inputVector = new byte[dim / 8];
+
+            // Fill query vector with random floats between -10.0 and 10.0.
+            for (int i = 0; i < dim; i++) {
+                queryVector[i] = (random().nextFloat() * 20.0f) - 10.0f;
+            }
+            // Fill input vector with random bytes.
+            random().nextBytes(inputVector);
+
+            // L2 distance consistency.
+            float expectedL2 = l2SquaredADCScalar(queryVector, inputVector);
+            float actualL2 = l2SquaredADC(queryVector, inputVector);
+
+            // Delta 1.0f allows for floating-point errors in high dimensions.
+            assertEquals("L2 Mismatch at dimension " + dim, expectedL2, actualL2, 1.0f);
+
+            // Check Inner Product consistency.
+            float expectedInnerProduct = innerProductADCScalar(queryVector, inputVector);
+            float actualInnerProduct = innerProductADC(queryVector, inputVector);
+
+            // Delta 1.0f allows for floating-point errors in high dimensions.
+            assertEquals("Inner Product Mismatch at dimension " + dim, expectedInnerProduct, actualInnerProduct, 1.0f);
+        }
     }
 
     public void testCalculateHammingBit_whenByte_thenSuccess() {
