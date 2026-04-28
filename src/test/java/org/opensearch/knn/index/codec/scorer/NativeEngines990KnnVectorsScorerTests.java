@@ -72,6 +72,26 @@ public class NativeEngines990KnnVectorsScorerTests extends TestCase {
         }
     }
 
+    public void testFloatVector_mmapValues_cosine_returnsNativeScorer() throws IOException {
+        KnnVectorValues vectorValues = mock(KnnVectorValues.class);
+        FloatVectorValues mmapValues = mock(FloatVectorValues.class, withSettings().extraInterfaces(MMapVectorValues.class));
+        when(((MMapVectorValues) mmapValues).getAddressAndSize()).thenReturn(new long[] { 100L, 200L });
+        float[] target = new float[] { 1.0f, 2.0f };
+
+        try (
+            MockedStatic<WrappedFloatVectorValues> wrappedMock = mockStatic(WrappedFloatVectorValues.class);
+            MockedStatic<SimdVectorComputeService> ignored = mockStatic(SimdVectorComputeService.class)
+        ) {
+            wrappedMock.when(() -> WrappedFloatVectorValues.getBottomFloatVectorValues(vectorValues)).thenReturn(mmapValues);
+
+            RandomVectorScorer result = scorer.getRandomVectorScorer(VectorSimilarityFunction.COSINE, vectorValues, target);
+
+            assertNotNull(result);
+            assertTrue(result instanceof NativeRandomVectorScorer);
+            verifyNoInteractions(delegate);
+        }
+    }
+
     public void testFloatVector_nonMmapValues_delegatesToWrapped() throws IOException {
         KnnVectorValues vectorValues = mock(KnnVectorValues.class);
         FloatVectorValues plainValues = mock(FloatVectorValues.class);
@@ -93,9 +113,9 @@ public class NativeEngines990KnnVectorsScorerTests extends TestCase {
         float[] target = new float[] { 1.0f, 2.0f };
         RandomVectorScorer expectedScorer = mock(RandomVectorScorer.class);
 
-        when(delegate.getRandomVectorScorer(VectorSimilarityFunction.COSINE, vectorValues, target)).thenReturn(expectedScorer);
+        when(delegate.getRandomVectorScorer(VectorSimilarityFunction.DOT_PRODUCT, vectorValues, target)).thenReturn(expectedScorer);
 
-        RandomVectorScorer result = scorer.getRandomVectorScorer(VectorSimilarityFunction.COSINE, vectorValues, target);
+        RandomVectorScorer result = scorer.getRandomVectorScorer(VectorSimilarityFunction.DOT_PRODUCT, vectorValues, target);
 
         assertSame(expectedScorer, result);
     }

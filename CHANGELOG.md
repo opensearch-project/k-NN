@@ -19,3 +19,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 
 ### Enhancements
+* Speedup cosine similarity using AVX512-FP16 [#3215](https://github.com/opensearch-project/k-NN/pull/3215)

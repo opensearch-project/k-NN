@@ -201,15 +201,11 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
                 assertNotNull("Test scorer should not be null", testScorer);
 
                 // ---- Step 4: Compare scores ----
-                final boolean isCosine = similarityFunction == VectorSimilarityFunction.COSINE;
                 int maxOrd = truthScorer.maxOrd();
                 assertEquals("maxOrd mismatch", maxOrd, testScorer.maxOrd());
 
                 for (int ord = 0; ord < maxOrd; ord++) {
                     float actual = testScorer.score(ord);
-                    if (isCosine) {
-                        actual = convertMaxIpToCosineScore(actual);
-                    }
                     float expected = truthScorer.score(ord);
                     assertEquals("Score mismatch at ord=" + ord + " for " + similarityFunction, expected, actual, 1e-2);
                 }
@@ -227,9 +223,6 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
                     testScorer.bulkScore(ords, bulkScores, batchSize);
                     for (int j = 0; j < batchSize; j++) {
                         float actualBulk = bulkScores[j];
-                        if (isCosine) {
-                            actualBulk = convertMaxIpToCosineScore(actualBulk);
-                        }
                         float expected = truthScorer.score(ords[j]);
                         assertEquals(
                             "Bulk score mismatch at ord=" + ords[j] + " (batch=" + batchSize + ") for " + similarityFunction,
@@ -279,22 +272,5 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
             v[dimension - 1] = -(ThreadLocalRandom.current().nextFloat() * 0.5f + 0.5f);
         }
         return v;
-    }
-
-    /**
-     * Converts a Faiss MAX_IP score (used internally for cosine) to the Lucene cosine score.
-     * Faiss uses MAX_IP under the hood for cosine similarity on normalized vectors.
-     * The MAX_IP transform maps: ip >= 0 → 1 + ip, ip < 0 → 1 / (1 - ip).
-     * This reverses that, then applies the cosine score formula: (1 + ip) / 2.
-     */
-    private static float convertMaxIpToCosineScore(float maxIpScore) {
-        float innerProductValue;
-        if (maxIpScore >= 1) {
-            innerProductValue = maxIpScore - 1;
-        } else {
-            innerProductValue = 1 - 1 / maxIpScore;
-        }
-        innerProductValue = Math.clamp(innerProductValue, -1, 1);
-        return Math.max((1 + innerProductValue) / 2.0f, 0.0f);
     }
 }

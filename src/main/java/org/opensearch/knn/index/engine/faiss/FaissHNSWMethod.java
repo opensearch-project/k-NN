@@ -165,7 +165,8 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
     public RemoteIndexParameters createRemoteIndexingParameters(Map<String, Object> parameters) {
         RemoteFaissHNSWIndexParameters.RemoteFaissHNSWIndexParametersBuilder<?, ?> builder = RemoteFaissHNSWIndexParameters.builder();
         builder.algorithm(METHOD_HNSW);
-        builder.spaceType(getStringFromMap(parameters, SPACE_TYPE));
+        SpaceType spaceType = SpaceType.getSpace(getStringFromMap(parameters, SPACE_TYPE));
+        builder.spaceType((spaceType == SpaceType.COSINESIMIL ? SpaceType.INNER_PRODUCT : spaceType).getValue());
 
         Map<String, Object> innerParameters = (Map<String, Object>) parameters.get(PARAMETERS);
         builder.efConstruction(getIntegerFromMap(innerParameters, METHOD_PARAMETER_EF_CONSTRUCTION));
