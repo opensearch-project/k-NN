@@ -19,7 +19,10 @@ import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.Parameter;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.mapper.PerDimensionProcessor;
+import org.opensearch.knn.index.mapper.PerDimensionValidator;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
+import org.mockito.MockedStatic;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -32,6 +35,8 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_BF16;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
@@ -42,6 +47,8 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mockStatic;
 
 public class FaissTests extends KNNTestCase {
 
@@ -236,6 +243,451 @@ public class FaissTests extends KNNTestCase {
 
         assertTrue(map.containsKey(INDEX_DESCRIPTION_PARAMETER));
         assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
+    }
+
+    @SneakyThrows
+    public void testGetKNNLibraryIndexingContext_whenMethodIsHNSWSQBF16_thenCreateCorrectIndexDescription() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(4)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+        int hnswMParam = 65;
+        String expectedIndexDescription = String.format(Locale.ROOT, "HNSW%d,SQbf16", hnswMParam);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, hnswMParam)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_BF16)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+
+        Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .getLibraryParameters();
+
+        assertTrue(map.containsKey(INDEX_DESCRIPTION_PARAMETER));
+        assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
+    }
+
+    @SneakyThrows
+    public void testGetKNNLibraryIndexingContext_whenMethodIsIVFSQBF16_thenCreateCorrectIndexDescription() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(4)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+        int nlists = 88;
+        String expectedIndexDescription = String.format(Locale.ROOT, "IVF%d,SQbf16", nlists);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_IVF)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, nlists)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_BF16)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+
+        Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .getLibraryParameters();
+
+        assertTrue(map.containsKey(INDEX_DESCRIPTION_PARAMETER));
+        assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
+    }
+
+    @SneakyThrows
+    public void testGetPerDimensionValidator_whenMethodIsHNSWSQBF16_thenReturnBF16Validator() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(4)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, 16)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_BF16)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+
+        KNNLibraryIndexingContext context = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+        PerDimensionValidator validator = context.getPerDimensionValidator();
+
+        assertNotNull(validator);
+        assertSame(FaissBF16Util.BF16_VALIDATOR, validator);
+    }
+
+    @SneakyThrows
+    public void testGetPerDimensionValidator_whenMethodIsIVFSQBF16_thenReturnBF16Validator() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(4)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_IVF)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, 4)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_BF16)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+
+        KNNLibraryIndexingContext context = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+        PerDimensionValidator validator = context.getPerDimensionValidator();
+
+        assertNotNull(validator);
+        assertSame(FaissBF16Util.BF16_VALIDATOR, validator);
+    }
+
+    @SneakyThrows
+    public void testGetPerDimensionValidator_whenMethodIsHNSWSQBF16_thenValidatorAcceptsFiniteValues() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(4)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, 16)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_BF16)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+
+        KNNLibraryIndexingContext context = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+        PerDimensionValidator validator = context.getPerDimensionValidator();
+
+        // BF16 validator accepts all finite float values (same exponent range as float32)
+        validator.validate(0.0f);
+        validator.validate(1.0f);
+        validator.validate(-1.0f);
+        validator.validate(Float.MAX_VALUE);
+        validator.validate(-Float.MAX_VALUE);
+        validator.validate(65504.0f);
+        validator.validate(100000.0f);
+
+        // BF16 validator rejects non-finite values
+        expectThrows(IllegalArgumentException.class, () -> validator.validate(Float.NaN));
+        expectThrows(IllegalArgumentException.class, () -> validator.validate(Float.POSITIVE_INFINITY));
+        expectThrows(IllegalArgumentException.class, () -> validator.validate(Float.NEGATIVE_INFINITY));
+    }
+
+    @SneakyThrows
+    public void testGetPerDimensionProcessor_whenMethodIsHNSWSQBF16WithClip_thenReturnClipProcessor() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(4)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, 16)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_BF16)
+            .field(FAISS_SQ_CLIP, true)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+
+        KNNLibraryIndexingContext context = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+        PerDimensionProcessor processor = context.getPerDimensionProcessor();
+
+        assertNotNull(processor);
+        assertSame(FaissFP16Util.CLIP_TO_FP16_PROCESSOR, processor);
+    }
+
+    @SneakyThrows
+    public void testGetPerDimensionProcessor_whenMethodIsIVFSQBF16WithClip_thenReturnClipProcessor() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(4)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_IVF)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, 4)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_BF16)
+            .field(FAISS_SQ_CLIP, true)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+
+        KNNLibraryIndexingContext context = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+        PerDimensionProcessor processor = context.getPerDimensionProcessor();
+
+        assertNotNull(processor);
+        assertSame(FaissFP16Util.CLIP_TO_FP16_PROCESSOR, processor);
+    }
+
+    @SneakyThrows
+    public void testBF16ClipProcessor_directInvocation_isNoOpForFiniteValues() {
+        PerDimensionProcessor bf16Processor = FaissBF16Util.CLIP_TO_BF16_PROCESSOR;
+
+        assertEquals(65504.0f, bf16Processor.process(65504.0f), 0.0f);
+        assertEquals(100000.89f, bf16Processor.process(100000.89f), 0.0f);
+        assertEquals(-65504.0f, bf16Processor.process(-65504.0f), 0.0f);
+        assertEquals(-100000.89f, bf16Processor.process(-100000.89f), 0.0f);
+        assertEquals(0.0f, bf16Processor.process(0.0f), 0.0f);
+        assertEquals(Float.MAX_VALUE, bf16Processor.process(Float.MAX_VALUE), 0.0f);
+    }
+
+    @SneakyThrows
+    public void testGetPerDimensionProcessor_whenBF16ClipBranchReached_thenReturnBF16Processor() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(4)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, 16)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_BF16)
+            .field(FAISS_SQ_CLIP, true)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+
+        try (MockedStatic<FaissFP16Util> fp16Mock = mockStatic(FaissFP16Util.class)) {
+            fp16Mock.when(() -> FaissFP16Util.isFaissSQClipToFP16RangeEnabled(any())).thenReturn(false);
+            fp16Mock.when(() -> FaissFP16Util.isFaissSQfp16(any())).thenReturn(false);
+            fp16Mock.when(() -> FaissFP16Util.extractEncoderMethodComponentContext(any())).thenCallRealMethod();
+
+            KNNLibraryIndexingContext context = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+            PerDimensionProcessor processor = context.getPerDimensionProcessor();
+
+            assertNotNull(processor);
+            assertSame(FaissBF16Util.CLIP_TO_BF16_PROCESSOR, processor);
+        }
+    }
+
+    @SneakyThrows
+    public void testGetPerDimensionProcessor_whenMethodIsHNSWSQBF16WithoutClip_thenReturnNoopProcessor() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(4)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, 16)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_BF16)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+
+        KNNLibraryIndexingContext context = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+        PerDimensionProcessor processor = context.getPerDimensionProcessor();
+
+        // Without clip=true, processor should be NOOP
+        assertSame(PerDimensionProcessor.NOOP_PROCESSOR, processor);
+    }
+
+    public void testGetEncoderMethodComponent_whenEncoderParamIsNotMethodComponentContext_thenReturnNull() {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put(METHOD_ENCODER_PARAMETER, "not_a_method_component_context");
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, parameters);
+
+        MethodComponentContext result = AbstractFaissMethod.getEncoderMethodComponent(methodComponentContext);
+        assertNull(result);
+    }
+
+    public void testGetEncoderMethodComponent_whenEncoderParamIsMethodComponentContext_thenReturnIt() {
+        MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, Map.of(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_BF16));
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put(METHOD_ENCODER_PARAMETER, encoderContext);
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, parameters);
+
+        MethodComponentContext result = AbstractFaissMethod.getEncoderMethodComponent(methodComponentContext);
+        assertNotNull(result);
+        assertEquals(ENCODER_SQ, result.getName());
+    }
+
+    @SneakyThrows
+    public void testGetEncoderName_whenNoEncoderSpecified_thenReturnNull() {
+        FaissHNSWMethod method = new FaissHNSWMethod();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, 16)
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+
+        String encoderName = method.getEncoderName(knnMethodContext);
+        assertNull(encoderName);
+    }
+
+    @SneakyThrows
+    public void testGetEncoderName_whenEncoderSpecified_thenReturnName() {
+        FaissHNSWMethod method = new FaissHNSWMethod();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, 16)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_BF16)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+
+        String encoderName = method.getEncoderName(knnMethodContext);
+        assertEquals(ENCODER_SQ, encoderName);
+    }
+
+    public void testGetEncoderName_whenNullKnnMethodContext_thenReturnNull() {
+        FaissHNSWMethod method = new FaissHNSWMethod();
+        String encoderName = method.getEncoderName(null);
+        assertNull(encoderName);
+    }
+
+    @SneakyThrows
+    public void testGetEncoderComponentContext_whenNoEncoderSpecified_thenReturnNull() {
+        FaissHNSWMethod method = new FaissHNSWMethod();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, 16)
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+
+        MethodComponentContext result = method.getEncoderComponentContext(knnMethodContext);
+        assertNull(result);
+    }
+
+    @SneakyThrows
+    public void testGetEncoderName_whenEncoderParamValueIsNull_thenReturnNull() {
+        FaissHNSWMethod method = new FaissHNSWMethod();
+
+        Map<String, Object> innerParams = new HashMap<>();
+        innerParams.put(METHOD_ENCODER_PARAMETER, null);
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, innerParams);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, 16)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_BF16)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+
+        // Now replace the encoder parameter value with null in the underlying map
+        knnMethodContext.getMethodComponentContext().getParameters().put(METHOD_ENCODER_PARAMETER, null);
+
+        String encoderName = method.getEncoderName(knnMethodContext);
+        assertNull(encoderName);
     }
 
     @SneakyThrows

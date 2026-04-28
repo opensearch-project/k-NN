@@ -57,6 +57,7 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_BF16;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.INDEX_THREAD_QTY;
@@ -733,6 +734,158 @@ public class JNIServiceTests extends KNNTestCase {
             .field(NAME, ENCODER_SQ)
             .startObject(PARAMETERS)
             .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .dimension(128)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .getLibraryParameters();
+
+        byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
+
+        assertNotEquals(0, faissIndex.length);
+        JNICommons.freeVectorData(trainPointer);
+    }
+
+    @SneakyThrows
+    public void testCreateIndex_faiss_sqbf16_invalidIndexDescription() {
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            int[] docIds = new int[] { 1, 2 };
+            float[][] vectors = new float[][] { { 2, 3 }, { 3, 4 } };
+            long memoryAddress = JNICommons.storeVectorData(0, vectors, (long) vectors.length * vectors[0].length);
+
+            String sqbf16InvalidIndexDescription = "HNSW16,SQbf1655";
+
+            String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+            expectThrows(
+                Exception.class,
+                () -> TestUtils.createIndex(
+                    docIds,
+                    memoryAddress,
+                    vectors[0].length,
+                    directory,
+                    indexFileName1,
+                    ImmutableMap.of(
+                        INDEX_DESCRIPTION_PARAMETER,
+                        sqbf16InvalidIndexDescription,
+                        KNNConstants.SPACE_TYPE,
+                        SpaceType.L2.getValue()
+                    ),
+                    KNNEngine.FAISS
+                )
+            );
+        }
+    }
+
+    @SneakyThrows
+    public void testLoadIndex_faiss_sqbf16_valid() {
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            int[] docIds = new int[] { 1, 2 };
+            float[][] vectors = new float[][] { { 2, 3 }, { 3, 4 } };
+            String sqbf16IndexDescription = "HNSW16,SQbf16";
+            long memoryAddress = JNICommons.storeVectorData(0, vectors, (long) vectors.length * vectors[0].length);
+            String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+            TestUtils.createIndex(
+                docIds,
+                memoryAddress,
+                vectors[0].length,
+                directory,
+                indexFileName1,
+                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, sqbf16IndexDescription, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                KNNEngine.FAISS
+            );
+            assertTrue(directory.fileLength(indexFileName1) > 0);
+
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                long pointer = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
+                assertNotEquals(0, pointer);
+            } catch (Throwable e) {
+                fail(e.getMessage());
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testQueryIndex_faiss_sqbf16_valid() {
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            String sqbf16IndexDescription = "HNSW16,SQbf16";
+            int k = 10;
+            Map<String, ?> methodParameters = Map.of("ef_search", 12);
+            long memoryAddress = JNICommons.storeVectorData(
+                0,
+                testData.indexData.vectors,
+                (long) testData.indexData.vectors.length * testData.indexData.vectors[0].length
+            );
+            String indexFileName1 = "test1" + UUID.randomUUID() + ".tmp";
+            TestUtils.createIndex(
+                testData.indexData.docs,
+                memoryAddress,
+                testData.indexData.getDimension(),
+                directory,
+                indexFileName1,
+                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, sqbf16IndexDescription, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                KNNEngine.FAISS
+            );
+            assertTrue(directory.fileLength(indexFileName1) > 0);
+
+            final long pointer;
+            try (IndexInput indexInput = directory.openInput(indexFileName1, IOContext.DEFAULT)) {
+                final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+                pointer = JNIService.loadIndex(indexInputWithBuffer, Collections.emptyMap(), KNNEngine.FAISS);
+                assertNotEquals(0, pointer);
+            } catch (Throwable e) {
+                fail(e.getMessage());
+                throw e;
+            }
+
+            for (float[] query : testData.queries) {
+                KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, methodParameters, KNNEngine.FAISS, null, 0, null);
+                assertEquals(k, results.length);
+            }
+
+            // Filter will result in no ids
+            for (float[] query : testData.queries) {
+                KNNQueryResult[] results = JNIService.queryIndex(
+                    pointer,
+                    query,
+                    k,
+                    methodParameters,
+                    KNNEngine.FAISS,
+                    new long[] { 0 },
+                    0,
+                    null
+                );
+                assertEquals(0, results.length);
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testTrain_whenConfigurationIsIVFSQBF16_thenSucceed() {
+        long trainPointer = transferVectors(10);
+        int ivfNlistParam = 16;
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_IVF)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, ivfNlistParam)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_BF16)
             .endObject()
             .endObject()
             .endObject()

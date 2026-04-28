@@ -31,6 +31,8 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.FAISS_EXTENSION;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_BF16;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
@@ -126,9 +128,10 @@ public class KNNEngineTests extends KNNTestCase {
         KNNEngine Lucene = KNNEngine.LUCENE;
 
         // Faiss
-        // FP32, FP16
+        // FP32, FP16, BF16
         assertTrue(Faiss.supportsRemoteIndexBuild(createMockKnnLibraryIndexingContextParamsFP32()));
         assertTrue(Faiss.supportsRemoteIndexBuild(createMockKnnLibraryIndexingContextParamsFP16()));
+        assertTrue(Faiss.supportsRemoteIndexBuild(createMockKnnLibraryIndexingContextParamsBF16()));
 
         // Byte
         assertTrue(Faiss.supportsRemoteIndexBuild(createMockKnnLibraryIndexingContextParamsByte(METHOD_HNSW)));
@@ -228,6 +231,34 @@ public class KNNEngineTests extends KNNTestCase {
             .field(METHOD_PARAMETER_M, 14)
             .startObject(METHOD_ENCODER_PARAMETER)
             .field(NAME, ENCODER_SQ)
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        return Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+    }
+
+    @SneakyThrows
+    private KNNLibraryIndexingContext createMockKnnLibraryIndexingContextParamsBF16() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, L2.getValue())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_EF_SEARCH, 89)
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, 94)
+            .field(METHOD_PARAMETER_M, 14)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_BF16)
+            .endObject()
             .endObject()
             .endObject()
             .endObject();
