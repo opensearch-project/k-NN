@@ -72,6 +72,7 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
+          cache: gradle
 
       - name: Run build
         # switching the user, as OpenSearch cluster can only be started as root/Administrator on linux-deb/linux-rpm/windows-zip.
@@ -127,6 +128,7 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
+          cache: gradle
 
       - name: Install dependencies on macos
         run: |
@@ -170,6 +172,7 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
+          cache: gradle
 
       - name: Install MinGW Using Chocolatey
         run: choco install mingw -y --no-progress
