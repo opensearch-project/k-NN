@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Added support for 1 bit SQ with remote build [#3270](https://github.com/opensearch-project/k-NN/pull/3270)
 
 ### Maintenance
+* Add Gradle cache to setup-java steps in GitHub Actions workflows [#3295](https://github.com/opensearch-project/k-NN/pull/3295)
 
 
 ### Bug Fixes

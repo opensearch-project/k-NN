@@ -21,6 +21,7 @@ jobs:
         with:
           distribution: temurin # Temurin is a distribution of adoptium
           java-version: 21
+          cache: gradle
       - uses: actions/checkout@v3
 
       - name: Load secret
