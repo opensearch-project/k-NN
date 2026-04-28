@@ -79,6 +79,92 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
     }
 
     @SneakyThrows
+    public void testDerivedSource_withCamelCaseObjectField() {
+        String parentName = "myObject";
+        String childName = "myVector";
+        int dimension = 3;
+        String indexName = createCamelCaseDerivedSourceIndex(parentName, childName, dimension, false);
+
+        XContentBuilder docBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(parentName)
+            .array(childName, 1.0f, 2.0f, 3.0f)
+            .endObject()
+            .endObject();
+        addKnnDoc(indexName, "1", docBuilder.toString());
+        refreshIndex(indexName);
+
+        Map<String, Object> doc = getKnnDoc(indexName, "1");
+        List<Float> vector = extractVector(doc, parentName, childName);
+        assertNotNull("Vector should not be null - got mask value instead of array", vector);
+        assertEquals("Vector should have correct dimension", dimension, vector.size());
+
+        deleteKNNIndex(indexName);
+    }
+
+    @SneakyThrows
+    public void testDerivedSource_withCamelCaseNestedField() {
+        String parentName = "myNested";
+        String childName = "myVector";
+        int dimension = 3;
+        String indexName = createCamelCaseDerivedSourceIndex(parentName, childName, dimension, true);
+
+        XContentBuilder docBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startArray(parentName)
+            .startObject().array(childName, 1.0f, 2.0f, 3.0f).endObject()
+            .startObject().array(childName, 4.0f, 5.0f, 6.0f).endObject()
+            .endArray()
+            .endObject();
+        addKnnDoc(indexName, "1", docBuilder.toString());
+        refreshIndex(indexName);
+
+        Map<String, Object> doc = getKnnDoc(indexName, "1");
+        List<Map<String, Object>> nestedDocs = (List<Map<String, Object>>) doc.get(parentName);
+        assertNotNull(parentName + " should not be null", nestedDocs);
+        assertEquals("Should have 2 nested docs", 2, nestedDocs.size());
+
+        for (int i = 0; i < nestedDocs.size(); i++) {
+            List<Float> vector = extractVector(doc, parentName + "[" + i + "]", childName);
+            // For nested, we need to extract from the nested doc directly
+            Object vec = nestedDocs.get(i).get(childName);
+            assertNotNull("Vector " + i + " should not be null - got mask value instead of array", vec);
+            assertTrue("Vector " + i + " should be a List", vec instanceof List);
+            assertEquals("Vector " + i + " should have correct dimension", dimension, ((List) vec).size());
+        }
+
+        deleteKNNIndex(indexName);
+    }
+
+    @SneakyThrows
+    private String createCamelCaseDerivedSourceIndex(String parentName, String childName, int dimension, boolean nested) {
+        String indexName = getIndexName("derived-camelcase", nested ? "nested" : "object", false);
+        XContentBuilder mappingBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(parentName);
+        if (nested) {
+            mappingBuilder.field("type", "nested");
+        }
+        mappingBuilder.startObject("properties")
+            .startObject(childName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        createKnnIndex(
+            indexName,
+            Settings.builder().put("index.knn", true).put("index.knn.derived_source.enabled", true).build(),
+            mappingBuilder.toString()
+        );
+        return indexName;
+    }
+
+    @SneakyThrows
     @ExpectRemoteBuildValidation
     public void testObjectField() {
         List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getObjectIndexContexts("derivedit", true);

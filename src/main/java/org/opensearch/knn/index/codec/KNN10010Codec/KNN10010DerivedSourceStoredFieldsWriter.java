@@ -140,7 +140,7 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
         for (MappedFieldType fieldType : mapperService.fieldTypes()) {
             if (fieldType instanceof KNNVectorFieldType knnVectorFieldType) {
                 if (IndexUtil.isDerivedEnabledForField(knnVectorFieldType, mapperService)) {
-                    String fieldName = fieldType.name().toLowerCase();
+                    String fieldName = fieldType.name();
                     boolean isNested = mapperService.documentMapper().mappers().getNestedScope(fieldType.name()) != null;
 
                     if (isNested) {
