@@ -15,7 +15,7 @@ import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsWriter;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.search.TaskExecutor;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
@@ -25,7 +25,7 @@ import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.DEFAUL
 import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.DEFAULT_NUM_MERGE_WORKER;
 import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.MAXIMUM_BEAM_WIDTH;
 import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.MAXIMUM_MAX_CONN;
-import static org.opensearch.knn.index.engine.KNNEngine.getMaxDimensionByEngine;
+import static org.opensearch.knn.index.engine.BuiltinKNNEngine.getMaxDimensionByEngine;
 
 /**
  * Custom KnnVectorsFormat implementation to support binary vectors. This class is mostly identical to
@@ -103,7 +103,7 @@ public final class KNN9120HnswBinaryVectorsFormat extends KnnVectorsFormat {
 
     @Override
     public int getMaxDimensions(String fieldName) {
-        return getMaxDimensionByEngine(KNNEngine.LUCENE);
+        return getMaxDimensionByEngine(BuiltinKNNEngine.LUCENE);
     }
 
     @Override

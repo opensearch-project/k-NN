@@ -20,7 +20,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -132,22 +132,22 @@ public class KNNTestCase extends OpenSearchTestCase {
 
     public static KNNMethodContext getDefaultKNNMethodContext() {
         MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-        return new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, methodComponentContext);
+        return new KNNMethodContext(BuiltinKNNEngine.DEFAULT, SpaceType.DEFAULT, methodComponentContext);
     }
 
     public static KNNMethodContext getDefaultKNNMethodContextForModel() {
         MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_IVF, Collections.emptyMap());
-        return new KNNMethodContext(KNNEngine.FAISS, SpaceType.DEFAULT, methodComponentContext);
+        return new KNNMethodContext(BuiltinKNNEngine.FAISS, SpaceType.DEFAULT, methodComponentContext);
     }
 
     public static KNNMethodContext getDefaultByteKNNMethodContext() {
         MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-        return new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, methodComponentContext);
+        return new KNNMethodContext(BuiltinKNNEngine.DEFAULT, SpaceType.DEFAULT, methodComponentContext);
     }
 
     public static KNNMethodContext getDefaultBinaryKNNMethodContext() {
         MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-        return new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT_BINARY, methodComponentContext);
+        return new KNNMethodContext(BuiltinKNNEngine.DEFAULT, SpaceType.DEFAULT_BINARY, methodComponentContext);
     }
 
     public static KNNMappingConfig getMappingConfigForMethodMapping(KNNMethodContext knnMethodContext, int dimension) {

@@ -7,6 +7,7 @@ package org.opensearch.knn.index.query;
 
 import org.apache.lucene.search.ScoreDoc;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 /**
@@ -44,12 +45,12 @@ public final class MemoryOptimizedSearchScoreConverter {
      */
     public static float distanceToRadialThreshold(final float distance, final SpaceType spaceType) {
         if (spaceType != SpaceType.COSINESIMIL) {
-            return KNNEngine.LUCENE.distanceToRadialThreshold(distance, spaceType);
+            return BuiltinKNNEngine.LUCENE.distanceToRadialThreshold(distance, spaceType);
         }
 
         // For cosine similarity, `distance = 1 - inner_product_value`.
         // therefore, we should extract it then convert it to max_inner_product_value
-        final float innerProductValue = KNNEngine.FAISS.distanceToRadialThreshold(distance, SpaceType.COSINESIMIL);
+        final float innerProductValue = BuiltinKNNEngine.FAISS.distanceToRadialThreshold(distance, SpaceType.COSINESIMIL);
 
         // Convert inner product value to max inner product value.
         return SpaceType.INNER_PRODUCT.scoreTranslation(-innerProductValue);
@@ -64,12 +65,12 @@ public final class MemoryOptimizedSearchScoreConverter {
      */
     public static float scoreToRadialThreshold(final float score, final SpaceType spaceType) {
         if (spaceType != SpaceType.COSINESIMIL) {
-            return KNNEngine.LUCENE.scoreToRadialThreshold(score, spaceType);
+            return BuiltinKNNEngine.LUCENE.scoreToRadialThreshold(score, spaceType);
         }
 
         // Since `score = (2 - (1 - inner_product_value)) / 2 = (1 + inner_product_value) / 2`,
         // we should extract it then convert it to max inner product value.
-        final float innerProductValue = KNNEngine.FAISS.scoreToRadialThreshold(score, SpaceType.COSINESIMIL);
+        final float innerProductValue = BuiltinKNNEngine.FAISS.scoreToRadialThreshold(score, SpaceType.COSINESIMIL);
 
         // Convert inner product value to max inner product value.
         return SpaceType.INNER_PRODUCT.scoreTranslation(-innerProductValue);
@@ -101,6 +102,6 @@ public final class MemoryOptimizedSearchScoreConverter {
         // Reverse MAXIMUM_INNER_PRODUCT score translation to recover the raw inner product value.
         final float innerProductValue = ipScore >= 1 ? ipScore - 1 : 1 - 1 / ipScore;
         // Transform to cosine similarity score range.
-        return KNNEngine.FAISS.score(innerProductValue, SpaceType.COSINESIMIL);
+        return BuiltinKNNEngine.FAISS.score(innerProductValue, SpaceType.COSINESIMIL);
     }
 }

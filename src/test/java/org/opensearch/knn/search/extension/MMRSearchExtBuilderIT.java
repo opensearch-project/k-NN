@@ -15,7 +15,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.search.processor.mmr.MMROverSampleProcessor;
 import org.opensearch.knn.search.processor.mmr.MMRRerankProcessor;
 
@@ -228,7 +228,7 @@ public class MMRSearchExtBuilderIT extends KNNRestTestCase {
             .field(DIMENSION, DIMENSION_NUM)
             .startObject(KNN_METHOD)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
             .field(NAME, METHOD_HNSW)
             .endObject()
             .endObject()

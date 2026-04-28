@@ -20,6 +20,7 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
 
@@ -185,7 +186,7 @@ public class RecallTestsIT extends KNNRestTestCase {
         List<Integer> numBits = List.of(1, 2, 4);
         for (SpaceType spaceType : spaceTypes) {
             for (Integer bits : numBits) {
-                String indexName = createIndexName(KNNEngine.FAISS, spaceType) + "(" + bits + "bits)";
+                String indexName = createIndexName(BuiltinKNNEngine.FAISS, spaceType) + "(" + bits + "bits)";
                 XContentBuilder builder = XContentFactory.jsonBuilder()
                     .startObject()
                     .startObject(PROPERTIES_FIELD)
@@ -195,7 +196,7 @@ public class RecallTestsIT extends KNNRestTestCase {
                     .field(MODE_PARAMETER, ON_DISK)
                     .startObject(KNN_METHOD)
                     .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-                    .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+                    .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
                     .field(NAME, METHOD_HNSW)
                     .startObject(PARAMETERS)
                     .field(METHOD_PARAMETER_EF_CONSTRUCTION, HNSW_EF_CONSTRUCTION)
@@ -253,7 +254,7 @@ public class RecallTestsIT extends KNNRestTestCase {
         List<Integer> numBits = List.of(1);
         for (SpaceType spaceType : spaceTypes) {
             for (Integer bits : numBits) {
-                String indexName = createIndexName(KNNEngine.FAISS, spaceType) + "(" + bits + "bits)";
+                String indexName = createIndexName(BuiltinKNNEngine.FAISS, spaceType) + "(" + bits + "bits)";
                 XContentBuilder builder = XContentFactory.jsonBuilder()
                     .startObject()
                     .startObject(PROPERTIES_FIELD)
@@ -263,7 +264,7 @@ public class RecallTestsIT extends KNNRestTestCase {
                     .field(MODE_PARAMETER, ON_DISK)
                     .startObject(KNN_METHOD)
                     .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-                    .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+                    .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
                     .field(NAME, METHOD_HNSW)
                     .startObject(PARAMETERS)
                     .field(METHOD_PARAMETER_EF_CONSTRUCTION, HNSW_EF_CONSTRUCTION)
@@ -322,7 +323,7 @@ public class RecallTestsIT extends KNNRestTestCase {
         List<Integer> numBits = List.of(1);
         for (SpaceType spaceType : spaceTypes) {
             for (Integer bits : numBits) {
-                String indexName = createIndexName(KNNEngine.FAISS, spaceType) + "(" + bits + "bits)";
+                String indexName = createIndexName(BuiltinKNNEngine.FAISS, spaceType) + "(" + bits + "bits)";
                 XContentBuilder builder = XContentFactory.jsonBuilder()
                     .startObject()
                     .startObject(PROPERTIES_FIELD)
@@ -332,7 +333,7 @@ public class RecallTestsIT extends KNNRestTestCase {
                     .field(MODE_PARAMETER, ON_DISK)
                     .startObject(KNN_METHOD)
                     .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-                    .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+                    .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
                     .field(NAME, METHOD_HNSW)
                     .startObject(PARAMETERS)
                     .field(METHOD_PARAMETER_EF_CONSTRUCTION, HNSW_EF_CONSTRUCTION)
@@ -380,7 +381,7 @@ public class RecallTestsIT extends KNNRestTestCase {
     public void testRecall_whenLuceneHnswFP32_thenRecallAbove75percent() {
         List<SpaceType> spaceTypes = List.of(SpaceType.L2, SpaceType.COSINESIMIL);
         for (SpaceType spaceType : spaceTypes) {
-            String indexName = createIndexName(KNNEngine.LUCENE, spaceType);
+            String indexName = createIndexName(BuiltinKNNEngine.LUCENE, spaceType);
             XContentBuilder builder = XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject(PROPERTIES_FIELD)
@@ -389,7 +390,7 @@ public class RecallTestsIT extends KNNRestTestCase {
                 .field(DIMENSION, TEST_DIMENSION)
                 .startObject(KNN_METHOD)
                 .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-                .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
+                .field(KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
                 .field(NAME, METHOD_HNSW)
                 .startObject(PARAMETERS)
                 .field(METHOD_PARAMETER_EF_CONSTRUCTION, HNSW_EF_CONSTRUCTION)
@@ -429,7 +430,7 @@ public class RecallTestsIT extends KNNRestTestCase {
     public void testRecall_whenFaissHnswFP32_thenRecallAbove75percent() {
         List<SpaceType> spaceTypes = List.of(SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.COSINESIMIL);
         for (SpaceType spaceType : spaceTypes) {
-            String indexName = createIndexName(KNNEngine.FAISS, spaceType);
+            String indexName = createIndexName(BuiltinKNNEngine.FAISS, spaceType);
             XContentBuilder builder = XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject(PROPERTIES_FIELD)
@@ -438,7 +439,7 @@ public class RecallTestsIT extends KNNRestTestCase {
                 .field(DIMENSION, TEST_DIMENSION)
                 .startObject(KNN_METHOD)
                 .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-                .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+                .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
                 .field(NAME, METHOD_HNSW)
                 .startObject(PARAMETERS)
                 .field(METHOD_PARAMETER_EF_CONSTRUCTION, HNSW_EF_CONSTRUCTION)
@@ -483,7 +484,7 @@ public class RecallTestsIT extends KNNRestTestCase {
         List<SpaceType> spaceTypes = List.of(SpaceType.L2, SpaceType.INNER_PRODUCT);
         setupTrainingIndex();
         for (SpaceType spaceType : spaceTypes) {
-            String indexName = createIndexName(KNNEngine.FAISS, spaceType);
+            String indexName = createIndexName(BuiltinKNNEngine.FAISS, spaceType);
 
             // Train the model
             XContentBuilder trainingBuilder = XContentFactory.jsonBuilder()
@@ -502,7 +503,7 @@ public class RecallTestsIT extends KNNRestTestCase {
                 TRAIN_FIELD_NAME,
                 TEST_DIMENSION,
                 xContentBuilderToMap(trainingBuilder),
-                String.format("%s-%s", KNNEngine.FAISS.getName(), spaceType.getValue())
+                String.format("%s-%s", BuiltinKNNEngine.FAISS.getName(), spaceType.getValue())
             );
             assertTrainingSucceeds(TEST_MODEL_ID, 100, 1000 * 5);
 
@@ -553,7 +554,7 @@ public class RecallTestsIT extends KNNRestTestCase {
         List<SpaceType> spaceTypes = List.of(SpaceType.L2, SpaceType.INNER_PRODUCT);
         setupTrainingIndex();
         for (SpaceType spaceType : spaceTypes) {
-            String indexName = createIndexName(KNNEngine.FAISS, spaceType);
+            String indexName = createIndexName(BuiltinKNNEngine.FAISS, spaceType);
 
             // Train the model
             XContentBuilder trainingBuilder = XContentFactory.jsonBuilder()
@@ -579,7 +580,7 @@ public class RecallTestsIT extends KNNRestTestCase {
                 TRAIN_FIELD_NAME,
                 TEST_DIMENSION,
                 xContentBuilderToMap(trainingBuilder),
-                String.format("%s-%s", KNNEngine.FAISS.getName(), spaceType.getValue())
+                String.format("%s-%s", BuiltinKNNEngine.FAISS.getName(), spaceType.getValue())
             );
             assertTrainingSucceeds(TEST_MODEL_ID, 100, 1000 * 5);
 
@@ -630,7 +631,7 @@ public class RecallTestsIT extends KNNRestTestCase {
         List<SpaceType> spaceTypes = List.of(SpaceType.L2, SpaceType.INNER_PRODUCT);
         setupTrainingIndex();
         for (SpaceType spaceType : spaceTypes) {
-            String indexName = createIndexName(KNNEngine.FAISS, spaceType);
+            String indexName = createIndexName(BuiltinKNNEngine.FAISS, spaceType);
 
             // Train the model
             XContentBuilder trainingBuilder = XContentFactory.jsonBuilder()
@@ -657,7 +658,7 @@ public class RecallTestsIT extends KNNRestTestCase {
                 TRAIN_FIELD_NAME,
                 TEST_DIMENSION,
                 xContentBuilderToMap(trainingBuilder),
-                String.format("%s-%s", KNNEngine.FAISS.getName(), spaceType.getValue())
+                String.format("%s-%s", BuiltinKNNEngine.FAISS.getName(), spaceType.getValue())
             );
             assertTrainingSucceeds(TEST_MODEL_ID, 100, 1000 * 5);
 
@@ -701,7 +702,7 @@ public class RecallTestsIT extends KNNRestTestCase {
     public void testRecall_when1bitScalarQuantizer_thenRecallAbove80percent() {
         List<SpaceType> spaceTypes = List.of(SpaceType.L2, SpaceType.COSINESIMIL, SpaceType.INNER_PRODUCT);
         for (SpaceType spaceType : spaceTypes) {
-            String indexName = createIndexName(KNNEngine.LUCENE, spaceType) + "_binary";
+            String indexName = createIndexName(BuiltinKNNEngine.LUCENE, spaceType) + "_binary";
             XContentBuilder builder = XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject(PROPERTIES_FIELD)
@@ -750,7 +751,7 @@ public class RecallTestsIT extends KNNRestTestCase {
     public void testRecall_whenFlat1bitScalarQuantizer_thenRecallAbove80percent() {
         List<SpaceType> spaceTypes = List.of(SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.COSINESIMIL);
         for (SpaceType spaceType : spaceTypes) {
-            String indexName = createIndexName(KNNEngine.LUCENE, spaceType) + "_flat";
+            String indexName = createIndexName(BuiltinKNNEngine.LUCENE, spaceType) + "_flat";
             XContentBuilder builder = XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject(PROPERTIES_FIELD)

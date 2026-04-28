@@ -24,6 +24,7 @@ import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.training.FloatTrainingDataConsumer;
 import org.opensearch.knn.training.VectorReader;
@@ -45,7 +46,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         // Create basic nmslib HNSW index
         Path tempDirPath = createTempDir();
         try (Directory luceneDirectory = newFSDirectory(tempDirPath)) {
-            KNNEngine knnEngine = KNNEngine.NMSLIB;
+            KNNEngine knnEngine = BuiltinKNNEngine.NMSLIB;
             String indexFileName = "test1" + knnEngine.getExtension();
             int numVectors = 10;
             int dimension = 10;
@@ -84,7 +85,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
     public void testLoad_whenFaissBinary_thenSuccess() throws IOException {
         Path tempDirPath = createTempDir();
         try (Directory luceneDirectory = newFSDirectory(tempDirPath)) {
-            KNNEngine knnEngine = KNNEngine.FAISS;
+            KNNEngine knnEngine = BuiltinKNNEngine.FAISS;
             String indexFileName = "test1" + knnEngine.getExtension();
             int numVectors = 10;
             int dimension = 8;

@@ -19,7 +19,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 
@@ -115,7 +115,7 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
     public void testGetEncoderName_whenEncoderPresent_thenReturnsName() {
         for (String encoder : Arrays.asList(ENCODER_FLAT, ENCODER_SQ, ENCODER_SQ)) {
             KNNMethodContext methodContext = new KNNMethodContext(
-                KNNEngine.FAISS,
+                BuiltinKNNEngine.FAISS,
                 SpaceType.L2,
                 new MethodComponentContext(
                     METHOD_HNSW,
@@ -128,7 +128,7 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
 
     public void testGetEncoderName_whenNoEncoderParameter_thenReturnsNull() {
         KNNMethodContext methodContext = new KNNMethodContext(
-            KNNEngine.FAISS,
+            BuiltinKNNEngine.FAISS,
             SpaceType.L2,
             new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
         );
@@ -137,7 +137,7 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
 
     public void testGetEncoderName_whenEncoderParameterIsNotMethodComponentContext_thenReturnsNull() {
         KNNMethodContext methodContext = new KNNMethodContext(
-            KNNEngine.FAISS,
+            BuiltinKNNEngine.FAISS,
             SpaceType.L2,
             new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_ENCODER_PARAMETER, "not_a_method_component_context"))
         );

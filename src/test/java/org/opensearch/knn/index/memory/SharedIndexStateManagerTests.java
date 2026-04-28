@@ -15,6 +15,7 @@ import org.junit.BeforeClass;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.jni.JNIService;
 
@@ -25,7 +26,7 @@ public class SharedIndexStateManagerTests extends KNNTestCase {
     private final static long TEST_SHARED_TABLE_ADDRESS = 123;
     private final static long TEST_INDEX_ADDRESS = 1234;
     private final static String TEST_MODEL_ID = "test-model-id";
-    private final static KNNEngine TEST_KNN_ENGINE = KNNEngine.DEFAULT;
+    private final static KNNEngine TEST_KNN_ENGINE = BuiltinKNNEngine.DEFAULT;
 
     @BeforeClass
     public static void setUpClass() {

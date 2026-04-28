@@ -55,7 +55,7 @@ public class AbstractMethodResolverTests extends KNNTestCase {
         assertEquals(
             CompressionLevel.x1,
             TEST_RESOLVER.resolveCompressionLevelFromMethodContext(
-                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
+                new KNNMethodContext(BuiltinKNNEngine.DEFAULT, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
                 KNNMethodConfigContext.builder().build(),
                 ENCODER_MAP
             )
@@ -64,7 +64,7 @@ public class AbstractMethodResolverTests extends KNNTestCase {
             DEFAULT_COMPRESSION,
             TEST_RESOLVER.resolveCompressionLevelFromMethodContext(
                 new KNNMethodContext(
-                    KNNEngine.DEFAULT,
+                    BuiltinKNNEngine.DEFAULT,
                     SpaceType.DEFAULT,
                     new MethodComponentContext(
                         METHOD_HNSW,
@@ -80,17 +80,19 @@ public class AbstractMethodResolverTests extends KNNTestCase {
     public void testIsEncoderSpecified() {
         assertFalse(TEST_RESOLVER.isEncoderSpecified(null));
         assertFalse(
-            TEST_RESOLVER.isEncoderSpecified(new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, MethodComponentContext.EMPTY))
+            TEST_RESOLVER.isEncoderSpecified(
+                new KNNMethodContext(BuiltinKNNEngine.DEFAULT, SpaceType.DEFAULT, MethodComponentContext.EMPTY)
+            )
         );
         assertFalse(
             TEST_RESOLVER.isEncoderSpecified(
-                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, new MethodComponentContext(METHOD_HNSW, Map.of()))
+                new KNNMethodContext(BuiltinKNNEngine.DEFAULT, SpaceType.DEFAULT, new MethodComponentContext(METHOD_HNSW, Map.of()))
             )
         );
         assertTrue(
             TEST_RESOLVER.isEncoderSpecified(
                 new KNNMethodContext(
-                    KNNEngine.DEFAULT,
+                    BuiltinKNNEngine.DEFAULT,
                     SpaceType.DEFAULT,
                     new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_ENCODER_PARAMETER, "test"))
                 )
@@ -102,7 +104,7 @@ public class AbstractMethodResolverTests extends KNNTestCase {
         assertFalse(
             TEST_RESOLVER.shouldEncoderBeResolved(
                 new KNNMethodContext(
-                    KNNEngine.DEFAULT,
+                    BuiltinKNNEngine.DEFAULT,
                     SpaceType.DEFAULT,
                     new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_ENCODER_PARAMETER, "test"))
                 ),

@@ -57,7 +57,7 @@ import org.opensearch.knn.index.codec.nativeindex.MemoryOptimizedSearchIndexingS
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.codec.scorer.NativeEngines990KnnVectorsScorer;
 import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -450,9 +450,9 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                     buildInfo.parameters.put(ADC_ENABLED_FAISS_INDEX_INTERNAL_PARAMETER, true);
                     buildInfo.parameters.put("quantization_level", "ScalarQuantizationParams_1");
                     buildInfo.parameters.put("space_type", spaceType.getValue());
-                    indexPointer = JNIService.loadIndex(indexInputWithBuffer, buildInfo.parameters, KNNEngine.FAISS);
+                    indexPointer = JNIService.loadIndex(indexInputWithBuffer, buildInfo.parameters, BuiltinKNNEngine.FAISS);
                 } else {
-                    indexPointer = JNIService.loadIndex(indexInputWithBuffer, buildInfo.parameters, KNNEngine.FAISS);
+                    indexPointer = JNIService.loadIndex(indexInputWithBuffer, buildInfo.parameters, BuiltinKNNEngine.FAISS);
                 }
             }
         }
@@ -500,7 +500,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                 (float[]) query,
                 k,
                 buildInfo.parameters,
-                KNNEngine.FAISS,
+                BuiltinKNNEngine.FAISS,
                 filteredIds,
                 FilterIdsSelector.FilterIdsSelectorType.BATCH.getValue(),
                 parentIds
@@ -522,7 +522,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                 (float[]) query,
                 k,
                 buildInfo.parameters,
-                KNNEngine.FAISS,
+                BuiltinKNNEngine.FAISS,
                 filteredIds,
                 FilterIdsSelector.FilterIdsSelectorType.BATCH.getValue(),
                 parentIds
@@ -551,7 +551,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                 (byte[]) query,
                 k,
                 buildInfo.parameters,
-                KNNEngine.FAISS,
+                BuiltinKNNEngine.FAISS,
                 filteredIds,
                 FilterIdsSelector.FilterIdsSelectorType.BATCH.getValue(),
                 parentIds
@@ -560,13 +560,13 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
             throw new AssertionError();
         }
 
-        JNIService.free(indexPointer, KNNEngine.FAISS);
+        JNIService.free(indexPointer, BuiltinKNNEngine.FAISS);
 
         // Score transform in Faiss (source of truth)
         for (int i = 0; i < resultsFromFaiss.length; i++) {
             resultsFromFaiss[i] = new KNNQueryResult(
                 resultsFromFaiss[i].getId(),
-                KNNEngine.FAISS.score(resultsFromFaiss[i].getScore(), spaceType)
+                BuiltinKNNEngine.FAISS.score(resultsFromFaiss[i].getScore(), spaceType)
             );
         }
 
@@ -621,7 +621,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         // Make KNN vector field info
         KNNCodecTestUtil.FieldInfoBuilder fieldInfoBuilder = KNNCodecTestUtil.FieldInfoBuilder.builder(TARGET_FIELD)
             .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
-            .addAttribute(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName());
+            .addAttribute(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName());
 
         // Add space type from build parameters
         if (buildInfo.parameters.containsKey(SPACE_TYPE)) {
@@ -866,7 +866,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
                 FieldInfo fieldInfo = mock(FieldInfo.class);
                 when(fieldInfo.getName()).thenReturn(TARGET_FIELD);
                 builder.field(fieldInfo.getName())
-                    .knnEngine(KNNEngine.FAISS)
+                    .knnEngine(BuiltinKNNEngine.FAISS)
                     .vectorDataType(testingSpec.dataType)
                     .indexOutputWithBuffer(new IndexOutputWithBuffer(indexOutput));
 

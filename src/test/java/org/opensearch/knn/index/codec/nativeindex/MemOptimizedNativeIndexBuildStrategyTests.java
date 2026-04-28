@@ -13,7 +13,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransfer;
 import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransferFactory;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -54,7 +54,7 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
             )
         ) {
             // Limits transfer to 2 vectors
-            mockedJNIService.when(() -> JNIService.initIndex(3, 2, Map.of("index", "param"), KNNEngine.FAISS)).thenReturn(100L);
+            mockedJNIService.when(() -> JNIService.initIndex(3, 2, Map.of("index", "param"), BuiltinKNNEngine.FAISS)).thenReturn(100L);
 
             OffHeapVectorTransfer offHeapVectorTransfer = mock(OffHeapVectorTransfer.class);
             mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 8, 3))
@@ -70,7 +70,7 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
 
             BuildIndexParams buildIndexParams = BuildIndexParams.builder()
                 .indexOutputWithBuffer(indexOutputWithBuffer)
-                .knnEngine(KNNEngine.FAISS)
+                .knnEngine(BuiltinKNNEngine.FAISS)
                 .vectorDataType(VectorDataType.FLOAT)
                 .indexParameters(Map.of("index", "param"))
                 .knnVectorValuesSupplier(() -> knnVectorValues)
@@ -86,7 +86,7 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
                     knnVectorValues.totalLiveDocs(),
                     knnVectorValues.dimension(),
                     Map.of("index", "param"),
-                    KNNEngine.FAISS
+                    BuiltinKNNEngine.FAISS
                 )
             );
 
@@ -97,7 +97,7 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
                     eq(knnVectorValues.dimension()),
                     eq(Map.of("index", "param")),
                     eq(100L),
-                    eq(KNNEngine.FAISS)
+                    eq(BuiltinKNNEngine.FAISS)
                 )
             );
 
@@ -109,7 +109,7 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
                     eq(knnVectorValues.dimension()),
                     eq(Map.of("index", "param")),
                     eq(100L),
-                    eq(KNNEngine.FAISS)
+                    eq(BuiltinKNNEngine.FAISS)
                 )
             );
 
@@ -117,7 +117,7 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
                 () -> JNIService.writeIndex(
                     eq(indexOutputWithBuffer),
                     eq(100L),
-                    eq(KNNEngine.FAISS),
+                    eq(BuiltinKNNEngine.FAISS),
                     eq(Map.of("index", "param")),
                     eq(false)
                 )
@@ -157,7 +157,7 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
         ) {
 
             // Limits transfer to 2 vectors
-            mockedJNIService.when(() -> JNIService.initIndex(3, 2, Map.of("index", "param"), KNNEngine.FAISS)).thenReturn(100L);
+            mockedJNIService.when(() -> JNIService.initIndex(3, 2, Map.of("index", "param"), BuiltinKNNEngine.FAISS)).thenReturn(100L);
 
             OffHeapVectorTransfer offHeapVectorTransfer = mock(OffHeapVectorTransfer.class);
             when(offHeapVectorTransfer.getTransferLimit()).thenReturn(2);
@@ -195,7 +195,7 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
             IndexOutputWithBuffer indexOutputWithBuffer = Mockito.mock(IndexOutputWithBuffer.class);
             BuildIndexParams buildIndexParams = BuildIndexParams.builder()
                 .indexOutputWithBuffer(indexOutputWithBuffer)
-                .knnEngine(KNNEngine.FAISS)
+                .knnEngine(BuiltinKNNEngine.FAISS)
                 .vectorDataType(VectorDataType.FLOAT)
                 .indexParameters(Map.of("index", "param"))
                 .quantizationState(quantizationState)
@@ -212,7 +212,7 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
                     knnVectorValues.totalLiveDocs(),
                     knnVectorValues.dimension(),
                     Map.of("index", "param"),
-                    KNNEngine.FAISS
+                    BuiltinKNNEngine.FAISS
                 )
             );
 
@@ -223,7 +223,7 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
                     eq(knnVectorValues.dimension()),
                     eq(Map.of("index", "param")),
                     eq(100L),
-                    eq(KNNEngine.FAISS)
+                    eq(BuiltinKNNEngine.FAISS)
                 )
             );
 
@@ -235,7 +235,7 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
                     eq(knnVectorValues.dimension()),
                     eq(Map.of("index", "param")),
                     eq(100L),
-                    eq(KNNEngine.FAISS)
+                    eq(BuiltinKNNEngine.FAISS)
                 )
             );
 
@@ -243,7 +243,7 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
                 () -> JNIService.writeIndex(
                     eq(indexOutputWithBuffer),
                     eq(100L),
-                    eq(KNNEngine.FAISS),
+                    eq(BuiltinKNNEngine.FAISS),
                     eq(Map.of("index", "param")),
                     eq(false)
                 )

@@ -10,7 +10,7 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -79,7 +79,7 @@ public class FaissMethodResolverTests extends KNNTestCase {
 
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             new KNNMethodContext(
-                KNNEngine.FAISS,
+                BuiltinKNNEngine.FAISS,
                 SpaceType.L2,
                 new MethodComponentContext(
                     METHOD_HNSW,
@@ -104,7 +104,7 @@ public class FaissMethodResolverTests extends KNNTestCase {
 
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             new KNNMethodContext(
-                KNNEngine.FAISS,
+                BuiltinKNNEngine.FAISS,
                 SpaceType.L2,
                 new MethodComponentContext(
                     METHOD_HNSW,
@@ -124,7 +124,7 @@ public class FaissMethodResolverTests extends KNNTestCase {
         validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x8, SpaceType.L2, QFrameBitEncoder.NAME, true);
 
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
-            new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, new MethodComponentContext(METHOD_HNSW, Map.of())),
+            new KNNMethodContext(BuiltinKNNEngine.FAISS, SpaceType.L2, new MethodComponentContext(METHOD_HNSW, Map.of())),
             KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build(),
             false,
             SpaceType.L2
@@ -132,7 +132,7 @@ public class FaissMethodResolverTests extends KNNTestCase {
         validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x1, SpaceType.L2, ENCODER_FLAT, false);
 
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
-            new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, new MethodComponentContext(METHOD_HNSW, Map.of())),
+            new KNNMethodContext(BuiltinKNNEngine.FAISS, SpaceType.L2, new MethodComponentContext(METHOD_HNSW, Map.of())),
             KNNMethodConfigContext.builder().vectorDataType(VectorDataType.BINARY).versionCreated(Version.CURRENT).build(),
             false,
             SpaceType.L2
@@ -146,7 +146,7 @@ public class FaissMethodResolverTests extends KNNTestCase {
 
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             new KNNMethodContext(
-                KNNEngine.FAISS,
+                BuiltinKNNEngine.FAISS,
                 SpaceType.L2,
                 new MethodComponentContext(
                     METHOD_HNSW,
@@ -175,7 +175,7 @@ public class FaissMethodResolverTests extends KNNTestCase {
         boolean checkBitsEncoderParam
     ) {
         assertEquals(expectedCompression, resolvedMethodContext.getCompressionLevel());
-        assertEquals(KNNEngine.FAISS, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
+        assertEquals(BuiltinKNNEngine.FAISS, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
         assertEquals(expectedSpaceType, resolvedMethodContext.getKnnMethodContext().getSpaceType());
         assertEquals(
             expectedEncoderName,
@@ -231,7 +231,7 @@ public class FaissMethodResolverTests extends KNNTestCase {
             ValidationException.class,
             () -> TEST_RESOLVER.resolveMethod(
                 new KNNMethodContext(
-                    KNNEngine.FAISS,
+                    BuiltinKNNEngine.FAISS,
                     SpaceType.INNER_PRODUCT,
                     new MethodComponentContext(
                         METHOD_HNSW,
@@ -263,7 +263,11 @@ public class FaissMethodResolverTests extends KNNTestCase {
             new MethodComponentContext("pq", Map.of())
         );
         MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, parameters);
-        final KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.INNER_PRODUCT, methodComponentContext);
+        final KNNMethodContext knnMethodContext = new KNNMethodContext(
+            BuiltinKNNEngine.FAISS,
+            SpaceType.INNER_PRODUCT,
+            methodComponentContext
+        );
 
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .vectorDataType(VectorDataType.FLOAT)
@@ -289,7 +293,7 @@ public class FaissMethodResolverTests extends KNNTestCase {
         // User explicitly specifies binary (QFrameBitEncoder) on 3.6.0+ — should be honored, not overridden by sq(bits=1)
         ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             new KNNMethodContext(
-                KNNEngine.FAISS,
+                BuiltinKNNEngine.FAISS,
                 SpaceType.L2,
                 new MethodComponentContext(
                     METHOD_HNSW,

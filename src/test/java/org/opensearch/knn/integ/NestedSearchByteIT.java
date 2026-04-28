@@ -16,6 +16,7 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.List;
@@ -26,7 +27,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 public class NestedSearchByteIT extends KNNRestTestCase {
     @SneakyThrows
     public void testNestedSearchWithHnswByte_whenKIsTwo_thenReturnTwoResults() {
-        for (KNNEngine engine : List.of(KNNEngine.FAISS, KNNEngine.LUCENE)) {
+        for (KNNEngine engine : List.of(BuiltinKNNEngine.FAISS, BuiltinKNNEngine.LUCENE)) {
             String indexName = INDEX_NAME + "_" + engine.getName().toLowerCase();
             String nestedFieldName = "nested";
             createKnnByteIndexWithNestedField(indexName, nestedFieldName, FIELD_NAME, 2, engine);
@@ -91,7 +92,7 @@ public class NestedSearchByteIT extends KNNRestTestCase {
     public void testNestedSearchWithFaissHnswByte_whenDoingExactSearch_thenReturnCorrectResults() {
         String nestedFieldName = "nested";
         String filterFieldName = "parking";
-        createKnnByteIndexWithNestedField(INDEX_NAME, nestedFieldName, FIELD_NAME, 3, KNNEngine.FAISS);
+        createKnnByteIndexWithNestedField(INDEX_NAME, nestedFieldName, FIELD_NAME, 3, BuiltinKNNEngine.FAISS);
 
         for (byte i = 1; i < 4; i++) {
             String doc = NestedKnnDocBuilder.create(nestedFieldName)

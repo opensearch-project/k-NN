@@ -19,7 +19,7 @@ import org.opensearch.knn.common.exception.DeleteModelException;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.indices.Model;
@@ -206,7 +206,7 @@ public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestC
 
         Model model = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.CREATED,

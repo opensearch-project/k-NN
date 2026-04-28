@@ -36,7 +36,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
@@ -239,7 +239,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategyTests extends KNNTestC
 
                 final BuildIndexParams buildIndexParams = BuildIndexParams.builder()
                     .field(fieldInfo.getName())
-                    .knnEngine(KNNEngine.FAISS)
+                    .knnEngine(BuiltinKNNEngine.FAISS)
                     .indexOutputWithBuffer(indexOutputWithBuffer)
                     .vectorDataType(VectorDataType.FLOAT)
                     .indexParameters(parameters)
@@ -284,7 +284,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategyTests extends KNNTestC
 
         BuildIndexParams buildIndexParams = BuildIndexParams.builder()
             .indexOutputWithBuffer(indexOutputWithBuffer)
-            .knnEngine(KNNEngine.FAISS)
+            .knnEngine(BuiltinKNNEngine.FAISS)
             .vectorDataType(VectorDataType.FLOAT)
             .indexParameters(params)
             .knnVectorValuesSupplier(() -> knnVectorValues)
@@ -294,12 +294,12 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategyTests extends KNNTestC
 
         try (MockedStatic<JNIService> mockedJNIService = Mockito.mockStatic(JNIService.class)) {
             mockedJNIService.when(
-                () -> JNIService.initFaissSQIndex(anyInt(), anyInt(), anyMap(), anyFloat(), anyInt(), any(KNNEngine.class))
+                () -> JNIService.initFaissSQIndex(anyInt(), anyInt(), anyMap(), anyFloat(), anyInt(), any(BuiltinKNNEngine.class))
             ).thenReturn(fakeIndexAddress);
 
             // Phase 1 throws
             mockedJNIService.when(
-                () -> JNIService.passSQVectorsWithCorrectionFactors(anyLong(), any(byte[].class), anyInt(), any(KNNEngine.class))
+                () -> JNIService.passSQVectorsWithCorrectionFactors(anyLong(), any(byte[].class), anyInt(), any(BuiltinKNNEngine.class))
             ).thenThrow(new RuntimeException("Simulated Phase 1 failure"));
 
             // When
@@ -310,9 +310,9 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategyTests extends KNNTestC
 
             // Then
             assertEquals("Simulated Phase 1 failure", thrown.getMessage());
-            mockedJNIService.verify(() -> JNIService.releaseSQIndex(eq(fakeIndexAddress), eq(KNNEngine.FAISS)));
+            mockedJNIService.verify(() -> JNIService.releaseSQIndex(eq(fakeIndexAddress), eq(BuiltinKNNEngine.FAISS)));
             mockedJNIService.verify(
-                () -> JNIService.writeIndex(any(), anyLong(), any(KNNEngine.class), anyMap(), eq(true)),
+                () -> JNIService.writeIndex(any(), anyLong(), any(BuiltinKNNEngine.class), anyMap(), eq(true)),
                 Mockito.never()
             );
         }

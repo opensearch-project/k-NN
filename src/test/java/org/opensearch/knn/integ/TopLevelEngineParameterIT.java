@@ -18,6 +18,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 
@@ -69,18 +70,18 @@ public class TopLevelEngineParameterIT extends KNNRestTestCase {
     @SneakyThrows
     public void testEngineWithCompression() {
         // faiss, 2x compression -> valid
-        createTestIndexWithCompression(KNNEngine.FAISS, "2x");
+        createTestIndexWithCompression(BuiltinKNNEngine.FAISS, "2x");
         addKnnDoc(INDEX_NAME, "0", FIELD_NAME, TEST_VECTOR);
         validateKNNSearch(INDEX_NAME, FIELD_NAME, DIMENSION, 1, K);
         deleteIndex(INDEX_NAME);
 
         // faiss, 4x compression -> exception
-        Exception e = expectThrows(Exception.class, () -> createTestIndexWithCompression(KNNEngine.FAISS, "4x"));
+        Exception e = expectThrows(Exception.class, () -> createTestIndexWithCompression(BuiltinKNNEngine.FAISS, "4x"));
         assertTrue(e.getMessage(), e.getMessage().contains("Lucene is the only engine that supports 4x compression"));
         deleteIndex(INDEX_NAME);
 
         // lucene, 4x compression -> valid
-        createTestIndexWithCompression(KNNEngine.LUCENE, "4x");
+        createTestIndexWithCompression(BuiltinKNNEngine.LUCENE, "4x");
         addKnnDoc(INDEX_NAME, "0", FIELD_NAME, TEST_VECTOR);
         validateKNNSearch(INDEX_NAME, FIELD_NAME, DIMENSION, 1, K);
         deleteIndex(INDEX_NAME);
@@ -93,7 +94,7 @@ public class TopLevelEngineParameterIT extends KNNRestTestCase {
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
             .field("dimension", DIMENSION)
-            .field(TOP_LEVEL_PARAMETER_ENGINE, KNNEngine.LUCENE.getName())
+            .field(TOP_LEVEL_PARAMETER_ENGINE, BuiltinKNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .endObject();
@@ -112,7 +113,7 @@ public class TopLevelEngineParameterIT extends KNNRestTestCase {
             .field("dimension", DIMENSION)
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
-            .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .field(KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -129,10 +130,10 @@ public class TopLevelEngineParameterIT extends KNNRestTestCase {
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
             .field("dimension", DIMENSION)
-            .field(TOP_LEVEL_PARAMETER_ENGINE, KNNEngine.LUCENE.getName())
+            .field(TOP_LEVEL_PARAMETER_ENGINE, BuiltinKNNEngine.LUCENE.getName())
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
-            .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .field(KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -164,10 +165,10 @@ public class TopLevelEngineParameterIT extends KNNRestTestCase {
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
             .field("dimension", DIMENSION)
-            .field(TOP_LEVEL_PARAMETER_ENGINE, KNNEngine.LUCENE.getName())
+            .field(TOP_LEVEL_PARAMETER_ENGINE, BuiltinKNNEngine.LUCENE.getName())
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
-            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .endObject()

@@ -27,6 +27,7 @@ import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 public class RNNQueryFactoryTests extends KNNTestCase {
@@ -43,8 +44,8 @@ public class RNNQueryFactoryTests extends KNNTestCase {
     private final Map<String, ?> methodParameters = Map.of(METHOD_PARAMETER_EF_SEARCH, 100);
 
     public void testCreate_whenLucene_withRadiusQuery_withFloatVector() {
-        List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
-            .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
+        List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(BuiltinKNNEngine.values())
+            .filter(knnEngine -> !BuiltinKNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
             .collect(Collectors.toList());
         for (KNNEngine knnEngine : luceneDefaultQueryEngineList) {
             Query query = RNNQueryFactory.create(
@@ -60,8 +61,8 @@ public class RNNQueryFactoryTests extends KNNTestCase {
     }
 
     public void testCreate_whenLucene_withRadiusQuery_withByteVector() {
-        List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
-            .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
+        List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(BuiltinKNNEngine.values())
+            .filter(knnEngine -> !BuiltinKNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
             .collect(Collectors.toList());
         for (KNNEngine knnEngine : luceneDefaultQueryEngineList) {
             QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
@@ -86,8 +87,8 @@ public class RNNQueryFactoryTests extends KNNTestCase {
     }
 
     public void testCreate_whenLucene_withFilter_thenSucceed() {
-        List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
-            .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
+        List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(BuiltinKNNEngine.values())
+            .filter(knnEngine -> !BuiltinKNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
             .collect(Collectors.toList());
         for (KNNEngine knnEngine : luceneDefaultQueryEngineList) {
             QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
@@ -128,7 +129,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
 
         // When
         final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
-            .knnEngine(KNNEngine.FAISS)
+            .knnEngine(BuiltinKNNEngine.FAISS)
             .indexName(testIndexName)
             .fieldName(testFieldName)
             .vector(testQueryVector)

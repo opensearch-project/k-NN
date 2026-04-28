@@ -18,7 +18,7 @@ import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.indices.ModelDao;
@@ -59,7 +59,7 @@ public class TrainingModelTransportActionTests extends KNNSingleNodeTestCase {
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .field(NAME, METHOD_IVF)
-            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
             .startObject(PARAMETERS)
             .field(METHOD_PARAMETER_NLIST, 4)

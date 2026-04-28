@@ -42,6 +42,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.DerivedKnnByteVectorField;
 import org.opensearch.knn.index.DerivedKnnFloatVectorField;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.EngineResolver;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -201,7 +202,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             false,
             m -> toType(m).originalMappingParameters.getTopLevelEngine(),
             KNNEngine.UNDEFINED.getName()
-        ).setValidator(KNNEngine::getEngine);
+        ).setValidator(BuiltinKNNEngine::getEngine);
 
         protected final Parameter<Map<String, String>> meta = Parameter.metaParam();
 

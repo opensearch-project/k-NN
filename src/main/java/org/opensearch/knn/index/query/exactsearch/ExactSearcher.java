@@ -30,6 +30,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.scorers.VectorScorerMode;
 import org.opensearch.knn.index.query.scorers.VectorScorers;
@@ -173,7 +174,7 @@ public class ExactSearcher {
         assert context.isMemoryOptimizedSearchEnabled != null;
 
         final KNNEngine engine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
-        if (KNNEngine.FAISS != engine) {
+        if (BuiltinKNNEngine.FAISS != engine) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Engine [%s] does not support radial search", engine));
         }
         final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);

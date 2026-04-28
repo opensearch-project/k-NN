@@ -13,7 +13,7 @@ package org.opensearch.knn.index;
 
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -65,7 +65,7 @@ public class SpaceTypeTests extends KNNTestCase {
 
         for (int i = 0; i < dataVectors.size(); i++) {
             assertEquals(
-                KNNEngine.FAISS.score(dotProducts.get(i), SpaceType.INNER_PRODUCT),
+                BuiltinKNNEngine.FAISS.score(dotProducts.get(i), SpaceType.INNER_PRODUCT),
                 SpaceType.INNER_PRODUCT.getKnnVectorSimilarityFunction().compare(queryVector, dataVectors.get(i)),
                 0.0000001
             );

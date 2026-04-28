@@ -37,7 +37,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategy;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
@@ -103,7 +103,7 @@ abstract class RemoteIndexBuildTests extends KNNTestCase {
 
         buildIndexParams = BuildIndexParams.builder()
             .indexOutputWithBuffer(indexOutputWithBuffer)
-            .knnEngine(KNNEngine.FAISS)
+            .knnEngine(BuiltinKNNEngine.FAISS)
             .field(fieldInfo.getName())
             .vectorDataType(VectorDataType.FLOAT)
             .indexParameters(Map.of("index", "param"))
