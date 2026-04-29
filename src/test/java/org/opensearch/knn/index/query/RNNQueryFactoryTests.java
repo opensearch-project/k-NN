@@ -28,6 +28,9 @@ import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 
 public class RNNQueryFactoryTests extends KNNTestCase {
     private static final String FILTER_FILED_NAME = "foo";
@@ -142,5 +145,59 @@ public class RNNQueryFactoryTests extends KNNTestCase {
 
         // Then
         assertEquals(expectedQuery, query);
+    }
+
+    // Verify that CreateQueryRequest defaults to NOT_CONFIGURED / EMPTY when quantization fields are not set.
+    // This ensures existing callers (non-quantized indices) are unaffected by the new fields.
+    public void testCreateQueryRequest_whenQuantizationNotSet_thenDefaults() {
+        final BaseQueryFactory.CreateQueryRequest request = BaseQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.FAISS)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .radius(testRadius)
+            .build();
+
+        assertEquals(CompressionLevel.NOT_CONFIGURED, request.getCompressionLevel());
+        assertEquals(QuantizationConfig.EMPTY, request.getQuantizationConfig());
+    }
+
+    // Verify that CreateQueryRequest correctly carries CompressionLevel and QuantizationConfig
+    // when explicitly set. RNNQueryFactory will use these to decide whether to wrap the query
+    // in RescoreRadialSearchQuery.
+    public void testCreateQueryRequest_whenQuantizationSet_thenCarriesValues() {
+        final QuantizationConfig bqConfig = QuantizationConfig.builder()
+            .quantizationType(ScalarQuantizationType.ONE_BIT)
+            .build();
+
+        final BaseQueryFactory.CreateQueryRequest request = BaseQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.FAISS)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .radius(testRadius)
+            .compressionLevel(CompressionLevel.x32)
+            .quantizationConfig(bqConfig)
+            .build();
+
+        assertEquals(CompressionLevel.x32, request.getCompressionLevel());
+        assertEquals(bqConfig, request.getQuantizationConfig());
+    }
+
+    // Verify that 32x SQ is represented as CompressionLevel.x32 with QuantizationConfig.EMPTY.
+    // This is the specific combination that should trigger rescoring in RNNQueryFactory.
+    public void testCreateQueryRequest_whenSQ32x_thenCorrectRepresentation() {
+        final BaseQueryFactory.CreateQueryRequest request = BaseQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.FAISS)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .radius(testRadius)
+            .compressionLevel(CompressionLevel.x32)
+            .quantizationConfig(QuantizationConfig.EMPTY)
+            .build();
+
+        assertEquals(CompressionLevel.x32, request.getCompressionLevel());
+        assertEquals(QuantizationConfig.EMPTY, request.getQuantizationConfig());
     }
 }
