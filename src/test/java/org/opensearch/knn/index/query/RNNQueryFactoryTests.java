@@ -166,9 +166,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
     // when explicitly set. RNNQueryFactory will use these to decide whether to wrap the query
     // in RescoreRadialSearchQuery.
     public void testCreateQueryRequest_whenQuantizationSet_thenCarriesValues() {
-        final QuantizationConfig bqConfig = QuantizationConfig.builder()
-            .quantizationType(ScalarQuantizationType.ONE_BIT)
-            .build();
+        final QuantizationConfig bqConfig = QuantizationConfig.builder().quantizationType(ScalarQuantizationType.ONE_BIT).build();
 
         final BaseQueryFactory.CreateQueryRequest request = BaseQueryFactory.CreateQueryRequest.builder()
             .knnEngine(KNNEngine.FAISS)
