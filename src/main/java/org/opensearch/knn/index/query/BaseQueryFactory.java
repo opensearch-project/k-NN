@@ -22,6 +22,7 @@ import org.opensearch.index.search.NestedHelper;
 import org.opensearch.index.search.OpenSearchToParentBlockJoinQuery;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.io.IOException;
@@ -50,8 +51,11 @@ public abstract class BaseQueryFactory {
         private float[] vector;
         private float[] originalVector;
         private byte[] byteVector;
+        // TODO : This needs clean-up, `vectorFieldType` has it already.
         private VectorDataType vectorDataType;
+        // TODO : This needs clean-up, `vectorFieldType` has it already.
         private Map<String, ?> methodParameters;
+        private KNNVectorFieldType vectorFieldType;
         private Integer k;
         private Float radius;
         private QueryBuilder filter;
@@ -70,10 +74,6 @@ public abstract class BaseQueryFactory {
 
         public Optional<RescoreContext> getRescoreContext() {
             return Optional.ofNullable(rescoreContext);
-        }
-
-        public boolean isExpandNested() {
-            return expandNested;
         }
     }
 
