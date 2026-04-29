@@ -488,10 +488,21 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 throw new UnsupportedOperationException(String.format(Locale.ROOT, "Binary data type does not support radial search"));
             }
 
-            if ((knnMappingConfig.getQuantizationConfig() != QuantizationConfig.EMPTY)
+            // BQ or other non-SQ quantized index do not support radial search
+            if ((knnMappingConfig.getQuantizationConfig() != QuantizationConfig.EMPTY)) {
+                throw new UnsupportedOperationException(
+                    "Radial search is not supported for non-32x-SQ quantized indices, quantization config was not empty."
+                );
+            }
+
+            // Only SQ 32x quantized index supports radial search
+            if ((knnMappingConfig.getQuantizationConfig() == QuantizationConfig.EMPTY)
                 // If compression level is 32x, then radial search should be blocked.
-                || (knnMappingConfig.getCompressionLevel() == CompressionLevel.x32)) {
-                throw new UnsupportedOperationException("Radial search is not supported for indices which have quantization enabled");
+                && (knnMappingConfig.getCompressionLevel() != CompressionLevel.x32)) {
+                throw new UnsupportedOperationException(
+                    "Radial search is not supported for non-32x-SQ quantized indices, compression level="
+                        + knnMappingConfig.getCompressionLevel()
+                );
             }
         }
 
