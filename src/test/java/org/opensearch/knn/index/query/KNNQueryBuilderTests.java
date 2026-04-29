@@ -35,6 +35,7 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.QueryRewriteContext;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.index.query.QueryBuilderVisitor;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.mapper.CompressionLevel;
@@ -70,6 +71,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.index.KNNClusterTestUtils.mockClusterService;
 import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
@@ -1541,6 +1544,34 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertEquals(knnQueryBuilder.getRescoreContext(), updatedKnnQueryBuilder.getRescoreContext());
         assertEquals(knnQueryBuilder.getExpandNested(), updatedKnnQueryBuilder.getExpandNested());
         assertEquals(TERM_QUERY, updatedKnnQueryBuilder.getFilter());
+    }
+
+    public void testVisit_whenNoFilter_thenVisitorAcceptsOnlyQueryBuilder() {
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).k(K).build();
+        QueryBuilderVisitor visitor = mock(QueryBuilderVisitor.class);
+
+        knnQueryBuilder.visit(visitor);
+
+        verify(visitor).accept(knnQueryBuilder);
+        verify(visitor, never()).getChildVisitor(any());
+    }
+
+    public void testVisit_whenFilterPresent_thenVisitorTraversesFilter() {
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(QUERY_VECTOR)
+            .k(K)
+            .filter(TERM_QUERY)
+            .build();
+        QueryBuilderVisitor visitor = mock(QueryBuilderVisitor.class);
+        QueryBuilderVisitor subVisitor = mock(QueryBuilderVisitor.class);
+        when(visitor.getChildVisitor(any())).thenReturn(subVisitor);
+
+        knnQueryBuilder.visit(visitor);
+
+        verify(visitor).accept(knnQueryBuilder);
+        verify(visitor).getChildVisitor(org.apache.lucene.search.BooleanClause.Occur.FILTER);
+        verify(subVisitor).accept(TERM_QUERY);
     }
 
     @SneakyThrows
