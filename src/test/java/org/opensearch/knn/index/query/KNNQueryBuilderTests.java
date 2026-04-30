@@ -589,6 +589,9 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         IndexSettings indexSettings = mock(IndexSettings.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        // transformQueryVector is required so that the processed vector (e.g., L2-normalized for cosine)
+        // is non-null when passed to RescoreRadialSearchQuery
+        when(mockKNNVectorField.transformQueryVector(queryVector)).thenReturn(queryVector);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(faissSQ32xMappingConfig);
 
@@ -598,8 +601,9 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         Query query = knnQueryBuilderWithDistance.doToQuery(mockQueryShardContext);
         assertNotNull(query);
-        // Faiss radial search produces a bare KNNQuery (not wrapped in NativeEngineKnnVectorQuery)
-        assertTrue(query instanceof KNNQuery);
+        // 32x SQ radial search wraps the inner KNNQuery in RescoreRadialSearchQuery
+        assertTrue(query instanceof RescoreRadialSearchQuery);
+        assertTrue(((RescoreRadialSearchQuery) query).getInnerQuery() instanceof KNNQuery);
 
         // --- Test with minScore ---
         // minScore is the alternative radial search parameter (converted to radius internally).
@@ -614,15 +618,16 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         IndexSettings indexSettings2 = mock(IndexSettings.class);
         when(mockQueryShardContext2.index()).thenReturn(dummyIndex);
         when(mockKNNVectorField2.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockKNNVectorField2.transformQueryVector(queryVector)).thenReturn(queryVector);
         when(mockQueryShardContext2.fieldMapper(anyString())).thenReturn(mockKNNVectorField2);
         when(mockKNNVectorField2.getKnnMappingConfig()).thenReturn(faissSQ32xMappingConfig);
         when(mockQueryShardContext2.getIndexSettings()).thenReturn(indexSettings2);
         when(indexSettings2.getMaxResultWindow()).thenReturn(1000);
 
-        // Run doToQuery, this should return a non-null query
         Query query2 = knnQueryBuilderWithScore.doToQuery(mockQueryShardContext2);
         assertNotNull(query2);
-        assertTrue(query2 instanceof KNNQuery);
+        assertTrue(query2 instanceof RescoreRadialSearchQuery);
+        assertTrue(((RescoreRadialSearchQuery) query2).getInnerQuery() instanceof KNNQuery);
     }
 
     // Validates that radial search on a Lucene HNSW index with 32x scalar quantization (SQ) is allowed.
@@ -692,8 +697,9 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         Query query = knnQueryBuilderWithDistance.doToQuery(mockQueryShardContext);
         assertNotNull(query);
-        // Lucene radial search produces FloatVectorSimilarityQuery (not KNNQuery)
-        assertTrue(query instanceof FloatVectorSimilarityQuery);
+        // 32x SQ radial search wraps the inner FloatVectorSimilarityQuery in RescoreRadialSearchQuery
+        assertTrue(query instanceof RescoreRadialSearchQuery);
+        assertTrue(((RescoreRadialSearchQuery) query).getInnerQuery() instanceof FloatVectorSimilarityQuery);
 
         // --- Test with minScore ---
         // minScore follows the same Lucene radial path. Internally converted to a similarity threshold
@@ -716,7 +722,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         Query query2 = knnQueryBuilderWithScore.doToQuery(mockQueryShardContext2);
         assertNotNull(query2);
-        assertTrue(query2 instanceof FloatVectorSimilarityQuery);
+        assertTrue(query2 instanceof RescoreRadialSearchQuery);
+        assertTrue(((RescoreRadialSearchQuery) query2).getInnerQuery() instanceof FloatVectorSimilarityQuery);
     }
 
     // Validates that radial search on a Lucene FLAT index with 32x SQ is allowed.
@@ -783,7 +790,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         Query query = knnQueryBuilderWithDistance.doToQuery(mockQueryShardContext);
         assertNotNull(query);
-        assertTrue(query instanceof FloatVectorSimilarityQuery);
+        assertTrue(query instanceof RescoreRadialSearchQuery);
+        assertTrue(((RescoreRadialSearchQuery) query).getInnerQuery() instanceof FloatVectorSimilarityQuery);
 
         // --- Test with minScore ---
         KNNQueryBuilder knnQueryBuilderWithScore = KNNQueryBuilder.builder()
@@ -804,7 +812,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         Query query2 = knnQueryBuilderWithScore.doToQuery(mockQueryShardContext2);
         assertNotNull(query2);
-        assertTrue(query2 instanceof FloatVectorSimilarityQuery);
+        assertTrue(query2 instanceof RescoreRadialSearchQuery);
+        assertTrue(((RescoreRadialSearchQuery) query2).getInnerQuery() instanceof FloatVectorSimilarityQuery);
     }
 
     public void testDoToQuery_KnnQueryWithFilter_Lucene() {
