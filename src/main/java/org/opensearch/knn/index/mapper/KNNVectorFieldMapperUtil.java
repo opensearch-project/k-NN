@@ -34,6 +34,7 @@ import java.util.Arrays;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
@@ -170,5 +171,23 @@ public class KNNVectorFieldMapperUtil {
                 )
             )
         );
+    }
+
+    public static String getEncoderName(final KNNMethodContext methodContext) {
+        if (methodContext == null) {
+            return null;
+        }
+
+        final MethodComponentContext methodComponentContext = methodContext.getMethodComponentContext();
+
+        // We only support Flat and SQ encoder for HNSW.
+        final Map<String, Object> parameters = methodComponentContext.getParameters();
+        final Object methodComponentContextObj = parameters.get(METHOD_ENCODER_PARAMETER);
+        if ((methodComponentContextObj instanceof MethodComponentContext) == false) {
+            return null;
+        }
+
+        // Check whether HNSW encoding is supported.
+        return ((MethodComponentContext) methodComponentContextObj).getName();
     }
 }

@@ -11,6 +11,8 @@ import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.codec.KNN1040Codec.Faiss1040ScalarQuantizedKnnVectorsFormat;
+import org.opensearch.knn.index.codec.KNN1040Codec.KNN1040PerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.backward_codecs.BasePerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
@@ -34,6 +36,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -584,5 +587,33 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
         when(mapperService.getIndexSettings()).thenReturn(indexSettings);
 
         return mapperService;
+    }
+
+    // --- SQ with bits=1 (1-bit quantization) format routing ---
+
+    public void testGetKnnVectorsFormatForField_whenSQOneBit_thenReturnSQOneBitFormat() {
+        MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 1));
+        MethodComponentContext hnswContext = new MethodComponentContext("hnsw", Map.of(METHOD_ENCODER_PARAMETER, encoderContext));
+        KNNMethodContext methodContext = mock(KNNMethodContext.class);
+        when(methodContext.getKnnEngine()).thenReturn(KNNEngine.FAISS);
+        when(methodContext.getMethodComponentContext()).thenReturn(hnswContext);
+
+        MapperService mapperService = mockMapperService(TEST_FIELD, methodContext);
+        KNN1040PerFieldKnnVectorsFormat perFieldFormat = new KNN1040PerFieldKnnVectorsFormat(Optional.of(mapperService));
+        KnnVectorsFormat format = perFieldFormat.getKnnVectorsFormatForField(TEST_FIELD);
+        assertTrue(format instanceof Faiss1040ScalarQuantizedKnnVectorsFormat);
+    }
+
+    public void testGetKnnVectorsFormatForField_whenSQWithoutOneBit_thenReturnNativeFormat() {
+        MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 16));
+        MethodComponentContext hnswContext = new MethodComponentContext("hnsw", Map.of(METHOD_ENCODER_PARAMETER, encoderContext));
+        KNNMethodContext methodContext = mock(KNNMethodContext.class);
+        when(methodContext.getKnnEngine()).thenReturn(KNNEngine.FAISS);
+        when(methodContext.getMethodComponentContext()).thenReturn(hnswContext);
+
+        MapperService mapperService = mockMapperService(TEST_FIELD, methodContext);
+        KNN1040PerFieldKnnVectorsFormat perFieldFormat = new KNN1040PerFieldKnnVectorsFormat(Optional.of(mapperService));
+        KnnVectorsFormat format = perFieldFormat.getKnnVectorsFormatForField(TEST_FIELD);
+        assertTrue(format instanceof NativeEngines990KnnVectorsFormat);
     }
 }

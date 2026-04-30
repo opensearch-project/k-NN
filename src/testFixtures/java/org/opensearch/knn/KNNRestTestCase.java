@@ -1110,7 +1110,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected void deleteKnnDoc(String index, String docId) throws IOException {
         // Put KNN mapping
-        Request request = new Request("DELETE", "/" + index + "/_doc/" + docId + "?refresh");
+        Request request = new Request("DELETE", "/" + index + "/_doc/" + docId + "?refresh=true");
 
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -2798,6 +2798,21 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
         final Version version = Version.fromString(versionString);
         return version.onOrAfter(Version.V_2_18_0);
+    }
+
+    /**
+     * Binary Scalar Quantizer is only supported on or after V_3_6_0
+     */
+    protected boolean isBinaryScalarQuantizerSupported(final Optional<String> bwcVersion) {
+        if (bwcVersion.isEmpty()) {
+            return false;
+        }
+        String versionString = bwcVersion.get();
+        if (versionString.endsWith("-SNAPSHOT")) {
+            versionString = versionString.substring(0, versionString.length() - 9);
+        }
+        final Version version = Version.fromString(versionString);
+        return version.onOrAfter(Version.V_3_6_0);
     }
 
     /**

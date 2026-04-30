@@ -28,4 +28,6 @@ public class MMRRerankContext {
     private VectorDataType vectorDataType;
     // To support the case that we have different vector field paths in different indices
     private Map<String, String> indexToVectorFieldPathMap;
+    // Flag to enable MMR explain info in the response
+    private Boolean explain;
 }

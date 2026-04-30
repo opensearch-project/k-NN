@@ -13,6 +13,7 @@ import org.apache.lucene.search.join.ToChildBlockJoinQuery;
 import org.junit.Before;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
+import org.opensearch.knn.indices.ModelDao;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.Version;
@@ -607,10 +608,14 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .rescoreContext(rescoreContext)
             .context(queryShardContext)
             .build();
-        Query query = KNNQueryFactory.create(createQueryRequest);
 
-        // Should return RescoreKNNVectorQuery wrapper
-        assertEquals(RescoreKNNVectorQuery.class, query.getClass());
+        try (MockedStatic<ModelDao.OpenSearchKNNModelDao> mockedModelDao = mockStatic(ModelDao.OpenSearchKNNModelDao.class)) {
+            ModelDao.OpenSearchKNNModelDao mockInstance = mock(ModelDao.OpenSearchKNNModelDao.class);
+            mockedModelDao.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(mockInstance);
+            Query query = KNNQueryFactory.create(createQueryRequest);
+            // Should return RescoreKNNVectorQuery wrapper
+            assertEquals(RescoreKNNVectorQuery.class, query.getClass());
+        }
     }
 
     public void testCreate_whenNoRescoreContext_thenNoRescoreWrapper() {

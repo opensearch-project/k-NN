@@ -8,6 +8,11 @@ import org.apache.tools.ant.taskdefs.condition.Os
 
 apply from : "$rootDir/qa/build.gradle"
 
+dependencies {
+    // Ensure Guava is available for BWC test compilation
+    testImplementation group: 'com.google.guava', name: 'guava', version: "${versions.guava}"
+}
+
 String default_bwc_version = System.getProperty("bwc.version")
 String knn_bwc_version = System.getProperty("tests.bwc.version", default_bwc_version)
 boolean isSnapshot = knn_bwc_version.contains("-SNAPSHOT")
@@ -106,10 +111,12 @@ task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
     }
 
     // excludes: 1.any; 2.x where x < 17
-    def validPrefixesForQFrameBitEncoderBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
-    if (validPrefixesForQFrameBitEncoderBWCChecks.any { knn_bwc_version.startsWith(it) }
+    def invalidPrefixesForQFrameBitEncoderAnd1bitScalarQuantizerBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
+    if (invalidPrefixesForQFrameBitEncoderAnd1bitScalarQuantizerBWCChecks.any { knn_bwc_version.startsWith(it) }
             ) {
         filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLucene4xBWC"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneOnDiskNoCompressionBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testDiskBasedMergeBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testRandomRotationBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testADC_BWC"
@@ -266,9 +273,11 @@ task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
         }
     }
 
-    def validPrefixesForQFrameBitEncoderBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
-    if (validPrefixesForQFrameBitEncoderBWCChecks.any { knn_bwc_version.startsWith(it) }) {
+    def invalidPrefixesForQFrameBitEncoderAnd1bitScalarQuantizerBWCChecks = ['1.'] + ((0..16).collect { "2.${it}." } as Collection<String>)
+    if (invalidPrefixesForQFrameBitEncoderAnd1bitScalarQuantizerBWCChecks.any { knn_bwc_version.startsWith(it) }) {
         filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLucene4xBWC"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneOnDiskNoCompressionBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testDiskBasedMergeBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testRandomRotationBWC"
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testADC_BWC"
@@ -332,6 +341,13 @@ task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
     if (versionOnOrAfter2_17.any {knn_bwc_version.startsWith(it) }) {
         filter {
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testBlockModeAndCompressionBefore2_17_0"
+        }
+    }
+
+    def invalidPrefixesFor1bitScalarQuantizerChecks = ['1.', '2.'] + ((0..5).collect { "3.${it}." } as Collection<String>)
+    if (invalidPrefixesFor1bitScalarQuantizerChecks.any { knn_bwc_version.startsWith(it) }) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndex1bitScalarQuantizer"
         }
     }
 

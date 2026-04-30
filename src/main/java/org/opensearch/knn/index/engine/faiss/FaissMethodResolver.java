@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.engine.faiss;
 
+import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.AbstractMethodResolver;
@@ -26,7 +27,9 @@ import java.util.Set;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -103,12 +106,21 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             return;
         }
 
+        // TODO: This chain of if-blocks mapping compression levels to encoder configs is too complex.
+        // Need to refactor it into a strategy or registry pattern where each CompressionLevel declares
+        // its own encoder factory, e.g. CompressionLevel.x2.createEncoder(context, encoderMap). That
+        // would make it easier to add new compression level resolutions.
         MethodComponentContext encoderComponentContext = new MethodComponentContext(ENCODER_FLAT, new HashMap<>());
         Encoder encoder = encoderMap.get(ENCODER_FLAT);
         if (CompressionLevel.x2 == resolvedCompressionLevel) {
             encoderComponentContext = new MethodComponentContext(ENCODER_SQ, new HashMap<>());
             encoder = encoderMap.get(ENCODER_SQ);
             encoderComponentContext.getParameters().put(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16);
+            // On 3.6.0+, also set bits for consistency with the new bits-based validation
+            if (knnMethodConfigContext.getVersionCreated() != null
+                && knnMethodConfigContext.getVersionCreated().onOrAfter(Version.V_3_6_0)) {
+                encoderComponentContext.getParameters().put(SQ_BITS, FaissSQEncoder.Bits.SIXTEEN.getValue());
+            }
         }
 
         if (CompressionLevel.x8 == resolvedCompressionLevel) {
@@ -124,9 +136,15 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         }
 
         if (CompressionLevel.x32 == resolvedCompressionLevel) {
-            encoderComponentContext = new MethodComponentContext(QFrameBitEncoder.NAME, new HashMap<>());
-            encoder = encoderMap.get(QFrameBitEncoder.NAME);
-            encoderComponentContext.getParameters().put(QFrameBitEncoder.BITCOUNT_PARAM, CompressionLevel.x32.numBitsForFloat32());
+            if (shouldUseSQOneBitForX32(knnMethodConfigContext, encoderMap)) {
+                encoderComponentContext = new MethodComponentContext(ENCODER_SQ, new HashMap<>());
+                encoder = encoderMap.get(ENCODER_SQ);
+                encoderComponentContext.getParameters().put(SQ_BITS, FaissSQEncoder.Bits.ONE.getValue());
+            } else {
+                encoderComponentContext = new MethodComponentContext(QFrameBitEncoder.NAME, new HashMap<>());
+                encoder = encoderMap.get(QFrameBitEncoder.NAME);
+                encoderComponentContext.getParameters().put(QFrameBitEncoder.BITCOUNT_PARAM, CompressionLevel.x32.numBitsForFloat32());
+            }
         }
 
         Map<String, Object> resolvedParams = MethodComponent.getParameterMapWithDefaultsAdded(
@@ -135,6 +153,15 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             knnMethodConfigContext
         );
         encoderComponentContext.getParameters().putAll(resolvedParams);
+
+        // When auto-resolved to bits=1, remove the type and clip defaults that were injected —
+        // the 1-bit quantization path doesn't use them, and validateEncoderConfig would reject them.
+        if (encoderComponentContext.getParameters().get(SQ_BITS) instanceof Integer bitsVal
+            && bitsVal == FaissSQEncoder.Bits.ONE.getValue()) {
+            encoderComponentContext.getParameters().remove(FAISS_SQ_TYPE);
+            encoderComponentContext.getParameters().remove(FAISS_SQ_CLIP);
+        }
+
         resolvedKNNMethodContext.getMethodComponentContext().getParameters().put(METHOD_ENCODER_PARAMETER, encoderComponentContext);
     }
 
@@ -186,5 +213,22 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             return CompressionLevel.x32;
         }
         return CompressionLevel.x1;
+    }
+
+    /**
+     * Starting 3.6.0, x32 compression can use sq(bits=1) instead of the older QFrameBitEncoder (binary).
+     * 1-bit quantization delegates to Lucene's flat format rather than the k-NN quantization
+     * framework, which gives better recall. The encoderMap guard is needed because IVF doesn't
+     * register the sq encoder — only HNSW does.
+     *
+     * Currently disabled — the SQ writer pipeline is not yet fully stable for auto-resolved
+     * indices. Users can still explicitly specify sq(bits=1) to opt in. This will be enabled
+     * as the default in Part 2.
+     * TODO: Enable once the Faiss1040ScalarQuantizedKnnVectorsWriter pipeline is validated end-to-end.
+     */
+    private static boolean shouldUseSQOneBitForX32(KNNMethodConfigContext knnMethodConfigContext, Map<String, Encoder> encoderMap) {
+        return knnMethodConfigContext.getVersionCreated() != null
+            && knnMethodConfigContext.getVersionCreated().onOrAfter(Version.V_3_6_0)
+            && encoderMap.containsKey(ENCODER_SQ);
     }
 }

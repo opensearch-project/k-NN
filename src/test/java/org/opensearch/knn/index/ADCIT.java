@@ -230,10 +230,10 @@ public class ADCIT extends KNNRestTestCase {
             .collect(Collectors.toList());
 
         // Assert that hits are the same
-        assertEquals("Number of hits should be equal", controlScores.size(), testScores.size());
+        assertEquals("[" + spaceType + "] Number of hits should be equal", controlScores.size(), testScores.size());
 
         for (int i = 0; i < controlScores.size(); i++) {
-            assertEquals("Scores should be equal at position " + i, controlScores.get(i), testScores.get(i), 0.0001);
+            assertEquals("[" + spaceType + "] Scores should be equal at position " + i, controlScores.get(i), testScores.get(i), 0.0001);
         }
 
         // Verify same document IDs and order
@@ -242,7 +242,7 @@ public class ADCIT extends KNNRestTestCase {
             .collect(Collectors.toList());
         List<String> testIds = testHits.stream().map(hit -> (String) ((Map<String, Object>) hit).get("_id")).collect(Collectors.toList());
 
-        assertEquals("Document IDs should be in the same order", controlIds, testIds);
+        assertEquals("[" + spaceType + "] Document IDs should be in the same order", controlIds, testIds);
         deleteKNNIndex(controlIndexName);
         deleteKNNIndex(testIndexName);
     }

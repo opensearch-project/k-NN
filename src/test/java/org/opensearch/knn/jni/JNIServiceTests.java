@@ -1344,6 +1344,37 @@ public class JNIServiceTests extends KNNTestCase {
         }
     }
 
+    public void test_RangeSearch_faissCagra_thenSuccess() throws IOException {
+        float radius = 0.7f;
+        float[] query = { 0.122038f, 0.609997f, 0.495177f, 0.833195f, 0.034389f, 0.173365f, 0.909320f, 0.391061f };
+        try (IndexInput indexInput = loadHnswBinary("data/remoteindexbuild/cagra_index_d10_m4_for_radial_search.faiss")) {
+            final IndexInputWithBuffer indexInputWithBuffer = new IndexInputWithBuffer(indexInput);
+            long pointer = JNIService.loadIndex(
+                indexInputWithBuffer,
+                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                KNNEngine.FAISS
+            );
+            assertNotEquals(0, pointer);
+            KNNQueryResult[] queryResults = JNIService.radiusQueryIndex(
+                pointer,
+                query,
+                radius,
+                Collections.emptyMap(),
+                KNNEngine.FAISS,
+                1000,
+                null,
+                0,
+                null
+            );
+            assertTrue(queryResults.length > 0);
+            for (KNNQueryResult queryResult : queryResults) {
+                assertTrue(queryResult.getScore() <= radius);
+                assertEquals(0.6533f, queryResult.getScore(), 0.01);
+                assertEquals(2, queryResult.getId());
+            }
+        }
+    }
+
     public void testQueryIndex_faissCagra_parentIds() throws IOException {
         doTestQueryIndex_faissCagra_parentIds(SpaceType.L2);
         doTestQueryIndex_faissCagra_parentIds(SpaceType.INNER_PRODUCT);

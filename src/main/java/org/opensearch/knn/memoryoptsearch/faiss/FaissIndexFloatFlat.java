@@ -6,12 +6,12 @@
 package org.opensearch.knn.memoryoptsearch.faiss;
 
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
+import org.opensearch.knn.memoryoptsearch.faiss.vectorvalues.FaissFloatVectorValues;
 
 import java.io.IOException;
 import java.util.Map;
@@ -40,6 +40,7 @@ public class FaissIndexFloatFlat extends FaissIndex {
     private long oneVectorByteSize;
     @Getter
     private final KNNVectorSimilarityFunction vectorSimilarityFunction;
+    private static final String VECTOR_VALUES_SLICE_NAME = "FaissFloatVectorValuesImplSlice";
 
     public FaissIndexFloatFlat(final String indexType) {
         super(indexType);
@@ -80,36 +81,13 @@ public class FaissIndexFloatFlat extends FaissIndex {
     }
 
     @Override
-    public FloatVectorValues getFloatValues(final IndexInput indexInput) {
-        @RequiredArgsConstructor
-        class FloatVectorValuesImpl extends FloatVectorValues {
-            final IndexInput indexInput;
-            final float[] buffer = new float[dimension];
-
-            @Override
-            public float[] vectorValue(int internalVectorId) throws IOException {
-                indexInput.seek(floatVectors.getBaseOffset() + internalVectorId * oneVectorByteSize);
-                indexInput.readFloats(buffer, 0, buffer.length);
-                return buffer;
-            }
-
-            @Override
-            public FloatVectorValues copy() {
-                return new FloatVectorValuesImpl(indexInput.clone());
-            }
-
-            @Override
-            public int dimension() {
-                return dimension;
-            }
-
-            @Override
-            public int size() {
-                return totalNumberOfVectors;
-            }
-        }
-
-        return new FloatVectorValuesImpl(indexInput);
+    public FloatVectorValues getFloatValues(final IndexInput indexInput) throws IOException {
+        return new FaissFloatVectorValues(
+            floatVectors.slice(indexInput, VECTOR_VALUES_SLICE_NAME),
+            oneVectorByteSize,
+            dimension,
+            totalNumberOfVectors
+        );
     }
 
     @Override

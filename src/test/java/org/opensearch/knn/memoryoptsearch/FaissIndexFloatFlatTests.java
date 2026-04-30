@@ -66,6 +66,22 @@ public class FaissIndexFloatFlatTests extends KNNTestCase {
         for (int i = 0; i < DIMENSION; ++i) {
             assertEquals(ANSWER_LAST_VECTORS[i], vector[i], 1e-3);
         }
+
+        // Do Validation on the copy instance
+        FloatVectorValues copiedVectorValues = values.copy();
+        assertEquals(DIMENSION, copiedVectorValues.dimension());
+        assertEquals(NUM_VECTORS, copiedVectorValues.size());
+
+        vector = copiedVectorValues.vectorValue(0);
+        assertEquals(DIMENSION, vector.length);
+        for (int i = 0; i < DIMENSION; ++i) {
+            assertEquals(ANSWER_FIRST_VECTORS[i], vector[i], 1e-3);
+        }
+
+        vector = copiedVectorValues.vectorValue(NUM_VECTORS - 1);
+        for (int i = 0; i < DIMENSION; ++i) {
+            assertEquals(ANSWER_LAST_VECTORS[i], vector[i], 1e-3);
+        }
     }
 
     @SneakyThrows

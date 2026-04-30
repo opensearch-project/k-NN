@@ -1,0 +1,367 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package org.opensearch.knn.index.codec.nativeindex;
+
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
+import org.apache.lucene.codecs.lucene104.QuantizedByteVectorValues;
+import org.apache.lucene.util.quantization.OptimizedScalarQuantizer;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.knn.jni.JNIService;
+
+import java.io.IOException;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+
+import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
+
+/**
+ * Memory-optimized build strategy for Faiss SQ (Binary Quantized) HNSW indexes.
+ *
+ * <h2>Architecture Overview</h2>
+ * This strategy builds a Faiss HNSW graph on top of 1-bit binary quantized vectors.
+ * By the time this strategy is invoked, the caller (Faiss104ScalarQuantizedKnnVectorsWriter)
+ * has already written the quantized vectors to flat vector files (.vec and .veb), opened a
+ * reader, and extracted the {@link QuantizedByteVectorValues}. This strategy then:
+ * <ol>
+ *   <li>Reads the quantized vectors and their correction factors from the provided
+ *       {@link QuantizedByteVectorValues}</li>
+ *   <li>Transfers them to off-heap (native) memory via JNI</li>
+ *   <li>Delegates to Faiss C++ to build the HNSW graph over those quantized vectors</li>
+ *   <li>Writes only the HNSW graph to disk (using {@code IO_FLAG_SKIP_STORAGE}), without
+ *       duplicating the flat vector storage — the quantized vectors remain in Lucene's .veb file</li>
+ * </ol>
+ *
+ * <h2>SQ Quantization</h2>
+ * SQ quantizes each float vector component down to 1 bit, producing a compact binary code.
+ * To preserve distance accuracy, each quantized vector is accompanied by correction factors:
+ * <ul>
+ *   <li>{@code lowerInterval} (float) — lower bound of the quantization interval</li>
+ *   <li>{@code upperInterval} (float) — upper bound of the quantization interval</li>
+ *   <li>{@code additionalCorrection} (float) — residual correction term for score adjustment</li>
+ *   <li>{@code quantizedComponentSum} (int) — sum of quantized component values, used in
+ *       asymmetric distance computation (ADC)</li>
+ * </ul>
+ * These correction factors enable accurate approximate distance calculations between a 4-bit
+ * quantized query and 1-bit quantized data vectors during search.
+ *
+ * <h2>Storage Separation</h2>
+ * The resulting .faiss file contains only the HNSW graph structure (adjacency lists, levels, etc.)
+ * with a "null" storage section placeholder. At search time, {@code FaissScalarQuantizedFlatIndex} is plugged
+ * in as a virtual storage layer that reads quantized vectors from Lucene's flat files instead of
+ * from the .faiss file.
+ *
+ * <h2>SIMD-Accelerated Search</h2>
+ * During search, the ADC distance computation between 4-bit query vectors and 1-bit data vectors
+ * is offloaded to native SIMD code (AVX512 / ARM NEON) via {@code Faiss104ScalarQuantizedVectorScorer}
+ * for maximum throughput.
+ *
+ * @see NativeIndexBuildStrategy
+ * @see NativeIndexBuildStrategyFactory — returns this strategy when field info contains sq_config
+ */
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
+public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeIndexBuildStrategy {
+
+    private static MemOptimizedScalarQuantizedIndexBuildStrategy INSTANCE = new MemOptimizedScalarQuantizedIndexBuildStrategy();
+
+    public static MemOptimizedScalarQuantizedIndexBuildStrategy getInstance() {
+        return INSTANCE;
+    }
+
+    /**
+     * Main entry point: builds a Faiss SQ HNSW index and writes it to disk.
+     *
+     * <p>The high-level flow is:
+     * <ol>
+     *   <li>Initialize vector values to determine dimensionality</li>
+     *   <li>Retrieve the {@link QuantizedByteVectorValues} from the build strategy params
+     *       (provided by the writer, which handles the FlatVectorsReader lifecycle)</li>
+     *   <li>Extract the centroid dot-product and quantized vector byte size from the quantized values,
+     *       which are needed to initialize the native Faiss SQ index structure</li>
+     *   <li>Initialize the Faiss SQ index in C++ via JNI, allocating off-heap memory for the
+     *       HNSW graph and quantized vector storage</li>
+     *   <li>Delegate to {@link #doBuildIndex} and {@link #writeIndex} for the actual data transfer,
+     *       graph construction, and serialization</li>
+     * </ol>
+     *
+     * @param indexInfo contains all parameters needed for index construction, including vector values,
+     *                  segment write state, field info, engine parameters, and output buffer
+     * @throws IOException                if reading quantized vectors or writing the index fails
+     * @throws IndexBuildAbortedException if the build is cancelled
+     */
+    @Override
+    public void buildAndWriteIndex(final BuildIndexParams indexInfo) throws IOException, IndexBuildAbortedException {
+        final KNNVectorValues<?> knnVectorValues = indexInfo.getKnnVectorValuesSupplier().get();
+        // Advance the iterator to the first document so we can read the vector dimension.
+        // Without this, dimension() may return 0 since no vector has been loaded yet.
+        initializeVectorValues(knnVectorValues);
+
+        // Retrieve the QuantizedByteVectorValues passed by the writer.
+        // The writer is responsible for opening the FlatVectorsReader and extracting the
+        // quantized values. The writer closes the reader after this method returns.
+        final QuantizedByteVectorValues binarizedVectorValues = indexInfo.getQuantizedByteVectorValues();
+        Objects.requireNonNull(binarizedVectorValues, "QuantizedByteVectorValues was null in BuildIndexParams");
+
+        // The byte length of a single quantized vector. For 1-bit quantization of D dimensions,
+        // this is ceil(D/8) bytes, padded to 64-bit alignment: ((D + 63) / 64) * 64 / 8.
+        // TODO : This needs to be made generic for other quantization.
+        final int quantizedVecBytes = binarizedVectorValues.vectorValue(0).length;
+
+        // The centroid dot-product is a precomputed scalar used in the ADC scoring formula.
+        // It appears as a correction term: score += additionalCorrection + indexCorrection - centroidDp
+        final float centroidDp = binarizedVectorValues.getCentroidDP();
+        final Map<String, Object> indexParameters = new HashMap<>(indexInfo.getIndexParameters());
+        // Force override vector data type as binary so that Faiss can treat it as binary index.
+        indexParameters.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.BINARY.getValue());
+
+        // Initialize the Faiss SQ index in native (C++) memory. This allocates:
+        // - The HNSW graph structure (adjacency lists, entry point, max level)
+        // - Off-heap storage for quantized vectors and correction factors
+        // The index is identified by a memory address (pointer) returned from C++.
+        final long indexMemoryAddress = AccessController.doPrivileged(
+            (PrivilegedAction<Long>) () -> JNIService.initFaissSQIndex(
+                indexInfo.getTotalLiveDocs(),
+                knnVectorValues.dimension(),
+                indexParameters,
+                centroidDp,
+                quantizedVecBytes,
+                indexInfo.getKnnEngine()
+            )
+        );
+
+        // Track whether writeIndex (Phase 3) was reached. Once writeIndex is called,
+        // the native C++ side wraps the pointer in a unique_ptr that frees the index on exit
+        // (even if writeIndex itself throws). Calling releaseSQIndex after that would be a
+        // double-free (and SIGSEGV).
+        try {
+            // Phase 1 + 2: transfer vectors and build HNSW graph.
+            // If these fail, Java still owns the native memory and must release it.
+            doBuildIndex(indexMemoryAddress, binarizedVectorValues, knnVectorValues, indexInfo, indexParameters, quantizedVecBytes);
+        } catch (final Exception e) {
+            // Release the native Faiss SQ index to prevent off-heap memory leaks.
+            // The indexMemoryAddress points to faiss::IndexBinaryIDMap* which owns the entire
+            // hierarchy (IndexBinaryIDMap → FaissSQHnsw → FaissSQFlat) via own_fields = true.
+            JNIService.releaseSQIndex(indexMemoryAddress, indexInfo.getKnnEngine());
+            throw e;
+        }
+
+        // Phase 3: write index to disk.
+        // writeIndex takes ownership of the native pointer via unique_ptr in C++,
+        // so the memory is freed regardless of success or failure — no cleanup needed here.
+        writeIndex(indexMemoryAddress, indexInfo, indexParameters);
+    }
+
+    /**
+     * Performs Phase 1 (quantized vector transfer) and Phase 2 (HNSW graph construction)
+     * of the index building workflow after native memory has been allocated.
+     *
+     * <p>After this method returns, the caller is responsible for either:
+     * <ul>
+     *   <li>Calling {@link #writeIndex} to serialize and transfer ownership to C++, or</li>
+     *   <li>Calling {@link JNIService#releaseSQIndex} to free the native memory on failure</li>
+     * </ul>
+     *
+     * @param indexMemoryAddress    pointer to the native Faiss SQ index in off-heap memory
+     * @param binarizedVectorValues provides access to quantized binary codes and correction factors
+     * @param knnVectorValues       iterator over document IDs associated with vectors
+     * @param indexInfo             build parameters including output buffer and engine configuration
+     * @param indexParameters       engine-specific parameters (e.g., HNSW M, efConstruction)
+     * @param quantizedVecBytes     byte length of a single quantized vector
+     */
+    private void doBuildIndex(
+        final long indexMemoryAddress,
+        final QuantizedByteVectorValues binarizedVectorValues,
+        final KNNVectorValues<?> knnVectorValues,
+        final BuildIndexParams indexInfo,
+        final Map<String, Object> indexParameters,
+        final int quantizedVecBytes
+    ) throws IOException {
+        // Phase 1: Transfer all quantized vectors and their correction factors to off-heap memory.
+        // After this call, the native Faiss index has all the data it needs to compute distances
+        // between vectors during HNSW graph construction.
+        passQuantizedVectorsAndCorrectionFactors(indexMemoryAddress, binarizedVectorValues, quantizedVecBytes, indexInfo.getKnnEngine());
+
+        // Phase 2: Stream document IDs in batches to the native layer to build the HNSW graph.
+        // We batch in groups of 16 * 1024 (16KB of int data) to balance JNI call overhead against
+        // memory usage. The native side uses these doc IDs to populate the id-map layer
+        // (FaissIdMapIndex) that maps vector ordinals to document IDs — this mapping is
+        // essential for sparse/nested cases where doc ID != vector ordinal.
+        final int batchSize = 16 * 1024;
+        final int[] docIds = new int[batchSize];
+        int numAdded = 0;
+        while (knnVectorValues.docId() != NO_MORE_DOCS) {
+            int i = 0;
+            while (i < batchSize && knnVectorValues.docId() != NO_MORE_DOCS) {
+                docIds[i++] = knnVectorValues.docId();
+                knnVectorValues.nextDoc();
+            }
+
+            // addDocsToSQIndex triggers HNSW insertion for the batch. The native code
+            // references quantized vectors by ordinal (numAdded + offset) from the data
+            // that was already transferred in Phase 1.
+            JNIService.addDocsToSQIndex(indexMemoryAddress, docIds, i, numAdded, indexInfo.getKnnEngine());
+            numAdded += i;
+        }
+    }
+
+    /**
+     * Phase 3: Serialize the in-memory HNSW graph to disk.
+     *
+     * <p>IMPORTANT: This method transfers ownership of the native index memory to C++.
+     * The native {@code BinaryIndexService::writeIndex} wraps the pointer in a {@code unique_ptr},
+     * which frees the memory when the function exits (whether successfully or via exception).
+     * Callers must NOT call {@code releaseSQndex} after invoking this method.
+     */
+    private void writeIndex(final long indexMemoryAddress, final BuildIndexParams indexInfo, final Map<String, Object> indexParameters) {
+        // The IO_FLAG_SKIP_STORAGE flag (set in native code) causes Faiss to write only the
+        // HNSW graph structure (adjacency lists, entry point, levels) and emit a "null" section
+        // name where the flat vector storage would normally go. At search time, this "null"
+        // section triggers FaissIndex.load to call a Supplier<FaissIndex> that returns a
+        // FaissScalarQuantizedFlatIndex backed by Lucene's BinaryQuantizedVectorsReader.
+        AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
+            JNIService.writeIndex(
+                indexInfo.getIndexOutputWithBuffer(),
+                indexMemoryAddress,
+                indexInfo.getKnnEngine(),
+                indexParameters,
+                true
+            );
+            return null;
+        });
+    }
+
+    /**
+     * Transfers all quantized vectors and their correction factors from the provided
+     * {@link QuantizedByteVectorValues} into the native Faiss index's off-heap memory.
+     *
+     * <h3>Buffer layout per vector</h3>
+     * Each vector block in the byte buffer has the following layout:
+     * <pre>
+     * [binaryCode (quantizedVecBytes)] [lowerInterval (4B)] [upperInterval (4B)]
+     * [additionalCorrection (4B)] [quantizedComponentSum (4B)]
+     * </pre>
+     * Total bytes per vector = quantizedVecBytes + 16 bytes of correction factors.
+     *
+     * <p>Note: The quantizedComponentSum is stored as a
+     * 4-byte int. However, the native SIMD search layer.
+     * stores it as a 2-byte uint16_t to optimize memory layout for cache-friendly SIMD access.
+     * This difference is handled by the native code during the transfer.
+     *
+     * <h3>Correction factors explained</h3>
+     * <ul>
+     *   <li>{@code lowerInterval}: The lower bound (ax) of the scalar quantization interval
+     *       for this vector. Used as a base offset in the ADC scoring formula.</li>
+     *   <li>{@code upperInterval}: The upper bound of the quantization interval. The effective
+     *       scale factor is (upperInterval - lowerInterval). For data vectors, this is used
+     *       directly as {@code lx}; for query vectors, it's further scaled by FOUR_BIT_SCALE.</li>
+     *   <li>{@code additionalCorrection}: A residual correction term that accounts for
+     *       quantization error. Added to the final score along with the query's correction
+     *       and subtracted by the centroid dot-product.</li>
+     *   <li>{@code quantizedComponentSum}: The sum of all quantized component values (x1).
+     *       Used in the cross-term {@code ay * lx * x1} of the ADC scoring formula.</li>
+     * </ul>
+     *
+     * <h3>Batching strategy</h3>
+     * Vectors are transferred in batches capped at ~64KB to balance JNI overhead against
+     * Java heap pressure. The batch size is computed as max(1, floor(65536 / oneBlockSize)).
+     *
+     * <h3>Byte ordering</h3>
+     * All float and int values are serialized in little-endian byte order to match the
+     * native (x86/ARM) memory layout, avoiding byte-swapping overhead in the C++ layer.
+     *
+     * @param indexMemoryAddress    pointer to the native Faiss SQ index
+     * @param binarizedVectorValues provides quantized binary codes and correction factors
+     * @param quantizedVecBytes     byte length of a single quantized binary code
+     */
+    private void passQuantizedVectorsAndCorrectionFactors(
+        final long indexMemoryAddress,
+        final QuantizedByteVectorValues binarizedVectorValues,
+        final int quantizedVecBytes,
+        final KNNEngine knnEngine
+    ) throws IOException {
+        // Each vector block: [quantized binary code] + 4 correction factor fields (4 bytes each)
+        // lowerInterval(float) + upperInterval(float) + additionalCorrection(float) + quantizedComponentSum(int)
+        final int oneBlockSize = quantizedVecBytes + Integer.BYTES * 4;
+
+        // Cap the transfer buffer at ~64KB to limit Java heap usage per JNI call.
+        // Math.floor ensures we get at least 1 vector per batch even for very large vectors.
+        final int batchSize = Math.max(1, (int) Math.floor(1024 * 64 / oneBlockSize));
+        byte[] buffer = null;
+        for (int i = 0; i < binarizedVectorValues.size();) {
+            // Determine how many vectors to include in this batch
+            final int loopSize = Math.min(binarizedVectorValues.size() - i, batchSize);
+            for (int j = 0, o = 0; j < loopSize; ++j) {
+                // Read the 1-bit quantized binary code for vector at ordinal (i + j).
+                // The binary code length is ((dimension + 63) / 64) * 64 / 8 bytes,
+                // ensuring 64-bit alignment for efficient SIMD processing.
+                final byte[] binaryVector = binarizedVectorValues.vectorValue(i + j);
+                if (buffer == null) {
+                    // Lazily allocate the buffer on first access, sized for a full batch.
+                    // Layout per vector: [binaryCode | lowerInterval | upperInterval |
+                    // additionalCorrection | quantizedComponentSum]
+                    buffer = new byte[(binaryVector.length + Integer.BYTES * 4) * batchSize];
+                }
+
+                // Read the correction factors for this vector. These are computed during
+                // quantization by OptimizedScalarQuantizer and stored alongside the binary codes.
+                final OptimizedScalarQuantizer.QuantizationResult quantizationResult = binarizedVectorValues.getCorrectiveTerms(i + j);
+
+                // Copy the quantized binary code into the buffer
+                System.arraycopy(binaryVector, 0, buffer, o, binaryVector.length);
+                o += binaryVector.length;
+
+                // Serialize lowerInterval as 4 bytes in little-endian order.
+                // lowerInterval (ax) is the base offset of the quantization interval.
+                int bits = Float.floatToRawIntBits(quantizationResult.lowerInterval());
+                buffer[o++] = (byte) (bits);
+                buffer[o++] = (byte) (bits >>> 8);
+                buffer[o++] = (byte) (bits >>> 16);
+                buffer[o++] = (byte) (bits >>> 24);
+
+                // Serialize upperInterval as 4 bytes in little-endian order.
+                // upperInterval defines the top of the quantization range; the effective
+                // scale is (upperInterval - lowerInterval).
+                bits = Float.floatToRawIntBits(quantizationResult.upperInterval());
+                buffer[o++] = (byte) (bits);
+                buffer[o++] = (byte) (bits >>> 8);
+                buffer[o++] = (byte) (bits >>> 16);
+                buffer[o++] = (byte) (bits >>> 24);
+
+                // Serialize additionalCorrection as 4 bytes in little-endian order.
+                // This residual term compensates for quantization error in the final score.
+                bits = Float.floatToRawIntBits(quantizationResult.additionalCorrection());
+                buffer[o++] = (byte) (bits);
+                buffer[o++] = (byte) (bits >>> 8);
+                buffer[o++] = (byte) (bits >>> 16);
+                buffer[o++] = (byte) (bits >>> 24);
+
+                // Serialize quantizedComponentSum as 4 bytes in little-endian order.
+                // This is the sum of all quantized values for this vector, used in the
+                // cross-term (ay * lx * x1) of the ADC scoring formula.
+                bits = quantizationResult.quantizedComponentSum();
+                buffer[o++] = (byte) (bits);
+                buffer[o++] = (byte) (bits >>> 8);
+                buffer[o++] = (byte) (bits >>> 16);
+                buffer[o++] = (byte) (bits >>> 24);
+            }
+
+            // Transfer this batch of packed [binaryCode + correctionFactors] to the native
+            // Faiss index. The C++ side unpacks the buffer and stores vectors sequentially
+            // by ordinal, so they can be referenced during HNSW graph construction.
+            JNIService.passSQVectorsWithCorrectionFactors(indexMemoryAddress, buffer, loopSize, knnEngine);
+
+            i += loopSize;
+        }
+    }
+}

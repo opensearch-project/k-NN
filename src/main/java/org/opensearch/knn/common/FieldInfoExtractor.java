@@ -11,12 +11,20 @@ import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.VectorEncoding;
 import org.opensearch.common.Nullable;
+import org.opensearch.index.mapper.MappedFieldType;
+import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
+import org.opensearch.knn.index.engine.faiss.SQConfig;
+import org.opensearch.knn.index.engine.faiss.SQConfigParser;
+import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 
+import static org.opensearch.knn.common.KNNConstants.SQ_CONFIG;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.indices.ModelUtil.getModelMetadata;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
@@ -85,6 +93,48 @@ public class FieldInfoExtractor {
     }
 
     /**
+     * Checks whether the given field has a quantization framework configuration attribute.
+     *
+     * @param fieldInfo {@link FieldInfo}
+     * @return {@code true} if the field has a non-empty {@code qframework_config} attribute, {@code false} otherwise
+     */
+    public static boolean hasQuantizationConfig(final FieldInfo fieldInfo) {
+        final String quantizationConfigString = fieldInfo.getAttribute(QFRAMEWORK_CONFIG);
+        return StringUtils.isEmpty(quantizationConfigString) == false;
+    }
+
+    /**
+     * Checks whether a field is a k-NN vector field that supports memory-optimized search.
+     *
+     * @param fieldInfo     the field metadata
+     * @param mapperService the mapper service for resolving the field's mapped type
+     * @param indexName     the index name, passed to the support-spec check
+     * @return {@code true} if the field is eligible for memory-optimized search warmup
+     */
+    public static boolean isMemoryOptimizedSearchField(
+        final FieldInfo fieldInfo,
+        final MapperService mapperService,
+        final String indexName
+    ) {
+        if (fieldInfo.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD) == false) {
+            return false;
+        }
+        final MappedFieldType fieldType = mapperService.fieldType(fieldInfo.getName());
+        return fieldType instanceof KNNVectorFieldType knnFieldType
+            && MemoryOptimizedSearchSupportSpec.isSupportedFieldType(knnFieldType, indexName);
+    }
+
+    /**
+     * Check for a field to be ADC or not
+     * @param fieldInfo {@link FieldInfo}
+     * @return true if the field is ADC, false otherwise
+     */
+    public static boolean isAdc(final FieldInfo fieldInfo) {
+        final QuantizationConfig quantizationConfig = FieldInfoExtractor.extractQuantizationConfig(fieldInfo);
+        return quantizationConfig.isEnableADC();
+    }
+
+    /**
      * Get the space type for the given field info.
      *
      * @param modelDao ModelDao instance to retrieve model metadata
@@ -127,5 +177,29 @@ public class FieldInfoExtractor {
      */
     public static @Nullable FieldInfo getFieldInfo(final LeafReader leafReader, final String fieldName) {
         return leafReader.getFieldInfos().fieldInfo(fieldName);
+    }
+
+    /**
+     * Check if the field has an SQ encoder config attribute.
+     *
+     * @param fieldInfo {@link FieldInfo}
+     * @return true if the field has an sq_config attribute
+     */
+    public static boolean isSQField(final FieldInfo fieldInfo) {
+        return StringUtils.isNotEmpty(fieldInfo.getAttribute(SQ_CONFIG));
+    }
+
+    /**
+     * Extract the SQ config from the field attribute.
+     *
+     * @param fieldInfo {@link FieldInfo}
+     * @return {@link SQConfig}, or {@link SQConfig#EMPTY} if not present
+     */
+    public static SQConfig extractSQConfig(final FieldInfo fieldInfo) {
+        String configString = fieldInfo.getAttribute(SQ_CONFIG);
+        if (StringUtils.isEmpty(configString)) {
+            return SQConfig.EMPTY;
+        }
+        return SQConfigParser.fromCsv(configString);
     }
 }

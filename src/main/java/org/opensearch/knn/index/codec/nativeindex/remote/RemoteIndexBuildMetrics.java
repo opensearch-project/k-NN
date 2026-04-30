@@ -62,7 +62,7 @@ public class RemoteIndexBuildMetrics {
         initializeVectorValues(knnVectorValues);
         this.size = (long) indexInfo.getTotalLiveDocs() * knnVectorValues.bytesPerVector();
         this.isFlush = indexInfo.isFlush();
-        this.fieldName = indexInfo.getFieldName();
+        this.fieldName = indexInfo.getField();
         overallStopWatch.start();
         if (isFlush) {
             REMOTE_INDEX_BUILD_CURRENT_FLUSH_OPERATIONS.increment();

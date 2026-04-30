@@ -12,6 +12,8 @@
 package org.opensearch.knn.index.codec.params;
 
 import junit.framework.TestCase;
+
+import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding;
 import org.junit.Assert;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 
@@ -69,6 +71,26 @@ public class KNNScalarQuantizedVectorsFormatParamsTests extends TestCase {
         assertEquals((float) MINIMUM_CONFIDENCE_INTERVAL, knnScalarQuantizedVectorsFormatParams.getConfidenceInterval());
         assertFalse(knnScalarQuantizedVectorsFormatParams.isCompressFlag());
         assertEquals(LUCENE_SQ_DEFAULT_BITS, knnScalarQuantizedVectorsFormatParams.getBits());
+        assertEquals(ScalarEncoding.fromNumBits((LUCENE_SQ_DEFAULT_BITS)), knnScalarQuantizedVectorsFormatParams.getBitEncoding());
+    }
+
+    public void testInitParams_whenBitsIs1_thenReturnParams() {
+        Map<String, Object> encoderParams = new HashMap<>();
+        encoderParams.put(LUCENE_SQ_BITS, 1);
+        MethodComponentContext encoderComponentContext = new MethodComponentContext(ENCODER_SQ, encoderParams);
+
+        Map<String, Object> params = new HashMap<>();
+        params.put(METHOD_ENCODER_PARAMETER, encoderComponentContext);
+
+        KNNScalarQuantizedVectorsFormatParams knnScalarQuantizedVectorsFormatParams = new KNNScalarQuantizedVectorsFormatParams(
+            params,
+            DEFAULT_MAX_CONNECTIONS,
+            DEFAULT_BEAM_WIDTH
+        );
+
+        assertEquals(1, knnScalarQuantizedVectorsFormatParams.getBits());
+        assertEquals(ScalarEncoding.fromNumBits(1), knnScalarQuantizedVectorsFormatParams.getBitEncoding());
+        assertTrue(knnScalarQuantizedVectorsFormatParams.validate(params));
     }
 
     public void testInitParams_whenBitsIs4_thenReturnParams() {

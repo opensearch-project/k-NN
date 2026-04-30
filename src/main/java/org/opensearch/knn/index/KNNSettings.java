@@ -61,6 +61,7 @@ import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.getFeatureF
 import static org.opensearch.knn.common.KNNConstants.INDEX_THREAD_QUANTITY_THRESHOLD;
 import static org.opensearch.knn.common.KNNConstants.INDEX_THREAD_QUANTITY_DEFAULT_LARGE;
 import static org.opensearch.knn.common.KNNConstants.INDEX_THREAD_QUANTITY_DEFAULT_SMALL;
+import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.getFeatureFlagsWhichRebuildsCache;
 
 /**
  * This class defines
@@ -565,6 +566,9 @@ public class KNNSettings {
         }
     };
 
+    private final static Map<String, Setting<?>> FEATURE_FLAGS_WHICH_REBUILDS_CACHE = getFeatureFlagsWhichRebuildsCache().stream()
+        .collect(toUnmodifiableMap(Setting::getKey, Function.identity()));
+
     private final static Map<String, Setting<?>> FEATURE_FLAGS = getFeatureFlags().stream()
         .collect(toUnmodifiableMap(Setting::getKey, Function.identity()));
 
@@ -605,7 +609,10 @@ public class KNNSettings {
             );
 
             NativeMemoryCacheManager.getInstance().rebuildCache(builder.build());
-        }, Stream.concat(dynamicCacheSettings.values().stream(), FEATURE_FLAGS.values().stream()).collect(Collectors.toUnmodifiableList()));
+        },
+            Stream.concat(dynamicCacheSettings.values().stream(), FEATURE_FLAGS_WHICH_REBUILDS_CACHE.values().stream())
+                .collect(Collectors.toUnmodifiableList())
+        );
         clusterService.getClusterSettings().addSettingsUpdateConsumer(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, it -> {
             quantizationStateCacheManager.setMaxCacheSizeInKB(it.getKb());
             quantizationStateCacheManager.rebuildCache();

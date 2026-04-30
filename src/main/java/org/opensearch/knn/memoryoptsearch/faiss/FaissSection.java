@@ -52,4 +52,16 @@ public class FaissSection {
             throw new IOException("Failed to partial load where baseOffset=" + baseOffset + ", sectionSize=" + sectionSize, e);
         }
     }
+
+    /**
+     * Creates a bounded {@link IndexInput} slice over this section's byte range.
+     *
+     * @param input     The parent {@link IndexInput} to slice from.
+     * @param sliceName A descriptive name for the slice, used in debugging and error messages.
+     * @return A new {@link IndexInput} positioned at {@code baseOffset} with length {@code sectionSize}.
+     * @throws IOException If the slice cannot be created.
+     */
+    public IndexInput slice(IndexInput input, String sliceName) throws IOException {
+        return input.slice(sliceName, baseOffset, sectionSize);
+    }
 }

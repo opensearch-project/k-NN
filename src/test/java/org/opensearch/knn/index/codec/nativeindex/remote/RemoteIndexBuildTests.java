@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.codec.nativeindex.remote;
 
 import org.apache.lucene.codecs.Codec;
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentWriteState;
@@ -94,16 +95,24 @@ abstract class RemoteIndexBuildTests extends KNNTestCase {
         mock(IOContext.class)
     );
     final KNNVectorValues<?> knnVectorValues = knnVectorValuesSupplier.get();
-    final BuildIndexParams buildIndexParams = BuildIndexParams.builder()
-        .indexOutputWithBuffer(indexOutputWithBuffer)
-        .knnEngine(KNNEngine.FAISS)
-        .vectorDataType(VectorDataType.FLOAT)
-        .parameters(Map.of("index", "param"))
-        .knnVectorValuesSupplier(knnVectorValuesSupplier)
-        .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
-        .segmentWriteState(segmentWriteState)
-        .isFlush(randomBoolean())
-        .build();
+    final BuildIndexParams buildIndexParams;
+
+    public RemoteIndexBuildTests() {
+        final FieldInfo fieldInfo = mock(FieldInfo.class);
+        when(fieldInfo.getName()).thenReturn("test-field-name");
+
+        buildIndexParams = BuildIndexParams.builder()
+            .indexOutputWithBuffer(indexOutputWithBuffer)
+            .knnEngine(KNNEngine.FAISS)
+            .field(fieldInfo.getName())
+            .vectorDataType(VectorDataType.FLOAT)
+            .indexParameters(Map.of("index", "param"))
+            .knnVectorValuesSupplier(knnVectorValuesSupplier)
+            .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
+            .segmentWriteState(segmentWriteState)
+            .isFlush(randomBoolean())
+            .build();
+    }
 
     record TestIndexBuildStrategy(SetOnce<Boolean> fallback) implements NativeIndexBuildStrategy {
         @Override

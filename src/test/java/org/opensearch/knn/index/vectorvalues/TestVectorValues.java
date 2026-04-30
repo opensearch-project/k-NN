@@ -6,8 +6,10 @@ package org.opensearch.knn.index.vectorvalues;
 
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.index.*;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.VectorScorer;
 import org.apache.lucene.util.BytesRef;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
 
@@ -184,18 +186,20 @@ public class TestVectorValues {
         final int count;
         final int dimension;
         final List<float[]> vectors;
+        final VectorSimilarityFunction similarityFunction;
         int current;
         float[] vector;
 
         public PreDefinedFloatVectorValues(final List<float[]> vectors) {
+            this(vectors, null);
+        }
+
+        public PreDefinedFloatVectorValues(final List<float[]> vectors, VectorSimilarityFunction similarityFunction) {
             super();
             this.count = vectors.size();
-            if (!vectors.isEmpty()) {
-                this.dimension = vectors.get(0).length;
-            } else {
-                this.dimension = 0;
-            }
+            this.dimension = vectors.isEmpty() ? 0 : vectors.get(0).length;
             this.vectors = vectors;
+            this.similarityFunction = similarityFunction;
             this.current = -1;
             vector = new float[dimension];
         }
@@ -238,12 +242,27 @@ public class TestVectorValues {
          */
         @Override
         public FloatVectorValues copy() throws IOException {
-            return null;
+            return new PreDefinedFloatVectorValues(vectors, similarityFunction);
         }
 
         @Override
         public VectorScorer scorer(float[] query) throws IOException {
-            throw new UnsupportedOperationException("scorer not supported with PreDefinedFloatVectorValues");
+            if (similarityFunction == null) {
+                throw new UnsupportedOperationException("scorer not supported with PreDefinedFloatVectorValues");
+            }
+            PreDefinedFloatVectorValues copy = new PreDefinedFloatVectorValues(vectors, similarityFunction);
+            DocIndexIterator iterator = copy.iterator();
+            return new VectorScorer() {
+                @Override
+                public float score() throws IOException {
+                    return similarityFunction.compare(query, copy.vectorValue(iterator.index()));
+                }
+
+                @Override
+                public DocIdSetIterator iterator() {
+                    return iterator;
+                }
+            };
         }
 
         public int docID() {
@@ -270,14 +289,20 @@ public class TestVectorValues {
         private final int count;
         private final int dimension;
         private final List<byte[]> vectors;
+        private final VectorSimilarityFunction similarityFunction;
         private int current;
         private final byte[] vector;
 
         public PreDefinedByteVectorValues(final List<byte[]> vectors) {
+            this(vectors, null);
+        }
+
+        public PreDefinedByteVectorValues(final List<byte[]> vectors, VectorSimilarityFunction similarityFunction) {
             super();
             this.count = vectors.size();
             this.dimension = vectors.get(0).length;
             this.vectors = vectors;
+            this.similarityFunction = similarityFunction;
             this.current = -1;
             vector = new byte[dimension];
         }
@@ -314,8 +339,8 @@ public class TestVectorValues {
          * @throws IOException
          */
         @Override
-        public ByteVectorValues copy() throws IOException {
-            return null;
+        public PreDefinedByteVectorValues copy() throws IOException {
+            return new PreDefinedByteVectorValues(vectors, similarityFunction);
         }
 
         @Override
@@ -325,7 +350,22 @@ public class TestVectorValues {
 
         @Override
         public VectorScorer scorer(byte[] query) throws IOException {
-            throw new UnsupportedOperationException("scorer not supported with PreDefinedFloatVectorValues");
+            PreDefinedByteVectorValues copy = new PreDefinedByteVectorValues(vectors, similarityFunction);
+            DocIndexIterator iterator = copy.iterator();
+            return new VectorScorer() {
+                @Override
+                public float score() throws IOException {
+                    if (similarityFunction == null) {
+                        return SpaceType.HAMMING.getKnnVectorSimilarityFunction().compare(query, copy.vectorValue(iterator.index()));
+                    }
+                    return similarityFunction.compare(query, copy.vectorValue(iterator.index()));
+                }
+
+                @Override
+                public DocIdSetIterator iterator() {
+                    return iterator;
+                }
+            };
         }
 
         public int docID() {

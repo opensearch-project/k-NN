@@ -23,6 +23,10 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
+import org.opensearch.knn.index.engine.faiss.SQConfig;
+import org.opensearch.knn.index.engine.faiss.SQConfigParser;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 
@@ -33,7 +37,10 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
+import static org.opensearch.knn.common.KNNConstants.SQ_CONFIG;
+import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
@@ -184,9 +191,18 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
             this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
             this.fieldType.putAttribute(DIMENSION, String.valueOf(knnMappingConfig.getDimension()));
             this.fieldType.putAttribute(SPACE_TYPE, resolvedKnnMethodContext.getSpaceType().getValue());
-            // Conditionally add quantization config
-            if (quantizationConfig != null && quantizationConfig != QuantizationConfig.EMPTY) {
-                this.fieldType.putAttribute(QFRAMEWORK_CONFIG, QuantizationConfigParser.toCsv(quantizationConfig));
+
+            if (isSQOneBitEncoder(resolvedKnnMethodContext)) {
+                // 1-bit quantization has its own per-field format that handles quantization internally, so we
+                // don't set qframe_config (which drives the k-NN quantization framework). Instead
+                // we store a separate sq config attribute as a quick way for readers to
+                // identify 1-bit quantized fields without parsing the full PARAMETERS JSON.
+                this.fieldType.putAttribute(SQ_CONFIG, getSQConfigValue(resolvedKnnMethodContext));
+            } else {
+                // Conditionally add quantization config
+                if (quantizationConfig != null && quantizationConfig != QuantizationConfig.EMPTY) {
+                    this.fieldType.putAttribute(QFRAMEWORK_CONFIG, QuantizationConfigParser.toCsv(quantizationConfig));
+                }
             }
 
             this.fieldType.putAttribute(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
@@ -301,5 +317,24 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
     void updateEngineStats() {
         Optional.ofNullable(originalMappingParameters)
             .ifPresent(params -> params.getResolvedKnnMethodContext().getKnnEngine().setInitialized(true));
+    }
+
+    /**
+     * Checks whether the resolved method context uses the sq encoder with bits=1.
+     */
+    private static boolean isSQOneBitEncoder(KNNMethodContext methodContext) {
+        return FaissSQEncoder.isSQOneBit(methodContext.getMethodComponentContext().getParameters());
+    }
+
+    /**
+     * Builds the SQ config attribute value as a CSV string.
+     */
+    private static String getSQConfigValue(KNNMethodContext methodContext) {
+        MethodComponentContext encoderCtx = (MethodComponentContext) methodContext.getMethodComponentContext()
+            .getParameters()
+            .get(METHOD_ENCODER_PARAMETER);
+        Object bits = encoderCtx.getParameters().getOrDefault(SQ_BITS, FaissSQEncoder.Bits.ONE.getValue());
+        SQConfig config = SQConfig.builder().bits((Integer) bits).build();
+        return SQConfigParser.toCsv(config);
     }
 }

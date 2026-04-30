@@ -25,8 +25,9 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 
-import static org.mockito.Mockito.mock;
+import static org.opensearch.knn.common.KNNConstants.MMR_EXPLAIN;
 import static org.opensearch.knn.common.KNNConstants.MMR_RERANK_CONTEXT;
+import static org.mockito.Mockito.mock;
 
 public class MMRRerankProcessorTests extends KNNTestCase {
     private MMRRerankProcessor processor;
@@ -141,6 +142,118 @@ public class MMRRerankProcessorTests extends KNNTestCase {
         );
         String expectedMessage = "Original query size in MMR rerank context cannot be null";
         assertEquals(expectedMessage, exception.getMessage());
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testProcessResponse_whenExplainEnabled_thenExplainInfoInSource() throws IOException {
+        SearchResponse searchResponse = createSearchResponse();
+
+        MMRRerankContext mmrRerankContext = new MMRRerankContext();
+        mmrRerankContext.setDiversity(0.5f);
+        mmrRerankContext.setOriginalQuerySize(3);
+        mmrRerankContext.setSpaceType(SpaceType.L2);
+        mmrRerankContext.setVectorDataType(VectorDataType.FLOAT);
+        mmrRerankContext.setVectorFieldPath("knn_vector");
+        mmrRerankContext.setExplain(true);
+        PipelineProcessingContext ctx = new PipelineProcessingContext();
+        ctx.setAttribute(MMR_RERANK_CONTEXT, mmrRerankContext);
+
+        SearchResponse result = processor.processResponse(searchRequest, searchResponse, ctx);
+
+        assertEquals(3, result.getInternalResponse().hits().getHits().length);
+
+        for (SearchHit hit : result.getInternalResponse().hits().getHits()) {
+            Map<String, Object> source = hit.getSourceAsMap();
+            assertNotNull("mmr_explain should be present when explain is enabled", source.get(MMR_EXPLAIN));
+            Map<String, Object> explainInfo = (Map<String, Object>) source.get(MMR_EXPLAIN);
+            assertNotNull("original_score should be present", explainInfo.get(MMRExplainInfo.ORIGINAL_SCORE_FIELD));
+            assertNotNull("max_similarity_to_selected should be present", explainInfo.get(MMRExplainInfo.MAX_SIMILARITY_TO_SELECTED_FIELD));
+            assertNotNull("mmr_score should be present", explainInfo.get(MMRExplainInfo.MMR_SCORE_FIELD));
+            assertNotNull("mmr_formula should be present", explainInfo.get(MMRExplainInfo.MMR_FORMULA_FIELD));
+            // selection_round and selected_so_far are intentionally omitted - they can be inferred from result position
+            assertNull("selection_round should NOT be present (redundant with result position)", explainInfo.get("selection_round"));
+            assertNull("selected_so_far should NOT be present (redundant with preceding hits)", explainInfo.get("selected_so_far"));
+        }
+
+        // Verify first hit has max_similarity_to_selected = 0 (no prior selections)
+        Map<String, Object> firstExplain = (Map<String, Object>) result.getInternalResponse().hits().getHits()[0].getSourceAsMap()
+            .get(MMR_EXPLAIN);
+        assertEquals(0.0f, ((Number) firstExplain.get(MMRExplainInfo.MAX_SIMILARITY_TO_SELECTED_FIELD)).floatValue(), 1e-6);
+    }
+
+    public void testProcessResponse_whenExplainDisabled_thenNoExplainInfoInSource() throws IOException {
+        SearchResponse searchResponse = createSearchResponse();
+
+        MMRRerankContext mmrRerankContext = new MMRRerankContext();
+        mmrRerankContext.setDiversity(0.5f);
+        mmrRerankContext.setOriginalQuerySize(3);
+        mmrRerankContext.setSpaceType(SpaceType.L2);
+        mmrRerankContext.setVectorDataType(VectorDataType.FLOAT);
+        mmrRerankContext.setVectorFieldPath("knn_vector");
+        mmrRerankContext.setExplain(false);
+        PipelineProcessingContext ctx = new PipelineProcessingContext();
+        ctx.setAttribute(MMR_RERANK_CONTEXT, mmrRerankContext);
+
+        SearchResponse result = processor.processResponse(searchRequest, searchResponse, ctx);
+
+        assertEquals(3, result.getInternalResponse().hits().getHits().length);
+
+        for (SearchHit hit : result.getInternalResponse().hits().getHits()) {
+            Map<String, Object> source = hit.getSourceAsMap();
+            assertNull("mmr_explain should NOT be present when explain is disabled", source.get(MMR_EXPLAIN));
+        }
+    }
+
+    public void testProcessResponse_whenExplainNull_thenNoExplainInfoInSource() throws IOException {
+        SearchResponse searchResponse = createSearchResponse();
+
+        MMRRerankContext mmrRerankContext = new MMRRerankContext();
+        mmrRerankContext.setDiversity(0.5f);
+        mmrRerankContext.setOriginalQuerySize(3);
+        mmrRerankContext.setSpaceType(SpaceType.L2);
+        mmrRerankContext.setVectorDataType(VectorDataType.FLOAT);
+        mmrRerankContext.setVectorFieldPath("knn_vector");
+        // explain is not set (null)
+        PipelineProcessingContext ctx = new PipelineProcessingContext();
+        ctx.setAttribute(MMR_RERANK_CONTEXT, mmrRerankContext);
+
+        SearchResponse result = processor.processResponse(searchRequest, searchResponse, ctx);
+
+        assertEquals(3, result.getInternalResponse().hits().getHits().length);
+
+        for (SearchHit hit : result.getInternalResponse().hits().getHits()) {
+            Map<String, Object> source = hit.getSourceAsMap();
+            assertNull("mmr_explain should NOT be present when explain is null", source.get(MMR_EXPLAIN));
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testProcessResponse_whenExplainEnabledWithFetchSourceFilter_thenExplainInfoFilteredCorrectly() throws IOException {
+        SearchResponse searchResponse = createSearchResponse();
+
+        MMRRerankContext mmrRerankContext = new MMRRerankContext();
+        mmrRerankContext.setDiversity(0.5f);
+        mmrRerankContext.setOriginalQuerySize(3);
+        mmrRerankContext.setSpaceType(SpaceType.L2);
+        mmrRerankContext.setVectorDataType(VectorDataType.FLOAT);
+        mmrRerankContext.setVectorFieldPath("knn_vector");
+        mmrRerankContext.setExplain(true);
+        // Exclude knn_vector but include mmr_explain
+        mmrRerankContext.setOriginalFetchSourceContext(new FetchSourceContext(true, new String[] {}, new String[] { "knn_vector" }));
+        PipelineProcessingContext ctx = new PipelineProcessingContext();
+        ctx.setAttribute(MMR_RERANK_CONTEXT, mmrRerankContext);
+
+        SearchResponse result = processor.processResponse(searchRequest, searchResponse, ctx);
+
+        assertEquals(3, result.getInternalResponse().hits().getHits().length);
+
+        for (SearchHit hit : result.getInternalResponse().hits().getHits()) {
+            Map<String, Object> source = hit.getSourceAsMap();
+            // mmr_explain should still be present since it's not excluded
+            assertNotNull("mmr_explain should be present", source.get(MMR_EXPLAIN));
+            // knn_vector should be excluded
+            assertNull("knn_vector should be excluded", source.get("knn_vector"));
+        }
     }
 
     public void testProcessResponse_whenMissingDiversity_thenException() throws IOException {

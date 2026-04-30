@@ -41,6 +41,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 /**
@@ -199,6 +200,10 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
             final VectorDataType vectorDataType = extractVectorDataType(parameters);
             final Map<String, Object> encoderMap = extractEncoderMap(parameters);
 
+            if (isSQOneBitIndex(vectorDataType, parameters)) {
+                return true;
+            }
+
             if (isFloat32Index(vectorDataType, encoderMap)) {
                 return true;
             }
@@ -258,7 +263,12 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
             // Check encoding is 'sq' meaning fp32 is being scalar quantized to fp16
             final Map<String, Object> encoderMap = extractEncoderMap(parameters);
             final String encoder = getStringFromMap(encoderMap, NAME);
-            return encoder.equals(ENCODER_SQ);
+            if (encoder.equals(ENCODER_SQ) == false) {
+                return false;
+            }
+            // bits is null for legacy pre-3.6.0 indexes which default to fp16
+            Object bits = encoderMap.get(SQ_BITS);
+            return bits == null || (bits instanceof Integer && (Integer) bits == FaissSQEncoder.Bits.SIXTEEN.getValue());
         } catch (final Exception e) {
             log.debug(e.getMessage());
             // Ignore
@@ -309,6 +319,36 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
             return encoder.equals(ENCODER_FLAT);
         } catch (final Exception e) {
             log.debug(e.getMessage());
+            // Ignore
+            return false;
+        }
+    }
+
+    /**
+     * Checks whether the given parameters represent an SQ 1-bit index (encoder: sq, bits: 1).
+     *
+     * TODO: Consolidate the logic in this function with {@link FaissSQEncoder#isSQOneBit} into one function,
+     * so that there is a single source of truth. Currently, this is not possible because
+     * {@link FaissSQEncoder#isSQOneBit} assumes the encoder object is a {@link MethodComponentContext}.
+     *
+     * @param vectorDataType The data type for the vector field
+     * @param parameters KNN library indexing parameters
+     * @return true if SQ 1 bit, false otherwise
+     */
+    public static boolean isSQOneBitIndex(final VectorDataType vectorDataType, final Map<String, Object> parameters) {
+        try {
+            if (vectorDataType != VectorDataType.FLOAT) {
+                return false;
+            }
+            final Map<String, Object> encoderMap = extractEncoderMap(parameters);
+            final String encoder = getStringFromMap(encoderMap, NAME);
+            if (encoder.equals(ENCODER_SQ) == false) {
+                return false;
+            }
+            Object bits = encoderMap.get(SQ_BITS);
+            return bits instanceof Integer && (Integer) bits == FaissSQEncoder.Bits.ONE.getValue();
+        } catch (final Exception e) {
+            log.error("Failed to check if method parameters contain an sq encoder with bits=1", e);
             // Ignore
             return false;
         }

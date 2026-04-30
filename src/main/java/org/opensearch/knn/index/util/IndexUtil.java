@@ -461,12 +461,27 @@ public class IndexUtil {
             .equals(VectorDataType.BYTE.getValue());
     }
 
+    /**
+    * Checks whether the k-NN plugin's derived source feature is enabled for the given index.
+    * Returns {@code false} when core's {@code index.derived_source.enabled} is on (core takes precedence),
+    * when source is disabled, when the k-NN derived source setting is off, or when segment
+    * replication with local node-to-node replication is enabled.
+    *
+    * @param mapperService the mapper service for the index, or {@code null}
+    * @return {@code true} if the k-NN plugin should handle derived source for this index
+    */
     public static boolean isDerivedEnabledForIndex(MapperService mapperService) {
         if (mapperService == null) {
             return false;
         }
 
         if (mapperService.documentMapper().sourceMapper().enabled() == false) {
+            return false;
+        }
+
+        // if core based setting is turned on, then it takes precedence
+        if (mapperService.getIndexSettings().getIndexVersionCreated().onOrAfter(Version.V_3_7_0)
+            && mapperService.getIndexSettings().isDerivedSourceEnabled()) {
             return false;
         }
 

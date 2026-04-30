@@ -5,16 +5,15 @@
 
 package org.opensearch.knn.index.query.rescore;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
 @Getter
-@AllArgsConstructor
 @Builder
 @EqualsAndHashCode
 public final class RescoreContext {
+    public static final float FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR = 2.0f;
 
     public static final float DEFAULT_OVERSAMPLE_FACTOR = 1.0f;
     public static final float MAX_OVERSAMPLE_FACTOR = 100.0f;
@@ -22,6 +21,8 @@ public final class RescoreContext {
 
     public static final int MAX_FIRST_PASS_RESULTS = 10000;
     public static final int DIMENSION_THRESHOLD = 1000;
+
+    public static final float OVERSAMPLE_FACTOR_DEFAULT_FOR_LUCENE_SCALAR_QUANTIZER_AFTER_V360 = 2.0f;
     public static final float OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD = 5.0f;
 
     // Dimension thresholds for adjusting oversample factor
@@ -53,6 +54,15 @@ public final class RescoreContext {
     @Builder.Default
     private boolean rescoreEnabled = true;
 
+    /**
+     * Flag to control whether the dimension-based oversampling logic in {@link #getFirstPassK(int, boolean, int)}
+     * is allowed to override the configured oversample factor. When set to {@code false}, the oversample factor
+     * remains fixed regardless of vector dimension. This is used for encoders like FAISS SQ where the oversample
+     * factor should not be adjusted based on dimension.
+     */
+    @Builder.Default
+    private boolean allowOverrideOversampleFactor = true;
+
     public static final RescoreContext EXPLICITLY_DISABLED_RESCORE_CONTEXT = RescoreContext.builder()
         .oversampleFactor(DEFAULT_OVERSAMPLE_FACTOR)
         .rescoreEnabled(false)
@@ -82,7 +92,7 @@ public final class RescoreContext {
         // Only apply default dimension-based oversampling logic when:
         // 1. Shard-level rescoring is disabled
         // 2. The oversample factor was not provided by the user
-        if (isShardLevelRescoringDisabled && !userProvided) {
+        if (isShardLevelRescoringDisabled && !userProvided && allowOverrideOversampleFactor) {
             // Apply new dimension-based oversampling logic when shard-level rescoring is disabled
             if (dimension >= DIMENSION_THRESHOLD_1000) {
                 oversampleFactor = OVERSAMPLE_FACTOR_1000;  // No oversampling for dimensions >= 1000
