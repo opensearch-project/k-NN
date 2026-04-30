@@ -14,7 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 
 ### Bug Fixes
-
+* Fix copy_to functionality with vector fields [#3162](https://github.com/opensearch-project/k-NN/pull/3162)
 ### Refactoring
 
 
