@@ -28,6 +28,9 @@ import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 
 public class RNNQueryFactoryTests extends KNNTestCase {
     private static final String FILTER_FILED_NAME = "foo";
@@ -142,5 +145,162 @@ public class RNNQueryFactoryTests extends KNNTestCase {
 
         // Then
         assertEquals(expectedQuery, query);
+    }
+
+    // Verify that CreateQueryRequest defaults to NOT_CONFIGURED / EMPTY when quantization fields are not set.
+    // This ensures existing callers (non-quantized indices) are unaffected by the new fields.
+    public void testCreateQueryRequest_whenQuantizationNotSet_thenDefaults() {
+        final BaseQueryFactory.CreateQueryRequest request = BaseQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.FAISS)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .radius(testRadius)
+            .build();
+
+        assertEquals(CompressionLevel.NOT_CONFIGURED, request.getCompressionLevel());
+        assertEquals(QuantizationConfig.EMPTY, request.getQuantizationConfig());
+    }
+
+    // Verify that CreateQueryRequest correctly carries CompressionLevel and QuantizationConfig
+    // when explicitly set. RNNQueryFactory will use these to decide whether to wrap the query
+    // in RescoreRadialSearchQuery.
+    public void testCreateQueryRequest_whenQuantizationSet_thenCarriesValues() {
+        final QuantizationConfig bqConfig = QuantizationConfig.builder().quantizationType(ScalarQuantizationType.ONE_BIT).build();
+
+        final BaseQueryFactory.CreateQueryRequest request = BaseQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.FAISS)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .radius(testRadius)
+            .compressionLevel(CompressionLevel.x32)
+            .quantizationConfig(bqConfig)
+            .build();
+
+        assertEquals(CompressionLevel.x32, request.getCompressionLevel());
+        assertEquals(bqConfig, request.getQuantizationConfig());
+    }
+
+    // Verify that 32x SQ is represented as CompressionLevel.x32 with QuantizationConfig.EMPTY.
+    // This is the specific combination that should trigger rescoring in RNNQueryFactory.
+    public void testCreateQueryRequest_whenSQ32x_thenCorrectRepresentation() {
+        final BaseQueryFactory.CreateQueryRequest request = BaseQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.FAISS)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .radius(testRadius)
+            .compressionLevel(CompressionLevel.x32)
+            .quantizationConfig(QuantizationConfig.EMPTY)
+            .build();
+
+        assertEquals(CompressionLevel.x32, request.getCompressionLevel());
+        assertEquals(QuantizationConfig.EMPTY, request.getQuantizationConfig());
+    }
+
+    // Verify that Faiss radial search with 32x SQ wraps the inner KNNQuery in RescoreRadialSearchQuery.
+    public void testCreate_whenFaissSQ32x_thenWrapsInRescoreRadialSearchQuery() {
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        MappedFieldType testMapper = mock(MappedFieldType.class);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
+        when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
+        when(indexSettings.getMaxResultWindow()).thenReturn(maxResultWindow);
+
+        final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.FAISS)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .radius(testRadius)
+            .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+            .context(mockQueryShardContext)
+            .compressionLevel(CompressionLevel.x32)
+            .build();
+
+        Query query = RNNQueryFactory.create(createQueryRequest);
+
+        assertTrue(query instanceof RescoreRadialSearchQuery);
+        RescoreRadialSearchQuery rescoreQuery = (RescoreRadialSearchQuery) query;
+        assertTrue(rescoreQuery.getInnerQuery() instanceof KNNQuery);
+        assertEquals(testFieldName, rescoreQuery.getField());
+        assertEquals(testRadius, rescoreQuery.getRadius(), 0.0f);
+    }
+
+    // Verify that Lucene radial search with 32x SQ wraps the inner FloatVectorSimilarityQuery
+    // in RescoreRadialSearchQuery.
+    public void testCreate_whenLuceneSQ32x_thenWrapsInRescoreRadialSearchQuery() {
+        List<KNNEngine> luceneEngines = Arrays.stream(KNNEngine.values())
+            .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
+            .collect(Collectors.toList());
+
+        for (KNNEngine knnEngine : luceneEngines) {
+            final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(knnEngine)
+                .indexName(testIndexName)
+                .fieldName(testFieldName)
+                .vector(testQueryVector)
+                .radius(testRadius)
+                .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+                .compressionLevel(CompressionLevel.x32)
+                .build();
+
+            Query query = RNNQueryFactory.create(createQueryRequest);
+
+            assertTrue(query instanceof RescoreRadialSearchQuery);
+            RescoreRadialSearchQuery rescoreQuery = (RescoreRadialSearchQuery) query;
+            assertTrue(rescoreQuery.getInnerQuery() instanceof FloatVectorSimilarityQuery);
+            assertEquals(testFieldName, rescoreQuery.getField());
+            assertEquals(testRadius, rescoreQuery.getRadius(), 0.0f);
+        }
+    }
+
+    // Verify that non-quantized Faiss radial search returns bare KNNQuery (no wrapper).
+    public void testCreate_whenFaissNotQuantized_thenNoWrapper() {
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        MappedFieldType testMapper = mock(MappedFieldType.class);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
+        when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
+        when(indexSettings.getMaxResultWindow()).thenReturn(maxResultWindow);
+
+        final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.FAISS)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .radius(testRadius)
+            .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+            .context(mockQueryShardContext)
+            .build();
+
+        Query query = RNNQueryFactory.create(createQueryRequest);
+
+        assertTrue(query instanceof KNNQuery);
+        assertFalse(query instanceof RescoreRadialSearchQuery);
+    }
+
+    // Verify that non-quantized Lucene radial search returns bare FloatVectorSimilarityQuery (no wrapper).
+    public void testCreate_whenLuceneNotQuantized_thenNoWrapper() {
+        List<KNNEngine> luceneEngines = Arrays.stream(KNNEngine.values())
+            .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
+            .collect(Collectors.toList());
+
+        for (KNNEngine knnEngine : luceneEngines) {
+            final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(knnEngine)
+                .indexName(testIndexName)
+                .fieldName(testFieldName)
+                .vector(testQueryVector)
+                .radius(testRadius)
+                .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+                .build();
+
+            Query query = RNNQueryFactory.create(createQueryRequest);
+
+            assertTrue(query instanceof FloatVectorSimilarityQuery);
+            assertFalse(query instanceof RescoreRadialSearchQuery);
+        }
     }
 }

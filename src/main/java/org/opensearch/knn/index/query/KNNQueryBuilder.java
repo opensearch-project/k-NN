@@ -488,10 +488,23 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 throw new UnsupportedOperationException(String.format(Locale.ROOT, "Binary data type does not support radial search"));
             }
 
-            if ((knnMappingConfig.getQuantizationConfig() != QuantizationConfig.EMPTY)
-                // If compression level is 32x, then radial search should be blocked.
-                || (knnMappingConfig.getCompressionLevel() == CompressionLevel.x32)) {
-                throw new UnsupportedOperationException("Radial search is not supported for indices which have quantization enabled");
+            // BQ or other non-SQ quantized index do not support radial search
+            if ((knnMappingConfig.getQuantizationConfig() != QuantizationConfig.EMPTY)) {
+                throw new UnsupportedOperationException(
+                    "Radial search is not supported for non-32x-SQ quantized indices, quantization config was not empty."
+                );
+            }
+
+            // SQ with non-32x compression (x4, x8, x16) does not support radial search.
+            // NOT_CONFIGURED and x1 are non-quantized (fp32) and should pass through.
+            // x32 is the only SQ compression level that supports radial search (via rescoring).
+            final CompressionLevel compressionLevel = knnMappingConfig.getCompressionLevel();
+            if (compressionLevel != CompressionLevel.NOT_CONFIGURED
+                && compressionLevel != CompressionLevel.x1
+                && compressionLevel != CompressionLevel.x32) {
+                throw new UnsupportedOperationException(
+                    "Radial search is not supported for non-32x-SQ quantized indices, compression level=" + compressionLevel
+                );
             }
         }
 
@@ -603,6 +616,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 .filter(this.filter)
                 .context(context)
                 .memoryOptimizedSearchEnabled(memoryOptimizedSearchEnabled)
+                .compressionLevel(knnMappingConfig.getCompressionLevel())
+                .quantizationConfig(knnMappingConfig.getQuantizationConfig())
                 .build();
             return RNNQueryFactory.create(createQueryRequest);
         }
