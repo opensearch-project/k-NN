@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 
 ### Bug Fixes
+* Fix filter fields with derived source enabled [#21209](https://github.com/opensearch-project/OpenSearch/pull/21209)
 
 ### Refactoring
 
