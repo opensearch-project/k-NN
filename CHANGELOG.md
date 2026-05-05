@@ -11,7 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Added support for 1 bit SQ with remote build [#3270](https://github.com/opensearch-project/k-NN/pull/3270)
 
 ### Maintenance
-
+* Upgrade Gradle wrapper from 9.2.0 to 9.4.1 [#3307](https://github.com/opensearch-project/k-NN/pull/3307)
 
 ### Bug Fixes
 
