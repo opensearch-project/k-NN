@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.ByteVectorValues;
@@ -39,6 +40,11 @@ import java.io.IOException;
 public class Faiss1040ScalarQuantizedKnnVectorsReader extends AbstractNativeEnginesKnnVectorsReader {
     Faiss1040ScalarQuantizedKnnVectorsReader(SegmentReadState state, FlatVectorsReader flatVectorsReader) {
         super(state, flatVectorsReader);
+    }
+
+    @VisibleForTesting
+    FlatVectorsReader getFlatVectorsReader() {
+        return flatVectorsReader;
     }
 
     @Override
