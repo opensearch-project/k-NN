@@ -14,7 +14,11 @@ namespace knn_jni::simd::similarity_function {
         // L2 for FP16
         FP16_L2,
         SQ_IP,
-        SQ_L2
+        SQ_L2,
+        // FP16 Cosine Similarity. Vectors are pre-normalized so the dot product yields cosine similarity.
+        // The score transform is: max((1 + cosine) / 2, 0), matching Lucene's VectorSimilarityFunction.COSINE.
+        // Ref: https://github.com/apache/lucene/blob/main/lucene/core/src/java/org/apache/lucene/util/VectorUtil.java
+        FP16_COSINE
     };
 
     struct SimilarityFunction;

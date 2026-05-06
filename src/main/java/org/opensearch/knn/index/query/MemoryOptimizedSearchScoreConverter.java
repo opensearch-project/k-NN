@@ -47,12 +47,12 @@ public final class MemoryOptimizedSearchScoreConverter {
             return KNNEngine.LUCENE.distanceToRadialThreshold(distance, spaceType);
         }
 
-        // For cosine similarity, `distance = 1 - inner_product_value`.
-        // therefore, we should extract it then convert it to max_inner_product_value
-        final float innerProductValue = KNNEngine.FAISS.distanceToRadialThreshold(distance, SpaceType.COSINESIMIL);
+        // For cosine similarity, Faiss distance = 1 - cosine_similarity.
+        // Extract cosine similarity value.
+        final float cosineSimilarity = KNNEngine.FAISS.distanceToRadialThreshold(distance, SpaceType.COSINESIMIL);
 
-        // Convert inner product value to max inner product value.
-        return SpaceType.INNER_PRODUCT.scoreTranslation(-innerProductValue);
+        // Convert to Lucene cosine score: max((1 + cosine) / 2, 0)
+        return Math.max((1.0f + cosineSimilarity) / 2.0f, 0.0f);
     }
 
     /**
@@ -67,12 +67,12 @@ public final class MemoryOptimizedSearchScoreConverter {
             return KNNEngine.LUCENE.scoreToRadialThreshold(score, spaceType);
         }
 
-        // Since `score = (2 - (1 - inner_product_value)) / 2 = (1 + inner_product_value) / 2`,
-        // we should extract it then convert it to max inner product value.
-        final float innerProductValue = KNNEngine.FAISS.scoreToRadialThreshold(score, SpaceType.COSINESIMIL);
+        // For cosine similarity, Faiss score = max((2 - (1 - cosine)) / 2, 0) = max((1 + cosine) / 2, 0).
+        // Extract cosine similarity value from Faiss score.
+        final float cosineSimilarity = KNNEngine.FAISS.scoreToRadialThreshold(score, SpaceType.COSINESIMIL);
 
-        // Convert inner product value to max inner product value.
-        return SpaceType.INNER_PRODUCT.scoreTranslation(-innerProductValue);
+        // Convert to Lucene cosine score: max((1 + cosine) / 2, 0)
+        return Math.max((1.0f + cosineSimilarity) / 2.0f, 0.0f);
     }
 
     /**

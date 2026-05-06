@@ -71,6 +71,41 @@ struct FaissScoreToLuceneScoreTransform final {
         }
     }
 
+    // Convert dot product value (on pre-normalized vectors) to Lucene cosine score.
+    // Lucene cosine score = max((1 + cosine) / 2, 0), mapping [-1,1] to [0,1].
+    static float cosineTransform(const float dotProductValue) noexcept {
+        return std::max((1.0f + dotProductValue) / 2.0f, 0.0f);
+    }
+
+    // Bulk version of cosineTransform.
+    // `scores` contain raw dot product values; after this transform they will have Lucene cosine scores.
+    static void cosineTransformBulk(float* scores, const int32_t numScores) noexcept {
+        int32_t i = 0;
+        for (; (i + 8) <= numScores ; i += 8, scores += 8) {
+            scores[0] = std::max((1.0f + scores[0]) / 2.0f, 0.0f);
+            scores[1] = std::max((1.0f + scores[1]) / 2.0f, 0.0f);
+            scores[2] = std::max((1.0f + scores[2]) / 2.0f, 0.0f);
+            scores[3] = std::max((1.0f + scores[3]) / 2.0f, 0.0f);
+            scores[4] = std::max((1.0f + scores[4]) / 2.0f, 0.0f);
+            scores[5] = std::max((1.0f + scores[5]) / 2.0f, 0.0f);
+            scores[6] = std::max((1.0f + scores[6]) / 2.0f, 0.0f);
+            scores[7] = std::max((1.0f + scores[7]) / 2.0f, 0.0f);
+        }
+
+        for (; (i + 4) <= numScores ; i += 4, scores += 4) {
+            scores[0] = std::max((1.0f + scores[0]) / 2.0f, 0.0f);
+            scores[1] = std::max((1.0f + scores[1]) / 2.0f, 0.0f);
+            scores[2] = std::max((1.0f + scores[2]) / 2.0f, 0.0f);
+            scores[3] = std::max((1.0f + scores[3]) / 2.0f, 0.0f);
+        }
+
+        while (i < numScores) {
+            *scores = cosineTransform(*scores);
+            ++i;
+            ++scores;
+        }
+    }
+
 private:
     FaissScoreToLuceneScoreTransform() = delete;
 };

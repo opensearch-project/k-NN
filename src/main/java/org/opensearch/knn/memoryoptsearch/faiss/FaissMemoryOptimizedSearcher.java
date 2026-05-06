@@ -25,6 +25,7 @@ import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.RobustUniqueRandomIterator;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.WarmupUtil;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.faiss.cagra.FaissCagraHNSW;
@@ -54,7 +55,18 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     ) {
         this.indexInput = indexInput;
         this.faissIndex = faissIndex;
-        final KNNVectorSimilarityFunction knnVectorSimilarityFunction = faissIndex.getVectorSimilarityFunction();
+        KNNVectorSimilarityFunction knnVectorSimilarityFunction = faissIndex.getVectorSimilarityFunction();
+
+        // FAISS stores cosine as METRIC_INNER_PRODUCT, so the index-level metric alone can't
+        // distinguish them. Check the field's space type attribute to resolve the ambiguity.
+        // Only override for float vectors — cosine requires normalization which is only done for floats.
+        if (knnVectorSimilarityFunction == KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT
+            && faissIndex.getVectorEncoding() == VectorEncoding.FLOAT32) {
+            final SpaceType fieldSpaceType = FieldInfoExtractor.getSpaceType(null, fieldInfo);
+            if (fieldSpaceType == SpaceType.COSINESIMIL) {
+                knnVectorSimilarityFunction = KNNVectorSimilarityFunction.COSINE;
+            }
+        }
 
         if (knnVectorSimilarityFunction != KNNVectorSimilarityFunction.HAMMING) {
             vectorSimilarityFunction = knnVectorSimilarityFunction.getVectorSimilarityFunction();
