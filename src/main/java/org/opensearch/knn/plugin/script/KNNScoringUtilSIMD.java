@@ -30,6 +30,12 @@ final class KNNScoringUtilSIMD {
         SHIFT_VECTOR = IntVector.fromArray(INTEGER_VECTOR_SPECIES, shiftOffsets, 0);
     }
 
+    static {
+        if (INTEGER_VECTOR_SPECIES.length() != SPECIES.length()) {
+            throw new UnsupportedOperationException("Int and Float species must have same lane count");
+        }
+    }
+
     /**
      * Unpacks bits from inputVector starting at dimension i into a FloatVector.
      * Packs (step/8) consecutive bytes into a single int, broadcasts across all lanes,

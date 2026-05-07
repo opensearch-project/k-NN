@@ -57,7 +57,7 @@ public class KNNScoringUtil {
                     "innerProductADC",
                     MethodType.methodType(float.class, float[].class, byte[].class)
             );
-        } catch (Throwable t) {
+        } catch (Exception e) {
             // Fallback to scalar implementation if Vector API module or SIMD class is unavailable.
             logger.warn("SIMD Vector API not available, falling back to scalar ADC computation");
         }
@@ -68,7 +68,7 @@ public class KNNScoringUtil {
             try {
                 return (float) finalL2.invokeExact(queryVector, inputVector);
             } catch (Throwable t) {
-                throw new AssertionError("SIMD l2SquaredADC failed unexpectedly", t);
+                throw new RuntimeException("SIMD l2SquaredADC failed unexpectedly", t);
             }
         } : KNNScoringUtil::l2SquaredADCScalar;
 
@@ -76,7 +76,7 @@ public class KNNScoringUtil {
             try {
                 return (float) finalIP.invokeExact(queryVector, inputVector);
             } catch (Throwable t) {
-                throw new AssertionError("SIMD innerProductADC failed unexpectedly", t);
+                throw new RuntimeException("SIMD innerProductADC failed unexpectedly", t);
             }
         } : KNNScoringUtil::innerProductADCScalar;
     }
@@ -148,6 +148,19 @@ public class KNNScoringUtil {
     }
 
     /**
+     * Validates that the query vector length is compatible with the binary input vector length for ADC.
+     *
+     * @param queryVector The float query vector
+     * @param inputVector The binary document vector
+     * @throws IllegalArgumentException if dimensions are incompatible
+     */
+    private static void validateADCInput(float[] queryVector, byte[] inputVector) {
+        if (queryVector.length != inputVector.length * 8) {
+            throw new IllegalArgumentException("queryVector.length must equal inputVector.length * 8");
+        }
+    }
+
+    /**
      * This method calculates L2 squared distance between query vector
      * and input vector
      *
@@ -182,13 +195,11 @@ public class KNNScoringUtil {
      * @throws IllegalArgumentException if queryVector length is not compatible with inputVector length (queryVector.length != inputVector.length * 8)
      */
     public static float l2SquaredADC(float[] queryVector, byte[] inputVector) {
-        if (queryVector.length != inputVector.length * 8) {
-            throw new IllegalArgumentException("queryVector.length must equal inputVector.length * 8");
-        }
+        validateADCInput(queryVector, inputVector);
         return L2_SQUARED_ADC_FUNC.compute(queryVector, inputVector);
     }
 
-    public static float l2SquaredADCScalar(float[] queryVector, byte[] inputVector) {
+    static float l2SquaredADCScalar(float[] queryVector, byte[] inputVector) {
         float score = 0;
 
         for (int i = 0; i < queryVector.length; ++i) {
@@ -217,13 +228,11 @@ public class KNNScoringUtil {
      * @throws IllegalArgumentException if queryVector length is not compatible with inputVector length (queryVector.length != inputVector.length * 8)
      */
     public static float innerProductADC(float[] queryVector, byte[] inputVector) {
-        if(queryVector.length != inputVector.length * 8) {
-            throw new IllegalArgumentException("queryVector.length must equal inputVector.length * 8");
-        }
+        validateADCInput(queryVector, inputVector);
         return INNER_PRODUCT_ADC_FUNC.compute(queryVector, inputVector);
     }
 
-    public static float innerProductADCScalar(float[] queryVector, byte[] inputVector) {
+    static float innerProductADCScalar(float[] queryVector, byte[] inputVector) {
         float score = 0;
 
         for (int i = 0; i < queryVector.length; ++i) {

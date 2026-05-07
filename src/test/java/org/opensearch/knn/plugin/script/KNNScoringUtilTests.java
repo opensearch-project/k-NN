@@ -392,15 +392,18 @@ public class KNNScoringUtilTests extends KNNTestCase {
             float expectedL2 = l2SquaredADCScalar(queryVector, inputVector);
             float actualL2 = l2SquaredADC(queryVector, inputVector);
 
+            // 1e-4 = 0.0001
+            float delta = dim * 1e-4f;
+
             // Delta 1.0f allows for floating-point errors in high dimensions.
-            assertEquals("L2 Mismatch at dimension " + dim, expectedL2, actualL2, 1.0f);
+            assertEquals("L2 Mismatch at dimension " + dim, expectedL2, actualL2, delta);
 
             // Check Inner Product consistency.
             float expectedInnerProduct = innerProductADCScalar(queryVector, inputVector);
             float actualInnerProduct = innerProductADC(queryVector, inputVector);
 
             // Delta 1.0f allows for floating-point errors in high dimensions.
-            assertEquals("Inner Product Mismatch at dimension " + dim, expectedInnerProduct, actualInnerProduct, 1.0f);
+            assertEquals("Inner Product Mismatch at dimension " + dim, expectedInnerProduct, actualInnerProduct, delta);
         }
     }
 
