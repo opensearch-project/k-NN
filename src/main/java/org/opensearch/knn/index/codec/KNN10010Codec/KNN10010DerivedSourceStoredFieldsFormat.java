@@ -11,6 +11,7 @@ import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.StoredFieldsFormat;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.StoredFieldsWriter;
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
@@ -48,12 +49,10 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
         List<DerivedFieldInfo> derivedVectorFields = Stream.concat(
             DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(segmentInfo, false)
                 .stream()
-                .filter(field -> fieldInfos.fieldInfo(field) != null)
-                .map(field -> new DerivedFieldInfo(fieldInfos.fieldInfo(field), false)),
+                .flatMap(field -> getDerivedFieldInfo(fieldInfos, field, false)),
             DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(segmentInfo, true)
                 .stream()
-                .filter(field -> fieldInfos.fieldInfo(field) != null)
-                .map(field -> new DerivedFieldInfo(fieldInfos.fieldInfo(field), true))
+                .flatMap(field -> getDerivedFieldInfo(fieldInfos, field, true))
         ).toList();
 
         // If no fields have it enabled, we can just short-circuit and return the delegate's fieldReader
@@ -79,6 +78,33 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
         } else {
             return delegate;
         }
+    }
+
+    private Stream<DerivedFieldInfo> getDerivedFieldInfo(FieldInfos fieldInfos, String field, boolean isNested) {
+        FieldInfo fieldInfo = getFieldInfo(fieldInfos, field);
+        if (fieldInfo == null) {
+            return Stream.empty();
+        }
+        return Stream.of(new DerivedFieldInfo(fieldInfo, isNested));
+    }
+
+    static FieldInfo getFieldInfo(FieldInfos fieldInfos, String field) {
+        FieldInfo fieldInfo = fieldInfos.fieldInfo(field);
+        if (fieldInfo != null) {
+            return fieldInfo;
+        }
+
+        FieldInfo matchedFieldInfo = null;
+        for (FieldInfo candidate : fieldInfos) {
+            if (candidate.name.equalsIgnoreCase(field) == false) {
+                continue;
+            }
+            if (matchedFieldInfo != null) {
+                return null;
+            }
+            matchedFieldInfo = candidate;
+        }
+        return matchedFieldInfo;
     }
 
     @Override

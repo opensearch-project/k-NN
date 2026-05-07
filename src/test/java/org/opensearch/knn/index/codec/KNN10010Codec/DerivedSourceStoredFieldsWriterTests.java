@@ -13,14 +13,23 @@ import org.apache.lucene.util.BytesRef;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.index.mapper.DocumentMapper;
+import org.opensearch.index.mapper.MappingLookup;
 import org.opensearch.index.mapper.MapperService;
+import org.opensearch.index.mapper.SourceFieldMapper;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
+import org.opensearch.knn.index.codec.derivedsource.DerivedSourceSegmentAttributeParser;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class DerivedSourceStoredFieldsWriterTests extends KNNTestCase {
@@ -53,5 +62,39 @@ public class DerivedSourceStoredFieldsWriterTests extends KNNTestCase {
         byte[] shiftedBytes = new byte[originalBytes.length + 2];
         System.arraycopy(originalBytes, 0, shiftedBytes, 1, originalBytes.length);
         derivedSourceStoredFieldsWriter.writeField(fieldInfo, new BytesRef(shiftedBytes, 1, originalBytes.length));
+    }
+
+    @SneakyThrows
+    public void testFinishPreservesMixedCaseVectorFieldNamesInSegmentAttributes() {
+        StoredFieldsWriter delegate = mock(StoredFieldsWriter.class);
+        SegmentInfo segmentInfo = mock(SegmentInfo.class);
+        MapperService mapperService = mock(MapperService.class);
+        DocumentMapper documentMapper = mock(DocumentMapper.class);
+        MappingLookup mappingLookup = mock(MappingLookup.class);
+        KNNVectorFieldType vectorFieldType = mock(KNNVectorFieldType.class);
+        Map<String, String> fakeAttributes = new HashMap<>();
+
+        String fieldName = "vectorSearch.nameVector";
+        when(vectorFieldType.name()).thenReturn(fieldName);
+        when(mapperService.fieldTypes()).thenReturn(List.of(vectorFieldType));
+        when(mapperService.documentMapper()).thenReturn(documentMapper);
+        when(documentMapper.metadataMapper(SourceFieldMapper.class)).thenReturn(null);
+        when(documentMapper.mappers()).thenReturn(mappingLookup);
+        when(mappingLookup.getMapper(fieldName)).thenReturn(null);
+        when(mappingLookup.getNestedScope(fieldName)).thenReturn(null);
+        when(segmentInfo.putAttribute(any(), any())).thenAnswer(t -> fakeAttributes.put(t.getArgument(0), t.getArgument(1)));
+        when(segmentInfo.getAttribute(any())).thenAnswer(t -> fakeAttributes.get(t.getArgument(0)));
+
+        KNN10010DerivedSourceStoredFieldsWriter derivedSourceStoredFieldsWriter = new KNN10010DerivedSourceStoredFieldsWriter(
+            "mock-codec",
+            delegate,
+            segmentInfo,
+            mapperService
+        );
+
+        derivedSourceStoredFieldsWriter.finish(1);
+
+        assertEquals(List.of(fieldName), DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(segmentInfo, false));
+        verify(delegate).finish(1);
     }
 }
