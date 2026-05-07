@@ -21,6 +21,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceSegmentAttributeParser;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
+import org.opensearch.knn.index.util.IndexUtil;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -84,6 +85,8 @@ public class DerivedSourceStoredFieldsWriterTests extends KNNTestCase {
         when(mappingLookup.getNestedScope(fieldName)).thenReturn(null);
         when(segmentInfo.putAttribute(any(), any())).thenAnswer(t -> fakeAttributes.put(t.getArgument(0), t.getArgument(1)));
         when(segmentInfo.getAttribute(any())).thenAnswer(t -> fakeAttributes.get(t.getArgument(0)));
+
+        assertTrue(IndexUtil.isDerivedEnabledForField(vectorFieldType, mapperService));
 
         KNN10010DerivedSourceStoredFieldsWriter derivedSourceStoredFieldsWriter = new KNN10010DerivedSourceStoredFieldsWriter(
             "mock-codec",

@@ -5,7 +5,9 @@
 
 package org.opensearch.knn.index.codec.KNN10010Codec;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.AllArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.StoredFieldsFormat;
@@ -30,6 +32,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 @AllArgsConstructor
+@Log4j2
 public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat {
     // Stores the delegate codec name (in case it is different from the default one)
     static final String KNN_DELEGATE_CODEC_NAME = "knn_delegate_stored_fields_codec_key";
@@ -88,6 +91,7 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
         return Stream.of(new DerivedFieldInfo(fieldInfo, isNested));
     }
 
+    @VisibleForTesting
     static FieldInfo getFieldInfo(FieldInfos fieldInfos, String field) {
         FieldInfo fieldInfo = fieldInfos.fieldInfo(field);
         if (fieldInfo != null) {
@@ -100,6 +104,12 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
                 continue;
             }
             if (matchedFieldInfo != null) {
+                log.warn(
+                    "Skipping derived vector field [{}] because field infos [{}] and [{}] both match case-insensitively",
+                    field,
+                    matchedFieldInfo.name,
+                    candidate.name
+                );
                 return null;
             }
             matchedFieldInfo = candidate;
