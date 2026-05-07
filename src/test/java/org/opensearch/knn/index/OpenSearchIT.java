@@ -1431,7 +1431,7 @@ public class OpenSearchIT extends KNNRestTestCase {
         float[] query = new float[dim];
         Arrays.fill(query, 2);
 
-        // Force merging to one segment since each doc gets added with refresh=true which can  create
+        // Force merging to one segment since each doc gets added with refresh=true which can create
         // multiple segments. This fails the assertion since its expecting each metric to have 7 values intead
         // of a total 7 values
         forceMergeKnnIndex(INDEX_NAME);
