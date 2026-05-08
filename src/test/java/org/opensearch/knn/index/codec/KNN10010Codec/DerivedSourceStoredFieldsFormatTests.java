@@ -27,10 +27,27 @@ public class DerivedSourceStoredFieldsFormatTests extends KNNTestCase {
     }
 
     public void testGetFieldInfoDoesNotGuessWhenCaseInsensitiveMatchIsAmbiguous() {
-        FieldInfo mixedCaseFieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("vectorSearch.nameVector").fieldNumber(1).build();
-        FieldInfo lowerCaseFieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("vectorSearch.namevector").fieldNumber(2).build();
+        FieldInfo mixedCaseFieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("vectorSearch.nameVector")
+            .fieldNumber(1)
+            .vectorDimension(16)
+            .build();
+        FieldInfo lowerCaseFieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("vectorSearch.namevector")
+            .fieldNumber(2)
+            .vectorDimension(16)
+            .build();
         FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { mixedCaseFieldInfo, lowerCaseFieldInfo });
 
         assertNull(KNN10010DerivedSourceStoredFieldsFormat.getFieldInfo(fieldInfos, "vectorsearch.namevector"));
+    }
+
+    public void testGetFieldInfoPrefersVectorFieldWhenCaseInsensitiveMatchHasSingleVectorField() {
+        FieldInfo nonVectorFieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("vectorSearch.namevector").fieldNumber(1).build();
+        FieldInfo vectorFieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("vectorSearch.nameVector")
+            .fieldNumber(2)
+            .vectorDimension(16)
+            .build();
+        FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { nonVectorFieldInfo, vectorFieldInfo });
+
+        assertSame(vectorFieldInfo, KNN10010DerivedSourceStoredFieldsFormat.getFieldInfo(fieldInfos, "vectorsearch.namevector"));
     }
 }
