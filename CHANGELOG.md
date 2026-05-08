@@ -26,3 +26,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Use pre-quantized vectors for ADC [#3113](https://github.com/opensearch-project/k-NN/pull/3113)
 * Upgrade Lucene to 10.4.0 [#3135](https://github.com/opensearch-project/k-NN/pull/3135)
 * Enhance ADC scoring with SIMD Vector API and add comprehensive tests [#3167](https://github.com/opensearch-project/k-NN/pull/3167)
+* Add the bulkscore logic in MOS when K is greater than number of docs in segment [#3285](https://github.com/opensearch-project/k-NN/pull/3285)
