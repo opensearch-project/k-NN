@@ -28,8 +28,8 @@ import org.opensearch.knn.index.codec.derivedsource.DerivedSourceSegmentAttribut
 import org.opensearch.knn.index.util.IndexUtil;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
 
 @AllArgsConstructor
 @Log4j2
@@ -49,14 +49,13 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
         throws IOException {
 
         final StoredFieldsFormat delegatingFormat = getStoredFieldsFormat(segmentInfo);
-        List<DerivedFieldInfo> derivedVectorFields = Stream.concat(
-            DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(segmentInfo, false)
-                .stream()
-                .flatMap(field -> getDerivedFieldInfo(fieldInfos, field, false)),
-            DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(segmentInfo, true)
-                .stream()
-                .flatMap(field -> getDerivedFieldInfo(fieldInfos, field, true))
-        ).toList();
+        List<DerivedFieldInfo> derivedVectorFields = new ArrayList<>();
+        for (String field : DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(segmentInfo, false)) {
+            addDerivedFieldInfo(derivedVectorFields, fieldInfos, field, false);
+        }
+        for (String field : DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(segmentInfo, true)) {
+            addDerivedFieldInfo(derivedVectorFields, fieldInfos, field, true);
+        }
 
         // If no fields have it enabled, we can just short-circuit and return the delegate's fieldReader
         if (derivedVectorFields.isEmpty()) {
@@ -83,12 +82,12 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
         }
     }
 
-    private Stream<DerivedFieldInfo> getDerivedFieldInfo(FieldInfos fieldInfos, String field, boolean isNested) {
+    private void addDerivedFieldInfo(List<DerivedFieldInfo> derivedFieldInfos, FieldInfos fieldInfos, String field, boolean isNested) {
         FieldInfo fieldInfo = getFieldInfo(fieldInfos, field);
         if (fieldInfo == null) {
-            return Stream.empty();
+            return;
         }
-        return Stream.of(new DerivedFieldInfo(fieldInfo, isNested));
+        derivedFieldInfos.add(new DerivedFieldInfo(fieldInfo, isNested));
     }
 
     @VisibleForTesting
