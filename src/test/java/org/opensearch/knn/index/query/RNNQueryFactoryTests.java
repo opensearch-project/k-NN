@@ -28,6 +28,7 @@ import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
 public class RNNQueryFactoryTests extends KNNTestCase {
     private static final String FILTER_FILED_NAME = "foo";
@@ -142,5 +143,138 @@ public class RNNQueryFactoryTests extends KNNTestCase {
 
         // Then
         assertEquals(expectedQuery, query);
+    }
+
+    // Verify that Faiss radial search with 32x SQ wraps the inner KNNQuery in RescoreRadialSearchQuery.
+    public void testCreate_whenFaissSQ32x_thenWrapsInRescoreRadialSearchQuery() {
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        MappedFieldType testMapper = mock(MappedFieldType.class);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        KNNVectorFieldType mockFieldType = mock(KNNVectorFieldType.class);
+        when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
+        when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
+        when(indexSettings.getMaxResultWindow()).thenReturn(maxResultWindow);
+        when(mockFieldType.isRescoringRequiredForRadial()).thenReturn(true);
+
+        final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.FAISS)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .radius(testRadius)
+            .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+            .context(mockQueryShardContext)
+            .vectorFieldType(mockFieldType)
+            .build();
+
+        Query query = RNNQueryFactory.create(createQueryRequest);
+
+        assertTrue(query instanceof RescoreRadialSearchQuery);
+        RescoreRadialSearchQuery rescoreQuery = (RescoreRadialSearchQuery) query;
+        assertTrue(rescoreQuery.getInnerQuery() instanceof KNNQuery);
+        assertEquals(testFieldName, rescoreQuery.getField());
+        assertEquals(testRadius, rescoreQuery.getRadius(), 0.0f);
+    }
+
+    // Verify that Lucene radial search with 32x SQ wraps the inner FloatVectorSimilarityQuery
+    // in RescoreRadialSearchQuery.
+    public void testCreate_whenLuceneSQ32x_thenWrapsInRescoreRadialSearchQuery() {
+        List<KNNEngine> luceneEngines = Arrays.stream(KNNEngine.values())
+            .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
+            .collect(Collectors.toList());
+
+        for (KNNEngine knnEngine : luceneEngines) {
+            KNNVectorFieldType mockFieldType = mock(KNNVectorFieldType.class);
+            when(mockFieldType.isRescoringRequiredForRadial()).thenReturn(true);
+
+            final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(knnEngine)
+                .indexName(testIndexName)
+                .fieldName(testFieldName)
+                .vector(testQueryVector)
+                .radius(testRadius)
+                .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+                .vectorFieldType(mockFieldType)
+                .build();
+
+            Query query = RNNQueryFactory.create(createQueryRequest);
+
+            assertTrue(query instanceof RescoreRadialSearchQuery);
+            RescoreRadialSearchQuery rescoreQuery = (RescoreRadialSearchQuery) query;
+            assertTrue(rescoreQuery.getInnerQuery() instanceof FloatVectorSimilarityQuery);
+            assertEquals(testFieldName, rescoreQuery.getField());
+            assertEquals(testRadius, rescoreQuery.getRadius(), 0.0f);
+        }
+    }
+
+    // Verify that non-quantized Faiss radial search returns bare KNNQuery (no wrapper).
+    public void testCreate_whenFaissNotQuantized_thenNoWrapper() {
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        MappedFieldType testMapper = mock(MappedFieldType.class);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
+        when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
+        when(indexSettings.getMaxResultWindow()).thenReturn(maxResultWindow);
+
+        final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.FAISS)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .radius(testRadius)
+            .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+            .context(mockQueryShardContext)
+            .build();
+
+        Query query = RNNQueryFactory.create(createQueryRequest);
+
+        assertTrue(query instanceof KNNQuery);
+        assertFalse(query instanceof RescoreRadialSearchQuery);
+    }
+
+    // Verify that non-quantized Lucene radial search returns bare FloatVectorSimilarityQuery (no wrapper).
+    public void testCreate_whenLuceneNotQuantized_thenNoWrapper() {
+        List<KNNEngine> luceneEngines = Arrays.stream(KNNEngine.values())
+            .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
+            .collect(Collectors.toList());
+
+        for (KNNEngine knnEngine : luceneEngines) {
+            final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(knnEngine)
+                .indexName(testIndexName)
+                .fieldName(testFieldName)
+                .vector(testQueryVector)
+                .radius(testRadius)
+                .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+                .build();
+
+            Query query = RNNQueryFactory.create(createQueryRequest);
+
+            assertTrue(query instanceof FloatVectorSimilarityQuery);
+            assertFalse(query instanceof RescoreRadialSearchQuery);
+        }
+    }
+
+    // Verify that createLuceneRadialQuery throws IllegalArgumentException for unsupported vector data types.
+    // The default branch in the switch statement (line 146-152) should be hit when a BINARY vector type
+    // is passed to the Lucene radial search path, since only FLOAT and BYTE are supported.
+    public void testCreate_whenLuceneWithUnsupportedVectorDataType_thenThrows() {
+        List<KNNEngine> luceneEngines = Arrays.stream(KNNEngine.values())
+            .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
+            .collect(Collectors.toList());
+
+        for (KNNEngine knnEngine : luceneEngines) {
+            final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(knnEngine)
+                .indexName(testIndexName)
+                .fieldName(testFieldName)
+                .vector(testQueryVector)
+                .radius(testRadius)
+                // BINARY is not supported for Lucene radial search — should hit the default branch
+                .vectorDataType(VectorDataType.BINARY)
+                .build();
+
+            expectThrows(IllegalArgumentException.class, () -> RNNQueryFactory.create(createQueryRequest));
+        }
     }
 }

@@ -36,8 +36,6 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.model.QueryContext;
-import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
-import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
@@ -61,7 +59,6 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
 import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
-import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
 import static org.opensearch.knn.index.engine.KNNEngine.FAISS;
 import static org.opensearch.knn.index.engine.validation.ParameterValidator.validateParameters;
 import static org.opensearch.knn.index.query.parser.MethodParametersParser.validateMethodParameters;
@@ -481,20 +478,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         }
 
         if (this.maxDistance != null || this.minScore != null) {
-            if (!ENGINES_SUPPORTING_RADIAL_SEARCH.contains(knnEngine)) {
-                throw new UnsupportedOperationException(
-                    String.format(Locale.ROOT, "Engine [%s] does not support radial search", knnEngine)
-                );
-            }
-            if (vectorDataType == VectorDataType.BINARY) {
-                throw new UnsupportedOperationException(String.format(Locale.ROOT, "Binary data type does not support radial search"));
-            }
-
-            if ((knnMappingConfig.getQuantizationConfig() != QuantizationConfig.EMPTY)
-                // If compression level is 32x, then radial search should be blocked.
-                || (knnMappingConfig.getCompressionLevel() == CompressionLevel.x32)) {
-                throw new UnsupportedOperationException("Radial search is not supported for indices which have quantization enabled");
-            }
+            knnVectorFieldType.validateSupportRadialSearch(knnEngine);
         }
 
         // Currently, k-NN supports distance and score types radial search
@@ -600,6 +584,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 .originalVector(vector)
                 .byteVector(getByteVectorForCreatingQueryRequest(vectorDataType, knnEngine, byteVector, memoryOptimizedSearchEnabled))
                 .vectorDataType(vectorDataType)
+                .vectorFieldType(knnVectorFieldType)
                 .radius(radius)
                 .methodParameters(this.methodParameters)
                 .filter(this.filter)
