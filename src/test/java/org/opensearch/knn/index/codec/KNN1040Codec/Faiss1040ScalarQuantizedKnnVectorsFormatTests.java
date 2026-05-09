@@ -9,6 +9,7 @@ import lombok.SneakyThrows;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.codecs.KnnVectorsWriter;
+import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentInfo;
@@ -19,13 +20,16 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
+import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.InfoStream;
 import org.apache.lucene.util.Version;
+import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer.PrefetchableRandomVectorScorer;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.Iterator;
@@ -177,19 +181,46 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormatTests extends KNNTestCase {
         try (MockedStatic<CodecUtil> mockedCodecUtil = Mockito.mockStatic(CodecUtil.class)) {
             mockedCodecUtil.when(() -> CodecUtil.retrieveChecksum(any(IndexInput.class))).thenAnswer((Answer<Void>) invocation -> null);
 
-            KnnVectorsReader reader = format.fieldsReader(mockedSegmentReadState);
-            assertTrue(reader instanceof Faiss1040ScalarQuantizedKnnVectorsReader);
+            try (KnnVectorsReader rawReader = format.fieldsReader(mockedSegmentReadState)) {
+                assertTrue(rawReader instanceof Faiss1040ScalarQuantizedKnnVectorsReader);
+                Faiss1040ScalarQuantizedKnnVectorsReader reader = (Faiss1040ScalarQuantizedKnnVectorsReader) rawReader;
 
-            // Verify the internal FlatVectorsReader is wrapped with Faiss1040ScalarQuantizedFlatVectorsReader
-            java.lang.reflect.Field flatReaderField = reader.getClass().getSuperclass().getDeclaredField("flatVectorsReader");
-            flatReaderField.setAccessible(true);
-            Object flatReader = flatReaderField.get(reader);
-            assertTrue(
-                "FlatVectorsReader should be wrapped with Faiss1040ScalarQuantizedFlatVectorsReader",
-                flatReader instanceof Faiss1040ScalarQuantizedFlatVectorsReader
+                // Verify the internal FlatVectorsReader is wrapped with Faiss1040ScalarQuantizedFlatVectorsReader
+                assertTrue(
+                    "FlatVectorsReader should be wrapped with Faiss1040ScalarQuantizedFlatVectorsReader",
+                    reader.getFlatVectorsReader() instanceof Faiss1040ScalarQuantizedFlatVectorsReader
+                );
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testFieldsReader_scorerIsPrefetchable() {
+        try (MMapDirectory dir = new MMapDirectory(createTempDir())) {
+            SegmentReadState readState = KNN1040ScalarQuantizedTestUtils.writeQuantizedVectors(
+                dir,
+                Faiss1040ScalarQuantizedKnnVectorsFormat.getFaissSqFlatFormat(),
+                random()
             );
 
-            reader.close();
+            try (KnnVectorsReader rawReader = new Faiss1040ScalarQuantizedKnnVectorsFormat().fieldsReader(readState)) {
+                assertTrue(
+                    "Expected Faiss1040ScalarQuantizedKnnVectorsReader but was: " + rawReader.getClass().getSimpleName(),
+                    rawReader instanceof Faiss1040ScalarQuantizedKnnVectorsReader
+                );
+                Faiss1040ScalarQuantizedKnnVectorsReader knnReader = (Faiss1040ScalarQuantizedKnnVectorsReader) rawReader;
+                FlatVectorsReader flatReader = knnReader.getFlatVectorsReader();
+                RandomVectorScorer scorer = flatReader.getRandomVectorScorer(
+                    KNN1040ScalarQuantizedTestUtils.FIELD_NAME,
+                    KNN1040ScalarQuantizedTestUtils.randomVector(KNN1040ScalarQuantizedTestUtils.DIMENSION, random())
+                );
+
+                assertNotNull("RandomVectorScorer should not be null", scorer);
+                assertTrue(
+                    "Scorer from Faiss SQ reader should be PrefetchableRandomVectorScorer, but was: " + scorer.getClass().getSimpleName(),
+                    scorer instanceof PrefetchableRandomVectorScorer
+                );
+            }
         }
     }
 }
