@@ -59,11 +59,11 @@ public class KNNCodecUtil {
     }
 
     public static String buildEngineFilePrefix(String segmentName) {
-        return String.format(Locale.ROOT, "%s_", segmentName);
+        return segmentName + "_";
     }
 
     public static String buildEngineFileSuffix(String fieldName, String extension) {
-        return String.format(Locale.ROOT, "_%s%s", fieldName, extension);
+        return "_" + fieldName + extension;
     }
 
     public static long getTotalLiveDocsCount(final BinaryDocValues binaryDocValues) {

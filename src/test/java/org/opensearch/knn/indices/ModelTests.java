@@ -21,6 +21,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 
+import java.nio.charset.StandardCharsets;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.HashMap;
@@ -148,7 +149,7 @@ public class ModelTests extends KNNTestCase {
     }
 
     public void testGetModelBlob() {
-        byte[] modelBlob = "hello".getBytes();
+        byte[] modelBlob = "hello".getBytes(StandardCharsets.UTF_8);
         Model model = new Model(
             new ModelMetadata(
                 KNNEngine.DEFAULT,
@@ -217,7 +218,7 @@ public class ModelTests extends KNNTestCase {
     }
 
     public void testSetModelBlob() {
-        byte[] blob1 = "Hello blob 1".getBytes();
+        byte[] blob1 = "Hello blob 1".getBytes(StandardCharsets.UTF_8);
         Model model = new Model(
             new ModelMetadata(
                 KNNEngine.DEFAULT,
@@ -238,7 +239,7 @@ public class ModelTests extends KNNTestCase {
             "test-model"
         );
         assertEquals(blob1, model.getModelBlob());
-        byte[] blob2 = "Hello blob 2".getBytes();
+        byte[] blob2 = "Hello blob 2".getBytes(StandardCharsets.UTF_8);
 
         model.setModelBlob(blob2);
         assertEquals(blob2, model.getModelBlob());
@@ -418,7 +419,7 @@ public class ModelTests extends KNNTestCase {
         modelAsMap.put(KNNConstants.MODE_PARAMETER, Mode.NOT_CONFIGURED.getName());
         modelAsMap.put(KNNConstants.COMPRESSION_LEVEL_PARAMETER, CompressionLevel.NOT_CONFIGURED.getName());
 
-        byte[] blob1 = "hello".getBytes();
+        byte[] blob1 = "hello".getBytes(StandardCharsets.UTF_8);
         Model expected = new Model(metadata, blob1, modelID);
 
         Model fromMap = Model.getModelFromSourceMap(modelAsMap);

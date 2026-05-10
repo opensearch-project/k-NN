@@ -9,6 +9,8 @@ import lombok.SneakyThrows;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.knn.KNNTestCase;
 
+import java.nio.charset.StandardCharsets;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -20,7 +22,7 @@ public class FaissIndexTests extends KNNTestCase {
         IndexInput mockInput = mock(IndexInput.class);
         doAnswer(invocation -> {
             byte[] buf = invocation.getArgument(0);
-            byte[] nullBytes = "null".getBytes();
+            byte[] nullBytes = "null".getBytes(StandardCharsets.UTF_8);
             System.arraycopy(nullBytes, 0, buf, 0, 4);
             return null;
         }).when(mockInput).readBytes(any(byte[].class), any(int.class), any(int.class));

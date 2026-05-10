@@ -17,6 +17,7 @@ import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -210,7 +211,7 @@ public class TestUtils {
     }
 
     public static String createFakeNativeMamoryCacheKey(final String fileName) {
-        return fileName + "@" + Base64.getEncoder().encodeToString(fileName.getBytes());
+        return fileName + "@" + Base64.getEncoder().encodeToString(fileName.getBytes(StandardCharsets.UTF_8));
     }
 
     /*

@@ -82,6 +82,7 @@ import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
+import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Constructor;
@@ -644,7 +645,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final SegmentInfo segmentInfo = mock(SegmentInfo.class);
         when(segmentInfo.getUseCompoundFile()).thenReturn(false);
         when(segmentInfo.files()).thenReturn(Set.of(buildInfo.faissIndexFile));
-        when(segmentInfo.getId()).thenReturn("LuceneOnFaiss".getBytes());
+        when(segmentInfo.getId()).thenReturn("LuceneOnFaiss".getBytes(StandardCharsets.UTF_8));
         when(segmentInfo.getVersion()).thenReturn(org.apache.lucene.util.Version.LATEST);
 
         // Prepare collector and bits

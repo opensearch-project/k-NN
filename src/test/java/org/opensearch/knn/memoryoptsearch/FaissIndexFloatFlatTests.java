@@ -17,6 +17,7 @@ import org.opensearch.knn.memoryoptsearch.faiss.FaissIndexFloatFlat;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissSection;
 import org.opensearch.knn.memoryoptsearch.faiss.UnsupportedFaissIndexException;
 
+import java.nio.charset.StandardCharsets;
 import java.lang.reflect.Field;
 import java.net.URL;
 import java.nio.ByteBuffer;
@@ -125,7 +126,7 @@ public class FaissIndexFloatFlatTests extends KNNTestCase {
         final String relativePath = "data/memoryoptsearch/faiss_flat_float_50_vectors_128_dim.bin";
         final URL floatFloatVectors = FaissHNSWTests.class.getClassLoader().getResource(relativePath);
         final byte[] bytes = Files.readAllBytes(Path.of(floatFloatVectors.toURI()));
-        final byte[] indexTypeFourBytes = indexType.getBytes();
+        final byte[] indexTypeFourBytes = indexType.getBytes(StandardCharsets.UTF_8);
         final byte[] combinedBytes = ByteBuffer.allocate(bytes.length + indexTypeFourBytes.length)
             .put(indexTypeFourBytes)
             .put(bytes)

@@ -25,6 +25,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -56,7 +57,7 @@ public class ModelCacheTests extends KNNTestCase {
                 CompressionLevel.NOT_CONFIGURED,
                 Version.V_EMPTY
             ),
-            "hello".getBytes(),
+            "hello".getBytes(StandardCharsets.UTF_8),
             modelId
         );
         String cacheSize = "10%";
@@ -300,7 +301,7 @@ public class ModelCacheTests extends KNNTestCase {
                 CompressionLevel.NOT_CONFIGURED,
                 Version.V_EMPTY
             ),
-            "hello".getBytes(),
+            "hello".getBytes(StandardCharsets.UTF_8),
             modelId
         );
 
