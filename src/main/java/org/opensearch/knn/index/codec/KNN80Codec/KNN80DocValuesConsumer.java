@@ -23,6 +23,7 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
 
+import java.util.Locale;
 import java.io.IOException;
 
 import static org.opensearch.knn.common.FieldInfoExtractor.extractKNNEngine;
@@ -60,7 +61,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer {
 
     private boolean isKNNBinaryFieldRequired(FieldInfo field) {
         final KNNEngine knnEngine = extractKNNEngine(field);
-        log.debug(String.format("Read engine [%s] for field [%s]", knnEngine.getName(), field.getName()));
+        log.debug(String.format(Locale.ROOT, "Read engine [%s] for field [%s]", knnEngine.getName(), field.getName()));
         return field.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)
             && KNNEngine.getEnginesThatCreateCustomSegmentFiles().stream().anyMatch(engine -> engine == knnEngine);
     }

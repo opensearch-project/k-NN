@@ -36,6 +36,7 @@ import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
+import java.util.Locale;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -318,7 +319,7 @@ public class NativeIndexWriter {
         String modelId = fieldInfo.attributes().get(MODEL_ID);
         Model model = ModelCache.getInstance().get(modelId);
         if (model.getModelBlob() == null) {
-            throw new RuntimeException(String.format("There is no trained model with id \"%s\"", modelId));
+            throw new RuntimeException(String.format(Locale.ROOT, "There is no trained model with id \"%s\"", modelId));
         }
         return model;
     }

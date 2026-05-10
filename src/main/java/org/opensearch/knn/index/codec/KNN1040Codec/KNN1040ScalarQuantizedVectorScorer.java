@@ -21,6 +21,7 @@ import org.opensearch.knn.jni.SimdVectorComputeService;
 import org.opensearch.knn.memoryoptsearch.MemorySegmentAddressExtractorUtil;
 import org.opensearch.knn.memoryoptsearch.faiss.WrappedFloatVectorValues;
 
+import java.util.Locale;
 import java.io.IOException;
 
 import static org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE;
@@ -152,7 +153,7 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
 
         // We only support 32x quantization with 4 bit query quantization for search.
         if (scalarEncoding != SINGLE_BIT_QUERY_NIBBLE) {
-            throw new IllegalStateException(String.format("SQ only supports %s encoding.", SINGLE_BIT_QUERY_NIBBLE));
+            throw new IllegalStateException(String.format(Locale.ROOT, "SQ only supports %s encoding.", SINGLE_BIT_QUERY_NIBBLE));
         }
 
         // Validate dimensionality

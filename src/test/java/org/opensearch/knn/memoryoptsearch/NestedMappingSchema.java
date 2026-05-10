@@ -11,6 +11,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
+import java.util.Locale;
 
 import static org.opensearch.knn.memoryoptsearch.NonNestedNMappingSchema.createModeCompressionLevelPartInMapping;
 
@@ -29,38 +30,39 @@ public class NestedMappingSchema {
     private CompressionLevel compressionLevel;
 
     public String createString() {
-        final String mapping = """
-            {
-              "properties": {
-                "%s": {
-                  "type": "nested",
+        final String mapping = String.format(
+            Locale.ROOT,
+            """
+                {
                   "properties": {
                     "%s": {
-                      "type": "knn_vector",
-                      "dimension": %s,
-                      "data_type": "%s",
-                      %s
-                      "space_type": "%s",
-                      "method": {
-                        "engine": "faiss",
-                        "name": "hnsw",
-                        "parameters": %s
+                      "type": "nested",
+                      "properties": {
+                        "%s": {
+                          "type": "knn_vector",
+                          "dimension": %s,
+                          "data_type": "%s",
+                          %s
+                          "space_type": "%s",
+                          "method": {
+                            "engine": "faiss",
+                            "name": "hnsw",
+                            "parameters": %s
+                          }
+                        }
                       }
+                    },
+                    "%s": {
+                      "type": "keyword",
+                      "index": true
+                    },
+                    "%s": {
+                      "type": "keyword",
+                      "index": true
                     }
-                  }
-                },
-                "%s": {
-                  "type": "keyword",
-                  "index": true
-                },
-                "%s": {
-                  "type": "keyword",
-                  "index": true
-                }
-              },
-              "dynamic": false
-            }
-            """.formatted(
+                  },
+                  "dynamic": false
+                }""",
             nestedFieldName,
             knnFieldName,
             Integer.toString(dimension),

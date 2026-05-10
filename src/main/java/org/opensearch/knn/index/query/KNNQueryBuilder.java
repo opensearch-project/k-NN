@@ -126,13 +126,13 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
     @Deprecated
     public KNNQueryBuilder(String fieldName, float[] vector) {
         if (Strings.isNullOrEmpty(fieldName)) {
-            throw new IllegalArgumentException(String.format("[%s] requires fieldName", NAME));
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "[%s] requires fieldName", NAME));
         }
         if (vector == null) {
-            throw new IllegalArgumentException(String.format("[%s] requires query vector", NAME));
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "[%s] requires query vector", NAME));
         }
         if (vector.length == 0) {
-            throw new IllegalArgumentException(String.format("[%s] query vector is empty", NAME));
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "[%s] query vector is empty", NAME));
         }
         this.fieldName = fieldName;
         this.vector = vector;
@@ -501,7 +501,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         if (this.maxDistance != null) {
             if (this.maxDistance < 0 && SpaceType.INNER_PRODUCT.equals(spaceType) == false) {
                 throw new IllegalArgumentException(
-                    String.format("[" + NAME + "] requires distance to be non-negative for space type: %s", spaceType)
+                    String.format(Locale.ROOT, "[" + NAME + "] requires distance to be non-negative for space type: %s", spaceType)
                 );
             }
             if (memoryOptimizedSearchEnabled) {
@@ -514,7 +514,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         if (this.minScore != null) {
             if (this.minScore > 1 && SpaceType.INNER_PRODUCT.equals(spaceType) == false) {
                 throw new IllegalArgumentException(
-                    String.format("[" + NAME + "] requires score to be in the range [0, 1] for space type: %s", spaceType)
+                    String.format(Locale.ROOT, "[" + NAME + "] requires score to be in the range [0, 1] for space type: %s", spaceType)
                 );
             }
             if (memoryOptimizedSearchEnabled) {
@@ -528,6 +528,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         if (knnMappingConfig.getDimension() != vectorLength) {
             throw new IllegalArgumentException(
                 String.format(
+                    Locale.ROOT,
                     "Query vector has invalid dimension: %d. Dimension should be: %d",
                     vectorLength,
                     knnMappingConfig.getDimension()

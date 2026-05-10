@@ -42,6 +42,7 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 
+import java.util.Locale;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -136,7 +137,10 @@ public abstract class KNNWeight extends Weight {
                 score = getKnnScore(knnScorer, doc);
             }
         } catch (IOException e) {
-            throw new RuntimeException(String.format("Error while explaining KNN score for doc [%d], score [%f]", doc, score), e);
+            throw new RuntimeException(
+                String.format(Locale.ROOT, "Error while explaining KNN score for doc [%d], score [%f]", doc, score),
+                e
+            );
         }
         final String highLevelExplanation = getHighLevelExplanation();
         final StringBuilder leafLevelExplanation = getLeafLevelExplanation(context);

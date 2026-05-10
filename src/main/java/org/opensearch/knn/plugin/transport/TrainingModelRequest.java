@@ -32,6 +32,7 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.indices.ModelDao;
 
+import java.util.Locale;
 import java.io.IOException;
 
 /**
@@ -200,7 +201,11 @@ public class TrainingModelRequest extends ActionRequest {
     public void setMaximumVectorCount(int maximumVectorCount) {
         if (maximumVectorCount <= 0) {
             throw new IllegalArgumentException(
-                String.format("Maximum vector count %d is invalid. Maximum vector " + "count must be greater than 0", maximumVectorCount)
+                String.format(
+                    Locale.ROOT,
+                    "Maximum vector count %d is invalid. Maximum vector " + "count must be greater than 0",
+                    maximumVectorCount
+                )
             );
         }
         this.maximumVectorCount = maximumVectorCount;
@@ -214,7 +219,7 @@ public class TrainingModelRequest extends ActionRequest {
     public void setSearchSize(int searchSize) {
         if (searchSize <= 0 || searchSize > 10000) {
             throw new IllegalArgumentException(
-                String.format("Search size %d is invalid. Search size must be " + "between 0 and 10,000", searchSize)
+                String.format(Locale.ROOT, "Search size %d is invalid. Search size must be " + "between 0 and 10,000", searchSize)
             );
         }
         this.searchSize = searchSize;
@@ -228,7 +233,11 @@ public class TrainingModelRequest extends ActionRequest {
     void setTrainingDataSizeInKB(int trainingDataSizeInKB) {
         if (trainingDataSizeInKB <= 0) {
             throw new IllegalArgumentException(
-                String.format("Training data size %d is invalid. Training data size " + "must be greater than 0", trainingDataSizeInKB)
+                String.format(
+                    Locale.ROOT,
+                    "Training data size %d is invalid. Training data size " + "must be greater than 0",
+                    trainingDataSizeInKB
+                )
             );
         }
         this.trainingDataSizeInKB = trainingDataSizeInKB;
@@ -252,6 +261,7 @@ public class TrainingModelRequest extends ActionRequest {
         if (modelDao.isModelInGraveyard(modelId)) {
             exception = new ActionRequestValidationException();
             String errorMessage = String.format(
+                Locale.ROOT,
                 "Model with id = \"%s\" is being deleted. Cannot create a model with same modelID until that model is deleted",
                 modelId
             );

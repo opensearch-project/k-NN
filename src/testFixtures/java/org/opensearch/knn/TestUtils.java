@@ -17,6 +17,7 @@ import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
+import java.util.Locale;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -256,7 +257,7 @@ public class TestUtils {
         float dist;
         if (spaceType != null) {
             dist = KNN_SCORING_SPACE_TYPE.getOrDefault(spaceType, (defaultQueryVector, defaultIndexVector) -> {
-                throw new IllegalArgumentException(String.format("Invalid SpaceType function: \"%s\"", spaceType));
+                throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid SpaceType function: \"%s\"", spaceType));
             }).apply(queryVector, indexVector);
         } else {
             throw new NullPointerException("SpaceType is null. Provide a valid SpaceType.");

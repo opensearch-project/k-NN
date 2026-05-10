@@ -29,6 +29,7 @@ import org.opensearch.knn.indices.ModelGraveyard;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
+import java.util.Locale;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashSet;
@@ -163,6 +164,7 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
                 if (!indicesUsingModel.isEmpty()) {
                     throw new DeleteModelException(
                         String.format(
+                            Locale.ROOT,
                             "Cannot delete model [%s].  Model is in use by the following indices %s, which must be deleted first.",
                             task.getModelId(),
                             indicesUsingModel

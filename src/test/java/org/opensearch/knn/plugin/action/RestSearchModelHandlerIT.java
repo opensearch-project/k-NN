@@ -25,6 +25,7 @@ import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.search.SearchHit;
 
+import java.util.Locale;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -84,13 +85,14 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
 
             ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
             String messageExpected = String.format(
+                Locale.ROOT,
                 "%s must be between %s and %s inclusive",
                 PARAM_SIZE,
                 SEARCH_MODEL_MIN_SIZE,
                 SEARCH_MODEL_MAX_SIZE
             );
             assertTrue(
-                String.format("FAILED - Expected  \"%s\" to have \"%s\"", ex.getMessage(), messageExpected),
+                String.format(Locale.ROOT, "FAILED - Expected  \"%s\" to have \"%s\"", ex.getMessage(), messageExpected),
                 ex.getMessage().contains(messageExpected)
             );
         }

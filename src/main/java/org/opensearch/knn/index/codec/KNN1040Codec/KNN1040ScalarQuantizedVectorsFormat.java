@@ -16,6 +16,7 @@ import org.apache.lucene.index.SegmentWriteState;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
 
+import java.util.Locale;
 import java.io.IOException;
 
 /**
@@ -58,6 +59,7 @@ public class KNN1040ScalarQuantizedVectorsFormat extends Lucene104ScalarQuantize
     @Override
     public String toString() {
         return String.format(
+            Locale.ROOT,
             "%s(encoding=%s, scorer=%s, rawVectorFormat=%s)",
             getClass().getSimpleName(),
             encoding,

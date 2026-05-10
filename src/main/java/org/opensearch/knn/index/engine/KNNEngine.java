@@ -15,6 +15,7 @@ import org.opensearch.knn.index.engine.lucene.Lucene;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
 import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
 
+import java.util.Locale;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -108,7 +109,7 @@ public enum KNNEngine implements KNNLibrary {
             return UNDEFINED;
         }
 
-        throw new IllegalArgumentException(String.format("Invalid engine type: %s", name));
+        throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid engine type: %s", name));
     }
 
     /**

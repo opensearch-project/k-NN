@@ -25,6 +25,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 
+import java.util.Locale;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.concurrent.ExecutionException;
@@ -523,7 +524,7 @@ public class ModelCacheTests extends KNNTestCase {
         int maxDocuments = 10;
         ModelDao modelDao = mock(ModelDao.class);
         for (int i = 0; i < maxDocuments; i++) {
-            String modelId = String.format(modelIdPattern, i);
+            String modelId = String.format(Locale.ROOT, modelIdPattern, i);
             Model mockModel = new Model(
                 new ModelMetadata(
                     KNNEngine.DEFAULT,
@@ -557,7 +558,7 @@ public class ModelCacheTests extends KNNTestCase {
         ModelCache modelCache = new ModelCache();
         assertNull(modelCache.getEvictedDueToSizeAt());
         for (int i = 0; i < maxDocuments; i++) {
-            modelCache.get(String.format(modelIdPattern, i));
+            modelCache.get(String.format(Locale.ROOT, modelIdPattern, i));
         }
         assertNotNull(modelCache.getEvictedDueToSizeAt());
     }

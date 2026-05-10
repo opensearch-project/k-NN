@@ -28,6 +28,7 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.threadpool.ThreadPool;
 
+import java.util.Locale;
 import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -380,6 +381,7 @@ public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestC
                     assertTrue(e instanceof DeleteModelException);
                     assertEquals(
                         String.format(
+                            Locale.ROOT,
                             "Cannot delete model [%s].  Model is in use by the following indices %s, which must be deleted first.",
                             updateModelGraveyardRequest.getModelId(),
                             indicesPresentInException

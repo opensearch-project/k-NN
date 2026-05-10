@@ -13,6 +13,7 @@ import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatPara
 import org.opensearch.knn.index.engine.CodecFormatResolver;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -43,7 +44,7 @@ public class LuceneCodecFormatResolver implements CodecFormatResolver {
     @Override
     public KnnVectorsFormat resolve() {
         throw new UnsupportedOperationException(
-            String.format("%s requires field context, use resolve(field, ...) instead", getClass().getSimpleName())
+            String.format(Locale.ROOT, "%s requires field context, use resolve(field, ...) instead", getClass().getSimpleName())
         );
     }
 
@@ -58,7 +59,7 @@ public class LuceneCodecFormatResolver implements CodecFormatResolver {
         LuceneVectorsFormatType formatType = determineFormatType(field, methodContext, params, defaultMaxConnections, defaultBeamWidth);
         Function<KnnVectorsFormatContext, KnnVectorsFormat> factory = formatResolvers.get(formatType);
         if (factory == null) {
-            throw new IllegalStateException(String.format("No Lucene vectors format registered for type [%s]", formatType));
+            throw new IllegalStateException(String.format(Locale.ROOT, "No Lucene vectors format registered for type [%s]", formatType));
         }
         return factory.apply(new KnnVectorsFormatContext(field, methodContext, params, defaultMaxConnections, defaultBeamWidth));
     }

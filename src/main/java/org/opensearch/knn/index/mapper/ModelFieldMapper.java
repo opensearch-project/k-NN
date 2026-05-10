@@ -24,6 +24,7 @@ import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 
+import java.util.Locale;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
@@ -357,7 +358,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
     private static ModelMetadata getModelMetadata(ModelDao modelDao, String modelId) {
         ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
         if (!ModelUtil.isModelCreated(modelMetadata)) {
-            throw new IllegalStateException(String.format("Model ID '%s' is not created.", modelId));
+            throw new IllegalStateException(String.format(Locale.ROOT, "Model ID '%s' is not created.", modelId));
         }
         return modelMetadata;
     }

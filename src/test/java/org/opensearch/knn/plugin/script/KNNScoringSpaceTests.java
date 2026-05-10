@@ -50,7 +50,7 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         assertTrue(e.getCause() instanceof IllegalArgumentException);
         assertTrue(
             e.getCause().getMessage(),
-            e.getCause().getMessage().contains(String.format("The data type should be %s", DATA_TYPES_DEFAULT))
+            e.getCause().getMessage().contains(String.format(Locale.ROOT, "The data type should be %s", DATA_TYPES_DEFAULT))
         );
     }
 

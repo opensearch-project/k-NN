@@ -442,7 +442,12 @@ public class FaissTests extends KNNTestCase {
             float convertedDistance = Faiss.INSTANCE.scoreToRadialThreshold(luceneScore, org.opensearch.knn.index.SpaceType.INNER_PRODUCT);
 
             assertEquals(
-                String.format("Round-trip conversion failed for distance %.2f (score was %.4f)", originalDistance, luceneScore),
+                String.format(
+                    Locale.ROOT,
+                    "Round-trip conversion failed for distance %.2f (score was %.4f)",
+                    originalDistance,
+                    luceneScore
+                ),
                 originalDistance,
                 convertedDistance,
                 1e-5

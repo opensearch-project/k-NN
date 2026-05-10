@@ -9,6 +9,7 @@ import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexInput;
+import java.util.Locale;
 
 /**
  * Sentinel {@link FaissIndex} returned when a "null" section is encountered during loading
@@ -27,17 +28,23 @@ public class FaissEmptyIndex extends FaissIndex {
 
     @Override
     public VectorEncoding getVectorEncoding() {
-        throw new UnsupportedOperationException(String.format("%s does not support this operation.", getClass().getSimpleName()));
+        throw new UnsupportedOperationException(
+            String.format(Locale.ROOT, "%s does not support this operation.", getClass().getSimpleName())
+        );
     }
 
     @Override
     public FloatVectorValues getFloatValues(IndexInput indexInput) {
-        throw new UnsupportedOperationException(String.format("%s does not support this operation.", getClass().getSimpleName()));
+        throw new UnsupportedOperationException(
+            String.format(Locale.ROOT, "%s does not support this operation.", getClass().getSimpleName())
+        );
     }
 
     @Override
     public ByteVectorValues getByteValues(IndexInput indexInput) {
-        throw new UnsupportedOperationException(String.format("%s does not support this operation.", getClass().getSimpleName()));
+        throw new UnsupportedOperationException(
+            String.format(Locale.ROOT, "%s does not support this operation.", getClass().getSimpleName())
+        );
     }
 
     /**

@@ -11,6 +11,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
+import java.util.Locale;
 
 @Accessors(fluent = true, chain = true)
 @Setter
@@ -30,39 +31,41 @@ class NonNestedNMappingSchema {
             return "";
         }
 
-        return """
+        return String.format(Locale.ROOT, """
               "mode": "%s",
               "compression_level": "%s",
-            """.formatted(mode == Mode.NOT_CONFIGURED ? "null" : mode.getName(), compressionLevel.getName());
+            """, mode == Mode.NOT_CONFIGURED ? "null" : mode.getName(), compressionLevel.getName());
     }
 
     public String createString() {
-        final String mapping = """
-            {
-              "properties": {
-                "%s": {
-                  "type": "knn_vector",
-                  "dimension": %s,
-                  "data_type": "%s",
-                  %s
-                  "space_type": "%s",
-                  "method": {
-                    "engine": "faiss",
-                    "name": "hnsw",
-                    "parameters": %s
-                  }
-                },
-                "%s": {
-                  "type": "keyword",
-                  "index": true
-                },
-                "%s": {
-                  "type": "keyword",
-                  "index": true
-                }
-              },
-              "dynamic": false
-            }""".formatted(
+        final String mapping = String.format(
+            Locale.ROOT,
+            """
+                {
+                  "properties": {
+                    "%s": {
+                      "type": "knn_vector",
+                      "dimension": %s,
+                      "data_type": "%s",
+                      %s
+                      "space_type": "%s",
+                      "method": {
+                        "engine": "faiss",
+                        "name": "hnsw",
+                        "parameters": %s
+                      }
+                    },
+                    "%s": {
+                      "type": "keyword",
+                      "index": true
+                    },
+                    "%s": {
+                      "type": "keyword",
+                      "index": true
+                    }
+                  },
+                  "dynamic": false
+                }""",
             knnFieldName,
             Integer.toString(dimension),
             dataType.getValue(),

@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.common;
 
+import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
@@ -62,13 +63,15 @@ public final class RobustUniqueRandomIterator {
      */
     public RobustUniqueRandomIterator(int maxValExclusive, int numPopulate) {
         if (maxValExclusive <= 0) {
-            throw new IllegalArgumentException(String.format("maxValExclusive[%d] must be positive", maxValExclusive));
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "maxValExclusive[%d] must be positive", maxValExclusive));
         }
         if (numPopulate < 0) {
-            throw new IllegalArgumentException(String.format("numPopulate[%d] must be non-negative", numPopulate));
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "numPopulate[%d] must be non-negative", numPopulate));
         }
         if (numPopulate > maxValExclusive) {
-            throw new IllegalArgumentException(String.format("numPopulate[%d] > maxValExclusive[%d]", numPopulate, maxValExclusive));
+            throw new IllegalArgumentException(
+                String.format(Locale.ROOT, "numPopulate[%d] > maxValExclusive[%d]", numPopulate, maxValExclusive)
+            );
         }
 
         this.maxValExclusive = maxValExclusive;
