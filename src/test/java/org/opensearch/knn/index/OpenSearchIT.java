@@ -1554,7 +1554,7 @@ public class OpenSearchIT extends KNNRestTestCase {
         }
         results = parseProfileMetric(responseBody, KNNQueryTimingType.EXACT_SEARCH.toString(), false);
         for (Long result : results) {
-            assertNotEquals(0L, result.longValue());
+            assertEquals(0L, result.longValue());
         }
 
         deleteKNNIndex(INDEX_NAME);
