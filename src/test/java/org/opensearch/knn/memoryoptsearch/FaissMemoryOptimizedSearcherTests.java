@@ -1170,10 +1170,10 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final KnnCollector knnCollector = new TopKnnCollector(k, Integer.MAX_VALUE, KnnSearchStrategy.Hnsw.DEFAULT);
         final AcceptDocs acceptDocs = AcceptDocs.fromLiveDocs(null, totalVectors);
 
-        // Build a random query
+        // Build a random query using seeded random for reproducibility
         final float[] query = new float[dimension];
         for (int i = 0; i < dimension; i++) {
-            query[i] = (float) Math.random();
+            query[i] = random().nextFloat();
         }
 
         // Search should succeed — RandomEntryPointsKnnSearchStrategy is used internally for CAGRA
@@ -1239,10 +1239,10 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final KnnCollector knnCollector = new TopKnnCollector(k, Integer.MAX_VALUE, seededStrategy);
         final AcceptDocs acceptDocs = AcceptDocs.fromLiveDocs(null, totalVectors);
 
-        // Build a random query
+        // Build a random query using seeded random for reproducibility
         final float[] query = new float[dimension];
         for (int i = 0; i < dimension; i++) {
-            query[i] = (float) Math.random();
+            query[i] = random().nextFloat();
         }
 
         // Search should succeed — the seeded strategy should be honored, not replaced
@@ -1264,10 +1264,10 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
 
         final IndexInput input = FaissHNSWTests.loadHnswBinary("data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin");
 
-        // Build a random query
+        // Build a random query using seeded random for reproducibility
         final float[] query = new float[dimension];
         for (int i = 0; i < dimension; i++) {
-            query[i] = (float) Math.random();
+            query[i] = random().nextFloat();
         }
 
         // First, do exhaustive search to get ground truth
@@ -1341,6 +1341,163 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         }
         final float recall = (float) matchCount / k;
         assertTrue("Seeded CAGRA search recall should be > 0.5, was " + recall, recall > 0.5);
+    }
+
+    // --- Exhaustive bulk scoring test helpers ---
+
+    private static final String CAGRA_TEST_INDEX = "data/memoryoptsearch/faiss_cagra_flat_float_300_vectors_768_dims.bin";
+    private static final int CAGRA_DIMENSION = 768;
+    private static final int CAGRA_TOTAL_VECTORS = 300;
+
+    @SneakyThrows
+    private FaissMemoryOptimizedSearcher createL2Searcher() {
+        final IndexInput input = FaissHNSWTests.loadHnswBinary(CAGRA_TEST_INDEX);
+        FieldInfo fieldInfo = mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+        return new FaissMemoryOptimizedSearcher(
+            input,
+            FaissIndex.load(input),
+            fieldInfo,
+            FlatVectorsScorerProvider.getFlatVectorsScorer(fieldInfo, KNNVectorSimilarityFunction.EUCLIDEAN, SCORER)
+        );
+    }
+
+    private float[] randomQueryVector() {
+        final float[] query = new float[CAGRA_DIMENSION];
+        for (int i = 0; i < CAGRA_DIMENSION; i++) {
+            query[i] = random().nextFloat();
+        }
+        return query;
+    }
+
+    @SneakyThrows
+    private ScoreDoc[] runExhaustiveSearch(final float[] query, final int k, final FixedBitSet liveDocs) {
+        final FaissMemoryOptimizedSearcher searcher = createL2Searcher();
+        final KnnCollector collector = new TopKnnCollector(k, Integer.MAX_VALUE);
+        final AcceptDocs acceptDocs = AcceptDocs.fromLiveDocs(liveDocs, CAGRA_TOTAL_VECTORS);
+        searcher.search(query, collector, acceptDocs);
+        return collector.topDocs().scoreDocs;
+    }
+
+    // --- Exhaustive bulk scoring tests ---
+
+    /**
+     * Validates that the minCompetitiveSimilarity check in the exhaustive bulk scoring path
+     * correctly skips batches whose max score does not exceed the threshold.
+     * Uses a wrapper collector with an artificially high minCompetitiveSimilarity so that
+     * all batches are skipped, resulting in zero collected results despite visiting all vectors.
+     */
+    @SneakyThrows
+    public void testExhaustiveBulkScoring_whenMinCompetitiveHigh_thenBatchesSkipped() {
+        final FaissMemoryOptimizedSearcher searcher = createL2Searcher();
+        // Wrap the real collector to override minCompetitiveSimilarity with Float.MAX_VALUE.
+        // This forces bulkScore (which returns max score in batch) <= minCompetitiveSimilarity
+        // for every batch, so no vectors should be collected.
+        final TopKnnCollector inner = new TopKnnCollector(CAGRA_TOTAL_VECTORS + 1, Integer.MAX_VALUE);
+        final KnnCollector highThresholdCollector = new KnnCollector.Decorator(inner) {
+            @Override
+            public float minCompetitiveSimilarity() {
+                return Float.MAX_VALUE;
+            }
+        };
+
+        final AcceptDocs acceptDocs = AcceptDocs.fromLiveDocs(null, CAGRA_TOTAL_VECTORS);
+        searcher.search(randomQueryVector(), highThresholdCollector, acceptDocs);
+
+        // All vectors were visited but none collected because every batch was skipped
+        assertEquals(CAGRA_TOTAL_VECTORS, highThresholdCollector.visitedCount());
+        assertEquals(0, highThresholdCollector.topDocs().scoreDocs.length);
+    }
+
+    /**
+     * Validates that the earlyTerminated check in the exhaustive bulk scoring path
+     * stops processing vectors once the visit limit is reached.
+     * Uses a collector with a small visitLimit (one batch worth = 64) so that after
+     * the first batch is processed, earlyTerminated() returns true and the loop breaks.
+     * Early termination logic simulation using visited limit is one example. There can be other collectors that can
+     * do the same. This test ensures that the early termination logic is exercised and logic for exhaustive search
+     * is correctly implemented and does not process more vectors than needed.
+     */
+    @SneakyThrows
+    public void testExhaustiveBulkScoring_whenEarlyTerminated_thenStopsProcessing() {
+        final FaissMemoryOptimizedSearcher searcher = createL2Searcher();
+        // visitLimit = 64 (one batch). After the first batch, visitedCount == 64 >= visitLimit,
+        // so earlyTerminated() returns true and no more vectors are processed.
+        final int visitLimit = 64;
+        final KnnCollector collector = new TopKnnCollector(CAGRA_TOTAL_VECTORS + 1, visitLimit);
+        final AcceptDocs acceptDocs = AcceptDocs.fromLiveDocs(null, CAGRA_TOTAL_VECTORS);
+
+        searcher.search(randomQueryVector(), collector, acceptDocs);
+
+        // Only one batch worth of vectors should have been visited and collected
+        assertEquals(visitLimit, collector.visitedCount());
+        assertTrue(
+            "Should collect at most " + visitLimit + " vectors, got " + collector.topDocs().scoreDocs.length,
+            collector.topDocs().scoreDocs.length <= visitLimit
+        );
+        assertTrue(
+            "Should collect fewer vectors than total due to early termination",
+            collector.topDocs().scoreDocs.length < CAGRA_TOTAL_VECTORS
+        );
+    }
+
+    /**
+     * When k >= totalVectors, the exhaustive bulk scoring path is used.
+     * Tests both the exact boundary (k == totalVectors) and k > totalVectors.
+     */
+    @SneakyThrows
+    public void testExhaustiveBulkScoring_whenKExceedsMaxOrd_thenAllVectorsCollected() {
+        final float[] query = randomQueryVector();
+        for (int k : new int[] { CAGRA_TOTAL_VECTORS, CAGRA_TOTAL_VECTORS + 1 }) {
+            final ScoreDoc[] scoreDocs = runExhaustiveSearch(query, k, null);
+            assertEquals("All vectors should be collected when k=" + k, CAGRA_TOTAL_VECTORS, scoreDocs.length);
+        }
+    }
+
+    /**
+     * When k >= totalVectors and a filter is applied, only accepted vectors should be collected
+     * via the bulk scoring path.
+     */
+    @SneakyThrows
+    public void testExhaustiveBulkScoring_whenFiltered_thenOnlyAcceptedVectorsCollected() {
+        final FixedBitSet liveDocs = new FixedBitSet(CAGRA_TOTAL_VECTORS);
+        int expectedCount = 0;
+        for (int i = 0; i < CAGRA_TOTAL_VECTORS; i += 2) {
+            liveDocs.set(i);
+            expectedCount++;
+        }
+
+        final ScoreDoc[] scoreDocs = runExhaustiveSearch(randomQueryVector(), CAGRA_TOTAL_VECTORS + 1, liveDocs);
+        assertEquals(expectedCount, scoreDocs.length);
+    }
+
+    /**
+     * Validates the exhaustive bulk scoring path produces correct results by checking:
+     * 1. All vectors are scored and collected (no drops from batching)
+     * 2. Scores are non-negative (valid L2 scores)
+     * 3. Results are ordered by descending score
+     * 4. No duplicate doc IDs in results
+     */
+    @SneakyThrows
+    public void testExhaustiveBulkScoring_scoresAreValidAndOrdered() {
+        final ScoreDoc[] scoreDocs = runExhaustiveSearch(randomQueryVector(), CAGRA_TOTAL_VECTORS + 1, null);
+
+        assertEquals("All vectors should be collected in exhaustive mode", CAGRA_TOTAL_VECTORS, scoreDocs.length);
+
+        for (ScoreDoc sd : scoreDocs) {
+            assertTrue("Score should be non-negative, got " + sd.score, sd.score >= 0.0f);
+            assertFalse("Score should not be NaN", Float.isNaN(sd.score));
+        }
+
+        for (int i = 1; i < scoreDocs.length; i++) {
+            assertTrue(
+                "Scores should be in descending order at position " + i + ": " + scoreDocs[i - 1].score + " < " + scoreDocs[i].score,
+                scoreDocs[i - 1].score >= scoreDocs[i].score
+            );
+        }
+
+        final Set<Integer> docIds = Arrays.stream(scoreDocs).mapToInt(sd -> sd.doc).boxed().collect(Collectors.toSet());
+        assertEquals("Should have no duplicate doc IDs", scoreDocs.length, docIds.size());
     }
 
     // Feature: warmup-delegation-tests, Property 2: Non-qframe warmup reads only .faiss
