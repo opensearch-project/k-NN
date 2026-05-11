@@ -24,7 +24,7 @@ public class KNN10010DerivedSourceStoredFieldsReader extends StoredFieldsReader 
     private final DerivedSourceReaders derivedSourceReaders;
     private final SegmentReadState segmentReadState;
     private final boolean shouldInject;
-    private boolean closed;
+    private volatile boolean closed;
 
     private final DerivedSourceVectorTransformer derivedSourceVectorTransformer;
 
@@ -98,7 +98,7 @@ public class KNN10010DerivedSourceStoredFieldsReader extends StoredFieldsReader 
     }
 
     @Override
-    public void close() throws IOException {
+    public synchronized void close() throws IOException {
         if (closed == false) {
             IOUtils.close(delegate, derivedSourceReaders);
             closed = true;
