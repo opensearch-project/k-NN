@@ -40,6 +40,14 @@ public class DerivedSourceStoredFieldsFormatTests extends KNNTestCase {
         assertNull(KNN10010DerivedSourceStoredFieldsFormat.getFieldInfo(fieldInfos, "vectorsearch.namevector"));
     }
 
+    public void testGetFieldInfoDoesNotGuessWhenCaseInsensitiveMatchHasNoVectorHints() {
+        FieldInfo mixedCaseFieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("vectorSearch.nameVector").fieldNumber(1).build();
+        FieldInfo lowerCaseFieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("vectorSearch.namevector").fieldNumber(2).build();
+        FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { mixedCaseFieldInfo, lowerCaseFieldInfo });
+
+        assertNull(KNN10010DerivedSourceStoredFieldsFormat.getFieldInfo(fieldInfos, "vectorsearch.namevector"));
+    }
+
     public void testGetFieldInfoPrefersVectorFieldWhenCaseInsensitiveMatchHasSingleVectorField() {
         FieldInfo nonVectorFieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("vectorSearch.namevector").fieldNumber(1).build();
         FieldInfo vectorFieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("vectorSearch.nameVector")
