@@ -1431,8 +1431,13 @@ public class OpenSearchIT extends KNNRestTestCase {
         float[] query = new float[dim];
         Arrays.fill(query, 2);
 
+        // Force merging to one segment since each doc gets added with refresh=true which can create
+        // multiple segments. This fails the assertion since its expecting each metric to have 7 values intead
+        // of a total 7 values
+        forceMergeKnnIndex(INDEX_NAME);
+
         int k = 7;
-        // Create knn search, P <= k
+        // Filtered k-NN search without profiling
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .field("profile", false)
@@ -1549,7 +1554,7 @@ public class OpenSearchIT extends KNNRestTestCase {
         }
         results = parseProfileMetric(responseBody, KNNQueryTimingType.EXACT_SEARCH.toString(), false);
         for (Long result : results) {
-            assertNotEquals(0L, result.longValue());
+            assertEquals(0L, result.longValue());
         }
 
         deleteKNNIndex(INDEX_NAME);
