@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
+
 /**
  * Abstract class for KNN methods. This class provides the common functionality for all KNN methods.
  * It defines the common attributes and methods that all KNN methods should implement.
@@ -140,6 +142,42 @@ public abstract class AbstractKNNMethod implements KNNMethod {
             .perDimensionProcessor(doGetPerDimensionProcessor(knnMethodContext, knnMethodConfigContext))
             .vectorTransformer(getVectorTransformer(knnMethodContext.getSpaceType()))
             .trainingConfigValidationSetup(doGetTrainingConfigValidationSetup())
+            .resolvedSpec(buildResolvedIndexSpec(knnMethodContext, knnMethodConfigContext))
+            .build();
+    }
+
+    private ResolvedIndexSpec buildResolvedIndexSpec(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
+        Encoder.EncoderType encoderType = Encoder.EncoderType.FLAT;
+        Encoder.QuantizationBits quantizationBits = Encoder.QuantizationBits.FULL_PRECISION;
+
+        Map<String, Object> methodParams = knnMethodContext.getMethodComponentContext().getParameters();
+        if (methodParams != null && methodParams.containsKey(METHOD_ENCODER_PARAMETER)) {
+            Object encoderObj = methodParams.get(METHOD_ENCODER_PARAMETER);
+            if (encoderObj instanceof MethodComponentContext) {
+                MethodComponentContext encoderCtx = (MethodComponentContext) encoderObj;
+                encoderType = Encoder.EncoderType.fromName(encoderCtx.getName());
+                Object bitsObj = encoderCtx.getParameters().get(KNNConstants.SQ_BITS);
+                if (bitsObj instanceof Integer) {
+                    quantizationBits = Encoder.QuantizationBits.fromValue((Integer) bitsObj);
+                } else if (encoderType == Encoder.EncoderType.FLAT) {
+                    quantizationBits = Encoder.QuantizationBits.FULL_PRECISION;
+                } else if (encoderType == Encoder.EncoderType.BQ) {
+                    quantizationBits = Encoder.QuantizationBits.ONE;
+                }
+            }
+        }
+
+        Integer dimension = knnMethodConfigContext.getDimension();
+        return ResolvedIndexSpec.builder()
+            .engine(knnMethodContext.getKnnEngine())
+            .methodName(knnMethodContext.getMethodComponentContext().getName())
+            .encoderType(encoderType)
+            .quantizationBits(quantizationBits)
+            .compressionLevel(knnMethodConfigContext.getCompressionLevel())
+            .mode(knnMethodConfigContext.getMode())
+            .vectorDataType(knnMethodConfigContext.getVectorDataType())
+            .dimension(dimension != null ? dimension : 0)
+            .indexVersionCreated(knnMethodConfigContext.getVersionCreated())
             .build();
     }
 

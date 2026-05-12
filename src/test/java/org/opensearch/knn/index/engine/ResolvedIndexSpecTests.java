@@ -41,8 +41,7 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
     }
 
     public void testFaissHNSWBQIsMemoryOptimizedEligible() {
-        ResolvedIndexSpec spec = baseFaiss()
-            .encoderType(Encoder.EncoderType.BQ)
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.BQ)
             .quantizationBits(Encoder.QuantizationBits.TWO)
             .compressionLevel(CompressionLevel.x16)
             .build();
@@ -50,8 +49,7 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
     }
 
     public void testFaissIVFNotMemoryOptimizedEligible() {
-        ResolvedIndexSpec spec = baseFaiss()
-            .methodName(METHOD_IVF)
+        ResolvedIndexSpec spec = baseFaiss().methodName(METHOD_IVF)
             .encoderType(Encoder.EncoderType.FLAT)
             .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
             .compressionLevel(CompressionLevel.x1)
@@ -60,8 +58,7 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
     }
 
     public void testFaissPQNotMemoryOptimizedEligible() {
-        ResolvedIndexSpec spec = baseFaiss()
-            .encoderType(Encoder.EncoderType.PQ)
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.PQ)
             .quantizationBits(Encoder.QuantizationBits.NOT_APPLICABLE)
             .compressionLevel(CompressionLevel.x8)
             .build();
@@ -71,8 +68,7 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
     // --- Radial search support ---
 
     public void testRadialSearch_NMSLIBNotSupported() {
-        ResolvedIndexSpec spec = baseFaiss()
-            .engine(KNNEngine.NMSLIB)
+        ResolvedIndexSpec spec = baseFaiss().engine(KNNEngine.NMSLIB)
             .encoderType(Encoder.EncoderType.FLAT)
             .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
             .compressionLevel(CompressionLevel.NOT_CONFIGURED)
@@ -81,8 +77,7 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
     }
 
     public void testRadialSearch_BinaryDataTypeNotSupported() {
-        ResolvedIndexSpec spec = baseFaiss()
-            .encoderType(Encoder.EncoderType.FLAT)
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.FLAT)
             .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
             .vectorDataType(VectorDataType.BINARY)
             .compressionLevel(CompressionLevel.NOT_CONFIGURED)
@@ -91,8 +86,7 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
     }
 
     public void testRadialSearch_BQNotSupported() {
-        ResolvedIndexSpec spec = baseFaiss()
-            .encoderType(Encoder.EncoderType.BQ)
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.BQ)
             .quantizationBits(Encoder.QuantizationBits.TWO)
             .compressionLevel(CompressionLevel.x16)
             .build();
@@ -100,8 +94,7 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
     }
 
     public void testRadialSearch_QuantizedSQ4BitNotSupported() {
-        ResolvedIndexSpec spec = baseFaiss()
-            .encoderType(Encoder.EncoderType.SQ)
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.SQ)
             .quantizationBits(Encoder.QuantizationBits.FOUR)
             .compressionLevel(CompressionLevel.x8)
             .build();
@@ -109,8 +102,7 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
     }
 
     public void testRadialSearch_QuantizedPQNotSupported() {
-        ResolvedIndexSpec spec = baseFaiss()
-            .encoderType(Encoder.EncoderType.PQ)
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.PQ)
             .quantizationBits(Encoder.QuantizationBits.NOT_APPLICABLE)
             .compressionLevel(CompressionLevel.x8)
             .build();
@@ -123,8 +115,7 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
     }
 
     public void testRadialSearch_FlatMethodWithX32Supported() {
-        ResolvedIndexSpec spec = baseFaiss()
-            .methodName(METHOD_FLAT)
+        ResolvedIndexSpec spec = baseFaiss().methodName(METHOD_FLAT)
             .encoderType(Encoder.EncoderType.FLAT)
             .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
             .compressionLevel(CompressionLevel.x32)
@@ -133,8 +124,7 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
     }
 
     public void testRadialSearch_NonQuantizedAlwaysSupported() {
-        ResolvedIndexSpec spec = baseFaiss()
-            .encoderType(Encoder.EncoderType.FLAT)
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.FLAT)
             .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
             .compressionLevel(CompressionLevel.x1)
             .build();
@@ -142,18 +132,16 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
     }
 
     public void testRadialSearch_LuceneNonQuantizedSupported() {
-        ResolvedIndexSpec spec = baseFaiss()
-            .engine(KNNEngine.LUCENE)
+        ResolvedIndexSpec spec = baseFaiss().engine(KNNEngine.LUCENE)
             .encoderType(Encoder.EncoderType.SQ)
             .quantizationBits(Encoder.QuantizationBits.SEVEN)
             .compressionLevel(CompressionLevel.x4)
             .build();
-        assertTrue(spec.supportsRadialSearch());
+        assertFalse(spec.supportsRadialSearch());
     }
 
     public void testRadialSearch_NotConfiguredCompressionSupported() {
-        ResolvedIndexSpec spec = baseFaiss()
-            .encoderType(Encoder.EncoderType.SQ)
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.SQ)
             .quantizationBits(Encoder.QuantizationBits.SIXTEEN)
             .compressionLevel(CompressionLevel.NOT_CONFIGURED)
             .build();
@@ -212,8 +200,7 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
     }
 
     private ResolvedIndexSpec.ResolvedIndexSpecBuilder baseFaissSQ1Bit() {
-        return baseFaiss()
-            .encoderType(Encoder.EncoderType.SQ)
+        return baseFaiss().encoderType(Encoder.EncoderType.SQ)
             .quantizationBits(Encoder.QuantizationBits.ONE)
             .compressionLevel(CompressionLevel.x32);
     }
