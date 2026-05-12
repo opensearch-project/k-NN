@@ -102,14 +102,9 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
             if (candidate.name.equalsIgnoreCase(field) == false) {
                 continue;
             }
-            if (matchedFieldInfo == null) {
+            if (matchedFieldInfo == null || candidate.hasVectorValues() && !matchedFieldInfo.hasVectorValues()) {
                 matchedFieldInfo = candidate;
-                continue;
-            }
-
-            boolean matchedHasVectorValues = matchedFieldInfo.hasVectorValues();
-            boolean candidateHasVectorValues = candidate.hasVectorValues();
-            if (matchedHasVectorValues == candidateHasVectorValues) {
+            } else if (matchedFieldInfo.hasVectorValues() && candidate.hasVectorValues()) {
                 log.warn(
                     "Skipping derived vector field [{}] because field infos [{}] and [{}] both match case-insensitively",
                     field,
@@ -117,9 +112,6 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
                     candidate.name
                 );
                 return null;
-            }
-            if (candidateHasVectorValues) {
-                matchedFieldInfo = candidate;
             }
         }
         return matchedFieldInfo;
