@@ -18,6 +18,7 @@ import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Set;
@@ -143,5 +144,15 @@ public class QFrameBitEncoder implements Encoder {
 
         // Validation will ensure that only 1 of the supported bit count will be selected.
         return CompressionLevel.x8;
+    }
+
+    @Override
+    public EncoderType getEncoderType() {
+        return EncoderType.BQ;
+    }
+
+    @Override
+    public Set<QuantizationBits> getSupportedBits() {
+        return EnumSet.of(QuantizationBits.ONE, QuantizationBits.TWO, QuantizationBits.FOUR);
     }
 }

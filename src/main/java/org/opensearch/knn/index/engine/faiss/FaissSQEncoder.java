@@ -22,6 +22,7 @@ import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -273,5 +274,15 @@ public class FaissSQEncoder implements Encoder {
         }
         Object bits = encoderCtx.getParameters().get(SQ_BITS);
         return bits instanceof Integer && (Integer) bits == Bits.ONE.getValue();
+    }
+
+    @Override
+    public EncoderType getEncoderType() {
+        return EncoderType.SQ;
+    }
+
+    @Override
+    public Set<QuantizationBits> getSupportedBits() {
+        return EnumSet.of(QuantizationBits.ONE, QuantizationBits.SIXTEEN);
     }
 }
