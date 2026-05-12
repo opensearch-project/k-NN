@@ -12,10 +12,12 @@ import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.KNNVectorDocValueFormat;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.search.DocValueFormat;
 
@@ -126,6 +128,54 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
         );
         KNNMappingConfig mappingConfig = getMappingConfigForMethodMapping(sqOneBitMethodContext, 128);
         return new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.FLOAT, mappingConfig, Version.CURRENT);
+    }
+
+    public void testKNNVectorFieldType_resolvedSpecStoredWhenProvided() {
+        ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName(METHOD_HNSW)
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.ONE)
+            .compressionLevel(CompressionLevel.x32)
+            .mode(Mode.ON_DISK)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .indexVersionCreated(Version.CURRENT)
+            .build();
+
+        KNNMethodContext sqOneBitMethodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            new MethodComponentContext(
+                METHOD_HNSW,
+                Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Map.of("bits", 1)))
+            )
+        );
+        KNNMappingConfig mappingConfig = getMappingConfigForMethodMapping(sqOneBitMethodContext, 128);
+        KNNVectorFieldType fieldType = new KNNVectorFieldType(
+            FIELD_NAME,
+            Collections.emptyMap(),
+            VectorDataType.FLOAT,
+            mappingConfig,
+            Version.CURRENT,
+            spec
+        );
+        assertNotNull(fieldType.getResolvedSpec());
+        assertSame(spec, fieldType.getResolvedSpec());
+        assertEquals(Encoder.EncoderType.SQ, fieldType.getResolvedSpec().getEncoderType());
+    }
+
+    public void testKNNVectorFieldType_resolvedSpecNullWhenNotProvided() {
+        KNNMethodContext knnMethodContext = getDefaultKNNMethodContext();
+        KNNMappingConfig mappingConfig = getMappingConfigForMethodMapping(knnMethodContext, 128);
+        KNNVectorFieldType fieldType = new KNNVectorFieldType(
+            FIELD_NAME,
+            Collections.emptyMap(),
+            VectorDataType.FLOAT,
+            mappingConfig,
+            Version.CURRENT
+        );
+        assertNull(fieldType.getResolvedSpec());
     }
 
     public void testKNNVectorFieldType_whenNonSQOneBitEncoder_thenAlwaysUseMemoryOptimizedSearchIsFalse() {
