@@ -74,7 +74,7 @@ public class RNNQueryFactory extends BaseQueryFactory {
         }
 
         if (createQueryRequest.getVectorFieldType() != null && createQueryRequest.getVectorFieldType().isRescoringRequiredForRadial()) {
-            return new RescoreRadialSearchQuery(innerQuery, fieldName, vector, radius);
+            return new RescoreRadialSearchQuery(innerQuery, fieldName, vector, radius, createQueryRequest.isMemoryOptimizedSearchEnabled());
         }
         return innerQuery;
     }

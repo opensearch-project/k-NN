@@ -9,16 +9,24 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.QueryVisitor;
+import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.ScorerSupplier;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.Weight;
+import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
+import org.opensearch.knn.indices.ModelDao;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -62,18 +70,34 @@ public class RescoreRadialSearchQuery extends Query {
     private final float radius;
 
     /**
+     * Whether memory-optimized search is enabled for this field.
+     * Determines how {@code radius} is interpreted during rescoring:
+     * when true, radius is already a Lucene-normalized score;
+     * when false, radius is a raw distance requiring conversion via {@code KNNEngine.score()}.
+     */
+    private final boolean memoryOptimizedSearchEnabled;
+
+    /**
      * Constructs a new rescoring wrapper for radial search on a quantized index.
      *
-     * @param innerQuery  the inner radial search query (must not be null)
-     * @param field       the knn_vector field name (must not be null)
-     * @param queryVector the query vector (must not be null)
-     * @param radius      the radius threshold for the search
+     * @param innerQuery                   the inner radial search query (must not be null)
+     * @param field                        the knn_vector field name (must not be null)
+     * @param queryVector                  the query vector (must not be null)
+     * @param radius                       the radius threshold for the search
+     * @param memoryOptimizedSearchEnabled whether memory-optimized search is enabled
      */
-    public RescoreRadialSearchQuery(final Query innerQuery, final String field, final float[] queryVector, float radius) {
+    public RescoreRadialSearchQuery(
+        final Query innerQuery,
+        final String field,
+        final float[] queryVector,
+        float radius,
+        boolean memoryOptimizedSearchEnabled
+    ) {
         this.innerQuery = Objects.requireNonNull(innerQuery);
         this.field = Objects.requireNonNull(field);
         this.queryVector = Objects.requireNonNull(queryVector);
         this.radius = radius;
+        this.memoryOptimizedSearchEnabled = memoryOptimizedSearchEnabled;
     }
 
     /**
@@ -97,7 +121,13 @@ public class RescoreRadialSearchQuery extends Query {
     public Query rewrite(final IndexSearcher indexSearcher) throws IOException {
         final Query rewritten = innerQuery.rewrite(indexSearcher);
         if (rewritten != innerQuery) {
-            return new RescoreRadialSearchQuery(innerQuery.rewrite(indexSearcher), field, queryVector, radius);
+            return new RescoreRadialSearchQuery(
+                innerQuery.rewrite(indexSearcher),
+                field,
+                queryVector,
+                radius,
+                memoryOptimizedSearchEnabled
+            );
         } else {
             return this;
         }
@@ -139,6 +169,10 @@ public class RescoreRadialSearchQuery extends Query {
     private static class RescoreWeight extends Weight {
         private final Weight innerWeight;
         private final float boost;
+        private final String field;
+        private final float[] queryVector;
+        private final float radius;
+        private final boolean memoryOptimizedSearchEnabled;
 
         /**
          * @param query       the parent query (for Lucene's Weight contract)
@@ -149,6 +183,11 @@ public class RescoreRadialSearchQuery extends Query {
             super(query);
             this.innerWeight = innerWeight;
             this.boost = boost;
+            RescoreRadialSearchQuery rescoreQuery = (RescoreRadialSearchQuery) query;
+            this.field = rescoreQuery.field;
+            this.queryVector = rescoreQuery.queryVector;
+            this.radius = rescoreQuery.radius;
+            this.memoryOptimizedSearchEnabled = rescoreQuery.memoryOptimizedSearchEnabled;
         }
 
         @Override
@@ -177,11 +216,38 @@ public class RescoreRadialSearchQuery extends Query {
 
                 @Override
                 public Scorer get(long leadCost) throws IOException {
-                    // Run radial search
+                    // 1. Run inner scorer (quantized radial search on this leaf)
                     final Scorer innerScorer = innerScorerSupplier.get(leadCost);
-                    // TODO: Add rescoring with ExactSearcher using full-precision vectors.
-                    // This will be dealt with in next PR.
-                    return Objects.requireNonNullElseGet(innerScorer, KNNScorer::emptyScorer);
+                    if (innerScorer == null) {
+                        return KNNScorer.emptyScorer();
+                    }
+
+                    // 2. Collect first-pass results into TopDocs
+                    final TopDocs firstPassResults = collectTopDocs(innerScorer);
+                    if (firstPassResults.scoreDocs.length == 0) {
+                        return KNNScorer.emptyScorer();
+                    }
+
+                    // 3. Build ExactSearcherContext — rescore with full-precision vectors
+                    final DocIdSetIterator matchedDocs = new TopDocsDISI(firstPassResults);
+                    final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
+                        .matchedDocsIterator(matchedDocs)
+                        .numberOfMatchedDocs(matchedDocs.cost())
+                        .useQuantizedVectorsForSearch(false)
+                        .k(0)
+                        .maxResultWindow((int) matchedDocs.cost())
+                        .radius(radius)
+                        .field(field)
+                        .floatQueryVector(queryVector)
+                        .isMemoryOptimizedSearchEnabled(memoryOptimizedSearchEnabled)
+                        .build();
+
+                    // 4. Rescore — ExactSearcher handles radius→minScore conversion internally
+                    final ExactSearcher exactSearcher = new ExactSearcher(ModelDao.OpenSearchKNNModelDao.getInstance());
+                    final TopDocs rescored = exactSearcher.searchLeaf(context, exactSearcherContext);
+
+                    // 5. Return scorer over rescored results
+                    return new KNNScorer(rescored, boost);
                 }
 
                 @Override
@@ -201,6 +267,19 @@ public class RescoreRadialSearchQuery extends Query {
         @Override
         public boolean isCacheable(final LeafReaderContext ctx) {
             return true;
+        }
+
+        /**
+         * Collects all documents from the scorer into a {@link TopDocs}.
+         */
+        private TopDocs collectTopDocs(final Scorer scorer) throws IOException {
+            final List<ScoreDoc> scoreDocs = new ArrayList<>();
+            final DocIdSetIterator iterator = scorer.iterator();
+            int docId;
+            while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
+                scoreDocs.add(new ScoreDoc(docId, scorer.score()));
+            }
+            return new TopDocs(new TotalHits(scoreDocs.size(), TotalHits.Relation.EQUAL_TO), scoreDocs.toArray(new ScoreDoc[0]));
         }
     }
 }
