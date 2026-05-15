@@ -5,18 +5,29 @@
 
 package org.opensearch.knn.processor.muvera;
 
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
+
 import java.util.Map;
 
 /**
- * Shared utility methods for MUVERA ingest and search processors.
+ * Shared utility methods for the MUVERA ingest and search request processors.
  */
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 final class MuveraProcessorUtils {
 
-    private MuveraProcessorUtils() {}
-
     /**
-     * Reads a long property from the processor config map, with a default value.
-     * Removes the property from the map (same behavior as ConfigurationUtils.readIntProperty).
+     * Reads a {@code long} property from a processor config map, falling back to a default
+     * when the property is absent. The property is removed from the map (matching the behavior
+     * of {@code ConfigurationUtils.readIntProperty}).
+     *
+     * @param processorType processor type, used in the exception message for diagnostics
+     * @param processorTag  processor tag (the name the user assigned in the pipeline)
+     * @param config        processor config map (mutated: the read property is removed)
+     * @param propertyName  config key to read
+     * @param defaultValue  value returned when the property is absent
+     * @return the parsed long, or {@code defaultValue} if the property was absent
+     * @throws IllegalArgumentException if the property is present but not a valid long
      */
     static long readLongProperty(
         String processorType,

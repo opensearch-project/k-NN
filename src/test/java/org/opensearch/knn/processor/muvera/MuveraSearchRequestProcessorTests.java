@@ -25,20 +25,10 @@ public class MuveraSearchRequestProcessorTests extends KNNTestCase {
     private static final int DIM_PROJ = 2;
     private static final int R_REPS = 2;
     private static final int FDE_DIM = R_REPS * (1 << K_SIM) * DIM_PROJ; // 8
-    private static final String QUERY_VECTORS_FIELD = "ext.muvera.query_vectors";
 
     private MuveraSearchRequestProcessor createProcessor() {
         MuveraEncoder encoder = new MuveraEncoder(DIM, K_SIM, DIM_PROJ, R_REPS, 42L);
-        return new MuveraSearchRequestProcessor(
-            "test_tag",
-            "test description",
-            false,
-            TARGET_FIELD,
-            encoder,
-            DIM,
-            FDE_DIM,
-            QUERY_VECTORS_FIELD
-        );
+        return new MuveraSearchRequestProcessor("test_tag", "test description", false, TARGET_FIELD, encoder, DIM, FDE_DIM);
     }
 
     /**
@@ -107,11 +97,10 @@ public class MuveraSearchRequestProcessorTests extends KNNTestCase {
         // The FDE vector must be stored in the context under the target field name
         Object fde = context.getAttribute(TARGET_FIELD);
         assertNotNull("Context attribute [" + TARGET_FIELD + "] must be set", fde);
-        assertTrue("Context attribute must be a List<Float>", fde instanceof List);
-        List<Float> fdeList = (List<Float>) fde;
-        assertEquals("FDE length must match configured fde_dimension", FDE_DIM, fdeList.size());
-        for (Float v : fdeList) {
-            assertNotNull(v);
+        assertTrue("Context attribute must be a float[]", fde instanceof float[]);
+        float[] fdeArray = (float[]) fde;
+        assertEquals("FDE length must match configured fde_dimension", FDE_DIM, fdeArray.length);
+        for (float v : fdeArray) {
             assertTrue(Float.isFinite(v));
         }
     }

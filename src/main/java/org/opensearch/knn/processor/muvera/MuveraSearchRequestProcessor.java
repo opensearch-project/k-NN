@@ -5,30 +5,31 @@
 
 package org.opensearch.knn.processor.muvera;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.TemplateQueryBuilder;
 import org.opensearch.ingest.ConfigurationUtils;
 import org.opensearch.search.pipeline.AbstractProcessor;
 import org.opensearch.search.pipeline.PipelineProcessingContext;
 import org.opensearch.search.pipeline.Processor;
 import org.opensearch.search.pipeline.SearchRequestProcessor;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 /**
  * Search request processor that implements the MUVERA query encoding for template-based retrieval.
  *
- * The user sends a template query containing a script_score with a KNN placeholder and
- * lateInteractionScore for reranking. The processor extracts the multi-vectors from the
- * script params in the ext section, encodes them via MUVERA into an FDE vector, and sets
- * the FDE as a pipeline context attribute. The template query resolves the ${target_field}
- * placeholder with the FDE vector during query rewrite.
+ * <p>The user sends a template query containing a script_score with a KNN placeholder and
+ * a {@code lateInteractionScore} reranking script. The processor extracts the multi-vector
+ * query from the script params, encodes it via MUVERA into a single FDE vector, and stores
+ * the FDE as a {@link PipelineProcessingContext} attribute. The template query then resolves
+ * the {@code ${target_field}} placeholder during query rewrite using that attribute, so the
+ * KNN search runs with the encoded FDE and the script_score reranks the prefetched
+ * candidates with exact MaxSim.
  *
- * User sends:
+ * <p>User sends:
  * <pre>
  * POST /my-index/_search?search_pipeline=muvera_pipeline
  * {
@@ -56,7 +57,7 @@ import java.util.Map;
  * }
  * </pre>
  *
- * Configuration:
+ * <p>Configuration:
  * <pre>
  * {
  *   "muvera_query": {
@@ -66,23 +67,39 @@ import java.util.Map;
  *     "dim_proj": 8,                       (default: 8)
  *     "r_reps": 20,                        (default: 20)
  *     "seed": 42,                          (default: 42)
- *     "query_vectors_field": "ext.muvera.query_vectors"  (default - JSON path to multi-vectors in request)
  *     "fde_dimension": 2560                (optional - validates against computed value)
  *   }
  * }
  * </pre>
  */
+@Log4j2
 public class MuveraSearchRequestProcessor extends AbstractProcessor implements SearchRequestProcessor {
 
+    /** Processor type identifier registered with the search pipeline framework. */
     public static final String TYPE = "muvera_query";
+
+    /** Script param key under which the per-token query multi-vectors are passed in. */
     static final String QUERY_VECTORS_PARAM = "query_vectors";
-    private static final Logger logger = LogManager.getLogger(MuveraSearchRequestProcessor.class);
+
+    /** Configuration property keys. */
+    static final String CONFIG_TARGET_FIELD = "target_field";
+    static final String CONFIG_DIM = "dim";
+    static final String CONFIG_K_SIM = "k_sim";
+    static final String CONFIG_DIM_PROJ = "dim_proj";
+    static final String CONFIG_R_REPS = "r_reps";
+    static final String CONFIG_SEED = "seed";
+    static final String CONFIG_FDE_DIMENSION = "fde_dimension";
+
+    /** Default values for optional configuration properties. */
+    static final int DEFAULT_K_SIM = 4;
+    static final int DEFAULT_DIM_PROJ = 8;
+    static final int DEFAULT_R_REPS = 20;
+    static final long DEFAULT_SEED = 42L;
 
     private final String targetField;
     private final MuveraEncoder encoder;
     private final int dim;
     private final int fdeDimension;
-    private final String queryVectorsField;
 
     MuveraSearchRequestProcessor(
         String tag,
@@ -91,30 +108,31 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
         String targetField,
         MuveraEncoder encoder,
         int dim,
-        int fdeDimension,
-        String queryVectorsField
+        int fdeDimension
     ) {
         super(tag, description, ignoreFailure);
         this.targetField = targetField;
         this.encoder = encoder;
         this.dim = dim;
         this.fdeDimension = fdeDimension;
-        this.queryVectorsField = queryVectorsField;
     }
 
+    /**
+     * Encodes the query multi-vectors into an FDE and exposes it via the pipeline
+     * processing context so the surrounding template query can resolve
+     * {@code ${target_field}} during query rewrite.
+     */
     @Override
     public SearchRequest processRequest(SearchRequest request, PipelineProcessingContext requestContext) throws Exception {
         if (request.source() == null) {
             return request;
         }
 
-        // Extract multi-vectors from the template query content
-        double[][] multiVectors = extractQueryVectors(request);
+        float[][] multiVectors = extractQueryVectors(request);
         if (multiVectors == null) {
             return request;
         }
 
-        // Encode query multi-vectors into FDE
         float[] queryFde = encoder.processQuery(multiVectors);
 
         if (queryFde.length != fdeDimension) {
@@ -127,75 +145,70 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
             );
         }
 
-        // Convert float[] to List<Float> for JSON serialization in template resolution
-        List<Float> fdeList = new ArrayList<>(queryFde.length);
-        for (float v : queryFde) {
-            fdeList.add(v);
-        }
+        // The pipeline framework serializes context attributes via XContentBuilder.value(Object),
+        // which natively handles float[] (no Float boxing). The template query reads this
+        // attribute and substitutes it into the ${targetField} placeholder during query rewrite.
+        requestContext.setAttribute(targetField, queryFde);
 
-        // Set the FDE vector as a pipeline context attribute.
-        // The template query resolves ${target_field} from these attributes during query rewrite.
-        requestContext.setAttribute(targetField, fdeList);
-
-        return request;
-    }
-
-    @Override
-    public SearchRequest processRequest(SearchRequest request) throws Exception {
-        // This method is called when no PipelineProcessingContext is available.
-        // Template query resolution requires context, so we can't resolve placeholders here.
         return request;
     }
 
     /**
-     * Extracts multi-vector query parameters from the request's ext section.
-     * The field path is configured via query_vectors_field (default: "ext.muvera.query_vectors").
+     * Fallback overload invoked when no {@link PipelineProcessingContext} is available.
+     * Template query resolution requires the pipeline context, so without it we cannot
+     * substitute the placeholder; the request is returned unchanged.
      */
-    @SuppressWarnings("unchecked")
-    private double[][] extractQueryVectors(SearchRequest request) {
-        if (request.source().query() == null) {
+    @Override
+    public SearchRequest processRequest(SearchRequest request) {
+        return request;
+    }
+
+    /**
+     * Extracts the {@code query_vectors} parameter from a {@link TemplateQueryBuilder}
+     * content map. Returns {@code null} when the query is not a template query or does
+     * not contain a recognizable {@code query_vectors} payload.
+     */
+    private float[][] extractQueryVectors(SearchRequest request) {
+        QueryBuilder query = request.source().query();
+        if (query instanceof TemplateQueryBuilder == false) {
             return null;
         }
-
-        QueryBuilder query = request.source().query();
-
-        // Check if it's a template query and extract content directly
-        if (query instanceof org.opensearch.index.query.TemplateQueryBuilder) {
-            org.opensearch.index.query.TemplateQueryBuilder templateQuery = (org.opensearch.index.query.TemplateQueryBuilder) query;
-            Map<String, Object> content = templateQuery.getContent();
-            Object queryVectorsObj = extractQueryVectorsFromContent(content);
-            if (queryVectorsObj != null) {
-                return parseMultiVectors(queryVectorsObj);
-            }
+        TemplateQueryBuilder templateQuery = (TemplateQueryBuilder) query;
+        Object queryVectorsObj = extractQueryVectorsFromContent(templateQuery.getContent());
+        if (queryVectorsObj == null) {
+            return null;
         }
-
-        return null;
+        return parseMultiVectors(queryVectorsObj);
     }
 
     /**
-     * Navigates the template content map to find query_vectors in script_score params.
-     * Path: script_score -> script -> params -> query_vectors
+     * Navigates the template content map to find {@code query_vectors} in
+     * {@code script_score -> script -> params -> query_vectors}.
      */
     @SuppressWarnings("unchecked")
     private Object extractQueryVectorsFromContent(Map<String, Object> content) {
-        if (content == null) return null;
-
-        Map<String, Object> scriptScore = (Map<String, Object>) content.get("script_score");
-        if (scriptScore == null) return null;
-
-        Map<String, Object> script = (Map<String, Object>) scriptScore.get("script");
-        if (script == null) return null;
-
-        Map<String, Object> params = (Map<String, Object>) script.get("params");
-        if (params == null) return null;
-
-        return params.get(QUERY_VECTORS_PARAM);
+        if (content == null) {
+            return null;
+        }
+        Object scriptScoreObj = content.get("script_score");
+        if (scriptScoreObj instanceof Map == false) {
+            return null;
+        }
+        Object scriptObj = ((Map<String, Object>) scriptScoreObj).get("script");
+        if (scriptObj instanceof Map == false) {
+            return null;
+        }
+        Object paramsObj = ((Map<String, Object>) scriptObj).get("params");
+        if (paramsObj instanceof Map == false) {
+            return null;
+        }
+        return ((Map<String, Object>) paramsObj).get(QUERY_VECTORS_PARAM);
     }
 
     /**
-     * Parses and validates multi-vector input from a raw object (List of List of Number).
+     * Parses and validates a {@code query_vectors} value into {@code float[][]}.
      */
-    private double[][] parseMultiVectors(Object queryVectorsObj) {
+    private float[][] parseMultiVectors(Object queryVectorsObj) {
         if (queryVectorsObj instanceof List == false) {
             throw new IllegalArgumentException("[" + QUERY_VECTORS_PARAM + "] must be a list of vectors");
         }
@@ -206,7 +219,7 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
             throw new IllegalArgumentException("[" + QUERY_VECTORS_PARAM + "] must not be empty");
         }
 
-        double[][] multiVectors = new double[numTokens][dim];
+        float[][] multiVectors = new float[numTokens][dim];
         for (int t = 0; t < numTokens; t++) {
             Object vecObj = outerList.get(t);
             if (vecObj instanceof List == false) {
@@ -231,7 +244,7 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
                 if (numObj instanceof Number == false) {
                     throw new IllegalArgumentException("[" + QUERY_VECTORS_PARAM + "] element at [" + t + "][" + d + "] is not a number");
                 }
-                multiVectors[t][d] = ((Number) numObj).doubleValue();
+                multiVectors[t][d] = ((Number) numObj).floatValue();
             }
         }
         return multiVectors;
@@ -242,6 +255,7 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
         return TYPE;
     }
 
+    /** Factory used by the search pipeline framework to instantiate the processor. */
     public static class Factory implements Processor.Factory<SearchRequestProcessor> {
 
         @Override
@@ -253,37 +267,31 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
             Map<String, Object> config,
             PipelineContext pipelineContext
         ) throws Exception {
-            String targetField = ConfigurationUtils.readStringProperty(TYPE, tag, config, "target_field");
+            String targetField = ConfigurationUtils.readStringProperty(TYPE, tag, config, CONFIG_TARGET_FIELD);
 
-            // dim is required — no sensible default since it depends on the embedding model
-            Integer dimValue = ConfigurationUtils.readIntProperty(TYPE, tag, config, "dim", null);
+            // dim is required — no sensible default since it depends on the embedding model.
+            Integer dimValue = ConfigurationUtils.readIntProperty(TYPE, tag, config, CONFIG_DIM, null);
             if (dimValue == null) {
                 throw ConfigurationUtils.newConfigurationException(
                     TYPE,
                     tag,
-                    "dim",
+                    CONFIG_DIM,
                     "required property is missing. Set this to your embedding model's vector dimension (e.g. 128)."
                 );
             }
             int dim = dimValue;
 
-            int kSim = ConfigurationUtils.readIntProperty(TYPE, tag, config, "k_sim", 4);
-            int dimProj = ConfigurationUtils.readIntProperty(TYPE, tag, config, "dim_proj", 8);
-            int rReps = ConfigurationUtils.readIntProperty(TYPE, tag, config, "r_reps", 20);
-            long seed = MuveraProcessorUtils.readLongProperty(TYPE, tag, config, "seed", 42L);
-            String queryVectorsField = ConfigurationUtils.readStringProperty(
-                TYPE,
-                tag,
-                config,
-                "query_vectors_field",
-                "ext.muvera.query_vectors"
-            );
+            int kSim = ConfigurationUtils.readIntProperty(TYPE, tag, config, CONFIG_K_SIM, DEFAULT_K_SIM);
+            int dimProj = ConfigurationUtils.readIntProperty(TYPE, tag, config, CONFIG_DIM_PROJ, DEFAULT_DIM_PROJ);
+            int rReps = ConfigurationUtils.readIntProperty(TYPE, tag, config, CONFIG_R_REPS, DEFAULT_R_REPS);
+            long seed = MuveraProcessorUtils.readLongProperty(TYPE, tag, config, CONFIG_SEED, DEFAULT_SEED);
 
             MuveraEncoder encoder = new MuveraEncoder(dim, kSim, dimProj, rReps, seed);
             int computedDimension = encoder.getEmbeddingSize();
 
-            // Validate fde_dimension if provided
-            Integer userDimension = ConfigurationUtils.readIntProperty(TYPE, tag, config, "fde_dimension", null);
+            // Validate fde_dimension if provided so users catch mapping mismatches at
+            // pipeline creation rather than at search time.
+            Integer userDimension = ConfigurationUtils.readIntProperty(TYPE, tag, config, CONFIG_FDE_DIMENSION, null);
             if (userDimension != null && userDimension != computedDimension) {
                 throw new IllegalArgumentException(
                     "["
@@ -304,20 +312,9 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
                 );
             }
 
-            // Log the FDE dimension so the user can verify it matches their index mapping
-            logger.info(
-                "[{}] processor [{}]: computed FDE dimension = {} (r_reps={} * 2^k_sim={} * dim_proj={}). "
-                    + "This must match the 'dimension' in your knn_vector field mapping for [{}].",
-                TYPE,
-                tag,
-                computedDimension,
-                rReps,
-                (1 << kSim),
-                dimProj,
-                targetField
-            );
-
-            // Auto-generate description if not provided
+            // Surface the computed FDE dimension via the processor description (visible
+            // through GET _search/pipeline) instead of a cluster-level log line, since
+            // cluster logs aren't end-user visible.
             if (description == null || description.isEmpty()) {
                 description = "MUVERA query encoder: dim="
                     + dim
@@ -334,16 +331,7 @@ public class MuveraSearchRequestProcessor extends AbstractProcessor implements S
                     + ")";
             }
 
-            return new MuveraSearchRequestProcessor(
-                tag,
-                description,
-                ignoreFailure,
-                targetField,
-                encoder,
-                dim,
-                computedDimension,
-                queryVectorsField
-            );
+            return new MuveraSearchRequestProcessor(tag, description, ignoreFailure, targetField, encoder, dim, computedDimension);
         }
     }
 }

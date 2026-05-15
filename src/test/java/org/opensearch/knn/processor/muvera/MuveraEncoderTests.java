@@ -23,7 +23,7 @@ public class MuveraEncoderTests extends KNNTestCase {
         MuveraEncoder enc1 = new MuveraEncoder(4, 1, 2, 2, 42L);
         MuveraEncoder enc2 = new MuveraEncoder(4, 1, 2, 2, 42L);
 
-        double[][] vectors = { { 1.0, 0.0, 0.0, 0.0 }, { 0.0, 1.0, 0.0, 0.0 } };
+        float[][] vectors = { { 1.0f, 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f, 0.0f } };
 
         float[] fde1 = enc1.processDocument(vectors);
         float[] fde2 = enc2.processDocument(vectors);
@@ -38,7 +38,7 @@ public class MuveraEncoderTests extends KNNTestCase {
         MuveraEncoder enc1 = new MuveraEncoder(4, 1, 2, 2, 42L);
         MuveraEncoder enc2 = new MuveraEncoder(4, 1, 2, 2, 99L);
 
-        double[][] vectors = { { 1.0, 0.0, 0.0, 0.0 }, { 0.0, 1.0, 0.0, 0.0 } };
+        float[][] vectors = { { 1.0f, 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f, 0.0f } };
 
         float[] fde1 = enc1.processDocument(vectors);
         float[] fde2 = enc2.processDocument(vectors);
@@ -55,7 +55,7 @@ public class MuveraEncoderTests extends KNNTestCase {
 
     public void testDocumentVsQueryModeDiffers() {
         MuveraEncoder encoder = new MuveraEncoder(4, 1, 2, 2, 42L);
-        double[][] vectors = { { 1.0, 0.0, 0.0, 0.0 }, { 0.0, 1.0, 0.0, 0.0 } };
+        float[][] vectors = { { 1.0f, 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f, 0.0f } };
 
         float[] docFde = encoder.processDocument(vectors);
         float[] queryFde = encoder.processQuery(vectors);
@@ -76,7 +76,7 @@ public class MuveraEncoderTests extends KNNTestCase {
 
     public void testOutputDimensionMatchesExpected() {
         MuveraEncoder encoder = new MuveraEncoder(4, 1, 2, 2, 42L);
-        double[][] vectors = { { 1.0, 2.0, 3.0, 4.0 } };
+        float[][] vectors = { { 1.0f, 2.0f, 3.0f, 4.0f } };
 
         float[] docFde = encoder.processDocument(vectors);
         assertEquals(encoder.getEmbeddingSize(), docFde.length);
@@ -87,7 +87,7 @@ public class MuveraEncoderTests extends KNNTestCase {
 
     public void testSingleVector() {
         MuveraEncoder encoder = new MuveraEncoder(4, 1, 2, 2, 42L);
-        double[][] vectors = { { 1.0, 0.0, 0.0, 0.0 } };
+        float[][] vectors = { { 1.0f, 0.0f, 0.0f, 0.0f } };
 
         float[] fde = encoder.processDocument(vectors);
         assertEquals(8, fde.length);
@@ -127,7 +127,7 @@ public class MuveraEncoderTests extends KNNTestCase {
         MuveraEncoder encoder = new MuveraEncoder(4, 0, 2, 3, 42L);
         assertEquals(3 * 1 * 2, encoder.getEmbeddingSize()); // 6
 
-        double[][] vectors = { { 1.0, 0.0, 0.0, 0.0 }, { 0.0, 1.0, 0.0, 0.0 } };
+        float[][] vectors = { { 1.0f, 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f, 0.0f } };
         float[] fde = encoder.processDocument(vectors);
         assertEquals(6, fde.length);
     }
