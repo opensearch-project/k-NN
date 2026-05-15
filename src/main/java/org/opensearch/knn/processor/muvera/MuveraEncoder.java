@@ -220,10 +220,8 @@ public class MuveraEncoder {
                 int cid = getClusterId(tokenVec, r);
                 clusterVecIndices[cid][counts[cid]] = v;
                 counts[cid]++;
-                float[] centerVec = centers[cid];
-                for (int d = 0; d < dim; d++) {
-                    centerVec[d] += tokenVec[d];
-                }
+                // VectorUtil.add does an in-place SIMD add: centers[cid][d] += tokenVec[d].
+                VectorUtil.add(centers[cid], tokenVec);
             }
 
             // Normalize by count (document mode only).
@@ -232,6 +230,10 @@ public class MuveraEncoder {
                     int count = counts[c];
                     if (count > 1) {
                         float inv = 1f / count;
+                        // Scalar scale loop — Lucene's VectorUtil does not expose a
+                        // scale-by-scalar primitive, but the HotSpot JIT auto-vectorizes
+                        // this trivial pattern (single load, multiply, store) into SIMD
+                        // on x86/ARM after a few warmup iterations.
                         float[] centerVec = centers[c];
                         for (int d = 0; d < dim; d++) {
                             centerVec[d] *= inv;
