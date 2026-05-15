@@ -11,7 +11,8 @@ import java.util.function.Function;
 
 import lombok.SneakyThrows;
 import org.opensearch.ExceptionsHelper;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
@@ -62,54 +63,68 @@ import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
 
-public class KNNScriptScoringIT extends KNNRestTestCase {
+public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
 
     private static final String TEST_MODEL = "test-model";
 
+    public KNNScriptScoringIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
+
     @ExpectRemoteBuildValidation
     public void testKNNL2ScriptScore() throws Exception {
+        assumeUncompressed();
         testKNNScriptScore(SpaceType.L2);
     }
 
     public void testKNNL2ByteScriptScore() throws Exception {
+        assumeUncompressed();
         testKNNByteScriptScore(SpaceType.L2);
     }
 
     @ExpectRemoteBuildValidation
     public void testKNNL1ScriptScore() throws Exception {
+        assumeUncompressed();
         testKNNScriptScore(SpaceType.L1);
     }
 
     public void testKNNL1ByteScriptScore() throws Exception {
+        assumeUncompressed();
         testKNNByteScriptScore(SpaceType.L1);
     }
 
     @ExpectRemoteBuildValidation
     public void testKNNLInfScriptScore() throws Exception {
+        assumeUncompressed();
         testKNNScriptScore(SpaceType.LINF);
     }
 
     public void testKNNLInfByteScriptScore() throws Exception {
+        assumeUncompressed();
         testKNNByteScriptScore(SpaceType.LINF);
     }
 
     @ExpectRemoteBuildValidation
     public void testKNNCosineScriptScore() throws Exception {
+        assumeUncompressed();
         testKNNScriptScore(SpaceType.COSINESIMIL);
     }
 
     public void testKNNByteCosineScriptScore() throws Exception {
+        assumeUncompressed();
         testKNNByteScriptScore(SpaceType.COSINESIMIL);
     }
 
     @SneakyThrows
     public void testKNNHammingScriptScore() {
+        assumeUncompressed();
         testKNNScriptScoreOnBinaryIndex(SpaceType.HAMMING);
     }
 
     @SuppressWarnings("unchecked")
     @SneakyThrows
     public void testKNNHammingScriptScore_whenNonBinary_thenException() {
+        assumeUncompressed();
         final int dims = randomIntBetween(2, 10) * 8;
         final float[] queryVector = randomVector(dims, VectorDataType.BYTE);
         final BiFunction<byte[], byte[], Float> scoreFunction = (BiFunction<byte[], byte[], Float>) getScoreFunction(
@@ -138,6 +153,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
 
     @SuppressWarnings("unchecked")
     public void testKNNNonHammingScriptScore_whenBinary_thenException() {
+        assumeUncompressed();
         final int dims = randomIntBetween(2, 10) * 8;
         final float[] queryVector = randomVector(dims, VectorDataType.BINARY);
         final BiFunction<byte[], byte[], Float> scoreFunction = (BiFunction<byte[], byte[], Float>) getScoreFunction(
@@ -165,6 +181,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     }
 
     public void testKNNInvalidSourceScript() throws Exception {
+        assumeUncompressed();
         /*
          * Create knn index and populate data
          */
@@ -206,6 +223,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     }
 
     public void testInvalidSpace() throws Exception {
+        assumeUncompressed();
         String INVALID_SPACE = "dummy";
         /*
          * Create knn index and populate data
@@ -230,6 +248,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     }
 
     public void testMissingParamsInScript() throws Exception {
+        assumeUncompressed();
         /*
          * Create knn index and populate data
          */
@@ -263,6 +282,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     }
 
     public void testUnequalDimensions() throws Exception {
+        assumeUncompressed();
         /*
          * Create knn index and populate data
          */
@@ -286,6 +306,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
 
     @SuppressWarnings("unchecked")
     public void testKNNScoreForNonVectorDocument() throws Exception {
+        assumeUncompressed();
         /*
          * Create knn index and populate data
          */
@@ -329,6 +350,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
 
     @SuppressWarnings("unchecked")
     public void testHammingScriptScore_Long() throws Exception {
+        assumeUncompressed();
         createIndex(INDEX_NAME, Settings.EMPTY);
         String longMapping = XContentFactory.jsonBuilder()
             .startObject()
@@ -438,6 +460,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
 
     @SuppressWarnings("unchecked")
     public void testHammingScriptScore_Base64() throws Exception {
+        assumeUncompressed();
         createIndex(INDEX_NAME, Settings.EMPTY);
         String longMapping = XContentFactory.jsonBuilder()
             .startObject()
@@ -548,10 +571,53 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
 
     @ExpectRemoteBuildValidation
     public void testKNNInnerProdScriptScore() throws Exception {
+        assumeUncompressed();
         testKNNScriptScore(SpaceType.INNER_PRODUCT);
     }
 
+    @SuppressWarnings("unchecked")
+    public void testKNNScriptScore_faiss_onCompressedIndex() throws Exception {
+        String indexName = prefix() + "scriptscore";
+        createHnswIndex(indexName, FAISS_NAME, SpaceType.L2, 2);
+
+        Map<String, Float[]> documents = new HashMap<>();
+        documents.put("1", new Float[] { 6.0f, 6.0f });
+        documents.put("2", new Float[] { 2.0f, 2.0f });
+        documents.put("3", new Float[] { 4.0f, 4.0f });
+        documents.put("4", new Float[] { 3.0f, 3.0f });
+        for (Map.Entry<String, Float[]> doc : documents.entrySet()) {
+            addKnnDoc(indexName, doc.getKey(), FIELD_NAME, doc.getValue());
+        }
+        forceMergeKnnIndex(indexName);
+
+        float[] queryVector = { 1.0f, 1.0f };
+        Map<String, Object> params = new HashMap<>();
+        params.put("field", FIELD_NAME);
+        params.put("query_value", queryVector);
+        params.put("space_type", SpaceType.L2.getValue());
+        Request request = constructKNNScriptQueryRequest(indexName, new MatchAllQueryBuilder(), params, documents.size());
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            responseBody
+        ).map().get("hits")).get("hits");
+
+        List<String> docIds = hits.stream().map(hit -> ((String) ((Map<String, Object>) hit).get("_id"))).collect(Collectors.toList());
+        assertEquals(Arrays.asList("2", "4", "3", "1"), docIds);
+
+        List<Double> scores = hits.stream().map(hit -> ((Double) ((Map<String, Object>) hit).get("_score"))).collect(Collectors.toList());
+        double[] expectedScores = { 1.0 / (1 + 2), 1.0 / (1 + 8), 1.0 / (1 + 18), 1.0 / (1 + 50) };
+        for (int i = 0; i < expectedScores.length; i++) {
+            assertEquals(expectedScores[i], scores.get(i), 0.001);
+        }
+        deleteKNNIndex(indexName);
+    }
+
     public void testKNNScriptScoreWithRequestCacheEnabled() throws Exception {
+        assumeUncompressed();
         /*
          * Create knn index and populate data
          */
@@ -660,6 +726,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     @SuppressWarnings("unchecked")
     @ExpectRemoteBuildValidation
     public void testKNNScriptScoreOnModelBasedIndex() throws Exception {
+        assumeUncompressed();
         int dimensions = randomIntBetween(2, 10);
         String trainMapping = createKnnIndexMapping(TRAIN_FIELD_PARAMETER, dimensions);
         createKnnIndex(TRAIN_INDEX_PARAMETER, trainMapping);

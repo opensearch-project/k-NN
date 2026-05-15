@@ -290,14 +290,15 @@ public class ExplainIT extends KNNRestTestCase {
         });
     }
 
+    // Pinned to FP32: relies on uncompressed score precision
     private void createDefaultKnnIndex(int dimension) throws IOException {
-        // Create Mappings
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
             .field("dimension", dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, "1x")
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)

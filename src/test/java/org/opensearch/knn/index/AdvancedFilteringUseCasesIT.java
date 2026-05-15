@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.K;
 import static org.opensearch.knn.common.KNNConstants.KNN;
@@ -494,6 +495,7 @@ public class AdvancedFilteringUseCasesIT extends KNNRestTestCase {
      *     }
      * }
      */
+    // Pinned to FP32: relies on uncompressed score precision
     @SneakyThrows
     private String createNestedMappings(final int dimension, final String engine) {
         XContentBuilder builder = XContentFactory.jsonBuilder()
@@ -505,6 +507,7 @@ public class AdvancedFilteringUseCasesIT extends KNNRestTestCase {
             .startObject(FIELD_NAME_VECTOR)
             .field(TYPE, TYPE_KNN_VECTOR)
             .field(DIMENSION, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, "1x")
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
@@ -538,6 +541,7 @@ public class AdvancedFilteringUseCasesIT extends KNNRestTestCase {
      *     }
      * }
      */
+    // Pinned to FP32: relies on uncompressed score precision
     @SneakyThrows
     private String createVectorNonNestedMappings(final int dimension, final String engine) {
         XContentBuilder builder = XContentFactory.jsonBuilder()
@@ -549,6 +553,7 @@ public class AdvancedFilteringUseCasesIT extends KNNRestTestCase {
             .startObject(FIELD_NAME_VECTOR)
             .field(TYPE, TYPE_KNN_VECTOR)
             .field(DIMENSION, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, "1x")
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())

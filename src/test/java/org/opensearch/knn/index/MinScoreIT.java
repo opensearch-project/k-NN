@@ -203,6 +203,7 @@ public class MinScoreIT extends KNNRestTestCase {
     private static final int DIMENSION = 2;
     private static final String FIELD_NAME = "test_vector";
 
+    // Pinned to FP32: relies on uncompressed score precision
     public void testMinScore_withDifferentMetrics_thenCorrectlyFiltersResults() throws Exception {
         String indexName = "test_"
             + knnEngine.getName()
@@ -220,15 +221,15 @@ public class MinScoreIT extends KNNRestTestCase {
             .field("dimension", DIMENSION);
 
         if (knnEngine == KNNEngine.LUCENE) {
-            // Lucene engine configuration
-            builder.field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            builder.field(KNNConstants.COMPRESSION_LEVEL_PARAMETER, "1x")
+                .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
                 .startObject(KNNConstants.KNN_METHOD)
                 .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
                 .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
                 .endObject();
         } else {
-            // Faiss engine configuration
-            builder.field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            builder.field(KNNConstants.COMPRESSION_LEVEL_PARAMETER, "1x")
+                .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
                 .startObject(KNNConstants.KNN_METHOD)
                 .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
                 .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())

@@ -9,7 +9,6 @@ import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
-import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
@@ -20,7 +19,8 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.common.util.CollectionUtils;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
@@ -38,6 +38,7 @@ import static com.carrotsearch.randomizedtesting.RandomizedTest.$;
 import static com.carrotsearch.randomizedtesting.RandomizedTest.$$;
 import static org.opensearch.knn.common.Constants.FIELD_FILTER;
 import static org.opensearch.knn.common.Constants.FIELD_TERM;
+import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.EXPAND_NESTED;
 import static org.opensearch.knn.common.KNNConstants.K;
@@ -56,8 +57,7 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 @Log4j2
-@AllArgsConstructor
-public class ExpandNestedDocsIT extends KNNRestTestCase {
+public class ExpandNestedDocsIT extends KNNCompressionRestTestCase {
     private static final String INDEX_NAME = "test-index-expand-nested-search";
     private static final String FIELD_NAME_NESTED = "test_nested";
     private static final String FIELD_NAME_VECTOR = "test_vector";
@@ -69,14 +69,25 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
     private static final String PROPERTIES_FIELD = "properties";
     private static final String INNER_HITS = "inner_hits";
 
-    private String description;
-    private KNNEngine engine;
-    private VectorDataType dataType;
-    private Mode mode;
-    private Integer dimension;
+    private final KNNEngine engine;
+    private final VectorDataType dataType;
+    private final Mode mode;
+    private final Integer dimension;
+
+    public ExpandNestedDocsIT(String description, KNNEngine engine, VectorDataType dataType, Mode mode, Integer dimension) {
+        super(deriveCompressionConfig(dataType, mode));
+        this.engine = engine;
+        this.dataType = dataType;
+        this.mode = mode;
+        this.dimension = dimension;
+    }
+
+    private static CompressionTestConfig deriveCompressionConfig(VectorDataType dataType, Mode mode) {
+        return (mode == Mode.ON_DISK && dataType == VectorDataType.FLOAT) ? CompressionTestConfig.SQ_1BIT : CompressionTestConfig.FP32;
+    }
 
     @ParametersFactory(argumentFormatting = "description:%1$s; engine:%2$s, data_type:%3$s, mode:%4$s, dimension:%5$s")
-    public static Collection<Object[]> parameters() throws IOException {
+    public static Collection<Object[]> compressionParameters() {
         int dimension = 1;
         return Arrays.asList(
             $$(
@@ -409,34 +420,6 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
         createKnnIndex(engine, mode, dimension, vectorDataType, 1);
     }
 
-    /**
-     * {
-     * 		"dynamic": false,
-     *      "properties": {
-     *          "test_nested": {
-     *              "type": "nested",
-     *              "properties": {
-     *                  "test_vector": {
-     *                      "type": "knn_vector",
-     *                      "dimension": 3,
-     *                      "mode": "in_memory",
-     *                      "data_type: "float",
-     *                      "method": {
-     *                          "name": "hnsw",
-     *                          "engine": "lucene"
-     *                      }
-     *                  },
-     *                  "storage": {
-     *                      "type": "boolean"
-     *                  }
-     *              }
-     *          },
-     *          "parking": {
-     *              "type": "boolean"
-     *          }
-     *      }
-     *  }
-     */
     private void createKnnIndex(
         final KNNEngine engine,
         final Mode mode,
@@ -455,8 +438,11 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
             .field(TYPE, TYPE_KNN_VECTOR)
             .field(DIMENSION, dimension)
             .field(MODE_PARAMETER, Mode.NOT_CONFIGURED.equals(mode) ? null : mode.getName())
-            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue())
-            .startObject(KNN_METHOD)
+            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
+        if (vectorDataType == VectorDataType.FLOAT) {
+            builder.field(COMPRESSION_LEVEL_PARAMETER, compressionConfig.getCompressionLevelName());
+        }
+        builder.startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(KNN_ENGINE, engine.getName())
             .endObject()

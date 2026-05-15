@@ -10,6 +10,7 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.plugin.stats.StatNames;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
@@ -18,6 +19,8 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+
+import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
 
 import static org.opensearch.knn.index.KNNCircuitBreaker.CB_TIME_INTERVAL;
 
@@ -98,8 +101,8 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
         Assert.assertTrue(getGraphMemoryPercentage() > 20.0);
     }
 
+    // Pinned to FP32: relies on uncompressed memory size assumptions
     private void generateCbLoad(String indexName1, String indexName2) throws Exception {
-        // Create index with 1 primary and numNodes-1 replicas so that the data will be on every node in the cluster
         int numNodes = Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1"));
         Settings settings = Settings.builder()
             .put("number_of_shards", 1)
@@ -108,8 +111,19 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
             .put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, ALWAYS_BUILD_GRAPH)
             .build();
 
-        createKnnIndex(indexName1, settings, createKnnIndexMapping(FIELD_NAME, 2));
-        createKnnIndex(indexName2, settings, createKnnIndexMapping(FIELD_NAME, 2));
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", "2")
+            .field(COMPRESSION_LEVEL_PARAMETER, "1x")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+        createKnnIndex(indexName1, settings, mapping);
+        createKnnIndex(indexName2, settings, mapping);
 
         Float[] vector = { 1.3f, 2.2f };
         int docsInIndex = 10; // through testing, 10 is minimum number of docs to trip circuit breaker at 1kb

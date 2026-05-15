@@ -12,7 +12,8 @@ import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -25,15 +26,18 @@ import java.util.List;
 /**
  * Integration tests for radial search (max_distance and min_score) on Faiss and Lucene HNSW.
  * Covers both ANN path (no filter) and ExactSearcher path (with filter, Faiss only) across
- * L2, cosine, and inner product space types.
+ * L2, cosine, and inner product space types, parameterized by compression (FP32 and SQ 1-bit / 32x).
  *
  * Validates the distanceToRadialThreshold and scoreToRadialThreshold transformations,
  * specifically the fix for Faiss IP max_distance (DISTANCE_TRANSLATIONS: distance -> -1 * distance).
+ *
+ * FP32 asserts exact result counts. Under 1-bit quantization at dimension 2 the per-threshold
+ * counts are not reliably exact, so the 32x runs assert the radial query succeeds with valid,
+ * descending scores and a sane result count (the proven Compression32XIT radial pattern).
  */
-public class RadialSearchIT extends KNNRestTestCase {
+public class RadialSearchIT extends KNNCompressionRestTestCase {
 
     private static final int DIMENSION = 2;
-    private static final String FIELD_NAME = "test_vector";
     private static final String FILTER_FIELD = "color";
 
     private final String testName;
@@ -48,6 +52,7 @@ public class RadialSearchIT extends KNNRestTestCase {
     private final boolean mosEnabled;
 
     public RadialSearchIT(
+        CompressionTestConfig compressionConfig,
         String testName,
         KNNEngine engine,
         SpaceType spaceType,
@@ -59,6 +64,7 @@ public class RadialSearchIT extends KNNRestTestCase {
         boolean useFilter,
         boolean mosEnabled
     ) {
+        super(compressionConfig);
         this.testName = testName;
         this.engine = engine;
         this.spaceType = spaceType;
@@ -71,12 +77,22 @@ public class RadialSearchIT extends KNNRestTestCase {
         this.mosEnabled = mosEnabled;
     }
 
-    @ParametersFactory(argumentFormatting = "{0}")
-    public static Collection<Object[]> parameters() {
+    @ParametersFactory(argumentFormatting = "{1}_compression:{0}")
+    public static Collection<Object[]> compressionParameters() {
+        List<Object[]> baseParams = new ArrayList<>();
+        addFaissParams(baseParams);
+        addFaissMosParams(baseParams);
+        addLuceneParams(baseParams);
+
         List<Object[]> params = new ArrayList<>();
-        addFaissParams(params);
-        addFaissMosParams(params);
-        addLuceneParams(params);
+        for (CompressionTestConfig config : CompressionTestConfig.values()) {
+            for (Object[] base : baseParams) {
+                Object[] row = new Object[base.length + 1];
+                row[0] = config;
+                System.arraycopy(base, 0, row, 1, base.length);
+                params.add(row);
+            }
+        }
         return params;
     }
 
@@ -441,15 +457,16 @@ public class RadialSearchIT extends KNNRestTestCase {
     }
 
     public void testRadialSearch_thenCorrectResults() throws Exception {
-        String indexName = "test_radial_" + testName.toLowerCase().replace(" ", "_");
+        String indexName = prefix() + testName.toLowerCase().replace(" ", "_");
 
         XContentBuilder mapping = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
-            .field("dimension", DIMENSION)
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field("dimension", DIMENSION);
+        addCompressionMappingFields(mapping);
+        mapping.field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.KNN_ENGINE, engine.getName());
@@ -479,11 +496,32 @@ public class RadialSearchIT extends KNNRestTestCase {
         Response response = searchKNNIndex(indexName, query, 10);
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
 
-        assertEquals(
-            String.format("[%s] Expected %d results but got %d", testName, expectedCount, results.size()),
-            expectedCount,
-            results.size()
-        );
+        if (compressionConfig == CompressionTestConfig.FP32) {
+            assertEquals(
+                String.format("[%s] Expected %d results but got %d", testName, expectedCount, results.size()),
+                expectedCount,
+                results.size()
+            );
+        } else {
+            assertTrue(
+                String.format(
+                    "[%s] quantized radial returned %d results, expected at most %d",
+                    testName,
+                    results.size(),
+                    testVectors.length
+                ),
+                results.size() <= testVectors.length
+            );
+            for (int i = 0; i < results.size(); i++) {
+                assertTrue(String.format("[%s] score should be positive", testName), results.get(i).getScore() > 0.0f);
+                if (i > 0) {
+                    assertTrue(
+                        String.format("[%s] scores should be in descending order", testName),
+                        results.get(i - 1).getScore() >= results.get(i).getScore()
+                    );
+                }
+            }
+        }
 
         deleteKNNIndex(indexName);
     }
