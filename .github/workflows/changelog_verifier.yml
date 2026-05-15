@@ -1,7 +1,7 @@
 name: "Changelog Verifier"
 on:
   pull_request:
-    types: [opened, edited, review_requested, synchronize, reopened, ready_for_review, labeled, unlabeled]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 jobs:
   # Enforces the update of a changelog file on every pull request

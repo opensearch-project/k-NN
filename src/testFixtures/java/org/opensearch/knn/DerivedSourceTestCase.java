@@ -1190,13 +1190,7 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    protected void assertSourceFiltering(
-        String indexName,
-        String[] includes,
-        String[] excludes,
-        String[] expectedPresent,
-        String[] expectedAbsent
-    ) {
+    protected Response searchWithSourceIncludesExcludes(String indexName, String[] includes, String[] excludes) {
         XContentBuilder searchBuilder = XContentFactory.jsonBuilder().startObject().startObject("_source");
 
         if (includes != null) {
@@ -1210,7 +1204,18 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
 
         Request searchRequest = new Request("POST", "/" + indexName + "/_search");
         searchRequest.setJsonEntity(searchBuilder.toString());
-        Response response = client().performRequest(searchRequest);
+        return client().performRequest(searchRequest);
+    }
+
+    @SneakyThrows
+    protected void assertSourceFiltering(
+        String indexName,
+        String[] includes,
+        String[] excludes,
+        String[] expectedPresent,
+        String[] expectedAbsent
+    ) {
+        Response response = searchWithSourceIncludesExcludes(indexName, includes, excludes);
 
         Map<String, Object> responseMap = entityAsMap(response);
         Map<String, Object> hits = (Map<String, Object>) responseMap.get("hits");

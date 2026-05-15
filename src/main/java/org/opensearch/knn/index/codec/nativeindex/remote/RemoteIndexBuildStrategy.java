@@ -328,12 +328,26 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
 
     private static String determineVectorDataType(final VectorDataType dataType, final Map<String, Object> parameters) {
         if (dataType == VectorDataType.FLOAT) {
+            // SQ 1-bit sends fp32 vectors. Once support is added for building 1 bit SQ graphs
+            // in the Remote Vector Index Builder, then this can be modified to send 1 bit SQ vectors.
+            if (FaissHNSWMethod.isSQOneBitIndex(dataType, parameters)) {
+                return dataType.getValue();
+            }
             if (FaissHNSWMethod.isFloat16Index(dataType, parameters)) {
                 return FLOAT16_VECTOR_TYPE_STRING;
             }
         }
 
         return dataType.getValue();
+    }
+
+    /**
+     * Determines whether the Remote Vector Index Builder (RVIB) should skip writing flat vector storage (IO_FLAG_SKIP_STORAGE).
+     * When true, the RVIB writes only the HNSW graph, and the data node stitches it with locally-stored
+     * flat vectors at search time via {@link org.opensearch.knn.memoryoptsearch.faiss.FaissFlatIndexFactory}.
+     */
+    private static boolean shouldSkipStoredVectors(final VectorDataType vectorDataType, final Map<String, Object> parameters) {
+        return FaissHNSWMethod.isSQOneBitIndex(vectorDataType, parameters);
     }
 
     /**
@@ -379,6 +393,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             .vectorDataType(vectorDataType)
             .engine(indexInfo.getKnnEngine().getName())
             .indexParameters(indexInfo.getKnnEngine().createRemoteIndexingParameters(parameters))
+            .skipStoredVectors(shouldSkipStoredVectors(indexInfo.getVectorDataType(), parameters))
             .build();
     }
 }

@@ -47,10 +47,8 @@ public class MMRSearchExtBuilder extends SearchExtBuilder {
 
     public static final String NAME = MMR;
 
-    // TODO: Change to Version.V_3_7_0 once it's available. Using V_3_6_0 as a placeholder for backward compatibility
-    // during rolling upgrades. The explain field was introduced after 3.6.0 and should only be serialized to nodes
-    // that support it.
-    private static final Version MMR_EXPLAIN_MIN_VERSION = Version.V_3_6_0;
+    // The explain field was introduced in 3.7.0 and should only be serialized to nodes that support it.
+    private static final Version MMR_EXPLAIN_MIN_VERSION = Version.V_3_7_0;
 
     // Used to control the weight of the diversity, range is from [0,1]. (diversity = 1) prioritizes maximum diversity
     // which means the documents are selected just based on how different they are from already chosen documents.

@@ -16,6 +16,7 @@ import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.CONTA
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.DIMENSION;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.DOC_COUNT;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.DOC_ID_PATH;
+import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.SKIP_STORED_VECTORS;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.INDEX_PARAMETERS;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.KNN_ENGINE;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.REPOSITORY_TYPE;
@@ -40,6 +41,7 @@ public class RemoteBuildRequest implements ToXContentObject {
     protected String vectorDataType;
     protected String engine;
     protected RemoteIndexParameters indexParameters;
+    protected boolean skipStoredVectors;
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
@@ -54,6 +56,7 @@ public class RemoteBuildRequest implements ToXContentObject {
         builder.field(VECTOR_DATA_TYPE_FIELD, vectorDataType);
         builder.field(KNN_ENGINE, engine);
         builder.field(INDEX_PARAMETERS, indexParameters);
+        builder.field(SKIP_STORED_VECTORS, skipStoredVectors);
         builder.endObject();
         return builder;
     }

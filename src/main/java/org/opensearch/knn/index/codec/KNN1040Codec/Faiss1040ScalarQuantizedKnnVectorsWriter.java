@@ -51,15 +51,18 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
     private FieldInfo fieldInfo;
     private boolean finished;
     private final IOFunction<SegmentReadState, FlatVectorsReader> quantizedFlatVectorsReaderSupplier;
+    private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
 
     Faiss1040ScalarQuantizedKnnVectorsWriter(
         @NonNull SegmentWriteState segmentWriteState,
         @NonNull FlatVectorsWriter flatVectorsWriter,
-        @NonNull IOFunction<SegmentReadState, FlatVectorsReader> quantizedFlatVectorsReaderSupplier
+        @NonNull IOFunction<SegmentReadState, FlatVectorsReader> quantizedFlatVectorsReaderSupplier,
+        @NonNull NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
     ) {
         this.segmentWriteState = segmentWriteState;
         this.flatVectorsWriter = flatVectorsWriter;
         this.quantizedFlatVectorsReaderSupplier = quantizedFlatVectorsReaderSupplier;
+        this.nativeIndexBuildStrategyFactory = nativeIndexBuildStrategyFactory;
     }
 
     /**
@@ -117,7 +120,7 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
                 null,
                 null,
                 segmentWriteState,
-                new NativeIndexBuildStrategyFactory(),
+                nativeIndexBuildStrategyFactory,
                 quantizedValues
             );
         } finally {
@@ -145,7 +148,7 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
             final QuantizedByteVectorValues quantizedValues = KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(
                 flatVectorsReader.getFloatVectorValues(fieldInfo.getName())
             );
-            doMergeOneField(fieldInfo, mergeState, null, null, segmentWriteState, new NativeIndexBuildStrategyFactory(), quantizedValues);
+            doMergeOneField(fieldInfo, mergeState, null, null, segmentWriteState, nativeIndexBuildStrategyFactory, quantizedValues);
         } finally {
             IOUtils.close(flatVectorsReader);
         }

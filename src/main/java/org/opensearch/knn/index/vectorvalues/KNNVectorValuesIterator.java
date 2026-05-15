@@ -157,6 +157,8 @@ public interface KNNVectorValuesIterator {
      */
     class FieldWriterIteratorValues<T> extends AbstractVectorValuesIterator {
         private final Function<Integer, T> vectorGetter;
+        private int index = -1;
+        private int lastDocId = Integer.MIN_VALUE;
 
         FieldWriterIteratorValues(@NonNull final DocsWithFieldSet docsWithFieldSet, @NonNull final Map<Integer, T> vectors) {
             super(docsWithFieldSet.iterator());
@@ -171,8 +173,19 @@ public interface KNNVectorValuesIterator {
             // Dense case -> Easy. doc_id == vector_ordinal and doc_id will be given as 0, 1, ..., N - 1
             // Sparse case -> doc_id will be given in increasing order 1, 4, 7, 8, 10, ...
             // but its corresponding vector ordinal is 0, 1, 2, ...
-            final int[] index = { 0 };
-            this.vectorGetter = (docId) -> vectors.get(index[0]++);
+            // The getter is idempotent — multiple getVector() calls for the same doc return the same vector
+            this.vectorGetter = (docId) -> {
+                if (docId != this.lastDocId) {
+                    if (docId < this.lastDocId) {
+                        throw new IllegalStateException(
+                            "Doc IDs must be in increasing order, but got " + docId + " after " + this.lastDocId
+                        );
+                    }
+                    this.index++;
+                    this.lastDocId = docId;
+                }
+                return vectors.get(this.index);
+            };
         }
 
         /**

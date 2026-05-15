@@ -213,14 +213,14 @@ public class MMRSearchExtBuilderTests extends MMRTestCase {
             .explain(true)
             .build();
 
-        // Simulate writing to an older node that doesn't support explain
+        // Simulate writing to an older node that doesn't support explain (pre-3.7.0)
         BytesStreamOutput out = new BytesStreamOutput();
-        out.setVersion(Version.V_3_5_0);
+        out.setVersion(Version.V_3_6_0);
         original.writeTo(out);
 
         // Simulate reading from an older node stream
         var streamInput = out.bytes().streamInput();
-        streamInput.setVersion(Version.V_3_5_0);
+        streamInput.setVersion(Version.V_3_6_0);
         MMRSearchExtBuilder deserialized = new MMRSearchExtBuilder(streamInput);
 
         // Explain should be null since older version doesn't support it

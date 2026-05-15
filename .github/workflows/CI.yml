@@ -14,6 +14,7 @@ on:
 
 jobs:
   check-files:
+    if: github.repository == 'opensearch-project/k-NN'
     name: Check file for Build and Test k-NN
     runs-on: ubuntu-latest
     outputs:
