@@ -16,6 +16,7 @@ import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.search.TaskExecutor;
 import org.opensearch.knn.index.engine.KNNEngine;
 
+import java.util.Locale;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 
@@ -100,6 +101,7 @@ public class KNN1040HnswScalarQuantizedVectorsFormat extends Lucene104HnswScalar
     @Override
     public String toString() {
         return String.format(
+            Locale.ROOT,
             "%s(maxConn=%d, beamWidth=%d, tinySegmentsThreshold=%d, flatVectorFormat=%s)",
             getClass().getSimpleName(),
             maxConn,

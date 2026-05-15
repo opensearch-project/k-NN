@@ -146,13 +146,13 @@ public class IndexUtil {
 
         // Check field existence
         if (fieldMapping == null) {
-            exception.addValidationError(String.format("Field \"%s\" does not exist.", field));
+            exception.addValidationError(String.format(Locale.ROOT, "Field \"%s\" does not exist.", field));
             return exception;
         }
 
         // Check if field is a map. If not, that is a problem
         if (!(fieldMapping instanceof Map)) {
-            exception.addValidationError(String.format("Field info for \"%s\" is not a map.", field));
+            exception.addValidationError(String.format(Locale.ROOT, "Field info for \"%s\" is not a map.", field));
             return exception;
         }
 
@@ -162,7 +162,9 @@ public class IndexUtil {
         Object type = fieldMap.get("type");
 
         if (!(type instanceof String) || !KNNVectorFieldMapper.CONTENT_TYPE.equals(type)) {
-            exception.addValidationError(String.format("Field \"%s\" is not of type %s.", field, KNNVectorFieldMapper.CONTENT_TYPE));
+            exception.addValidationError(
+                String.format(Locale.ROOT, "Field \"%s\" is not of type %s.", field, KNNVectorFieldMapper.CONTENT_TYPE)
+            );
             return exception;
         }
 
@@ -220,17 +222,17 @@ public class IndexUtil {
             String modelId = (String) fieldMap.get(KNNConstants.MODEL_ID);
 
             if (modelId == null) {
-                exception.addValidationError(String.format("Field \"%s\" does not have a dimension set.", field));
+                exception.addValidationError(String.format(Locale.ROOT, "Field \"%s\" does not have a dimension set.", field));
                 return exception;
             }
 
             if (modelDao == null) {
-                throw new IllegalArgumentException(String.format("Field \"%s\" uses model. modelDao cannot be null.", field));
+                throw new IllegalArgumentException(String.format(Locale.ROOT, "Field \"%s\" uses model. modelDao cannot be null.", field));
             }
 
             ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
             if (!ModelUtil.isModelCreated(modelMetadata)) {
-                exception.addValidationError(String.format("Model \"%s\" for field \"%s\" is not created.", modelId, field));
+                exception.addValidationError(String.format(Locale.ROOT, "Model \"%s\" for field \"%s\" is not created.", modelId, field));
                 return exception;
             }
 
@@ -238,6 +240,7 @@ public class IndexUtil {
             if ((Integer) dimension != expectedDimension) {
                 exception.addValidationError(
                     String.format(
+                        Locale.ROOT,
                         "Field \"%s\" has dimension %d, which is different from " + "dimension specified in the training request: %d",
                         field,
                         dimension,
@@ -254,6 +257,7 @@ public class IndexUtil {
         if ((Integer) dimension != expectedDimension) {
             exception.addValidationError(
                 String.format(
+                    Locale.ROOT,
                     "Field \"%s\" has dimension %d, which is different from " + "dimension specified in the training request: %d",
                     field,
                     dimension,

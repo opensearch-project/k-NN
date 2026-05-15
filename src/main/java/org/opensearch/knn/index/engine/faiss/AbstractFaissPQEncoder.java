@@ -10,6 +10,7 @@ import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.mapper.CompressionLevel;
+import java.util.Locale;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
@@ -133,7 +134,9 @@ public abstract class AbstractFaissPQEncoder implements Encoder {
 
             if (trainingVectors < minTrainingVectorCount) {
                 builder.valid(false).minTrainingVectorCount(minTrainingVectorCount);
-                builder.errorMessage(String.format("Number of training points should be greater than %d", minTrainingVectorCount));
+                builder.errorMessage(
+                    String.format(Locale.ROOT, "Number of training points should be greater than %d", minTrainingVectorCount)
+                );
                 return builder.build();
             } else {
                 builder.valid(true);

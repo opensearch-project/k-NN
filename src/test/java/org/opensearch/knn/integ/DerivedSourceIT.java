@@ -237,9 +237,12 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
 
             Map<String, Object> hits = (Map<String, Object>) searchResult;
             for (String metaField : metaFields) {
-                assertTrue(String.format("Missing meta field '%s' in search result %d", metaField, i), hits.containsKey(metaField));
+                assertTrue(
+                    String.format(Locale.ROOT, "Missing meta field '%s' in search result %d", metaField, i),
+                    hits.containsKey(metaField)
+                );
                 assertNotNull(
-                    String.format("Meta field '%s' value should not be null in search result %d", metaField, i),
+                    String.format(Locale.ROOT, "Meta field '%s' value should not be null in search result %d", metaField, i),
                     hits.get(metaField)
                 );
             }

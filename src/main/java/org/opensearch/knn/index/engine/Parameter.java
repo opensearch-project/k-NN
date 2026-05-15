@@ -62,14 +62,16 @@ public abstract class Parameter<T> {
             if (!(value instanceof Boolean)) {
                 validationException = new ValidationException();
                 validationException.addValidationError(
-                    String.format("value is not an instance of Boolean for Boolean parameter [%s].", getName())
+                    String.format(Locale.ROOT, "value is not an instance of Boolean for Boolean parameter [%s].", getName())
                 );
                 return validationException;
             }
 
             if (!validator.apply((Boolean) value, knnMethodConfigContext)) {
                 validationException = new ValidationException();
-                validationException.addValidationError(String.format("parameter validation failed for Boolean parameter [%s].", getName()));
+                validationException.addValidationError(
+                    String.format(Locale.ROOT, "parameter validation failed for Boolean parameter [%s].", getName())
+                );
             }
             return validationException;
         }
@@ -89,14 +91,16 @@ public abstract class Parameter<T> {
             if (!(value instanceof Integer)) {
                 validationException = new ValidationException();
                 validationException.addValidationError(
-                    String.format("value is not an instance of Integer for Integer parameter [%s].", getName())
+                    String.format(Locale.ROOT, "value is not an instance of Integer for Integer parameter [%s].", getName())
                 );
                 return validationException;
             }
 
             if (!validator.apply((Integer) value, knnMethodConfigContext)) {
                 validationException = new ValidationException();
-                validationException.addValidationError(String.format("parameter validation failed for Integer parameter [%s].", getName()));
+                validationException.addValidationError(
+                    String.format(Locale.ROOT, "parameter validation failed for Integer parameter [%s].", getName())
+                );
             }
 
             return validationException;
@@ -165,14 +169,16 @@ public abstract class Parameter<T> {
             if (!(value instanceof String)) {
                 validationException = new ValidationException();
                 validationException.addValidationError(
-                    String.format("value is not an instance of String for String parameter [%s].", getName())
+                    String.format(Locale.ROOT, "value is not an instance of String for String parameter [%s].", getName())
                 );
                 return validationException;
             }
 
             if (!validator.apply((String) value, knnMethodConfigContext)) {
                 validationException = new ValidationException();
-                validationException.addValidationError(String.format("parameter validation failed for String parameter [%s].", getName()));
+                validationException.addValidationError(
+                    String.format(Locale.ROOT, "parameter validation failed for String parameter [%s].", getName())
+                );
             }
 
             return validationException;
@@ -216,7 +222,7 @@ public abstract class Parameter<T> {
             if (!(value instanceof MethodComponentContext)) {
                 validationException = new ValidationException();
                 validationException.addValidationError(
-                    String.format("value is not an instance of for MethodComponentContext parameter [%s].", getName())
+                    String.format(Locale.ROOT, "value is not an instance of for MethodComponentContext parameter [%s].", getName())
                 );
                 return validationException;
             }
@@ -224,7 +230,7 @@ public abstract class Parameter<T> {
             if (!validator.apply((MethodComponentContext) value, knnMethodConfigContext)) {
                 validationException = new ValidationException();
                 validationException.addValidationError(
-                    String.format("parameter validation failed for MethodComponentContext parameter [%s].", getName())
+                    String.format(Locale.ROOT, "parameter validation failed for MethodComponentContext parameter [%s].", getName())
                 );
             }
 

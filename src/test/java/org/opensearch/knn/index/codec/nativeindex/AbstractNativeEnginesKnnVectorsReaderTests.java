@@ -29,6 +29,7 @@ import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
 
+import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Set;
@@ -235,7 +236,7 @@ public class AbstractNativeEnginesKnnVectorsReaderTests extends KNNTestCase {
         when(dir.openInput(any(), any())).thenReturn(mock(IndexInput.class));
         final SegmentInfo si = mock(SegmentInfo.class);
         when(si.files()).thenReturn(files);
-        when(si.getId()).thenReturn((si.hashCode() + "").getBytes());
+        when(si.getId()).thenReturn((si.hashCode() + "").getBytes(StandardCharsets.UTF_8));
         return new TestReader(new SegmentReadState(dir, si, fieldInfos, IOContext.DEFAULT), fvr);
     }
 

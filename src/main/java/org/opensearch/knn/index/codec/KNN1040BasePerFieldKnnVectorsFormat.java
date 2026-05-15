@@ -16,6 +16,7 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -76,7 +77,7 @@ public abstract class KNN1040BasePerFieldKnnVectorsFormat extends PerFieldKnnVec
         }
         KNNVectorFieldType mappedFieldType = (KNNVectorFieldType) mapperService.orElseThrow(
             () -> new IllegalStateException(
-                String.format("Cannot read field type for field [%s] because mapper service is not available", field)
+                String.format(Locale.ROOT, "Cannot read field type for field [%s] because mapper service is not available", field)
             )
         ).fieldType(field);
 

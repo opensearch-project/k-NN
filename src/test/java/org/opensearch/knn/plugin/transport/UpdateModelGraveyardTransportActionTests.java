@@ -28,6 +28,8 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.threadpool.ThreadPool;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -199,7 +201,7 @@ public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestC
             .getInstance(UpdateModelGraveyardTransportAction.class);
 
         String modelId = "test-model-id";
-        byte[] modelBlob = "testModel".getBytes();
+        byte[] modelBlob = "testModel".getBytes(StandardCharsets.UTF_8);
         int dimension = 2;
 
         createIndex(MODEL_INDEX_NAME);
@@ -380,6 +382,7 @@ public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestC
                     assertTrue(e instanceof DeleteModelException);
                     assertEquals(
                         String.format(
+                            Locale.ROOT,
                             "Cannot delete model [%s].  Model is in use by the following indices %s, which must be deleted first.",
                             updateModelGraveyardRequest.getModelId(),
                             indicesPresentInException

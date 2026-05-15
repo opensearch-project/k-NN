@@ -13,6 +13,7 @@ import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissBinaryIndex;
 
+import java.util.Locale;
 import java.io.IOException;
 
 /**
@@ -58,7 +59,7 @@ public class FaissScalarQuantizedFlatIndex extends FaissBinaryIndex {
     @Override
     public ByteVectorValues getByteValues(IndexInput indexInput) throws IOException {
         throw new UnsupportedOperationException(
-            String.format("%s does not support byte vector values.", FAISS_SCALAR_QUANTIZED_FLAT_INDEX)
+            String.format(Locale.ROOT, "%s does not support byte vector values.", FAISS_SCALAR_QUANTIZED_FLAT_INDEX)
         );
     }
 }

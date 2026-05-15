@@ -100,7 +100,7 @@ public class RNNQueryFactory extends BaseQueryFactory {
                 .build();
         }
 
-        log.debug(String.format("Creating Lucene r-NN query for index: %s \"\", field: %s \"\", k: %f", indexName, fieldName, radius));
+        log.debug("Creating Lucene r-NN query for index: {} \"\", field: {} \"\", k: {}", indexName, fieldName, radius);
 
         switch (vectorDataType) {
             case BYTE:

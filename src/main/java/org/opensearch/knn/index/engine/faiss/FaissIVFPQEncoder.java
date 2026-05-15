@@ -12,6 +12,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.Parameter;
 
+import java.util.Locale;
 import java.util.Set;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
@@ -71,7 +72,7 @@ public class FaissIVFPQEncoder extends AbstractFaissPQEncoder {
                 Parameter<?> codeSizeParameter = methodComponent.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE);
                 if (codeSizeParameter == null) {
                     throw new IllegalStateException(
-                        String.format("%s  is not a valid parameter. This is a bug.", ENCODER_PARAMETER_PQ_CODE_SIZE)
+                        String.format(Locale.ROOT, "%s  is not a valid parameter. This is a bug.", ENCODER_PARAMETER_PQ_CODE_SIZE)
                     );
                 }
 
@@ -79,7 +80,7 @@ public class FaissIVFPQEncoder extends AbstractFaissPQEncoder {
             }
 
             if (!(codeSizeObject instanceof Integer)) {
-                throw new IllegalStateException(String.format("%s must be an integer.", ENCODER_PARAMETER_PQ_CODE_SIZE));
+                throw new IllegalStateException(String.format(Locale.ROOT, "%s must be an integer.", ENCODER_PARAMETER_PQ_CODE_SIZE));
             }
 
             int codeSize = (Integer) codeSizeObject;

@@ -308,7 +308,10 @@ public class FaissIT extends KNNRestTestCase {
         );
 
         for (KNNResult result : results.get(0)) {
-            assertTrue(String.format("Score %.4f below threshold %.3f", result.getScore(), minScore), result.getScore() >= minScore);
+            assertTrue(
+                String.format(Locale.ROOT, "Score %.4f below threshold %.3f", result.getScore(), minScore),
+                result.getScore() >= minScore
+            );
         }
 
         deleteKNNIndex(indexName);

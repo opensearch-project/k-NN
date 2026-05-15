@@ -31,6 +31,7 @@ import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
 
+import java.nio.charset.StandardCharsets;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -257,7 +258,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
         when(dir.openInput(any(), any())).thenReturn(mock(IndexInput.class));
         SegmentInfo si = mock(SegmentInfo.class);
         when(si.files()).thenReturn(files);
-        when(si.getId()).thenReturn((si.hashCode() + "").getBytes());
+        when(si.getId()).thenReturn((si.hashCode() + "").getBytes(StandardCharsets.UTF_8));
         return new Faiss1040ScalarQuantizedKnnVectorsReader(new SegmentReadState(dir, si, fieldInfos, IOContext.DEFAULT), fvr);
     }
 }

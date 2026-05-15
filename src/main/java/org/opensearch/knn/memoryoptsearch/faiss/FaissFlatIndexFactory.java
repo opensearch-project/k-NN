@@ -15,6 +15,7 @@ import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissBinaryHnswIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissBinaryIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.cagra.FaissHNSWCagraIndex;
 
+import java.util.Locale;
 import java.util.Arrays;
 
 /**
@@ -70,6 +71,7 @@ public class FaissFlatIndexFactory {
             if (flatBinaryIndex == null) {
                 throw new IllegalStateException(
                     String.format(
+                        Locale.ROOT,
                         "%s found for field [%s] but %s returned null — cannot wire binary flat storage.",
                         FaissEmptyIndex.class.getName(),
                         fieldInfo.getName(),
@@ -100,6 +102,7 @@ public class FaissFlatIndexFactory {
             if (flatIndex == null) {
                 throw new IllegalStateException(
                     String.format(
+                        Locale.ROOT,
                         "%s found for field [%s] but %s returned null — cannot wire flat storage for CAGRA index.",
                         FaissEmptyIndex.class.getName(),
                         fieldInfo.getName(),

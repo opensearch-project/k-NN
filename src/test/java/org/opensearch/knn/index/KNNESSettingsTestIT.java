@@ -18,6 +18,7 @@ import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.plugin.stats.StatNames;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
+import java.util.Locale;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -154,7 +155,7 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
             ResponseException.class,
             () -> updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.KNN_INDEX, false))
         );
-        assertThat(ex.getMessage(), containsString(String.format("final %s setting [index.knn], not updateable", INDEX_NAME)));
+        assertThat(ex.getMessage(), containsString(String.format(Locale.ROOT, "final %s setting [index.knn], not updateable", INDEX_NAME)));
 
     }
 

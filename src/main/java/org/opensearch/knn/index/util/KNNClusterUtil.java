@@ -18,6 +18,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.core.index.Index;
 import org.opensearch.search.pipeline.SearchPipelineService;
 
+import java.util.Locale;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -65,7 +66,11 @@ public class KNNClusterUtil {
             return this.clusterService.state().getNodes().getMinNodeVersion();
         } catch (Exception exception) {
             log.error(
-                String.format("Failed to get cluster minimum node version, returning current node version %s instead.", Version.CURRENT),
+                String.format(
+                    Locale.ROOT,
+                    "Failed to get cluster minimum node version, returning current node version %s instead.",
+                    Version.CURRENT
+                ),
                 exception
             );
             return Version.CURRENT;

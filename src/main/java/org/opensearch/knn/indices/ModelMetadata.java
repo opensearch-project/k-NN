@@ -33,6 +33,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 
+import java.util.Locale;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
@@ -147,6 +148,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         if (dimension <= 0 || dimension > maxDimensions) {
             throw new IllegalArgumentException(
                 String.format(
+                    Locale.ROOT,
                     "Dimension \"%s\" is invalid. Value must be greater than 0 and less than or equal to %d",
                     dimension,
                     maxDimensions

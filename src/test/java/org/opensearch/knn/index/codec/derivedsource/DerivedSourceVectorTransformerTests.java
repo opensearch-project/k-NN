@@ -12,6 +12,7 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.test.OpenSearchTestCase;
 
+import java.util.Locale;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -125,6 +126,7 @@ public class DerivedSourceVectorTransformerTests extends OpenSearchTestCase {
         for (String field : expectedPresent) {
             assertTrue(
                 String.format(
+                    Locale.ROOT,
                     "Field '%s' should be present (includes=%s, excludes=%s)",
                     field,
                     Arrays.toString(includes),
@@ -137,6 +139,7 @@ public class DerivedSourceVectorTransformerTests extends OpenSearchTestCase {
         for (String field : expectedAbsent) {
             assertFalse(
                 String.format(
+                    Locale.ROOT,
                     "Field '%s' should be absent (includes=%s, excludes=%s)",
                     field,
                     Arrays.toString(includes),
@@ -147,7 +150,12 @@ public class DerivedSourceVectorTransformerTests extends OpenSearchTestCase {
         }
 
         assertEquals(
-            String.format("Field count mismatch (includes=%s, excludes=%s)", Arrays.toString(includes), Arrays.toString(excludes)),
+            String.format(
+                Locale.ROOT,
+                "Field count mismatch (includes=%s, excludes=%s)",
+                Arrays.toString(includes),
+                Arrays.toString(excludes)
+            ),
             expectedPresent.length,
             remainingFields.size()
         );

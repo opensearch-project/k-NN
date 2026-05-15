@@ -24,6 +24,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
+import java.util.Locale;
 import java.io.IOException;
 import java.util.Deque;
 import java.util.LinkedList;
@@ -92,6 +93,7 @@ public abstract class BaseQueryFactory {
             .orElseThrow(() -> new RuntimeException("Shard context cannot be null"));
         log.debug(
             String.format(
+                Locale.ROOT,
                 "Creating query with filter for index [%s], field [%s]",
                 createQueryRequest.getIndexName(),
                 createQueryRequest.getFieldName()

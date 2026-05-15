@@ -63,6 +63,7 @@ import org.opensearch.knn.plugin.transport.UpdateModelGraveyardRequest;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataRequest;
 
+import java.util.Locale;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Base64;
@@ -426,7 +427,7 @@ public interface ModelDao {
 
                 getRequestBuilder.execute(ActionListener.wrap(response -> {
                     if (response.isSourceEmpty()) {
-                        String errorMessage = String.format("Model \" %s \" does not exist", modelId);
+                        String errorMessage = String.format(Locale.ROOT, "Model \" %s \" does not exist", modelId);
                         actionListener.onFailure(new ResourceNotFoundException(modelId, errorMessage));
                         return;
                     }
@@ -509,7 +510,12 @@ public interface ModelDao {
         public void delete(String modelId, ActionListener<DeleteModelResponse> listener) {
             // If the index is not created, there is no need to delete the model
             if (!isCreated()) {
-                String errorMessage = String.format("Cannot delete model [%s]. Model index [%s] does not exist", modelId, MODEL_INDEX_NAME);
+                String errorMessage = String.format(
+                    Locale.ROOT,
+                    "Cannot delete model [%s]. Model index [%s] does not exist",
+                    modelId,
+                    MODEL_INDEX_NAME
+                );
                 listener.onFailure(new ResourceNotFoundException(errorMessage));
                 return;
             }
@@ -524,7 +530,7 @@ public interface ModelDao {
             // Get Model to check if model is in TRAINING
             get(modelId, ActionListener.wrap(getModelStep::onResponse, exception -> {
                 if (exception instanceof ResourceNotFoundException) {
-                    String errorMessage = String.format("Unable to delete model [%s]. Model does not exist", modelId);
+                    String errorMessage = String.format(Locale.ROOT, "Unable to delete model [%s]. Model does not exist", modelId);
                     ResourceNotFoundException resourceNotFoundException = new ResourceNotFoundException(errorMessage);
                     removeModelIdFromGraveyardOnFailure(modelId, resourceNotFoundException, getModelStep);
                 } else {
@@ -535,7 +541,7 @@ public interface ModelDao {
             getModelStep.whenComplete(getModelResponse -> {
                 // If model is in Training state, fail delete model request
                 if (ModelState.TRAINING == getModelResponse.getModel().getModelMetadata().getState()) {
-                    String errorMessage = String.format("Cannot delete model [%s]. Model is still in training", modelId);
+                    String errorMessage = String.format(Locale.ROOT, "Cannot delete model [%s]. Model is still in training", modelId);
                     listener.onFailure(new DeleteModelException(errorMessage));
                     return;
                 }
@@ -562,7 +568,7 @@ public interface ModelDao {
                 // If model is not deleted, remove modelId from model graveyard and return with error message
                 if (deleteResponse.getResult() != DocWriteResponse.Result.DELETED) {
                     updateModelGraveyardToDelete(modelId, true, unblockModelIdStep, Optional.empty());
-                    String errorMessage = String.format("Model [%s] does not exist", modelId);
+                    String errorMessage = String.format(Locale.ROOT, "Model [%s] does not exist", modelId);
                     listener.onFailure(new ResourceNotFoundException(errorMessage));
                     return;
                 }
@@ -641,8 +647,8 @@ public interface ModelDao {
 
                 }, e -> {
                     // If it fails to remove the modelId from Model Graveyard, then log the error message
-                    String errorMessage = String.format("Failed to remove \" %s \" from Model Graveyard", modelId);
-                    String failureMessage = String.format("%s%s%s", errorMessage, "\n", e.getMessage());
+                    String errorMessage = String.format(Locale.ROOT, "Failed to remove \" %s \" from Model Graveyard", modelId);
+                    String failureMessage = String.format(Locale.ROOT, "%s%s%s", errorMessage, "\n", e.getMessage());
                     logger.error(failureMessage);
 
                     if (exception.isEmpty()) {
@@ -677,8 +683,14 @@ public interface ModelDao {
                 }, unblockingFailedException -> {
                     // If it fails to remove the modelId from Model Graveyard, then log the error message and
                     // throw the exception that was passed as a parameter from previous step
-                    String errorMessage = String.format("Failed to remove \" %s \" from Model Graveyard", modelId);
-                    String failureMessage = String.format("%s%s%s", errorMessage, "\n", unblockingFailedException.getMessage());
+                    String errorMessage = String.format(Locale.ROOT, "Failed to remove \" %s \" from Model Graveyard", modelId);
+                    String failureMessage = String.format(
+                        Locale.ROOT,
+                        "%s%s%s",
+                        errorMessage,
+                        "\n",
+                        unblockingFailedException.getMessage()
+                    );
                     logger.error(failureMessage);
                     step.onFailure(exceptionFromPreviousStep);
                 })

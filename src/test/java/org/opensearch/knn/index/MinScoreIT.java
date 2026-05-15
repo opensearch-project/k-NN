@@ -17,6 +17,7 @@ import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNEngine;
 
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -276,6 +277,7 @@ public class MinScoreIT extends KNNRestTestCase {
 
             assertEquals(
                 String.format(
+                    Locale.ROOT,
                     "[%s, %s, memOpt=%s] Expected %d results with min_score=%.2f",
                     knnEngine.getName(),
                     spaceType.getValue(),
@@ -291,6 +293,7 @@ public class MinScoreIT extends KNNRestTestCase {
             for (KNNResult result : results) {
                 assertTrue(
                     String.format(
+                        Locale.ROOT,
                         "[%s, %s, memOpt=%s] Score %.3f should be >= %.2f",
                         knnEngine.getName(),
                         spaceType.getValue(),

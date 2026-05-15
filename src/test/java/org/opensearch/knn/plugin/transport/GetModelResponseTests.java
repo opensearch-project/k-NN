@@ -28,6 +28,7 @@ import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 
+import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 import java.util.Locale;
 
@@ -57,7 +58,7 @@ public class GetModelResponseTests extends KNNTestCase {
 
     public void testStreams() throws IOException {
         String modelId = "test-model";
-        byte[] testModelBlob = "hello".getBytes();
+        byte[] testModelBlob = "hello".getBytes(StandardCharsets.UTF_8);
         Model model = new Model(getModelMetadata(ModelState.CREATED), testModelBlob, modelId);
         GetModelResponse getModelResponse = new GetModelResponse(model);
         BytesStreamOutput streamOutput = new BytesStreamOutput();
@@ -72,7 +73,7 @@ public class GetModelResponseTests extends KNNTestCase {
             when(knnClusterUtil.getClusterMinVersion()).thenReturn(Version.CURRENT);
             knnClusterUtilMockedStatic.when(KNNClusterUtil::instance).thenReturn(knnClusterUtil);
             String modelId = "test-model";
-            byte[] testModelBlob = "hello".getBytes();
+            byte[] testModelBlob = "hello".getBytes(StandardCharsets.UTF_8);
             Model model = new Model(getModelMetadata(ModelState.CREATED), testModelBlob, modelId);
             GetModelResponse getModelResponse = new GetModelResponse(model);
             String expectedResponseString = String.format(

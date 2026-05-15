@@ -33,6 +33,7 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 
+import java.util.Locale;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -73,11 +74,11 @@ public class KNN80DocValuesProducerTests extends KNNTestCase {
 
         String segmentName = "_test";
         int docsInSegment = 100;
-        String fieldName1 = String.format("test_field1%s", randomAlphaOfLength(4));
-        String fieldName2 = String.format("test_field2%s", randomAlphaOfLength(4));
+        String fieldName1 = String.format(Locale.ROOT, "test_field1%s", randomAlphaOfLength(4));
+        String fieldName2 = String.format(Locale.ROOT, "test_field2%s", randomAlphaOfLength(4));
         List<String> segmentFiles = Arrays.asList(
-            String.format("%s_2011_%s%s", segmentName, fieldName1, KNNEngine.NMSLIB.getExtension()),
-            String.format("%s_165_%s%s", segmentName, fieldName2, KNNEngine.FAISS.getExtension())
+            String.format(Locale.ROOT, "%s_2011_%s%s", segmentName, fieldName1, KNNEngine.NMSLIB.getExtension()),
+            String.format(Locale.ROOT, "%s_165_%s%s", segmentName, fieldName2, KNNEngine.FAISS.getExtension())
         );
 
         KNNEngine knnEngine = KNNEngine.NMSLIB;
@@ -142,11 +143,11 @@ public class KNN80DocValuesProducerTests extends KNNTestCase {
 
         String segmentName = "_test";
         int docsInSegment = 100;
-        String fieldName1 = String.format("test_field1%s", randomAlphaOfLength(4));
-        String fieldName2 = String.format("test_field2%s", randomAlphaOfLength(4));
+        String fieldName1 = String.format(Locale.ROOT, "test_field1%s", randomAlphaOfLength(4));
+        String fieldName2 = String.format(Locale.ROOT, "test_field2%s", randomAlphaOfLength(4));
         List<String> segmentFiles = Arrays.asList(
-            String.format("%s_2011_%s%s", segmentName, fieldName1, KNNEngine.NMSLIB.getExtension()),
-            String.format("%s_165_%s%s", segmentName, fieldName2, KNNEngine.FAISS.getExtension())
+            String.format(Locale.ROOT, "%s_2011_%s%s", segmentName, fieldName1, KNNEngine.NMSLIB.getExtension()),
+            String.format(Locale.ROOT, "%s_165_%s%s", segmentName, fieldName2, KNNEngine.FAISS.getExtension())
         );
 
         KNNEngine knnEngine = KNNEngine.NMSLIB;

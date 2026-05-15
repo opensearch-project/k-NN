@@ -280,7 +280,9 @@ public final class KNNQueryBuilderParser {
 
     private static float[] floatListToFloatArray(List<Float> floats) {
         if (Objects.isNull(floats) || floats.isEmpty()) {
-            throw new IllegalArgumentException(String.format("[%s] field 'vector' requires to be non-null and non-empty", NAME));
+            throw new IllegalArgumentException(
+                String.format(Locale.ROOT, "[%s] field 'vector' requires to be non-null and non-empty", NAME)
+            );
         }
         float[] vec = new float[floats.size()];
         for (int i = 0; i < floats.size(); i++) {

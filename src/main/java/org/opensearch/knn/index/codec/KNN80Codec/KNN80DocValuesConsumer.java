@@ -60,7 +60,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer {
 
     private boolean isKNNBinaryFieldRequired(FieldInfo field) {
         final KNNEngine knnEngine = extractKNNEngine(field);
-        log.debug(String.format("Read engine [%s] for field [%s]", knnEngine.getName(), field.getName()));
+        log.debug("Read engine [{}] for field [{}]", knnEngine.getName(), field.getName());
         return field.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)
             && KNNEngine.getEnginesThatCreateCustomSegmentFiles().stream().anyMatch(engine -> engine == knnEngine);
     }

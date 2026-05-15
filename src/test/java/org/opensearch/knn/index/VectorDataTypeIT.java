@@ -311,7 +311,7 @@ public class VectorDataTypeIT extends KNNRestTestCase {
         createKnnIndexMappingForScripting(2, VectorDataType.BYTE.getValue());
         ingestL2ByteTestData();
 
-        String source = String.format("1/(1 + l2Squared([1, 1], doc['%s']))", FIELD_NAME);
+        String source = String.format(Locale.ROOT, "1/(1 + l2Squared([1, 1], doc['%s']))", FIELD_NAME);
         Request request = constructScriptScoreContextSearchRequest(
             INDEX_NAME,
             MATCH_ALL_QUERY_BUILDER,
@@ -332,7 +332,7 @@ public class VectorDataTypeIT extends KNNRestTestCase {
         createKnnIndexMappingForScripting(2, VectorDataType.FLOAT.getValue());
         ingestL2FloatTestData();
 
-        String source = String.format("1/(1 + l2Squared([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
+        String source = String.format(Locale.ROOT, "1/(1 + l2Squared([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
         Request request = constructScriptScoreContextSearchRequest(
             INDEX_NAME,
             MATCH_ALL_QUERY_BUILDER,
@@ -397,7 +397,7 @@ public class VectorDataTypeIT extends KNNRestTestCase {
     public void testSearchWithInvalidSearchVectorType() {
         createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2, VectorDataType.FLOAT.getValue());
         ingestL2FloatTestData();
-        Request request = new Request("POST", String.format("/%s/_search", INDEX_NAME));
+        Request request = new Request("POST", String.format(Locale.ROOT, "/%s/_search", INDEX_NAME));
         List<Object> invalidTypeQueryVector = new ArrayList<>();
         invalidTypeQueryVector.add(1.5);
         invalidTypeQueryVector.add(2.5);
@@ -425,7 +425,7 @@ public class VectorDataTypeIT extends KNNRestTestCase {
     public void testSearchWithMissingQueryVector() {
         createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2, VectorDataType.FLOAT.getValue());
         ingestL2FloatTestData();
-        Request request = new Request("POST", String.format("/%s/_search", INDEX_NAME));
+        Request request = new Request("POST", String.format(Locale.ROOT, "/%s/_search", INDEX_NAME));
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("query")
