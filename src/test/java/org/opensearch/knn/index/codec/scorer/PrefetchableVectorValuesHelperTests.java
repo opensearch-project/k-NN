@@ -27,7 +27,7 @@ public class PrefetchableVectorValuesHelperTests extends KNNTestCase {
     private final int[] nodes = { 0, 1, 2 };
     private final int numNodes = 3;
 
-    public void testMayBeDoPrefetch_whenFloatVectorValuesImpl_thenPrefetchesViaHasIndexSlice() throws IOException {
+    public void testDoPrefetch_whenFloatVectorValuesImpl_thenPrefetchesViaHasIndexSlice() throws IOException {
         IndexInput mockSlice = mock(IndexInput.class);
         when(mockSlice.length()).thenReturn(200L * 1024);
         int vectorByteLength = 512;
@@ -37,13 +37,13 @@ public class PrefetchableVectorValuesHelperTests extends KNNTestCase {
         when(floatImpl.getVectorByteLength()).thenReturn(vectorByteLength);
 
         try (MockedStatic<PrefetchHelper> mockedPrefetchHelper = mockStatic(PrefetchHelper.class)) {
-            PrefetchableVectorValuesHelper.mayBeDoPrefetch(floatImpl, nodes, numNodes);
+            PrefetchableVectorValuesHelper.doPrefetch(floatImpl, nodes, numNodes);
 
             mockedPrefetchHelper.verify(() -> PrefetchHelper.prefetch(mockSlice, 0, vectorByteLength, nodes, numNodes));
         }
     }
 
-    public void testMayBeDoPrefetch_whenQuantizedFloatVectorValuesImpl_thenPrefetchesViaHasIndexSlice() throws IOException {
+    public void testDoPrefetch_whenQuantizedFloatVectorValuesImpl_thenPrefetchesViaHasIndexSlice() throws IOException {
         IndexInput mockSlice = mock(IndexInput.class);
         when(mockSlice.length()).thenReturn(200L * 1024);
         int vectorByteLength = 512;
@@ -53,13 +53,13 @@ public class PrefetchableVectorValuesHelperTests extends KNNTestCase {
         when(floatImpl.getVectorByteLength()).thenReturn(vectorByteLength);
 
         try (MockedStatic<PrefetchHelper> mockedPrefetchHelper = mockStatic(PrefetchHelper.class)) {
-            PrefetchableVectorValuesHelper.mayBeDoPrefetch(floatImpl, nodes, numNodes);
+            PrefetchableVectorValuesHelper.doPrefetch(floatImpl, nodes, numNodes);
 
             mockedPrefetchHelper.verify(() -> PrefetchHelper.prefetch(mockSlice, 0, vectorByteLength, nodes, numNodes));
         }
     }
 
-    public void testMayBeDoPrefetch_whenByteVectorValuesImpl_thenPrefetchesViaHasIndexSlice() throws IOException {
+    public void testDoPrefetch_whenByteVectorValuesImpl_thenPrefetchesViaHasIndexSlice() throws IOException {
         IndexInput mockSlice = mock(IndexInput.class);
         when(mockSlice.length()).thenReturn(200L * 1024);
         int vectorByteLength = 64;
@@ -69,13 +69,13 @@ public class PrefetchableVectorValuesHelperTests extends KNNTestCase {
         when(binaryImpl.getVectorByteLength()).thenReturn(vectorByteLength);
 
         try (MockedStatic<PrefetchHelper> mockedPrefetchHelper = mockStatic(PrefetchHelper.class)) {
-            PrefetchableVectorValuesHelper.mayBeDoPrefetch(binaryImpl, nodes, numNodes);
+            PrefetchableVectorValuesHelper.doPrefetch(binaryImpl, nodes, numNodes);
 
             mockedPrefetchHelper.verify(() -> PrefetchHelper.prefetch(mockSlice, 0, vectorByteLength, nodes, numNodes));
         }
     }
 
-    public void testMayBeDoPrefetch_whenSparseFloatVectorValuesImpl_thenPrefetchesViaHasIndexSlice() throws IOException {
+    public void testDoPrefetch_whenSparseFloatVectorValuesImpl_thenPrefetchesViaHasIndexSlice() throws IOException {
         IndexInput mockSlice = mock(IndexInput.class);
         when(mockSlice.length()).thenReturn(200L * 1024);
         int vectorByteLength = 512;
@@ -85,13 +85,13 @@ public class PrefetchableVectorValuesHelperTests extends KNNTestCase {
         when(sparseImpl.getVectorByteLength()).thenReturn(vectorByteLength);
 
         try (MockedStatic<PrefetchHelper> mockedPrefetchHelper = mockStatic(PrefetchHelper.class)) {
-            PrefetchableVectorValuesHelper.mayBeDoPrefetch(sparseImpl, nodes, numNodes);
+            PrefetchableVectorValuesHelper.doPrefetch(sparseImpl, nodes, numNodes);
 
             mockedPrefetchHelper.verify(() -> PrefetchHelper.prefetch(mockSlice, 0, vectorByteLength, nodes, numNodes));
         }
     }
 
-    public void testMayBeDoPrefetch_whenOffHeapFloatVectorValues_thenCallsPrefetchHelper() throws IOException {
+    public void testDoPrefetch_whenOffHeapFloatVectorValues_thenCallsPrefetchHelper() throws IOException {
         IndexInput mockSlice = mock(IndexInput.class);
         when(mockSlice.length()).thenReturn(200L * 1024);
         int vectorByteLength = 16;
@@ -101,23 +101,23 @@ public class PrefetchableVectorValuesHelperTests extends KNNTestCase {
         when(hasSliceValues.getVectorByteLength()).thenReturn(vectorByteLength);
 
         try (MockedStatic<PrefetchHelper> mockedPrefetchHelper = mockStatic(PrefetchHelper.class)) {
-            PrefetchableVectorValuesHelper.mayBeDoPrefetch(hasSliceValues, nodes, numNodes);
+            PrefetchableVectorValuesHelper.doPrefetch(hasSliceValues, nodes, numNodes);
 
             mockedPrefetchHelper.verify(() -> PrefetchHelper.prefetch(mockSlice, 0, vectorByteLength, nodes, numNodes));
         }
     }
 
-    public void testMayBeDoPrefetch_whenUnsupportedType_thenNoException() throws IOException {
+    public void testDoPrefetch_whenUnsupportedType_thenNoException() throws IOException {
         KnnVectorValues unsupported = mock(FloatVectorValues.class);
 
         try (MockedStatic<PrefetchHelper> mockedPrefetchHelper = mockStatic(PrefetchHelper.class)) {
-            PrefetchableVectorValuesHelper.mayBeDoPrefetch(unsupported, nodes, numNodes);
+            PrefetchableVectorValuesHelper.doPrefetch(unsupported, nodes, numNodes);
 
             mockedPrefetchHelper.verifyNoInteractions();
         }
     }
 
-    public void testMayBeDoPrefetch_whenZeroNumNodes_thenDelegatesAsIs() throws IOException {
+    public void testDoPrefetch_whenZeroNumNodes_thenDelegatesAsIs() throws IOException {
         IndexInput mockSlice = mock(IndexInput.class);
         when(mockSlice.length()).thenReturn(200L * 1024);
         int vectorByteLength = 64;
@@ -127,7 +127,7 @@ public class PrefetchableVectorValuesHelperTests extends KNNTestCase {
         when(binaryImpl.getVectorByteLength()).thenReturn(vectorByteLength);
 
         try (MockedStatic<PrefetchHelper> mockedPrefetchHelper = mockStatic(PrefetchHelper.class)) {
-            PrefetchableVectorValuesHelper.mayBeDoPrefetch(binaryImpl, nodes, 0);
+            PrefetchableVectorValuesHelper.doPrefetch(binaryImpl, nodes, 0);
 
             mockedPrefetchHelper.verify(() -> PrefetchHelper.prefetch(mockSlice, 0, vectorByteLength, nodes, 0));
         }

@@ -1,0 +1,101 @@
+From ef445296a0f48f3a0eb69b7436a60125f4a951e9 Mon Sep 17 00:00:00 2001
+From: Dooyong Kim <kdooyong@amazon.com>
+Date: Thu, 26 Mar 2026 17:05:44 -0700
+Subject: [PATCH] Make selective FAISS_THROW_IF_NOT(d % 8 == 0) in IndexBinary.
+
+Signed-off-by: Dooyong Kim <kdooyong@amazon.com>
+---
+ faiss/IndexBinary.cpp     | 7 +++++--
+ faiss/IndexBinary.h       | 5 +++--
+ faiss/IndexBinaryHNSW.cpp | 4 ++--
+ faiss/IndexBinaryHNSW.h   | 2 +-
+ faiss/IndexIDMap.cpp      | 3 ++-
+ 5 files changed, 13 insertions(+), 8 deletions(-)
+
+diff --git a/faiss/IndexBinary.cpp b/faiss/IndexBinary.cpp
+index 3c8165b76..7764ffbea 100644
+--- a/faiss/IndexBinary.cpp
++++ b/faiss/IndexBinary.cpp
+@@ -15,9 +15,12 @@
+ 
+ namespace faiss {
+ 
+-IndexBinary::IndexBinary(idx_t d, MetricType metric)
++IndexBinary::IndexBinary(idx_t d, MetricType metric, bool isExtendedIndex)
+         : d(d), code_size(d / 8), metric_type(metric) {
+-    FAISS_THROW_IF_NOT(d % 8 == 0);
++    if (isExtendedIndex == false) {
++        // If this is not extended, then it's required for dimension to be multiple of 8.
++        FAISS_THROW_IF_NOT(d % 8 == 0);
++    }
+ }
+ 
+ IndexBinary::~IndexBinary() = default;
+diff --git a/faiss/IndexBinary.h b/faiss/IndexBinary.h
+index 41ae6522a..0f99ebe0f 100644
+--- a/faiss/IndexBinary.h
++++ b/faiss/IndexBinary.h
+@@ -31,7 +31,7 @@ struct IndexBinary {
+     using distance_t = int32_t;
+ 
+     int d = 0;            ///< vector dimension
+-    int code_size = 0;    ///< number of bytes per vector ( = d / 8 )
++    int code_size = 0;    ///< number of bytes per vector ( = d / 8 if not isExtendedIndex, otherwise, it can be an arbitrary code_size)
+     idx_t ntotal = 0;     ///< total nb of indexed vectors
+     bool verbose = false; ///< verbosity level
+ 
+@@ -42,7 +42,8 @@ struct IndexBinary {
+     /// type of metric this index uses for search
+     MetricType metric_type = METRIC_L2;
+ 
+-    explicit IndexBinary(idx_t d = 0, MetricType metric = METRIC_L2);
++    // If this is extended index,
++    explicit IndexBinary(idx_t d = 0, MetricType metric = METRIC_L2, bool isExtendedIndex = false);
+ 
+     virtual ~IndexBinary();
+ 
+diff --git a/faiss/IndexBinaryHNSW.cpp b/faiss/IndexBinaryHNSW.cpp
+index a1db923b9..c5d221e44 100644
+--- a/faiss/IndexBinaryHNSW.cpp
++++ b/faiss/IndexBinaryHNSW.cpp
+@@ -180,8 +180,8 @@ IndexBinaryHNSW::IndexBinaryHNSW(int d, int M)
+     is_trained = true;
+ }
+ 
+-IndexBinaryHNSW::IndexBinaryHNSW(IndexBinary* storage, int M)
+-        : IndexBinary(storage->d),
++IndexBinaryHNSW::IndexBinaryHNSW(IndexBinary* storage, int M, bool isExtendedBinaryIndex)
++        : IndexBinary(storage->d, storage->metric_type, isExtendedBinaryIndex),
+           hnsw(M),
+           own_fields(false),
+           storage(storage) {
+diff --git a/faiss/IndexBinaryHNSW.h b/faiss/IndexBinaryHNSW.h
+index a72f06bc6..7ff1aaae2 100644
+--- a/faiss/IndexBinaryHNSW.h
++++ b/faiss/IndexBinaryHNSW.h
+@@ -42,7 +42,7 @@ struct IndexBinaryHNSW : IndexBinary {
+ 
+     explicit IndexBinaryHNSW();
+     explicit IndexBinaryHNSW(int d, int M = 32);
+-    explicit IndexBinaryHNSW(IndexBinary* storage, int M = 32);
++    explicit IndexBinaryHNSW(IndexBinary* storage, int M = 32, bool isExtendedBinaryIndex = false);
+ 
+     ~IndexBinaryHNSW() override;
+ 
+diff --git a/faiss/IndexIDMap.cpp b/faiss/IndexIDMap.cpp
+index 8c7a893e3..d9a27d30e 100644
+--- a/faiss/IndexIDMap.cpp
++++ b/faiss/IndexIDMap.cpp
+@@ -28,7 +28,8 @@ namespace {
+ void sync_d(Index* index) {}
+ 
+ void sync_d(IndexBinary* index) {
+-    FAISS_THROW_IF_NOT(index->d % 8 == 0);
++    // We don't need this check in here, it's already tested in its constructor.
++    // FAISS_THROW_IF_NOT(index->d % 8 == 0);
+     index->code_size = index->d / 8;
+ }
+ 
+-- 
+2.50.1 (Apple Git-155)
+

@@ -576,26 +576,26 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_setMergeInterrup
     }
 }
 
-JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_initFaissBBQIndex(
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_initFaissSQIndex(
     JNIEnv * env, jclass cls, jint totalLiveDocs, jint dimJ, jobject parametersJ, jfloat centroidDp, jint quantizedVecBytes) {
     try {
         std::unique_ptr<knn_jni::faiss_wrapper::FaissMethods> faissMethods(new knn_jni::faiss_wrapper::FaissMethods());
         knn_jni::faiss_wrapper::BinaryIndexService binaryIndexService(std::move(faissMethods));
-        return knn_jni::faiss_wrapper::InitFaissBBQIndex(&jniUtil, env, totalLiveDocs, dimJ, parametersJ, &binaryIndexService, centroidDp, quantizedVecBytes);
+        return knn_jni::faiss_wrapper::InitFaissSQIndex(&jniUtil, env, totalLiveDocs, dimJ, parametersJ, &binaryIndexService, centroidDp, quantizedVecBytes);
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
     return (jlong)0;
 }
 
-JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_addDocsToBBQIndex(
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_addDocsToSQIndex(
     JNIEnv * env, jclass cls, jlong indexMemoryAddress, jintArray docIdsJ, jint numDocs, jint numAdded) {
 
     try {
-        // Grab Faiss BBQ stuff
+        // Grab Faiss SQ stuff
         auto binaryIdMap = (faiss::IndexBinaryIDMap*) indexMemoryAddress;
-        auto faissBBQHnsw = (knn_jni::FaissSQHnsw*) binaryIdMap->index;
-        auto faissBBQFlat = (knn_jni::FaissSQFlat*) faissBBQHnsw->storage;
+        auto faissSQHnsw = (knn_jni::FaissSQHnsw*) binaryIdMap->index;
+        auto faissSQFlat = (knn_jni::FaissSQFlat*) faissSQHnsw->storage;
 
         // Allocate in stack
         int64_t docIds[numDocs];
@@ -609,8 +609,8 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_addDocsToBBQInde
 
         // Get the next batch of vectors to be added to HNSW
         // Note that we've already inserted quantized vectors in storage, just that it's not visible yet.
-        auto* vecPtr = faissBBQFlat->quantizedVectorsAndCorrectionFactors.data()
-                       + (numAdded * faissBBQFlat->oneElementSize);
+        auto* vecPtr = faissSQFlat->quantizedVectorsAndCorrectionFactors.data()
+                       + (numAdded * faissSQFlat->oneElementSize);
 
         // Keep building HNSW
         binaryIdMap->add_with_ids(numDocs, vecPtr, &docIds[0]);
@@ -619,14 +619,14 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_addDocsToBBQInde
     }
 }
 
-JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_passBBQVectorsWithCorrectionFactors(
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_passSQVectorsWithCorrectionFactors(
     JNIEnv * env, jclass cls, jlong indexMemoryAddress, jbyteArray buffer, jint numElements) {
 
     try {
-        // Grab Faiss BBQ stuff
+        // Grab Faiss SQ stuff
         auto binaryIdMap = (faiss::IndexBinaryIDMap*) indexMemoryAddress;
-        auto faissBBQHnsw = (knn_jni::FaissSQHnsw*) binaryIdMap->index;
-        auto faissBBQFlat = (knn_jni::FaissSQFlat*) faissBBQHnsw->storage;
+        auto faissSQHnsw = (knn_jni::FaissSQHnsw*) binaryIdMap->index;
+        auto faissSQFlat = (knn_jni::FaissSQFlat*) faissSQHnsw->storage;
 
         // Start copying
         jbyte* jb = static_cast<jbyte*>(env->GetPrimitiveArrayCritical(buffer, nullptr));
@@ -635,17 +635,17 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_passBBQVectorsWi
         });
 
         // This does not involve memory doubling, we already allocated required memory space
-        faissBBQFlat->quantizedVectorsAndCorrectionFactors.insert(
-            faissBBQFlat->quantizedVectorsAndCorrectionFactors.end(),
+        faissSQFlat->quantizedVectorsAndCorrectionFactors.insert(
+            faissSQFlat->quantizedVectorsAndCorrectionFactors.end(),
             reinterpret_cast<uint8_t*>(jb),
-            reinterpret_cast<uint8_t*>(jb) + numElements * faissBBQFlat->oneElementSize
+            reinterpret_cast<uint8_t*>(jb) + numElements * faissSQFlat->oneElementSize
         );
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
 }
 
-JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_releaseFaissBBQIndex(
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_releaseFaissSQIndex(
     JNIEnv * env, jclass cls, jlong indexMemoryAddress) {
     try {
         auto* binaryIdMap = reinterpret_cast<faiss::IndexBinaryIDMap*>(indexMemoryAddress);

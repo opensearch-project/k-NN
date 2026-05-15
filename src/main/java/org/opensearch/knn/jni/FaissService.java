@@ -467,9 +467,9 @@ class FaissService {
     public static native void setMergeInterruptCallback();
 
     /**
-     * Initializes a Faiss BBQ (Binary Quantized) HNSW index in native (C++) off-heap memory.
+     * Initializes a Faiss SQ (Binary Quantized) HNSW index in native (C++) off-heap memory.
      *
-     * <p>This is the first step of the BBQ index build pipeline. It allocates and configures:
+     * <p>This is the first step of the SQ index build pipeline. It allocates and configures:
      * <ul>
      *   <li>A Faiss HNSW graph structure (adjacency lists, entry point, max level) parameterized
      *       by M and efConstruction from {@code indexParameters}</li>
@@ -483,8 +483,8 @@ class FaissService {
      * </ul>
      *
      * <p>After this call, the index is empty — no vectors or doc IDs have been added yet.
-     * The caller must subsequently invoke {@link #passBBQVectorsWithCorrectionFactors} to transfer
-     * quantized vectors, then {@link #addDocsToBBQIndex} to build the HNSW graph.
+     * The caller must subsequently invoke {@link #passSQVectorsWithCorrectionFactors} to transfer
+     * quantized vectors, then {@link #addDocsToSQIndex} to build the HNSW graph.
      *
      * <p>The returned memory address is a raw pointer to the native index object and must be
      * passed to all subsequent JNI calls. The caller is responsible for ensuring the index is
@@ -499,9 +499,9 @@ class FaissService {
      * @param centroidDp       precomputed centroid dot-product, a scalar correction term used in the
      *                         asymmetric distance computation (ADC) during both graph construction and search
      * @param quantizedVecBytes byte length of a single 1-bit quantized vector, always 64-bit aligned
-     * @return memory address (pointer) of the newly allocated native Faiss BBQ index
+     * @return memory address (pointer) of the newly allocated native Faiss SQ index
      */
-    public static native long initFaissBBQIndex(
+    public static native long initFaissSQIndex(
         final int totalLiveDocs,
         final int dimension,
         final Map<String, Object> indexParameters,
@@ -510,11 +510,11 @@ class FaissService {
     );
 
     /**
-     * Adds a batch of document IDs to the Faiss BBQ index and triggers HNSW graph insertion.
+     * Adds a batch of document IDs to the Faiss SQ index and triggers HNSW graph insertion.
      *
-     * <p>This method is called during Phase 2 of the BBQ build pipeline, after all quantized
+     * <p>This method is called during Phase 2 of the SQ build pipeline, after all quantized
      * vectors and correction factors have been transferred via
-     * {@link #passBBQVectorsWithCorrectionFactors}. It serves two purposes:
+     * {@link #passSQVectorsWithCorrectionFactors}. It serves two purposes:
      * <ol>
      *   <li>Populates the FaissIdMapIndex layer that maps vector ordinals to document IDs.
      *       This mapping is critical for sparse and nested document cases where
@@ -530,7 +530,7 @@ class FaissService {
      * until all documents have been added. The batching balances JNI call overhead against
      * memory usage for the temporary int[] array on the Java side.
      *
-     * @param indexMemoryAddress pointer to the native Faiss BBQ index (returned by {@link #initFaissBBQIndex})
+     * @param indexMemoryAddress pointer to the native Faiss SQ index (returned by {@link #initFaissSQIndex})
      * @param docIds             array of document IDs for this batch; only the first {@code numDocs}
      *                           entries are read
      * @param numDocs            number of valid document IDs in the {@code docIds} array (may be less
@@ -539,13 +539,13 @@ class FaissService {
      *                           starting ordinal offset so the native code can locate the correct
      *                           quantized vectors in off-heap storage
      */
-    public static native void addDocsToBBQIndex(long indexMemoryAddress, int[] docIds, int numDocs, int numAdded);
+    public static native void addDocsToSQIndex(long indexMemoryAddress, int[] docIds, int numDocs, int numAdded);
 
     /**
      * Transfers a batch of binary quantized vectors and their correction factors from Java heap
-     * to the native Faiss BBQ index's off-heap memory.
+     * to the native Faiss SQ index's off-heap memory.
      *
-     * <p>This method is called during Phase 1 of the BBQ build pipeline, before any HNSW graph
+     * <p>This method is called during Phase 1 of the SQ build pipeline, before any HNSW graph
      * construction begins. It must be called repeatedly until all vectors have been transferred.
      * Vectors are stored sequentially by ordinal in the native index, so the order of transfer
      * determines the ordinal assignment.
@@ -574,23 +574,23 @@ class FaissService {
      * for cache-friendly vectorized access. This conversion is handled transparently by the
      * native code during the transfer.
      *
-     * @param indexMemoryAddress pointer to the native Faiss BBQ index (returned by {@link #initFaissBBQIndex})
+     * @param indexMemoryAddress pointer to the native Faiss SQ index (returned by {@link #initFaissSQIndex})
      * @param buffer             byte array containing packed [binaryCode + correctionFactors] blocks
      *                           in little-endian order; sized for the maximum batch but only the first
      *                           {@code numElements} blocks are consumed
      * @param numElements number of vector blocks (quantized vector + correction factors) in this batch to transfer
      */
-    public static native void passBBQVectorsWithCorrectionFactors(long indexMemoryAddress, byte[] buffer, int numElements);
+    public static native void passSQVectorsWithCorrectionFactors(long indexMemoryAddress, byte[] buffer, int numElements);
 
     /**
-     * Releases a Faiss BBQ index that was allocated via {@link #initFaissBBQIndex}.
+     * Releases a Faiss SQ index that was allocated via {@link #initFaissSQIndex}.
      *
      * <p>This should be called when an error occurs during index construction to prevent
      * off-heap memory leaks. The address points to a {@code faiss::IndexBinaryIDMap*} which
      * owns the entire index hierarchy (IndexBinaryIDMap → FaissSQHnsw → FaissSQFlat).
      * Deleting the top-level object cascades destruction through {@code own_fields = true}.
      *
-     * @param indexMemoryAddress pointer to the native Faiss BBQ index (returned by {@link #initFaissBBQIndex})
+     * @param indexMemoryAddress pointer to the native Faiss SQ index (returned by {@link #initFaissSQIndex})
      */
-    public static native void releaseFaissBBQIndex(long indexMemoryAddress);
+    public static native void releaseFaissSQIndex(long indexMemoryAddress);
 }

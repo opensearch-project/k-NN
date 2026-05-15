@@ -39,6 +39,7 @@ import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
@@ -697,8 +698,8 @@ public class RecallTestsIT extends KNNRestTestCase {
      * }
      */
     @SneakyThrows
-    public void testRecall_when1bitScalarQuantizer_thenRecallAbove60percent() {
-        List<SpaceType> spaceTypes = List.of(SpaceType.L2, SpaceType.COSINESIMIL);
+    public void testRecall_when1bitScalarQuantizer_thenRecallAbove80percent() {
+        List<SpaceType> spaceTypes = List.of(SpaceType.L2, SpaceType.COSINESIMIL, SpaceType.INNER_PRODUCT);
         for (SpaceType spaceType : spaceTypes) {
             String indexName = createIndexName(KNNEngine.LUCENE, spaceType) + "_binary";
             XContentBuilder builder = XContentFactory.jsonBuilder()
@@ -726,7 +727,46 @@ public class RecallTestsIT extends KNNRestTestCase {
                 .endObject()
                 .endObject();
             createIndexAndIngestDocs(indexName, TEST_FIELD_NAME, getSettings(), builder.toString());
-            assertRecall(indexName, spaceType, 0.4f);
+            assertRecall(indexName, spaceType, 0.2f);
+        }
+    }
+
+    /**
+     * {
+     * 	"properties": {
+     *     {
+     *      "type": "knn_vector",
+     *      "dimension": {TEST_DIMENSION},
+     *      "method": {
+     *          "name":"flat",
+     *          "engine":"lucene",
+     *          "space_type": "{SPACE_TYPE}",
+     *       }
+     *     }
+     *   }
+     * }
+     */
+    @SneakyThrows
+    public void testRecall_whenFlat1bitScalarQuantizer_thenRecallAbove80percent() {
+        List<SpaceType> spaceTypes = List.of(SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.COSINESIMIL);
+        for (SpaceType spaceType : spaceTypes) {
+            String indexName = createIndexName(KNNEngine.LUCENE, spaceType) + "_flat";
+            XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject(PROPERTIES_FIELD)
+                .startObject(TEST_FIELD_NAME)
+                .field(TYPE, TYPE_KNN_VECTOR)
+                .field(DIMENSION, TEST_DIMENSION)
+                .startObject(KNN_METHOD)
+                .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+                .field(KNN_ENGINE, LUCENE_NAME)
+                .field(NAME, METHOD_FLAT)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+            createIndexAndIngestDocs(indexName, TEST_FIELD_NAME, getSettings(), builder.toString());
+            assertRecall(indexName, spaceType, 0.2f);
         }
     }
 

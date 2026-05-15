@@ -13,8 +13,8 @@ namespace knn_jni::simd::similarity_function {
         FP16_MAXIMUM_INNER_PRODUCT,
         // L2 for FP16
         FP16_L2,
-        BBQ_IP,
-        BBQ_L2
+        SQ_IP,
+        SQ_L2
     };
 
     struct SimilarityFunction;

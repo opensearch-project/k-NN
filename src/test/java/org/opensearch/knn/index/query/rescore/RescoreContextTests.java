@@ -84,7 +84,7 @@ public class RescoreContextTests extends KNNTestCase {
     }
 
     public void testGetFirstPassK_whenAllowOverrideOversampleFactorIsFalse_thenDimensionBasedOverrideIsSkipped() {
-        // Simulates BBQ encoder behavior: oversampleFactor is fixed and should NOT be overridden by dimension-based logic
+        // Simulates SQ encoder behavior: oversampleFactor is fixed and should NOT be overridden by dimension-based logic
         float oversample = RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR; // 2.0f
         int finalK = 100;
 

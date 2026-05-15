@@ -99,13 +99,13 @@ public class NativeIndexWriter {
     }
 
     /**
-     * Gets the correct writer type for the specified field, with optional BBQ quantized vector values.
+     * Gets the correct writer type for the specified field, with optional SQ quantized vector values.
      *
      * @param fieldInfo                    The FieldInfo object containing metadata about the field.
      * @param state                        The SegmentWriteState representing the current segment's writing context.
      * @param quantizationState            The QuantizationState for k-NN quantization, or null.
      * @param nativeIndexBuildStrategyFactory The factory which will return the correct build strategy.
-     * @param quantizedByteVectorValues    The BBQ quantized vector values, or null for non-BBQ fields.
+     * @param quantizedByteVectorValues    The SQ quantized vector values, or null for non-SQ fields.
      * @return                             A NativeIndexWriter instance appropriate for the specified field.
      */
     public static NativeIndexWriter getWriter(

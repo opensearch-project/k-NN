@@ -8,6 +8,7 @@ package org.opensearch.knn.index.codec.nativeindex;
 import com.google.common.collect.ImmutableSet;
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
+import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.FloatVectorValues;
@@ -251,7 +252,7 @@ public class AbstractNativeEnginesKnnVectorsReaderTests extends KNNTestCase {
         public void search(String field, byte[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) {}
 
         @Override
-        public org.apache.lucene.index.ByteVectorValues getByteVectorValues(String field) {
+        public ByteVectorValues getByteVectorValues(String field) {
             return null;
         }
 
@@ -270,5 +271,8 @@ public class AbstractNativeEnginesKnnVectorsReaderTests extends KNNTestCase {
         public VectorSearcher loadMemoryOptimizedSearcherIfRequired(FieldInfo fieldInfo) {
             return super.loadMemoryOptimizedSearcherIfRequired(fieldInfo);
         }
+
+        @Override
+        public void warmUp(String fieldName) throws IOException {}
     }
 }

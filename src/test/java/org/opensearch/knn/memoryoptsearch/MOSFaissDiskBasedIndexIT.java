@@ -15,7 +15,7 @@ import org.opensearch.knn.index.mapper.Mode;
  * Note that Faiss does not support 4x, and Faiss uses FP16 as 2x which is already covered in {@link MOSFaissFP16IndexIT}.
  */
 public class MOSFaissDiskBasedIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
-    // Explicit BQ encoder params to pin x32 tests to binary quantizer (not BBQ).
+    // Explicit BQ encoder params to pin x32 tests to binary quantizer (not SQ).
     // These tests validate MOS off-heap behavior which is specific to the BQ code path.
     private static final String BQ_ENCODER_PARAMS = """
         {"encoder": {"name": "binary", "parameters": {"bits": 1}}}""";

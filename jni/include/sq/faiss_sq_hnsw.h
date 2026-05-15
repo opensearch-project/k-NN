@@ -1,5 +1,5 @@
-#ifndef KNNPLUGIN_JNI_FAISS_BBQ_HNSW_H
-#define KNNPLUGIN_JNI_FAISS_BBQ_HNSW_H
+#ifndef KNNPLUGIN_JNI_FAISS_SQ_HNSW_H
+#define KNNPLUGIN_JNI_FAISS_SQ_HNSW_H
 
 #include "faiss/IndexBinaryHNSW.h"
 #include "faiss_sq_flat.h"
@@ -10,7 +10,7 @@ namespace knn_jni {
         FaissSQFlat* faiss_sq_flat;
 
         FaissSQHnsw(int32_t _m, FaissSQFlat* _faiss_sq_flat)
-          : faiss::IndexBinaryHNSW(_faiss_sq_flat, _m),
+          : faiss::IndexBinaryHNSW(_faiss_sq_flat, _m, true),
             faiss_sq_flat(_faiss_sq_flat) {
             // This has the ownership of FaissSQFlat, setting this true to make it free'd when this class is freed
             own_fields = true;
@@ -28,4 +28,4 @@ namespace knn_jni {
 
 }
 
-#endif // KNNPLUGIN_JNI_FAISS_BBQ_HNSW_H
+#endif // KNNPLUGIN_JNI_FAISS_SQ_HNSW_H

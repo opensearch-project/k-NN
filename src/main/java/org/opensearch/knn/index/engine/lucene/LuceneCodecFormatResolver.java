@@ -81,7 +81,7 @@ public class LuceneCodecFormatResolver implements CodecFormatResolver {
         final int defaultBeamWidth
     ) {
         if (METHOD_FLAT.equals(methodContext.getMethodComponentContext().getName())) {
-            log.debug("Initialize KNN vector format for field [{}] with Lucene BBQ flat format", field);
+            log.debug("Initialize KNN vector format for field [{}] with Lucene SQ flat format", field);
             return LuceneVectorsFormatType.FLAT;
         }
 

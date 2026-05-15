@@ -2576,7 +2576,10 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 .getMethodComponentContext()
                 .getParameters()
                 .get(METHOD_ENCODER_PARAMETER)).getName();
-            assertTrue("Expected binary, sq(bits=1) encoder but got: " + encoderName, QFrameBitEncoder.NAME.equals(encoderName));
+            assertTrue(
+                "Expected binary, sq(bits=1) encoder but got: " + encoderName,
+                QFrameBitEncoder.NAME.equals(encoderName) || ENCODER_SQ.equals(encoderName)
+            );
             assertEquals(
                 expectedResolvedCompressionLevel.numBitsForFloat32(),
                 (int) ((MethodComponentContext) builder.getOriginalParameters()

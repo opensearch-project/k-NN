@@ -115,12 +115,13 @@ uint8_t* SimdVectorSearchContext::getVectorPointer(const int32_t internalVectorI
 
                     // Copy the second part
                     const int32_t secondPartSize = oneVectorByteSize - firstPartSize;
-                    if (UNLIKELY(secondPartSize > mmapPageSizes[j + 1])) {
+                    const uint64_t nextRegionSize = mmapPageSizes[j + 1] - mmapPageSizes[j];
+                    if (UNLIKELY(secondPartSize > nextRegionSize)) {
                         throw std::runtime_error(
                             std::string("One vector[vid=") + std::to_string(internalVectorId)
                             + "] straddle two regions(" + std::to_string(j) + "th and " + std::to_string(j + 1)
                             + "th), but the second part of the vector size=" + std::to_string(secondPartSize)
-                            + " exceeds the second region size=" + std::to_string(mmapPageSizes[j + 1]));
+                            + " exceeds the second region size=" + std::to_string(nextRegionSize));
                     }
                     std::memcpy(&tmpBuffer[copyDestIndex + firstPartSize],
                                 reinterpret_cast<uint8_t*>(mmapPages[j + 1]), secondPartSize);
@@ -233,8 +234,8 @@ SimdVectorSearchContext* SimilarityFunction::saveSearchContext(
         // Assign query to Faiss function
         THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction->set_query(
             reinterpret_cast<float*>(THREAD_LOCAL_SIMD_VEC_SRCH_CTX.queryVectorSimdAligned));
-    } else if (nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::BBQ_IP)
-               || nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::BBQ_L2)) {
+    } else if (nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ_IP)
+               || nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ_L2)) {
          // Set similarity function to offload similarity calculation
          THREAD_LOCAL_SIMD_VEC_SRCH_CTX.similarityFunction =
              selectSimilarityFunction(static_cast<NativeSimilarityFunctionType>(nativeFunctionTypeOrd));

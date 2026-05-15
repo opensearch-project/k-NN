@@ -20,18 +20,18 @@ import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.search.KnnCollector;
-import org.opensearch.common.UUIDs;
 import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.util.Bits;
-import org.apache.lucene.search.TopDocs;
+import org.opensearch.common.UUIDs;
 import org.opensearch.knn.index.codec.nativeindex.AbstractNativeEnginesKnnVectorsReader;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
+import org.opensearch.knn.index.util.WarmupUtil;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
-import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
@@ -42,7 +42,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
+import static org.opensearch.knn.common.FieldInfoExtractor.hasQuantizationConfig;
 
 /**
  * Vectors reader class for reading the flat vectors for native engines. The class provides methods for iterating
@@ -124,6 +124,7 @@ public class NativeEngines990KnnVectorsReader extends AbstractNativeEnginesKnnVe
             ((QuantizationConfigKNNCollector) knnCollector).setQuantizationState(quantizationState);
             return;
         }
+
         final FieldInfo fieldInfo = fieldInfos.fieldInfo(field);
         if (trySearchWithMemoryOptimizedSearch(fieldInfo, target, knnCollector, acceptDocs, true)) {
             return;
@@ -209,10 +210,6 @@ public class NativeEngines990KnnVectorsReader extends AbstractNativeEnginesKnnVe
         // Try with memory optimized searcher
         final VectorSearcher memoryOptimizedSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfo);
 
-        if (target == null) {
-            throw new FaissMemoryOptimizedSearcher.WarmupInitializationException("Null vector supplied for warmup");
-        }
-
         if (memoryOptimizedSearcher != null) {
             if (isFloatVector) {
                 memoryOptimizedSearcher.search((float[]) target, knnCollector, acceptDocs);
@@ -255,10 +252,36 @@ public class NativeEngines990KnnVectorsReader extends AbstractNativeEnginesKnnVe
      * @throws IOException if an I/O error occurs
      */
     private ByteVectorValues getQuantizedVectorValues(@NonNull final FieldInfo fieldInfo) throws IOException {
-        if (fieldInfo.getAttribute(QFRAMEWORK_CONFIG) == null) {
+        if (hasQuantizationConfig(fieldInfo) == false) {
             return null;
         }
         final VectorSearcher vectorSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfo);
         return vectorSearcher != null ? vectorSearcher.getByteVectorValues(getFloatVectorValues(fieldInfo.getName()).iterator()) : null;
+    }
+
+    /**
+     * Warms up the on-disk data for the given field by loading the HNSW graph and flat vectors
+     * into the OS page cache.
+     * <p>
+     * For quantized fields (those with a {@code QFRAMEWORK_CONFIG} attribute), this also warms
+     * up the full-precision {@code .vec} file via the flat vectors reader.
+     *
+     * @param fieldName the name of the vector field to warm up
+     * @throws IOException if an I/O error occurs while reading the underlying data
+     */
+    @Override
+    public void warmUp(final String fieldName) throws IOException {
+        final FieldInfo fieldInfo = fieldInfos.fieldInfo(fieldName);
+
+        final VectorSearcher memoryOptimizedSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfo);
+        if (memoryOptimizedSearcher != null) {
+            // For quantized vectors, we should warm up .vec as well.
+            if (hasQuantizationConfig(fieldInfo)) {
+                WarmupUtil.readAll(flatVectorsReader.getFloatVectorValues(fieldName));
+            }
+
+            // Warm up search parts
+            memoryOptimizedSearcher.warmUp();
+        }
     }
 }

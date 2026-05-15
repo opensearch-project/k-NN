@@ -24,7 +24,7 @@ import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 import static org.opensearch.knn.index.engine.lucene.LuceneFlatMethod.FLAT_METHOD_COMPONENT;
 
 /**
- * Resolves method configuration for the Lucene flat method. The flat method uses BBQ (1-bit quantization)
+ * Resolves method configuration for the Lucene flat method. The flat method uses SQ (1-bit quantization)
  * without an HNSW graph, supporting only {@link org.opensearch.knn.index.mapper.CompressionLevel#x32} compression
  * and does not support {@link org.opensearch.knn.index.mapper.Mode}.
  */

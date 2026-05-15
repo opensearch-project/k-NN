@@ -99,6 +99,7 @@ public class MMROverSampleProcessor implements SearchRequestProcessor, SystemGen
 
             MMRRerankContext mmrRerankContext = new MMRRerankContext();
             mmrRerankContext.setDiversity(mmrSearchExtBuilder.getDiversity());
+            mmrRerankContext.setExplain(mmrSearchExtBuilder.getExplain());
 
             validateForRemoteIndices(mmrSearchExtBuilder, remoteIndices);
 

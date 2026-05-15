@@ -83,20 +83,24 @@ public final class MemoryOptimizedSearchScoreConverter {
      */
     public static void convertToCosineScore(final ScoreDoc[] scoreDocs) {
         for (final ScoreDoc scoreDoc : scoreDocs) {
-            // For cosine similarity, MAXIMUM_INNER_PRODUCT being used internally.
-            // Which maps negative values (which is plain inner product result value) to (0, 1], and maps positive values to (1, +inf).
-            // Below logic is to reverse back and extract the result of plain inner product.
-            final float innerProductValue;
-            if (scoreDoc.score >= 1) {
-                // Inner product value is positive.
-                innerProductValue = scoreDoc.score - 1;
-            } else {
-                // Inner product value is negative.
-                innerProductValue = 1 - 1 / scoreDoc.score;
-            }
-
-            // Then we need to transform the value to be bounded the desired range in cosine similarity space type.
-            scoreDoc.score = KNNEngine.FAISS.score(innerProductValue, SpaceType.COSINESIMIL);
+            scoreDoc.score = convertInnerProductScoreToCosineScore(scoreDoc.score);
         }
+    }
+
+    /**
+     * Converts a single Lucene MAXIMUM_INNER_PRODUCT score to a Faiss cosine similarity score.
+     *
+     * <p>MAXIMUM_INNER_PRODUCT maps negative inner product values to (0, 1] and positive values
+     * to (1, +inf). This method reverses that mapping to recover the raw inner product value,
+     * then transforms it into the cosine similarity score range.</p>
+     *
+     * @param ipScore the MAXIMUM_INNER_PRODUCT-format score
+     * @return the equivalent cosine similarity score
+     */
+    public static float convertInnerProductScoreToCosineScore(final float ipScore) {
+        // Reverse MAXIMUM_INNER_PRODUCT score translation to recover the raw inner product value.
+        final float innerProductValue = ipScore >= 1 ? ipScore - 1 : 1 - 1 / ipScore;
+        // Transform to cosine similarity score range.
+        return KNNEngine.FAISS.score(innerProductValue, SpaceType.COSINESIMIL);
     }
 }

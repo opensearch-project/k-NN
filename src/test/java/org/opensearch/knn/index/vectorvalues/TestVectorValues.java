@@ -9,6 +9,7 @@ import org.apache.lucene.index.*;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.VectorScorer;
 import org.apache.lucene.util.BytesRef;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
 
@@ -349,14 +350,14 @@ public class TestVectorValues {
 
         @Override
         public VectorScorer scorer(byte[] query) throws IOException {
-            if (similarityFunction == null) {
-                throw new UnsupportedOperationException("scorer not supported with PreDefinedByteVectorValues");
-            }
             PreDefinedByteVectorValues copy = new PreDefinedByteVectorValues(vectors, similarityFunction);
             DocIndexIterator iterator = copy.iterator();
             return new VectorScorer() {
                 @Override
                 public float score() throws IOException {
+                    if (similarityFunction == null) {
+                        return SpaceType.HAMMING.getKnnVectorSimilarityFunction().compare(query, copy.vectorValue(iterator.index()));
+                    }
                     return similarityFunction.compare(query, copy.vectorValue(iterator.index()));
                 }
 

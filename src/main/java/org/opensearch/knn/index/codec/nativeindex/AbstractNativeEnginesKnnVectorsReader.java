@@ -22,6 +22,7 @@ import org.apache.lucene.util.IOSupplier;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.warmup.WarmableReader;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
 
@@ -40,7 +41,7 @@ import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
  * Provides shared infrastructure for lazy-loading a {@link VectorSearcher} in a thread-safe manner.
  */
 @Log4j2
-public abstract class AbstractNativeEnginesKnnVectorsReader extends KnnVectorsReader {
+public abstract class AbstractNativeEnginesKnnVectorsReader extends KnnVectorsReader implements WarmableReader {
 
     protected final FlatVectorsReader flatVectorsReader;
     protected final SegmentReadState segmentReadState;

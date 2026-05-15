@@ -19,10 +19,33 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.search.processor.mmr.MMROverSampleProcessor;
 import org.opensearch.knn.search.processor.mmr.MMRRerankProcessor;
 
+import org.opensearch.core.xcontent.MediaTypeRegistry;
+
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
-import static org.opensearch.knn.common.KNNConstants.*;
+import org.opensearch.knn.search.processor.mmr.MMRExplainInfo;
+
+import static org.opensearch.knn.KNNRestTestCase.PROPERTIES_FIELD;
+import static org.opensearch.knn.common.KNNConstants.CANDIDATES;
+import static org.opensearch.knn.common.KNNConstants.DIMENSION;
+import static org.opensearch.knn.common.KNNConstants.DIVERSITY;
+import static org.opensearch.knn.common.KNNConstants.EXPLAIN;
+import static org.opensearch.knn.common.KNNConstants.K;
+import static org.opensearch.knn.common.KNNConstants.KNN;
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.MMR;
+import static org.opensearch.knn.common.KNNConstants.MMR_EXPLAIN;
+import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.TYPE;
+import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
+import static org.opensearch.knn.common.KNNConstants.VECTOR;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_FIELD_PATH;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_FIELD_SPACE_TYPE;
 import static org.opensearch.search.pipeline.SearchPipelineService.ENABLED_SYSTEM_GENERATED_FACTORIES_SETTING;
 
 public class MMRSearchExtBuilderIT extends KNNRestTestCase {
@@ -95,6 +118,91 @@ public class MMRSearchExtBuilderIT extends KNNRestTestCase {
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
 
         verifyResults(results, false);
+    }
+
+    @SuppressWarnings("unchecked")
+    @SneakyThrows
+    public void testMMR_whenExplainEnabled_thenExplainInfoInResponse() {
+        XContentBuilder queryBuilder = buildMMRQueryWithExplain(SIMILAR_VECTOR, QUERY_SIZE, true);
+
+        Response response = searchKNNIndex(INDEX_NAME, queryBuilder.toString(), QUERY_SIZE);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> results = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(QUERY_SIZE, results.size());
+
+        // Parse the raw response to check for mmr_explain in _source
+        Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
+        Map<String, Object> hitsOuter = (Map<String, Object>) responseMap.get("hits");
+        List<Map<String, Object>> hitsList = (List<Map<String, Object>>) hitsOuter.get("hits");
+
+        for (int i = 0; i < hitsList.size(); i++) {
+            Map<String, Object> hit = hitsList.get(i);
+            Map<String, Object> source = (Map<String, Object>) hit.get("_source");
+            assertNotNull("Hit " + i + " should have _source", source);
+
+            Map<String, Object> mmrExplain = (Map<String, Object>) source.get(MMR_EXPLAIN);
+            assertNotNull("Hit " + i + " should have mmr_explain in _source", mmrExplain);
+            assertNotNull("original_score should be present", mmrExplain.get(MMRExplainInfo.ORIGINAL_SCORE_FIELD));
+            assertNotNull("max_similarity_to_selected should be present", mmrExplain.get(MMRExplainInfo.MAX_SIMILARITY_TO_SELECTED_FIELD));
+            assertNotNull("mmr_score should be present", mmrExplain.get(MMRExplainInfo.MMR_SCORE_FIELD));
+            assertNotNull("mmr_formula should be present", mmrExplain.get(MMRExplainInfo.MMR_FORMULA_FIELD));
+            // selection_round and selected_so_far are intentionally absent - inferred from result position
+            assertNull("selection_round should NOT be present", mmrExplain.get("selection_round"));
+            assertNull("selected_so_far should NOT be present", mmrExplain.get("selected_so_far"));
+        }
+
+        // Verify first hit has max_similarity_to_selected = 0 (no prior selections)
+        Map<String, Object> firstSource = (Map<String, Object>) hitsList.get(0).get("_source");
+        Map<String, Object> firstExplain = (Map<String, Object>) firstSource.get(MMR_EXPLAIN);
+        assertEquals(0.0, ((Number) firstExplain.get(MMRExplainInfo.MAX_SIMILARITY_TO_SELECTED_FIELD)).doubleValue(), 1e-6);
+    }
+
+    @SuppressWarnings("unchecked")
+    @SneakyThrows
+    public void testMMR_whenExplainDisabled_thenNoExplainInfoInResponse() {
+        XContentBuilder queryBuilder = buildMMRQueryWithExplain(SIMILAR_VECTOR, QUERY_SIZE, false);
+
+        Response response = searchKNNIndex(INDEX_NAME, queryBuilder.toString(), QUERY_SIZE);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> results = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(QUERY_SIZE, results.size());
+
+        Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
+        Map<String, Object> hitsOuter = (Map<String, Object>) responseMap.get("hits");
+        List<Map<String, Object>> hitsList = (List<Map<String, Object>>) hitsOuter.get("hits");
+
+        for (int i = 0; i < hitsList.size(); i++) {
+            Map<String, Object> hit = hitsList.get(i);
+            Map<String, Object> source = (Map<String, Object>) hit.get("_source");
+            assertNotNull("Hit " + i + " should have _source", source);
+            assertNull("Hit " + i + " should NOT have mmr_explain when explain is disabled", source.get(MMR_EXPLAIN));
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    @SneakyThrows
+    public void testMMR_whenExplainNotSpecified_thenNoExplainInfoInResponse() {
+        // Use the standard query builder without explain field
+        XContentBuilder queryBuilder = buildMMRQuery(SIMILAR_VECTOR, QUERY_SIZE, false, false);
+
+        Response response = searchKNNIndex(INDEX_NAME, queryBuilder.toString(), QUERY_SIZE);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> results = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(QUERY_SIZE, results.size());
+
+        Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
+        Map<String, Object> hitsOuter = (Map<String, Object>) responseMap.get("hits");
+        List<Map<String, Object>> hitsList = (List<Map<String, Object>>) hitsOuter.get("hits");
+
+        for (int i = 0; i < hitsList.size(); i++) {
+            Map<String, Object> hit = hitsList.get(i);
+            Map<String, Object> source = (Map<String, Object>) hit.get("_source");
+            assertNotNull("Hit " + i + " should have _source", source);
+            assertNull("Hit " + i + " should NOT have mmr_explain when explain is not specified", source.get(MMR_EXPLAIN));
+        }
     }
 
     @SneakyThrows
@@ -175,6 +283,31 @@ public class MMRSearchExtBuilderIT extends KNNRestTestCase {
             builder.field(VECTOR_FIELD_PATH, FIELD_NAME).field(VECTOR_FIELD_SPACE_TYPE, SpaceType.L2.getValue());
         }
         builder.endObject().endObject().endObject();
+
+        return builder;
+    }
+
+    @SneakyThrows
+    private XContentBuilder buildMMRQueryWithExplain(float[] queryVector, int k, boolean explain) {
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
+
+        builder.startObject("query")
+            .startObject(KNN)
+            .startObject(FIELD_NAME)
+            .array(VECTOR, queryVector)
+            .field(K, k)
+            .endObject()
+            .endObject()
+            .endObject();
+
+        builder.startObject("ext")
+            .startObject(MMR)
+            .field(CANDIDATES, 9)
+            .field(DIVERSITY, 0.9)
+            .field(EXPLAIN, explain)
+            .endObject()
+            .endObject()
+            .endObject();
 
         return builder;
     }

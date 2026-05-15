@@ -48,10 +48,11 @@ static float referenceScore(bool isMaxIP, int32_t dim, float centroidDp,
     float score = ax * ay * dim + ay * lx * x1 + ax * ly * y1 + lx * ly * dp;
     if (isMaxIP) {
         score += queryAdditional + additional - centroidDp;
+        // Negate: Faiss HNSW always minimizes distance (CMax comparator).
+        return -score;
     } else {
-        score = queryAdditional + additional - 2.0f * score;
+        return queryAdditional + additional - 2.0f * score;
     }
-    return score;
 }
 
 // Write correction factors into buffer at ptr.
@@ -301,6 +302,7 @@ TEST_P(FaissSQDistanceComputerTest, SymmetricDis) {
 
             if (isMaxIP) {
                 score += c1.additional + c2.additional - CENTROID_DP;
+                score = -score;
             } else {
                 score = c1.additional + c2.additional - 2 * score;
             }
@@ -397,6 +399,182 @@ TEST_P(FaissSQDistanceComputerTest, GetDistanceComputerIntegration) {
         float actual = (*dc)(static_cast<idx_t>(i));
         EXPECT_NEAR(actual, expected, TOLERANCE)
             << "Integration mismatch at vector " << i;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Non-multiple-of-8 quantizedVectorBytes (e.g. dim=56 → 7 bytes)
+// Verifies the byte remainder loop handles trailing bytes correctly.
+// ---------------------------------------------------------------------------
+
+// Reference popcount that handles remainder bytes (matches the fixed code).
+static uint32_t referencePopcountWithRemainder(const uint8_t* a, const uint8_t* b, int32_t quantizedVectorBytes) {
+    const int32_t words = quantizedVectorBytes >> 3;
+    uint32_t dp = 0;
+    for (int32_t w = 0; w < words; ++w) {
+        uint64_t wa, wb;
+        std::memcpy(&wa, a + w * 8, sizeof(uint64_t));
+        std::memcpy(&wb, b + w * 8, sizeof(uint64_t));
+        dp += __builtin_popcountll(wa & wb);
+    }
+    const int32_t remainStart = words * 8;
+    for (int32_t r = remainStart; r < quantizedVectorBytes; ++r) {
+        dp += __builtin_popcount((a[r] & b[r]) & 0xFF);
+    }
+    return dp;
+}
+
+TEST_P(FaissSQDistanceComputerTest, OperatorNonMultipleOf8Bytes) {
+    auto [isMaxIP, isBytesMultipleOf8] = GetParam();
+    // Only the unaligned path handles remainder bytes; skip aligned tests.
+    if (isBytesMultipleOf8) return;
+
+    // dim=56 → quantizedVectorBytes=7 (the exact case that triggered the bug)
+    const int32_t qvb = 7;
+    const int32_t dim = 56;
+    constexpr int NUM_VECS = 8;
+
+    auto buf = makeBuffer(NUM_VECS, qvb);
+    auto queryBuf = makeQuery(qvb);
+
+    std::unique_ptr<faiss::DistanceComputer> dc;
+    if (isMaxIP)
+        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+    else
+        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+
+    dc->set_query(reinterpret_cast<const float*>(queryBuf.data()));
+
+    auto qCorr = readCorr(queryBuf.data() + qvb);
+
+    for (int i = 0; i < NUM_VECS; ++i) {
+        const uint8_t* target = buf.data.data() + i * buf.oneElementSize;
+        uint32_t refDp = referencePopcountWithRemainder(queryBuf.data(), target, qvb);
+        auto tCorr = readCorr(target + qvb);
+
+        float expected = referenceScore(isMaxIP, dim, CENTROID_DP,
+                                        qCorr.lower, qCorr.interval, qCorr.additional, qCorr.componentSum,
+                                        tCorr.lower, tCorr.interval, tCorr.additional, tCorr.componentSum,
+                                        static_cast<float>(refDp));
+
+        float actual = (*dc)(static_cast<idx_t>(i));
+        // Verify the dot product is non-zero (the original bug produced dp=0)
+        EXPECT_NE(refDp, 0u) << "Reference dp should be non-zero for random data at vector " << i;
+        EXPECT_NEAR(actual, expected, TOLERANCE)
+            << "Mismatch at vector " << i << " with qvb=" << qvb;
+    }
+}
+
+TEST_P(FaissSQDistanceComputerTest, DistancesBatch4NonMultipleOf8Bytes) {
+    auto [isMaxIP, isBytesMultipleOf8] = GetParam();
+    if (isBytesMultipleOf8) return;
+
+    const int32_t qvb = 7;
+    const int32_t dim = 56;
+    constexpr int NUM_VECS = 8;
+
+    auto buf = makeBuffer(NUM_VECS, qvb);
+    auto queryBuf = makeQuery(qvb);
+
+    std::unique_ptr<faiss::DistanceComputer> dc;
+    if (isMaxIP)
+        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+    else
+        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+
+    dc->set_query(reinterpret_cast<const float*>(queryBuf.data()));
+
+    float dis0, dis1, dis2, dis3;
+    dc->distances_batch_4(0, 1, 2, 3, dis0, dis1, dis2, dis3);
+
+    EXPECT_NEAR(dis0, (*dc)(0), TOLERANCE);
+    EXPECT_NEAR(dis1, (*dc)(1), TOLERANCE);
+    EXPECT_NEAR(dis2, (*dc)(2), TOLERANCE);
+    EXPECT_NEAR(dis3, (*dc)(3), TOLERANCE);
+}
+
+TEST_P(FaissSQDistanceComputerTest, SymmetricDisNonMultipleOf8Bytes) {
+    auto [isMaxIP, isBytesMultipleOf8] = GetParam();
+    if (isBytesMultipleOf8) return;
+
+    const int32_t qvb = 7;
+    const int32_t dim = 56;
+    constexpr int NUM_VECS = 4;
+
+    auto buf = makeBuffer(NUM_VECS, qvb);
+
+    std::unique_ptr<faiss::DistanceComputer> dc;
+    if (isMaxIP)
+        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+    else
+        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+
+    for (int i = 0; i < NUM_VECS; ++i) {
+        for (int j = i; j < NUM_VECS; ++j) {
+            const uint8_t* t1 = buf.data.data() + i * buf.oneElementSize;
+            const uint8_t* t2 = buf.data.data() + j * buf.oneElementSize;
+
+            uint32_t refDp = referencePopcountWithRemainder(t1, t2, qvb);
+            auto c1 = readCorr(t1 + qvb);
+            auto c2 = readCorr(t2 + qvb);
+
+            float score = c1.lower * c2.lower * dim
+                        + c2.lower * c1.interval * c1.componentSum
+                        + c1.lower * c2.interval * c2.componentSum
+                        + c1.interval * c2.interval * static_cast<float>(refDp);
+
+            if (isMaxIP) {
+                score += c1.additional + c2.additional - CENTROID_DP;
+                score = -score;
+            } else {
+                score = c1.additional + c2.additional - 2 * score;
+            }
+
+            float actual = dc->symmetric_dis(static_cast<idx_t>(i), static_cast<idx_t>(j));
+            EXPECT_NEAR(actual, score, TOLERANCE)
+                << "symmetric_dis(" << i << "," << j << ") mismatch with qvb=" << qvb;
+        }
+    }
+}
+
+TEST_P(FaissSQDistanceComputerTest, GetDistanceComputerIntegrationNonMultipleOf8) {
+    auto [isMaxIP, isBytesMultipleOf8] = GetParam();
+    // This test exercises FaissSQFlat::get_distance_computer with non-aligned element size.
+    // Only run once per metric (skip the aligned param to avoid duplicate).
+    if (isBytesMultipleOf8) return;
+
+    const int32_t qvb = 7;  // dim=56
+    const int32_t dim = 56;
+    constexpr int NUM_VECS = 4;
+
+    faiss::MetricType metric = isMaxIP ? faiss::METRIC_INNER_PRODUCT : faiss::METRIC_L2;
+    FaissSQFlat flat(NUM_VECS, qvb, CENTROID_DP, dim, metric);
+
+    auto buf = makeBuffer(NUM_VECS, qvb);
+    flat.quantizedVectorsAndCorrectionFactors.assign(buf.data.begin(), buf.data.end());
+    flat.ntotal = NUM_VECS;
+
+    // get_distance_computer should pick IsBytesMultipleOf8=false since oneElementSize=23
+    std::unique_ptr<faiss::DistanceComputer> dc(flat.get_distance_computer());
+
+    auto queryBuf = makeQuery(qvb);
+    dc->set_query(reinterpret_cast<const float*>(queryBuf.data()));
+
+    auto qCorr = readCorr(queryBuf.data() + qvb);
+
+    for (int i = 0; i < NUM_VECS; ++i) {
+        const uint8_t* target = buf.data.data() + i * buf.oneElementSize;
+        uint32_t refDp = referencePopcountWithRemainder(queryBuf.data(), target, qvb);
+        auto tCorr = readCorr(target + qvb);
+
+        float expected = referenceScore(isMaxIP, dim, CENTROID_DP,
+                                        qCorr.lower, qCorr.interval, qCorr.additional, qCorr.componentSum,
+                                        tCorr.lower, tCorr.interval, tCorr.additional, tCorr.componentSum,
+                                        static_cast<float>(refDp));
+
+        float actual = (*dc)(static_cast<idx_t>(i));
+        EXPECT_NEAR(actual, expected, TOLERANCE)
+            << "Integration mismatch at vector " << i << " with qvb=" << qvb;
     }
 }
 

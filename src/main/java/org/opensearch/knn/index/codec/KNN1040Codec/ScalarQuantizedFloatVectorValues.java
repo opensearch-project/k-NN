@@ -31,7 +31,7 @@ import java.io.IOException;
  * slice that contains the quantized vector data and correction factors used during scoring.
  */
 @RequiredArgsConstructor
-class ScalarQuantizedFloatVectorValuesWithIndexInputSlice extends FloatVectorValues implements HasIndexSlice {
+class ScalarQuantizedFloatVectorValues extends FloatVectorValues implements HasIndexSlice {
     private final FloatVectorValues floatVectorValues;
     private final QuantizedByteVectorValues quantizedVectorValues;
 
@@ -52,7 +52,7 @@ class ScalarQuantizedFloatVectorValuesWithIndexInputSlice extends FloatVectorVal
 
     @Override
     public FloatVectorValues copy() throws IOException {
-        return new ScalarQuantizedFloatVectorValuesWithIndexInputSlice(floatVectorValues.copy(), quantizedVectorValues.copy());
+        return new ScalarQuantizedFloatVectorValues(floatVectorValues.copy(), quantizedVectorValues.copy());
     }
 
     @Override
@@ -73,5 +73,18 @@ class ScalarQuantizedFloatVectorValuesWithIndexInputSlice extends FloatVectorVal
     @Override
     public VectorScorer scorer(float[] target) throws IOException {
         return floatVectorValues.scorer(target);
+    }
+
+    /**
+     * Returns a {@link VectorScorer} for rescoring candidates against the given target vector
+     * using full-precision vectors. Delegates to the underlying {@link FloatVectorValues}.
+     *
+     * @param target the query vector to score against
+     * @return a {@link VectorScorer} for exact rescoring, or {@code null} if not supported
+     * @throws IOException if an I/O error occurs
+     */
+    @Override
+    public VectorScorer rescorer(final float[] target) throws IOException {
+        return floatVectorValues.rescorer(target);
     }
 }

@@ -110,7 +110,7 @@ JNIEXPORT jfloat JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_sc
     return 0;
 }
 
-JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_saveBBQSearchContext
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_saveSQSearchContext
   (JNIEnv *env, jclass clazz, jbyteArray quantizedQuery,
    jfloat lowerInterval, jfloat upperInterval, jfloat additionalCorrection,
    jint quantizedComponentSum, jlongArray addressAndSize,
@@ -139,7 +139,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_save
           reinterpret_cast<int64_t*>(mmapAddressAndSize), mmapAddressAndSizeLength,
           functionTypeOrd);
 
-      // Now store correction factors in tmpBuffer (saveSearchContext clears it, then BBQ_IP branch leaves it empty)
+      // Now store correction factors in tmpBuffer (saveSearchContext clears it, then SQ_IP branch leaves it empty)
       SimdVectorSearchContext* ctx = SimilarityFunction::getSearchContext();
       ctx->tmpBuffer.resize(5 * sizeof(float));
       auto* correctionPtr = reinterpret_cast<float*>(ctx->tmpBuffer.data());

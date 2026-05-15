@@ -1,2 +1,3 @@
 org.opensearch.knn.index.codec.CustomCodec
 org.opensearch.knn.index.codec.CustomCodecNoStoredFields
+org.opensearch.knn.index.codec.util.UnitTestCodec

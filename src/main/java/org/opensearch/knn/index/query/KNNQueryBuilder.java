@@ -10,6 +10,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
 import org.opensearch.common.ValidationException;
@@ -21,6 +22,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryBuilderVisitor;
 import org.opensearch.index.query.QueryRewriteContext;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.WithFieldName;
@@ -35,6 +37,7 @@ import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.model.QueryContext;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
@@ -59,6 +62,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
 import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
 import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
+import static org.opensearch.knn.index.engine.KNNEngine.FAISS;
 import static org.opensearch.knn.index.engine.validation.ParameterValidator.validateParameters;
 import static org.opensearch.knn.index.query.parser.MethodParametersParser.validateMethodParameters;
 import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_OVERSAMPLE_PARAMETER;
@@ -486,7 +490,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 throw new UnsupportedOperationException(String.format(Locale.ROOT, "Binary data type does not support radial search"));
             }
 
-            if (knnMappingConfig.getQuantizationConfig() != QuantizationConfig.EMPTY) {
+            if ((knnMappingConfig.getQuantizationConfig() != QuantizationConfig.EMPTY)
+                // If compression level is 32x, then radial search should be blocked.
+                || (knnMappingConfig.getCompressionLevel() == CompressionLevel.x32)) {
                 throw new UnsupportedOperationException("Radial search is not supported for indices which have quantization enabled");
             }
         }
@@ -689,7 +695,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         KNNEngine knnEngine
     ) {
 
-        if ((VectorDataType.FLOAT == vectorDataType) || (VectorDataType.BYTE == vectorDataType && KNNEngine.FAISS == knnEngine)) {
+        if ((VectorDataType.FLOAT == vectorDataType) || (VectorDataType.BYTE == vectorDataType && FAISS == knnEngine)) {
             return transformedVector;
         }
         return null;
@@ -707,6 +713,25 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             return byteVector;
         }
         return null;
+    }
+
+    /**
+     * Visits this query builder and its filter clause using the provided visitor.
+     * <p>
+     * This method first accepts the visitor for the current {@link KNNQueryBuilder}, then if a filter
+     * is present, it obtains a child visitor for {@link BooleanClause.Occur#FILTER} and delegates
+     * the filter's visitation to it. This enables traversal of the full query tree including any
+     * nested filter queries.
+     *
+     * @param visitor the {@link QueryBuilderVisitor} used to traverse the query tree
+     */
+    @Override
+    public void visit(QueryBuilderVisitor visitor) {
+        visitor.accept(this);
+        if (filter != null) {
+            final QueryBuilderVisitor subVisitor = visitor.getChildVisitor(BooleanClause.Occur.FILTER);
+            filter.visit(subVisitor);
+        }
     }
 
     @Override

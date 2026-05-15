@@ -25,27 +25,18 @@ import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.RobustUniqueRandomIterator;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
+import org.opensearch.knn.index.util.WarmupUtil;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.faiss.cagra.FaissCagraHNSW;
 
 import java.io.IOException;
 
+import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsReader.EXHAUSTIVE_BULK_SCORE_ORDS;
+
 /**
  * This searcher directly reads FAISS index file via the provided {@link IndexInput} then perform vector search on it.
  */
 public class FaissMemoryOptimizedSearcher implements VectorSearcher {
-
-    /**
-     * Exception thrown during warmup initialization when the search cannot proceed.
-     * This encapsulates expected exceptions like NullPointerException (from null target vectors)
-     * and UnsupportedOperationException (from vector encoding mismatches with quantized indices).
-     */
-    public static class WarmupInitializationException extends RuntimeException {
-        public WarmupInitializationException(String message) {
-            super(message);
-        }
-    }
-
     private final IndexInput indexInput;
     private final FaissIndex faissIndex;
     private final FlatVectorsScorer flatVectorsScorer;
@@ -126,6 +117,21 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     }
 
     @Override
+    public void warmUp() throws IOException {
+        // Warm up graph
+        final IndexInput warmUpIndexInput = indexInput.clone();
+        WarmupUtil.readAll(warmUpIndexInput);
+
+        // Warm up flat vectors
+        // This can warm up .veb, .vec or .faiss
+        if (faissIndex.getVectorEncoding() == VectorEncoding.FLOAT32) {
+            WarmupUtil.readAll(faissIndex.getFloatValues(warmUpIndexInput));
+        } else if (faissIndex.getVectorEncoding() == VectorEncoding.BYTE) {
+            WarmupUtil.readAll(faissIndex.getByteValues(warmUpIndexInput));
+        }
+    }
+
+    @Override
     public void close() throws IOException {
         indexInput.close();
     }
@@ -159,15 +165,35 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
             // Do ANN search with Lucene's HNSW graph searcher.
             HnswGraphSearcher.search(scorer, collector, new FaissHnswGraph(hnsw, indexInput.clone()), acceptedOrds);
         } else {
-            // If k is larger than the number of vectors, we can just iterate over all vectors
-            // and collect them.
-            for (int i = 0; i < scorer.maxOrd(); i++) {
+            // if k is larger than the number of vectors we expect to visit in an HNSW search,
+            // we can just iterate over all vectors and collect them.
+            int numVectors = scorer.maxOrd();
+            int[] ords = new int[EXHAUSTIVE_BULK_SCORE_ORDS];
+            float[] scores = new float[EXHAUSTIVE_BULK_SCORE_ORDS];
+            int numOrds = 0;
+            for (int i = 0; i < numVectors; i++) {
                 if (acceptedOrds == null || acceptedOrds.get(i)) {
-                    if (!knnCollector.earlyTerminated()) {
-                        knnCollector.incVisitedCount(1);
-                        knnCollector.collect(scorer.ordToDoc(i), scorer.score(i));
-                    } else {
+                    if (knnCollector.earlyTerminated()) {
                         break;
+                    }
+                    ords[numOrds++] = i;
+                    if (numOrds == ords.length) {
+                        knnCollector.incVisitedCount(numOrds);
+                        if (scorer.bulkScore(ords, scores, numOrds) > knnCollector.minCompetitiveSimilarity()) {
+                            for (int j = 0; j < numOrds; j++) {
+                                knnCollector.collect(scorer.ordToDoc(ords[j]), scores[j]);
+                            }
+                        }
+                        numOrds = 0;
+                    }
+                }
+            }
+
+            if (numOrds > 0) {
+                knnCollector.incVisitedCount(numOrds);
+                if (scorer.bulkScore(ords, scores, numOrds) > knnCollector.minCompetitiveSimilarity()) {
+                    for (int j = 0; j < numOrds; j++) {
+                        knnCollector.collect(scorer.ordToDoc(ords[j]), scores[j]);
                     }
                 }
             }

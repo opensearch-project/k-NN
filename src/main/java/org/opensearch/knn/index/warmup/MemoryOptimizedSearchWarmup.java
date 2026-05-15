@@ -6,140 +6,106 @@
 package org.opensearch.knn.index.warmup;
 
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.codecs.KnnVectorsReader;
+import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.FloatVectorValues;
-import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.SegmentReader;
-import org.apache.lucene.search.DocIdSetIterator;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.FilterDirectory;
-import org.apache.lucene.store.IOContext;
-import org.apache.lucene.store.IndexInput;
 import org.opensearch.common.lucene.Lucene;
-import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
-import org.opensearch.knn.index.codec.util.KNNCodecUtil;
-import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
-import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
-import org.opensearch.knn.index.mapper.KNNVectorFieldType;
-import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
 
-import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
-import static org.opensearch.knn.common.FieldInfoExtractor.extractKNNEngine;
+import static org.opensearch.knn.common.FieldInfoExtractor.isMemoryOptimizedSearchField;
 
+/**
+ * Handles warmup for k-NN fields that use memory-optimized (disk-based) search.
+ * <p>
+ * Memory-optimized search keeps vector data on disk rather than loading it entirely into
+ * the JVM heap. Warming up these fields forces the underlying data into the OS page cache
+ * so that the first real searches avoid cold-read latency.
+ * <p>
+ * The warmup is performed by issuing a no-op search via the codec's
+ * {@link org.apache.lucene.codecs.KnnVectorsReader#search} with a {@code null} query vector,
+ * which triggers the reader to touch the on-disk structures without producing results.
+ */
 @Log4j2
 public class MemoryOptimizedSearchWarmup {
-
-    public ArrayList<String> warmUp(
-        final LeafReader leafReader,
-        final MapperService mapperService,
-        final String indexName,
-        final Directory directory
-    ) {
+    /**
+     * Warms up all memory-optimized k-NN fields in the given leaf reader.
+     *
+     * @param leafReader    the segment-level reader to warm up
+     * @param mapperService the mapper service used to resolve field types; if {@code null}, no warmup is performed
+     * @param indexName     the name of the index, used to check memory-optimized search support
+     * @return a list of field names that were successfully warmed up
+     */
+    public List<String> warmUp(final LeafReader leafReader, final MapperService mapperService, final String indexName) {
         if (mapperService == null) {
-            return new ArrayList<>();
+            return Collections.emptyList();
         }
 
         final SegmentReader segmentReader = Lucene.segmentReader(leafReader);
-        final Directory bottomDirectory = FilterDirectory.unwrap(directory);
 
-        ArrayList<FieldInfo> memOptSearchFields = getFieldsForMemoryOptimizedSearch(leafReader, mapperService, indexName);
-        for (FieldInfo field : memOptSearchFields) {
-            loadFullPrecisionVectors(leafReader, field);
-        }
-
-        ArrayList<String> warmedUp = new ArrayList<>();
+        final List<FieldInfo> memOptSearchFields = getFieldsForMemoryOptimizedSearch(leafReader, mapperService, indexName);
+        final List<String> warmedUp = new ArrayList<>();
 
         for (FieldInfo field : memOptSearchFields) {
-            try {
-                if (warmUpField(field, segmentReader, bottomDirectory)) {
-                    warmedUp.add(field.getName());
-                }
-            } catch (IOException e) {
-                log.error("Failed to warm up field: {}", field.getName(), e);
+            if (warmUpField(field, segmentReader)) {
+                warmedUp.add(field.getName());
             }
         }
 
         return warmedUp;
     }
 
-    private boolean warmUpField(FieldInfo field, SegmentReader segmentReader, Directory directory) throws IOException {
-        final KNNEngine knnEngine = extractKNNEngine(field);
-        final List<String> engineFiles = KNNCodecUtil.getEngineFiles(
-            knnEngine.getExtension(),
-            field.getName(),
-            segmentReader.getSegmentInfo().info
-        );
-        if (engineFiles.isEmpty()) {
-            log.warn("Could not find an engine file for field [{}]", field.getName());
-            return false;
-        }
-        final Path indexPath = Paths.get(engineFiles.getFirst());
-
-        try (IndexInput input = directory.openInput(indexPath.toString(), IOContext.READONCE)) {
-            if (input.length() != 0) {
-                for (long i = 0; i < input.length(); i += 4096) {
-                    input.seek(i);
-                    input.readByte();
-                }
-                input.seek(input.length() - 1);
-                input.readByte();
-            }
-        }
-
+    /**
+     * Warms up a single k-NN field by issuing a no-op search through the codec's vector reader.
+     *
+     * @param field         the field to warm up
+     * @param segmentReader the segment reader providing access to the vector reader
+     * @return {@code true} if the warmup succeeded, {@code false} if an exception occurred
+     */
+    private boolean warmUpField(final FieldInfo field, final SegmentReader segmentReader) {
         try {
-            segmentReader.getVectorReader().search(field.getName(), (float[]) null, null, null); // codecov[ignore]
-        } catch (FaissMemoryOptimizedSearcher.WarmupInitializationException ignored) {
+            assert segmentReader.getVectorReader() instanceof PerFieldKnnVectorsFormat.FieldsReader : "Expected PerFieldKnnVectorsFormat"
+                + ".FieldsReader";
+            final KnnVectorsReader vectorsReader = ((PerFieldKnnVectorsFormat.FieldsReader) segmentReader.getVectorReader()).getFieldReader(
+                field.getName()
+            );
+            assert vectorsReader instanceof WarmableReader;
+            if (vectorsReader instanceof WarmableReader warmableReader) {
+                log.info("Warming up reader for field: {}", field.getName());
+                warmableReader.warmUp(field.getName());
+            }
+            return true;
+        } catch (Exception e) {
             // Expected during warmup initialization
-        }
-
-        return true;
-    }
-
-    private boolean isMemoryOptimizedSearchField(FieldInfo fieldInfo, MapperService mapperService, String indexName) {
-        if (fieldInfo.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD) == false) {
+            log.error("Warm up failed for {}", field.getName(), e);
             return false;
         }
-
-        final MappedFieldType fieldType = mapperService.fieldType(fieldInfo.getName());
-
-        if (fieldType instanceof KNNVectorFieldType knnFieldType) {
-            return MemoryOptimizedSearchSupportSpec.isSupportedFieldType(knnFieldType, indexName);
-        }
-
-        return false;
     }
 
-    private ArrayList<FieldInfo> getFieldsForMemoryOptimizedSearch(LeafReader leafReader, MapperService mapperService, String indexName) {
-        ArrayList<FieldInfo> fields = new ArrayList<>();
+    /**
+     * Collects all {@link FieldInfo} entries in the segment that are eligible for memory-optimized search warmup.
+     *
+     * @param leafReader    the segment-level reader
+     * @param mapperService the mapper service for resolving field types
+     * @param indexName     the index name
+     * @return a list of fields that support memory-optimized search
+     */
+    private List<FieldInfo> getFieldsForMemoryOptimizedSearch(
+        final LeafReader leafReader,
+        final MapperService mapperService,
+        String indexName
+    ) {
+        final List<FieldInfo> fields = new ArrayList<>();
         for (FieldInfo field : leafReader.getFieldInfos()) {
             if (isMemoryOptimizedSearchField(field, mapperService, indexName)) {
                 fields.add(field);
             }
         }
         return fields;
-    }
-
-    private void loadFullPrecisionVectors(LeafReader leafReader, FieldInfo field) {
-        try {
-            final FloatVectorValues vectorValues = leafReader.getFloatVectorValues(field.getName());
-            if (vectorValues == null) {
-                return;
-            }
-
-            final KnnVectorValues.DocIndexIterator iter = vectorValues.iterator();
-            while (iter.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
-                vectorValues.vectorValue(iter.docID());
-            }
-        } catch (IOException e) {
-            log.error("Failed to load vec file for field: {}", field.getName(), e);
-        }
     }
 }

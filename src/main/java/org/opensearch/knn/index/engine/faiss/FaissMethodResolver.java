@@ -29,6 +29,7 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -153,11 +154,12 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         );
         encoderComponentContext.getParameters().putAll(resolvedParams);
 
-        // When auto-resolved to bits=1, remove the type default that was injected — the
-        // 1-bit quantization path doesn't use it, and validateEncoderConfig would reject it.
+        // When auto-resolved to bits=1, remove the type and clip defaults that were injected —
+        // the 1-bit quantization path doesn't use them, and validateEncoderConfig would reject them.
         if (encoderComponentContext.getParameters().get(SQ_BITS) instanceof Integer bitsVal
             && bitsVal == FaissSQEncoder.Bits.ONE.getValue()) {
             encoderComponentContext.getParameters().remove(FAISS_SQ_TYPE);
+            encoderComponentContext.getParameters().remove(FAISS_SQ_CLIP);
         }
 
         resolvedKNNMethodContext.getMethodComponentContext().getParameters().put(METHOD_ENCODER_PARAMETER, encoderComponentContext);
@@ -219,12 +221,14 @@ public class FaissMethodResolver extends AbstractMethodResolver {
      * framework, which gives better recall. The encoderMap guard is needed because IVF doesn't
      * register the sq encoder — only HNSW does.
      *
-     * Currently disabled — the BBQ writer pipeline is not yet fully stable for auto-resolved
+     * Currently disabled — the SQ writer pipeline is not yet fully stable for auto-resolved
      * indices. Users can still explicitly specify sq(bits=1) to opt in. This will be enabled
      * as the default in Part 2.
      * TODO: Enable once the Faiss1040ScalarQuantizedKnnVectorsWriter pipeline is validated end-to-end.
      */
     private static boolean shouldUseSQOneBitForX32(KNNMethodConfigContext knnMethodConfigContext, Map<String, Encoder> encoderMap) {
-        return false;
+        return knnMethodConfigContext.getVersionCreated() != null
+            && knnMethodConfigContext.getVersionCreated().onOrAfter(Version.V_3_6_0)
+            && encoderMap.containsKey(ENCODER_SQ);
     }
 }

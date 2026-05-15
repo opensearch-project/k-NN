@@ -18,14 +18,16 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.VectorScorer;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
+import org.apache.lucene.util.hnsw.RandomVectorScorerSupplier;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
 import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
 
 import java.io.IOException;
+
+import static org.opensearch.knn.index.query.MemoryOptimizedSearchScoreConverter.convertInnerProductScoreToCosineScore;
 
 /**
  * Static factory for creating {@link VectorScorer} instances from {@link KNNVectorValuesIterator.DocIdsIteratorValues}.
@@ -215,13 +217,18 @@ public final class VectorScorers {
     ) throws IOException {
         // We don't need to delegate since we know it is already ADC.
         // This will be removed once ADC Scorer is integrated into the reader.
-        final FlatVectorsScorer adcFlatVectorsScorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
+        FlatVectorsScorer adcFlatVectorsScorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
             fieldInfo,
             spaceType.getKnnVectorSimilarityFunction(),
             null
         );
-        PrefetchableFlatVectorScorer scorer = new PrefetchableFlatVectorScorer(adcFlatVectorsScorer);
-        final RandomVectorScorer randomVectorScorer = scorer.getRandomVectorScorer(
+        // For COSINESIMIL, the ADCFlatVectorsScorer produces scores in INNER_PRODUCT format
+        // (used by MemoryOptimizedKNNWeight which post-converts via convertToCosineScore).
+        // In the exact search path there is no post-conversion, so we wrap the scorer to convert here.
+        if (spaceType == SpaceType.COSINESIMIL) {
+            adcFlatVectorsScorer = new CosineADCFlatVectorsScorer(adcFlatVectorsScorer);
+        }
+        final RandomVectorScorer randomVectorScorer = adcFlatVectorsScorer.getRandomVectorScorer(
             spaceType.getKnnVectorSimilarityFunction().getVectorSimilarityFunction(),
             byteVectorValues,
             target
@@ -231,7 +238,7 @@ public final class VectorScorers {
 
             @Override
             public float score() throws IOException {
-                return randomVectorScorer.score(iterator.docID());
+                return randomVectorScorer.score(iterator.index());
             }
 
             @Override
@@ -244,6 +251,51 @@ public final class VectorScorers {
                 return Bulk.fromRandomScorerSparse(randomVectorScorer, iterator, matchingDocs);
             }
         };
+    }
+
+    /**
+     * Wraps an ADC {@link FlatVectorsScorer} to convert INNER_PRODUCT-format scores to
+     * COSINESIMIL-format. The ADCFlatVectorsScorer uses INNER_PRODUCT.scoreTranslation for
+     * cosine, which the MemoryOptimized path post-converts. In the exact search path there
+     * is no post-conversion, so this wrapper applies it at the scorer level.
+     */
+    // TODO: Move this cosine score conversion into ADCFlatVectorsScorer itself so that it directly
+    // produces COSINESIMIL-format scores. This would eliminate the need for both this wrapper and
+    // the post-conversion in MemoryOptimizedKNNWeight (convertToCosineScore), keeping the
+    // conversion logic in a single place.
+    private record CosineADCFlatVectorsScorer(FlatVectorsScorer delegate) implements FlatVectorsScorer {
+
+        @Override
+        public RandomVectorScorerSupplier getRandomVectorScorerSupplier(
+            VectorSimilarityFunction similarityFunction,
+            KnnVectorValues vectorValues
+        ) throws IOException {
+            return delegate.getRandomVectorScorerSupplier(similarityFunction, vectorValues);
+        }
+
+        @Override
+        public RandomVectorScorer getRandomVectorScorer(
+            VectorSimilarityFunction similarityFunction,
+            KnnVectorValues vectorValues,
+            float[] target
+        ) throws IOException {
+            final RandomVectorScorer inner = delegate.getRandomVectorScorer(similarityFunction, vectorValues, target);
+            return new RandomVectorScorer.AbstractRandomVectorScorer(vectorValues) {
+                @Override
+                public float score(int node) throws IOException {
+                    return convertInnerProductScoreToCosineScore(inner.score(node));
+                }
+            };
+        }
+
+        @Override
+        public RandomVectorScorer getRandomVectorScorer(
+            VectorSimilarityFunction similarityFunction,
+            KnnVectorValues vectorValues,
+            byte[] target
+        ) throws IOException {
+            return delegate.getRandomVectorScorer(similarityFunction, vectorValues, target);
+        }
     }
 
     /**
@@ -271,20 +323,20 @@ public final class VectorScorers {
             spaceType.getKnnVectorSimilarityFunction(),
             null
         );
-        PrefetchableFlatVectorScorer scorer = new PrefetchableFlatVectorScorer(hammingFlatVectorsScorer);
         // Hamming's KNNVectorSimilarityFunction does not map to a Lucene VectorSimilarityFunction,
         // but HammingFlatVectorsScorer ignores this parameter, so we pass EUCLIDEAN as a placeholder.
-        final RandomVectorScorer randomVectorScorer = scorer.getRandomVectorScorer(
+        final RandomVectorScorer randomVectorScorer = hammingFlatVectorsScorer.getRandomVectorScorer(
             VectorSimilarityFunction.EUCLIDEAN,
             byteVectorValues,
             target
         );
+
         return new VectorScorer() {
             final KnnVectorValues.DocIndexIterator iterator = byteVectorValues.iterator();
 
             @Override
             public float score() throws IOException {
-                return randomVectorScorer.score(iterator.docID());
+                return randomVectorScorer.score(iterator.index());
             }
 
             @Override

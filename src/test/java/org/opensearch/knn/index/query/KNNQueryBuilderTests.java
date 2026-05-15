@@ -35,8 +35,10 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.QueryRewriteContext;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.index.query.QueryBuilderVisitor;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.mapper.Mode;
@@ -69,6 +71,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.index.KNNClusterTestUtils.mockClusterService;
 import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
@@ -522,6 +526,174 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         });
         Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
         assertEquals("Radial search is not supported for indices which have quantization enabled", e.getMessage());
+    }
+
+    public void testDoToQuery_whenRadialSearchOnFaissSQ32x_thenException() {
+        float[] queryVector = { 1.0f };
+        Index dummyIndex = new Index("dummy", "dummy");
+        MethodComponentContext methodComponentContext = new MethodComponentContext(
+            org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
+            ImmutableMap.of()
+        );
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext);
+        KNNMappingConfig faissSQ32xMappingConfig = new KNNMappingConfig() {
+            @Override
+            public Optional<KNNMethodContext> getKnnMethodContext() {
+                return Optional.of(knnMethodContext);
+            }
+
+            @Override
+            public int getDimension() {
+                return 1;
+            }
+
+            @Override
+            public CompressionLevel getCompressionLevel() {
+                return CompressionLevel.x32;
+            }
+        };
+
+        // Test with maxDistance
+        KNNQueryBuilder knnQueryBuilderWithDistance = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .maxDistance(MAX_DISTANCE)
+            .build();
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(faissSQ32xMappingConfig);
+        Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithDistance.doToQuery(mockQueryShardContext));
+        assertEquals("Radial search is not supported for indices which have quantization enabled", e.getMessage());
+
+        // Test with minScore
+        KNNQueryBuilder knnQueryBuilderWithScore = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .minScore(MIN_SCORE)
+            .build();
+        QueryShardContext mockQueryShardContext2 = mock(QueryShardContext.class);
+        KNNVectorFieldType mockKNNVectorField2 = mock(KNNVectorFieldType.class);
+        when(mockQueryShardContext2.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField2.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockQueryShardContext2.fieldMapper(anyString())).thenReturn(mockKNNVectorField2);
+        when(mockKNNVectorField2.getKnnMappingConfig()).thenReturn(faissSQ32xMappingConfig);
+        Exception e2 = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithScore.doToQuery(mockQueryShardContext2));
+        assertEquals("Radial search is not supported for indices which have quantization enabled", e2.getMessage());
+    }
+
+    public void testDoToQuery_whenRadialSearchOnLuceneSQ32x_thenException() {
+        float[] queryVector = { 1.0f };
+        Index dummyIndex = new Index("dummy", "dummy");
+        MethodComponentContext methodComponentContext = new MethodComponentContext(
+            org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
+            ImmutableMap.of()
+        );
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
+        KNNMappingConfig luceneSQ32xMappingConfig = new KNNMappingConfig() {
+            @Override
+            public Optional<KNNMethodContext> getKnnMethodContext() {
+                return Optional.of(knnMethodContext);
+            }
+
+            @Override
+            public int getDimension() {
+                return 1;
+            }
+
+            @Override
+            public CompressionLevel getCompressionLevel() {
+                return CompressionLevel.x32;
+            }
+        };
+
+        // Test with maxDistance
+        KNNQueryBuilder knnQueryBuilderWithDistance = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .maxDistance(MAX_DISTANCE)
+            .build();
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(luceneSQ32xMappingConfig);
+        Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithDistance.doToQuery(mockQueryShardContext));
+        assertEquals("Radial search is not supported for indices which have quantization enabled", e.getMessage());
+
+        // Test with minScore
+        KNNQueryBuilder knnQueryBuilderWithScore = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .minScore(MIN_SCORE)
+            .build();
+        QueryShardContext mockQueryShardContext2 = mock(QueryShardContext.class);
+        KNNVectorFieldType mockKNNVectorField2 = mock(KNNVectorFieldType.class);
+        when(mockQueryShardContext2.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField2.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockQueryShardContext2.fieldMapper(anyString())).thenReturn(mockKNNVectorField2);
+        when(mockKNNVectorField2.getKnnMappingConfig()).thenReturn(luceneSQ32xMappingConfig);
+        Exception e2 = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithScore.doToQuery(mockQueryShardContext2));
+        assertEquals("Radial search is not supported for indices which have quantization enabled", e2.getMessage());
+    }
+
+    public void testDoToQuery_whenRadialSearchOnLuceneFlat32x_thenException() {
+        float[] queryVector = { 1.0f };
+        Index dummyIndex = new Index("dummy", "dummy");
+        MethodComponentContext methodComponentContext = new MethodComponentContext(
+            org.opensearch.knn.common.KNNConstants.METHOD_FLAT,
+            ImmutableMap.of()
+        );
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
+        KNNMappingConfig luceneFlat32xMappingConfig = new KNNMappingConfig() {
+            @Override
+            public Optional<KNNMethodContext> getKnnMethodContext() {
+                return Optional.of(knnMethodContext);
+            }
+
+            @Override
+            public int getDimension() {
+                return 1;
+            }
+
+            @Override
+            public CompressionLevel getCompressionLevel() {
+                return CompressionLevel.x32;
+            }
+        };
+
+        // Test with maxDistance
+        KNNQueryBuilder knnQueryBuilderWithDistance = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .maxDistance(MAX_DISTANCE)
+            .build();
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(luceneFlat32xMappingConfig);
+        Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithDistance.doToQuery(mockQueryShardContext));
+        assertEquals("Radial search is not supported for indices which have quantization enabled", e.getMessage());
+
+        // Test with minScore
+        KNNQueryBuilder knnQueryBuilderWithScore = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .minScore(MIN_SCORE)
+            .build();
+        QueryShardContext mockQueryShardContext2 = mock(QueryShardContext.class);
+        KNNVectorFieldType mockKNNVectorField2 = mock(KNNVectorFieldType.class);
+        when(mockQueryShardContext2.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField2.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockQueryShardContext2.fieldMapper(anyString())).thenReturn(mockKNNVectorField2);
+        when(mockKNNVectorField2.getKnnMappingConfig()).thenReturn(luceneFlat32xMappingConfig);
+        Exception e2 = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithScore.doToQuery(mockQueryShardContext2));
+        assertEquals("Radial search is not supported for indices which have quantization enabled", e2.getMessage());
     }
 
     public void testDoToQuery_KnnQueryWithFilter_Lucene() {
@@ -1372,6 +1544,34 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertEquals(knnQueryBuilder.getRescoreContext(), updatedKnnQueryBuilder.getRescoreContext());
         assertEquals(knnQueryBuilder.getExpandNested(), updatedKnnQueryBuilder.getExpandNested());
         assertEquals(TERM_QUERY, updatedKnnQueryBuilder.getFilter());
+    }
+
+    public void testVisit_whenNoFilter_thenVisitorAcceptsOnlyQueryBuilder() {
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).k(K).build();
+        QueryBuilderVisitor visitor = mock(QueryBuilderVisitor.class);
+
+        knnQueryBuilder.visit(visitor);
+
+        verify(visitor).accept(knnQueryBuilder);
+        verify(visitor, never()).getChildVisitor(any());
+    }
+
+    public void testVisit_whenFilterPresent_thenVisitorTraversesFilter() {
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(QUERY_VECTOR)
+            .k(K)
+            .filter(TERM_QUERY)
+            .build();
+        QueryBuilderVisitor visitor = mock(QueryBuilderVisitor.class);
+        QueryBuilderVisitor subVisitor = mock(QueryBuilderVisitor.class);
+        when(visitor.getChildVisitor(any())).thenReturn(subVisitor);
+
+        knnQueryBuilder.visit(visitor);
+
+        verify(visitor).accept(knnQueryBuilder);
+        verify(visitor).getChildVisitor(org.apache.lucene.search.BooleanClause.Occur.FILTER);
+        verify(subVisitor).accept(TERM_QUERY);
     }
 
     @SneakyThrows

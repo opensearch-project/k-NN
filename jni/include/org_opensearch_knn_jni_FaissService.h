@@ -285,34 +285,34 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_setMergeInterrup
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService
- * Method:    initFaissBBQIndex
+ * Method:    initFaissSQIndex
  * Signature: (IILjava/util/Map;FI)J
  */
-JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_initFaissBBQIndex
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_initFaissSQIndex
   (JNIEnv *, jclass, jint, jint, jobject, jfloat, jint);
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService
- * Method:    addDocsToBBQIndex
+ * Method:    addDocsToSQIndex
  * Signature: (J[III)V
  */
-JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_addDocsToBBQIndex
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_addDocsToSQIndex
   (JNIEnv *, jclass, jlong, jintArray, jint, jint);
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService
- * Method:    passBBQVectorsWithCorrectionFactors
+ * Method:    passSQVectorsWithCorrectionFactors
  * Signature: (J[BI)V
  */
-JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_passBBQVectorsWithCorrectionFactors
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_passSQVectorsWithCorrectionFactors
   (JNIEnv *, jclass, jlong, jbyteArray, jint);
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService
- * Method:    releaseFaissBBQIndex
+ * Method:    releaseFaissSQIndex
  * Signature: (J)V
  */
-JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_releaseFaissBBQIndex
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_releaseFaissSQIndex
   (JNIEnv *, jclass, jlong);
 
 

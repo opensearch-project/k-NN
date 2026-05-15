@@ -66,7 +66,7 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
             METHOD_HNSW
         );
         resolveEncoder(resolvedKNNMethodContext, knnMethodConfigContext);
-        resolveEncoderBitsAndValidate(resolvedKNNMethodContext, knnMethodConfigContext);
+        resolveEncoderBitsAndValidate(knnMethodContext, resolvedKNNMethodContext, knnMethodConfigContext);
         resolveMethodParams(resolvedKNNMethodContext.getMethodComponentContext(), knnMethodConfigContext, HNSW_METHOD_COMPONENT);
         CompressionLevel resolvedCompressionLevel = resolveCompressionLevelFromMethodContext(
             resolvedKNNMethodContext,
@@ -110,19 +110,30 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
     }
 
     // if encoder gets resolved, determine if default bits need to be added and validate encoder config makes sense
-    private void resolveEncoderBitsAndValidate(KNNMethodContext resolvedKNNMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
+    private void resolveEncoderBitsAndValidate(
+        KNNMethodContext originalMethodContext,
+        KNNMethodContext resolvedKNNMethodContext,
+        KNNMethodConfigContext knnMethodConfigContext
+    ) {
         if (!isEncoderSpecified(resolvedKNNMethodContext)) {
             return;
         }
+        boolean didUserSpecifyEncoder = isEncoderSpecified(originalMethodContext);
+        boolean isV360OrLater = knnMethodConfigContext.getVersionCreated().onOrAfter(Version.V_3_6_0);
+
         MethodComponentContext encoderComponentContext = getEncoderComponentContext(resolvedKNNMethodContext);
         if (encoderComponentContext == null) {
             return;
         }
-        if (!encoderComponentContext.getParameters().containsKey(LUCENE_SQ_BITS)) {
+
+        boolean bitsAlreadySet = encoderComponentContext.getParameters().containsKey(LUCENE_SQ_BITS);
+        boolean skipAutoResolve = isV360OrLater && didUserSpecifyEncoder;
+
+        if (bitsAlreadySet == false && skipAutoResolve == false) {
             CompressionLevel effectiveCompression = CompressionLevel.isConfigured(knnMethodConfigContext.getCompressionLevel())
                 ? knnMethodConfigContext.getCompressionLevel()
                 : getDefaultCompressionLevel(knnMethodConfigContext);
-            boolean useNewDefault = knnMethodConfigContext.getVersionCreated().onOrAfter(Version.V_3_6_0)
+            boolean useNewDefault = isV360OrLater
                 && LuceneSQEncoder.Bits.fromValue(LUCENE_SCALAR_QUANTIZER_DEFAULT_BITS_AFTER_V360)
                     .getCompressionLevel() == effectiveCompression;
             encoderComponentContext.getParameters()

@@ -154,7 +154,7 @@ jlong knn_jni::faiss_wrapper::InitIndex(knn_jni::JNIUtilInterface * jniUtil, JNI
                                    std::move(subParametersCpp));
 }
 
-jlong knn_jni::faiss_wrapper::InitFaissBBQIndex(knn_jni::JNIUtilInterface *jniUtil,
+jlong knn_jni::faiss_wrapper::InitFaissSQIndex(knn_jni::JNIUtilInterface *jniUtil,
                                                 JNIEnv *env,
                                                 jlong numDocsJ,
                                                 jint dimJ,
@@ -197,8 +197,8 @@ jlong knn_jni::faiss_wrapper::InitFaissBBQIndex(knn_jni::JNIUtilInterface *jniUt
         subParametersCpp = jniUtil->ConvertJavaMapToCppMap(env, it->second);
     }
 
-    // Create Faiss BBQ index
-    return indexService->initFaissBBQIndex(jniUtil,
+    // Create Faiss SQ index
+    return indexService->initFaissSQIndex(jniUtil,
                                            env,
                                            metric,
                                            std::move(indexDescriptionCpp),

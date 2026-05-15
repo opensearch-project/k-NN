@@ -158,7 +158,7 @@ struct ArmNeonFP16L2 final : BaseSimilarityFunction<BulkScoreTransformFunc, Scor
 };
 
 //
-// BBQ (ADC: 4-bit query x 1-bit data) - NEON SIMD implementation
+// SQ (ADC: 4-bit query x 1-bit data) - NEON SIMD implementation
 //
 // The query is 4-bit quantized and transposed into 4 bit planes (via transposeHalfByte).
 // Each bit plane has `binaryCodeBytes` bytes. The int4BitDotProduct computes:
@@ -291,7 +291,7 @@ static FORCE_INLINE void simd4bitDotProductBatch(
 }
 
 template <bool IsMaxIP>
-struct ArmNeonBBQSimilarityFunction final : SimilarityFunction {
+struct ArmNeonSQSimilarityFunction final : SimilarityFunction {
     HOT_SPOT void calculateSimilarityInBulk(SimdVectorSearchContext* srchContext,
                                             int32_t* internalVectorIds,
                                             float* scores,
@@ -439,12 +439,12 @@ ArmNeonFP16MaxIP<FaissScoreToLuceneScoreTransform::ipToMaxIpTransformBulk, Faiss
 ArmNeonFP16L2<FaissScoreToLuceneScoreTransform::l2TransformBulk, FaissScoreToLuceneScoreTransform::l2Transform> FP16_L2_SIMIL_FUNC;
 
 //
-// BBQ
+// SQ
 //
 // 1. Max IP
-ArmNeonBBQSimilarityFunction<true> BBQ_IP_SIMIL_FUNC;
+ArmNeonSQSimilarityFunction<true> SQ_IP_SIMIL_FUNC;
 // 2. L2
-ArmNeonBBQSimilarityFunction<false> BBQ_L2_SIMIL_FUNC;
+ArmNeonSQSimilarityFunction<false> SQ_L2_SIMIL_FUNC;
 
 #ifndef __NO_SELECT_FUNCTION
 SimilarityFunction* SimilarityFunction::selectSimilarityFunction(const NativeSimilarityFunctionType nativeFunctionType) {
@@ -452,10 +452,10 @@ SimilarityFunction* SimilarityFunction::selectSimilarityFunction(const NativeSim
         return &FP16_MAX_INNER_PRODUCT_SIMIL_FUNC;
     } else if (nativeFunctionType == NativeSimilarityFunctionType::FP16_L2) {
         return &FP16_L2_SIMIL_FUNC;
-    } else if (nativeFunctionType == NativeSimilarityFunctionType::BBQ_IP) {
-        return &BBQ_IP_SIMIL_FUNC;
-    } else if (nativeFunctionType == NativeSimilarityFunctionType::BBQ_L2) {
-        return &BBQ_L2_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ_IP) {
+        return &SQ_IP_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ_L2) {
+        return &SQ_L2_SIMIL_FUNC;
     }
 
     throw std::runtime_error("Invalid native similarity function type was given, nativeFunctionType="

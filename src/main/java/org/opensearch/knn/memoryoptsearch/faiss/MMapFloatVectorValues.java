@@ -83,6 +83,6 @@ public class MMapFloatVectorValues extends FloatVectorValues implements MMapVect
         if (delegate instanceof HasIndexSlice hasIndexSlice) {
             return hasIndexSlice.getSlice();
         }
-        throw new UnsupportedOperationException("HasIndexSlice interface is not supported with the delegate class " + delegate.getClass());
+        return null;
     }
 }

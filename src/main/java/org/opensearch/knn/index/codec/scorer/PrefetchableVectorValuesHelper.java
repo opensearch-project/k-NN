@@ -38,8 +38,8 @@ class PrefetchableVectorValuesHelper {
      * @param numNodes     number of valid entries in the {@code nodes} array to prefetch
      * @throws IOException if an I/O error occurs during prefetching
      */
-    public static void mayBeDoPrefetch(final KnnVectorValues vectorValues, final int[] nodes, final int numNodes) throws IOException {
-        if (vectorValues instanceof HasIndexSlice vectorValuesWithSlice) {
+    public static void doPrefetch(final KnnVectorValues vectorValues, final int[] nodes, final int numNodes) throws IOException {
+        if (vectorValues instanceof HasIndexSlice vectorValuesWithSlice && vectorValuesWithSlice.getSlice() != null) {
             // passing base offset as 0, since the index input is a slice and its base offset is 0.
             PrefetchHelper.prefetch(vectorValuesWithSlice.getSlice(), 0, vectorValues.getVectorByteLength(), nodes, numNodes);
         } else {

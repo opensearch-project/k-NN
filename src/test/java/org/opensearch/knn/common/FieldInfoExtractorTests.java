@@ -11,11 +11,19 @@ import org.apache.lucene.index.LeafReader;
 import org.junit.Assert;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.opensearch.index.mapper.MappedFieldType;
+import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.engine.faiss.SQConfig;
+import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.mockito.Mockito.when;
 
@@ -133,5 +141,87 @@ public class FieldInfoExtractorTests extends KNNTestCase {
         FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
         Mockito.when(fieldInfo.getAttribute(KNNConstants.SQ_CONFIG)).thenReturn(null);
         Assert.assertSame(SQConfig.EMPTY, FieldInfoExtractor.extractSQConfig(fieldInfo));
+    }
+
+    public void testHasQuantizationConfig_whenPresent_thenReturnsTrue() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(KNNConstants.QFRAMEWORK_CONFIG)).thenReturn("type=binary,bits=2");
+        Assert.assertTrue(FieldInfoExtractor.hasQuantizationConfig(fieldInfo));
+    }
+
+    public void testHasQuantizationConfig_whenNull_thenReturnsFalse() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(KNNConstants.QFRAMEWORK_CONFIG)).thenReturn(null);
+        Assert.assertFalse(FieldInfoExtractor.hasQuantizationConfig(fieldInfo));
+    }
+
+    public void testHasQuantizationConfig_whenEmpty_thenReturnsFalse() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(KNNConstants.QFRAMEWORK_CONFIG)).thenReturn("");
+        Assert.assertFalse(FieldInfoExtractor.hasQuantizationConfig(fieldInfo));
+    }
+
+    public void testIsMemoryOptimizedSearchField_whenNotKnnField_thenReturnsFalse() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        MapperService mapperService = Mockito.mock(MapperService.class);
+        when(fieldInfo.attributes()).thenReturn(Map.of());
+
+        Assert.assertFalse(FieldInfoExtractor.isMemoryOptimizedSearchField(fieldInfo, mapperService, "test_index"));
+    }
+
+    public void testIsMemoryOptimizedSearchField_whenFieldTypeNotKNNVector_thenReturnsFalse() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        MapperService mapperService = Mockito.mock(MapperService.class);
+        Map<String, String> attributes = new HashMap<>();
+        attributes.put(KNNVectorFieldMapper.KNN_FIELD, "true");
+        when(fieldInfo.attributes()).thenReturn(attributes);
+        when(fieldInfo.getName()).thenReturn("my_field");
+        when(mapperService.fieldType("my_field")).thenReturn(Mockito.mock(MappedFieldType.class));
+
+        Assert.assertFalse(FieldInfoExtractor.isMemoryOptimizedSearchField(fieldInfo, mapperService, "test_index"));
+    }
+
+    public void testIsMemoryOptimizedSearchField_whenFieldTypeIsNull_thenReturnsFalse() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        MapperService mapperService = Mockito.mock(MapperService.class);
+        Map<String, String> attributes = new HashMap<>();
+        attributes.put(KNNVectorFieldMapper.KNN_FIELD, "true");
+        when(fieldInfo.attributes()).thenReturn(attributes);
+        when(fieldInfo.getName()).thenReturn("my_field");
+        when(mapperService.fieldType("my_field")).thenReturn(null);
+
+        Assert.assertFalse(FieldInfoExtractor.isMemoryOptimizedSearchField(fieldInfo, mapperService, "test_index"));
+    }
+
+    public void testIsMemoryOptimizedSearchField_whenSupportSpecReturnsFalse_thenReturnsFalse() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        MapperService mapperService = Mockito.mock(MapperService.class);
+        KNNVectorFieldType knnFieldType = Mockito.mock(KNNVectorFieldType.class);
+        Map<String, String> attributes = new HashMap<>();
+        attributes.put(KNNVectorFieldMapper.KNN_FIELD, "true");
+        when(fieldInfo.attributes()).thenReturn(attributes);
+        when(fieldInfo.getName()).thenReturn("my_field");
+        when(mapperService.fieldType("my_field")).thenReturn(knnFieldType);
+
+        try (MockedStatic<MemoryOptimizedSearchSupportSpec> mockedSpec = Mockito.mockStatic(MemoryOptimizedSearchSupportSpec.class)) {
+            mockedSpec.when(() -> MemoryOptimizedSearchSupportSpec.isSupportedFieldType(knnFieldType, "test_index")).thenReturn(false);
+            Assert.assertFalse(FieldInfoExtractor.isMemoryOptimizedSearchField(fieldInfo, mapperService, "test_index"));
+        }
+    }
+
+    public void testIsMemoryOptimizedSearchField_whenAllConditionsMet_thenReturnsTrue() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        MapperService mapperService = Mockito.mock(MapperService.class);
+        KNNVectorFieldType knnFieldType = Mockito.mock(KNNVectorFieldType.class);
+        Map<String, String> attributes = new HashMap<>();
+        attributes.put(KNNVectorFieldMapper.KNN_FIELD, "true");
+        when(fieldInfo.attributes()).thenReturn(attributes);
+        when(fieldInfo.getName()).thenReturn("my_field");
+        when(mapperService.fieldType("my_field")).thenReturn(knnFieldType);
+
+        try (MockedStatic<MemoryOptimizedSearchSupportSpec> mockedSpec = Mockito.mockStatic(MemoryOptimizedSearchSupportSpec.class)) {
+            mockedSpec.when(() -> MemoryOptimizedSearchSupportSpec.isSupportedFieldType(knnFieldType, "test_index")).thenReturn(true);
+            Assert.assertTrue(FieldInfoExtractor.isMemoryOptimizedSearchField(fieldInfo, mapperService, "test_index"));
+        }
     }
 }

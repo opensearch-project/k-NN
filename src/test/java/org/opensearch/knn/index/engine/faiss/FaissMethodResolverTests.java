@@ -22,6 +22,7 @@ import org.opensearch.knn.index.mapper.Mode;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
@@ -49,7 +50,7 @@ public class FaissMethodResolverTests extends KNNTestCase {
             false,
             SpaceType.INNER_PRODUCT
         );
-        validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x32, SpaceType.INNER_PRODUCT, QFrameBitEncoder.NAME, true);
+        validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x32, SpaceType.INNER_PRODUCT, ENCODER_SQ, true);
 
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             null,

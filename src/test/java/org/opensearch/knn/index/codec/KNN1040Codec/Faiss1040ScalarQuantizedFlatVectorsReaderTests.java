@@ -22,7 +22,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-public class Faiss1040PrefetchSupportKnnVectorReaderTests extends KNNTestCase {
+public class Faiss1040ScalarQuantizedFlatVectorsReaderTests extends KNNTestCase {
 
     @SneakyThrows
     public void testConstructor_thenUsesScorerFromDelegate() {
@@ -30,7 +30,7 @@ public class Faiss1040PrefetchSupportKnnVectorReaderTests extends KNNTestCase {
         FlatVectorsScorer expectedScorer = mock(FlatVectorsScorer.class);
         when(delegate.getFlatVectorScorer()).thenReturn(expectedScorer);
 
-        Faiss1040PrefetchSupportKnnVectorReader reader = new Faiss1040PrefetchSupportKnnVectorReader(delegate);
+        Faiss1040ScalarQuantizedFlatVectorsReader reader = new Faiss1040ScalarQuantizedFlatVectorsReader(delegate);
         assertSame(expectedScorer, reader.getFlatVectorScorer());
     }
 
@@ -41,7 +41,7 @@ public class Faiss1040PrefetchSupportKnnVectorReaderTests extends KNNTestCase {
         float[] target = { 1.0f, 2.0f };
         when(delegate.getRandomVectorScorer("field", target)).thenReturn(expectedScorer);
 
-        Faiss1040PrefetchSupportKnnVectorReader reader = new Faiss1040PrefetchSupportKnnVectorReader(delegate);
+        Faiss1040ScalarQuantizedFlatVectorsReader reader = new Faiss1040ScalarQuantizedFlatVectorsReader(delegate);
         assertSame(expectedScorer, reader.getRandomVectorScorer("field", target));
         verify(delegate).getRandomVectorScorer("field", target);
     }
@@ -53,7 +53,7 @@ public class Faiss1040PrefetchSupportKnnVectorReaderTests extends KNNTestCase {
         byte[] target = { 1, 2 };
         when(delegate.getRandomVectorScorer("field", target)).thenReturn(expectedScorer);
 
-        Faiss1040PrefetchSupportKnnVectorReader reader = new Faiss1040PrefetchSupportKnnVectorReader(delegate);
+        Faiss1040ScalarQuantizedFlatVectorsReader reader = new Faiss1040ScalarQuantizedFlatVectorsReader(delegate);
         assertSame(expectedScorer, reader.getRandomVectorScorer("field", target));
         verify(delegate).getRandomVectorScorer("field", target);
     }
@@ -61,7 +61,7 @@ public class Faiss1040PrefetchSupportKnnVectorReaderTests extends KNNTestCase {
     @SneakyThrows
     public void testCheckIntegrity_thenDelegatesToReader() {
         FlatVectorsReader delegate = mock(FlatVectorsReader.class);
-        Faiss1040PrefetchSupportKnnVectorReader reader = new Faiss1040PrefetchSupportKnnVectorReader(delegate);
+        Faiss1040ScalarQuantizedFlatVectorsReader reader = new Faiss1040ScalarQuantizedFlatVectorsReader(delegate);
         reader.checkIntegrity();
         verify(delegate).checkIntegrity();
     }
@@ -73,19 +73,16 @@ public class Faiss1040PrefetchSupportKnnVectorReaderTests extends KNNTestCase {
         QuantizedByteVectorValues mockQbvv = mock(QuantizedByteVectorValues.class);
         when(delegate.getFloatVectorValues("field")).thenReturn(mockFvv);
 
-        try (MockedStatic<Faiss1040ScalarQuantizedUtils> mockedUtils = mockStatic(Faiss1040ScalarQuantizedUtils.class)) {
-            mockedUtils.when(() -> Faiss1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(any())).thenReturn(mockQbvv);
+        try (MockedStatic<KNN1040ScalarQuantizedUtils> mockedUtils = mockStatic(KNN1040ScalarQuantizedUtils.class)) {
+            mockedUtils.when(() -> KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(any())).thenReturn(mockQbvv);
 
-            Faiss1040PrefetchSupportKnnVectorReader reader = new Faiss1040PrefetchSupportKnnVectorReader(delegate);
+            Faiss1040ScalarQuantizedFlatVectorsReader reader = new Faiss1040ScalarQuantizedFlatVectorsReader(delegate);
             FloatVectorValues result = reader.getFloatVectorValues("field");
 
             assertTrue("Result should implement HasIndexSlice", result instanceof HasIndexSlice);
-            assertTrue(
-                "Result should be ScalarQuantizedFloatVectorValuesWithIndexInputSlice",
-                result instanceof ScalarQuantizedFloatVectorValuesWithIndexInputSlice
-            );
+            assertTrue("Result should be ScalarQuantizedFloatVectorValues", result instanceof ScalarQuantizedFloatVectorValues);
             verify(delegate).getFloatVectorValues("field");
-            mockedUtils.verify(() -> Faiss1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(mockFvv));
+            mockedUtils.verify(() -> KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(mockFvv));
         }
     }
 
@@ -95,7 +92,7 @@ public class Faiss1040PrefetchSupportKnnVectorReaderTests extends KNNTestCase {
         ByteVectorValues expectedValues = mock(ByteVectorValues.class);
         when(delegate.getByteVectorValues("field")).thenReturn(expectedValues);
 
-        Faiss1040PrefetchSupportKnnVectorReader reader = new Faiss1040PrefetchSupportKnnVectorReader(delegate);
+        Faiss1040ScalarQuantizedFlatVectorsReader reader = new Faiss1040ScalarQuantizedFlatVectorsReader(delegate);
         assertSame(expectedValues, reader.getByteVectorValues("field"));
         verify(delegate).getByteVectorValues("field");
     }
@@ -103,7 +100,7 @@ public class Faiss1040PrefetchSupportKnnVectorReaderTests extends KNNTestCase {
     @SneakyThrows
     public void testClose_thenDelegatesToReader() {
         FlatVectorsReader delegate = mock(FlatVectorsReader.class);
-        Faiss1040PrefetchSupportKnnVectorReader reader = new Faiss1040PrefetchSupportKnnVectorReader(delegate);
+        Faiss1040ScalarQuantizedFlatVectorsReader reader = new Faiss1040ScalarQuantizedFlatVectorsReader(delegate);
         reader.close();
         verify(delegate).close();
     }
@@ -113,7 +110,7 @@ public class Faiss1040PrefetchSupportKnnVectorReaderTests extends KNNTestCase {
         FlatVectorsReader delegate = mock(FlatVectorsReader.class);
         when(delegate.ramBytesUsed()).thenReturn(12345L);
 
-        Faiss1040PrefetchSupportKnnVectorReader reader = new Faiss1040PrefetchSupportKnnVectorReader(delegate);
+        Faiss1040ScalarQuantizedFlatVectorsReader reader = new Faiss1040ScalarQuantizedFlatVectorsReader(delegate);
         assertEquals(12345L, reader.ramBytesUsed());
         verify(delegate).ramBytesUsed();
     }

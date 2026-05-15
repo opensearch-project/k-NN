@@ -372,7 +372,7 @@ There are two ways to run integration tests using the remote index builder featu
 First create an S3 bucket `<bucket_name>` in an AWS account. Then run below to setup remote index builder
 ```
 // 1. Pull GPU remote index builder docker image
-docker pull opensearchstaging/remote-vector-index-builder:api-latest
+docker pull opensearchstaging/remote-vector-index-builder:api-snapshot
 
 // 2. Set environment variables
 export AWS_ACCESS_KEY_ID=
@@ -380,7 +380,7 @@ export AWS_SECRET_ACCESS_KEY=
 export AWS_SESSION_TOKEN=
 
 // 3. Run docker image
-docker run --gpus all -p 80:1025 -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} -e AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN} opensearchstaging/remote-vector-index-builder:api-latest
+docker run --gpus all -p 80:1025 -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} -e AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN} -e AWS_DEFAULT_REGION=us-east-1  opensearchstaging/remote-vector-index-builder:api-snapshot
 
 // 4. Health ping to check service is running
 curl -XGET "http://0.0.0.0:80/_status/<job_id>"
@@ -400,10 +400,10 @@ export AWS_SESSION_TOKEN=
 First create an S3 bucket `<bucket_name>` in LocalStack. LocalStack simulates AWS locally, so the S3 bucket exists on the local machine.
 ```
 1. Pull LocalStack Docker Image
-docker pull localstack/localstack:latest
+docker pull localstack/localstack:4.14
 
 2. Run LocalStack
-docker run --rm -d -p 4566:4566 localstack/localstack:latest
+docker run --rm -d -p 4566:4566 localstack/localstack:4.14
 
 3. Create S3 Bucket in LocalStack
 aws --endpoint-url=http://localhost:4566 s3 mb s3://<bucket_name>
@@ -411,7 +411,7 @@ aws --endpoint-url=http://localhost:4566 s3 mb s3://<bucket_name>
 Then run below to setup remote index builder
 ```
 // 1. Pull GPU remote index builder docker image
-docker pull opensearchstaging/remote-vector-index-builder:api-latest
+docker pull opensearchstaging/remote-vector-index-builder:api-snapshot
 
 // 2. Set environment variables. The AWS credentials are dummy values, but need to be set for LocalStack to work
 export AWS_ACCESS_KEY_ID=test
@@ -419,7 +419,7 @@ export AWS_SECRET_ACCESS_KEY=test
 export AWS_SESSION_TOKEN=test
 
 // 3. Run docker image
-docker run --gpus all -p 80:1025 -e S3_ENDPOINT_URL=http://172.17.0.1:4566 -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} -e AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN} opensearchstaging/remote-vector-index-builder:api-latest
+docker run --gpus all -p 80:1025 -e S3_ENDPOINT_URL=http://172.17.0.1:4566 -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} -e AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN} -e AWS_DEFAULT_REGION=us-east-1 opensearchstaging/remote-vector-index-builder:api-snapshot
 
 // 4. Health ping to check service is running
 curl -XGET "http://0.0.0.0:80/_status/<job_id>"
@@ -459,6 +459,7 @@ with `@ExpectRemoteBuildValidation`, for the `@After` method `verifyRemoteIndexB
 - NestedSearchIT
 - ConcurrentSegmentSearchIT
 - MOSFaissFloatIndexIT
+- MOSFaissSQIndexIT
 - RestTrainModelHandlerIT
 - RecallTestsIT
 

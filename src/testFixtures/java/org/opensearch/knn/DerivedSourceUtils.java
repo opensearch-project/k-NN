@@ -15,6 +15,7 @@ import org.apache.lucene.util.BytesRef;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.index.IndexSettings;
 import org.opensearch.indices.replication.common.ReplicationType;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
@@ -50,6 +51,22 @@ public class DerivedSourceUtils {
         )
         .put("index.knn", true)
         .put(KNNSettings.KNN_DERIVED_SOURCE_ENABLED, true)
+        .build();
+
+    public static final Settings CORE_DERIVED_ENABLED_SETTINGS = Settings.builder()
+        .put(
+            "number_of_shards",
+            System.getProperty(BWC_VERSION, null) == null ? Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) : 1
+        )
+        .put(
+            "number_of_replicas",
+            Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1")) > 1 && System.getProperty(BWC_VERSION, null) == null
+                ? 1
+                : 0
+        )
+        .put("index.knn", true)
+        .put(IndexSettings.INDEX_DERIVED_SOURCE_SETTING.getKey(), true)
+        .put(IndexSettings.INDEX_DERIVED_SOURCE_TRANSLOG_ENABLED_SETTING.getKey(), true)
         .build();
 
     public static final Settings DERIVED_ENABLED_WITH_SEGREP_SETTINGS = Settings.builder()
@@ -94,6 +111,8 @@ public class DerivedSourceUtils {
         @Builder.Default
         public boolean derivedEnabled = false;
         @Builder.Default
+        public boolean coreDerivedEnabled = false;
+        @Builder.Default
         public int docCount = DOCS;
         @Builder.Default
         public Settings settings = null;
@@ -110,6 +129,9 @@ public class DerivedSourceUtils {
         public Settings getSettings() {
             if (settings != null) {
                 return settings;
+            }
+            if (coreDerivedEnabled) {
+                return CORE_DERIVED_ENABLED_SETTINGS;
             }
             return derivedEnabled ? DERIVED_ENABLED_SETTINGS : DERIVED_DISABLED_SETTINGS;
         }

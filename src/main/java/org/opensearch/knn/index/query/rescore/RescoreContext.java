@@ -57,7 +57,7 @@ public final class RescoreContext {
     /**
      * Flag to control whether the dimension-based oversampling logic in {@link #getFirstPassK(int, boolean, int)}
      * is allowed to override the configured oversample factor. When set to {@code false}, the oversample factor
-     * remains fixed regardless of vector dimension. This is used for encoders like FAISS BBQ where the oversample
+     * remains fixed regardless of vector dimension. This is used for encoders like FAISS SQ where the oversample
      * factor should not be adjusted based on dimension.
      */
     @Builder.Default

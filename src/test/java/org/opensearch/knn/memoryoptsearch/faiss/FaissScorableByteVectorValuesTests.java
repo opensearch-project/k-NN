@@ -7,12 +7,15 @@ package org.opensearch.knn.memoryoptsearch.faiss;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
+import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.KnnVectorValues;
+import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.DocAndFloatFeatureBuffer;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.VectorScorer;
+import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues.PreDefinedByteVectorValues;
@@ -29,6 +32,10 @@ public class FaissScorableByteVectorValuesTests extends KNNTestCase {
 
     private static final int DIMENSION = 4;
     private static final List<byte[]> VECTORS = List.of(new byte[] { 1, 2, 3, 4 }, new byte[] { 5, 6, 7, 8 }, new byte[] { 9, 10, 11, 12 });
+
+    public void testAllByteVectorValuesMethodsAreOverridden() {
+        assertAllMethodsOverridden(ByteVectorValues.class, FaissScorableByteVectorValues.class);
+    }
 
     public void testNullDelegateThrows() {
         expectThrows(
@@ -234,6 +241,59 @@ public class FaissScorableByteVectorValuesTests extends KNNTestCase {
         assertSame(overrideIterator, scorer.iterator());
     }
 
+    @SneakyThrows
+    public void testDelegatesRescorer() {
+        final byte[] target = new byte[] { 1, 2, 3, 4 };
+        final VectorScorer expectedScorer = mock(VectorScorer.class);
+
+        final ByteVectorValues delegate = mock(ByteVectorValues.class);
+        when(delegate.rescorer(target)).thenReturn(expectedScorer);
+
+        final FaissScorableByteVectorValues wrapper = new FaissScorableByteVectorValues(
+            delegate,
+            mock(FlatVectorsScorer.class),
+            VectorSimilarityFunction.EUCLIDEAN,
+            null
+        );
+
+        assertSame(expectedScorer, wrapper.rescorer(target));
+        verify(delegate).rescorer(target);
+    }
+
+    @SneakyThrows
+    public void testDelegatesGetEncoding() {
+        final FaissScorableByteVectorValues wrapper = createWrapper();
+        assertEquals(VectorEncoding.BYTE, wrapper.getEncoding());
+    }
+
+    @SneakyThrows
+    public void testDelegatesGetVectorByteLength() {
+        final FaissScorableByteVectorValues wrapper = createWrapper();
+        assertEquals(DIMENSION, wrapper.getVectorByteLength());
+    }
+
+    @SneakyThrows
+    public void testGetSliceReturnsNullWhenDelegateDoesNotSupportIt() {
+        final FaissScorableByteVectorValues wrapper = createWrapper();
+        assertNull(wrapper.getSlice());
+    }
+
+    @SneakyThrows
+    public void testGetSliceReturnsDelegateSlice() {
+        final IndexInput expectedSlice = mock(IndexInput.class);
+        final ByteVectorValues delegate = mock(ByteVectorValuesWithSlice.class);
+        when(((HasIndexSlice) delegate).getSlice()).thenReturn(expectedSlice);
+
+        final FaissScorableByteVectorValues wrapper = new FaissScorableByteVectorValues(
+            delegate,
+            mock(FlatVectorsScorer.class),
+            VectorSimilarityFunction.EUCLIDEAN,
+            null
+        );
+
+        assertSame(expectedSlice, wrapper.getSlice());
+    }
+
     private static FaissScorableByteVectorValues createWrapper() {
         return new FaissScorableByteVectorValues(
             new PreDefinedByteVectorValues(VECTORS),
@@ -242,4 +302,9 @@ public class FaissScorableByteVectorValuesTests extends KNNTestCase {
             null
         );
     }
+
+    /**
+     * Abstract class combining {@link ByteVectorValues} and {@link HasIndexSlice} for mocking.
+     */
+    private static abstract class ByteVectorValuesWithSlice extends ByteVectorValues implements HasIndexSlice {}
 }
