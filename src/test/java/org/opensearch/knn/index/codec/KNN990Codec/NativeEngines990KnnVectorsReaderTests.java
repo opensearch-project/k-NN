@@ -22,7 +22,6 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.junit.Assert;
 import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.codec.nativeindex.AbstractNativeEnginesKnnVectorsReader;
@@ -31,6 +30,8 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -77,7 +78,7 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
         verify(flatVectorsReader).getByteVectorValues("field1");
     }
 
-    public void testBinaryVectorValuesIsCalled_whenQuantizationIsAvailable_thenSuccess() throws IOException {
+    public void testCompositeFloatVectorValues_whenQuantizationIsAvailable_thenSuccess() throws IOException {
         FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("field1")
             .fieldNumber(0)
             .addAttribute(KNN_ENGINE, KNNEngine.FAISS.getName())
@@ -99,14 +100,22 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
         when(mockFloatValues.iterator()).thenReturn(mock(KnnVectorValues.DocIndexIterator.class));
         final FlatVectorsReader flatVectorsReader = mock(FlatVectorsReader.class);
         when(flatVectorsReader.getFloatVectorValues("field1")).thenReturn(mockFloatValues);
-        try (MockedStatic<KNNEngine> mockedStatic = mockStatic(KNNEngine.class)) {
+        try (
+            MockedStatic<KNNEngine> mockedStatic = mockStatic(KNNEngine.class);
+            MockedStatic<QuantizationStateCacheManager> mockedCacheManager = mockStatic(QuantizationStateCacheManager.class)
+        ) {
             mockedStatic.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
-            final Set<String> filesInSegment = Set.of("_0_165_field1.faiss");
             mockedStatic.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
+
+            QuantizationStateCacheManager mockCacheManager = mock(QuantizationStateCacheManager.class);
+            when(mockCacheManager.getQuantizationState(any())).thenReturn(mock(QuantizationState.class));
+            mockedCacheManager.when(QuantizationStateCacheManager::getInstance).thenReturn(mockCacheManager);
+
+            final Set<String> filesInSegment = Set.of("_0_165_field1.faiss");
             NativeEngines990KnnVectorsReader reader = createReader(fieldInfos, filesInSegment, flatVectorsReader);
-            reader.getByteVectorValues("field1");
+            FloatVectorValues result = reader.getFloatVectorValues("field1");
+            assertNotSame(mockFloatValues, result);
             verify(mockSearcher).getByteVectorValues(any());
-            verify(flatVectorsReader, Mockito.never()).getByteVectorValues("field1");
         }
     }
 

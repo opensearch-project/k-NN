@@ -11,11 +11,11 @@
 
 package org.opensearch.knn.index.codec.KNN990Codec;
 
-import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.search.AcceptDocs;
@@ -23,8 +23,10 @@ import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TotalHits;
+import org.apache.lucene.search.VectorScorer;
 import org.apache.lucene.util.Bits;
 import org.opensearch.common.UUIDs;
+import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.codec.nativeindex.AbstractNativeEnginesKnnVectorsReader;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
@@ -32,6 +34,7 @@ import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.util.WarmupUtil;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissScorableByteVectorValues;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
@@ -61,23 +64,34 @@ public class NativeEngines990KnnVectorsReader extends AbstractNativeEnginesKnnVe
     }
 
     /**
-     * Returns the {@link ByteVectorValues} for the given field.
-     * Attempts flat vectors reader first, then falls back to quantized vectors if available.
-     *
-     * @param field the vector field name
-     * @return {@link ByteVectorValues} for the field, never {@code null}
-     * @throws IOException if an I/O error occurs or no byte vectors are available for the field
+     * Returns a composite {@link FloatVectorValues} that bundles full-precision float vectors with
+     * quantized byte vectors when quantization is available. The composite delegates:
+     * <ul>
+     *   <li>{@code vectorValue()} to full-precision floats (for merge/flush)</li>
+     *   <li>{@code scorer()} quantizes the float query and delegates to quantized byte values</li>
+     *   <li>{@code rescorer()} to full-precision floats (for full-fidelity rescoring)</li>
+     * </ul>
+     * Falls back to plain float vector values when quantization is not configured.
+     */
+    @Override
+    public FloatVectorValues getFloatVectorValues(final String field) throws IOException {
+        final FloatVectorValues rawFloatVectorValues = flatVectorsReader.getFloatVectorValues(field);
+        final FieldInfo fieldInfo = fieldInfos.fieldInfo(field);
+        if (fieldInfo.getVectorEncoding() == VectorEncoding.FLOAT32 && hasQuantizationConfig(fieldInfo)) {
+            final VectorSearcher vectorSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfo);
+            if (vectorSearcher != null) {
+                final ByteVectorValues byteVectorValues = vectorSearcher.getByteVectorValues(rawFloatVectorValues.iterator());
+                return new QuantizedFloatVectorValues(rawFloatVectorValues, byteVectorValues, field);
+            }
+        }
+        return rawFloatVectorValues;
+    }
+
+    /**
+     * Returns the {@link ByteVectorValues} for the given field by delegating to the flat vectors reader.
      */
     @Override
     public ByteVectorValues getByteVectorValues(final String field) throws IOException {
-        final FieldInfo fieldInfo = fieldInfos.fieldInfo(field);
-        if (fieldInfo.getVectorEncoding() == VectorEncoding.FLOAT32) {
-            final ByteVectorValues quantizedVectorValues = getQuantizedVectorValues(fieldInfo);
-            if (quantizedVectorValues != null) {
-                return quantizedVectorValues;
-            }
-            log.warn("No quantized vectors found for field [{}]", field);
-        }
         return flatVectorsReader.getByteVectorValues(field);
     }
 
@@ -110,18 +124,7 @@ public class NativeEngines990KnnVectorsReader extends AbstractNativeEnginesKnnVe
     public void search(String field, float[] target, KnnCollector knnCollector, AcceptDocs acceptDocs) throws IOException {
         // TODO: This is a temporary hack where we are using KNNCollector to initialize the quantization state.
         if (knnCollector instanceof QuantizationConfigKNNCollector) {
-            String cacheKey = quantizationStateCacheKeyPerField.get(field);
-            FieldInfo fieldInfo = fieldInfos.fieldInfo(field);
-            QuantizationState quantizationState = QuantizationStateCacheManager.getInstance()
-                .getQuantizationState(
-                    new QuantizationStateReadConfig(
-                        segmentReadState,
-                        QuantizationService.getInstance().getQuantizationParams(fieldInfo),
-                        field,
-                        cacheKey
-                    )
-                );
-            ((QuantizationConfigKNNCollector) knnCollector).setQuantizationState(quantizationState);
+            ((QuantizationConfigKNNCollector) knnCollector).setQuantizationState(getQuantizationState(field));
             return;
         }
 
@@ -245,21 +248,6 @@ public class NativeEngines990KnnVectorsReader extends AbstractNativeEnginesKnnVe
     }
 
     /**
-     * Retrieves quantized byte vectors from Faiss memory-optimized searcher.
-     *
-     * @param fieldInfo the field to retrieve vectors for
-     * @return quantized byte vectors, or null if not available
-     * @throws IOException if an I/O error occurs
-     */
-    private ByteVectorValues getQuantizedVectorValues(@NonNull final FieldInfo fieldInfo) throws IOException {
-        if (hasQuantizationConfig(fieldInfo) == false) {
-            return null;
-        }
-        final VectorSearcher vectorSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfo);
-        return vectorSearcher != null ? vectorSearcher.getByteVectorValues(getFloatVectorValues(fieldInfo.getName()).iterator()) : null;
-    }
-
-    /**
      * Warms up the on-disk data for the given field by loading the HNSW graph and flat vectors
      * into the OS page cache.
      * <p>
@@ -282,6 +270,99 @@ public class NativeEngines990KnnVectorsReader extends AbstractNativeEnginesKnnVe
 
             // Warm up search parts
             memoryOptimizedSearcher.warmUp();
+        }
+    }
+
+    private QuantizationState getQuantizationState(final String field) throws IOException {
+        final String cacheKey = quantizationStateCacheKeyPerField.get(field);
+        return QuantizationStateCacheManager.getInstance()
+            .getQuantizationState(
+                new QuantizationStateReadConfig(
+                    segmentReadState,
+                    QuantizationService.getInstance().getQuantizationParams(fieldInfos.fieldInfo(field)),
+                    field,
+                    cacheKey
+                )
+            );
+    }
+
+    /**
+     * A composite {@link FloatVectorValues} that bundles full-precision float vectors with
+     * quantized byte vectors, following the same pattern as Lucene's {@code ScalarQuantizedVectorValues}.
+     * <ul>
+     *   <li>{@link #vectorValue(int)} returns full-precision floats (for merge/flush)</li>
+     *   <li>{@link #scorer(float[])} quantizes the query and delegates to quantized byte values</li>
+     *   <li>{@link #rescorer(float[])} delegates to raw float values (for full-fidelity rescoring)</li>
+     * </ul>
+     */
+    private final class QuantizedFloatVectorValues extends FloatVectorValues {
+        private final FloatVectorValues rawFloatVectorValues;
+        private final ByteVectorValues quantizedByteVectorValues;
+        private final String fieldName;
+
+        QuantizedFloatVectorValues(FloatVectorValues rawFloatVectorValues, ByteVectorValues quantizedByteVectorValues, String fieldName) {
+            this.rawFloatVectorValues = rawFloatVectorValues;
+            this.quantizedByteVectorValues = quantizedByteVectorValues;
+            this.fieldName = fieldName;
+        }
+
+        @Override
+        public int dimension() {
+            return rawFloatVectorValues.dimension();
+        }
+
+        @Override
+        public int size() {
+            return rawFloatVectorValues.size();
+        }
+
+        @Override
+        public float[] vectorValue(int ord) throws IOException {
+            return rawFloatVectorValues.vectorValue(ord);
+        }
+
+        @Override
+        public QuantizedFloatVectorValues copy() throws IOException {
+            return new QuantizedFloatVectorValues(rawFloatVectorValues.copy(), quantizedByteVectorValues.copy(), fieldName);
+        }
+
+        @Override
+        public DocIndexIterator iterator() {
+            return rawFloatVectorValues.iterator();
+        }
+
+        @Override
+        public int ordToDoc(int ord) {
+            return rawFloatVectorValues.ordToDoc(ord);
+        }
+
+        @Override
+        public Bits getAcceptOrds(Bits acceptDocs) {
+            return rawFloatVectorValues.getAcceptOrds(acceptDocs);
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public VectorScorer scorer(float[] target) throws IOException {
+            if (quantizedByteVectorValues instanceof FaissScorableByteVectorValues scorableByteVectorValues
+                && FieldInfoExtractor.isAdc(fieldInfos.fieldInfo(fieldName))) {
+                // ADC: the FlatVectorsScorer handles float-vs-byte scoring asymmetrically
+                return scorableByteVectorValues.scorer(target);
+            }
+            // Non-ADC: quantize the float query to bytes, then score byte-vs-byte
+            final QuantizationState quantizationState = getQuantizationState(fieldName);
+            final QuantizationService quantizationService = QuantizationService.getInstance();
+            final byte[] quantizedQuery = (byte[]) quantizationService.quantize(
+                quantizationState,
+                target,
+                quantizationService.createQuantizationOutput(quantizationState.getQuantizationParams())
+            );
+            return quantizedByteVectorValues.scorer(quantizedQuery);
+        }
+
+        @Override
+        public VectorScorer rescorer(float[] target) throws IOException {
+            return rawFloatVectorValues.rescorer(target);
         }
     }
 }

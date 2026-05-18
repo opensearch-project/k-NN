@@ -108,6 +108,36 @@ public class FaissScorableByteVectorValues extends ByteVectorValues implements H
     // ---- Scorer ----
 
     /**
+     * Returns a {@link VectorScorer} for a float query against byte vectors.
+     * Used by ADC (Asymmetric Distance Computation) where the float query is scored
+     * directly against quantized byte document vectors via the {@link FlatVectorsScorer}.
+     */
+    public VectorScorer scorer(float[] target) throws IOException {
+        if (size() == 0) return null;
+
+        final FaissScorableByteVectorValues scorerCopy = copy();
+        final RandomVectorScorer rvs = flatVectorsScorer.getRandomVectorScorer(similarityFunction, scorerCopy, target);
+        final DocIndexIterator iterator = scorerCopy.iterator();
+
+        return new VectorScorer() {
+            @Override
+            public float score() throws IOException {
+                return rvs.score(iterator.index());
+            }
+
+            @Override
+            public DocIdSetIterator iterator() {
+                return iterator;
+            }
+
+            @Override
+            public Bulk bulk(final DocIdSetIterator matchingDocs) {
+                return Bulk.fromRandomScorerSparse(rvs, iterator, matchingDocs);
+            }
+        };
+    }
+
+    /**
      * Returns a {@link VectorScorer} for {@code target}, or {@code null} for an empty index.
      *
      * <p>When an override iterator was supplied at construction, the scorer uses that iterator.

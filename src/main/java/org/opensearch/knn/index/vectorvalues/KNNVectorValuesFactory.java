@@ -153,16 +153,6 @@ public final class KNNVectorValuesFactory {
             );
         } else if (fieldInfo.getVectorEncoding() == VectorEncoding.FLOAT32) {
             final FloatVectorValues floatVectorValues = leafReader.getFloatVectorValues(fieldInfo.getName());
-            // Quantized search path: retrieve quantized byte vectors from codec.
-            if (shouldRetrieveQuantizedVectors) {
-                // Bypasses leafReader.getByteVectorValues() which enforces BYTE encoding check.
-                // This will call getByteVectorValues from NativeEngines990KnnVectorsReader at the end.
-                final ByteVectorValues byteVectorValues = leafReader.getVectorReader().getByteVectorValues(fieldInfo.getName());
-                return getVectorValues(
-                    VectorDataType.BINARY,  // retrieve binary data from reader
-                    new KNNVectorValuesIterator.DocIdsIteratorValues(floatVectorValues.iterator(), byteVectorValues)
-                );
-            }
             return getVectorValues(
                 FieldInfoExtractor.extractVectorDataType(fieldInfo),
                 new KNNVectorValuesIterator.DocIdsIteratorValues(floatVectorValues)
