@@ -148,7 +148,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
                 expandNested,
                 vectorDataType,
                 k,
-                needsRescore
+                needsRescore ? overSampledK : RescoreContext.NO_RESCORE_NEEDED
             )
         );
 
@@ -196,12 +196,12 @@ public class KNNQueryFactory extends BaseQueryFactory {
         final boolean expandNested,
         @NonNull final VectorDataType vectorDataType,
         final int k,
-        final boolean needsRescore
+        final int rescoreK
     ) {
         if (parentFilter == null) {
             assert expandNested == false : "expandNested is allowed to be true only for nested fields.";
             return vectorDataType == VectorDataType.FLOAT
-                ? new OSKnnFloatVectorQuery(fieldName, floatQueryVector, luceneK, filterQuery, k, needsRescore)
+                ? new OSKnnFloatVectorQuery(fieldName, floatQueryVector, luceneK, filterQuery, k, rescoreK)
                 : new OSKnnByteVectorQuery(fieldName, byteQueryVector, luceneK, filterQuery, k);
         }
         // If parentFilter is not null, it is a nested query. Therefore, we delegate creation of query to {@link
@@ -216,7 +216,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
                 parentFilter,
                 expandNested,
                 k,
-                needsRescore
+                rescoreK
             )
             : NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
                 fieldName,
