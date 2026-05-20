@@ -26,9 +26,8 @@ import org.apache.lucene.search.ScorerSupplier;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.store.Directory;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.indices.ModelDao;
 
 import java.io.IOException;
@@ -38,6 +37,7 @@ import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.MAX_RESULTS_RADIAL_RESCORING;
 
 // Tests for RescoreRadialSearchQuery — the pass-through skeleton.
 // At this stage the wrapper delegates entirely to the inner query without rescoring.
@@ -47,10 +47,42 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
     private static final float[] QUERY_VECTOR = { 1.0f, 2.0f, 3.0f };
     private static final float RADIUS = 0.5f;
 
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        // Initialize the singleton ExactSearcher used by RescoreRadialSearchQuery
+        RescoreRadialSearchQuery.initialize(new ExactSearcher(mock(ModelDao.OpenSearchKNNModelDao.class)));
+    }
+
     // Note: the full rescoring flow (inner scorer → collectTopDocs → ExactSearcher → KNNScorer)
     // requires a real SegmentReader and cannot be unit-tested with mocks alone.
     // The rescoring correctness is validated by integration tests in FaissSQRadialSearchIT
     // and LuceneSQRadialSearchIT.
+
+    // Given: ExactSearcher singleton is not initialized (null)
+    // When: RescoreRadialSearchQuery is constructed
+    // Then: NullPointerException is thrown with message about initialization
+    public void testConstructor_whenExactSearcherNotInitialized_thenThrows() {
+        // Temporarily set singleton to null
+        RescoreRadialSearchQuery.initialize(null);
+        try {
+            NullPointerException e = expectThrows(
+                NullPointerException.class,
+                () -> new RescoreRadialSearchQuery(
+                    new MatchAllDocsQuery(),
+                    FIELD_NAME,
+                    QUERY_VECTOR,
+                    RADIUS,
+                    false,
+                    MAX_RESULTS_RADIAL_RESCORING
+                )
+            );
+            assertTrue(e.getMessage().contains("Exact searcher was not initialized"));
+        } finally {
+            // Restore for other tests
+            RescoreRadialSearchQuery.initialize(new ExactSearcher(mock(ModelDao.OpenSearchKNNModelDao.class)));
+        }
+    }
 
     // Verify that when inner scorer supplier is null, our supplier returns null
     public void testScorerSupplier_whenInnerReturnsNull_thenReturnsNull() throws IOException {
@@ -63,7 +95,14 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         when(searcher.rewrite(innerQuery)).thenReturn(innerQuery);
         when(searcher.createWeight(eq(innerQuery), any(ScoreMode.class), anyFloat())).thenReturn(innerWeight);
 
-        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(innerQuery, FIELD_NAME, QUERY_VECTOR, RADIUS, false);
+        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
+            innerQuery,
+            FIELD_NAME,
+            QUERY_VECTOR,
+            RADIUS,
+            false,
+            MAX_RESULTS_RADIAL_RESCORING
+        );
         Weight weight = query.createWeight(searcher, ScoreMode.COMPLETE, 1.0f);
         ScorerSupplier supplier = weight.scorerSupplier(leafContext);
 
@@ -72,25 +111,37 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
 
     // Verify that when inner scorer returns empty TopDocs, we get an empty scorer
     public void testScorerSupplier_whenInnerReturnsEmpty_thenEmptyScorer() throws IOException {
+        // Inner query returns an empty scorer
         Scorer innerScorer = KNNScorer.emptyScorer();
 
         ScorerSupplier innerScorerSupplier = mock(ScorerSupplier.class);
         when(innerScorerSupplier.get(any(Long.class))).thenReturn(innerScorer);
         when(innerScorerSupplier.cost()).thenReturn(0L);
 
+        // Mocking inner weight
         Weight innerWeight = mock(Weight.class);
         LeafReaderContext leafContext = mock(LeafReaderContext.class);
         when(innerWeight.scorerSupplier(leafContext)).thenReturn(innerScorerSupplier);
 
+        // IndexSearcher
         Query innerQuery = mock(Query.class);
         IndexSearcher searcher = mock(IndexSearcher.class);
         when(searcher.rewrite(innerQuery)).thenReturn(innerQuery);
         when(searcher.createWeight(eq(innerQuery), any(ScoreMode.class), anyFloat())).thenReturn(innerWeight);
 
-        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(innerQuery, FIELD_NAME, QUERY_VECTOR, RADIUS, false);
+        // Set up RescoreRadialSearchQuery
+        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
+            innerQuery,
+            FIELD_NAME,
+            QUERY_VECTOR,
+            RADIUS,
+            false,
+            MAX_RESULTS_RADIAL_RESCORING
+        );
         Weight weight = query.createWeight(searcher, ScoreMode.COMPLETE, 1.0f);
         ScorerSupplier supplier = weight.scorerSupplier(leafContext);
 
+        // Validate empty iterator
         assertNotNull(supplier);
         Scorer scorer = supplier.get(0);
         assertNotNull(scorer);
@@ -100,29 +151,71 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
     // Verify equals/hashCode contract
     public void testEqualsAndHashCode() {
         Query innerQuery = new MatchAllDocsQuery();
-        RescoreRadialSearchQuery q1 = new RescoreRadialSearchQuery(innerQuery, FIELD_NAME, QUERY_VECTOR, RADIUS, false);
-        RescoreRadialSearchQuery q2 = new RescoreRadialSearchQuery(innerQuery, FIELD_NAME, QUERY_VECTOR, RADIUS, false);
+        RescoreRadialSearchQuery q1 = new RescoreRadialSearchQuery(
+            innerQuery,
+            FIELD_NAME,
+            QUERY_VECTOR,
+            RADIUS,
+            false,
+            MAX_RESULTS_RADIAL_RESCORING
+        );
+        RescoreRadialSearchQuery q2 = new RescoreRadialSearchQuery(
+            innerQuery,
+            FIELD_NAME,
+            QUERY_VECTOR,
+            RADIUS,
+            false,
+            MAX_RESULTS_RADIAL_RESCORING
+        );
 
         assertEquals(q1, q2);
         assertEquals(q1.hashCode(), q2.hashCode());
 
         // Different radius
-        RescoreRadialSearchQuery q3 = new RescoreRadialSearchQuery(innerQuery, FIELD_NAME, QUERY_VECTOR, 0.9f, false);
+        RescoreRadialSearchQuery q3 = new RescoreRadialSearchQuery(
+            innerQuery,
+            FIELD_NAME,
+            QUERY_VECTOR,
+            0.9f,
+            false,
+            MAX_RESULTS_RADIAL_RESCORING
+        );
         assertNotEquals(q1, q3);
 
         // Different field
-        RescoreRadialSearchQuery q4 = new RescoreRadialSearchQuery(innerQuery, "other-field", QUERY_VECTOR, RADIUS, false);
+        RescoreRadialSearchQuery q4 = new RescoreRadialSearchQuery(
+            innerQuery,
+            "other-field",
+            QUERY_VECTOR,
+            RADIUS,
+            false,
+            MAX_RESULTS_RADIAL_RESCORING
+        );
         assertNotEquals(q1, q4);
 
         // Different vector
-        RescoreRadialSearchQuery q5 = new RescoreRadialSearchQuery(innerQuery, FIELD_NAME, new float[] { 9.0f }, RADIUS, false);
+        RescoreRadialSearchQuery q5 = new RescoreRadialSearchQuery(
+            innerQuery,
+            FIELD_NAME,
+            new float[] { 9.0f },
+            RADIUS,
+            false,
+            MAX_RESULTS_RADIAL_RESCORING
+        );
         assertNotEquals(q1, q5);
     }
 
     // Verify toString contains useful information
     public void testToString() {
         Query innerQuery = new MatchAllDocsQuery();
-        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(innerQuery, FIELD_NAME, QUERY_VECTOR, RADIUS, false);
+        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
+            innerQuery,
+            FIELD_NAME,
+            QUERY_VECTOR,
+            RADIUS,
+            false,
+            MAX_RESULTS_RADIAL_RESCORING
+        );
         String str = query.toString(FIELD_NAME);
 
         assertTrue(str.contains("RescoreRadialSearchQuery"));
@@ -133,7 +226,14 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
     // Verify getters expose the fields correctly
     public void testGetters() {
         Query innerQuery = new MatchAllDocsQuery();
-        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(innerQuery, FIELD_NAME, QUERY_VECTOR, RADIUS, false);
+        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
+            innerQuery,
+            FIELD_NAME,
+            QUERY_VECTOR,
+            RADIUS,
+            false,
+            MAX_RESULTS_RADIAL_RESCORING
+        );
 
         assertSame(innerQuery, query.getInnerQuery());
         assertEquals(FIELD_NAME, query.getField());
@@ -153,7 +253,14 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         IndexSearcher searcher = mock(IndexSearcher.class);
         when(originalInner.rewrite(searcher)).thenReturn(rewrittenInner);
 
-        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(originalInner, FIELD_NAME, QUERY_VECTOR, RADIUS, false);
+        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
+            originalInner,
+            FIELD_NAME,
+            QUERY_VECTOR,
+            RADIUS,
+            false,
+            MAX_RESULTS_RADIAL_RESCORING
+        );
 
         // When: first rewrite — inner query changes, so a new wrapper is created
         Query firstRewrite = query.rewrite(searcher);
@@ -180,7 +287,14 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         Query innerQuery = new MatchAllDocsQuery();
         IndexSearcher searcher = mock(IndexSearcher.class);
 
-        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(innerQuery, FIELD_NAME, QUERY_VECTOR, RADIUS, false);
+        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
+            innerQuery,
+            FIELD_NAME,
+            QUERY_VECTOR,
+            RADIUS,
+            false,
+            MAX_RESULTS_RADIAL_RESCORING
+        );
         Query rewritten = query.rewrite(searcher);
 
         // Returns this — same instance, not just equal
@@ -194,7 +308,14 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
     public void testVisit() {
         // Given: a RescoreRadialSearchQuery wrapping a MatchAllDocsQuery
         Query innerQuery = new MatchAllDocsQuery();
-        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(innerQuery, FIELD_NAME, QUERY_VECTOR, RADIUS, false);
+        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
+            innerQuery,
+            FIELD_NAME,
+            QUERY_VECTOR,
+            RADIUS,
+            false,
+            MAX_RESULTS_RADIAL_RESCORING
+        );
         final boolean[] innerVisited = { false };
 
         // When: visit() is called — it propagates to the inner query via getSubVisitor(MUST)
@@ -228,7 +349,14 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         when(searcher.createWeight(eq(innerQuery), any(ScoreMode.class), anyFloat())).thenReturn(innerWeight);
 
         // When: explain is called on the RescoreWeight for doc 42
-        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(innerQuery, FIELD_NAME, QUERY_VECTOR, RADIUS, false);
+        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
+            innerQuery,
+            FIELD_NAME,
+            QUERY_VECTOR,
+            RADIUS,
+            false,
+            MAX_RESULTS_RADIAL_RESCORING
+        );
         Weight weight = query.createWeight(searcher, ScoreMode.COMPLETE, 1.0f);
         Explanation explanation = weight.explain(leafContext, 42);
 
@@ -248,7 +376,14 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         when(searcher.rewrite(innerQuery)).thenReturn(innerQuery);
         when(searcher.createWeight(eq(innerQuery), any(ScoreMode.class), anyFloat())).thenReturn(innerWeight);
 
-        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(innerQuery, FIELD_NAME, QUERY_VECTOR, RADIUS, false);
+        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
+            innerQuery,
+            FIELD_NAME,
+            QUERY_VECTOR,
+            RADIUS,
+            false,
+            MAX_RESULTS_RADIAL_RESCORING
+        );
         Weight weight = query.createWeight(searcher, ScoreMode.COMPLETE, 1.0f);
 
         // When/Then: isCacheable returns true for any leaf context
@@ -265,9 +400,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
     // Then: only vectors within the true radius are kept, false positives are excluded
     @SneakyThrows
     public void testRescore_withLuceneIndex_filtersOutsideRadius() {
-        int dimension = 3;
-        float[] queryVector = { 1.0f, 0.0f, 0.0f };
-        float[][] vectors = {
+        final float[] queryVector = { 1.0f, 0.0f, 0.0f };
+        final float[][] vectors = {
             { 1.0f, 0.0f, 0.0f },   // identical to query, distance=0, similarity=1.0
             { 0.9f, 0.1f, 0.0f },   // very close, similarity ≈ 0.98
             { 0.8f, 0.2f, 0.0f },   // close, similarity ≈ 0.93
@@ -276,7 +410,7 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         };
 
         // Tight radius: only first 3 vectors should survive rescoring
-        float radiusThreshold = 0.9f;
+        final float radiusThreshold = 0.9f;
 
         try (Directory directory = newDirectory()) {
             try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
@@ -289,8 +423,7 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             }
 
             try (IndexReader reader = DirectoryReader.open(directory)) {
-                try (MockedStatic<ModelDao.OpenSearchKNNModelDao> mocked = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)) {
-                    mocked.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(mock(ModelDao.OpenSearchKNNModelDao.class));
+                {
 
                     IndexSearcher searcher = new IndexSearcher(reader);
 
@@ -303,7 +436,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                         FIELD_NAME,
                         queryVector,
                         radiusThreshold,
-                        false
+                        false,
+                        MAX_RESULTS_RADIAL_RESCORING
                     );
 
                     TopDocs results = searcher.search(rescoreQuery, 10);
@@ -330,16 +464,15 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
     // Then: all are filtered out, empty result
     @SneakyThrows
     public void testRescore_withLuceneIndex_whenAllAreFalsePositives_thenEmpty() {
-        int dimension = 3;
-        float[] queryVector = { 1.0f, 0.0f, 0.0f };
-        float[][] vectors = {
+        final float[] queryVector = { 1.0f, 0.0f, 0.0f };
+        final float[][] vectors = {
             { 0.0f, 1.0f, 0.0f },   // orthogonal, similarity ≈ 0.33
             { -1.0f, 0.0f, 0.0f },  // opposite, similarity = 0.2
             { 0.0f, 0.0f, 1.0f },   // orthogonal, similarity ≈ 0.33
         };
 
         // Very tight radius — none should survive
-        float radiusThreshold = 0.99f;
+        final float radiusThreshold = 0.99f;
 
         try (Directory directory = newDirectory()) {
             try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
@@ -352,8 +485,7 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             }
 
             try (IndexReader reader = DirectoryReader.open(directory)) {
-                try (MockedStatic<ModelDao.OpenSearchKNNModelDao> mocked = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)) {
-                    mocked.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(mock(ModelDao.OpenSearchKNNModelDao.class));
+                {
 
                     IndexSearcher searcher = new IndexSearcher(reader);
 
@@ -365,7 +497,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                         FIELD_NAME,
                         queryVector,
                         radiusThreshold,
-                        false
+                        false,
+                        MAX_RESULTS_RADIAL_RESCORING
                     );
 
                     TopDocs results = searcher.search(rescoreQuery, 10);
@@ -382,16 +515,15 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
     // Then: all docs kept — rescoring confirms they are all true positives
     @SneakyThrows
     public void testRescore_withLuceneIndex_whenAllWithinRadius_thenAllKept() {
-        int dimension = 3;
-        float[] queryVector = { 1.0f, 0.0f, 0.0f };
-        float[][] vectors = {
+        final float[] queryVector = { 1.0f, 0.0f, 0.0f };
+        final float[][] vectors = {
             { 1.0f, 0.0f, 0.0f },   // identical, similarity = 1.0
             { 0.99f, 0.01f, 0.0f }, // very close, similarity ≈ 0.9998
             { 0.95f, 0.05f, 0.0f }, // close, similarity ≈ 0.995
         };
 
         // Loose radius — all should survive
-        float radiusThreshold = 0.5f;
+        final float radiusThreshold = 0.5f;
 
         try (Directory directory = newDirectory()) {
             try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
@@ -404,8 +536,7 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             }
 
             try (IndexReader reader = DirectoryReader.open(directory)) {
-                try (MockedStatic<ModelDao.OpenSearchKNNModelDao> mocked = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)) {
-                    mocked.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(mock(ModelDao.OpenSearchKNNModelDao.class));
+                {
 
                     IndexSearcher searcher = new IndexSearcher(reader);
 
@@ -417,7 +548,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                         FIELD_NAME,
                         queryVector,
                         radiusThreshold,
-                        false
+                        false,
+                        MAX_RESULTS_RADIAL_RESCORING
                     );
 
                     TopDocs results = searcher.search(rescoreQuery, 10);
@@ -434,10 +566,9 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
     // Then: only vectors with cosine similarity >= radius are kept
     @SneakyThrows
     public void testRescore_withCosine_filtersOutsideRadius() {
-        int dimension = 3;
         // Normalized query vector for cosine
-        float[] queryVector = { 1.0f, 0.0f, 0.0f };
-        float[][] vectors = {
+        final float[] queryVector = { 1.0f, 0.0f, 0.0f };
+        final float[][] vectors = {
             { 1.0f, 0.0f, 0.0f },   // cos=1.0, Lucene score = (1+1)/2 = 1.0
             { 0.9f, 0.1f, 0.0f },   // cos≈0.994, score ≈ 0.997
             { 0.0f, 1.0f, 0.0f },   // cos=0, score = 0.5 — FALSE POSITIVE
@@ -446,7 +577,7 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
 
         // Lucene cosine score = (1 + cosine) / 2
         // Threshold 0.9 → only vectors with cosine > 0.8 pass
-        float radiusThreshold = 0.9f;
+        final float radiusThreshold = 0.9f;
 
         try (Directory directory = newDirectory()) {
             try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
@@ -459,8 +590,7 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             }
 
             try (IndexReader reader = DirectoryReader.open(directory)) {
-                try (MockedStatic<ModelDao.OpenSearchKNNModelDao> mocked = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)) {
-                    mocked.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(mock(ModelDao.OpenSearchKNNModelDao.class));
+                {
 
                     IndexSearcher searcher = new IndexSearcher(reader);
                     Query innerQuery = new MatchAllDocsQuery();
@@ -470,7 +600,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                         FIELD_NAME,
                         queryVector,
                         radiusThreshold,
-                        false
+                        false,
+                        MAX_RESULTS_RADIAL_RESCORING
                     );
 
                     TopDocs results = searcher.search(rescoreQuery, 10);
@@ -486,14 +617,292 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         }
     }
 
+    // Given: inner query returns fewer docs than maxResultsSize
+    // When: RescoreRadialSearchQuery rescores
+    // Then: iterator is used directly (no collectTopDocs), all valid results returned
+    @SneakyThrows
+    public void testRescore_whenCostBelowMaxResultsSize_thenUsesIteratorDirectly() {
+        final float[] queryVector = { 1.0f, 0.0f, 0.0f };
+        final float[][] vectors = {
+            { 1.0f, 0.0f, 0.0f },   // identical, similarity = 1.0
+            { 0.9f, 0.1f, 0.0f },   // close, passes radius
+            { 0.0f, 1.0f, 0.0f },   // orthogonal, fails radius — FALSE POSITIVE
+        };
+        final float radiusThreshold = 0.9f;
+        // maxResultsSize = 10 > 3 docs, so direct iterator path is taken
+        final int maxResultsSize = 10;
+
+        try (Directory directory = newDirectory()) {
+            try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
+                for (float[] vector : vectors) {
+                    Document doc = new Document();
+                    doc.add(new KnnFloatVectorField(FIELD_NAME, vector, VectorSimilarityFunction.EUCLIDEAN));
+                    w.addDocument(doc);
+                }
+                w.commit();
+            }
+
+            try (IndexReader reader = DirectoryReader.open(directory)) {
+                IndexSearcher searcher = new IndexSearcher(reader);
+                Query innerQuery = new MatchAllDocsQuery();
+
+                RescoreRadialSearchQuery rescoreQuery = new RescoreRadialSearchQuery(
+                    innerQuery,
+                    FIELD_NAME,
+                    queryVector,
+                    radiusThreshold,
+                    false,
+                    maxResultsSize
+                );
+
+                TopDocs results = searcher.search(rescoreQuery, 10);
+
+                // Only vectors within radius survive rescoring
+                assertTrue("Expected some results within radius", results.scoreDocs.length > 0);
+                assertTrue("False positive should be filtered", results.scoreDocs.length < vectors.length);
+                for (ScoreDoc scoreDoc : results.scoreDocs) {
+                    assertTrue("Score should be >= threshold, got " + scoreDoc.score, scoreDoc.score >= radiusThreshold);
+                }
+            }
+        }
+    }
+
+    // Given: inner query returns more docs than maxResultsSize
+    // When: RescoreRadialSearchQuery rescores
+    // Then: only top-maxResultsSize candidates (by score) are collected before rescoring,
+    // meaning the highest-scoring vectors are retained and low-scoring ones are dropped
+    @SneakyThrows
+    public void testRescore_whenCostExceedsMaxResultsSize_thenCollectsTopCandidatesByScore() {
+        final float[] queryVector = { 1.0f, 0.0f, 0.0f };
+        // 6 vectors with clearly different similarities to query.
+        // Euclidean similarity = 1/(1+dist^2).
+        // doc0: identical → score=1.0
+        // doc1: very close → score≈0.99
+        // doc2: close → score≈0.96
+        // doc3-5: progressively farther → lower scores
+        final float[][] vectors = {
+            { 1.0f, 0.0f, 0.0f },    // doc0: score=1.0
+            { 0.99f, 0.01f, 0.0f },  // doc1: very high score
+            { 0.95f, 0.05f, 0.0f },  // doc2: high score
+            { 0.7f, 0.3f, 0.0f },    // doc3: medium score
+            { 0.5f, 0.5f, 0.0f },    // doc4: lower score
+            { 0.3f, 0.7f, 0.0f },    // doc5: lowest score
+        };
+        // Loose radius so all vectors pass the rescore filter
+        final float radiusThreshold = 0.1f;
+        // Only top 3 by score should be collected for rescoring
+        final int maxResultsSize = 3;
+
+        try (Directory directory = newDirectory()) {
+            try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
+                for (float[] vector : vectors) {
+                    Document doc = new Document();
+                    doc.add(new KnnFloatVectorField(FIELD_NAME, vector, VectorSimilarityFunction.EUCLIDEAN));
+                    w.addDocument(doc);
+                }
+                w.commit();
+            }
+
+            try (IndexReader reader = DirectoryReader.open(directory)) {
+                IndexSearcher searcher = new IndexSearcher(reader);
+                Query innerQuery = new MatchAllDocsQuery();
+
+                RescoreRadialSearchQuery rescoreQuery = new RescoreRadialSearchQuery(
+                    innerQuery,
+                    FIELD_NAME,
+                    queryVector,
+                    radiusThreshold,
+                    false,
+                    maxResultsSize
+                );
+
+                TopDocs results = searcher.search(rescoreQuery, vectors.length);
+
+                // Exactly maxResultsSize results since all pass the radius filter
+                assertEquals("Should return exactly maxResultsSize results", maxResultsSize, results.scoreDocs.length);
+
+                // The returned docs should be the top-3 by score (doc0, doc1, doc2)
+                // Verify that the minimum score in the result set is higher than
+                // the maximum score of the excluded docs (doc3-5)
+                float minReturnedScore = Float.MAX_VALUE;
+                for (ScoreDoc scoreDoc : results.scoreDocs) {
+                    minReturnedScore = Math.min(minReturnedScore, scoreDoc.score);
+                }
+
+                // Compute the max score of vectors that should NOT be in the result
+                // doc3 ({0.7, 0.3, 0}) has dist^2 = (0.3)^2 + (0.3)^2 = 0.18, score = 1/(1+0.18) ≈ 0.847
+                // The minimum returned score (from doc2) should be higher than doc3's score
+                float doc3Score = 1.0f / (1.0f + (0.3f * 0.3f + 0.3f * 0.3f));
+                assertTrue(
+                    "Top-k by score: min returned score (" + minReturnedScore + ") should exceed excluded doc score (" + doc3Score + ")",
+                    minReturnedScore > doc3Score
+                );
+            }
+        }
+    }
+
+    // Given: more than MAX_RESULTS_RADIAL_RESCORING (10k) vectors, all within radius
+    // When: RescoreRadialSearchQuery rescores
+    // Then: results are capped at MAX_RESULTS_RADIAL_RESCORING
+    @SneakyThrows
+    public void testRescore_whenResultsExceedMaxResultWindow_thenCappedAt10k() {
+        // Given: index 10,050 vectors all very close to query (all within radius)
+        final float[] queryVector = { 1.0f, 0.0f, 0.0f };
+        final int totalDocs = 10_050;
+        final float radiusThreshold = 0.01f; // Very loose — all docs should be within radius
+
+        try (Directory directory = newDirectory()) {
+            try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
+                for (int i = 0; i < totalDocs; i++) {
+                    Document doc = new Document();
+                    // All vectors identical to query — guaranteed similarity=1.0, always within any radius
+                    doc.add(new KnnFloatVectorField(FIELD_NAME, queryVector.clone(), VectorSimilarityFunction.EUCLIDEAN));
+                    w.addDocument(doc);
+                }
+                w.forceMerge(1);
+                w.commit();
+            }
+
+            try (IndexReader reader = DirectoryReader.open(directory)) {
+                assertEquals("Expected single segment", 1, reader.leaves().size());
+                {
+
+                    IndexSearcher searcher = new IndexSearcher(reader);
+                    Query innerQuery = new MatchAllDocsQuery();
+
+                    RescoreRadialSearchQuery rescoreQuery = new RescoreRadialSearchQuery(
+                        innerQuery,
+                        FIELD_NAME,
+                        queryVector,
+                        radiusThreshold,
+                        false,
+                        MAX_RESULTS_RADIAL_RESCORING
+                    );
+
+                    // Search with a large collector size to not limit from the collector side
+                    TopDocs results = searcher.search(rescoreQuery, totalDocs);
+
+                    // Then: all 10,050 vectors pass the radius, but results are capped at 10,000
+                    assertEquals("Results should be capped at MAX_RESULTS_RADIAL_RESCORING", 10_000, results.scoreDocs.length);
+                }
+            }
+        }
+    }
+
+    // Given: more than 10k vectors, half within radius and half outside
+    // When: RescoreRadialSearchQuery rescores
+    // Then: only the valid half is returned (capped at 10k since valid count > 10k is impossible here,
+    // but the invalid half is filtered out)
+    @SneakyThrows
+    public void testRescore_whenResultsExceedMaxResultWindow_andHalfAreValid_thenReturnsOnlyValid() {
+        final float[] queryVector = { 1.0f, 0.0f, 0.0f };
+        final int totalDocs = 10_050;
+        final int validCount = totalDocs / 2; // ~5025 valid
+        // Euclidean similarity = 1/(1+dist^2). For vectors close to query, score ≈ 1.0.
+        // For orthogonal vectors, dist^2 ≈ 2, score ≈ 0.33.
+        final float radiusThreshold = 0.9f;
+
+        try (Directory directory = newDirectory()) {
+            try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
+                for (int i = 0; i < totalDocs; i++) {
+                    Document doc = new Document();
+                    float[] vector;
+                    if (i < validCount) {
+                        // Valid: very close to query vector, will pass radius
+                        vector = new float[] { 1.0f, i * 0.00001f, 0.0f };
+                    } else {
+                        // Invalid: orthogonal to query, will NOT pass radius
+                        vector = new float[] { 0.0f, (float) Math.sin(i), (float) Math.cos(i) };
+                    }
+                    doc.add(new KnnFloatVectorField(FIELD_NAME, vector, VectorSimilarityFunction.EUCLIDEAN));
+                    w.addDocument(doc);
+                }
+                w.commit();
+            }
+
+            try (IndexReader reader = DirectoryReader.open(directory)) {
+                {
+
+                    IndexSearcher searcher = new IndexSearcher(reader);
+                    Query innerQuery = new MatchAllDocsQuery();
+
+                    RescoreRadialSearchQuery rescoreQuery = new RescoreRadialSearchQuery(
+                        innerQuery,
+                        FIELD_NAME,
+                        queryVector,
+                        radiusThreshold,
+                        false,
+                        MAX_RESULTS_RADIAL_RESCORING
+                    );
+
+                    TopDocs results = searcher.search(rescoreQuery, totalDocs);
+
+                    // Then: only the valid half is returned, invalid half filtered out
+                    assertEquals("Only valid vectors (first half) should survive rescoring", validCount, results.scoreDocs.length);
+                    for (ScoreDoc scoreDoc : results.scoreDocs) {
+                        assertTrue(
+                            "All returned docs should have score >= threshold, got " + scoreDoc.score,
+                            scoreDoc.score >= radiusThreshold
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    // Given: more than 10k vectors, ALL are outside the radius (all false positives)
+    // When: RescoreRadialSearchQuery rescores
+    // Then: all filtered out, empty result despite large first-pass set
+    @SneakyThrows
+    public void testRescore_whenResultsExceedMaxResultWindow_andAllAreFalsePositives_thenEmpty() {
+        final float[] queryVector = { 1.0f, 0.0f, 0.0f };
+        final int totalDocs = 10_050;
+        // Very tight radius — nothing should survive since all vectors are far from query
+        final float radiusThreshold = 0.9999f;
+
+        try (Directory directory = newDirectory()) {
+            try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
+                for (int i = 0; i < totalDocs; i++) {
+                    Document doc = new Document();
+                    // All vectors orthogonal/far from query — none will pass tight radius
+                    float[] vector = { 0.0f, (float) Math.sin(i), (float) Math.cos(i) };
+                    doc.add(new KnnFloatVectorField(FIELD_NAME, vector, VectorSimilarityFunction.EUCLIDEAN));
+                    w.addDocument(doc);
+                }
+                w.commit();
+            }
+
+            try (IndexReader reader = DirectoryReader.open(directory)) {
+                {
+
+                    IndexSearcher searcher = new IndexSearcher(reader);
+                    Query innerQuery = new MatchAllDocsQuery();
+
+                    RescoreRadialSearchQuery rescoreQuery = new RescoreRadialSearchQuery(
+                        innerQuery,
+                        FIELD_NAME,
+                        queryVector,
+                        radiusThreshold,
+                        false,
+                        MAX_RESULTS_RADIAL_RESCORING
+                    );
+
+                    TopDocs results = searcher.search(rescoreQuery, totalDocs);
+
+                    // Then: all false positives filtered, empty result
+                    assertEquals("All false positives should be filtered even with >10k candidates", 0, results.scoreDocs.length);
+                }
+            }
+        }
+    }
+
     // Given: vectors indexed with MAXIMUM_INNER_PRODUCT, inner query returns all (includes false positives)
     // When: RescoreRadialSearchQuery rescores with full precision
     // Then: only vectors with inner product score >= radius are kept
     @SneakyThrows
     public void testRescore_withMaxInnerProduct_filtersOutsideRadius() {
-        int dimension = 3;
-        float[] queryVector = { 1.0f, 0.0f, 0.0f };
-        float[][] vectors = {
+        final float[] queryVector = { 1.0f, 0.0f, 0.0f };
+        final float[][] vectors = {
             { 3.0f, 0.0f, 0.0f },   // ip=3.0, Lucene score = 3.0+1 = 4.0
             { 1.0f, 0.0f, 0.0f },   // ip=1.0, Lucene score = 1.0+1 = 2.0
             { 0.1f, 0.0f, 0.0f },   // ip=0.1, Lucene score = 0.1+1 = 1.1
@@ -505,7 +914,7 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         // if ip >= 0: score = ip + 1
         // if ip < 0: score = 1 / (1 - ip)
         // Threshold 1.0 → only vectors with ip >= 0 pass (score >= 1.0)
-        float radiusThreshold = 1.0f;
+        final float radiusThreshold = 1.0f;
 
         try (Directory directory = newDirectory()) {
             try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
@@ -518,8 +927,7 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             }
 
             try (IndexReader reader = DirectoryReader.open(directory)) {
-                try (MockedStatic<ModelDao.OpenSearchKNNModelDao> mocked = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)) {
-                    mocked.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(mock(ModelDao.OpenSearchKNNModelDao.class));
+                {
 
                     IndexSearcher searcher = new IndexSearcher(reader);
                     Query innerQuery = new MatchAllDocsQuery();
@@ -529,7 +937,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                         FIELD_NAME,
                         queryVector,
                         radiusThreshold,
-                        false
+                        false,
+                        MAX_RESULTS_RADIAL_RESCORING
                     );
 
                     TopDocs results = searcher.search(rescoreQuery, 10);

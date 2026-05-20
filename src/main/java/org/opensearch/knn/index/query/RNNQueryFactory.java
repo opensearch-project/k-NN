@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.query;
 
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO;
+import static org.opensearch.knn.common.KNNConstants.MAX_RESULTS_RADIAL_RESCORING;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPES;
 
@@ -74,7 +75,22 @@ public class RNNQueryFactory extends BaseQueryFactory {
         }
 
         if (createQueryRequest.getVectorFieldType() != null && createQueryRequest.getVectorFieldType().isRescoringRequiredForRadial()) {
-            return new RescoreRadialSearchQuery(innerQuery, fieldName, vector, radius, createQueryRequest.isMemoryOptimizedSearchEnabled());
+            // Honor the index-level max_result_window setting to cap the number of results retained
+            // after rescoring. Falls back to MAX_RESULTS_RADIAL_RESCORING if context is unavailable.
+            final int maxResultsSize;
+            if (createQueryRequest.getContext().isPresent()) {
+                maxResultsSize = createQueryRequest.getContext().get().getIndexSettings().getMaxResultWindow();
+            } else {
+                maxResultsSize = MAX_RESULTS_RADIAL_RESCORING;
+            }
+            return new RescoreRadialSearchQuery(
+                innerQuery,
+                fieldName,
+                vector,
+                radius,
+                createQueryRequest.isMemoryOptimizedSearchEnabled(),
+                maxResultsSize
+            );
         }
         return innerQuery;
     }

@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.query;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import org.apache.lucene.index.LeafReaderContext;
@@ -14,19 +15,15 @@ import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.QueryVisitor;
-import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.ScorerSupplier;
 import org.apache.lucene.search.TopDocs;
-import org.apache.lucene.search.TotalHits;
+import org.apache.lucene.search.TopKnnCollector;
 import org.apache.lucene.search.Weight;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
-import org.opensearch.knn.indices.ModelDao;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 
 /**
@@ -52,6 +49,7 @@ import java.util.Objects;
 @Getter
 @EqualsAndHashCode(callSuper = false)
 public class RescoreRadialSearchQuery extends Query {
+    private static ExactSearcher EXACT_SEARCHER_SINGLETON;
 
     /** The inner radial search query that operates on quantized vectors. */
     private final Query innerQuery;
@@ -78,6 +76,14 @@ public class RescoreRadialSearchQuery extends Query {
     private final boolean memoryOptimizedSearchEnabled;
 
     /**
+     * Maximum number of results to retain after rescoring.
+     * Derived from the index-level {@code max_result_window} setting when available,
+     * otherwise defaults to {@code MAX_RESULTS_RADIAL_RESCORING}.
+     * All first-pass candidates are still scored, but only the top results up to this cap are kept.
+     */
+    private final int maxResultsSize;
+
+    /**
      * Constructs a new rescoring wrapper for radial search on a quantized index.
      *
      * @param innerQuery                   the inner radial search query (must not be null)
@@ -91,13 +97,21 @@ public class RescoreRadialSearchQuery extends Query {
         final String field,
         final float[] queryVector,
         float radius,
-        boolean memoryOptimizedSearchEnabled
+        final boolean memoryOptimizedSearchEnabled,
+        final int maxResultsSize
     ) {
         this.innerQuery = Objects.requireNonNull(innerQuery);
         this.field = Objects.requireNonNull(field);
         this.queryVector = Objects.requireNonNull(queryVector);
         this.radius = radius;
         this.memoryOptimizedSearchEnabled = memoryOptimizedSearchEnabled;
+        this.maxResultsSize = maxResultsSize;
+        Objects.requireNonNull(EXACT_SEARCHER_SINGLETON, "Exact searcher was not initialized.");
+    }
+
+    @VisibleForTesting
+    public static void initialize(final ExactSearcher exactSearcher) {
+        EXACT_SEARCHER_SINGLETON = exactSearcher;
     }
 
     /**
@@ -121,13 +135,7 @@ public class RescoreRadialSearchQuery extends Query {
     public Query rewrite(final IndexSearcher indexSearcher) throws IOException {
         final Query rewritten = innerQuery.rewrite(indexSearcher);
         if (rewritten != innerQuery) {
-            return new RescoreRadialSearchQuery(
-                innerQuery.rewrite(indexSearcher),
-                field,
-                queryVector,
-                radius,
-                memoryOptimizedSearchEnabled
-            );
+            return new RescoreRadialSearchQuery(rewritten, field, queryVector, radius, memoryOptimizedSearchEnabled, maxResultsSize);
         } else {
             return this;
         }
@@ -173,6 +181,7 @@ public class RescoreRadialSearchQuery extends Query {
         private final float[] queryVector;
         private final float radius;
         private final boolean memoryOptimizedSearchEnabled;
+        private final int maxResultsSize;
 
         /**
          * @param query       the parent query (for Lucene's Weight contract)
@@ -188,6 +197,7 @@ public class RescoreRadialSearchQuery extends Query {
             this.queryVector = rescoreQuery.queryVector;
             this.radius = rescoreQuery.radius;
             this.memoryOptimizedSearchEnabled = rescoreQuery.memoryOptimizedSearchEnabled;
+            this.maxResultsSize = rescoreQuery.maxResultsSize;
         }
 
         @Override
@@ -222,31 +232,41 @@ public class RescoreRadialSearchQuery extends Query {
                         return KNNScorer.emptyScorer();
                     }
 
-                    // 2. Collect first-pass results into TopDocs
-                    final TopDocs firstPassResults = collectTopDocs(innerScorer);
-                    if (firstPassResults.scoreDocs.length == 0) {
+                    // 2. Get matched docs from inner scorer
+                    final DocIdSetIterator matchedDocs = innerScorer.iterator();
+                    if (matchedDocs.cost() == 0) {
                         return KNNScorer.emptyScorer();
                     }
 
-                    // 3. Build ExactSearcherContext — rescore with full-precision vectors
-                    final DocIdSetIterator matchedDocs = new TopDocsDISI(firstPassResults);
+                    // 3. If more candidates than maxResultsSize, pull only top-maxResultsSize
+                    // from the inner scorer; otherwise use the iterator directly.
+                    final DocIdSetIterator docsToRescore;
+                    final long numDocsToRescore;
+                    if (matchedDocs.cost() > maxResultsSize) {
+                        final TopDocs topCandidates = collectTopDocs(innerScorer);
+                        docsToRescore = new TopDocsDISI(topCandidates);
+                        numDocsToRescore = topCandidates.scoreDocs.length;
+                    } else {
+                        docsToRescore = matchedDocs;
+                        numDocsToRescore = matchedDocs.cost();
+                    }
+
+                    // 4. Build ExactSearcherContext — rescore with full-precision vectors
                     final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
-                        .matchedDocsIterator(matchedDocs)
-                        .numberOfMatchedDocs(matchedDocs.cost())
+                        .matchedDocsIterator(docsToRescore)
+                        .numberOfMatchedDocs(numDocsToRescore)
                         .useQuantizedVectorsForSearch(false)
-                        .k(0)
-                        .maxResultWindow((int) matchedDocs.cost())
+                        .maxResultWindow((int) Math.min(maxResultsSize, numDocsToRescore))
                         .radius(radius)
                         .field(field)
                         .floatQueryVector(queryVector)
                         .isMemoryOptimizedSearchEnabled(memoryOptimizedSearchEnabled)
                         .build();
 
-                    // 4. Rescore — ExactSearcher handles radius→minScore conversion internally
-                    final ExactSearcher exactSearcher = new ExactSearcher(ModelDao.OpenSearchKNNModelDao.getInstance());
-                    final TopDocs rescored = exactSearcher.searchLeaf(context, exactSearcherContext);
+                    // 5. Rescore — ExactSearcher handles radius → minScore conversion internally
+                    final TopDocs rescored = EXACT_SEARCHER_SINGLETON.searchLeaf(context, exactSearcherContext);
 
-                    // 5. Return scorer over rescored results
+                    // 6. Return scorer over rescored results
                     return new KNNScorer(rescored, boost);
                 }
 
@@ -270,16 +290,17 @@ public class RescoreRadialSearchQuery extends Query {
         }
 
         /**
-         * Collects all documents from the scorer into a {@link TopDocs}.
+         * Collects the top-maxResultsSize documents by score from the scorer.
          */
         private TopDocs collectTopDocs(final Scorer scorer) throws IOException {
-            final List<ScoreDoc> scoreDocs = new ArrayList<>();
+            final TopKnnCollector collector = new TopKnnCollector(maxResultsSize, Integer.MAX_VALUE);
             final DocIdSetIterator iterator = scorer.iterator();
+            assert (iterator.cost() > maxResultsSize);
             int docId;
             while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
-                scoreDocs.add(new ScoreDoc(docId, scorer.score()));
+                collector.collect(docId, scorer.score());
             }
-            return new TopDocs(new TotalHits(scoreDocs.size(), TotalHits.Relation.EQUAL_TO), scoreDocs.toArray(new ScoreDoc[0]));
+            return collector.topDocs();
         }
     }
 }
