@@ -14,6 +14,7 @@ import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 
+import java.util.EnumSet;
 import java.util.Set;
 
 /**
@@ -51,5 +52,15 @@ public class FaissFlatEncoder implements Encoder {
         KNNMethodConfigContext knnMethodConfigContext
     ) {
         return CompressionLevel.x1;
+    }
+
+    @Override
+    public EncoderType getEncoderType() {
+        return EncoderType.FLAT;
+    }
+
+    @Override
+    public Set<QuantizationBits> getSupportedBits() {
+        return EnumSet.of(QuantizationBits.FULL_PRECISION);
     }
 }

@@ -11,6 +11,9 @@ import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 
+import java.util.EnumSet;
+import java.util.Set;
+
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
@@ -141,5 +144,20 @@ public abstract class AbstractFaissPQEncoder implements Encoder {
         }
 
         return builder.build();
+    }
+
+    @Override
+    public EncoderType getEncoderType() {
+        return EncoderType.PQ;
+    }
+
+    @Override
+    public Set<QuantizationBits> getSupportedBits() {
+        return EnumSet.of(QuantizationBits.NOT_APPLICABLE);
+    }
+
+    @Override
+    public QuantizationBits getQuantizationBits() {
+        return QuantizationBits.NOT_APPLICABLE;
     }
 }

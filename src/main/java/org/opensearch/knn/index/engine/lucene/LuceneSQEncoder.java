@@ -20,6 +20,7 @@ import org.opensearch.knn.index.engine.Parameter;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -111,5 +112,15 @@ public class LuceneSQEncoder implements Encoder {
             return CompressionLevel.x32;
         }
         return CompressionLevel.x4;
+    }
+
+    @Override
+    public EncoderType getEncoderType() {
+        return EncoderType.SQ;
+    }
+
+    @Override
+    public Set<QuantizationBits> getSupportedBits() {
+        return EnumSet.of(QuantizationBits.ONE, QuantizationBits.SEVEN);
     }
 }
