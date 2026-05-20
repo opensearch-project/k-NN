@@ -187,4 +187,30 @@ public class ResolvedIndexSpecWiringTests extends KNNTestCase {
         assertNotNull(spec);
         assertEquals(0, spec.getDimension());
     }
+
+    public void testFaissHNSWWithBQEncoder_defaultsToOneBit() {
+        java.util.Map<String, Object> encoderParams = new java.util.HashMap<>();
+        MethodComponentContext encoderCtx = new MethodComponentContext("binary", encoderParams);
+
+        java.util.Map<String, Object> methodParams = new java.util.HashMap<>();
+        methodParams.put("encoder", encoderCtx);
+
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, methodParams)
+        );
+        KNNMethodConfigContext configContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .versionCreated(Version.CURRENT)
+            .mode(Mode.ON_DISK)
+            .compressionLevel(CompressionLevel.x32)
+            .build();
+
+        KNNLibraryIndexingContext ctx = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext, configContext);
+        ResolvedIndexSpec spec = ctx.getResolvedSpec();
+        assertEquals(Encoder.EncoderType.BQ, spec.getEncoderType());
+        assertEquals(Encoder.QuantizationBits.ONE, spec.getQuantizationBits());
+    }
 }
