@@ -187,6 +187,27 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
         assertEquals(Version.V_3_6_0, spec.getIndexVersionCreated());
     }
 
+    // --- Additional branch coverage ---
+
+    public void testFaissHNSWFlatIsMemoryOptimizedEligible() {
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.FLAT)
+            .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
+            .compressionLevel(CompressionLevel.x1)
+            .build();
+        assertTrue(spec.isMemoryOptimizedEligible());
+    }
+
+    public void testGetRescoreContext_NullVersionDefaults() {
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.FOUR)
+            .compressionLevel(CompressionLevel.x8)
+            .dimension(500)
+            .indexVersionCreated(null)
+            .build();
+        // Should not throw - null version defaults to CURRENT
+        spec.getRescoreContext();
+    }
+
     // --- Helpers ---
 
     private ResolvedIndexSpec.ResolvedIndexSpecBuilder baseFaiss() {
