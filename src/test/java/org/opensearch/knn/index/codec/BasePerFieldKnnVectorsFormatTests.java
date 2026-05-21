@@ -36,6 +36,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
@@ -589,6 +590,39 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
         return mapperService;
     }
 
+    public void testGetKnnVectorsFormatForField_whenLuceneSQOneBit_thenReturnSQFormat() {
+        KNNMethodContext sqMethodContext = createSQMethodContext(16, 100, Map.of(LUCENE_SQ_BITS, 1));
+
+        MapperService mapperService = mockMapperService(TEST_FIELD, sqMethodContext);
+
+        Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
+            LuceneVectorsFormatType.SCALAR_QUANTIZED,
+            ctx -> SQ_FORMAT,
+            LuceneVectorsFormatType.HNSW,
+            ctx -> HNSW_FORMAT
+        );
+
+        TestPerFieldKnnVectorsFormat format = new TestPerFieldKnnVectorsFormat(Optional.of(mapperService), resolvers);
+        KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
+        assertSame("SQ with bits=1 should route to SCALAR_QUANTIZED resolver", SQ_FORMAT, result);
+    }
+
+    public void testGetKnnVectorsFormatForField_whenFaissSQNoBits_thenReturnNativeFormat() {
+        MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, Map.of());
+        MethodComponentContext hnswContext = new MethodComponentContext("hnsw", Map.of(METHOD_ENCODER_PARAMETER, encoderContext));
+        KNNMethodContext methodContext = mock(KNNMethodContext.class);
+        when(methodContext.getKnnEngine()).thenReturn(KNNEngine.FAISS);
+        when(methodContext.getMethodComponentContext()).thenReturn(hnswContext);
+
+        MapperService mapperService = mockMapperService(TEST_FIELD, methodContext);
+        KNN1040PerFieldKnnVectorsFormat perFieldFormat = new KNN1040PerFieldKnnVectorsFormat(Optional.of(mapperService));
+        KnnVectorsFormat format = perFieldFormat.getKnnVectorsFormatForField(TEST_FIELD);
+        assertTrue(
+            "FAISS SQ without bits should return NativeEngines990KnnVectorsFormat, got " + format.getClass().getSimpleName(),
+            format instanceof NativeEngines990KnnVectorsFormat
+        );
+    }
+
     // --- SQ with bits=1 (1-bit quantization) format routing ---
 
     public void testGetKnnVectorsFormatForField_whenSQOneBit_thenReturnSQOneBitFormat() {
@@ -615,5 +649,35 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
         KNN1040PerFieldKnnVectorsFormat perFieldFormat = new KNN1040PerFieldKnnVectorsFormat(Optional.of(mapperService));
         KnnVectorsFormat format = perFieldFormat.getKnnVectorsFormatForField(TEST_FIELD);
         assertTrue(format instanceof NativeEngines990KnnVectorsFormat);
+    }
+
+    public void testGetKnnVectorsFormatForField_legacySQWithOneBit_thenReturnSQFormat() {
+        KNNMethodContext sqMethodContext = createSQMethodContext(16, 100, Map.of(LUCENE_SQ_BITS, 1));
+
+        MapperService mapperService = mockMapperService(TEST_FIELD, sqMethodContext);
+
+        final KNNScalarQuantizedVectorsFormatParams[] capturedSQParams = new KNNScalarQuantizedVectorsFormatParams[1];
+        Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> sqSupplier = sqParams -> {
+            capturedSQParams[0] = sqParams;
+            return SQ_FORMAT;
+        };
+
+        Function<KNNVectorsFormatParams, KnnVectorsFormat> hnswSupplier = hnswParams -> {
+            fail("HNSW supplier should not be called when SQ encoder with bits=1 is present");
+            return HNSW_FORMAT;
+        };
+
+        LegacySQTestPerFieldKnnVectorsFormat format = new LegacySQTestPerFieldKnnVectorsFormat(
+            Optional.of(mapperService),
+            hnswSupplier,
+            sqSupplier
+        );
+        KnnVectorsFormat result = format.getKnnVectorsFormatForField(TEST_FIELD);
+
+        assertSame("SQ with bits=1 should route to SQ supplier", SQ_FORMAT, result);
+        assertNotNull(capturedSQParams[0]);
+        assertEquals(1, capturedSQParams[0].getBits());
+        assertEquals(16, capturedSQParams[0].getMaxConnections());
+        assertEquals(100, capturedSQParams[0].getBeamWidth());
     }
 }

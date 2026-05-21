@@ -34,6 +34,7 @@ import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -421,6 +422,78 @@ public class FaissTests extends KNNTestCase {
         float expectedDistance5 = -0.5f;
         float actualDistance5 = Faiss.INSTANCE.scoreToRadialThreshold(score5, org.opensearch.knn.index.SpaceType.INNER_PRODUCT);
         assertEquals("Score 0.667 should convert to distance -0.5 (inner product = -0.5)", expectedDistance5, actualDistance5, 1e-6);
+    }
+
+    @SneakyThrows
+    public void testGetKNNLibraryIndexingContext_whenMethodIsHNSWSQOneBit_thenCreateCorrectIndexDescription() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(128)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+        int hnswMParam = 16;
+        String expectedIndexDescription = String.format(Locale.ROOT, "HNSW%d,Flat", hnswMParam);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, hnswMParam)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(SQ_BITS, 1)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+
+        KNNLibraryIndexingContext knnLibraryIndexingContext = Faiss.INSTANCE.getKNNLibraryIndexingContext(
+            knnMethodContext,
+            knnMethodConfigContext
+        );
+        Map<String, Object> map = knnLibraryIndexingContext.getLibraryParameters();
+
+        assertTrue(map.containsKey(INDEX_DESCRIPTION_PARAMETER));
+        assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
+        assertEquals(QuantizationConfig.EMPTY, knnLibraryIndexingContext.getQuantizationConfig());
+    }
+
+    @SneakyThrows
+    public void testGetKNNLibraryIndexingContext_whenMethodIsHNSWSQOneBit_thenEncoderParamsAreCorrect() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(64)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, 16)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(SQ_BITS, 1)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+
+        Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .getLibraryParameters();
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> encoderParams = (Map<String, Object>) ((Map<String, Object>) map.get(PARAMETERS)).get(METHOD_ENCODER_PARAMETER);
+        assertEquals(ENCODER_SQ, encoderParams.get(NAME));
+        assertEquals(1, encoderParams.get(SQ_BITS));
     }
 
     /**

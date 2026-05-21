@@ -74,7 +74,7 @@ public class KNNScalarQuantizedVectorsFormatParamsTests extends TestCase {
         assertEquals(ScalarEncoding.fromNumBits((LUCENE_SQ_DEFAULT_BITS)), knnScalarQuantizedVectorsFormatParams.getBitEncoding());
     }
 
-    public void testInitParams_whenBitsIs1_thenReturnParams() {
+    public void testInitParams_whenBitsIs1_thenCompressFlagAndBitEncodingAreCorrect() {
         Map<String, Object> encoderParams = new HashMap<>();
         encoderParams.put(LUCENE_SQ_BITS, 1);
         MethodComponentContext encoderComponentContext = new MethodComponentContext(ENCODER_SQ, encoderParams);
@@ -89,7 +89,8 @@ public class KNNScalarQuantizedVectorsFormatParamsTests extends TestCase {
         );
 
         assertEquals(1, knnScalarQuantizedVectorsFormatParams.getBits());
-        assertEquals(ScalarEncoding.fromNumBits(1), knnScalarQuantizedVectorsFormatParams.getBitEncoding());
+        assertTrue(knnScalarQuantizedVectorsFormatParams.isCompressFlag());
+        assertEquals(ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE, knnScalarQuantizedVectorsFormatParams.getBitEncoding());
         assertTrue(knnScalarQuantizedVectorsFormatParams.validate(params));
     }
 
