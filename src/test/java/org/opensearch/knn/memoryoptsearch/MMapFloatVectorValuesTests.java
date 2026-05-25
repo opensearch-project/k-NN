@@ -14,6 +14,7 @@ import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.tests.util.LuceneTestCase;
 import org.opensearch.knn.generate.SearchTestHelper;
 import org.opensearch.knn.memoryoptsearch.faiss.MMapFloatVectorValues;
+import org.opensearch.knn.memoryoptsearch.faiss.reconstruct.FaissQuantizerType;
 import org.opensearch.knn.memoryoptsearch.faiss.vectorvalues.FaissFloatVectorValues;
 import sun.misc.Unsafe;
 
@@ -91,6 +92,43 @@ public class MMapFloatVectorValuesTests extends LuceneTestCase {
                     fb.get(acquiredVector);
                     compareFloats(acquiredVector, expectedVector);
                 }
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testConstructorWithQuantizerType() {
+        final Path tempDirPath = createTempDir();
+        final String fileName = "test_qt.vec";
+        final int dimension = 4;
+        final int oneVectorByteSize = Float.BYTES * dimension;
+
+        try (final Directory directory = new MMapDirectory(tempDirPath)) {
+            try (final IndexOutput output = directory.createOutput(fileName, IOContext.DEFAULT)) {
+                for (int j = 0; j < dimension; j++) {
+                    output.writeInt(Float.floatToIntBits(1.0f));
+                }
+            }
+
+            try (final IndexInput input = directory.openInput(fileName, IOContext.DEFAULT)) {
+                final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(input, 0, oneVectorByteSize);
+                assertNotNull(addressAndSize);
+
+                FaissFloatVectorValues delegate = new FaissFloatVectorValues(input, oneVectorByteSize, dimension, 1);
+
+                // Test 3-arg constructor with BF16 quantizer type
+                final MMapFloatVectorValues values = new MMapFloatVectorValues(delegate, addressAndSize, FaissQuantizerType.QT_BF16);
+                assertEquals(FaissQuantizerType.QT_BF16, values.getQuantizerType());
+                assertEquals(dimension, values.dimension());
+                assertEquals(1, values.size());
+
+                // Test copy preserves quantizer type
+                final MMapFloatVectorValues copied = (MMapFloatVectorValues) values.copy();
+                assertEquals(FaissQuantizerType.QT_BF16, copied.getQuantizerType());
+
+                // Test 2-arg constructor defaults to null
+                final MMapFloatVectorValues valuesNoQt = new MMapFloatVectorValues(delegate, addressAndSize);
+                assertNull(valuesNoQt.getQuantizerType());
             }
         }
     }

@@ -2,12 +2,12 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <cstring>
 #include <stdint.h>
 #include <cmath>
 
 #include "simd_similarity_function_common.cpp"
 #include "faiss_score_to_lucene_transform.cpp"
+
 
 // BF16 -> FP32: zero-extend 16 -> 32 bits then shift left by 16
 static inline __m512 cvtbf16_ps(__m256i bf16x16) {
@@ -266,7 +266,7 @@ struct AVX512SPRFP16L2 final : BaseSimilarityFunction<BulkScoreTransformFunc, Sc
 };
 
 //
-//  BF16 — Follows the same pattern as FP16 above.
+//  BF16 — Uses Native AVX512-BF16 instructions
 //
 template <BulkScoreTransform BulkScoreTransformFunc, ScoreTransform ScoreTransformFunc>
 struct AVX512BF16MaxIP final : BaseSimilarityFunction<BulkScoreTransformFunc, ScoreTransformFunc> {
@@ -279,18 +279,37 @@ struct AVX512BF16MaxIP final : BaseSimilarityFunction<BulkScoreTransformFunc, Sc
         const auto* queryPtr = (const float*) srchContext->queryVectorSimdAligned;
         const int32_t dim = srchContext->dimension;
 
-        constexpr int32_t vecBlock      = 8;
-        constexpr int32_t elemPerLoad   = 16;
+        constexpr int32_t vecBlock = 8;
+        constexpr int32_t elemPerLoad = 32;
 
         // SIMD-aligned dim and tail dim
         const int32_t simdDim = (dim / elemPerLoad) * elemPerLoad;
-        const int32_t tailDim   = dim - simdDim;
+        const int32_t tailDim = dim - simdDim;
 
         // Precompute tail mask
-        const __mmask16 tailMask = tailDim > 0 ? (__mmask16)((1U << tailDim) - 1) : 0;
+        const __mmask32 tailMask = tailDim > 0 ? (__mmask32)((1ULL << tailDim) - 1) : 0;
+
+        // Preconvert fp32 query to bf16 once
+        const int32_t queryBF16Len = ((dim + 31) / 32) * 32;
+        uint16_t queryBF16[queryBF16Len] __attribute__((aligned(64)));
+
+        int32_t i = 0;
+        for (; i + 16 <= dim; i += 16) {
+            __m256i bf = (__m256i)_mm512_cvtneps_pbh(_mm512_loadu_ps(queryPtr + i));
+            _mm256_storeu_si256((__m256i*)(queryBF16 + i), bf);
+        }
+        if (i < dim) {
+            __mmask16 mask = (__mmask16)((1U << (dim - i)) - 1);
+            __m256i bf = (__m256i)_mm512_cvtneps_pbh(_mm512_maskz_loadu_ps(mask, queryPtr + i));
+            _mm256_mask_storeu_epi16(queryBF16 + i, mask, bf);
+        }
+        for (int32_t j = dim; j < queryBF16Len; ++j) {
+            queryBF16[j] = 0;
+        }
 
         __m512 sum[vecBlock];
 
+        // Bulk loop
         for (; processedCount <= numVectors - vecBlock; processedCount += vecBlock) {
             const uint8_t* vectors[vecBlock];
             srchContext->getVectorPointersInBulk((uint8_t**)vectors, &internalVectorIds[processedCount], vecBlock);
@@ -300,44 +319,35 @@ struct AVX512BF16MaxIP final : BaseSimilarityFunction<BulkScoreTransformFunc, Sc
                 sum[v] = _mm512_setzero_ps();
             }
 
-            // Mask-free hot loop
+            // Mask-free hot loop — single 64B bf16 query load, no conversion
             for (int32_t i = 0; i < simdDim; i += elemPerLoad) {
-                __m512 q0 = _mm512_loadu_ps(queryPtr + i);
-
-                __m512 vRegs[vecBlock];
-                #pragma unroll
-                for (int32_t v = 0; v < vecBlock; ++v) {
-                    vRegs[v] = cvtbf16_ps(_mm256_loadu_si256((const __m256i*)(vectors[v] + 2 * i)));
-                }
+                __m512bh q = (__m512bh)_mm512_loadu_si512(queryBF16 + i);
 
                 if ((i + elemPerLoad) < dim) {
-                    const int32_t nextByteOffset = (i + elemPerLoad) * 2;
+                    const int32_t nextOffset = i + elemPerLoad;
                     #pragma unroll
                     for (int32_t v = 0; v < vecBlock; ++v) {
-                        __builtin_prefetch(vectors[v] + nextByteOffset, 0, 3);
+                        __builtin_prefetch(vectors[v] + nextOffset * 2, 0, 3);
                     }
-                    __builtin_prefetch(queryPtr + (i + elemPerLoad), 0, 3);
+                    __builtin_prefetch(queryBF16 + nextOffset, 0, 3);
                 }
 
                 #pragma unroll
                 for (int32_t v = 0; v < vecBlock; ++v) {
-                    sum[v] = _mm512_fmadd_ps(q0, vRegs[v], sum[v]);
+                    __m512bh vec = (__m512bh)_mm512_loadu_si512(vectors[v] + 2 * i);
+                    sum[v] = _mm512_dpbf16_ps(sum[v], q, vec);
                 }
             }
 
             // Single masked tail
             if (tailDim > 0) {
-                __m512 q0 = _mm512_maskz_loadu_ps(tailMask, queryPtr + simdDim);
-
-                __m512 vRegs[vecBlock];
-                #pragma unroll
-                for (int32_t v = 0; v < vecBlock; ++v) {
-                    vRegs[v] = cvtbf16_ps(_mm256_maskz_loadu_epi16(tailMask, vectors[v] + 2 * simdDim));
-                }
+                __m512bh q = (__m512bh)_mm512_maskz_loadu_epi16(tailMask, queryBF16 + simdDim);
 
                 #pragma unroll
                 for (int32_t v = 0; v < vecBlock; ++v) {
-                    sum[v] = _mm512_fmadd_ps(q0, vRegs[v], sum[v]);
+                    __m512bh vec = (__m512bh)_mm512_maskz_loadu_epi16(
+                        tailMask, vectors[v] + 2 * simdDim);
+                    sum[v] = _mm512_dpbf16_ps(sum[v], q, vec);
                 }
             }
 
@@ -347,24 +357,24 @@ struct AVX512BF16MaxIP final : BaseSimilarityFunction<BulkScoreTransformFunc, Sc
             }
         }
 
-        // Tail loop for remaining vectors
+        // Remaining vectors
         for (; processedCount < numVectors; ++processedCount) {
             const auto* vecPtr = (const uint8_t*) srchContext->getVectorPointer(internalVectorIds[processedCount]);
-            __m512 sumScalar = _mm512_setzero_ps();
+            __m512 s = _mm512_setzero_ps();
 
             for (int32_t i = 0; i < simdDim; i += elemPerLoad) {
-                __m512 q = _mm512_loadu_ps(queryPtr + i);
-                __m512 v = cvtbf16_ps(_mm256_loadu_si256((const __m256i*)(vecPtr + 2 * i)));
-                sumScalar = _mm512_fmadd_ps(q, v, sumScalar);
+                s = _mm512_dpbf16_ps(s,
+                        (__m512bh)_mm512_loadu_si512(queryBF16 + i),
+                        (__m512bh)_mm512_loadu_si512(vecPtr + 2 * i));
             }
 
             if (tailDim > 0) {
-                __m512 q = _mm512_maskz_loadu_ps(tailMask, queryPtr + simdDim);
-                __m512 v = cvtbf16_ps(_mm256_maskz_loadu_epi16(tailMask, vecPtr + 2 * simdDim));
-                sumScalar = _mm512_fmadd_ps(q, v, sumScalar);
+                __m512bh q = (__m512bh)_mm512_maskz_loadu_epi16(tailMask, queryBF16 + simdDim);
+                s = _mm512_dpbf16_ps(s, q,
+                    (__m512bh)_mm512_maskz_loadu_epi16(tailMask, vecPtr + 2 * simdDim));
             }
 
-            scores[processedCount] = _mm512_reduce_add_ps(sumScalar);
+            scores[processedCount] = _mm512_reduce_add_ps(s);
         }
 
         BulkScoreTransformFunc(scores, numVectors);
@@ -492,8 +502,6 @@ static constexpr float FOUR_BIT_SCALE = 1.0f / 15.0f;
 
 // Reads the per-vector correction factors from a potentially unaligned address.
 // On-disk layout after binaryCode: [lowerInterval(f32)][upperInterval(f32)][additionalCorrection(f32)][quantizedComponentSum(i32)]
-// Because oneVectorByteSize may not be a multiple of 4, subsequent vectors can start at
-// non-4-byte-aligned offsets, making reinterpret_cast<float*> undefined behaviour.
 static FORCE_INLINE void readDataCorrections(const uint8_t* ptr, float& ax, float& lx, float& additional, float& x1) {
     float lower, upper;
     std::memcpy(&lower,      ptr,      sizeof(float));
@@ -507,10 +515,6 @@ static FORCE_INLINE void readDataCorrections(const uint8_t* ptr, float& ax, floa
 }
 
 // Scalar fallback for int4BitDotProduct
-// q has 4 * binaryCodeBytes bytes (4 bit planes), d has binaryCodeBytes bytes
-// Uses std::memcpy for uint64_t loads to avoid undefined behavior from unaligned
-// reinterpret_cast when binaryCodeBytes is not a multiple of 8. Compilers optimize
-// the 8-byte memcpy into a single mov instruction — zero runtime cost.
 static FORCE_INLINE int64_t int4BitDotProduct(const uint8_t* q, const uint8_t* d, const int32_t binaryCodeBytes) {
     int64_t result = 0;
     for (int32_t bitPlane = 0 ; bitPlane < 4 ; ++bitPlane) {
@@ -534,31 +538,8 @@ static FORCE_INLINE int64_t int4BitDotProduct(const uint8_t* q, const uint8_t* d
     return result;
 }
 
-// AVX512 per-byte popcount using nibble LUT (works on all AVX512F/BW targets).
-// Uses vpshufb with a 4-bit lookup table to count bits in each byte of a 512-bit register.
+// AVX512 per-byte popcount using nibble LUT
 static FORCE_INLINE __m512i avx512_popcnt_epi8(const __m512i v) {
-    // Nibble popcount lookup table: {0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4} replicated across all 64-byte lanes
-    // index : value : popcount
-    //   0     : 0000  : 0
-    //   1     : 0001  : 1
-    //   2     : 0010  : 1
-    //   3     : 0011  : 2
-    //   ...
-    //   15    : 1111  : 4
-    // Example:
-    // 0x0403030203020201LL
-    // Split it, we get:
-    // 0x04 03 03 02 03 02 02 01
-    //        index 9 -----^  ^----- index 8
-    // Witch maps to
-    // LUT[8]  = 1 -> 01b, the last value
-    // LUT[9]  = 2 -> 02b, the second value from right
-    // LUT[10] = 2
-    // LUT[11] = 3
-    // LUT[12] = 2
-    // LUT[13] = 3
-    // LUT[14] = 3
-    // LUT[15] = 4 -> the first value 0x04
     alignas(64) static const __m512i popLut = _mm512_setr_epi64(
         0x0302020102010100LL, 0x0403030203020201LL,
         0x0302020102010100LL, 0x0403030203020201LL,
@@ -566,16 +547,6 @@ static FORCE_INLINE __m512i avx512_popcnt_epi8(const __m512i v) {
         0x0302020102010100LL, 0x0403030203020201LL);
     const __m512i lowMask = _mm512_set1_epi8(0x0F);
 
-    // Split each byte into low and high nibbles, look up popcount for each, sum
-    // Example:
-    // v = 0b10110110
-    // Split:
-    //   hi = 1011 (11) → popcount = 3
-    //   lo = 0110 (6)  → popcount = 2
-    // Instead of popcount, we can do table look-up, and we get:
-    // LUT[11] = 3
-    // LUT[6]  = 2
-    // 3 + 2 = 5 = popcount(10110110)
     __m512i lo = _mm512_and_si512(v, lowMask);
     __m512i hi = _mm512_and_si512(_mm512_srli_epi16(v, 4), lowMask);
     __m512i cntLo = _mm512_shuffle_epi8(popLut, lo);
@@ -583,9 +554,7 @@ static FORCE_INLINE __m512i avx512_popcnt_epi8(const __m512i v) {
     return _mm512_add_epi8(cntLo, cntHi);
 }
 
-// AVX512 SIMD batched int4BitDotProduct.
-// Processes 64 bytes per iteration
-// Uses LUT-based per-byte popcount on each plane, then weights by 1/2/4/8.
+// AVX512 SIMD batched int4BitDotProduct
 template <int BATCH_SIZE>
 static FORCE_INLINE void avx512_4bitDotProductBatch(
     const uint8_t* queryPtr,
@@ -593,13 +562,11 @@ static FORCE_INLINE void avx512_4bitDotProductBatch(
     const int32_t binaryCodeBytes,
     float* results) {
 
-    // Query vector is transposed
     const uint8_t* plane0 = queryPtr;
     const uint8_t* plane1 = queryPtr + binaryCodeBytes;
     const uint8_t* plane2 = queryPtr + 2 * binaryCodeBytes;
     const uint8_t* plane3 = queryPtr + 3 * binaryCodeBytes;
 
-    // 64-bit accumulators to avoid overflow (each iteration can add up to 64*120 = 7680 per 64-byte chunk)
     __m512i acc[BATCH_SIZE];
     #pragma unroll
     for (int32_t b = 0 ; b < BATCH_SIZE ; ++b) {
@@ -608,13 +575,11 @@ static FORCE_INLINE void avx512_4bitDotProductBatch(
 
     int32_t i = 0;
     for ( ; i + 64 <= binaryCodeBytes ; i += 64) {
-        // Load 64 bytes from each query plane (shared across all data vectors)
         __m512i q0 = _mm512_loadu_si512(plane0 + i);
         __m512i q1 = _mm512_loadu_si512(plane1 + i);
         __m512i q2 = _mm512_loadu_si512(plane2 + i);
         __m512i q3 = _mm512_loadu_si512(plane3 + i);
 
-        // Prefetch next chunk
         if (i + 64 < binaryCodeBytes) {
             __builtin_prefetch(plane0 + i + 64);
             for (int32_t b = 0 ; b < BATCH_SIZE ; ++b) {
@@ -624,43 +589,27 @@ static FORCE_INLINE void avx512_4bitDotProductBatch(
 
         #pragma unroll
         for (int32_t b = 0 ; b < BATCH_SIZE ; ++b) {
-            // Load 64 bytes of data vector's binary code
             __m512i d = _mm512_loadu_si512(dataVecs[b] + i);
 
-            // AND each plane with data, then per-byte popcount
             __m512i p0 = avx512_popcnt_epi8(_mm512_and_si512(q0, d));
             __m512i p1 = avx512_popcnt_epi8(_mm512_and_si512(q1, d));
             __m512i p2 = avx512_popcnt_epi8(_mm512_and_si512(q2, d));
             __m512i p3 = avx512_popcnt_epi8(_mm512_and_si512(q3, d));
 
-            // Weight: p0*1 + p1*2 + p2*4 + p3*8
-            // Max per byte: 8*1 + 8*2 + 8*4 + 8*8 = 120, fits in uint8_t
-            // Note: _mm512_slli_epi16 shifts 16-bit lanes, but since popcount values are at most 8 (0b00001000),
-            // shifting left by 1/2/3 won't cause cross-byte bleed within 16-bit lanes (high bits of low byte are 0).
-            __m512i weighted = _mm512_add_epi8(p0, _mm512_slli_epi16(p1, 1)); // -> weighted += p2 << 1
-            weighted = _mm512_add_epi8(weighted, _mm512_slli_epi16(p2, 2)); // -> weighted += p2 << 2
-            weighted = _mm512_add_epi8(weighted, _mm512_slli_epi16(p3, 3)); // -> weighted += p2 << 3
+            __m512i weighted = _mm512_add_epi8(p0, _mm512_slli_epi16(p1, 1));
+            weighted = _mm512_add_epi8(weighted, _mm512_slli_epi16(p2, 2));
+            weighted = _mm512_add_epi8(weighted, _mm512_slli_epi16(p3, 3));
 
-            // Horizontal sum: u8 -> u64 via _mm512_sad_epu8 (sum of absolute differences against zero)
-            // _mm512_sad_epu8 sums 8 consecutive u8 values into u64 lanes
-            // "SAD" : feeling or showing sorrow; unhappy.
-            // kidding, SAD = Sum of Absolute Differences i.e. sum(|a[i] - b[i]|)
-            // _mm512_sad_epu8(weighted, _mm512_setzero_si512()) -> |weighted[i] - 0| = weighted[i]
-            // so it becomes, sum(weighted[i]), just a sum.
             __m512i sad = _mm512_sad_epu8(weighted, _mm512_setzero_si512());
-
-            // Accumulate into 64-bit accumulators
             acc[b] = _mm512_add_epi64(acc[b], sad);
         }
     }
 
-    // Horizontal sum of 64-bit accumulators into results
     #pragma unroll
     for (int32_t b = 0 ; b < BATCH_SIZE ; ++b) {
         results[b] = static_cast<float>(_mm512_reduce_add_epi64(acc[b]));
     }
 
-    // Scalar tail for remaining bytes (< 64)
     for ( ; i < binaryCodeBytes ; ++i) {
         uint8_t q0b = plane0[i], q1b = plane1[i], q2b = plane2[i], q3b = plane3[i];
         for (int32_t b = 0 ; b < BATCH_SIZE ; ++b) {
@@ -684,7 +633,6 @@ struct AVX512SQSimilarityFunction final : SimilarityFunction {
         const int32_t dim = srchContext->dimension;
         const int32_t binaryCodeBytes = (dim + 7) / 8;
 
-        // Read query correction factors from tmpBuffer
         const auto* queryCorrectionPtr = reinterpret_cast<const float*>(srchContext->tmpBuffer.data());
         const float ay = queryCorrectionPtr[0];
         const float ly = (queryCorrectionPtr[1] - queryCorrectionPtr[0]) * FOUR_BIT_SCALE;
@@ -698,7 +646,6 @@ struct AVX512SQSimilarityFunction final : SimilarityFunction {
         constexpr int32_t vecHalfBlock = 4;
         uint8_t* vectors[vecBlock];
 
-        // Batch size 8
         for ( ; (processedCount + vecBlock) <= numVectors ; processedCount += vecBlock) {
             srchContext->getVectorPointersInBulk(vectors, &internalVectorIds[processedCount], vecBlock);
             avx512_4bitDotProductBatch<vecBlock>(queryPtr, vectors, binaryCodeBytes, &scores[processedCount]);
@@ -724,7 +671,6 @@ struct AVX512SQSimilarityFunction final : SimilarityFunction {
             }
         }
 
-        // Batch size 4
         for ( ; (processedCount + vecHalfBlock) <= numVectors ; processedCount += vecHalfBlock) {
             srchContext->getVectorPointersInBulk(vectors, &internalVectorIds[processedCount], vecHalfBlock);
             avx512_4bitDotProductBatch<vecHalfBlock>(queryPtr, vectors, binaryCodeBytes, &scores[processedCount]);
@@ -751,7 +697,6 @@ struct AVX512SQSimilarityFunction final : SimilarityFunction {
             }
         }
 
-        // Tail: remaining vectors (scalar)
         for ( ; processedCount < numVectors ; ++processedCount) {
             const auto* dataVec = srchContext->getVectorPointer(internalVectorIds[processedCount]);
             const float qcDist = static_cast<float>(
@@ -815,7 +760,6 @@ struct AVX512SQSimilarityFunction final : SimilarityFunction {
     }
 };
 
-
 //
 // FP16
 //
@@ -832,6 +776,7 @@ AVX512BF16MaxIP<FaissScoreToLuceneScoreTransform::ipToMaxIpTransformBulk, FaissS
 // 2. L2
 AVX512BF16L2<FaissScoreToLuceneScoreTransform::l2TransformBulk, FaissScoreToLuceneScoreTransform::l2Transform> BF16_L2_SIMIL_FUNC;
 
+//
 // SQ
 //
 // 1. Max IP
@@ -845,14 +790,14 @@ SimilarityFunction* SimilarityFunction::selectSimilarityFunction(const NativeSim
         return &FP16_MAX_INNER_PRODUCT_SIMIL_FUNC;
     } else if (nativeFunctionType == NativeSimilarityFunctionType::FP16_L2) {
         return &FP16_L2_SIMIL_FUNC;
-    } else if (nativeFunctionType == NativeSimilarityFunctionType::BF16_MAXIMUM_INNER_PRODUCT) {
-        return &BF16_MAX_INNER_PRODUCT_SIMIL_FUNC;
-    } else if (nativeFunctionType == NativeSimilarityFunctionType::BF16_L2) {
-        return &BF16_L2_SIMIL_FUNC;
     } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ_IP) {
         return &SQ_IP_SIMIL_FUNC;
     } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ_L2) {
         return &SQ_L2_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::BF16_MAXIMUM_INNER_PRODUCT) {
+        return &BF16_MAX_INNER_PRODUCT_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::BF16_L2) {
+        return &BF16_L2_SIMIL_FUNC;
     }
 
     throw std::runtime_error("Invalid native similarity function type was given, nativeFunctionType="

@@ -234,6 +234,38 @@ SimdVectorSearchContext* SimilarityFunction::saveSearchContext(
         // Assign query to Faiss function
         THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction->set_query(
             reinterpret_cast<float*>(THREAD_LOCAL_SIMD_VEC_SRCH_CTX.queryVectorSimdAligned));
+    } else if (nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::BF16_MAXIMUM_INNER_PRODUCT)) {
+        // Set similarity function to offload similarity calculation
+        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.similarityFunction = selectSimilarityFunction(
+            NativeSimilarityFunctionType::BF16_MAXIMUM_INNER_PRODUCT);
+
+        // BF16 vector bytes = 2bytes * dimension
+        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.oneVectorByteSize = 2 * dimension;
+
+        // Reset Faiss function for single vector similarity calculation
+        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction.reset(
+             faiss::ScalarQuantizer {static_cast<size_t>(dimension), faiss::ScalarQuantizer::QuantizerType::QT_bf16}
+                                    .get_distance_computer(faiss::MetricType::METRIC_INNER_PRODUCT));
+
+        // Assign query to Faiss function
+        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction->set_query(
+            reinterpret_cast<float*>(THREAD_LOCAL_SIMD_VEC_SRCH_CTX.queryVectorSimdAligned));
+    } else if (nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::BF16_L2)) {
+        // Set similarity function to offload similarity calculation
+        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.similarityFunction = selectSimilarityFunction(
+            NativeSimilarityFunctionType::BF16_L2);
+
+        // BF16 vector bytes = 2bytes * dimension
+        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.oneVectorByteSize = 2 * dimension;
+
+        // Reset Faiss function for single vector similarity calculation
+        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction.reset(
+            faiss::ScalarQuantizer {static_cast<size_t>(dimension), faiss::ScalarQuantizer::QuantizerType::QT_bf16}
+                                   .get_distance_computer(faiss::MetricType::METRIC_L2));
+
+        // Assign query to Faiss function
+        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction->set_query(
+            reinterpret_cast<float*>(THREAD_LOCAL_SIMD_VEC_SRCH_CTX.queryVectorSimdAligned));
     } else if (nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ_IP)
                || nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ_L2)) {
          // Set similarity function to offload similarity calculation

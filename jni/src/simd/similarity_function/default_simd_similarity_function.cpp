@@ -45,6 +45,13 @@ DefaultFP16SimilarityFunction<FaissScoreToLuceneScoreTransform::ipToMaxIpTransfo
 // 2. L2
 DefaultFP16SimilarityFunction<FaissScoreToLuceneScoreTransform::l2TransformBulk, FaissScoreToLuceneScoreTransform::l2Transform> DEFAULT_FP16_L2_SIMIL_FUNC;
 
+//
+// BF16 - Uses the same default (Faiss SQDistanceComputer-based) approach as FP16
+//
+// 1. Max IP
+DefaultFP16SimilarityFunction<FaissScoreToLuceneScoreTransform::ipToMaxIpTransformBulk, FaissScoreToLuceneScoreTransform::ipToMaxIpTransform> DEFAULT_BF16_MAX_INNER_PRODUCT_SIMIL_FUNC;
+// 2. L2
+DefaultFP16SimilarityFunction<FaissScoreToLuceneScoreTransform::l2TransformBulk, FaissScoreToLuceneScoreTransform::l2Transform> DEFAULT_BF16_L2_SIMIL_FUNC;
 
 //
 // SQ (ADC: 4-bit query x 1-bit data) - Default (non-SIMD) implementation
@@ -303,6 +310,10 @@ SimilarityFunction* SimilarityFunction::selectSimilarityFunction(const NativeSim
         return &DEFAULT_FP16_MAX_INNER_PRODUCT_SIMIL_FUNC;
     } else if (nativeFunctionType == NativeSimilarityFunctionType::FP16_L2) {
         return &DEFAULT_FP16_L2_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::BF16_MAXIMUM_INNER_PRODUCT) {
+        return &DEFAULT_BF16_MAX_INNER_PRODUCT_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::BF16_L2) {
+        return &DEFAULT_BF16_L2_SIMIL_FUNC;
     } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ_IP) {
         return &SQ_IP_SIMIL_FUNC;
     } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ_L2) {

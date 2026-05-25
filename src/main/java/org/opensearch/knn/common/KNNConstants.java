@@ -140,7 +140,8 @@ public class KNNConstants {
     public static final String FAISS_SQ_DESCRIPTION = "SQ";
     public static final String FAISS_SQ_TYPE = "type";
     public static final String FAISS_SQ_ENCODER_FP16 = "fp16";
-    public static final List<String> FAISS_SQ_ENCODER_TYPES = List.of(FAISS_SQ_ENCODER_FP16);
+    public static final String FAISS_SQ_ENCODER_BF16 = "bf16";
+    public static final List<String> FAISS_SQ_ENCODER_TYPES = List.of(FAISS_SQ_ENCODER_FP16, FAISS_SQ_ENCODER_BF16);
     public static final String FAISS_SIGNED_BYTE_SQ = "SQ8_direct_signed";
     public static final String FAISS_SQ_CLIP = "clip";
 
@@ -159,6 +160,10 @@ public class KNNConstants {
 
     public static final Float FP16_MAX_VALUE = 65504.0f;
     public static final Float FP16_MIN_VALUE = -65504.0f;
+
+    // BF16 has the same exponent range as float32.
+    public static final Float BF16_MAX_VALUE = Float.MAX_VALUE;
+    public static final Float BF16_MIN_VALUE = -Float.MAX_VALUE;
 
     // Lib names
     private static final String JNI_LIBRARY_PREFIX = "opensearchknn_";
