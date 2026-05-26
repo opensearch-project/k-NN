@@ -561,14 +561,32 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             ParserContext parserContext,
             SpaceType resolvedSpaceType
         ) {
+            Mode userMode = Mode.fromName(builder.originalParameters.getMode());
+            CompressionLevel userCompression = CompressionLevel.fromName(builder.originalParameters.getCompressionLevel());
+
+            // Deprecation warning: mode is deprecated starting V_3_7_0. Users should use compression_level instead.
+            if (Mode.isConfigured(userMode) && parserContext.indexVersionCreated().onOrAfter(Version.V_3_7_0)) {
+                log.warn(
+                    "[Deprecation] The \"mode\" parameter is deprecated as of OpenSearch 3.7.0 and will be removed in 4.0. "
+                        + "Use \"compression_level\" instead. \"mode\" will be derived automatically from \"compression_level\"."
+                );
+            }
+
+            // Derive mode from compression_level when compression is provided but mode is not.
+            // 1x/2x -> in_memory; 4x and above -> on_disk.
+            Mode resolvedMode = userMode;
+            if (Mode.isConfigured(userMode) == false && CompressionLevel.isConfigured(userCompression)) {
+                resolvedMode = Mode.deriveMode(userCompression);
+            }
+
             // Setup the initial configuration that is used to help resolve parameters.
             builder.setKnnMethodConfigContext(
                 KNNMethodConfigContext.builder()
                     .vectorDataType(builder.originalParameters.getVectorDataType())
                     .versionCreated(parserContext.indexVersionCreated())
                     .dimension(builder.originalParameters.getDimension())
-                    .mode(Mode.fromName(builder.originalParameters.getMode()))
-                    .compressionLevel(CompressionLevel.fromName(builder.originalParameters.getCompressionLevel()))
+                    .mode(resolvedMode)
+                    .compressionLevel(userCompression)
                     .build()
             );
 

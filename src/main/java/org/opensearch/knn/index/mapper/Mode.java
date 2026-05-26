@@ -16,7 +16,11 @@ import java.util.stream.Collectors;
 /**
  * Enum representing the intended workload optimization a user wants their k-NN system to have. Based on this value,
  * default parameter resolution will be determined.
+ *
+ * @deprecated since 3.7.0. Storage mode is now derived automatically from {@link CompressionLevel}.
+ *             Use {@code compression_level} in the mapping instead. This parameter will be removed in 4.0.
  */
+@Deprecated(since = "3.7.0", forRemoval = true)
 @Getter
 @AllArgsConstructor
 public enum Mode {
@@ -62,5 +66,31 @@ public enum Mode {
      */
     public static boolean isConfigured(Mode mode) {
         return mode != null && mode != NOT_CONFIGURED;
+    }
+
+    /**
+     * Derives the storage mode from a compression level. This is the canonical mapping used when
+     * {@code mode} is not explicitly provided by the user.
+     *
+     * <ul>
+     *   <li>1x and 2x → {@link #IN_MEMORY} (low/no compression; full-precision vectors fit in memory)</li>
+     *   <li>4x, 8x, 16x, 32x, 64x → {@link #ON_DISK} (quantized graph stored on disk; FP32 rescore from doc values)</li>
+     *   <li>{@link CompressionLevel#NOT_CONFIGURED} → {@link #NOT_CONFIGURED}</li>
+     * </ul>
+     *
+     * @param compressionLevel the compression level to derive mode from
+     * @return the derived {@link Mode}
+     */
+    public static Mode deriveMode(CompressionLevel compressionLevel) {
+        if (CompressionLevel.isConfigured(compressionLevel) == false) {
+            return NOT_CONFIGURED;
+        }
+        switch (compressionLevel) {
+            case x1:
+            case x2:
+                return IN_MEMORY;
+            default:
+                return ON_DISK;
+        }
     }
 }
