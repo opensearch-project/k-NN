@@ -114,7 +114,7 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
             return null;
         }
         return XContentMapValues.transform(
-            fields.stream().collect(Collectors.toMap(k -> k, k -> (Object o) -> o == null ? o : MASK)),
+            fields.stream().collect(Collectors.toMap(Function.identity(), field -> (Object vector) -> vector == null ? null : MASK)),
             true
         );
     }

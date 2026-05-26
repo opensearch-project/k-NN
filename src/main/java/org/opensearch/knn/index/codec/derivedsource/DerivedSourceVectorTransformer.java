@@ -15,7 +15,6 @@ import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.common.regex.Regex;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -23,15 +22,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
-import java.util.HashSet;
-import java.util.Set;
 
 @Log4j2
 public class DerivedSourceVectorTransformer {
 
     private final DerivedSourceReaders derivedSourceReaders;
-    Function<Map<String, Object>, Map<String, Object>> derivedSourceVectorTransformer;
-    Map<String, PerFieldDerivedVectorTransformer> perFieldDerivedVectorTransformers;
+    private final Function<Map<String, Object>, Map<String, Object>> derivedSourceVectorTransformer;
+    private final Map<String, Function<Object, Object>> perFieldDerivedVectorTransformers;
     private boolean isNested;
     private final DerivedSourceLuceneHelper derivedSourceLuceneHelper;
 
@@ -57,75 +54,8 @@ public class DerivedSourceVectorTransformer {
             );
             perFieldDerivedVectorTransformers.put(derivedFieldInfo.name(), perFieldDerivedVectorTransformer);
         }
+        derivedSourceVectorTransformer = XContentMapValues.transform(perFieldDerivedVectorTransformers, true);
         derivedSourceLuceneHelper = new DerivedSourceLuceneHelper(derivedSourceReaders, segmentReadState);
-    }
-
-    /**
-     * Initialize the transformer with the fields that should be injected based on includes/excludes.
-     * This filters perFieldDerivedVectorTransformers and builds the derivedSourceVectorTransformer.
-     * Should be called once before the first call to injectVectors().
-     *
-     * @param excludes List of field patterns that should not be injected
-     */
-    public void initialize(String[] includes, String[] excludes) {
-        // Filter perFieldDerivedVectorTransformers based on includes/excludes
-        Set<String> fieldsToRemove = getFieldsToExclude(includes, excludes);
-        for (String fieldName : fieldsToRemove) {
-            perFieldDerivedVectorTransformers.remove(fieldName);
-        }
-
-        Map<String, Function<Object, Object>> transformerFunctions = new HashMap<>();
-        transformerFunctions.putAll(perFieldDerivedVectorTransformers);
-        derivedSourceVectorTransformer = XContentMapValues.transform(transformerFunctions, true);
-
-    }
-
-    private Set<String> getFieldsToExclude(String[] includes, String[] excludes) {
-        Set<String> fieldsToRemove = new HashSet<>();
-        Set<String> allFields = perFieldDerivedVectorTransformers.keySet();
-
-        // If includes are specified, start by excluding everything that doesn't match
-        if (includes != null && includes.length > 0) {
-            for (String fieldName : allFields) {
-                boolean matched = false;
-                for (String includePattern : includes) {
-                    if (Regex.simpleMatch(includePattern, fieldName)) {
-                        matched = true;
-                        break;
-                    }
-                }
-                if (!matched) {
-                    fieldsToRemove.add(fieldName);
-                }
-            }
-        }
-
-        // Then also exclude anything matching exclude patterns
-        if (excludes != null && excludes.length > 0) {
-            for (String fieldName : allFields) {
-                if (fieldsToRemove.contains(fieldName)) {
-                    continue;
-                }
-                for (String excludePattern : excludes) {
-                    if (Regex.simpleMatch(excludePattern, fieldName)) {
-                        fieldsToRemove.add(fieldName);
-                        break;
-                    }
-                }
-            }
-        }
-
-        return fieldsToRemove;
-    }
-
-    /**
-     * Check if there are any fields to inject after initialization.
-     * Must be called after initialize().
-     *
-     * @return true if there are fields to inject, false otherwise
-     */
-    public boolean hasFieldsToInject() {
-        return !perFieldDerivedVectorTransformers.isEmpty();
     }
 
     /**
@@ -156,8 +86,8 @@ public class DerivedSourceVectorTransformer {
 
         // For each vector field, add in the source. The per field injectors are responsible for skipping if
         // the field is not present.
-        for (PerFieldDerivedVectorTransformer vectorTransformer : perFieldDerivedVectorTransformers.values()) {
-            vectorTransformer.setCurrentDoc(offset, docId);
+        for (final Function<Object, Object> vectorTransformer : perFieldDerivedVectorTransformers.values()) {
+            ((PerFieldDerivedVectorTransformer) vectorTransformer).setCurrentDoc(offset, docId);
         }
 
         Map<String, Object> copy = derivedSourceVectorTransformer.apply(sourceAsMap);
