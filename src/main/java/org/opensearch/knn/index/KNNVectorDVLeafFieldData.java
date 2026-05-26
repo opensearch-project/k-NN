@@ -102,16 +102,29 @@ public class KNNVectorDVLeafFieldData implements LeafFieldData {
      * iterator so that multiple {@code Leaf} instances obtained from the same
      * {@code KNNVectorDVLeafFieldData} cannot interfere with each other's state.
      *
-     * <p><b>Return type:</b> {@code float[]} for FLOAT vectors —
-     * {@link org.opensearch.core.xcontent.XContentBuilder} serializes this as a JSON numeric array.
+     * <p><b>Return type:</b> Depends on the format:
+     * <ul>
+     *   <li>Array format ({@link KNNVectorDocValueFormat#ARRAY_FORMAT}): returns {@code float[]},
+     *       serialized by {@link org.opensearch.core.xcontent.XContentBuilder} as a JSON numeric array.</li>
+     *   <li>Binary format ({@link KNNVectorDocValueFormat#BINARY_FORMAT}, the default): returns a
+     *       base64-encoded {@link String} of little-endian float bytes.</li>
+     * </ul>
      *
-     * @param format the doc value format — currently unused but required by the interface
+     * @param format the {@link KNNVectorDocValueFormat} that determines output encoding (array or binary)
      * @return a leaf fetcher that yields vector values per document, or an empty fetcher
      *         if the field has no vectors in this segment
      * @throws UnsupportedOperationException if the vector data type is BYTE or BINARY
+     * @throws IllegalArgumentException if format is not an instance of {@link KNNVectorDocValueFormat}
      */
     @Override
     public DocValueFetcher.Leaf getLeafValueFetcher(final DocValueFormat format) {
+        if (!(format instanceof KNNVectorDocValueFormat knnFormat)) {
+            throw new IllegalArgumentException(
+                "Unsupported DocValueFormat [" + format + "] for knn_vector field '" + fieldName + "'. Expected KNNVectorDocValueFormat."
+            );
+        }
+        final boolean isBinary = knnFormat.isBinary();
+
         if (vectorDataType == VectorDataType.BYTE || vectorDataType == VectorDataType.BINARY) {
             throw new UnsupportedOperationException(
                 "docvalue_fields is not supported for [" + vectorDataType + "] vector field '" + fieldName + "'"
@@ -152,6 +165,12 @@ public class KNNVectorDVLeafFieldData implements LeafFieldData {
 
             @Override
             public Object nextValue() throws IOException {
+                // We don't need a conditional clone here since encodeToBinary will convert the array to string.
+                if (isBinary) {
+                    return KNNVectorDocValueFormat.encodeToBinary((float[]) vectorValues.getVector());
+                }
+                // We need a conditional clone since vector returned from here will be added in a map, so we do the clone
+                // since vectorValues keep a single copy of vector array for all docs.
                 return vectorValues.conditionalCloneVector();
             }
         };
