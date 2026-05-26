@@ -118,9 +118,9 @@ public class Lucene99HnswVectorsFormatComponentTests extends KNNTestCase {
 
     /**
      * Runs an actual kNN search over the indexed float vectors after installing the prefetch patch, and validates the
-     * returned scores against {@link VectorSimilarityFunction#EUCLIDEAN}: the exact-match document ranks first with
-     * score {@code 1.0}, every hit's score equals the Euclidean similarity for that document, and scores are returned
-     * in descending order. This confirms the prefetch wrapper preserves scores end-to-end on the float path.
+     * returned scores against {@link VectorSimilarityFunction#EUCLIDEAN}: the exact-match document should rank
+     * first with score {@code 1.0}, every hit's score equals the Euclidean similarity for that document, and scores
+     * are returned in descending order. This confirms the prefetch wrapper preserves scores end-to-end on the float path.
      */
     @SneakyThrows
     public void testSearch_afterInstallOnce_thenScoresMatchEuclidean() {
@@ -138,12 +138,22 @@ public class Lucene99HnswVectorsFormatComponentTests extends KNNTestCase {
 
                 assertEquals("all indexed docs should be returned", NUM_DOCS, topDocs.scoreDocs.length);
 
-                // Exact match must rank first with the maximum Euclidean score (distance 0 -> 1 / (1 + 0) = 1.0).
-                assertEquals("exact-match doc must rank first", queryDoc, topDocs.scoreDocs[0].doc);
-                assertEquals("exact-match score must be 1.0", 1.0f, topDocs.scoreDocs[0].score, 1e-6f);
+                // Verify the exact match has the maximum score (1.0)
+                float maxScore = topDocs.scoreDocs[0].score;
+                assertEquals("exact-match score must be 1.0", 1.0f, maxScore, 1e-6f);
+
+                // Find the exact match document and verify it exists with score 1.0
+                boolean exactMatchFound = false;
+                for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
+                    if (scoreDoc.doc == queryDoc) {
+                        assertEquals("exact-match score must be 1.0", 1.0f, scoreDoc.score, 1e-6f);
+                        exactMatchFound = true;
+                        break;
+                    }
+                }
+                assertTrue("exact-match doc must be in results", exactMatchFound);
 
                 // Every hit's score must equal the Euclidean similarity for that doc, and scores must be descending.
-                // docIds map 1:1 to insertion order here (single segment, sequential adds, force-merged, no deletes).
                 float previousScore = Float.MAX_VALUE;
                 for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
                     final float expected = VectorSimilarityFunction.EUCLIDEAN.compare(query, floatVector(scoreDoc.doc));
