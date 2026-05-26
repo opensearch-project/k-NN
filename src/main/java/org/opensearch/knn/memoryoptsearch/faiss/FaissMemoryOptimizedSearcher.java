@@ -25,6 +25,7 @@ import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.RobustUniqueRandomIterator;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.WarmupUtil;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.faiss.cagra.FaissCagraHNSW;
@@ -59,7 +60,12 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         final KNNVectorSimilarityFunction knnVectorSimilarityFunction = faissIndex.getVectorSimilarityFunction();
 
         if (knnVectorSimilarityFunction != KNNVectorSimilarityFunction.HAMMING) {
-            vectorSimilarityFunction = knnVectorSimilarityFunction.getVectorSimilarityFunction();
+            final SpaceType spaceType = FieldInfoExtractor.getSpaceType(null, fieldInfo);
+            if (spaceType == SpaceType.COSINESIMIL) {
+                vectorSimilarityFunction = VectorSimilarityFunction.COSINE;
+            } else {
+                vectorSimilarityFunction = knnVectorSimilarityFunction.getVectorSimilarityFunction();
+            }
         } else {
             vectorSimilarityFunction = null;
         }

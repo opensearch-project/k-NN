@@ -21,7 +21,6 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
-import org.opensearch.knn.index.query.MemoryOptimizedSearchScoreConverter;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
@@ -299,13 +298,13 @@ public class VectorScorersTests extends KNNTestCase {
         when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.COSINESIMIL.getValue());
         QuantizationConfig adcConfig = QuantizationConfig.builder().enableADC(true).build();
 
-        // Known IP-format scores the inner ADC scorer will return for each doc
-        float[] ipScores = { 1.5f, 0.5f };
+        // Known scores the ADC scorer will return for each doc (now direct cosine-format scores)
+        float[] scores = { 0.85f, 0.72f };
 
-        // Build a mock FlatVectorsScorer that returns known IP-format scores
+        // Build a mock FlatVectorsScorer that returns known scores
         RandomVectorScorer mockRandomScorer = mock(RandomVectorScorer.class);
-        when(mockRandomScorer.score(0)).thenReturn(ipScores[0]);
-        when(mockRandomScorer.score(1)).thenReturn(ipScores[1]);
+        when(mockRandomScorer.score(0)).thenReturn(scores[0]);
+        when(mockRandomScorer.score(1)).thenReturn(scores[1]);
 
         FlatVectorsScorer mockFlatScorer = mock(FlatVectorsScorer.class);
         when(mockFlatScorer.getRandomVectorScorer(any(VectorSimilarityFunction.class), any(KnnVectorValues.class), any(float[].class)))
@@ -328,10 +327,10 @@ public class VectorScorersTests extends KNNTestCase {
 
             assertNotNull(scorer);
 
-            // Verify scores are converted from IP format to cosine format
+            // Scores pass through directly — no wrapper conversion
             Map<Integer, Float> expectedScores = new HashMap<>();
-            for (int i = 0; i < ipScores.length; i++) {
-                expectedScores.put(i, MemoryOptimizedSearchScoreConverter.convertInnerProductScoreToCosineScore(ipScores[i]));
+            for (int i = 0; i < scores.length; i++) {
+                expectedScores.put(i, scores[i]);
             }
             assertScores(expectedScores, scorer);
         }
@@ -351,10 +350,10 @@ public class VectorScorersTests extends KNNTestCase {
         when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.COSINESIMIL.getValue());
         QuantizationConfig adcConfig = QuantizationConfig.builder().enableADC(true).build();
 
-        // IP score < 1 exercises the other branch: ip = 1 - 1/ipScore
-        float ipScore = 0.25f;
+        // Direct cosine-format score
+        float score = 0.25f;
         RandomVectorScorer mockRandomScorer = mock(RandomVectorScorer.class);
-        when(mockRandomScorer.score(0)).thenReturn(ipScore);
+        when(mockRandomScorer.score(0)).thenReturn(score);
 
         FlatVectorsScorer mockFlatScorer = mock(FlatVectorsScorer.class);
         when(mockFlatScorer.getRandomVectorScorer(any(VectorSimilarityFunction.class), any(KnnVectorValues.class), any(float[].class)))
@@ -375,9 +374,8 @@ public class VectorScorersTests extends KNNTestCase {
                 fieldInfo
             );
 
-            // Reverse INNER_PRODUCT.scoreTranslation for ipScore < 1
-            float expected = MemoryOptimizedSearchScoreConverter.convertInnerProductScoreToCosineScore(ipScore);
-            assertScores(Map.of(0, expected), scorer);
+            // Score passes through directly — no wrapper conversion
+            assertScores(Map.of(0, score), scorer);
         }
     }
 

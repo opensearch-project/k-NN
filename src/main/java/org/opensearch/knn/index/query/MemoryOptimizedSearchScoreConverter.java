@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.index.query;
 
-import org.apache.lucene.search.ScoreDoc;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
 
@@ -14,45 +13,23 @@ import org.opensearch.knn.index.engine.KNNEngine;
  * in memory-optimized search.
  *
  * <p>Memory-optimized search runs Lucene on top of a Faiss index. It leverages
- * Lucene’s efficient algorithms and Lucene’s {@code Directory} architecture for efficient loading to
+ * Lucene's efficient algorithms and Lucene's {@code Directory} architecture for efficient loading to
  * produce the same results as when memory optimization is disabled.</p>
  * With the same query, results are expected to be identical regardless of
  * whether memory optimization is enabled.
  *
- * <p>However, unlike {@link KNNEngine},
- * the input here is a Faiss score, which must be converted to Lucene’s
- * scoring range.</p>
- *
- * <p>For example, Faiss uses inner product while Lucene uses
- * maximum inner product. When converting distances, this class maps
- * the Faiss score into the maximum inner product range so Lucene can
- * interpret it correctly during search.</p>
- *
- * <p>Conversely, it also converts Lucene scores back into Faiss scores so that
- * the same query produces consistent results across both implementations.
- *
  * <p>Note that this should be used only when memory_optimized_search is enabled.
- *
  */
 public final class MemoryOptimizedSearchScoreConverter {
     /**
-     * Convert Faiss distance to Lucene score.
+     * Convert Faiss distance to Lucene radial threshold.
      *
      * @param distance Faiss distance
      * @param spaceType Space type being used.
      * @return Converted value to be used during Lucene search algorithm.
      */
     public static float distanceToRadialThreshold(final float distance, final SpaceType spaceType) {
-        if (spaceType != SpaceType.COSINESIMIL) {
-            return KNNEngine.LUCENE.distanceToRadialThreshold(distance, spaceType);
-        }
-
-        // For cosine similarity, `distance = 1 - inner_product_value`.
-        // therefore, we should extract it then convert it to max_inner_product_value
-        final float innerProductValue = KNNEngine.FAISS.distanceToRadialThreshold(distance, SpaceType.COSINESIMIL);
-
-        // Convert inner product value to max inner product value.
-        return SpaceType.INNER_PRODUCT.scoreTranslation(-innerProductValue);
+        return KNNEngine.LUCENE.distanceToRadialThreshold(distance, spaceType);
     }
 
     /**
@@ -63,44 +40,6 @@ public final class MemoryOptimizedSearchScoreConverter {
      * @return Converted radial threshold for Lucene
      */
     public static float scoreToRadialThreshold(final float score, final SpaceType spaceType) {
-        if (spaceType != SpaceType.COSINESIMIL) {
-            return KNNEngine.LUCENE.scoreToRadialThreshold(score, spaceType);
-        }
-
-        // Since `score = (2 - (1 - inner_product_value)) / 2 = (1 + inner_product_value) / 2`,
-        // we should extract it then convert it to max inner product value.
-        final float innerProductValue = KNNEngine.FAISS.scoreToRadialThreshold(score, SpaceType.COSINESIMIL);
-
-        // Convert inner product value to max inner product value.
-        return SpaceType.INNER_PRODUCT.scoreTranslation(-innerProductValue);
-    }
-
-    /**
-     * This method converts Lucene's max inner product score to Faiss cosine score to ensure user
-     * to get the same results with the same query.
-     *
-     * @param scoreDocs Results from internal search before returning.
-     */
-    public static void convertToCosineScore(final ScoreDoc[] scoreDocs) {
-        for (final ScoreDoc scoreDoc : scoreDocs) {
-            scoreDoc.score = convertInnerProductScoreToCosineScore(scoreDoc.score);
-        }
-    }
-
-    /**
-     * Converts a single Lucene MAXIMUM_INNER_PRODUCT score to a Faiss cosine similarity score.
-     *
-     * <p>MAXIMUM_INNER_PRODUCT maps negative inner product values to (0, 1] and positive values
-     * to (1, +inf). This method reverses that mapping to recover the raw inner product value,
-     * then transforms it into the cosine similarity score range.</p>
-     *
-     * @param ipScore the MAXIMUM_INNER_PRODUCT-format score
-     * @return the equivalent cosine similarity score
-     */
-    public static float convertInnerProductScoreToCosineScore(final float ipScore) {
-        // Reverse MAXIMUM_INNER_PRODUCT score translation to recover the raw inner product value.
-        final float innerProductValue = ipScore >= 1 ? ipScore - 1 : 1 - 1 / ipScore;
-        // Transform to cosine similarity score range.
-        return KNNEngine.FAISS.score(innerProductValue, SpaceType.COSINESIMIL);
+        return KNNEngine.LUCENE.scoreToRadialThreshold(score, spaceType);
     }
 }

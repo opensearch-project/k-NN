@@ -64,7 +64,6 @@ import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.query.FilterIdsSelector;
 import org.opensearch.knn.index.query.KNNQueryResult;
-import org.opensearch.knn.index.query.MemoryOptimizedSearchScoreConverter;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.vectorvalues.KNNByteVectorValues;
@@ -367,6 +366,87 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final var first = searcher.getByteVectorValues(mock(KnnVectorValues.DocIndexIterator.class));
         final var second = searcher.getByteVectorValues(mock(KnnVectorValues.DocIndexIterator.class));
         assertNotSame("getByteVectorValues() should return a new instance per call", first, second);
+    }
+
+    @SneakyThrows
+    public void testConstructor_whenCosineSpaceType_thenUsesCosineSimilarityFunction() {
+        FieldInfo fieldInfo = mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.COSINESIMIL.getValue());
+        FaissIdMapIndex faissIndex = mock(FaissIdMapIndex.class);
+        // FAISS stores cosine as inner product on normalized vectors
+        Mockito.when(faissIndex.getVectorSimilarityFunction()).thenReturn(KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT);
+        Mockito.when(faissIndex.getFaissHnsw()).thenReturn(mock(FaissHNSW.class));
+
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
+            mock(IndexInput.class),
+            faissIndex,
+            fieldInfo,
+            SCORER
+        );
+
+        // Verify via reflection that vectorSimilarityFunction is COSINE, not MAXIMUM_INNER_PRODUCT
+        java.lang.reflect.Field vsf = FaissMemoryOptimizedSearcher.class.getDeclaredField("vectorSimilarityFunction");
+        vsf.setAccessible(true);
+        assertEquals(VectorSimilarityFunction.COSINE, vsf.get(searcher));
+    }
+
+    @SneakyThrows
+    public void testConstructor_whenL2SpaceType_thenUsesEuclideanSimilarityFunction() {
+        FieldInfo fieldInfo = mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+        FaissIdMapIndex faissIndex = mock(FaissIdMapIndex.class);
+        Mockito.when(faissIndex.getVectorSimilarityFunction()).thenReturn(KNNVectorSimilarityFunction.EUCLIDEAN);
+        Mockito.when(faissIndex.getFaissHnsw()).thenReturn(mock(FaissHNSW.class));
+
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
+            mock(IndexInput.class),
+            faissIndex,
+            fieldInfo,
+            SCORER
+        );
+
+        java.lang.reflect.Field vsf = FaissMemoryOptimizedSearcher.class.getDeclaredField("vectorSimilarityFunction");
+        vsf.setAccessible(true);
+        assertEquals(VectorSimilarityFunction.EUCLIDEAN, vsf.get(searcher));
+    }
+
+    @SneakyThrows
+    public void testConstructor_whenIPSpaceType_thenUsesMaxInnerProductSimilarityFunction() {
+        FieldInfo fieldInfo = mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.INNER_PRODUCT.getValue());
+        FaissIdMapIndex faissIndex = mock(FaissIdMapIndex.class);
+        Mockito.when(faissIndex.getVectorSimilarityFunction()).thenReturn(KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT);
+        Mockito.when(faissIndex.getFaissHnsw()).thenReturn(mock(FaissHNSW.class));
+
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
+            mock(IndexInput.class),
+            faissIndex,
+            fieldInfo,
+            SCORER
+        );
+
+        java.lang.reflect.Field vsf = FaissMemoryOptimizedSearcher.class.getDeclaredField("vectorSimilarityFunction");
+        vsf.setAccessible(true);
+        assertEquals(VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT, vsf.get(searcher));
+    }
+
+    @SneakyThrows
+    public void testConstructor_whenHammingSpaceType_thenSimilarityFunctionIsNull() {
+        FieldInfo fieldInfo = mock(FieldInfo.class);
+        FaissIdMapIndex faissIndex = mock(FaissIdMapIndex.class);
+        Mockito.when(faissIndex.getVectorSimilarityFunction()).thenReturn(KNNVectorSimilarityFunction.HAMMING);
+        Mockito.when(faissIndex.getFaissHnsw()).thenReturn(mock(FaissHNSW.class));
+
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
+            mock(IndexInput.class),
+            faissIndex,
+            fieldInfo,
+            SCORER
+        );
+
+        java.lang.reflect.Field vsf = FaissMemoryOptimizedSearcher.class.getDeclaredField("vectorSimilarityFunction");
+        vsf.setAccessible(true);
+        assertNull(vsf.get(searcher));
     }
 
     @SneakyThrows
@@ -738,9 +818,6 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         // Make results
         final TopDocs topDocs = knnCollector.topDocs();
         final ScoreDoc[] scoreDocs = topDocs.scoreDocs;
-        if (spaceType == SpaceType.COSINESIMIL) {
-            MemoryOptimizedSearchScoreConverter.convertToCosineScore(scoreDocs);
-        }
         assertTrue(scoreDocs.length >= k);
         final List<KNNQueryResult> results = new ArrayList<>();
         for (int i = 0; i < k; ++i) {
