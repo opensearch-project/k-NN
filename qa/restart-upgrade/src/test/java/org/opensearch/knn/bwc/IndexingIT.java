@@ -1164,6 +1164,12 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
      */
     public void testCompression32xWithRescoreParametersRestartUpgrade() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+
+        // mode and compression_level parameters are only supported on or after 2.17.0
+        if (isRunningAgainstOldCluster() && isModeAndCompressionSupported(getBWCVersion()) == false) {
+            return;
+        }
+
         int dimension = 8;
         int k = 4;
 

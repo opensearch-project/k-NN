@@ -637,6 +637,12 @@ public class IndexingIT extends AbstractRollingUpgradeTestCase {
      */
     public void testCompression32xWithRescoreParametersRollingUpgrade() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+
+        // mode and compression_level parameters are only supported on or after 2.17.0
+        if (isModeAndCompressionSupported(getBWCVersion()) == false) {
+            return;
+        }
+
         int dimension = 8;
         int k = 4;
 
