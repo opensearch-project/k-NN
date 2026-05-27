@@ -1,0 +1,371 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package org.opensearch.knn.index;
+
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.opensearch.client.Request;
+import org.opensearch.client.Response;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.KNNResult;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.engine.KNNEngine;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
+/**
+ * Integration tests for radial search (max_distance and min_score) on Faiss and Lucene HNSW.
+ * Covers both ANN path (no filter) and ExactSearcher path (with filter, Faiss only) across
+ * L2, cosine, and inner product space types.
+ *
+ * Validates the distanceToRadialThreshold and scoreToRadialThreshold transformations,
+ * specifically the fix for Faiss IP max_distance (DISTANCE_TRANSLATIONS: distance -> -1 * distance).
+ */
+public class RadialSearchIT extends KNNRestTestCase {
+
+    private static final int DIMENSION = 2;
+    private static final String FIELD_NAME = "test_vector";
+    private static final String FILTER_FIELD = "color";
+
+    private final String testName;
+    private final KNNEngine engine;
+    private final SpaceType spaceType;
+    private final float[][] testVectors;
+    private final float[] queryVector;
+    private final String searchType;
+    private final float threshold;
+    private final int expectedCount;
+    private final boolean useFilter;
+
+    public RadialSearchIT(
+        String testName,
+        KNNEngine engine,
+        SpaceType spaceType,
+        float[][] testVectors,
+        float[] queryVector,
+        String searchType,
+        float threshold,
+        int expectedCount,
+        boolean useFilter
+    ) {
+        this.testName = testName;
+        this.engine = engine;
+        this.spaceType = spaceType;
+        this.testVectors = testVectors;
+        this.queryVector = queryVector;
+        this.searchType = searchType;
+        this.threshold = threshold;
+        this.expectedCount = expectedCount;
+        this.useFilter = useFilter;
+    }
+
+    @ParametersFactory(argumentFormatting = "{0}")
+    public static Collection<Object[]> parameters() {
+        List<Object[]> params = new ArrayList<>();
+        addFaissParams(params);
+        addLuceneParams(params);
+        return params;
+    }
+
+    private static void addFaissParams(List<Object[]> params) {
+        // Faiss L2: native distance is squared euclidean, score = 1/(1+dist), threshold passes through unchanged
+        float[][] l2Vectors = {
+            { 1.0f, 0.0f },     // dist=0.0, score=1.0
+            { 1.0f, 0.5f },     // dist=0.25, score=0.8
+            { 0.0f, 0.0f },     // dist=1.0, score=0.5
+            { 0.0f, 3.0f }      // dist=10.0, score=0.091
+        };
+        float[] l2Query = { 1.0f, 0.0f };
+
+        addRadialCases(
+            params,
+            "Faiss_L2",
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            l2Vectors,
+            l2Query,
+            true,
+            new Object[] { "max_distance", 0.5f, 2 },
+            new Object[] { "max_distance", 2.0f, 3 },
+            new Object[] { "min_score", 0.9f, 1 },
+            new Object[] { "min_score", 0.75f, 2 }
+        );
+
+        // Faiss Cosine: threshold maps distance -> 1 - distance, score = (1 + cos_sim) / 2
+        float[][] cosVectors = {
+            { 1.0f, 0.0f },     // cos=1.0, score=1.0
+            { 3.0f, 1.0f },     // cos=0.949, score=0.975
+            { 1.0f, 1.0f },     // cos=0.707, score=0.854
+            { 0.0f, 1.0f }      // cos=0.0, score=0.5
+        };
+        float[] cosQuery = { 1.0f, 0.0f };
+
+        addRadialCases(
+            params,
+            "Faiss_COSINE",
+            KNNEngine.FAISS,
+            SpaceType.COSINESIMIL,
+            cosVectors,
+            cosQuery,
+            true,
+            new Object[] { "max_distance", 0.1f, 2 },
+            new Object[] { "max_distance", 0.5f, 3 },
+            new Object[] { "min_score", 0.99f, 1 },
+            new Object[] { "min_score", 0.8f, 3 }
+        );
+
+        // Faiss IP: threshold negates distance (the fix under test), score branches on sign of dot product
+        float[][] ipVectors = {
+            { 1.0f, 0.0f },     // dot=1.0, score=2.0
+            { 0.8f, 0.1f },     // dot=0.8, score=1.8
+            { 0.3f, 0.3f },     // dot=0.3, score=1.3
+            { 0.0f, 1.0f }      // dot=0.0, score=1.0
+        };
+        float[] ipQuery = { 1.0f, 0.0f };
+
+        addRadialCases(
+            params,
+            "Faiss_IP",
+            KNNEngine.FAISS,
+            SpaceType.INNER_PRODUCT,
+            ipVectors,
+            ipQuery,
+            true,
+            new Object[] { "max_distance", -0.5f, 2 },
+            new Object[] { "max_distance", -0.1f, 3 },
+            new Object[] { "max_distance", 0.1f, 4 },
+            new Object[] { "min_score", 1.9f, 1 },
+            new Object[] { "min_score", 1.4f, 2 },
+            new Object[] { "min_score", 1.01f, 3 }
+        );
+
+        // Faiss IP with negative dot products: exercises the 1/(1-dot) score branch
+        float[][] ipNegVectors = {
+            { 1.0f, 0.0f },     // dot=1.0, score=2.0, distance=-1.0
+            { 0.5f, 0.5f },     // dot=0.5, score=1.5, distance=-0.5
+            { -0.3f, 0.5f },    // dot=-0.3, score=0.769, distance=0.3
+            { -0.8f, 0.2f },    // dot=-0.8, score=0.556, distance=0.8
+            { -1.0f, 0.0f }     // dot=-1.0, score=0.5, distance=1.0
+        };
+        float[] ipNegQuery = { 1.0f, 0.0f };
+
+        addRadialCases(
+            params,
+            "Faiss_IP_neg",
+            KNNEngine.FAISS,
+            SpaceType.INNER_PRODUCT,
+            ipNegVectors,
+            ipNegQuery,
+            true,
+            new Object[] { "max_distance", -0.4f, 2 },
+            new Object[] { "max_distance", 0.4f, 3 },
+            new Object[] { "max_distance", 0.9f, 4 },
+            new Object[] { "max_distance", 1.1f, 5 },
+            new Object[] { "min_score", 1.4f, 2 },
+            new Object[] { "min_score", 0.6f, 3 },
+            new Object[] { "min_score", 0.55f, 4 },
+            new Object[] { "min_score", 0.45f, 5 }
+        );
+    }
+
+    /**
+     * Generates test cases for both ANN and ExactSearcher paths for a given engine/space configuration.
+     * Each threshold entry produces one test case; if exactSearcher is true, a mirror set with filter is added.
+     */
+    private static void addRadialCases(
+        List<Object[]> params,
+        String prefix,
+        KNNEngine engine,
+        SpaceType spaceType,
+        float[][] vectors,
+        float[] query,
+        boolean includeExact,
+        Object[]... thresholds
+    ) {
+        for (Object[] t : thresholds) {
+            String searchType = (String) t[0];
+            float threshold = (float) t[1];
+            int expected = (int) t[2];
+            params.add(
+                new Object[] {
+                    prefix + "_ann_" + searchType + "_" + expected,
+                    engine,
+                    spaceType,
+                    vectors,
+                    query,
+                    searchType,
+                    threshold,
+                    expected,
+                    false }
+            );
+            if (includeExact) {
+                params.add(
+                    new Object[] {
+                        prefix + "_exact_" + searchType + "_" + expected,
+                        engine,
+                        spaceType,
+                        vectors,
+                        query,
+                        searchType,
+                        threshold,
+                        expected,
+                        true }
+                );
+            }
+        }
+    }
+
+    private static void addLuceneParams(List<Object[]> params) {
+        // Lucene radial search: ANN path only (ExactSearcher throws for non-Faiss engines)
+
+        // Lucene L2: same vector geometry as Faiss, ANN path only
+        float[][] l2Vectors = {
+            { 1.0f, 0.0f },     // dist=0.0, score=1.0
+            { 1.0f, 0.5f },     // dist=0.25, score=0.8
+            { 0.0f, 0.0f },     // dist=1.0, score=0.5
+            { 0.0f, 3.0f }      // dist=10.0, score=0.091
+        };
+        float[] l2Query = { 1.0f, 0.0f };
+
+        addRadialCases(
+            params,
+            "Lucene_L2",
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            l2Vectors,
+            l2Query,
+            false,
+            new Object[] { "max_distance", 0.5f, 2 },
+            new Object[] { "max_distance", 2.0f, 3 },
+            new Object[] { "min_score", 0.9f, 1 },
+            new Object[] { "min_score", 0.75f, 2 }
+        );
+
+        // Lucene Cosine
+        float[][] cosVectors = {
+            { 1.0f, 0.0f },     // cos=1.0, score=1.0
+            { 3.0f, 1.0f },     // cos=0.949, score=0.975
+            { 1.0f, 1.0f },     // cos=0.707, score=0.854
+            { 0.0f, 1.0f }      // cos=0.0, score=0.5
+        };
+        float[] cosQuery = { 1.0f, 0.0f };
+
+        addRadialCases(
+            params,
+            "Lucene_COSINE",
+            KNNEngine.LUCENE,
+            SpaceType.COSINESIMIL,
+            cosVectors,
+            cosQuery,
+            false,
+            new Object[] { "max_distance", 0.1f, 2 },
+            new Object[] { "max_distance", 0.5f, 3 },
+            new Object[] { "min_score", 0.99f, 1 },
+            new Object[] { "min_score", 0.8f, 3 }
+        );
+
+        // Lucene IP: distanceToRadialThreshold converts based on sign of distance
+        float[][] ipVectors = {
+            { 1.0f, 0.0f },     // dot=1.0, score=2.0
+            { 0.8f, 0.1f },     // dot=0.8, score=1.8
+            { 0.3f, 0.3f },     // dot=0.3, score=1.3
+            { 0.0f, 1.0f }      // dot=0.0, score=1.0
+        };
+        float[] ipQuery = { 1.0f, 0.0f };
+
+        addRadialCases(
+            params,
+            "Lucene_IP",
+            KNNEngine.LUCENE,
+            SpaceType.INNER_PRODUCT,
+            ipVectors,
+            ipQuery,
+            false,
+            new Object[] { "max_distance", 0.9f, 1 },
+            new Object[] { "max_distance", 0.5f, 2 },
+            new Object[] { "max_distance", 0.2f, 3 },
+            new Object[] { "min_score", 1.9f, 1 },
+            new Object[] { "min_score", 1.4f, 2 },
+            new Object[] { "min_score", 1.01f, 3 }
+        );
+    }
+
+    public void testRadialSearch_thenCorrectResults() throws Exception {
+        String indexName = "test_radial_" + testName.toLowerCase().replace(" ", "_");
+
+        XContentBuilder mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", DIMENSION)
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+            .field(KNNConstants.KNN_ENGINE, engine.getName());
+
+        if (engine == KNNEngine.FAISS) {
+            mapping.startObject(KNNConstants.PARAMETERS)
+                .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, 128)
+                .field(KNNConstants.METHOD_PARAMETER_M, 16)
+                .endObject();
+        }
+
+        mapping.endObject().endObject().startObject(FILTER_FIELD).field("type", "keyword").endObject().endObject().endObject();
+
+        Settings settings = Settings.builder().put("index.knn", true).build();
+        createKnnIndex(indexName, settings, mapping.toString());
+
+        for (int i = 0; i < testVectors.length; i++) {
+            indexDocument(indexName, String.valueOf(i + 1), testVectors[i]);
+        }
+        refreshAllIndices();
+
+        XContentBuilder query = buildQuery();
+        Response response = searchKNNIndex(indexName, query, 10);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
+
+        assertEquals(
+            String.format("[%s] Expected %d results but got %d", testName, expectedCount, results.size()),
+            expectedCount,
+            results.size()
+        );
+
+        deleteKNNIndex(indexName);
+    }
+
+    private void indexDocument(String indexName, String docId, float[] vector) throws IOException {
+        XContentBuilder doc = XContentFactory.jsonBuilder().startObject().field(FIELD_NAME, vector).field(FILTER_FIELD, "red").endObject();
+
+        Request request = new Request("POST", "/" + indexName + "/_doc/" + docId + "?refresh=true");
+        request.setJsonEntity(doc.toString());
+        client().performRequest(request);
+    }
+
+    private XContentBuilder buildQuery() throws IOException {
+        XContentBuilder query = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("knn")
+            .startObject(FIELD_NAME)
+            .field("vector", queryVector)
+            .field(searchType, threshold);
+
+        if (useFilter) {
+            query.startObject("filter").startObject("term").field(FILTER_FIELD, "red").endObject().endObject();
+        }
+
+        query.endObject().endObject().endObject().endObject();
+
+        return query;
+    }
+}

@@ -326,7 +326,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
 
-        assertEquals(negativeDistance, query.getRadius(), 0);
+        // After distanceToRadialThreshold, IP distances are negated for Faiss-native space
+        assertEquals(-negativeDistance, query.getRadius(), 0);
     }
 
     public void testDoToQuery_whenDoRadiusSearch_whenPassNegativeDistance_whenUnSupportedSpaceType_thenException() {
@@ -433,7 +434,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
 
-        assertEquals(negativeDistance, query.getRadius(), 0);
+        // After distanceToRadialThreshold, IP distances are negated for Faiss-native space
+        assertEquals(-negativeDistance, query.getRadius(), 0);
     }
 
     public void testDoToQuery_whenPassNegativeDistance_whenUnSupportedSpaceType_thenException() {
