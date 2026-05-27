@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Bug Fixes
 * Use KNN1040ScalarQuantizedVectorsFormat for Faiss SQ flat format to enable prefetch [#3302](https://github.com/opensearch-project/k-NN/pull/3302)
+* Fix skip warm up in old indices when MOS is enabled [#3344](https://github.com/opensearch-project/k-NN/pull/3344)
 
 ### Refactoring
 
