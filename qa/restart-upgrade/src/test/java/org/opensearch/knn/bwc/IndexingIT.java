@@ -1166,7 +1166,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
 
         // mode and compression_level parameters are only supported on or after 2.17.0
-        if (isRunningAgainstOldCluster() && isModeAndCompressionSupported(getBWCVersion()) == false) {
+        if (isModeAndCompressionSupported(getBWCVersion()) == false) {
             return;
         }
 
