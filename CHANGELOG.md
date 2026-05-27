@@ -15,7 +15,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Bug Fixes
 * Use KNN1040ScalarQuantizedVectorsFormat for Faiss SQ flat format to enable prefetch [#3302](https://github.com/opensearch-project/k-NN/pull/3302)
+* Fix score to radius conversion for IP with faiss [#3336](https://github.com/opensearch-project/k-NN/pull/3336)
 * Fix rescore flag not propagating over transport layer in multi-node clusters [#3343](https://github.com/opensearch-project/k-NN/pull/3343)
+
 
 ### Refactoring
 
