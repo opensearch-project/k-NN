@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.query.parser;
 
 import lombok.SneakyThrows;
+import org.opensearch.Version;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
@@ -28,6 +29,28 @@ public class RescoreParserTests extends KNNTestCase {
         validateStreams(rescoreContext);
         validateStreams(null);
         validateStreams(RescoreContext.EXPLICITLY_DISABLED_RESCORE_CONTEXT);
+    }
+
+    @SneakyThrows
+    public void testStreams_withOlderVersion() {
+        // Simulate a node running a version that doesn't support RESCORE_ENABLED_PARAMETER
+        RescoreContext rescoreContext = RescoreContext.builder()
+            .oversampleFactor(RescoreContext.DEFAULT_OVERSAMPLE_FACTOR)
+            .rescoreEnabled(false)
+            .build();
+
+        try (BytesStreamOutput output = new BytesStreamOutput()) {
+            output.setVersion(Version.V_3_6_0);
+            RescoreParser.streamOutput(output, rescoreContext);
+
+            try (StreamInput in = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry())) {
+                in.setVersion(Version.V_3_6_0);
+                RescoreContext parsedRescoreContext = RescoreParser.streamInput(in);
+                // Older version doesn't serialize rescoreEnabled, so it defaults to true
+                assertEquals(RescoreContext.DEFAULT_OVERSAMPLE_FACTOR, parsedRescoreContext.getOversampleFactor(), 0.0001);
+                assertTrue(parsedRescoreContext.isRescoreEnabled());
+            }
+        }
     }
 
     private void validateStreams(RescoreContext rescoreContext) throws IOException {
