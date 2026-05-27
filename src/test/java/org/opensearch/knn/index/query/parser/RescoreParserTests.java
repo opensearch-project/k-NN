@@ -27,6 +27,7 @@ public class RescoreParserTests extends KNNTestCase {
         RescoreContext rescoreContext = RescoreContext.builder().oversampleFactor(RescoreContext.DEFAULT_OVERSAMPLE_FACTOR).build();
         validateStreams(rescoreContext);
         validateStreams(null);
+        validateStreams(RescoreContext.EXPLICITLY_DISABLED_RESCORE_CONTEXT);
     }
 
     private void validateStreams(RescoreContext rescoreContext) throws IOException {
