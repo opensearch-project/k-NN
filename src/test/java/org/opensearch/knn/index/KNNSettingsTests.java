@@ -6,13 +6,21 @@
 package org.opensearch.knn.index;
 
 import lombok.SneakyThrows;
+import org.opensearch.action.ActionRequest;
+import org.opensearch.action.ActionType;
+import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
+import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsResponse;
 import org.opensearch.action.admin.cluster.state.ClusterStateRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.network.NetworkModule;
+import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.env.Environment;
 import org.opensearch.knn.KNNTestCase;
@@ -24,6 +32,7 @@ import org.opensearch.plugins.Plugin;
 import org.opensearch.plugins.PluginInfo;
 import org.opensearch.test.InternalTestCluster;
 import org.opensearch.test.MockHttpTransport;
+import org.opensearch.test.client.NoOpClient;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -36,11 +45,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.opensearch.test.NodeRoles.dataNode;
 
 public class KNNSettingsTests extends KNNTestCase {
 
     private static final String INDEX_NAME = "myindex";
+    private static final String AUTHORIZATION_HEADER = "Authorization";
+    private static final String TEST_USER_TRANSIENT_KEY = "knn-test-user";
 
     @SneakyThrows
     public void testGetSettingValueFromConfig() {
@@ -160,6 +173,44 @@ public class KNNSettingsTests extends KNNTestCase {
         int efSearchValue = KNNSettings.getEfSearchParam(INDEX_NAME);
         mockNode.close();
         assertEquals(userProvidedEfSearch, efSearchValue);
+    }
+
+    public void testUpdateCircuitBreakerSettings_whenThreadContextHasUserState_thenRequestRunsWithStashedContext() {
+        ClusterService clusterService = mock(ClusterService.class);
+        ClusterSettings clusterSettings = mock(ClusterSettings.class);
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+
+        try (NoOpClient client = new NoOpClient(getTestName()) {
+            @Override
+            @SuppressWarnings("unchecked")
+            protected <Request extends ActionRequest, Response extends ActionResponse> void doExecute(
+                ActionType<Response> action,
+                Request request,
+                ActionListener<Response> listener
+            ) {
+                ThreadContext threadContext = threadPool().getThreadContext();
+                assertNull(threadContext.getHeader(AUTHORIZATION_HEADER));
+                assertNull(threadContext.getTransient(TEST_USER_TRANSIENT_KEY));
+                assertTrue(request instanceof ClusterUpdateSettingsRequest);
+
+                ClusterUpdateSettingsRequest clusterRequest = (ClusterUpdateSettingsRequest) request;
+                assertEquals(true, clusterRequest.persistentSettings().getAsBoolean(KNNSettings.KNN_CIRCUIT_BREAKER_TRIGGERED, null));
+
+                ClusterUpdateSettingsResponse response = mock(ClusterUpdateSettingsResponse.class);
+                when(response.isAcknowledged()).thenReturn(true);
+                listener.onResponse((Response) response);
+            }
+        }) {
+            ThreadContext threadContext = client.threadPool().getThreadContext();
+            threadContext.putHeader(AUTHORIZATION_HEADER, "Basic test-token");
+            threadContext.putTransient(TEST_USER_TRANSIENT_KEY, "test_user");
+
+            KNNSettings.state().initialize(client, clusterService);
+            KNNSettings.state().updateCircuitBreakerSettings(true);
+
+            assertEquals("Basic test-token", threadContext.getHeader(AUTHORIZATION_HEADER));
+            assertEquals("test_user", threadContext.getTransient(TEST_USER_TRANSIENT_KEY));
+        }
     }
 
     @SneakyThrows
