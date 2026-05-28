@@ -53,6 +53,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorQueryType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
@@ -105,6 +106,9 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(metadata.index(anyString())).thenReturn(indexMetadata);
         when(indexMetadata.getSettings()).thenReturn(settings);
         when(indexMetadata.getCreationVersion()).thenReturn(Version.CURRENT);
+
+        // Initialize RescoreRadialSearchQuery singleton for tests that trigger radial search on quantized indices
+        RescoreRadialSearchQuery.initialize(new ExactSearcher(mock(ModelDao.OpenSearchKNNModelDao.class)));
     }
 
     public void testInvalidK() {
