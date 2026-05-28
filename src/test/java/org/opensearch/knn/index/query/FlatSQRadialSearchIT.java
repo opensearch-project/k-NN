@@ -7,15 +7,17 @@ package org.opensearch.knn.index.query;
 
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.knn.index.SpaceType;
 
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
 
 /**
- * Integration tests for radial search on Lucene 32x SQ quantized indices with HNSW method.
+ * Integration tests for radial search on flat quantized indices (method: flat, 1-bit SQ by default).
+ * The flat method is engine-agnostic — it does not specify an engine explicitly.
  */
-public class LuceneSQRadialSearchIT extends AbstractRadialSearchOnQuantizedIndexIT {
+public class FlatSQRadialSearchIT extends AbstractRadialSearchOnQuantizedIndexIT {
 
-    private static final String INDEX_NAME = "lucene_sq_radial_search_test";
+    private static final String INDEX_NAME = "flat_sq_radial_search_test";
 
     @Override
     protected String getIndexName() {
@@ -30,11 +32,9 @@ public class LuceneSQRadialSearchIT extends AbstractRadialSearchOnQuantizedIndex
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
             .field("dimension", DIMENSION)
-            .field("compression_level", "32x")
-            .field("mode", "on_disk")
+            .field("space_type", SpaceType.L2.getValue())
             .startObject("method")
-            .field("name", "hnsw")
-            .field("engine", "lucene")
+            .field("name", "flat")
             .endObject()
             .endObject()
             .endObject()
@@ -53,11 +53,9 @@ public class LuceneSQRadialSearchIT extends AbstractRadialSearchOnQuantizedIndex
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
             .field("dimension", DIMENSION)
-            .field("compression_level", "32x")
-            .field("mode", "on_disk")
+            .field("space_type", SpaceType.L2.getValue())
             .startObject("method")
-            .field("name", "hnsw")
-            .field("engine", "lucene")
+            .field("name", "flat")
             .endObject()
             .endObject()
             .endObject()
