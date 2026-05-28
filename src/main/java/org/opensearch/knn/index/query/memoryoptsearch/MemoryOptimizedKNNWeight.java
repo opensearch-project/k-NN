@@ -47,8 +47,10 @@ import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
  */
 @Log4j2
 public class MemoryOptimizedKNNWeight extends KNNWeight {
-    // Enable ACORN optimization when having filtering rate < 60%.
-    private static final KnnSearchStrategy.Hnsw DEFAULT_HNSW_SEARCH_STRATEGY = new KnnSearchStrategy.Hnsw(60);
+    // ACORN activates when the filtering rate is below this threshold, so 0 ensures no filtering rate
+    // can satisfy it, effectively disabling ACORN. This matches Lucene 10.4's decision to disable ACORN
+    // due to observed recall degradation with filtered searches (see: https://github.com/opensearch-project/k-NN/issues/3327).
+    private static final KnnSearchStrategy.Hnsw DEFAULT_HNSW_SEARCH_STRATEGY = new KnnSearchStrategy.Hnsw(0);
 
     private final KnnCollectorManager knnCollectorManager;
     @Setter
