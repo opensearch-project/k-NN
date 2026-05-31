@@ -12,7 +12,6 @@ import org.opensearch.knn.KNNTestCase;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Base64;
 
 public class KNNVectorDocValueFormatTests extends KNNTestCase {
 
@@ -88,27 +87,27 @@ public class KNNVectorDocValueFormatTests extends KNNTestCase {
         assertTrue("Error should list supported formats", ex.getMessage().contains("binary"));
     }
 
-    public void testEncodeToBinary() {
+    public void testFloatToLittleEndianBytes() {
         // Simple vector
         float[] vector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        String encoded = KNNVectorDocValueFormat.encodeToBinary(vector);
-        assertNotNull("Encoded string should not be null", encoded);
-        assertFalse("Encoded string should not be empty", encoded.isEmpty());
-        assertDecodedVectorEquals("Simple vector", vector, encoded);
+        byte[] bytes = KNNVectorDocValueFormat.floatToLittleEndianBytes(vector);
+        assertNotNull("Byte array should not be null", bytes);
+        assertEquals("Byte array length should be dimension * 4", vector.length * Float.BYTES, bytes.length);
+        assertDecodedVectorEquals("Simple vector", vector, bytes);
 
         // Single element
         float[] single = { 42.5f };
-        assertDecodedVectorEquals("Single element vector", single, KNNVectorDocValueFormat.encodeToBinary(single));
+        assertDecodedVectorEquals("Single element vector", single, KNNVectorDocValueFormat.floatToLittleEndianBytes(single));
 
         // Negative and edge values
         float[] edgeCases = { -1.5f, -100.0f, 0.0f, Float.MAX_VALUE, Float.MIN_VALUE };
-        assertDecodedVectorEquals("Edge case vector", edgeCases, KNNVectorDocValueFormat.encodeToBinary(edgeCases));
+        assertDecodedVectorEquals("Edge case vector", edgeCases, KNNVectorDocValueFormat.floatToLittleEndianBytes(edgeCases));
 
         // Empty vector
         float[] empty = {};
-        String emptyEncoded = KNNVectorDocValueFormat.encodeToBinary(empty);
-        assertNotNull("Empty vector encoding should not be null", emptyEncoded);
-        assertEquals("Empty vector should decode to 0 bytes", 0, Base64.getDecoder().decode(emptyEncoded).length);
+        byte[] emptyBytes = KNNVectorDocValueFormat.floatToLittleEndianBytes(empty);
+        assertNotNull("Empty vector encoding should not be null", emptyBytes);
+        assertEquals("Empty vector should produce 0 bytes", 0, emptyBytes.length);
 
         // High dimension (768d)
         int dimension = 768;
@@ -116,23 +115,23 @@ public class KNNVectorDocValueFormatTests extends KNNTestCase {
         for (int i = 0; i < dimension; i++) {
             highDim[i] = i * 0.01f;
         }
-        assertDecodedVectorEquals("768d vector", highDim, KNNVectorDocValueFormat.encodeToBinary(highDim));
+        assertDecodedVectorEquals("768d vector", highDim, KNNVectorDocValueFormat.floatToLittleEndianBytes(highDim));
     }
 
-    public void testEncodeToBinary_nullVector_throwsNPE() {
-        expectThrows(NullPointerException.class, () -> KNNVectorDocValueFormat.encodeToBinary(null));
+    public void testFloatToLittleEndianBytes_nullVector_throwsNPE() {
+        expectThrows(NullPointerException.class, () -> KNNVectorDocValueFormat.floatToLittleEndianBytes(null));
     }
 
-    public void testEncodeToBinary_usesLittleEndian() {
+    public void testFloatToLittleEndianBytes_usesLittleEndian() {
         float[] vector = { 1.0f };
-        byte[] decoded = Base64.getDecoder().decode(KNNVectorDocValueFormat.encodeToBinary(vector));
+        byte[] bytes = KNNVectorDocValueFormat.floatToLittleEndianBytes(vector);
 
         // 1.0f in IEEE 754 is 0x3F800000
         // Little-endian: 0x00, 0x00, 0x80, 0x3F
-        assertEquals("Byte 0 should be 0x00 (little-endian)", (byte) 0x00, decoded[0]);
-        assertEquals("Byte 1 should be 0x00 (little-endian)", (byte) 0x00, decoded[1]);
-        assertEquals("Byte 2 should be 0x80 (little-endian)", (byte) 0x80, decoded[2]);
-        assertEquals("Byte 3 should be 0x3F (little-endian)", (byte) 0x3F, decoded[3]);
+        assertEquals("Byte 0 should be 0x00 (little-endian)", (byte) 0x00, bytes[0]);
+        assertEquals("Byte 1 should be 0x00 (little-endian)", (byte) 0x00, bytes[1]);
+        assertEquals("Byte 2 should be 0x80 (little-endian)", (byte) 0x80, bytes[2]);
+        assertEquals("Byte 3 should be 0x3F (little-endian)", (byte) 0x3F, bytes[3]);
     }
 
     public void testToString() {
@@ -140,11 +139,10 @@ public class KNNVectorDocValueFormatTests extends KNNTestCase {
         assertEquals("BINARY_FORMAT toString mismatch", "knn_vector(binary)", KNNVectorDocValueFormat.BINARY_FORMAT.toString());
     }
 
-    private void assertDecodedVectorEquals(String label, float[] expected, String base64Encoded) {
-        byte[] decoded = Base64.getDecoder().decode(base64Encoded);
-        assertEquals(label + ": decoded byte length mismatch", expected.length * Float.BYTES, decoded.length);
+    private void assertDecodedVectorEquals(String label, float[] expected, byte[] bytes) {
+        assertEquals(label + ": byte length mismatch", expected.length * Float.BYTES, bytes.length);
 
-        ByteBuffer buffer = ByteBuffer.wrap(decoded).order(ByteOrder.LITTLE_ENDIAN);
+        ByteBuffer buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
         for (int i = 0; i < expected.length; i++) {
             assertEquals(label + ": value mismatch at index " + i, expected[i], buffer.getFloat(), 0.0f);
         }

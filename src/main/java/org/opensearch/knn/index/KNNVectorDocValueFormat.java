@@ -14,13 +14,13 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
-import java.util.Base64;
 
 /**
  * DocValueFormat for knn_vector fields. Supports two modes:
  * <ul>
  *   <li>{@code array} — vectors are returned as JSON numeric arrays</li>
- *   <li>{@code binary} (default) — vectors are returned as base64-encoded little-endian byte strings (with padding)</li>
+ *   <li>{@code binary} (default) — vectors are returned as byte arrays that XContentBuilder
+ *       base64-encodes during serialization</li>
  * </ul>
  */
 @Getter
@@ -33,7 +33,6 @@ public enum KNNVectorDocValueFormat implements DocValueFormat {
 
     private final String formatName;
     private final boolean binary;
-    private static final Base64.Encoder BASE64_ENCODER = Base64.getEncoder();
 
     KNNVectorDocValueFormat(final String formatName, boolean binary) {
         this.formatName = formatName;
@@ -78,15 +77,15 @@ public enum KNNVectorDocValueFormat implements DocValueFormat {
     }
 
     /**
-     * Encodes a float[] vector as a base64 string with little-endian byte order.
-     * Each float is written as 4 bytes in little-endian format (native byte order on x86/ARM),
-     * then the resulting byte array is base64-encoded.
+     * Converts a float[] vector to a little-endian byte array.
+     * Each float is written as 4 bytes in little-endian format (native byte order on x86/ARM).
+     * The returned byte[] is suitable for direct return from {@code nextValue()} —
+     * XContentBuilder will base64-encode it during serialization.
      */
-    public static String encodeToBinary(final float[] vector) {
+    public static byte[] floatToLittleEndianBytes(final float[] vector) {
         final ByteBuffer buffer = ByteBuffer.allocate(vector.length * Float.BYTES).order(ByteOrder.LITTLE_ENDIAN);
-        buffer.asFloatBuffer().put(vector); // Bulk operation optimized by the JVM
-        final byte[] bytes = buffer.array();
-        return BASE64_ENCODER.encodeToString(bytes);
+        buffer.asFloatBuffer().put(vector);
+        return buffer.array();
     }
 
     @Override

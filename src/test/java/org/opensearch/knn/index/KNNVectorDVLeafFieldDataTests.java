@@ -6,6 +6,7 @@
 package org.opensearch.knn.index;
 
 import org.apache.lucene.document.Document;
+import org.apache.lucene.document.KnnByteVectorField;
 import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.document.NumericDocValuesField;
 import org.apache.lucene.index.DirectoryReader;
@@ -213,7 +214,7 @@ public class KNNVectorDVLeafFieldDataTests extends KNNTestCase {
         }
     }
 
-    public void testGetLeafValueFetcher_binaryFormat_returnsBase64String() throws IOException {
+    public void testGetLeafValueFetcher_binaryFormat_returnsByteArray() throws IOException {
         KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(
             leafReaderContext.reader(),
             MOCK_INDEX_FIELD_NAME,
@@ -225,15 +226,13 @@ public class KNNVectorDVLeafFieldDataTests extends KNNTestCase {
         assertTrue(leaf.advanceExact(0));
         assertEquals(1, leaf.docValueCount());
         Object value = leaf.nextValue();
-        assertTrue(value instanceof String);
-        String base64 = (String) value;
-
-        // Decode and verify
-        byte[] decoded = java.util.Base64.getDecoder().decode(base64);
-        assertEquals(SAMPLE_VECTOR_1.length * Float.BYTES, decoded.length);
-        ByteBuffer buffer = ByteBuffer.wrap(decoded).order(ByteOrder.LITTLE_ENDIAN);
+        // Returns byte[] (little-endian floats) which XContentBuilder will base64-encode during serialization
+        assertTrue("Binary format for float vector should return byte[]", value instanceof byte[]);
+        byte[] bytes = (byte[]) value;
+        assertEquals("Byte array length should be dimension * 4", SAMPLE_VECTOR_1.length * Float.BYTES, bytes.length);
+        ByteBuffer buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
         for (int i = 0; i < SAMPLE_VECTOR_1.length; i++) {
-            assertEquals(SAMPLE_VECTOR_1[i], buffer.getFloat(), 0.001f);
+            assertEquals("Value mismatch at index " + i, SAMPLE_VECTOR_1[i], buffer.getFloat(), 0.001f);
         }
     }
 
@@ -274,43 +273,162 @@ public class KNNVectorDVLeafFieldDataTests extends KNNTestCase {
             assertTrue("advanceExact should succeed for doc " + docId, leaf.advanceExact(docId));
             assertEquals("docValueCount should be 1 for doc " + docId, 1, leaf.docValueCount());
             Object value = leaf.nextValue();
-            assertTrue("Binary format should produce a String for doc " + docId, value instanceof String);
+            assertTrue("Binary format should produce a byte[] for doc " + docId, value instanceof byte[]);
 
-            byte[] decoded = java.util.Base64.getDecoder().decode((String) value);
-            assertEquals("Decoded byte length mismatch for doc " + docId, ALL_VECTORS[docId].length * Float.BYTES, decoded.length);
-            ByteBuffer buffer = ByteBuffer.wrap(decoded).order(ByteOrder.LITTLE_ENDIAN);
+            byte[] bytes = (byte[]) value;
+            assertEquals("Byte array length mismatch for doc " + docId, ALL_VECTORS[docId].length * Float.BYTES, bytes.length);
+            ByteBuffer buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
             for (int i = 0; i < ALL_VECTORS[docId].length; i++) {
                 assertEquals("Value mismatch at index " + i + " for doc " + docId, ALL_VECTORS[docId][i], buffer.getFloat(), 0.001f);
             }
         }
     }
 
-    public void testGetLeafValueFetcher_byteVectorDataType_throwsUnsupportedOp() {
-        KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(
-            leafReaderContext.reader(),
-            MOCK_INDEX_FIELD_NAME,
-            VectorDataType.BYTE
-        );
-        UnsupportedOperationException ex = expectThrows(
-            UnsupportedOperationException.class,
-            () -> leafFieldData.getLeafValueFetcher(KNNVectorDocValueFormat.ARRAY_FORMAT)
-        );
-        assertTrue(ex.getMessage().contains("docvalue_fields is not supported"));
-        assertTrue(ex.getMessage().contains("BYTE"));
+    public void testGetLeafValueFetcher_byteVector_arrayFormat_returnsCorrectValues() throws IOException {
+        byte[] byteVector1 = new byte[] { 1, -3, 127, -128 };
+        byte[] byteVector2 = new byte[] { 0, 50, -50, 100 };
+
+        try (Directory byteVectorDir = newDirectory()) {
+            IndexWriterConfig conf = newIndexWriterConfig(new MockAnalyzer(random()));
+            try (IndexWriter writer = new IndexWriter(byteVectorDir, conf)) {
+                Document doc1 = new Document();
+                doc1.add(new KnnByteVectorField(MOCK_INDEX_FIELD_NAME, byteVector1, VectorSimilarityFunction.EUCLIDEAN));
+                writer.addDocument(doc1);
+
+                Document doc2 = new Document();
+                doc2.add(new KnnByteVectorField(MOCK_INDEX_FIELD_NAME, byteVector2, VectorSimilarityFunction.EUCLIDEAN));
+                writer.addDocument(doc2);
+                writer.commit();
+            }
+
+            try (DirectoryReader byteReader = DirectoryReader.open(byteVectorDir)) {
+                LeafReaderContext ctx = byteReader.getContext().leaves().get(0);
+                KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(
+                    ctx.reader(),
+                    MOCK_INDEX_FIELD_NAME,
+                    VectorDataType.BYTE
+                );
+                DocValueFetcher.Leaf leaf = leafFieldData.getLeafValueFetcher(KNNVectorDocValueFormat.ARRAY_FORMAT);
+
+                assertTrue("advanceExact should succeed for doc 0", leaf.advanceExact(0));
+                assertEquals(1, leaf.docValueCount());
+                Object value0 = leaf.nextValue();
+                assertTrue("Array format for byte vector should return int[]", value0 instanceof int[]);
+                assertArrayEquals("Byte vector mismatch for doc 0", new int[] { 1, -3, 127, -128 }, (int[]) value0);
+
+                assertTrue("advanceExact should succeed for doc 1", leaf.advanceExact(1));
+                assertEquals(1, leaf.docValueCount());
+                Object value1 = leaf.nextValue();
+                assertTrue("Array format for byte vector should return int[]", value1 instanceof int[]);
+                assertArrayEquals("Byte vector mismatch for doc 1", new int[] { 0, 50, -50, 100 }, (int[]) value1);
+            }
+        }
     }
 
-    public void testGetLeafValueFetcher_binaryVectorDataType_throwsUnsupportedOp() {
-        KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(
-            leafReaderContext.reader(),
-            MOCK_INDEX_FIELD_NAME,
-            VectorDataType.BINARY
-        );
-        UnsupportedOperationException ex = expectThrows(
-            UnsupportedOperationException.class,
-            () -> leafFieldData.getLeafValueFetcher(KNNVectorDocValueFormat.ARRAY_FORMAT)
-        );
-        assertTrue(ex.getMessage().contains("docvalue_fields is not supported"));
-        assertTrue(ex.getMessage().contains("BINARY"));
+    public void testGetLeafValueFetcher_byteVector_binaryFormat_returnsByteArray() throws IOException {
+        byte[] byteVector = new byte[] { 10, 20, -30, 40 };
+
+        try (Directory byteVectorDir = newDirectory()) {
+            IndexWriterConfig conf = newIndexWriterConfig(new MockAnalyzer(random()));
+            try (IndexWriter writer = new IndexWriter(byteVectorDir, conf)) {
+                Document doc = new Document();
+                doc.add(new KnnByteVectorField(MOCK_INDEX_FIELD_NAME, byteVector, VectorSimilarityFunction.EUCLIDEAN));
+                writer.addDocument(doc);
+                writer.commit();
+            }
+
+            try (DirectoryReader byteReader = DirectoryReader.open(byteVectorDir)) {
+                LeafReaderContext ctx = byteReader.getContext().leaves().get(0);
+                KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(
+                    ctx.reader(),
+                    MOCK_INDEX_FIELD_NAME,
+                    VectorDataType.BYTE
+                );
+                DocValueFetcher.Leaf leaf = leafFieldData.getLeafValueFetcher(KNNVectorDocValueFormat.BINARY_FORMAT);
+
+                assertTrue("advanceExact should succeed for doc 0", leaf.advanceExact(0));
+                assertEquals(1, leaf.docValueCount());
+                Object value = leaf.nextValue();
+                // Returns byte[] which XContentBuilder will base64-encode during serialization
+                assertTrue("Binary format for byte vector should return byte[]", value instanceof byte[]);
+                assertArrayEquals("Byte vector should match original", byteVector, (byte[]) value);
+            }
+        }
+    }
+
+    public void testGetLeafValueFetcher_binaryVector_arrayFormat_returnsCorrectValues() throws IOException {
+        // Binary vectors: dimension is in bits, stored as byte[dimension/8]
+        byte[] binaryVector1 = new byte[] { (byte) 0b10101010, (byte) 0b01010101 }; // 16 bits
+        byte[] binaryVector2 = new byte[] { (byte) 0xFF, (byte) 0x00 };
+
+        try (Directory binaryVectorDir = newDirectory()) {
+            IndexWriterConfig conf = newIndexWriterConfig(new MockAnalyzer(random()));
+            try (IndexWriter writer = new IndexWriter(binaryVectorDir, conf)) {
+                Document doc1 = new Document();
+                doc1.add(new KnnByteVectorField(MOCK_INDEX_FIELD_NAME, binaryVector1, VectorSimilarityFunction.EUCLIDEAN));
+                writer.addDocument(doc1);
+
+                Document doc2 = new Document();
+                doc2.add(new KnnByteVectorField(MOCK_INDEX_FIELD_NAME, binaryVector2, VectorSimilarityFunction.EUCLIDEAN));
+                writer.addDocument(doc2);
+                writer.commit();
+            }
+
+            try (DirectoryReader binaryReader = DirectoryReader.open(binaryVectorDir)) {
+                LeafReaderContext ctx = binaryReader.getContext().leaves().get(0);
+                KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(
+                    ctx.reader(),
+                    MOCK_INDEX_FIELD_NAME,
+                    VectorDataType.BINARY
+                );
+                DocValueFetcher.Leaf leaf = leafFieldData.getLeafValueFetcher(KNNVectorDocValueFormat.ARRAY_FORMAT);
+
+                assertTrue("advanceExact should succeed for doc 0", leaf.advanceExact(0));
+                assertEquals(1, leaf.docValueCount());
+                Object value0 = leaf.nextValue();
+                assertTrue("Array format for binary vector should return int[]", value0 instanceof int[]);
+                int[] expected0 = new int[] { (byte) 0b10101010, (byte) 0b01010101 };
+                assertArrayEquals("Binary vector mismatch for doc 0", expected0, (int[]) value0);
+
+                assertTrue("advanceExact should succeed for doc 1", leaf.advanceExact(1));
+                assertEquals(1, leaf.docValueCount());
+                Object value1 = leaf.nextValue();
+                assertTrue("Array format for binary vector should return int[]", value1 instanceof int[]);
+                int[] expected1 = new int[] { (byte) 0xFF, (byte) 0x00 };
+                assertArrayEquals("Binary vector mismatch for doc 1", expected1, (int[]) value1);
+            }
+        }
+    }
+
+    public void testGetLeafValueFetcher_binaryVector_binaryFormat_returnsByteArray() throws IOException {
+        byte[] binaryVector = new byte[] { (byte) 0xAB, (byte) 0xCD, (byte) 0xEF, (byte) 0x01 };
+
+        try (Directory binaryVectorDir = newDirectory()) {
+            IndexWriterConfig conf = newIndexWriterConfig(new MockAnalyzer(random()));
+            try (IndexWriter writer = new IndexWriter(binaryVectorDir, conf)) {
+                Document doc = new Document();
+                doc.add(new KnnByteVectorField(MOCK_INDEX_FIELD_NAME, binaryVector, VectorSimilarityFunction.EUCLIDEAN));
+                writer.addDocument(doc);
+                writer.commit();
+            }
+
+            try (DirectoryReader binaryReader = DirectoryReader.open(binaryVectorDir)) {
+                LeafReaderContext ctx = binaryReader.getContext().leaves().get(0);
+                KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(
+                    ctx.reader(),
+                    MOCK_INDEX_FIELD_NAME,
+                    VectorDataType.BINARY
+                );
+                DocValueFetcher.Leaf leaf = leafFieldData.getLeafValueFetcher(KNNVectorDocValueFormat.BINARY_FORMAT);
+
+                assertTrue("advanceExact should succeed for doc 0", leaf.advanceExact(0));
+                assertEquals(1, leaf.docValueCount());
+                Object value = leaf.nextValue();
+                // Returns byte[] which XContentBuilder will base64-encode during serialization
+                assertTrue("Binary format for binary vector should return byte[]", value instanceof byte[]);
+                assertArrayEquals("Binary vector should match original", binaryVector, (byte[]) value);
+            }
+        }
     }
 
     public void testGetLeafValueFetcher_fieldNotInSegment_returnsEmptyLeaf() throws IOException {
