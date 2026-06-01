@@ -10,6 +10,7 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
 import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import static org.mockito.Mockito.mock;
 
@@ -41,7 +42,15 @@ public class NestedKnnVectorQueryFactoryTests extends TestCase {
         );
 
         ExpandNestedDocsQuery expectedFloatQuery = new ExpandNestedDocsQuery.ExpandNestedDocsQueryBuilder().internalNestedKnnVectorQuery(
-            new InternalNestedKnnFloatVectorQuery(fieldName, floatVectors, queryFilter, luceneK, parentFilter, k, false)
+            new InternalNestedKnnFloatVectorQuery(
+                fieldName,
+                floatVectors,
+                queryFilter,
+                luceneK,
+                parentFilter,
+                k,
+                RescoreContext.NO_RESCORE_NEEDED
+            )
         ).queryUtils(null).build();
         assertEquals(
             expectedFloatQuery,
@@ -53,7 +62,7 @@ public class NestedKnnVectorQueryFactoryTests extends TestCase {
                 parentFilter,
                 expandNestedDocs,
                 k,
-                false
+                RescoreContext.NO_RESCORE_NEEDED
             )
         );
     }
@@ -88,7 +97,7 @@ public class NestedKnnVectorQueryFactoryTests extends TestCase {
             parentFilter,
             expandNestedDocs,
             k,
-            false
+            RescoreContext.NO_RESCORE_NEEDED
         );
         assertEquals(OSDiversifyingChildrenFloatKnnVectorQuery.class, floatQuery.getClass());
         assertTrue(floatQuery instanceof DiversifyingChildrenFloatKnnVectorQuery);
@@ -99,10 +108,10 @@ public class NestedKnnVectorQueryFactoryTests extends TestCase {
         float[] floatVectors = new float[3];
         int luceneK = 10;
         int k = 3;
+        int rescoreK = 6;
         Query queryFilter = mock(Query.class);
         BitSetProducer parentFilter = mock(BitSetProducer.class);
         boolean expandNestedDocs = false;
-        boolean needsRescore = true;
 
         Query floatQuery = NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
             fieldName,
@@ -112,7 +121,7 @@ public class NestedKnnVectorQueryFactoryTests extends TestCase {
             parentFilter,
             expandNestedDocs,
             k,
-            needsRescore
+            rescoreK
         );
         assertEquals(OSDiversifyingChildrenFloatKnnVectorQuery.class, floatQuery.getClass());
         assertTrue(floatQuery instanceof DiversifyingChildrenFloatKnnVectorQuery);

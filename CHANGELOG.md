@@ -20,7 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Preserve mixed-case derived source vector field names and add backward-compatible field resolution for previously lowercased segment metadata [#3313](https://github.com/opensearch-project/k-NN/pull/3313)
 * Fix score to radius conversion for IP with faiss [#3336](https://github.com/opensearch-project/k-NN/pull/3336)
 * Fix rescore flag not propagating over transport layer in multi-node clusters [#3343](https://github.com/opensearch-project/k-NN/pull/3343)
-
+* Integrated proper ef_search functionality into MOS and Lucene with oversample_factor [#3331](https://github.com/opensearch-project/k-NN/pull/3331)
 
 ### Refactoring
 
