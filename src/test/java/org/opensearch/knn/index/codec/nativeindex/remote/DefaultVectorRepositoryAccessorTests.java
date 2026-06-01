@@ -16,7 +16,7 @@ import org.opensearch.common.blobstore.BlobPath;
 import org.opensearch.common.blobstore.BlobStore;
 import org.opensearch.common.blobstore.fs.FsBlobStore;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.repositories.RepositoriesService;
@@ -133,7 +133,7 @@ public class DefaultVectorRepositoryAccessorTests extends RemoteIndexBuildTests 
      * Verify the buffered read method in {@link DefaultVectorRepositoryAccessor#readFromRepository} produces the correct result
      */
     public void testRepositoryRead() throws IOException {
-        String TEST_FILE_NAME = randomAlphaOfLength(8) + KNNEngine.FAISS.getExtension();
+        String TEST_FILE_NAME = randomAlphaOfLength(8) + BuiltinKNNEngine.FAISS.getExtension();
 
         // Create an InputStream with random values
         int TEST_ARRAY_SIZE = 64 * 1024 * 10;

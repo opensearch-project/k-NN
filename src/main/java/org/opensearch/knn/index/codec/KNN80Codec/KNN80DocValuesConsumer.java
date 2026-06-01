@@ -17,6 +17,7 @@ import org.apache.lucene.index.SegmentWriteState;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -62,7 +63,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer {
         final KNNEngine knnEngine = extractKNNEngine(field);
         log.debug(String.format("Read engine [%s] for field [%s]", knnEngine.getName(), field.getName()));
         return field.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)
-            && KNNEngine.getEnginesThatCreateCustomSegmentFiles().stream().anyMatch(engine -> engine == knnEngine);
+            && BuiltinKNNEngine.getEnginesThatCreateCustomSegmentFiles().stream().anyMatch(engine -> engine == knnEngine);
     }
 
     public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge) throws IOException {

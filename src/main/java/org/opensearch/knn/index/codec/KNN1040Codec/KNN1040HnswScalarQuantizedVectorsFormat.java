@@ -14,7 +14,7 @@ import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsWriter;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.search.TaskExecutor;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
@@ -89,7 +89,7 @@ public class KNN1040HnswScalarQuantizedVectorsFormat extends Lucene104HnswScalar
 
     @Override
     public int getMaxDimensions(String fieldName) {
-        return KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE);
+        return BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.LUCENE);
     }
 
     @Override

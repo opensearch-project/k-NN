@@ -30,7 +30,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -206,7 +206,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
         // Mock the model dao to return metadata for modelId to recognize it is a duplicate
         ModelDao modelDao = mock(ModelDao.class);
         ModelMetadata modelMetadata = new ModelMetadata(
-            KNNEngine.DEFAULT,
+            BuiltinKNNEngine.DEFAULT,
             SpaceType.L2,
             128,
             ModelState.CREATED,
@@ -292,7 +292,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String trainingField = "test-training-field";
 
         MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-        final KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.DEFAULT, methodComponentContext);
+        final KNNMethodContext knnMethodContext = new KNNMethodContext(BuiltinKNNEngine.NMSLIB, SpaceType.DEFAULT, methodComponentContext);
 
         ValidationException validationException = expectThrows(
             ValidationException.class,

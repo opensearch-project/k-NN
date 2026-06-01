@@ -13,7 +13,7 @@ package org.opensearch.knn.jni;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.MergeAbortChecker;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
@@ -34,7 +34,7 @@ class FaissService {
     static {
         KNNLibraryLoader.loadFaissLibrary();
         initLibrary();
-        KNNEngine.FAISS.setInitialized(true);
+        BuiltinKNNEngine.FAISS.setInitialized(true);
 
         try {
             MergeAbortChecker.isMergeAborted();

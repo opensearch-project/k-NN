@@ -16,7 +16,7 @@ import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
@@ -277,7 +277,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                     TEST_FIELD,
                     dimension,
                     METHOD_HNSW,
-                    KNNEngine.FAISS.getName(),
+                    BuiltinKNNEngine.FAISS.getName(),
                     SpaceType.HAMMING.getValue(),
                     true,
                     VectorDataType.BINARY
@@ -461,7 +461,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             createKnnIndex(
                 testIndex,
                 getKNNDefaultIndexSettings(),
-                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, KNNEngine.NMSLIB.getName())
+                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, BuiltinKNNEngine.NMSLIB.getName())
             );
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             // Flush to ensure the index persists after upgrade
@@ -473,7 +473,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
                 () -> createKnnIndex(
                     testIndex + "_new",
                     getKNNDefaultIndexSettings(),
-                    createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, KNNEngine.NMSLIB.getName())
+                    createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, BuiltinKNNEngine.NMSLIB.getName())
                 )
             );
             deleteKNNIndex(testIndex);
@@ -487,7 +487,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
             createKnnIndex(
                 testIndex,
                 getKNNDefaultIndexSettings(),
-                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, KNNEngine.NMSLIB.getName())
+                createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, BuiltinKNNEngine.NMSLIB.getName())
             );
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             flush(testIndex, true);

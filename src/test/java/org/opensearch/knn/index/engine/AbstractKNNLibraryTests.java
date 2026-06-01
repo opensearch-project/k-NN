@@ -104,7 +104,7 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
         expectedMap.put(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue());
         expectedMap.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue());
         KNNMethodContext knnMethodContext = new KNNMethodContext(
-            KNNEngine.DEFAULT,
+            BuiltinKNNEngine.DEFAULT,
             SpaceType.DEFAULT,
             new MethodComponentContext(VALID_METHOD_NAME, Collections.emptyMap())
         );
@@ -115,7 +115,7 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
 
         // Check when invalid method is passed in
         KNNMethodContext invalidKnnMethodContext = new KNNMethodContext(
-            KNNEngine.DEFAULT,
+            BuiltinKNNEngine.DEFAULT,
             SpaceType.DEFAULT,
             new MethodComponentContext("invalid", Collections.emptyMap())
         );

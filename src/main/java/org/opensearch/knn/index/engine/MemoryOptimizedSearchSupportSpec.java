@@ -107,7 +107,7 @@ public class MemoryOptimizedSearchSupportSpec {
             final KNNEngine engine = methodContext.getKnnEngine();
 
             // We don't support non-FAISS engine
-            if (engine != KNNEngine.FAISS) {
+            if (engine != BuiltinKNNEngine.FAISS) {
                 return false;
             }
 

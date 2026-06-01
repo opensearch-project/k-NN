@@ -21,7 +21,7 @@ import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.knn.integ.PainlessScriptHelper.MappingProperty;
 import org.opensearch.script.Script;
@@ -532,7 +532,7 @@ public final class PainlessScriptScoreIT extends KNNRestTestCase {
     public void testL2ScriptingWithLuceneBackedIndex() throws Exception {
         List<MappingProperty> properties = new ArrayList<>();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.DEFAULT,
             new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
         );

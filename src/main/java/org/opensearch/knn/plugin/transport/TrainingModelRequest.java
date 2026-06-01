@@ -22,6 +22,7 @@ import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
@@ -82,7 +83,7 @@ public class TrainingModelRequest extends ActionRequest {
             mode,
             compressionLevel,
             SpaceType.DEFAULT,
-            knnMethodContext == null ? KNNEngine.DEFAULT : knnMethodContext.getKnnEngine()
+            knnMethodContext == null ? BuiltinKNNEngine.DEFAULT : knnMethodContext.getKnnEngine()
         );
     }
 

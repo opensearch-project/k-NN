@@ -17,6 +17,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
@@ -37,7 +38,7 @@ public class ModelTests extends KNNTestCase {
             IllegalArgumentException.class,
             () -> new Model(
                 new ModelMetadata(
-                    KNNEngine.DEFAULT,
+                    BuiltinKNNEngine.DEFAULT,
                     SpaceType.DEFAULT,
                     -1,
                     ModelState.FAILED,
@@ -62,7 +63,7 @@ public class ModelTests extends KNNTestCase {
             IllegalArgumentException.class,
             () -> new Model(
                 new ModelMetadata(
-                    KNNEngine.DEFAULT,
+                    BuiltinKNNEngine.DEFAULT,
                     SpaceType.DEFAULT,
                     -1,
                     ModelState.CREATED,
@@ -84,7 +85,7 @@ public class ModelTests extends KNNTestCase {
             IllegalArgumentException.class,
             () -> new Model(
                 new ModelMetadata(
-                    KNNEngine.DEFAULT,
+                    BuiltinKNNEngine.DEFAULT,
                     SpaceType.DEFAULT,
                     0,
                     ModelState.CREATED,
@@ -106,9 +107,9 @@ public class ModelTests extends KNNTestCase {
             IllegalArgumentException.class,
             () -> new Model(
                 new ModelMetadata(
-                    KNNEngine.DEFAULT,
+                    BuiltinKNNEngine.DEFAULT,
                     SpaceType.DEFAULT,
-                    KNNEngine.getMaxDimensionByEngine(KNNEngine.DEFAULT) + 1,
+                    BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.DEFAULT) + 1,
                     ModelState.CREATED,
                     ZonedDateTime.now(ZoneOffset.UTC).toString(),
                     "",
@@ -127,7 +128,7 @@ public class ModelTests extends KNNTestCase {
     }
 
     public void testGetModelMetadata() {
-        KNNEngine knnEngine = KNNEngine.DEFAULT;
+        KNNEngine knnEngine = BuiltinKNNEngine.DEFAULT;
         ModelMetadata modelMetadata = new ModelMetadata(
             knnEngine,
             SpaceType.DEFAULT,
@@ -151,7 +152,7 @@ public class ModelTests extends KNNTestCase {
         byte[] modelBlob = "hello".getBytes();
         Model model = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 2,
                 ModelState.CREATED,
@@ -175,7 +176,7 @@ public class ModelTests extends KNNTestCase {
         int size = 129;
         Model model = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 2,
                 ModelState.CREATED,
@@ -196,7 +197,7 @@ public class ModelTests extends KNNTestCase {
 
         model = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 2,
                 ModelState.TRAINING,
@@ -220,7 +221,7 @@ public class ModelTests extends KNNTestCase {
         byte[] blob1 = "Hello blob 1".getBytes();
         Model model = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.L1,
                 2,
                 ModelState.CREATED,
@@ -250,7 +251,7 @@ public class ModelTests extends KNNTestCase {
 
         Model model1 = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.L1,
                 2,
                 ModelState.CREATED,
@@ -269,7 +270,7 @@ public class ModelTests extends KNNTestCase {
         );
         Model model2 = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.L1,
                 2,
                 ModelState.CREATED,
@@ -288,7 +289,7 @@ public class ModelTests extends KNNTestCase {
         );
         Model model3 = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.L2,
                 2,
                 ModelState.CREATED,
@@ -316,7 +317,7 @@ public class ModelTests extends KNNTestCase {
 
         Model model1 = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.L1,
                 2,
                 ModelState.CREATED,
@@ -335,7 +336,7 @@ public class ModelTests extends KNNTestCase {
         );
         Model model2 = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.L1,
                 2,
                 ModelState.CREATED,
@@ -354,7 +355,7 @@ public class ModelTests extends KNNTestCase {
         );
         Model model3 = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.L1,
                 2,
                 ModelState.CREATED,
@@ -379,7 +380,7 @@ public class ModelTests extends KNNTestCase {
 
     public void testModelFromSourceMap() {
         String modelID = "test-modelid";
-        KNNEngine knnEngine = KNNEngine.DEFAULT;
+        KNNEngine knnEngine = BuiltinKNNEngine.DEFAULT;
         SpaceType spaceType = SpaceType.L2;
         int dimension = 128;
         ModelState modelState = ModelState.CREATED;

@@ -24,6 +24,7 @@ import org.mockito.MockedStatic;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
@@ -92,13 +93,13 @@ public class AbstractNativeEnginesKnnVectorsReaderTests extends KNNTestCase {
 
     @SneakyThrows
     public void testGetVectorSearcherSupplier_whenNoSearcherFactory_thenReturnsNull() {
-        final FieldInfo fi = createKnnFieldInfo("field1", KNNEngine.FAISS, 0);
-        KNNEngine mockFaiss = spy(KNNEngine.FAISS);
+        final FieldInfo fi = createKnnFieldInfo("field1", BuiltinKNNEngine.FAISS, 0);
+        KNNEngine mockFaiss = spy(BuiltinKNNEngine.FAISS);
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(null);
 
-        try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
-            ms.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
-            ms.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
+        try (MockedStatic<BuiltinKNNEngine> ms = mockStatic(BuiltinKNNEngine.class)) {
+            ms.when(() -> BuiltinKNNEngine.getEngine(any())).thenReturn(mockFaiss);
+            ms.when(BuiltinKNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
             final TestReader reader = createReader(
                 new FieldInfos(new FieldInfo[] { fi }),
                 Collections.emptySet(),
@@ -110,13 +111,13 @@ public class AbstractNativeEnginesKnnVectorsReaderTests extends KNNTestCase {
 
     @SneakyThrows
     public void testGetVectorSearcherSupplier_whenNoSegmentFile_thenReturnsNull() {
-        final FieldInfo fi = createKnnFieldInfo("field1", KNNEngine.FAISS, 0);
-        KNNEngine mockFaiss = spy(KNNEngine.FAISS);
+        final FieldInfo fi = createKnnFieldInfo("field1", BuiltinKNNEngine.FAISS, 0);
+        KNNEngine mockFaiss = spy(BuiltinKNNEngine.FAISS);
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mock(VectorSearcherFactory.class));
 
-        try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
-            ms.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
-            ms.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
+        try (MockedStatic<BuiltinKNNEngine> ms = mockStatic(BuiltinKNNEngine.class)) {
+            ms.when(() -> BuiltinKNNEngine.getEngine(any())).thenReturn(mockFaiss);
+            ms.when(BuiltinKNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
             // No files in segment → getNativeEngineFileFromFieldInfo returns null
             final TestReader reader = createReader(
                 new FieldInfos(new FieldInfo[] { fi }),
@@ -129,15 +130,15 @@ public class AbstractNativeEnginesKnnVectorsReaderTests extends KNNTestCase {
 
     @SneakyThrows
     public void testGetVectorSearcherSupplier_whenAllConditionsMet_thenReturnsSupplier() {
-        final FieldInfo fi = createKnnFieldInfo("field1", KNNEngine.FAISS, 0);
-        KNNEngine mockFaiss = spy(KNNEngine.FAISS);
+        final FieldInfo fi = createKnnFieldInfo("field1", BuiltinKNNEngine.FAISS, 0);
+        KNNEngine mockFaiss = spy(BuiltinKNNEngine.FAISS);
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
         when(mockFactory.createVectorSearcher(any(), anyString(), any(), any(), any())).thenReturn(mock(VectorSearcher.class));
 
-        try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
-            ms.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
-            ms.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
+        try (MockedStatic<BuiltinKNNEngine> ms = mockStatic(BuiltinKNNEngine.class)) {
+            ms.when(() -> BuiltinKNNEngine.getEngine(any())).thenReturn(mockFaiss);
+            ms.when(BuiltinKNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
             final TestReader reader = createReader(
                 new FieldInfos(new FieldInfo[] { fi }),
                 Set.of("_0_165_field1.faiss"),
@@ -153,16 +154,16 @@ public class AbstractNativeEnginesKnnVectorsReaderTests extends KNNTestCase {
 
     @SneakyThrows
     public void testLoadMemoryOptimizedSearcher_whenCalledTwice_thenSearcherCreatedOnce() {
-        final FieldInfo fi = createKnnFieldInfo("field1", KNNEngine.FAISS, 0);
-        KNNEngine mockFaiss = spy(KNNEngine.FAISS);
+        final FieldInfo fi = createKnnFieldInfo("field1", BuiltinKNNEngine.FAISS, 0);
+        KNNEngine mockFaiss = spy(BuiltinKNNEngine.FAISS);
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
         VectorSearcher mockSearcher = mock(VectorSearcher.class);
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
         when(mockFactory.createVectorSearcher(any(), anyString(), any(), any(), any())).thenReturn(mockSearcher);
 
-        try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
-            ms.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
-            ms.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
+        try (MockedStatic<BuiltinKNNEngine> ms = mockStatic(BuiltinKNNEngine.class)) {
+            ms.when(() -> BuiltinKNNEngine.getEngine(any())).thenReturn(mockFaiss);
+            ms.when(BuiltinKNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
             final TestReader reader = createReader(
                 new FieldInfos(new FieldInfo[] { fi }),
                 Set.of("_0_165_field1.faiss"),
@@ -178,15 +179,15 @@ public class AbstractNativeEnginesKnnVectorsReaderTests extends KNNTestCase {
 
     @SneakyThrows
     public void testLoadMemoryOptimizedSearcher_whenSupplierThrows_thenWrapsInRuntimeException() {
-        final FieldInfo fi = createKnnFieldInfo("field1", KNNEngine.FAISS, 0);
-        KNNEngine mockFaiss = spy(KNNEngine.FAISS);
+        final FieldInfo fi = createKnnFieldInfo("field1", BuiltinKNNEngine.FAISS, 0);
+        KNNEngine mockFaiss = spy(BuiltinKNNEngine.FAISS);
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
         when(mockFactory.createVectorSearcher(any(), anyString(), any(), any(), any())).thenThrow(new IOException("disk error"));
 
-        try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
-            ms.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
-            ms.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
+        try (MockedStatic<BuiltinKNNEngine> ms = mockStatic(BuiltinKNNEngine.class)) {
+            ms.when(() -> BuiltinKNNEngine.getEngine(any())).thenReturn(mockFaiss);
+            ms.when(BuiltinKNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
             final TestReader reader = createReader(
                 new FieldInfos(new FieldInfo[] { fi }),
                 Set.of("_0_165_field1.faiss"),

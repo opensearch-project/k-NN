@@ -16,7 +16,7 @@ import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
 
@@ -76,7 +76,7 @@ public class FaissServiceTests extends KNNTestCase {
                         KNNConstants.VECTOR_DATA_TYPE_FIELD,
                         VectorDataType.BINARY.getValue()
                     ),
-                    KNNEngine.FAISS
+                    BuiltinKNNEngine.FAISS
                 );
                 assertTrue(directory.fileLength(indexFileName) > 0);
 
@@ -96,7 +96,7 @@ public class FaissServiceTests extends KNNTestCase {
                             query,
                             10,
                             Collections.emptyMap(),
-                            KNNEngine.FAISS,
+                            BuiltinKNNEngine.FAISS,
                             null,
                             0,
                             null

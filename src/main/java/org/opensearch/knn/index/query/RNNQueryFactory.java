@@ -20,6 +20,7 @@ import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 /**
@@ -68,7 +69,7 @@ public class RNNQueryFactory extends BaseQueryFactory {
         final float[] vector = createQueryRequest.getVector();
 
         final Query innerQuery;
-        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
+        if (BuiltinKNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
             innerQuery = createNativeEngineRadialQuery(createQueryRequest);
         } else {
             innerQuery = createLuceneRadialQuery(createQueryRequest);

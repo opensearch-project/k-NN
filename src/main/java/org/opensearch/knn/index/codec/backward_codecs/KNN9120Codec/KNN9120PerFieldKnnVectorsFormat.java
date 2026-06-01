@@ -14,7 +14,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.backward_codecs.BasePerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN9120Codec.KNN9120HnswBinaryVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -89,7 +89,7 @@ public class KNN9120PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsForma
      */
     @Override
     public int getMaxDimensions(String fieldName) {
-        return KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE);
+        return BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.LUCENE);
     }
 
     private static Tuple<Integer, ExecutorService> getMergeThreadCountAndExecutorService() {

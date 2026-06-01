@@ -27,7 +27,7 @@ import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
 import java.io.IOException;
@@ -73,7 +73,7 @@ public class NmslibIT extends KNNRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.NMSLIB.getName())
+            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.NMSLIB.getName())
             .startObject(KNNConstants.PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, 32)
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, 100)
@@ -146,7 +146,7 @@ public class NmslibIT extends KNNRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.NMSLIB.getName())
+            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.NMSLIB.getName())
             .startObject(KNNConstants.PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
@@ -214,7 +214,7 @@ public class NmslibIT extends KNNRestTestCase {
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.NMSLIB.getName())
+            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.NMSLIB.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -275,7 +275,7 @@ public class NmslibIT extends KNNRestTestCase {
             for (int j = 0; j < k; j++) {
                 float[] primitiveArray = knnResults.get(j).getVector();
                 assertEquals(
-                    KNNEngine.NMSLIB.score(KNNScoringUtil.l1Norm(testData.queries[i], primitiveArray), spaceType),
+                    BuiltinKNNEngine.NMSLIB.score(KNNScoringUtil.l1Norm(testData.queries[i], primitiveArray), spaceType),
                     actualScores.get(j),
                     0.0001
                 );
@@ -325,7 +325,7 @@ public class NmslibIT extends KNNRestTestCase {
                 .field("dimension", 2)
                 .startObject(KNNConstants.KNN_METHOD)
                 .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType)
-                .field(KNN_ENGINE, KNNEngine.NMSLIB.getName())
+                .field(KNN_ENGINE, BuiltinKNNEngine.NMSLIB.getName())
                 .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
                 .startObject(KNNConstants.PARAMETERS)
                 .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
