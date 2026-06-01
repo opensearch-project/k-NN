@@ -1738,6 +1738,406 @@ public class DocValueFieldsIT extends KNNRestTestCase {
 
     // Helper methods
 
+    /**
+     * Verifies that vectors of all data types (float, byte, binary) can be indexed as
+     * base64-encoded strings and correctly retrieved via docvalue_fields.
+     */
+    @SneakyThrows
+    public void testIndexing_base64String_allDataTypes_roundTrip() {
+        // --- Float: base64 little-endian floats ---
+        String floatIndex = TEST_INDEX + "_base64_float";
+        createKnnIndex(
+            floatIndex,
+            KNNJsonIndexMappingsBuilder.builder()
+                .fieldName(VECTOR_FIELD)
+                .dimension(DIMENSION)
+                .vectorDataType(VectorDataType.FLOAT.getValue())
+                .method(
+                    KNNJsonIndexMappingsBuilder.Method.builder()
+                        .methodName(METHOD_HNSW)
+                        .spaceType(SpaceType.L2.getValue())
+                        .engine(KNNEngine.LUCENE.getName())
+                        .build()
+                )
+                .build()
+                .getIndexMapping()
+        );
+
+        ByteBuffer buffer = ByteBuffer.allocate(DIMENSION * Float.BYTES).order(ByteOrder.LITTLE_ENDIAN);
+        for (float v : VECTOR_1) {
+            buffer.putFloat(v);
+        }
+        String floatBase64 = Base64.getEncoder().encodeToString(buffer.array());
+        Request floatReq = new Request("POST", "/" + floatIndex + "/_doc/1?refresh=true");
+        floatReq.setJsonEntity("{\"" + VECTOR_FIELD + "\":\"" + floatBase64 + "\"}");
+        client().performRequest(floatReq);
+
+        Response floatResp = searchKNNIndex(floatIndex, buildArrayDocValueQuery(), 1);
+        List<Map<String, Object>> floatHits = parseSearchHits(EntityUtils.toString(floatResp.getEntity()));
+        assertEquals(1, floatHits.size());
+        List<List<Double>> floatDv = getDocValueField(floatHits.get(0), VECTOR_FIELD);
+        assertNotNull(floatDv);
+        for (int i = 0; i < DIMENSION; i++) {
+            assertEquals("Float mismatch at " + i, VECTOR_1[i], floatDv.get(0).get(i).floatValue(), 0.001f);
+        }
+        deleteKNNIndex(floatIndex);
+
+        // --- Byte: base64 raw bytes ---
+        String byteIndex = TEST_INDEX + "_base64_byte";
+        Byte[] byteVector = { 10, -20, 127, -128 };
+        createKnnIndex(
+            byteIndex,
+            KNNJsonIndexMappingsBuilder.builder()
+                .fieldName(VECTOR_FIELD)
+                .dimension(DIMENSION)
+                .vectorDataType(VectorDataType.BYTE.getValue())
+                .method(
+                    KNNJsonIndexMappingsBuilder.Method.builder()
+                        .methodName(METHOD_HNSW)
+                        .spaceType(SpaceType.L2.getValue())
+                        .engine(KNNEngine.LUCENE.getName())
+                        .build()
+                )
+                .build()
+                .getIndexMapping()
+        );
+
+        byte[] byteRaw = { 10, -20, 127, -128 };
+        String byteBase64 = Base64.getEncoder().encodeToString(byteRaw);
+        Request byteReq = new Request("POST", "/" + byteIndex + "/_doc/1?refresh=true");
+        byteReq.setJsonEntity("{\"" + VECTOR_FIELD + "\":\"" + byteBase64 + "\"}");
+        client().performRequest(byteReq);
+
+        Response byteResp = searchKNNIndex(byteIndex, buildArrayDocValueQuery(), 1);
+        List<Map<String, Object>> byteHits = parseSearchHits(EntityUtils.toString(byteResp.getEntity()));
+        assertEquals(1, byteHits.size());
+        List<List<Integer>> byteDv = getIntDocValueField(byteHits.get(0), VECTOR_FIELD);
+        assertNotNull(byteDv);
+        assertByteVectorEquals("Byte base64", byteVector, byteDv.get(0));
+        deleteKNNIndex(byteIndex);
+
+        // --- Binary: base64 raw bytes (dimension = bits, 32 bits = 4 bytes) ---
+        int binaryDimension = 32;
+        String binaryIndex = TEST_INDEX + "_base64_binary";
+        createKnnIndex(
+            binaryIndex,
+            KNNJsonIndexMappingsBuilder.builder()
+                .fieldName(VECTOR_FIELD)
+                .dimension(binaryDimension)
+                .vectorDataType(VectorDataType.BINARY.getValue())
+                .method(KNNJsonIndexMappingsBuilder.Method.builder().methodName(METHOD_HNSW).engine(KNNEngine.LUCENE.getName()).build())
+                .build()
+                .getIndexMapping()
+        );
+
+        byte[] binaryRaw = { 42, -86, 85, -1 };
+        Byte[] binaryVector = { 42, -86, 85, -1 };
+        String binaryBase64 = Base64.getEncoder().encodeToString(binaryRaw);
+        Request binaryReq = new Request("POST", "/" + binaryIndex + "/_doc/1?refresh=true");
+        binaryReq.setJsonEntity("{\"" + VECTOR_FIELD + "\":\"" + binaryBase64 + "\"}");
+        client().performRequest(binaryReq);
+
+        Response binaryResp = searchKNNIndex(binaryIndex, buildArrayDocValueQuery(), 1);
+        List<Map<String, Object>> binaryHits = parseSearchHits(EntityUtils.toString(binaryResp.getEntity()));
+        assertEquals(1, binaryHits.size());
+        List<List<Integer>> binaryDv = getIntDocValueField(binaryHits.get(0), VECTOR_FIELD);
+        assertNotNull(binaryDv);
+        assertByteVectorEquals("Binary base64", binaryVector, binaryDv.get(0));
+        deleteKNNIndex(binaryIndex);
+    }
+
+    /**
+     * Verifies that indexing a float vector via base64 produces the same KNN search results
+     * as indexing via a JSON array. This confirms the vectors are stored identically.
+     */
+    @SneakyThrows
+    public void testIndexing_base64VsArray_sameKnnSearchResults() {
+        String indexName = TEST_INDEX + "_base64_vs_array";
+
+        createKnnIndex(
+            indexName,
+            KNNJsonIndexMappingsBuilder.builder()
+                .fieldName(VECTOR_FIELD)
+                .dimension(DIMENSION)
+                .vectorDataType(VectorDataType.FLOAT.getValue())
+                .method(
+                    KNNJsonIndexMappingsBuilder.Method.builder()
+                        .methodName(METHOD_HNSW)
+                        .spaceType(SpaceType.L2.getValue())
+                        .engine(KNNEngine.LUCENE.getName())
+                        .build()
+                )
+                .build()
+                .getIndexMapping()
+        );
+
+        // Index doc 1 via JSON array
+        addKnnDoc(indexName, "1", VECTOR_FIELD, Floats.asList(VECTOR_1).toArray());
+
+        // Index doc 2 via base64 string (same vector as VECTOR_1)
+        ByteBuffer buffer = ByteBuffer.allocate(DIMENSION * Float.BYTES).order(ByteOrder.LITTLE_ENDIAN);
+        for (float v : VECTOR_1) {
+            buffer.putFloat(v);
+        }
+        String base64Vector = Base64.getEncoder().encodeToString(buffer.array());
+        Request request = new Request("POST", "/" + indexName + "/_doc/2?refresh=true");
+        request.setJsonEntity("{\"" + VECTOR_FIELD + "\":\"" + base64Vector + "\"}");
+        client().performRequest(request);
+
+        // Index doc 3 via JSON array (different vector)
+        addKnnDoc(indexName, "3", VECTOR_FIELD, Floats.asList(VECTOR_3).toArray());
+        refreshIndex(indexName);
+
+        // KNN search for VECTOR_1 should return doc 1 and doc 2 with same vectors
+        String query = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("knn")
+            .startObject(VECTOR_FIELD)
+            .field("vector", VECTOR_1)
+            .field("k", 3)
+            .endObject()
+            .endObject()
+            .endObject()
+            .startArray("docvalue_fields")
+            .startObject()
+            .field("field", VECTOR_FIELD)
+            .field("format", "array")
+            .endObject()
+            .endArray()
+            .field("_source", false)
+            .endObject()
+            .toString();
+
+        Response response = searchKNNIndex(indexName, query, 3);
+        List<Map<String, Object>> hits = parseSearchHits(EntityUtils.toString(response.getEntity()));
+        assertEquals(3, hits.size());
+
+        List<List<Double>> vec1 = getDocValueField(hits.get(0), VECTOR_FIELD);
+        List<List<Double>> vec2 = getDocValueField(hits.get(1), VECTOR_FIELD);
+        assertNotNull(vec1);
+        assertNotNull(vec2);
+        for (int i = 0; i < DIMENSION; i++) {
+            assertEquals("vec1 mismatch at " + i, VECTOR_1[i], vec1.get(0).get(i).floatValue(), 0.001f);
+            assertEquals("vec2 mismatch at " + i, VECTOR_1[i], vec2.get(0).get(i).floatValue(), 0.001f);
+        }
+
+        deleteKNNIndex(indexName);
+    }
+
+    /**
+     * Verifies that indexing invalid base64 strings results in errors for both float
+     * (not multiple of 4 bytes) and byte (wrong dimension) data types.
+     */
+    @SneakyThrows
+    public void testIndexing_invalidBase64_throwsError() {
+        // --- Float: 3 bytes is not a valid float vector (not multiple of 4) ---
+        String floatIndex = TEST_INDEX + "_base64_invalid_float";
+        createKnnIndex(
+            floatIndex,
+            KNNJsonIndexMappingsBuilder.builder()
+                .fieldName(VECTOR_FIELD)
+                .dimension(DIMENSION)
+                .vectorDataType(VectorDataType.FLOAT.getValue())
+                .method(
+                    KNNJsonIndexMappingsBuilder.Method.builder()
+                        .methodName(METHOD_HNSW)
+                        .spaceType(SpaceType.L2.getValue())
+                        .engine(KNNEngine.LUCENE.getName())
+                        .build()
+                )
+                .build()
+                .getIndexMapping()
+        );
+
+        String invalidFloatBase64 = Base64.getEncoder().encodeToString(new byte[] { 1, 2, 3 });
+        Request floatReq = new Request("POST", "/" + floatIndex + "/_doc/1?refresh=true");
+        floatReq.setJsonEntity("{\"" + VECTOR_FIELD + "\":\"" + invalidFloatBase64 + "\"}");
+        ResponseException floatEx = expectThrows(ResponseException.class, () -> client().performRequest(floatReq));
+        assertTrue(floatEx.getMessage().contains("invalid byte length"));
+        deleteKNNIndex(floatIndex);
+
+        // --- Byte: 5 bytes for dimension=4 is wrong ---
+        String byteIndex = TEST_INDEX + "_base64_invalid_byte";
+        createKnnIndex(
+            byteIndex,
+            KNNJsonIndexMappingsBuilder.builder()
+                .fieldName(VECTOR_FIELD)
+                .dimension(DIMENSION)
+                .vectorDataType(VectorDataType.BYTE.getValue())
+                .method(
+                    KNNJsonIndexMappingsBuilder.Method.builder()
+                        .methodName(METHOD_HNSW)
+                        .spaceType(SpaceType.L2.getValue())
+                        .engine(KNNEngine.LUCENE.getName())
+                        .build()
+                )
+                .build()
+                .getIndexMapping()
+        );
+
+        String invalidByteBase64 = Base64.getEncoder().encodeToString(new byte[] { 1, 2, 3, 4, 5 });
+        Request byteReq = new Request("POST", "/" + byteIndex + "/_doc/1?refresh=true");
+        byteReq.setJsonEntity("{\"" + VECTOR_FIELD + "\":\"" + invalidByteBase64 + "\"}");
+        ResponseException byteEx = expectThrows(ResponseException.class, () -> client().performRequest(byteReq));
+        assertTrue(byteEx.getMessage().contains("mismatch"));
+        deleteKNNIndex(byteIndex);
+
+        // --- Binary: dimension=32 bits expects 4 bytes, provide 3 ---
+        int binaryDimension = 32;
+        String binaryIndex = TEST_INDEX + "_base64_invalid_binary";
+        createKnnIndex(
+            binaryIndex,
+            KNNJsonIndexMappingsBuilder.builder()
+                .fieldName(VECTOR_FIELD)
+                .dimension(binaryDimension)
+                .vectorDataType(VectorDataType.BINARY.getValue())
+                .method(KNNJsonIndexMappingsBuilder.Method.builder().methodName(METHOD_HNSW).engine(KNNEngine.LUCENE.getName()).build())
+                .build()
+                .getIndexMapping()
+        );
+
+        String invalidBinaryBase64 = Base64.getEncoder().encodeToString(new byte[] { 1, 2, 3 });
+        Request binaryReq = new Request("POST", "/" + binaryIndex + "/_doc/1?refresh=true");
+        binaryReq.setJsonEntity("{\"" + VECTOR_FIELD + "\":\"" + invalidBinaryBase64 + "\"}");
+        ResponseException binaryEx = expectThrows(ResponseException.class, () -> client().performRequest(binaryReq));
+        assertTrue(binaryEx.getMessage().contains("must be 8 times"));
+        deleteKNNIndex(binaryIndex);
+    }
+
+    /**
+     * Verifies base64 indexing end-to-end: ingest 10 docs via base64, reindex to a second index,
+     * update vectors via update_by_query on both indices, and validate all docs in the search
+     * response from both indices after each operation.
+     */
+    @SneakyThrows
+    public void testIndexing_base64_reindexAndUpdateByQuery() {
+        String sourceIndex = TEST_INDEX + "_base64_reindex_src";
+        String destIndex = TEST_INDEX + "_base64_reindex_dest";
+        int numDocs = 10;
+
+        String mapping = KNNJsonIndexMappingsBuilder.builder()
+            .fieldName(VECTOR_FIELD)
+            .dimension(DIMENSION)
+            .vectorDataType(VectorDataType.FLOAT.getValue())
+            .method(
+                KNNJsonIndexMappingsBuilder.Method.builder()
+                    .methodName(METHOD_HNSW)
+                    .spaceType(SpaceType.L2.getValue())
+                    .engine(KNNEngine.FAISS.getName())
+                    .build()
+            )
+            .build()
+            .getIndexMapping();
+
+        createKnnIndex(sourceIndex, mapping);
+
+        // Ingest 10 docs via base64
+        float[][] vectors = new float[numDocs][DIMENSION];
+        for (int i = 0; i < numDocs; i++) {
+            for (int d = 0; d < DIMENSION; d++) {
+                vectors[i][d] = (i + 1) * (d + 1) * 0.1f;
+            }
+            ByteBuffer buffer = ByteBuffer.allocate(DIMENSION * Float.BYTES).order(ByteOrder.LITTLE_ENDIAN);
+            for (float v : vectors[i]) {
+                buffer.putFloat(v);
+            }
+            String base64 = Base64.getEncoder().encodeToString(buffer.array());
+            Request req = new Request("POST", "/" + sourceIndex + "/_doc/" + i + "?refresh=true");
+            req.setJsonEntity("{\"" + VECTOR_FIELD + "\":\"" + base64 + "\"}");
+            client().performRequest(req);
+        }
+        refreshIndex(sourceIndex);
+
+        // Validate all docs on source index
+        assertAllDocsHaveCorrectVectors(sourceIndex, numDocs, vectors);
+
+        // Reindex to destination
+        createKnnIndex(destIndex, mapping);
+        reindex(sourceIndex, destIndex);
+        refreshIndex(destIndex);
+
+        // Validate all docs on dest index
+        assertAllDocsHaveCorrectVectors(destIndex, numDocs, vectors);
+
+        // Update all docs in both indices via update_by_query with a new vector
+        float[] updatedVector = new float[DIMENSION];
+        for (int d = 0; d < DIMENSION; d++) {
+            updatedVector[d] = 99.0f + d;
+        }
+        StringBuilder scriptSource = new StringBuilder("ctx._source." + VECTOR_FIELD + " = [");
+        for (int d = 0; d < DIMENSION; d++) {
+            if (d > 0) scriptSource.append(",");
+            scriptSource.append(updatedVector[d]).append("f");
+        }
+        scriptSource.append("]");
+
+        String updateQuery = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("script")
+            .field("source", scriptSource.toString())
+            .field("lang", "painless")
+            .endObject()
+            .endObject()
+            .toString();
+
+        updateKnnDocByQuery(sourceIndex, updateQuery);
+        updateKnnDocByQuery(destIndex, updateQuery);
+
+        // After update, all docs should have the same updated vector
+        float[][] updatedVectors = new float[numDocs][DIMENSION];
+        for (int i = 0; i < numDocs; i++) {
+            System.arraycopy(updatedVector, 0, updatedVectors[i], 0, DIMENSION);
+        }
+        assertAllDocsHaveCorrectVectors(sourceIndex, numDocs, updatedVectors);
+        assertAllDocsHaveCorrectVectors(destIndex, numDocs, updatedVectors);
+
+        deleteKNNIndex(sourceIndex);
+        deleteKNNIndex(destIndex);
+    }
+
+    private void assertAllDocsHaveCorrectVectors(String indexName, int expectedCount, float[][] expectedVectors) throws Exception {
+        String query = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("match_all")
+            .endObject()
+            .endObject()
+            .startArray("docvalue_fields")
+            .startObject()
+            .field("field", VECTOR_FIELD)
+            .field("format", "array")
+            .endObject()
+            .endArray()
+            .field("_source", false)
+            .field("size", expectedCount)
+            .startObject("sort")
+            .field("_id", "asc")
+            .endObject()
+            .endObject()
+            .toString();
+
+        Response response = searchKNNIndex(indexName, query, expectedCount);
+        List<Map<String, Object>> hits = parseSearchHits(EntityUtils.toString(response.getEntity()));
+        assertEquals("[" + indexName + "] Expected " + expectedCount + " hits", expectedCount, hits.size());
+
+        for (int i = 0; i < hits.size(); i++) {
+            String docId = (String) hits.get(i).get("_id");
+            int docIdx = Integer.parseInt(docId);
+            List<List<Double>> dvField = getDocValueField(hits.get(i), VECTOR_FIELD);
+            assertNotNull("[" + indexName + "] doc " + docId + " should have docvalue_fields", dvField);
+            assertEquals("[" + indexName + "] doc " + docId + " dimension mismatch", DIMENSION, dvField.get(0).size());
+            for (int d = 0; d < DIMENSION; d++) {
+                assertEquals(
+                    "[" + indexName + "] doc " + docId + " vector mismatch at index " + d,
+                    expectedVectors[docIdx][d],
+                    dvField.get(0).get(d).floatValue(),
+                    0.001f
+                );
+            }
+        }
+    }
+
     private void createHnswIndex(KNNEngine engine) throws Exception {
         KNNJsonIndexMappingsBuilder.Method method = KNNJsonIndexMappingsBuilder.Method.builder()
             .methodName(METHOD_HNSW)
@@ -1922,6 +2322,24 @@ public class DocValueFieldsIT extends KNNRestTestCase {
             result.add(n.doubleValue());
         }
         return result;
+    }
+
+    private String buildArrayDocValueQuery() throws IOException {
+        return XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("match_all")
+            .endObject()
+            .endObject()
+            .startArray("docvalue_fields")
+            .startObject()
+            .field("field", VECTOR_FIELD)
+            .field("format", "array")
+            .endObject()
+            .endArray()
+            .field("_source", false)
+            .endObject()
+            .toString();
     }
 
     private String buildSortedDocValueFieldsQuery() throws IOException {
