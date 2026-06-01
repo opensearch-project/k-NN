@@ -14,6 +14,7 @@ import org.opensearch.test.rest.OpenSearchRestTestCase;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.opensearch.knn.TestUtils.BWC_VERSION;
@@ -114,6 +115,85 @@ public class DerivedSourceBWCRestartIT extends DerivedSourceTestCase {
         } else {
             validateDerivedSetting(indexName, true);
         }
+    }
+
+    public void testMixedCaseDerivedSourceField_indexOnOld_reconstructOnNew() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+        String indexName = getIndexName("knn-bwc", "mixed-case-derived-source-", false);
+        int dimension = 3;
+
+        if (isRunningAgainstOldCluster()) {
+            Settings settings = Settings.builder()
+                .put("number_of_shards", 1)
+                .put("number_of_replicas", 0)
+                .put("index.knn", true)
+                .put("index.knn.derived_source.enabled", true)
+                .build();
+
+            createKnnIndex(indexName, settings, createMixedCaseVectorMapping(dimension));
+            addKnnDoc(indexName, "1", createMixedCaseVectorDoc());
+            refreshIndex(indexName);
+            flushIndex(indexName);
+        } else {
+            refreshIndex(indexName);
+            List<?> retrievedVector = extractVector(getKnnDoc(indexName, "1"), "vectorSearch", "nameVector");
+
+            assertNotNull("Mixed-case vector field should be reconstructed from old lowercase segment metadata", retrievedVector);
+            assertEquals(dimension, retrievedVector.size());
+            assertEquals(1.0f, ((Number) retrievedVector.get(0)).floatValue(), 0.0f);
+            assertEquals(2.0f, ((Number) retrievedVector.get(1)).floatValue(), 0.0f);
+            assertEquals(3.0f, ((Number) retrievedVector.get(2)).floatValue(), 0.0f);
+
+            deleteKNNIndex(indexName);
+        }
+    }
+
+    private String createMixedCaseVectorMapping(int dimension) throws IOException {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject("vectorSearch")
+            .startObject("properties")
+            .startObject("nameVector")
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject("method")
+            .field("engine", "lucene")
+            .field("space_type", "l2")
+            .field("name", "hnsw")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        return builder.toString();
+    }
+
+    private String createMixedCaseVectorDoc() throws IOException {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("vectorSearch")
+            .array("nameVector", 1.0f, 2.0f, 3.0f)
+            .endObject()
+            .endObject();
+        return builder.toString();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<?> extractVector(Map<String, Object> source, String... path) {
+        Object current = source;
+        for (String key : path) {
+            if (current instanceof Map) {
+                current = ((Map<String, Object>) current).get(key);
+            } else {
+                return null;
+            }
+        }
+        if (current instanceof List) {
+            return (List<?>) current;
+        }
+        return null;
     }
 
     @Override
