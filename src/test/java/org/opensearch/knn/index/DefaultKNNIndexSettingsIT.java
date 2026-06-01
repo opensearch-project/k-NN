@@ -5,9 +5,17 @@
 
 package org.opensearch.knn.index;
 
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.opensearch.client.Response;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.TieredMergePolicyProvider;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.common.settings.Settings;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 import static org.opensearch.knn.index.KNNSettings.KNN_DERIVED_SOURCE_ENABLED;
 
@@ -51,5 +59,65 @@ public class DefaultKNNIndexSettingsIT extends KNNRestTestCase {
         }
 
         deleteKNNIndex(indexName);
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testSearchResponseExcludesVectorFields() throws Exception {
+        String indexName = "default-settings-excludes";
+        createKnnIndex(indexName, createKnnIndexMapping(FIELD_NAME, 2));
+        addKnnDocWithAttributes(indexName, "1", FIELD_NAME, new Float[] { 1.0f, 2.0f }, Map.of(FIELD_NAME_NON_KNN, "test_value"));
+
+        float[] queryVector = { 1.0f, 2.0f };
+        XContentBuilder queryBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("knn")
+            .startObject(FIELD_NAME)
+            .array("vector", queryVector)
+            .field("k", 1)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Response response = searchKNNIndex(indexName, queryBuilder, 1);
+        String responseBody = EntityUtils.toString(response.getEntity());
+
+        Map<String, Object> source = getFirstHitSource(responseBody);
+        assertFalse("Vector field should be excluded from _source", source.containsKey(FIELD_NAME));
+        assertEquals("Non-KNN field should be present in _source", "test_value", source.get(FIELD_NAME_NON_KNN));
+
+        deleteKNNIndex(indexName);
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testSearchResponseIncludesVectorFieldWhenExplicitlyRequested() throws Exception {
+        String indexName = "default-settings-explicit-include";
+        createKnnIndex(indexName, createKnnIndexMapping(FIELD_NAME, 2));
+        addKnnDocWithAttributes(indexName, "1", FIELD_NAME, new Float[] { 1.0f, 2.0f }, Map.of(FIELD_NAME_NON_KNN, "test_value"));
+
+        String query = String.format(
+            "{\"_source\": {\"includes\": [\"%s\"]}, \"query\": {\"knn\": {\"%s\": {\"vector\": [1.0, 2.0], \"k\": 1}}}}",
+            FIELD_NAME,
+            FIELD_NAME
+        );
+        Response response = searchKNNIndex(indexName, query, 1);
+        String responseBody = EntityUtils.toString(response.getEntity());
+
+        Map<String, Object> source = getFirstHitSource(responseBody);
+        assertEquals(List.of(1.0, 2.0), source.get(FIELD_NAME));
+
+        deleteKNNIndex(indexName);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getFirstHitSource(String responseBody) throws IOException {
+        List<Map<String, Object>> hits = (List<Map<String, Object>>) ((Map<String, Object>) createParser(
+            org.opensearch.core.xcontent.MediaTypeRegistry.getDefaultMediaType().xContent(),
+            responseBody
+        ).map().get("hits")).get("hits");
+        assertEquals(1, hits.size());
+        Map<String, Object> source = (Map<String, Object>) hits.get(0).get("_source");
+        assertNotNull(source);
+        return source;
     }
 }

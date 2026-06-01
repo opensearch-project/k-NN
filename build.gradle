@@ -685,9 +685,6 @@ task integTestMultiNode(type: RestIntegTestTask) {
     }
 }
 
-// Make integTest run integTestMultiNode after completion
-integTest.finalizedBy integTestMultiNode
-
 def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
     cluster.testDistribution = "ARCHIVE"
 
@@ -837,6 +834,12 @@ transport.port: ${coordTransportPort}
 path.data: ${coordDir}/data
 path.logs: ${coordDir}/logs
 """
+        if (System.getProperty("coordinator.debug") != null) {
+            def debugPort = System.getProperty("coordinator.debug.port") ?: "5010"
+            file("${coordDir}/config/jvm.options.d").mkdirs()
+            file("${coordDir}/config/jvm.options.d/debug.options").text =
+                "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:${debugPort}"
+        }
     }
 
     environment "OPENSEARCH_HOME", distroDir
