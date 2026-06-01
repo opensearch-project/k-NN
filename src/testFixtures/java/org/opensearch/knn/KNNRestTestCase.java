@@ -2800,6 +2800,19 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return version.onOrAfter(Version.V_2_18_0);
     }
 
+    // mode and compression_level parameters are only supported on or after V_2_17_0
+    protected boolean isModeAndCompressionSupported(final Optional<String> bwcVersion) {
+        if (bwcVersion.isEmpty()) {
+            return false;
+        }
+        String versionString = bwcVersion.get();
+        if (versionString.endsWith("-SNAPSHOT")) {
+            versionString = versionString.substring(0, versionString.length() - 9);
+        }
+        final Version version = Version.fromString(versionString);
+        return version.onOrAfter(Version.V_2_17_0);
+    }
+
     /**
      * Binary Scalar Quantizer is only supported on or after V_3_6_0
      */
