@@ -97,6 +97,9 @@ import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
 import org.opensearch.knn.search.extension.MMRSearchExtBuilder;
 
+import org.opensearch.ingest.Processor;
+import org.opensearch.knn.processor.muvera.MuveraIngestProcessor;
+import org.opensearch.knn.processor.muvera.MuveraSearchRequestProcessor;
 import org.opensearch.knn.search.processor.mmr.MMRKnnQueryTransformer;
 import org.opensearch.knn.search.processor.mmr.MMROverSampleProcessor;
 import org.opensearch.knn.search.processor.mmr.MMRQueryTransformer;
@@ -109,6 +112,7 @@ import org.opensearch.plugins.ClusterPlugin;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.EnginePlugin;
 import org.opensearch.plugins.ExtensiblePlugin;
+import org.opensearch.plugins.IngestPlugin;
 import org.opensearch.plugins.MapperPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.plugins.ReloadablePlugin;
@@ -194,7 +198,8 @@ public class KNNPlugin extends Plugin
         ExtensiblePlugin,
         SystemIndexPlugin,
         ReloadablePlugin,
-        SearchPipelinePlugin {
+        SearchPipelinePlugin,
+        IngestPlugin {
 
     public static final String LEGACY_KNN_BASE_URI = "/_opendistro/_knn";
     public static final String KNN_BASE_URI = "/_plugins/_knn";
@@ -525,5 +530,17 @@ public class KNNPlugin extends Plugin
         Parameters parameters
     ) {
         return Map.of(MMRRerankProcessor.MMRRerankProcessorFactory.TYPE, new MMRRerankProcessor.MMRRerankProcessorFactory());
+    }
+
+    @Override
+    public Map<String, Processor.Factory> getProcessors(Processor.Parameters parameters) {
+        return Map.of(MuveraIngestProcessor.TYPE, new MuveraIngestProcessor.Factory());
+    }
+
+    @Override
+    public Map<String, org.opensearch.search.pipeline.Processor.Factory<SearchRequestProcessor>> getRequestProcessors(
+        Parameters parameters
+    ) {
+        return Map.of(MuveraSearchRequestProcessor.TYPE, new MuveraSearchRequestProcessor.Factory());
     }
 }
