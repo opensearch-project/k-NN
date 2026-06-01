@@ -32,6 +32,7 @@ public final class RescoreParser {
 
     public static final String RESCORE_PARAMETER = "rescore";
     public static final String RESCORE_OVERSAMPLE_PARAMETER = "oversample_factor";
+    public static final String RESCORE_ENABLED_PARAMETER = "rescore_enabled";
 
     private static final ObjectParser<RescoreContext.RescoreContextBuilder, Void> INTERNAL_PARSER = createInternalObjectParser();
 
@@ -92,7 +93,11 @@ public final class RescoreParser {
         if (oversample == null) {
             return null;
         }
-        return RescoreContext.builder().oversampleFactor(oversample).build();
+        RescoreContext.RescoreContextBuilder builder = RescoreContext.builder().oversampleFactor(oversample);
+        if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(in.getVersion(), RESCORE_ENABLED_PARAMETER)) {
+            builder.rescoreEnabled(in.readBoolean());
+        }
+        return builder.build();
     }
 
     /**
@@ -106,6 +111,9 @@ public final class RescoreParser {
             return;
         }
         out.writeOptionalFloat(rescoreContext == null ? null : rescoreContext.getOversampleFactor());
+        if (rescoreContext != null && IndexUtil.isVersionOnOrAfterMinRequiredVersion(out.getVersion(), RESCORE_ENABLED_PARAMETER)) {
+            out.writeBoolean(rescoreContext.isRescoreEnabled());
+        }
     }
 
     /**

@@ -61,7 +61,10 @@ public class Faiss extends NativeLibrary {
 
     private final static Map<SpaceType, Function<Float, Float>> DISTANCE_TRANSLATIONS = ImmutableMap.<
         SpaceType,
-        Function<Float, Float>>builder().put(SpaceType.COSINESIMIL, distance -> 1 - distance).build();
+        Function<Float, Float>>builder()
+        .put(SpaceType.COSINESIMIL, distance -> 1 - distance)
+        .put(SpaceType.INNER_PRODUCT, distance -> -1 * distance)
+        .build();
 
     // Package private so that the method resolving logic can access the methods
     final static Map<String, KNNMethod> METHODS = ImmutableMap.of(METHOD_HNSW, new FaissHNSWMethod(), METHOD_IVF, new FaissIVFMethod());

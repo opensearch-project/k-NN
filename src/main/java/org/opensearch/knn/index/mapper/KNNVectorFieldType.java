@@ -27,6 +27,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -43,6 +44,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
+import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.deserializeStoredVector;
 
 /**
@@ -235,5 +237,87 @@ public class KNNVectorFieldType extends MappedFieldType {
                 .transform(vector, false);
         }
         throw new IllegalStateException("Either KNN method context or Model Id should be configured");
+    }
+
+    /**
+     * Validates that the given index configuration supports radial search.
+     * Throws {@link UnsupportedOperationException} if radial search is not supported.
+     *
+     * <p>Radial search is blocked for:</p>
+     * <ul>
+     *   <li>Engines that do not support radial search (e.g., NMSLIB)</li>
+     *   <li>Binary vector data type</li>
+     *   <li>BQ (binary quantization) — identified by {@code QuantizationConfig != EMPTY}</li>
+     *   <li>Quantized indices that are not 1-bit SQ — among quantized indices, only the
+     *       {@code flat} method or the SQ encoder with {@code bits=1} support radial search
+     *       via rescoring</li>
+     * </ul>
+     *
+     * <p>Uses the field's own {@code vectorDataType} and {@code knnMappingConfig} for validation.
+     * The engine must be passed explicitly because model-based fields resolve their engine via
+     * {@code ModelDao}, which is not available on this class.</p>
+     *
+     * @param knnEngine the engine resolved for this field (from method context or model metadata)
+     * @throws UnsupportedOperationException if radial search is not supported
+     */
+    public void validateSupportRadialSearch(final KNNEngine knnEngine) {
+        if (ENGINES_SUPPORTING_RADIAL_SEARCH.contains(knnEngine) == false) {
+            throw new UnsupportedOperationException(String.format(Locale.ROOT, "Engine [%s] does not support radial search", knnEngine));
+        }
+        if (getVectorDataType() == VectorDataType.BINARY) {
+            throw new UnsupportedOperationException(String.format(Locale.ROOT, "Binary data type does not support radial search"));
+        }
+        final KNNMappingConfig mappingConfig = getKnnMappingConfig();
+        // BQ (binary quantization) does not support radial search
+        if (mappingConfig.getQuantizationConfig() != QuantizationConfig.EMPTY) {
+            throw new UnsupportedOperationException("Radial search is not supported for quantized indices using binary quantization.");
+        }
+        // Among quantized indices, only flat method (32x) or SQ encoder with bits=1
+        // support radial search (via rescoring). Non-quantized indices are always allowed.
+        final Optional<KNNMethodContext> methodContext = mappingConfig.getKnnMethodContext();
+        if (methodContext.isPresent()) {
+            // Check compression level first (cheap) before SQ encoder lookup (hash map access)
+            final boolean isQuantizedIndex = CompressionLevel.isConfigured(mappingConfig.getCompressionLevel())
+                && mappingConfig.getCompressionLevel() != CompressionLevel.x1
+                && mappingConfig.getCompressionLevel() != CompressionLevel.x2;
+            if (isQuantizedIndex) {
+                final boolean isFlatMethod = METHOD_FLAT.equals(methodContext.get().getMethodComponentContext().getName());
+                final boolean isSQOneBit = FaissSQEncoder.isSQOneBit(methodContext.get().getMethodComponentContext().getParameters());
+                final boolean radialSupported = isFlatMethod || isSQOneBit;
+                if (radialSupported == false) {
+                    throw new UnsupportedOperationException(
+                        "Among quantized indices, radial search is only supported for 1-bit SQ. "
+                            + "Current compression level="
+                            + mappingConfig.getCompressionLevel()
+                            + ", method="
+                            + methodContext.get().getMethodComponentContext().getName()
+                    );
+                }
+            }
+        }
+    }
+
+    /**
+     * Determines whether rescoring with full-precision vectors is required after radial search.
+     *
+     * <p>This method should only be called for knn field types that have already been validated
+     * to support radial search via {@link #validateSupportRadialSearch(KNNEngine)}.
+     * Calling this on an unsupported configuration may return incorrect results.</p>
+     *
+     * <p>Currently, only 1-bit SQ (32x compression) requires rescoring, identified by the
+     * SQ encoder with {@code bits=1}. Other quantization types may be added in the future.</p>
+     *
+     * @return {@code true} if rescoring is required after radial search
+     */
+    public boolean isRescoringRequiredForRadial() {
+        final KNNMappingConfig mappingConfig = getKnnMappingConfig();
+        final Optional<KNNMethodContext> methodContext = mappingConfig.getKnnMethodContext();
+        // Method context is absent for model-based indices, where the field is configured via
+        // modelId instead of an explicit method/encoder. Model-based indices do not need rescoring.
+        if (methodContext.isPresent() == false) {
+            return false;
+        }
+        // Only 1-bit SQ requires rescoring for radial search to eliminate false positives.
+        return FaissSQEncoder.isSQOneBit(methodContext.get().getMethodComponentContext().getParameters());
     }
 }
