@@ -13,6 +13,7 @@ Compatible with OpenSearch and OpenSearch Dashboards version 3.7.0
 
 * Add bulk scoring logic in Memory Optimized Search when K exceeds the number of docs in a segment for improved SIMD/vectorization performance ([#3285](https://github.com/opensearch-project/k-NN/pull/3285))
 * Use KNN1040ScalarQuantizedVectorsFormat for Faiss SQ flat format to enable I/O prefetch during exact search rescoring ([#3302](https://github.com/opensearch-project/k-NN/pull/3302))
+* Add support for binary and byte field support in doc_values [#3340](https://github.com/opensearch-project/k-NN/pull/3340)
 
 ### Infrastructure
 
