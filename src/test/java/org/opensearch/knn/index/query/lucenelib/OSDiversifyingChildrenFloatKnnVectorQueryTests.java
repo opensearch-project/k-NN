@@ -22,7 +22,7 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
         float[] queryVector = { 1.0f, 2.0f, 3.0f };
         int luceneK = 10;
         int k = 5;
-        boolean needsRescore = false;
+        int rescoreK = 0;
         boolean expandNestedDocs = false;
         Query filterQuery = mock(Query.class);
         BitSetProducer parentFilter = mock(BitSetProducer.class);
@@ -34,7 +34,7 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
             luceneK,
             parentFilter,
             k,
-            needsRescore,
+            rescoreK,
             expandNestedDocs
         );
 
@@ -46,7 +46,7 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
         float[] queryVector = { 1.0f, 2.0f, 3.0f };
         int luceneK = 10;
         int k = 3;
-        boolean needsRescore = false;
+        int rescoreK = 0;
         boolean expandNestedDocs = false;
         Query filterQuery = mock(Query.class);
         BitSetProducer parentFilter = mock(BitSetProducer.class);
@@ -58,7 +58,7 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
             luceneK,
             parentFilter,
             k,
-            needsRescore,
+            rescoreK,
             expandNestedDocs
         );
 
@@ -82,7 +82,7 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
         float[] queryVector = { 1.0f, 2.0f, 3.0f };
         int luceneK = 10;
         int k = 5;
-        boolean needsRescore = false;
+        int rescoreK = 0;
         boolean expandNestedDocs = false;
         Query filterQuery = mock(Query.class);
         BitSetProducer parentFilter = mock(BitSetProducer.class);
@@ -94,7 +94,7 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
             luceneK,
             parentFilter,
             k,
-            needsRescore,
+            rescoreK,
             expandNestedDocs
         );
 
@@ -112,7 +112,7 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
         float[] queryVector = { 1.0f, 2.0f, 3.0f };
         int luceneK = 10;
         int k = 3;
-        boolean needsRescore = true;
+        int rescoreK = 6;
         boolean expandNestedDocs = false;
         Query filterQuery = mock(Query.class);
         BitSetProducer parentFilter = mock(BitSetProducer.class);
@@ -124,22 +124,22 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
             luceneK,
             parentFilter,
             k,
-            needsRescore,
+            rescoreK,
             expandNestedDocs
         );
 
-        ScoreDoc[] scoreDocs1 = { new ScoreDoc(1, 0.9f), new ScoreDoc(2, 0.8f) };
-        ScoreDoc[] scoreDocs2 = { new ScoreDoc(3, 0.7f), new ScoreDoc(4, 0.6f) };
+        ScoreDoc[] scoreDocs1 = { new ScoreDoc(1, 0.9f), new ScoreDoc(2, 0.8f), new ScoreDoc(5, 0.5f) };
+        ScoreDoc[] scoreDocs2 = { new ScoreDoc(3, 0.7f), new ScoreDoc(4, 0.6f), new ScoreDoc(6, 0.4f) };
 
-        TopDocs topDocs1 = new TopDocs(new TotalHits(2, TotalHits.Relation.EQUAL_TO), scoreDocs1);
-        TopDocs topDocs2 = new TopDocs(new TotalHits(2, TotalHits.Relation.EQUAL_TO), scoreDocs2);
+        TopDocs topDocs1 = new TopDocs(new TotalHits(3, TotalHits.Relation.EQUAL_TO), scoreDocs1);
+        TopDocs topDocs2 = new TopDocs(new TotalHits(3, TotalHits.Relation.EQUAL_TO), scoreDocs2);
 
         TopDocs[] perLeafResults = { topDocs1, topDocs2 };
 
         TopDocs result = query.mergeLeafResults(perLeafResults);
 
-        // When needsRescore is true and expandNestedDocs is false, should use parent's merge (not reduce to k)
-        assertEquals(4, result.scoreDocs.length);
+        // When rescoreK > 0 and expandNestedDocs is false, should trim to rescoreK (not luceneK or k)
+        assertEquals(rescoreK, result.scoreDocs.length);
     }
 
     public void testMergeLeafResultsWithExpandNestedDocs() {
@@ -147,7 +147,7 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
         float[] queryVector = { 1.0f, 2.0f, 3.0f };
         int luceneK = 10;
         int k = 3;
-        boolean needsRescore = false;
+        int rescoreK = 0;
         boolean expandNestedDocs = true;
         Query filterQuery = mock(Query.class);
         BitSetProducer parentFilter = mock(BitSetProducer.class);
@@ -159,7 +159,7 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
             luceneK,
             parentFilter,
             k,
-            needsRescore,
+            rescoreK,
             expandNestedDocs
         );
 
@@ -173,7 +173,7 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
 
         TopDocs result = query.mergeLeafResults(perLeafResults);
 
-        // When expandNestedDocs is true, should reduce to k
+        // When expandNestedDocs is true, should reduce to k regardless of rescoreK
         assertEquals(k, result.scoreDocs.length);
     }
 
@@ -182,7 +182,7 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
         float[] queryVector = { 1.0f, 2.0f, 3.0f };
         int luceneK = 10;
         int k = 3;
-        boolean needsRescore = false;
+        int rescoreK = 0;
         Query filterQuery = mock(Query.class);
         BitSetProducer parentFilter = mock(BitSetProducer.class);
 
@@ -194,7 +194,7 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
             luceneK,
             parentFilter,
             k,
-            needsRescore
+            rescoreK
         );
 
         assertTrue(query instanceof DiversifyingChildrenFloatKnnVectorQuery);
@@ -209,7 +209,83 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
         TopDocs[] perLeafResults = { topDocs1, topDocs2 };
         TopDocs result = query.mergeLeafResults(perLeafResults);
 
-        // Should reduce to k (default behavior when expandNestedDocs is false and needsRescore is false)
+        // Should reduce to k (default behavior when expandNestedDocs is false and rescoreK is 0)
         assertEquals(k, result.scoreDocs.length);
+    }
+
+    public void testMergeLeafResultsWithRescoreAndExpandNestedDocs() {
+        String fieldName = "test_field";
+        float[] queryVector = { 1.0f, 2.0f, 3.0f };
+        int luceneK = 10;
+        int k = 3;
+        int rescoreK = 6;
+        boolean expandNestedDocs = true;
+        Query filterQuery = mock(Query.class);
+        BitSetProducer parentFilter = mock(BitSetProducer.class);
+
+        OSDiversifyingChildrenFloatKnnVectorQuery query = new OSDiversifyingChildrenFloatKnnVectorQuery(
+            fieldName,
+            queryVector,
+            filterQuery,
+            luceneK,
+            parentFilter,
+            k,
+            rescoreK,
+            expandNestedDocs
+        );
+
+        ScoreDoc[] scoreDocs1 = { new ScoreDoc(1, 0.9f), new ScoreDoc(2, 0.8f) };
+        ScoreDoc[] scoreDocs2 = { new ScoreDoc(3, 0.7f), new ScoreDoc(4, 0.6f) };
+
+        TopDocs topDocs1 = new TopDocs(new TotalHits(2, TotalHits.Relation.EQUAL_TO), scoreDocs1);
+        TopDocs topDocs2 = new TopDocs(new TotalHits(2, TotalHits.Relation.EQUAL_TO), scoreDocs2);
+
+        TopDocs[] perLeafResults = { topDocs1, topDocs2 };
+
+        TopDocs result = query.mergeLeafResults(perLeafResults);
+
+        // When expandNestedDocs is true, should reduce to k even if rescoreK > 0
+        assertEquals(k, result.scoreDocs.length);
+    }
+
+    public void testMergeLeafResultsWithRescoreK_trimsToRescoreKNotLuceneK() {
+        String fieldName = "test_field";
+        float[] queryVector = { 1.0f, 2.0f, 3.0f };
+        // luceneK=256 (ef_search dominated), rescoreK=200 (oversample dominated), k=100
+        int luceneK = 256;
+        int k = 100;
+        int rescoreK = 200;
+        boolean expandNestedDocs = false;
+        Query filterQuery = mock(Query.class);
+        BitSetProducer parentFilter = mock(BitSetProducer.class);
+
+        OSDiversifyingChildrenFloatKnnVectorQuery query = new OSDiversifyingChildrenFloatKnnVectorQuery(
+            fieldName,
+            queryVector,
+            filterQuery,
+            luceneK,
+            parentFilter,
+            k,
+            rescoreK,
+            expandNestedDocs
+        );
+
+        // Create enough results to exceed rescoreK but be within luceneK
+        ScoreDoc[] scoreDocs1 = new ScoreDoc[128];
+        ScoreDoc[] scoreDocs2 = new ScoreDoc[128];
+        for (int i = 0; i < 128; i++) {
+            scoreDocs1[i] = new ScoreDoc(i, 1.0f - (i * 0.001f));
+            scoreDocs2[i] = new ScoreDoc(128 + i, 0.5f - (i * 0.001f));
+        }
+
+        TopDocs topDocs1 = new TopDocs(new TotalHits(128, TotalHits.Relation.EQUAL_TO), scoreDocs1);
+        TopDocs topDocs2 = new TopDocs(new TotalHits(128, TotalHits.Relation.EQUAL_TO), scoreDocs2);
+
+        TopDocs[] perLeafResults = { topDocs1, topDocs2 };
+
+        TopDocs result = query.mergeLeafResults(perLeafResults);
+
+        // Should trim to rescoreK (200), not luceneK (256) and not k (100)
+        assertEquals(rescoreK, result.scoreDocs.length);
     }
 }

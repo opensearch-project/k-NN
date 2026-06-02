@@ -8,6 +8,7 @@ package org.opensearch.knn.index.query.lucenelib;
 import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 /**
  * OpenSearch wrapper around Lucene's KnnByteVectorQuery that customizes
@@ -18,7 +19,7 @@ import org.apache.lucene.search.TopDocs;
  */
 public final class OSKnnFloatVectorQuery extends KnnFloatVectorQuery {
     private final int k;
-    private final boolean needsRescore;
+    private final int rescoreK;
 
     public OSKnnFloatVectorQuery(
         final String fieldName,
@@ -26,19 +27,19 @@ public final class OSKnnFloatVectorQuery extends KnnFloatVectorQuery {
         final int luceneK,
         final Query filterQuery,
         final int k,
-        final boolean needsRescore
+        final int rescoreK
     ) {
         super(fieldName, floatQueryVector, luceneK, filterQuery);
         this.k = k;
-        this.needsRescore = needsRescore;
+        this.rescoreK = rescoreK;
     }
 
     @Override
     protected TopDocs mergeLeafResults(TopDocs[] perLeafResults) {
-        if (needsRescore) {
-
-            // When rescoring is enabled, we need to return all the oversampled k results to rescore which are later reduced to k
-            return super.mergeLeafResults(perLeafResults);
+        if (rescoreK != RescoreContext.NO_RESCORE_NEEDED) {
+            // When rescoring is enabled, merge to oversampled k (rescore budget) rather than the
+            // full luceneK which may have been expanded by ef_search.
+            return TopDocs.merge(rescoreK, perLeafResults);
         }
         // Merge all segment level results and take top k from it
         return TopDocs.merge(k, perLeafResults);
