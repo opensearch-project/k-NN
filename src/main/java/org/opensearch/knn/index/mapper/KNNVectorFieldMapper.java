@@ -6,8 +6,11 @@
 package org.opensearch.knn.index.mapper;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -73,6 +76,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
     public static final String CONTENT_TYPE = "knn_vector";
     public static final String KNN_FIELD = "knn_field";
+    private static final Base64.Decoder BASE64_DECODER = Base64.getDecoder();
 
     private static KNNVectorFieldMapper toType(FieldMapper in) {
         return (KNNVectorFieldMapper) in;
@@ -832,6 +836,21 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             perDimensionValidator.validateByte(value);
             vector.add((byte) value);
             context.parser().nextToken();
+        } else if (token == XContentParser.Token.VALUE_STRING) {
+            final byte[] decoded;
+            try {
+                decoded = BASE64_DECODER.decode(context.parser().text());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException(
+                    String.format(Locale.ROOT, "Invalid base64 encoding for vector field [%s]: %s", name(), e.getMessage()),
+                    e
+                );
+            }
+            validateVectorDimension(dimension, decoded.length, dataType);
+            // Per-dimension validation is intentionally skipped: base64-decoded bytes are inherently
+            // in [-128, 127] range, cannot be NaN/Inf, and have no decimal component — all checks
+            // that validateByte() performs are satisfied by construction for raw byte values.
+            return Optional.of(decoded);
         } else if (token == XContentParser.Token.VALUE_NULL) {
             context.path().remove();
             return Optional.empty();
@@ -867,6 +886,36 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             perDimensionValidator.validate(value);
             vector.add(value);
             context.parser().nextToken();
+        } else if (token == XContentParser.Token.VALUE_STRING) {
+            final byte[] decoded;
+            try {
+                decoded = BASE64_DECODER.decode(context.parser().text());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException(
+                    String.format(Locale.ROOT, "Invalid base64 encoding for vector field [%s]: %s", name(), e.getMessage()),
+                    e
+                );
+            }
+            if (decoded.length % Float.BYTES != 0) {
+                throw new IllegalArgumentException(
+                    String.format(
+                        Locale.ROOT,
+                        "Base64 encoded vector for field [%s] has invalid byte length [%d], must be a multiple of %d (float size)",
+                        name(),
+                        decoded.length,
+                        Float.BYTES
+                    )
+                );
+            }
+            int numFloats = decoded.length / Float.BYTES;
+            validateVectorDimension(dimension, numFloats, vectorDataType);
+            final float[] array = new float[numFloats];
+            ByteBuffer.wrap(decoded).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer().get(array);
+            for (int idx = 0; idx < numFloats; idx++) {
+                array[idx] = perDimensionProcessor.process(array[idx]);
+                perDimensionValidator.validate(array[idx]);
+            }
+            return Optional.of(array);
         } else if (token == XContentParser.Token.VALUE_NULL) {
             context.path().remove();
             return Optional.empty();
