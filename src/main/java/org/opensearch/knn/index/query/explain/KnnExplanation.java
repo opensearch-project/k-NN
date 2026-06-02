@@ -20,6 +20,8 @@ public class KnnExplanation {
 
     private final Map<Object, Integer> annResultPerLeaf;
 
+    private final Map<Object, Boolean> exhaustedSearchPerLeaf;
+
     private final Map<Integer, Float> rawScores;
 
     private final Map<Object, Scorer> knnScorerPerLeaf;
@@ -30,6 +32,7 @@ public class KnnExplanation {
 
     public KnnExplanation() {
         this.annResultPerLeaf = new ConcurrentHashMap<>();
+        this.exhaustedSearchPerLeaf = new ConcurrentHashMap<>();
         this.rawScores = new ConcurrentHashMap<>();
         this.knnScorerPerLeaf = new ConcurrentHashMap<>();
         this.cardinality = 0;
@@ -37,6 +40,10 @@ public class KnnExplanation {
 
     public void addLeafResult(Object leafId, int annResult) {
         this.annResultPerLeaf.put(leafId, annResult);
+    }
+
+    public void addExhaustedSearch(Object leafId, boolean exhausted) {
+        this.exhaustedSearchPerLeaf.put(leafId, exhausted);
     }
 
     public void addRawScore(int docId, float rawScore) {
@@ -49,6 +56,10 @@ public class KnnExplanation {
 
     public Integer getAnnResult(Object leafId) {
         return this.annResultPerLeaf.get(leafId);
+    }
+
+    public Boolean getExhaustedSearch(Object leafId) {
+        return this.exhaustedSearchPerLeaf.get(leafId);
     }
 
     public Float getRawScore(int docId) {
