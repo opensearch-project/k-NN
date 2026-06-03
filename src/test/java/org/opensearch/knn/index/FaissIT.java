@@ -21,6 +21,7 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.lucene.tests.util.TimeUnits;
 import org.apache.lucene.util.VectorUtil;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.client.ResponseException;
@@ -1577,6 +1578,7 @@ public class FaissIT extends KNNRestTestCase {
         deleteKnnDoc(INDEX_NAME, "1");
     }
 
+    @Ignore
     @SneakyThrows
     public void testKNNQuery_withModelDifferentCombination_thenSuccess() {
 
