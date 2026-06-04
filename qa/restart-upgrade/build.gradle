@@ -177,6 +177,13 @@ task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
         }
     }
 
+    // Default excludes pipeline is a 3.x feature
+    if (knn_bwc_version.startsWith("1.") || knn_bwc_version.startsWith("2.")) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.DefaultExcludesBWCIT"
+        }
+    }
+
     if (versionOnOrAfter2_17.any {knn_bwc_version.startsWith(it) }) {
         filter {
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testBlockModeAndCompressionBefore2_17_0"
@@ -335,6 +342,13 @@ task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
             knn_bwc_version.startsWith("2.19.")) {
         filter {
             excludeTestsMatching "org.opensearch.knn.bwc.DerivedSourceBWCRestartIT"
+        }
+    }
+
+    // Default excludes pipeline is a 3.x feature
+    if (knn_bwc_version.startsWith("1.") || knn_bwc_version.startsWith("2.")) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.DefaultExcludesBWCIT"
         }
     }
 

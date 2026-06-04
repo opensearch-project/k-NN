@@ -2561,7 +2561,10 @@ public class FaissIT extends KNNRestTestCase {
     ) throws IOException, ParseException {
         List<List<KNNResult>> queryResults = new ArrayList<>();
         for (float[] queryVector : queryVectors) {
-            XContentBuilder queryBuilder = XContentFactory.jsonBuilder().startObject().startObject("query");
+            XContentBuilder queryBuilder = XContentFactory.jsonBuilder().startObject();
+            queryBuilder.startObject("_source");
+            queryBuilder.array("includes", new String[] { fieldName });
+            queryBuilder.endObject().startObject("query");
             queryBuilder.startObject("knn");
             queryBuilder.startObject(fieldName);
             queryBuilder.field("vector", queryVector);
