@@ -9,6 +9,7 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 /**
  * OpenSearch wrapper around Lucene's DiversifyingChildrenFloatKnnVectorQuery that customizes
@@ -19,7 +20,7 @@ import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
  */
 public final class OSDiversifyingChildrenFloatKnnVectorQuery extends DiversifyingChildrenFloatKnnVectorQuery {
     private final int k;
-    private final boolean needsRescore;
+    private final int rescoreK;
     private final boolean expandNestedDocs;
 
     public OSDiversifyingChildrenFloatKnnVectorQuery(
@@ -29,9 +30,9 @@ public final class OSDiversifyingChildrenFloatKnnVectorQuery extends Diversifyin
         final int luceneK,
         final BitSetProducer parentFilter,
         final int k,
-        final boolean needsRescore
+        final int rescoreK
     ) {
-        this(fieldName, vector, filterQuery, luceneK, parentFilter, k, needsRescore, false);
+        this(fieldName, vector, filterQuery, luceneK, parentFilter, k, rescoreK, false);
     }
 
     public OSDiversifyingChildrenFloatKnnVectorQuery(
@@ -41,22 +42,22 @@ public final class OSDiversifyingChildrenFloatKnnVectorQuery extends Diversifyin
         final int luceneK,
         final BitSetProducer parentFilter,
         final int k,
-        final boolean needsRescore,
+        final int rescoreK,
         final boolean expandNestedDocs
     ) {
         super(fieldName, vector, filterQuery, luceneK, parentFilter);
         this.k = k;
-        this.needsRescore = needsRescore;
+        this.rescoreK = rescoreK;
         this.expandNestedDocs = expandNestedDocs;
     }
 
     @Override
     protected TopDocs mergeLeafResults(TopDocs[] perLeafResults) {
         // TODO: Fix this if condition after adding rescoring logic inside ExpandNestedDocsQuery when rescoring is enabled
-        if (needsRescore && !expandNestedDocs) {
-
-            // When rescoring is enabled, we need to return all the oversampled k results to rescore which are later reduced to k
-            return super.mergeLeafResults(perLeafResults);
+        if (rescoreK != RescoreContext.NO_RESCORE_NEEDED && !expandNestedDocs) {
+            // When rescoring is enabled, merge to oversampled k (rescore budget) rather than the
+            // full luceneK which may have been expanded by ef_search.
+            return TopDocs.merge(rescoreK, perLeafResults);
         }
         // Merge all segment level results and take top k from it
         return TopDocs.merge(k, perLeafResults);

@@ -2888,6 +2888,168 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         return xContentBuilder;
     }
 
+    public void testBase64Indexing_allDataTypes_parsesCorrectly() throws IOException {
+        // --- Float ---
+        float[] expectedFloat = TEST_VECTOR;
+        java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocate(expectedFloat.length * Float.BYTES)
+            .order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        buffer.asFloatBuffer().put(expectedFloat);
+        String floatBase64 = java.util.Base64.getEncoder().encodeToString(buffer.array());
+
+        EngineFieldMapper floatMapper = createFieldMapperForBase64Test(VectorDataType.FLOAT, TEST_DIMENSION);
+        ParseContext floatCtx = createParseContextForBase64(floatBase64);
+        Optional<float[]> floatResult = floatMapper.getFloatsFromContext(floatCtx, TEST_DIMENSION);
+        assertTrue("Float base64 should parse", floatResult.isPresent());
+        assertArrayEquals(expectedFloat, floatResult.get(), 0.0f);
+
+        // --- Byte ---
+        byte[] expectedByte = TEST_BYTE_VECTOR;
+        String byteBase64 = java.util.Base64.getEncoder().encodeToString(expectedByte);
+
+        EngineFieldMapper byteMapper = createFieldMapperForBase64Test(VectorDataType.BYTE, TEST_DIMENSION);
+        ParseContext byteCtx = createParseContextForBase64(byteBase64);
+        Optional<byte[]> byteResult = byteMapper.getBytesFromContext(byteCtx, TEST_DIMENSION, VectorDataType.BYTE);
+        assertTrue("Byte base64 should parse", byteResult.isPresent());
+        assertArrayEquals(expectedByte, byteResult.get());
+
+        // --- Binary (dimension = bits, so dimension 8*TEST_DIMENSION needs TEST_DIMENSION bytes) ---
+        int binaryDimension = TEST_DIMENSION * Byte.SIZE;
+        byte[] expectedBinary = TEST_BYTE_VECTOR;
+        String binaryBase64 = java.util.Base64.getEncoder().encodeToString(expectedBinary);
+
+        EngineFieldMapper binaryMapper = createFieldMapperForBase64Test(VectorDataType.BINARY, binaryDimension);
+        ParseContext binaryCtx = createParseContextForBase64(binaryBase64);
+        Optional<byte[]> binaryResult = binaryMapper.getBytesFromContext(binaryCtx, binaryDimension, VectorDataType.BINARY);
+        assertTrue("Binary base64 should parse", binaryResult.isPresent());
+        assertArrayEquals(expectedBinary, binaryResult.get());
+    }
+
+    public void testBase64Indexing_invalidInput_throwsException() throws IOException {
+        // --- Float: byte length not multiple of 4 ---
+        String invalidFloatBase64 = java.util.Base64.getEncoder().encodeToString(new byte[] { 1, 2, 3 });
+        EngineFieldMapper floatMapper = createFieldMapperForBase64Test(VectorDataType.FLOAT, TEST_DIMENSION);
+        ParseContext floatCtx = createParseContextForBase64(invalidFloatBase64);
+        IllegalArgumentException floatEx = expectThrows(
+            IllegalArgumentException.class,
+            () -> floatMapper.getFloatsFromContext(floatCtx, TEST_DIMENSION)
+        );
+        assertTrue(floatEx.getMessage().contains("invalid byte length"));
+
+        // --- Byte: wrong dimension ---
+        byte[] wrongDimByteVector = new byte[TEST_DIMENSION + 1];
+        Arrays.fill(wrongDimByteVector, (byte) 5);
+        String wrongDimByteBase64 = java.util.Base64.getEncoder().encodeToString(wrongDimByteVector);
+        EngineFieldMapper byteMapper = createFieldMapperForBase64Test(VectorDataType.BYTE, TEST_DIMENSION);
+        ParseContext byteCtx = createParseContextForBase64(wrongDimByteBase64);
+        expectThrows(IllegalArgumentException.class, () -> byteMapper.getBytesFromContext(byteCtx, TEST_DIMENSION, VectorDataType.BYTE));
+
+        // --- Binary: wrong dimension (dimension=16 bits expects 2 bytes, provide 3) ---
+        int binaryDimension = 16;
+        byte[] wrongDimBinaryVector = new byte[] { 1, 2, 3 };
+        String wrongDimBinaryBase64 = java.util.Base64.getEncoder().encodeToString(wrongDimBinaryVector);
+        EngineFieldMapper binaryMapper = createFieldMapperForBase64Test(VectorDataType.BINARY, binaryDimension);
+        ParseContext binaryCtx = createParseContextForBase64(wrongDimBinaryBase64);
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> binaryMapper.getBytesFromContext(binaryCtx, binaryDimension, VectorDataType.BINARY)
+        );
+    }
+
+    public void testBase64Indexing_malformedBase64_throwsDescriptiveError() throws IOException {
+        String malformedBase64 = "not!valid@base64$$";
+
+        // Float path: malformed base64 should mention field name
+        EngineFieldMapper floatMapper = createFieldMapperForBase64Test(VectorDataType.FLOAT, TEST_DIMENSION);
+        ParseContext floatCtx = createParseContextForBase64(malformedBase64);
+        IllegalArgumentException floatEx = expectThrows(
+            IllegalArgumentException.class,
+            () -> floatMapper.getFloatsFromContext(floatCtx, TEST_DIMENSION)
+        );
+        assertTrue(floatEx.getMessage().contains("Invalid base64 encoding for vector field"));
+        assertTrue(floatEx.getMessage().contains(TEST_FIELD_NAME));
+        assertNotNull(floatEx.getCause());
+
+        // Byte path: malformed base64 should mention field name
+        EngineFieldMapper byteMapper = createFieldMapperForBase64Test(VectorDataType.BYTE, TEST_DIMENSION);
+        ParseContext byteCtx = createParseContextForBase64(malformedBase64);
+        IllegalArgumentException byteEx = expectThrows(
+            IllegalArgumentException.class,
+            () -> byteMapper.getBytesFromContext(byteCtx, TEST_DIMENSION, VectorDataType.BYTE)
+        );
+        assertTrue(byteEx.getMessage().contains("Invalid base64 encoding for vector field"));
+        assertTrue(byteEx.getMessage().contains(TEST_FIELD_NAME));
+        assertNotNull(byteEx.getCause());
+    }
+
+    private EngineFieldMapper createFieldMapperForBase64Test(VectorDataType dataType, int dimension) {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(dataType)
+            .versionCreated(CURRENT)
+            .dimension(dimension)
+            .build();
+
+        KNNMethodContext luceneMethodContext = new KNNMethodContext(
+            BuiltinKNNEngine.LUCENE,
+            SpaceType.DEFAULT,
+            new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
+        );
+
+        OriginalMappingParameters originalMappingParameters = new OriginalMappingParameters(
+            dataType,
+            dimension,
+            luceneMethodContext,
+            Mode.NOT_CONFIGURED.getName(),
+            CompressionLevel.NOT_CONFIGURED.getName(),
+            null,
+            SpaceType.UNDEFINED.getValue(),
+            KNNEngine.UNDEFINED.getName()
+        );
+        originalMappingParameters.setResolvedKnnMethodContext(originalMappingParameters.getKnnMethodContext());
+
+        return EngineFieldMapper.createFieldMapper(
+            TEST_FIELD_NAME,
+            TEST_FIELD_NAME,
+            Collections.emptyMap(),
+            knnMethodConfigContext,
+            FieldMapper.MultiFields.empty(),
+            FieldMapper.CopyTo.empty(),
+            new Explicit<>(true, true),
+            false,
+            true,
+            originalMappingParameters,
+            CURRENT
+        );
+    }
+
+    @SneakyThrows
+    private ParseContext createParseContextForBase64(String base64Value) {
+        XContentParser parser = createXContentParserForBase64(base64Value);
+        IndexSettings indexSettingsMock = mock(IndexSettings.class);
+        when(indexSettingsMock.getSettings()).thenReturn(Settings.EMPTY);
+        ParseContext.Document document = new ParseContext.Document();
+        ContentPath contentPath = new ContentPath();
+        ParseContext parseContext = mock(ParseContext.class);
+        when(parseContext.doc()).thenReturn(document);
+        when(parseContext.path()).thenReturn(contentPath);
+        when(parseContext.parser()).thenReturn(parser);
+        when(parseContext.indexSettings()).thenReturn(indexSettingsMock);
+        return parseContext;
+    }
+
+    @SneakyThrows
+    private XContentParser createXContentParserForBase64(final String base64Value) {
+        XContentParser parser = XContentHelper.createParser(
+            NamedXContentRegistry.EMPTY,
+            LoggingDeprecationHandler.INSTANCE,
+            new BytesArray("{\"" + TEST_FIELD_NAME + "\":\"" + base64Value + "\"}"),
+            MediaTypeRegistry.JSON
+        );
+        parser.nextToken();
+        parser.nextToken();
+        parser.nextToken();
+        return parser;
+    }
+
     private static float[] createInitializedFloatArray(int dimension, float value) {
         float[] array = new float[dimension];
         Arrays.fill(array, value);

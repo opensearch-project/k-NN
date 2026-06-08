@@ -8,6 +8,7 @@ package org.opensearch.knn.memoryoptsearch;
 import org.mockito.MockedStatic;
 import org.opensearch.Version;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.common.exception.MemoryOptimizedSearchOldIndicesNotSupportedException;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -378,8 +379,14 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
         */
         // @formatter:on
 
-        assertThrows(IllegalStateException.class, () -> doTestIsSupportedFieldTypeDuringSearch(true, true, true, true, Version.V_2_16_0));
-        assertThrows(IllegalStateException.class, () -> doTestIsSupportedFieldTypeDuringSearch(true, true, false, true, Version.V_2_16_0));
+        assertThrows(
+            MemoryOptimizedSearchOldIndicesNotSupportedException.class,
+            () -> doTestIsSupportedFieldTypeDuringSearch(true, true, true, true, Version.V_2_16_0)
+        );
+        assertThrows(
+            MemoryOptimizedSearchOldIndicesNotSupportedException.class,
+            () -> doTestIsSupportedFieldTypeDuringSearch(true, true, false, true, Version.V_2_16_0)
+        );
 
         // It's ok! MemOptSrch is turned off.
         doTestIsSupportedFieldTypeDuringSearch(false, true, false, false, Version.V_2_16_0);
