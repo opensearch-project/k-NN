@@ -332,4 +332,5 @@ public class FilteredSearchANNSearchIT extends KNNRestTestCase {
         entity = EntityUtils.toString(response.getEntity());
         assertEquals(0, parseIds(entity).size());
     }
+
 }

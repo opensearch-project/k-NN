@@ -209,8 +209,9 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         TopDocs topDocs = knnCollector.topDocs();
         // Align `hitCount` logic with the non-memory-optimized path by setting it to the size of the result set.
         // Note: DefaultKNNWeight defines `hitCount` as the number of results returned per Lucene segment,
-        // while Lucene’s implementation interprets it as the total number of vectors visited during search.
-        topDocs = new TopDocs(new TotalHits(topDocs.scoreDocs.length, TotalHits.Relation.EQUAL_TO), topDocs.scoreDocs);
+        // while Lucene’s implementation interprets it as the total number of vectors visited during search. We will
+        // preserve the totalHits relation so that we know if we exhausted Lucene's search budget.
+        topDocs = new TopDocs(new TotalHits(topDocs.scoreDocs.length, topDocs.totalHits.relation()), topDocs.scoreDocs);
         if (topDocs.scoreDocs.length == 0) {
             log.debug("[KNN] Query yielded 0 results");
             return EMPTY_TOPDOCS;
