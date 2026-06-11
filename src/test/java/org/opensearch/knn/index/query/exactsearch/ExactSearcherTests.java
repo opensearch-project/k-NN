@@ -24,7 +24,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -387,7 +387,7 @@ public class ExactSearcherTests extends KNNTestCase {
         try (MockedStatic<KNNVectorValuesFactory> valuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class)) {
             // Since memory optimized searching relies on Lucene's score framework, we can use minScore as a radius without having to
             // convert it. We should not convert it as it treats minScore as a distance.
-            final float radius = memoryOptimizedSearchEnabled ? score : KNNEngine.FAISS.scoreToRadialThreshold(score, spaceType);
+            final float radius = memoryOptimizedSearchEnabled ? score : BuiltinKNNEngine.FAISS.scoreToRadialThreshold(score, spaceType);
             final int maxResults = 1000;
             final KNNQuery.Context context = mock(KNNQuery.Context.class);
             when(context.getMaxResultWindow()).thenReturn(maxResults);
@@ -444,7 +444,7 @@ public class ExactSearcherTests extends KNNTestCase {
                     SPACE_TYPE,
                     spaceType.getValue(),
                     KNN_ENGINE,
-                    KNNEngine.FAISS.getName(),
+                    BuiltinKNNEngine.FAISS.getName(),
                     PARAMETERS,
                     String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
                 )

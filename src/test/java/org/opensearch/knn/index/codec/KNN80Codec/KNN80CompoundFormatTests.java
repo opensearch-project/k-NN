@@ -18,7 +18,7 @@ import org.opensearch.common.util.set.Sets;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -59,12 +59,12 @@ public class KNN80CompoundFormatTests extends KNNTestCase {
         String segmentName = "_test";
 
         Set<String> segmentFiles = Sets.newHashSet(
-            String.format("%s_nmslib1%s", segmentName, KNNEngine.NMSLIB.getExtension()),
-            String.format("%s_nmslib2%s", segmentName, KNNEngine.NMSLIB.getExtension()),
-            String.format("%s_nmslib3%s", segmentName, KNNEngine.NMSLIB.getExtension()),
-            String.format("%s_faiss1%s", segmentName, KNNEngine.FAISS.getExtension()),
-            String.format("%s_faiss2%s", segmentName, KNNEngine.FAISS.getExtension()),
-            String.format("%s_faiss3%s", segmentName, KNNEngine.FAISS.getExtension())
+            String.format("%s_nmslib1%s", segmentName, BuiltinKNNEngine.NMSLIB.getExtension()),
+            String.format("%s_nmslib2%s", segmentName, BuiltinKNNEngine.NMSLIB.getExtension()),
+            String.format("%s_nmslib3%s", segmentName, BuiltinKNNEngine.NMSLIB.getExtension()),
+            String.format("%s_faiss1%s", segmentName, BuiltinKNNEngine.FAISS.getExtension()),
+            String.format("%s_faiss2%s", segmentName, BuiltinKNNEngine.FAISS.getExtension()),
+            String.format("%s_faiss3%s", segmentName, BuiltinKNNEngine.FAISS.getExtension())
         );
 
         SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()

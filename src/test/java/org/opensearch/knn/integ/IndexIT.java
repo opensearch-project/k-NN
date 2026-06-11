@@ -20,6 +20,7 @@ import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
@@ -59,7 +60,7 @@ public class IndexIT extends KNNRestTestCase {
     @ExpectRemoteBuildValidation
     public void testFaissHnsw_when1000Data_thenRecallIsAboveNinePointZero() {
         // Create Index
-        createKnnHnswIndex(KNNEngine.FAISS, INDEX_NAME, FIELD_NAME, 128);
+        createKnnHnswIndex(BuiltinKNNEngine.FAISS, INDEX_NAME, FIELD_NAME, 128);
         ingestTestData(INDEX_NAME, FIELD_NAME);
 
         int k = 100;
@@ -92,7 +93,7 @@ public class IndexIT extends KNNRestTestCase {
             .startObject("method")
             .field("name", METHOD_HNSW)
             .field("space_type", SpaceType.L2.getValue())
-            .field("engine", KNNEngine.FAISS.getName())
+            .field("engine", BuiltinKNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .startObject("category")
@@ -142,7 +143,7 @@ public class IndexIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", 128)
             .field("mode", Mode.ON_DISK.getName())
-            .field("engine", KNNEngine.LUCENE.getName())
+            .field("engine", BuiltinKNNEngine.LUCENE.getName())
             .field("compression_level", CompressionLevel.x4.getName())
             .endObject()
             .endObject()
@@ -178,7 +179,7 @@ public class IndexIT extends KNNRestTestCase {
             .startObject("method")
             .field("name", METHOD_HNSW)
             .field("space_type", SpaceType.L2.getValue())
-            .field("engine", KNNEngine.LUCENE.getName())
+            .field("engine", BuiltinKNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .startObject("category")
@@ -231,7 +232,7 @@ public class IndexIT extends KNNRestTestCase {
             .startObject("method")
             .field("name", METHOD_HNSW)
             .field("space_type", SpaceType.L2.getValue())
-            .field("engine", KNNEngine.FAISS.getName())
+            .field("engine", BuiltinKNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .startObject("category")
@@ -284,7 +285,7 @@ public class IndexIT extends KNNRestTestCase {
             .startObject("method")
             .field("name", METHOD_HNSW)
             .field("space_type", SpaceType.L2.getValue())
-            .field("engine", KNNEngine.LUCENE.getName())
+            .field("engine", BuiltinKNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .startObject("category")
@@ -337,7 +338,7 @@ public class IndexIT extends KNNRestTestCase {
             .startObject("method")
             .field("name", METHOD_HNSW)
             .field("space_type", SpaceType.L2.getValue())
-            .field("engine", KNNEngine.FAISS.getName())
+            .field("engine", BuiltinKNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .startObject("description")
@@ -389,7 +390,7 @@ public class IndexIT extends KNNRestTestCase {
             .startObject("method")
             .field("name", METHOD_HNSW)
             .field("space_type", SpaceType.L2.getValue())
-            .field("engine", KNNEngine.LUCENE.getName())
+            .field("engine", BuiltinKNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .startObject("description")

@@ -15,6 +15,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
@@ -89,7 +90,7 @@ public class RadialSearchIT extends KNNRestTestCase {
         addRadialCases(
             params,
             "Faiss_L2",
-            KNNEngine.FAISS,
+            BuiltinKNNEngine.FAISS,
             SpaceType.L2,
             l2Vectors,
             l2Query,
@@ -112,7 +113,7 @@ public class RadialSearchIT extends KNNRestTestCase {
         addRadialCases(
             params,
             "Faiss_COSINE",
-            KNNEngine.FAISS,
+            BuiltinKNNEngine.FAISS,
             SpaceType.COSINESIMIL,
             cosVectors,
             cosQuery,
@@ -135,7 +136,7 @@ public class RadialSearchIT extends KNNRestTestCase {
         addRadialCases(
             params,
             "Faiss_IP",
-            KNNEngine.FAISS,
+            BuiltinKNNEngine.FAISS,
             SpaceType.INNER_PRODUCT,
             ipVectors,
             ipQuery,
@@ -161,7 +162,7 @@ public class RadialSearchIT extends KNNRestTestCase {
         addRadialCases(
             params,
             "Faiss_IP_neg",
-            KNNEngine.FAISS,
+            BuiltinKNNEngine.FAISS,
             SpaceType.INNER_PRODUCT,
             ipNegVectors,
             ipNegQuery,
@@ -239,7 +240,7 @@ public class RadialSearchIT extends KNNRestTestCase {
         addRadialCases(
             params,
             "Lucene_L2",
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.L2,
             l2Vectors,
             l2Query,
@@ -262,7 +263,7 @@ public class RadialSearchIT extends KNNRestTestCase {
         addRadialCases(
             params,
             "Lucene_COSINE",
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.COSINESIMIL,
             cosVectors,
             cosQuery,
@@ -285,7 +286,7 @@ public class RadialSearchIT extends KNNRestTestCase {
         addRadialCases(
             params,
             "Lucene_IP",
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             SpaceType.INNER_PRODUCT,
             ipVectors,
             ipQuery,
@@ -313,7 +314,7 @@ public class RadialSearchIT extends KNNRestTestCase {
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.KNN_ENGINE, engine.getName());
 
-        if (engine == KNNEngine.FAISS) {
+        if (engine == BuiltinKNNEngine.FAISS) {
             mapping.startObject(KNNConstants.PARAMETERS)
                 .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, 128)
                 .field(KNNConstants.METHOD_PARAMETER_M, 16)

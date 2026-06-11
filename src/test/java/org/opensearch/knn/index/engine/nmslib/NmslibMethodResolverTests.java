@@ -10,7 +10,7 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -38,12 +38,12 @@ public class NmslibMethodResolverTests extends KNNTestCase {
         );
         assertEquals(METHOD_HNSW, resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getName());
         assertFalse(resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getParameters().isEmpty());
-        assertEquals(KNNEngine.NMSLIB, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
+        assertEquals(BuiltinKNNEngine.NMSLIB, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
         assertEquals(SpaceType.INNER_PRODUCT, resolvedMethodContext.getKnnMethodContext().getSpaceType());
         assertEquals(CompressionLevel.x1, resolvedMethodContext.getCompressionLevel());
 
         KNNMethodContext knnMethodContext = new KNNMethodContext(
-            KNNEngine.NMSLIB,
+            BuiltinKNNEngine.NMSLIB,
             SpaceType.INNER_PRODUCT,
             new MethodComponentContext(METHOD_HNSW, Map.of())
         );
@@ -56,7 +56,7 @@ public class NmslibMethodResolverTests extends KNNTestCase {
         );
         assertEquals(METHOD_HNSW, resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getName());
         assertFalse(resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getParameters().isEmpty());
-        assertEquals(KNNEngine.NMSLIB, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
+        assertEquals(BuiltinKNNEngine.NMSLIB, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
         assertEquals(SpaceType.INNER_PRODUCT, resolvedMethodContext.getKnnMethodContext().getSpaceType());
         assertEquals(CompressionLevel.x1, resolvedMethodContext.getCompressionLevel());
         assertNotEquals(knnMethodContext, resolvedMethodContext.getKnnMethodContext());

@@ -13,6 +13,7 @@ import org.opensearch.knn.KNNResult;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Response;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
@@ -303,7 +304,7 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
         String expectedResponse = String.format("\"fields\":{\"%s\":[[-128,0,1,127]]}}", FIELD_NAME);
         createKnnIndex(
             INDEX_NAME,
-            createVectorMapping(testVector.length, KNNEngine.LUCENE.getName(), VectorDataType.BYTE.getValue(), true)
+            createVectorMapping(testVector.length, BuiltinKNNEngine.LUCENE.getName(), VectorDataType.BYTE.getValue(), true)
         );
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, testVector);
 
@@ -360,7 +361,7 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
      */
     @SneakyThrows
     public void testStoredFields_whenFloatDataType_thenSucceed() {
-        List<KNNEngine> enginesToTest = List.of(KNNEngine.FAISS, KNNEngine.LUCENE);
+        List<KNNEngine> enginesToTest = List.of(BuiltinKNNEngine.FAISS, BuiltinKNNEngine.LUCENE);
         float[] testVector = new float[] { -100.0f, 100.0f, 0f, 1f };
         String expectedResponse = String.format("\"fields\":{\"%s\":[[-100.0,100.0,0.0,1.0]]}}", FIELD_NAME);
         for (KNNEngine knnEngine : enginesToTest) {
@@ -385,7 +386,7 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testPutMappings_whenIndexAlreadyCreated_thenSuccess() {
-        List<KNNEngine> enginesToTest = List.of(KNNEngine.FAISS, KNNEngine.LUCENE);
+        List<KNNEngine> enginesToTest = List.of(BuiltinKNNEngine.FAISS, BuiltinKNNEngine.LUCENE);
         float[] testVector = new float[] { -100.0f, 100.0f, 0f, 1f };
         for (KNNEngine knnEngine : enginesToTest) {
             String indexName = INDEX_NAME + "_" + knnEngine.getName();

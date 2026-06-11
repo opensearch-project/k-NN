@@ -8,7 +8,7 @@ package org.opensearch.knn.index.engine.lucene;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.AbstractMethodResolver;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
@@ -46,7 +46,7 @@ public class LuceneFlatMethodResolver extends AbstractMethodResolver {
 
         KNNMethodContext resolvedKNNMethodContext = initResolvedKNNMethodContext(
             knnMethodContext,
-            KNNEngine.LUCENE,
+            BuiltinKNNEngine.LUCENE,
             spaceType,
             METHOD_FLAT
         );
@@ -59,7 +59,7 @@ public class LuceneFlatMethodResolver extends AbstractMethodResolver {
     }
 
     private void validateNotTrainingContext(boolean shouldRequireTraining, KNNMethodConfigContext knnMethodConfigContext) {
-        ValidationException validationException = validateNotTrainingContext(shouldRequireTraining, KNNEngine.LUCENE, null);
+        ValidationException validationException = validateNotTrainingContext(shouldRequireTraining, BuiltinKNNEngine.LUCENE, null);
         if (validationException != null) {
             throw validationException;
         }

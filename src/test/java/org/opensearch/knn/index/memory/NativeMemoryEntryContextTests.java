@@ -21,7 +21,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -58,7 +58,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
             null,
             0,
             10,
-            KNNEngine.DEFAULT,
+            BuiltinKNNEngine.DEFAULT,
             "test-path",
             "test-name"
         );
@@ -84,7 +84,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
             null,
             0,
             10,
-            KNNEngine.DEFAULT,
+            BuiltinKNNEngine.DEFAULT,
             "test-path",
             "test-name"
         );

@@ -24,7 +24,7 @@ import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -101,7 +101,7 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
                 .startObject(KNNConstants.KNN_METHOD)
                 .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
                 .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-                .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+                .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
                 .startObject(KNNConstants.PARAMETERS)
                 .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
                 .field(
@@ -178,7 +178,7 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
                 .startObject(KNNConstants.KNN_METHOD)
                 .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
                 .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-                .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+                .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
                 .startObject(PARAMETERS)
                 .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
                 .field(

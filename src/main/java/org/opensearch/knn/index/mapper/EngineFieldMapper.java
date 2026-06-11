@@ -19,6 +19,7 @@ import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
@@ -77,7 +78,7 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
         KNNMethodContext methodContext = originalMappingParameters.getResolvedKnnMethodContext();
         KNNLibraryIndexingContext libraryContext = methodContext.getKnnEngine()
             .getKNNLibraryIndexingContext(methodContext, knnMethodConfigContext);
-        boolean isLuceneEngine = KNNEngine.LUCENE.equals(methodContext.getKnnEngine());
+        boolean isLuceneEngine = BuiltinKNNEngine.LUCENE.equals(methodContext.getKnnEngine());
 
         KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
             fullname,

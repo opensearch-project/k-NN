@@ -21,7 +21,7 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 
 import java.io.IOException;
@@ -126,7 +126,7 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_FLAT)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -145,7 +145,7 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_FLAT)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
             .startObject(KNNConstants.PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, 16)
             .endObject()
@@ -170,7 +170,7 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
                 .startObject(KNNConstants.KNN_METHOD)
                 .field(KNNConstants.NAME, METHOD_FLAT)
                 .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-                .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+                .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
                 .endObject()
                 .endObject()
                 .endObject()
@@ -197,7 +197,7 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
                 .startObject(KNNConstants.KNN_METHOD)
                 .field(KNNConstants.NAME, METHOD_FLAT)
                 .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-                .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+                .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
                 .endObject()
                 .endObject()
                 .endObject()
@@ -259,7 +259,7 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_FLAT)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .startObject(COLOR_FIELD_NAME)
@@ -319,7 +319,7 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_FLAT)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -367,7 +367,7 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_FLAT)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -394,7 +394,7 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_FLAT)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .endObject()

@@ -21,7 +21,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 
@@ -41,7 +41,7 @@ public class ModelCacheTests extends KNNTestCase {
         int dimension = 2;
         Model mockModel = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.CREATED,
@@ -82,7 +82,7 @@ public class ModelCacheTests extends KNNTestCase {
 
         Model mockModel = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.CREATED,
@@ -144,7 +144,7 @@ public class ModelCacheTests extends KNNTestCase {
         int size1 = BYTES_PER_KILOBYTES;
         Model mockModel1 = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.CREATED,
@@ -164,7 +164,7 @@ public class ModelCacheTests extends KNNTestCase {
         int size2 = BYTES_PER_KILOBYTES * 3;
         Model mockModel2 = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.CREATED,
@@ -212,7 +212,7 @@ public class ModelCacheTests extends KNNTestCase {
         int size1 = BYTES_PER_KILOBYTES;
         Model mockModel1 = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.CREATED,
@@ -232,7 +232,7 @@ public class ModelCacheTests extends KNNTestCase {
         int size2 = BYTES_PER_KILOBYTES * 3;
         Model mockModel2 = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.CREATED,
@@ -285,7 +285,7 @@ public class ModelCacheTests extends KNNTestCase {
         String cacheSize = "10%";
         Model mockModel = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.CREATED,
@@ -335,7 +335,7 @@ public class ModelCacheTests extends KNNTestCase {
         int modelSize = 2 * BYTES_PER_KILOBYTES;
         Model mockModel = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.CREATED,
@@ -408,7 +408,7 @@ public class ModelCacheTests extends KNNTestCase {
         int modelSize1 = 100;
         Model mockModel1 = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.CREATED,
@@ -454,7 +454,7 @@ public class ModelCacheTests extends KNNTestCase {
         int modelSize1 = BYTES_PER_KILOBYTES;
         Model mockModel1 = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.CREATED,
@@ -476,7 +476,7 @@ public class ModelCacheTests extends KNNTestCase {
         int modelSize2 = BYTES_PER_KILOBYTES * 2;
         Model mockModel2 = new Model(
             new ModelMetadata(
-                KNNEngine.DEFAULT,
+                BuiltinKNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.CREATED,
@@ -526,7 +526,7 @@ public class ModelCacheTests extends KNNTestCase {
             String modelId = String.format(modelIdPattern, i);
             Model mockModel = new Model(
                 new ModelMetadata(
-                    KNNEngine.DEFAULT,
+                    BuiltinKNNEngine.DEFAULT,
                     SpaceType.DEFAULT,
                     dimension,
                     ModelState.CREATED,

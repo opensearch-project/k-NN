@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 3.8](https://github.com/opensearch-project/k-NN/compare/main...HEAD)
 ### Features
 * Add rescoring phase after radial search on quantized index [#3347](https://github.com/opensearch-project/k-NN/pull/3347)
+* Introduce extensible KNNEngine API and BuiltinKNNEngine enumeration [#3288](https://github.com/opensearch-project/k-NN/pull/3288)
 * Add base64 encoded vector indexing support for knn_vector fields [#3350](https://github.com/opensearch-project/k-NN/pull/3350)
 
 ### Maintenance
