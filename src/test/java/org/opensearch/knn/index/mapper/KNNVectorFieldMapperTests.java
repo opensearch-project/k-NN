@@ -2168,7 +2168,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             VectorDataType.FLOAT,
             CompressionLevel.x2,
             CompressionLevel.x2,
-            Mode.NOT_CONFIGURED,
+            Mode.NOT_CONFIGURED, // original: user did not provide mode
+            Mode.IN_MEMORY,      // resolved: derived from x2 compression
             false
         );
 
@@ -2759,14 +2760,38 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         Mode expectedMode,
         boolean shouldUsesBinaryQFramework
     ) {
+        validateBuilderAfterParsing(
+            builder,
+            expectedEngine,
+            expectedSpaceType,
+            expectedVectorDataType,
+            expectedResolvedCompressionLevel,
+            expectedOriginalCompressionLevel,
+            expectedMode,
+            expectedMode,
+            shouldUsesBinaryQFramework
+        );
+    }
+
+    private void validateBuilderAfterParsing(
+        KNNVectorFieldMapper.Builder builder,
+        KNNEngine expectedEngine,
+        SpaceType expectedSpaceType,
+        VectorDataType expectedVectorDataType,
+        CompressionLevel expectedResolvedCompressionLevel,
+        CompressionLevel expectedOriginalCompressionLevel,
+        Mode expectedOriginalMode,
+        Mode expectedResolvedMode,
+        boolean shouldUsesBinaryQFramework
+    ) {
         assertEquals(expectedEngine, builder.getOriginalParameters().getResolvedKnnMethodContext().getKnnEngine());
         assertEquals(expectedSpaceType, builder.getOriginalParameters().getResolvedKnnMethodContext().getSpaceType());
         assertEquals(expectedVectorDataType, builder.getKnnMethodConfigContext().getVectorDataType());
 
         assertEquals(expectedResolvedCompressionLevel, builder.getKnnMethodConfigContext().getCompressionLevel());
         assertEquals(expectedOriginalCompressionLevel, CompressionLevel.fromName(builder.getOriginalParameters().getCompressionLevel()));
-        assertEquals(expectedMode, Mode.fromName(builder.getOriginalParameters().getMode()));
-        assertEquals(expectedMode, builder.getKnnMethodConfigContext().getMode());
+        assertEquals(expectedOriginalMode, Mode.fromName(builder.getOriginalParameters().getMode()));
+        assertEquals(expectedResolvedMode, builder.getKnnMethodConfigContext().getMode());
         assertFalse(builder.getOriginalParameters().getResolvedKnnMethodContext().getMethodComponentContext().getParameters().isEmpty());
 
         if (shouldUsesBinaryQFramework) {
