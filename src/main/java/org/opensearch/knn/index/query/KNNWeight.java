@@ -199,16 +199,19 @@ public abstract class KNNWeight extends Weight {
             }
         }
         final Integer annResult = knnExplanation.getAnnResult(context.id());
+        final Boolean exhaustedSearch = knnExplanation.getExhaustedSearch(context.id());
         if (annResult != null && annResult == 0 && isMissingNativeEngineFiles(context)) {
             sb.append(KNNConstants.EXACT_SEARCH).append(" since no native engine files are available");
         }
-        if (annResult != null && isFilteredExactSearchRequireAfterANNSearch(cardinality, annResult)) {
+        if (annResult != null && isFilteredExactSearchRequireAfterANNSearch(cardinality, exhaustedSearch, annResult)) {
             boolean isExactSearchDisabled = KNNSettings.isKnnIndexFaissEfficientFilterExactSearchDisabled(knnQuery.getIndexName());
             if (isExactSearchDisabled) {
                 sb.append(KNNConstants.ANN_SEARCH)
                     .append(", it is not falling back to exact search after ")
                     .append(KNNConstants.ANN_SEARCH)
                     .append(" search since exact search is disabled,");
+            } else if (exhaustedSearch) {
+                sb.append(KNNConstants.EXACT_SEARCH).append(" since lucene vector search has exhausted number of steps.");
             } else {
                 sb.append(KNNConstants.EXACT_SEARCH)
                     .append(" since the number of documents returned are less than K = ")
@@ -217,7 +220,7 @@ public abstract class KNNWeight extends Weight {
                     .append(cardinality);
             }
         }
-        if (annResult != null && annResult > 0 && !isFilteredExactSearchRequireAfterANNSearch(cardinality, annResult)) {
+        if (annResult != null && annResult > 0 && !isFilteredExactSearchRequireAfterANNSearch(cardinality, exhaustedSearch, annResult)) {
             sb.append(KNNConstants.ANN_SEARCH);
         }
         sb.append(" with vectorDataType = ").append(knnQuery.getVectorDataType());
@@ -346,13 +349,17 @@ public abstract class KNNWeight extends Weight {
         final TopDocs topDocs = approximateSearch(context, filterBitSet, filterCardinality, k);
         stopStopWatchAndLog(log, annStopWatch, "ANN search", knnQuery.getShardId(), segmentName, knnQuery.getField());
 
+        int annResultsCount = topDocs.scoreDocs.length;
+        boolean annSearchBudgetExhausted = topDocs.totalHits.relation() != TotalHits.Relation.EQUAL_TO;
+
         if (knnQuery.isExplain()) {
-            knnExplanation.addLeafResult(context.id(), topDocs.scoreDocs.length);
+            knnExplanation.addLeafResult(context.id(), annResultsCount);
+            knnExplanation.addExhaustedSearch(context.id(), annSearchBudgetExhausted);
         }
         // See whether we have to perform exact search based on approx search results
         // This is required if there are no native engine files or if approximate search returned
         // results less than K, though we have more than k filtered docs
-        if (isExactSearchRequire(context, filterCardinality, topDocs.scoreDocs.length)) {
+        if (isExactSearchRequire(context, filterCardinality, annSearchBudgetExhausted, annResultsCount)) {
             final BitSetIterator docs = filterWeight != null ? new BitSetIterator(filterBitSet, filterCardinality) : null;
             final TopDocs result = doExactSearch(context, docs, filterCardinality, k);
             return new PerLeafResult(
@@ -665,16 +672,22 @@ public abstract class KNNWeight extends Weight {
      * This condition mainly checks whether exact search should be performed or not
      * @param context LeafReaderContext
      * @param filterIdsCount count of filtered Doc ids
+     * @param annSearchBudgetExhausted whether the search budget has been exhausted on lucene
      * @param annResultCount Count of Nearest Neighbours we got after doing filtered ANN Search.
      * @return boolean - true if exactSearch needs to be done after ANNSearch.
      */
-    private boolean isExactSearchRequire(final LeafReaderContext context, final int filterIdsCount, final int annResultCount) {
+    private boolean isExactSearchRequire(
+        final LeafReaderContext context,
+        final int filterIdsCount,
+        final boolean annSearchBudgetExhausted,
+        final int annResultCount
+    ) {
         if (annResultCount == 0 && isMissingNativeEngineFiles(context)) {
             log.debug("Perform exact search after approximate search since no native engine files are available");
             return true;
         }
 
-        if (isFilteredExactSearchRequireAfterANNSearch(filterIdsCount, annResultCount)) {
+        if (isFilteredExactSearchRequireAfterANNSearch(filterIdsCount, annSearchBudgetExhausted, annResultCount)) {
 
             // Disable the fallback mechanism to exact search after ANN Search when the index setting is set to true
             if (KNNSettings.isKnnIndexFaissEfficientFilterExactSearchDisabled(knnQuery.getIndexName())) {
@@ -699,13 +712,25 @@ public abstract class KNNWeight extends Weight {
 
     /**
      * This condition mainly checks during filtered search we have more than K elements in filterIds but the ANN
-     * doesn't yield K nearest neighbors.
+     * doesn't yield K nearest neighbors. Also check to make sure that we didn't hit Lucene's visit budget to match
+     * behavior on low filtering percentages.
      * @param filterIdsCount count of filtered Doc ids
+     * @param annSearchBudgetExhausted whether the search budget has been exhausted on lucene
      * @param annResultCount Count of Nearest Neighbours we got after doing filtered ANN Search.
      * @return boolean - true if exactSearch needs to be done after ANNSearch.
      */
-    private boolean isFilteredExactSearchRequireAfterANNSearch(final int filterIdsCount, final int annResultCount) {
-        return filterWeight != null && filterIdsCount >= knnQuery.getK() && knnQuery.getK() > annResultCount;
+    private boolean isFilteredExactSearchRequireAfterANNSearch(
+        final int filterIdsCount,
+        final boolean annSearchBudgetExhausted,
+        final int annResultCount
+    ) {
+        if (filterWeight == null) {
+            return false;
+        }
+        if (filterIdsCount < knnQuery.getK()) {
+            return false;
+        }
+        return knnQuery.getK() > annResultCount || annSearchBudgetExhausted;
     }
 
     /**
