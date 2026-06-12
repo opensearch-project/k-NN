@@ -15,7 +15,6 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 public class BulkVectorScorerTests extends KNNTestCase {
@@ -141,10 +140,7 @@ public class BulkVectorScorerTests extends KNNTestCase {
 
     @SneakyThrows
     public void testMinScore_noDocsPassFilter() {
-        List<float[]> vectors = List.of(
-            new float[] { 0.0f, 1.0f, 0.0f },
-            new float[] { 0.0f, 0.0f, 1.0f }
-        );
+        List<float[]> vectors = List.of(new float[] { 0.0f, 1.0f, 0.0f }, new float[] { 0.0f, 0.0f, 1.0f });
         float[] query = new float[] { 1.0f, 0.0f, 0.0f };
 
         VectorScorer vectorScorer = createVectorScorer(vectors, query);
