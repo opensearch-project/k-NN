@@ -17,6 +17,7 @@ import org.apache.lucene.search.DocAndFloatFeatureBuffer;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.HitQueue;
 import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopDocsCollector;
 import org.apache.lucene.search.TotalHits;
@@ -88,7 +89,7 @@ public class ExactSearcher {
      * @param context           the {@link ExactSearcherContext} encapsulating query vector, k, radius,
      *                          matched document set, and other search parameters
      * @return {@link TopDocs} containing the scored results sorted by descending score;
-     *         returns {@link TopDocsCollector#EMPTY_TOPDOCS} if no vector scorer can be created
+     * returns {@link TopDocsCollector#EMPTY_TOPDOCS} if no vector scorer can be created
      * @throws IOException if an I/O error occurs while reading vectors or computing scores
      */
     public TopDocs searchLeaf(final LeafReaderContext leafReaderContext, final ExactSearcherContext context) throws IOException {
@@ -114,6 +115,42 @@ public class ExactSearcher {
             return doRadialSearch(fieldInfo, context, vectorScorer, matchedDocs);
         }
         return exactNearestNeighborSearch(context, vectorScorer, matchedDocs);
+    }
+
+    public Scorer exactSearchScorer(final LeafReaderContext leafReaderContext, final ExactSearcherContext context) throws IOException {
+        final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
+        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, context.getField());
+        if (fieldInfo == null) {
+            log.debug("[KNN] FieldInfo is null for field [{}] in segment [{}]", context.getField(), reader.getSegmentName());
+            return null;
+        }
+
+        final VectorScorer vectorScorer = createVectorScorer(reader, fieldInfo, leafReaderContext, context);
+        if (vectorScorer == null) {
+            log.debug("[KNN] VectorScorer creation failed for field [{}] in segment [{}]", context.getField(), reader.getSegmentName());
+            return null;
+        }
+
+        // When nested, matchedDocsIterator is already consumed inside NestedBestChildVectorScorer,
+        // so pass null to avoid double consumption of the same iterator.
+        final boolean isNested = context.getParentsFilter() != null;
+        final DocIdSetIterator matchedDocs = isNested ? null : context.getMatchedDocsIterator();
+
+        if (context.getRadius() != null) {
+            final KNNEngine engine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
+            if (KNNEngine.FAISS != engine) {
+                throw new IllegalArgumentException(String.format(Locale.ROOT, "Engine [%s] does not support radial search", engine));
+            }
+            final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
+            final float minScore = context.isMemoryOptimizedSearchEnabled
+                ? context.getRadius()
+                : engine.score(context.getRadius(), spaceType);
+
+            return BulkVectorScorer.fullPrecision(vectorScorer, matchedDocs, minScore);
+        }
+
+        return BulkVectorScorer.fullPrecision(vectorScorer, matchedDocs);
+
     }
 
     /**
@@ -160,7 +197,7 @@ public class ExactSearcher {
      * @param matchedDocs  a {@link DocIdSetIterator} over the candidate document set, or {@code null}
      *                     if all documents in the segment should be considered
      * @return {@link TopDocs} containing all documents whose score meets the minimum threshold,
-     *         up to {@code maxResultWindow} results, sorted by descending score
+     * up to {@code maxResultWindow} results, sorted by descending score
      * @throws IOException              if an I/O error occurs while reading vectors or computing scores
      * @throws IllegalArgumentException if the underlying engine is not FAISS
      */
@@ -220,74 +257,34 @@ public class ExactSearcher {
      *                     to score all documents available to the scorer
      * @param k            the number of top results to return
      * @return {@link TopDocs} containing the {@code k} highest-scoring documents sorted by
-     *         descending score; may contain fewer than {@code k} results if the candidate set
-     *         is smaller or if sentinel entries are discarded
+     * descending score; may contain fewer than {@code k} results if the candidate set
+     * is smaller or if sentinel entries are discarded
      * @throws IOException if an I/O error occurs while reading vectors or computing scores
      */
     private TopDocs searchTopK(final VectorScorer vectorScorer, final DocIdSetIterator matchedDocs, final int k) throws IOException {
-        final VectorScorer.Bulk bulkScorer = vectorScorer.bulk(matchedDocs);
-        final DocAndFloatFeatureBuffer buffer = new DocAndFloatFeatureBuffer();
-        final HitQueue queue = new HitQueue(k, true);
-        ScoreDoc topDoc = queue.top();
-
-        for (float maxScore = bulkScorer.nextDocsAndScores(DocIdSetIterator.NO_MORE_DOCS, null, buffer); buffer.size > 0; maxScore =
-            bulkScorer.nextDocsAndScores(DocIdSetIterator.NO_MORE_DOCS, null, buffer)) {
-            if (maxScore < topDoc.score) {
-                continue;
-            }
-            for (int i = 0; i < buffer.size; i++) {
-                if (buffer.features[i] > topDoc.score) {
-                    topDoc.score = buffer.features[i];
-                    topDoc.doc = buffer.docs[i];
-                    topDoc = queue.updateTop();
-                }
-            }
-        }
-
-        return collectTopDocs(queue);
+        return collectTopK(BulkVectorScorer.fullPrecision(vectorScorer, matchedDocs), k);
     }
 
-    /**
-     * Returns all documents whose similarity score meets or exceeds the specified minimum,
-     * bounded by {@code maxResultWindow}. A fixed-size min-heap ({@link HitQueue}) is used to
-     * retain the highest-scoring results. Batches whose maximum score falls below
-     * {@code minScore} are skipped entirely for efficiency.
-     *
-     * @param vectorScorer   the {@link VectorScorer} used to compute similarity scores
-     * @param matchedDocs    a {@link DocIdSetIterator} over the candidate document set, or {@code null}
-     *                       to score all documents available to the scorer
-     * @param maxResultWindow the maximum number of results to retain in the heap
-     * @param minScore       the minimum similarity score a document must achieve to be included
-     * @return {@link TopDocs} containing documents that meet the minimum score threshold,
-     *         sorted by descending score, up to {@code maxResultWindow} results
-     * @throws IOException if an I/O error occurs while reading vectors or computing scores
-     */
     private TopDocs searchWithMinScore(
         final VectorScorer vectorScorer,
         final DocIdSetIterator matchedDocs,
         final int maxResultWindow,
         final float minScore
     ) throws IOException {
-        final VectorScorer.Bulk bulkScorer = vectorScorer.bulk(matchedDocs);
-        final DocAndFloatFeatureBuffer buffer = new DocAndFloatFeatureBuffer();
-        final HitQueue queue = new HitQueue(maxResultWindow, true);
-        ScoreDoc topDoc = queue.top();
+        return collectTopK(BulkVectorScorer.fullPrecision(vectorScorer, matchedDocs, minScore), maxResultWindow);
+    }
 
-        for (float maxBatchScore = bulkScorer.nextDocsAndScores(
-            DocIdSetIterator.NO_MORE_DOCS,
-            null,
-            buffer
-        ); buffer.size > 0; maxBatchScore = bulkScorer.nextDocsAndScores(DocIdSetIterator.NO_MORE_DOCS, null, buffer)) {
-            if (maxBatchScore < minScore) {
-                continue;
-            }
-            for (int i = 0; i < buffer.size; i++) {
-                final float score = buffer.features[i];
-                if (score >= minScore && score > topDoc.score) {
-                    topDoc.score = score;
-                    topDoc.doc = buffer.docs[i];
-                    topDoc = queue.updateTop();
-                }
+    private static TopDocs collectTopK(final Scorer scorer, final int heapSize) throws IOException {
+        final HitQueue queue = new HitQueue(heapSize, true);
+        ScoreDoc topDoc = queue.top();
+        DocIdSetIterator iter = scorer.iterator();
+
+        for (int doc = iter.nextDoc(); doc != DocIdSetIterator.NO_MORE_DOCS; doc = iter.nextDoc()) {
+            float score = scorer.score();
+            if (score > topDoc.score) {
+                topDoc.score = score;
+                topDoc.doc = doc;
+                topDoc = queue.updateTop();
             }
         }
 
@@ -444,7 +441,9 @@ public class ExactSearcher {
          */
         boolean useQuantizedVectorsForSearch;
 
-        /** The number of nearest neighbors to return. */
+        /**
+         * The number of nearest neighbors to return.
+         */
         int k;
 
         /**
@@ -463,7 +462,9 @@ public class ExactSearcher {
         @Nullable
         DocIdSetIterator matchedDocsIterator;
 
-        /** The total number of documents matched by the pre-filter, used to select the search strategy. */
+        /**
+         * The total number of documents matched by the pre-filter, used to select the search strategy.
+         */
         long numberOfMatchedDocs;
 
         /**
@@ -474,13 +475,19 @@ public class ExactSearcher {
          */
         BitSetProducer parentsFilter;
 
-        /** The query vector in float representation, used for float and byte vector data types. */
+        /**
+         * The query vector in float representation, used for float and byte vector data types.
+         */
         float[] floatQueryVector;
 
-        /** The query vector in byte representation, used for binary vector data types. */
+        /**
+         * The query vector in byte representation, used for binary vector data types.
+         */
         byte[] byteQueryVector;
 
-        /** The name of the k-NN vector field being searched. */
+        /**
+         * The name of the k-NN vector field being searched.
+         */
         String field;
 
         /**
@@ -489,7 +496,9 @@ public class ExactSearcher {
          */
         Integer maxResultWindow;
 
-        /** The Lucene {@link VectorSimilarityFunction} associated with the vector field. */
+        /**
+         * The Lucene {@link VectorSimilarityFunction} associated with the vector field.
+         */
         VectorSimilarityFunction similarityFunction;
 
         /**
