@@ -35,11 +35,11 @@ public class BulkVectorScorer extends Scorer {
         this.cost = matchedDocs != null ? matchedDocs.cost() : vectorScorer.iterator().cost();
     }
 
-    public static BulkVectorScorer fullPrecision(VectorScorer vectorScorer, DocIdSetIterator matchedDocs) throws IOException {
+    public static BulkVectorScorer forKSearch(VectorScorer vectorScorer, DocIdSetIterator matchedDocs) throws IOException {
         return new BulkVectorScorer(vectorScorer, matchedDocs, score -> true);
     }
 
-    public static BulkVectorScorer fullPrecision(VectorScorer vectorScorer, DocIdSetIterator matchedDocs, float minScore)
+    public static BulkVectorScorer forRadialSearch(VectorScorer vectorScorer, DocIdSetIterator matchedDocs, float minScore)
         throws IOException {
         return new BulkVectorScorer(vectorScorer, matchedDocs, score -> score >= minScore);
     }
@@ -78,6 +78,9 @@ public class BulkVectorScorer extends Scorer {
 
             @Override
             public int advance(int target) throws IOException {
+                if (currentDocId >= target) {
+                    return currentDocId;
+                }
                 while (true) {
                     int doc = nextDoc();
                     if (doc == NO_MORE_DOCS) {
@@ -108,9 +111,10 @@ public class BulkVectorScorer extends Scorer {
 
     private int scanBufferForMatch() {
         while (currentBatchIdx < buffer.size) {
-            if (scoreFilter.test(buffer.features[currentBatchIdx])) {
+            float score = buffer.features[currentBatchIdx];
+            if (scoreFilter.test(score)) {
                 currentDocId = buffer.docs[currentBatchIdx];
-                currentScore = buffer.features[currentBatchIdx];
+                currentScore = score;
                 currentBatchIdx++;
                 return currentDocId;
             }
