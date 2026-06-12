@@ -28,7 +28,7 @@ public class BulkVectorScorer extends Scorer {
     private int currentBatchIdx = 0;
     private float currentScore;
 
-    public BulkVectorScorer(final VectorScorer vectorScorer, final DocIdSetIterator matchedDocs, final Predicate<Float> scoreFilter)
+    private BulkVectorScorer(final VectorScorer vectorScorer, final DocIdSetIterator matchedDocs, final Predicate<Float> scoreFilter)
         throws IOException {
         this.bulkScorer = vectorScorer.bulk(matchedDocs);
         this.scoreFilter = scoreFilter;
