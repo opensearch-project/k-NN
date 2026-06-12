@@ -13,7 +13,6 @@ import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.index.VectorSimilarityFunction;
-import org.apache.lucene.search.DocAndFloatFeatureBuffer;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.HitQueue;
 import org.apache.lucene.search.ScoreDoc;
@@ -44,6 +43,9 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+
+import static org.opensearch.knn.common.FieldInfoExtractor.extractKNNEngine;
+import static org.opensearch.knn.common.FieldInfoExtractor.getSpaceType;
 
 /**
  * Performs brute-force (exact) k-nearest-neighbor search over vector fields within individual
@@ -126,30 +128,22 @@ public class ExactSearcher {
         }
 
         final VectorScorer vectorScorer = createVectorScorer(reader, fieldInfo, leafReaderContext, context);
-        if (vectorScorer == null) {
-            log.debug("[KNN] VectorScorer creation failed for field [{}] in segment [{}]", context.getField(), reader.getSegmentName());
-            return null;
-        }
+        assert vectorScorer != null;
 
         // When nested, matchedDocsIterator is already consumed inside NestedBestChildVectorScorer,
         // so pass null to avoid double consumption of the same iterator.
-        final boolean isNested = context.getParentsFilter() != null;
-        final DocIdSetIterator matchedDocs = isNested ? null : context.getMatchedDocsIterator();
+        final DocIdSetIterator matchedDocs = context.getParentsFilter() != null ? null : context.getMatchedDocsIterator();
 
         if (context.getRadius() != null) {
-            final KNNEngine engine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
-            if (KNNEngine.FAISS != engine) {
-                throw new IllegalArgumentException(String.format(Locale.ROOT, "Engine [%s] does not support radial search", engine));
-            }
-            final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
+            assert extractKNNEngine(fieldInfo) == KNNEngine.FAISS : "Exact searcher for Radial search is only used by FAISS engine";
             final float minScore = context.isMemoryOptimizedSearchEnabled
                 ? context.getRadius()
-                : engine.score(context.getRadius(), spaceType);
+                : KNNEngine.FAISS.score(context.getRadius(), getSpaceType(modelDao, fieldInfo));
 
-            return BulkVectorScorer.fullPrecision(vectorScorer, matchedDocs, minScore);
+            return BulkVectorScorer.forRadialSearch(vectorScorer, matchedDocs, minScore);
         }
 
-        return BulkVectorScorer.fullPrecision(vectorScorer, matchedDocs);
+        return BulkVectorScorer.forKSearch(vectorScorer, matchedDocs);
 
     }
 
@@ -176,9 +170,9 @@ public class ExactSearcher {
         final DocIdSetIterator matchedDocs
     ) throws IOException {
         if (context.getMatchedDocsIterator() != null && context.getNumberOfMatchedDocs() <= context.getK()) {
-            return scoreAllDocs(vectorScorer, matchedDocs);
+            return scoreAllDocs(BulkVectorScorer.forKSearch(vectorScorer, matchedDocs));
         }
-        return searchTopK(vectorScorer, matchedDocs, context.getK());
+        return collectTopK(BulkVectorScorer.forKSearch(vectorScorer, matchedDocs), context.getK());
     }
 
     /**
@@ -209,14 +203,14 @@ public class ExactSearcher {
     ) throws IOException {
         assert context.isMemoryOptimizedSearchEnabled != null;
 
-        final KNNEngine engine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
+        final KNNEngine engine = extractKNNEngine(fieldInfo);
         if (KNNEngine.FAISS != engine) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Engine [%s] does not support radial search", engine));
         }
-        final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
+        final SpaceType spaceType = getSpaceType(modelDao, fieldInfo);
         final float minScore = context.isMemoryOptimizedSearchEnabled ? context.getRadius() : engine.score(context.getRadius(), spaceType);
 
-        return searchWithMinScore(vectorScorer, matchedDocs, context.getMaxResultWindow(), minScore);
+        return collectTopK(BulkVectorScorer.forRadialSearch(vectorScorer, matchedDocs, minScore), context.getMaxResultWindow());
     }
 
     /**
@@ -224,54 +218,19 @@ public class ExactSearcher {
      * by descending score. This method is used as an optimization when the total number of
      * matched documents is small enough (≤ k) that maintaining a bounded heap is unnecessary.
      *
-     * @param vectorScorer the {@link VectorScorer} used to compute similarity scores
-     * @param matchedDocs  a {@link DocIdSetIterator} over the candidate document set, or {@code null}
-     *                     to score all documents available to the scorer
+     * @param scorer the {@link Scorer} lucene scorer for vectors
      * @return {@link TopDocs} containing all scored documents sorted by descending score
      * @throws IOException if an I/O error occurs while reading vectors or computing scores
      */
-    private TopDocs scoreAllDocs(final VectorScorer vectorScorer, final DocIdSetIterator matchedDocs) throws IOException {
-        final VectorScorer.Bulk bulkScorer = vectorScorer.bulk(matchedDocs);
-        final DocAndFloatFeatureBuffer buffer = new DocAndFloatFeatureBuffer();
+    private TopDocs scoreAllDocs(final Scorer scorer) throws IOException {
         final List<ScoreDoc> scoreDocList = new ArrayList<>();
-
-        bulkScorer.nextDocsAndScores(DocIdSetIterator.NO_MORE_DOCS, null, buffer);
-        while (buffer.size > 0) {
-            for (int i = 0; i < buffer.size; i++) {
-                scoreDocList.add(new ScoreDoc(buffer.docs[i], buffer.features[i]));
-            }
-            bulkScorer.nextDocsAndScores(DocIdSetIterator.NO_MORE_DOCS, null, buffer);
+        final DocIdSetIterator scorerIterator = scorer.iterator();
+        for (int docId = scorerIterator.nextDoc(); docId != DocIdSetIterator.NO_MORE_DOCS; docId = scorerIterator.nextDoc()) {
+            scoreDocList.add(new ScoreDoc(docId, scorer.score()));
         }
 
         scoreDocList.sort(Comparator.comparing(scoreDoc -> scoreDoc.score, Comparator.reverseOrder()));
         return new TopDocs(new TotalHits(scoreDocList.size(), TotalHits.Relation.EQUAL_TO), scoreDocList.toArray(ScoreDoc[]::new));
-    }
-
-    /**
-     * Finds the top-{@code k} highest-scoring documents using a fixed-size min-heap ({@link HitQueue}).
-     * Documents are processed in batches via the bulk scorer; batches whose maximum score falls below
-     * the current heap minimum are skipped entirely for efficiency.
-     *
-     * @param vectorScorer the {@link VectorScorer} used to compute similarity scores
-     * @param matchedDocs  a {@link DocIdSetIterator} over the candidate document set, or {@code null}
-     *                     to score all documents available to the scorer
-     * @param k            the number of top results to return
-     * @return {@link TopDocs} containing the {@code k} highest-scoring documents sorted by
-     * descending score; may contain fewer than {@code k} results if the candidate set
-     * is smaller or if sentinel entries are discarded
-     * @throws IOException if an I/O error occurs while reading vectors or computing scores
-     */
-    private TopDocs searchTopK(final VectorScorer vectorScorer, final DocIdSetIterator matchedDocs, final int k) throws IOException {
-        return collectTopK(BulkVectorScorer.fullPrecision(vectorScorer, matchedDocs), k);
-    }
-
-    private TopDocs searchWithMinScore(
-        final VectorScorer vectorScorer,
-        final DocIdSetIterator matchedDocs,
-        final int maxResultWindow,
-        final float minScore
-    ) throws IOException {
-        return collectTopK(BulkVectorScorer.fullPrecision(vectorScorer, matchedDocs, minScore), maxResultWindow);
     }
 
     private static TopDocs collectTopK(final Scorer scorer, final int heapSize) throws IOException {
@@ -344,7 +303,7 @@ public class ExactSearcher {
         final ExactSearcherContext context
     ) throws IOException {
         final VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(fieldInfo);
-        final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
+        final SpaceType spaceType = getSpaceType(modelDao, fieldInfo);
         final VectorScorerMode scorerMode = context.isUseQuantizedVectorsForSearch() ? VectorScorerMode.SCORE : VectorScorerMode.RESCORE;
         final boolean isNestedRequired = context.getParentsFilter() != null;
         final BitSet parentBitSet = isNestedRequired ? context.getParentsFilter().getBitSet(leafReaderContext) : null;

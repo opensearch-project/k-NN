@@ -20,6 +20,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Check to see if Lucene's search budget has exhausted when deciding to exact search in MOS [#3354](https://github.com/opensearch-project/k-NN/pull/3354)
 
 ### Refactoring
-
+* Refactor ExactSearcher to use BulkVectorScorer directly and rename factory methods [#3361](https://github.com/opensearch-project/k-NN/pull/3361)
 
 ### Enhancements

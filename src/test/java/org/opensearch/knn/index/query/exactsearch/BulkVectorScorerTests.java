@@ -22,7 +22,7 @@ public class BulkVectorScorerTests extends KNNTestCase {
     private static final VectorSimilarityFunction SIMILARITY = VectorSimilarityFunction.EUCLIDEAN;
 
     @SneakyThrows
-    public void testFullPrecision_allDocsMatched_returnsCorrectScores() {
+    public void testForRadialSearch_allDocsMatched_returnsCorrectScores() {
         List<float[]> vectors = List.of(
             new float[] { 1.0f, 0.0f, 0.0f },
             new float[] { 0.5f, 0.5f, 0.0f },
@@ -32,7 +32,7 @@ public class BulkVectorScorerTests extends KNNTestCase {
 
         VectorScorer vectorScorer = createVectorScorer(vectors, query);
         DocIdSetIterator matchedDocs = DocIdSetIterator.all(vectors.size());
-        BulkVectorScorer scorer = BulkVectorScorer.fullPrecision(vectorScorer, matchedDocs);
+        BulkVectorScorer scorer = BulkVectorScorer.forKSearch(vectorScorer, matchedDocs);
 
         DocIdSetIterator iter = scorer.iterator();
 
@@ -49,7 +49,7 @@ public class BulkVectorScorerTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testFullPrecision_filteredMatchedDocs_onlyScoresMatchedDocs() {
+    public void testForRadialSearch_filteredMatchedDocs_onlyScoresMatchedDocs() {
         List<float[]> vectors = List.of(
             new float[] { 1.0f, 0.0f, 0.0f },
             new float[] { 0.5f, 0.5f, 0.0f },
@@ -67,7 +67,7 @@ public class BulkVectorScorerTests extends KNNTestCase {
         DocIdSetIterator matchedDocs = new BitSetIterator(bitSet, bitSet.cardinality());
 
         VectorScorer vectorScorer = createVectorScorer(vectors, query);
-        BulkVectorScorer scorer = BulkVectorScorer.fullPrecision(vectorScorer, matchedDocs);
+        BulkVectorScorer scorer = BulkVectorScorer.forKSearch(vectorScorer, matchedDocs);
 
         DocIdSetIterator iter = scorer.iterator();
 
@@ -117,7 +117,7 @@ public class BulkVectorScorerTests extends KNNTestCase {
         DocIdSetIterator matchedDocs = new BitSetIterator(bitSet, bitSet.cardinality());
 
         VectorScorer vectorScorer = createVectorScorer(vectors, query);
-        BulkVectorScorer scorer = BulkVectorScorer.fullPrecision(vectorScorer, matchedDocs, minScore);
+        BulkVectorScorer scorer = BulkVectorScorer.forRadialSearch(vectorScorer, matchedDocs, minScore);
 
         DocIdSetIterator iter = scorer.iterator();
 
@@ -145,7 +145,7 @@ public class BulkVectorScorerTests extends KNNTestCase {
 
         VectorScorer vectorScorer = createVectorScorer(vectors, query);
         DocIdSetIterator matchedDocs = DocIdSetIterator.all(vectors.size());
-        BulkVectorScorer scorer = BulkVectorScorer.fullPrecision(vectorScorer, matchedDocs, Float.MAX_VALUE);
+        BulkVectorScorer scorer = BulkVectorScorer.forRadialSearch(vectorScorer, matchedDocs, Float.MAX_VALUE);
 
         assertEquals(DocIdSetIterator.NO_MORE_DOCS, scorer.iterator().nextDoc());
     }
@@ -168,7 +168,7 @@ public class BulkVectorScorerTests extends KNNTestCase {
         DocIdSetIterator matchedDocs = new BitSetIterator(bitSet, bitSet.cardinality());
 
         VectorScorer vectorScorer = createVectorScorer(vectors, query);
-        BulkVectorScorer scorer = BulkVectorScorer.fullPrecision(vectorScorer, matchedDocs);
+        BulkVectorScorer scorer = BulkVectorScorer.forKSearch(vectorScorer, matchedDocs);
 
         DocIdSetIterator iter = scorer.iterator();
         // Advance past doc 0 and 1 — should land on doc 2 (next matched doc >= 2)
@@ -179,13 +179,43 @@ public class BulkVectorScorerTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    public void testIterator_advance_whenAlreadyAtOrPastTarget_returnsCurrentDoc() {
+        List<float[]> vectors = List.of(
+            new float[] { 1.0f, 0.0f, 0.0f },
+            new float[] { 0.0f, 1.0f, 0.0f },
+            new float[] { 0.0f, 0.0f, 1.0f },
+            new float[] { 0.5f, 0.5f, 0.0f }
+        );
+        float[] query = new float[] { 1.0f, 0.0f, 0.0f };
+
+        VectorScorer vectorScorer = createVectorScorer(vectors, query);
+        DocIdSetIterator matchedDocs = DocIdSetIterator.all(vectors.size());
+        BulkVectorScorer scorer = BulkVectorScorer.forKSearch(vectorScorer, matchedDocs);
+
+        DocIdSetIterator iter = scorer.iterator();
+
+        // Position at doc 2
+        assertEquals(0, iter.nextDoc());
+        assertEquals(1, iter.nextDoc());
+        assertEquals(2, iter.nextDoc());
+
+        // advance(2) should return current doc since we're already at 2
+        assertEquals(2, iter.advance(2));
+        assertEquals(SIMILARITY.compare(query, vectors.get(2)), scorer.score(), 1e-5f);
+
+        // advance(1) should also return current doc since we're past 1
+        assertEquals(2, iter.advance(1));
+        assertEquals(SIMILARITY.compare(query, vectors.get(2)), scorer.score(), 1e-5f);
+    }
+
+    @SneakyThrows
     public void testIterator_advancePastEnd() {
         List<float[]> vectors = List.of(new float[] { 1.0f, 0.0f, 0.0f });
         float[] query = new float[] { 1.0f, 0.0f, 0.0f };
 
         VectorScorer vectorScorer = createVectorScorer(vectors, query);
         DocIdSetIterator matchedDocs = DocIdSetIterator.all(vectors.size());
-        BulkVectorScorer scorer = BulkVectorScorer.fullPrecision(vectorScorer, matchedDocs);
+        BulkVectorScorer scorer = BulkVectorScorer.forKSearch(vectorScorer, matchedDocs);
 
         assertEquals(DocIdSetIterator.NO_MORE_DOCS, scorer.iterator().advance(100));
     }
@@ -197,7 +227,7 @@ public class BulkVectorScorerTests extends KNNTestCase {
 
         VectorScorer vectorScorer = createVectorScorer(vectors, query);
         DocIdSetIterator matchedDocs = DocIdSetIterator.all(vectors.size());
-        BulkVectorScorer scorer = BulkVectorScorer.fullPrecision(vectorScorer, matchedDocs);
+        BulkVectorScorer scorer = BulkVectorScorer.forKSearch(vectorScorer, matchedDocs);
 
         assertEquals(-1, scorer.docID());
     }
@@ -209,7 +239,7 @@ public class BulkVectorScorerTests extends KNNTestCase {
 
         VectorScorer vectorScorer = createVectorScorer(vectors, query);
         DocIdSetIterator matchedDocs = DocIdSetIterator.all(vectors.size());
-        BulkVectorScorer scorer = BulkVectorScorer.fullPrecision(vectorScorer, matchedDocs);
+        BulkVectorScorer scorer = BulkVectorScorer.forKSearch(vectorScorer, matchedDocs);
 
         assertEquals(Float.MAX_VALUE, scorer.getMaxScore(Integer.MAX_VALUE), 0.0f);
     }
@@ -231,7 +261,7 @@ public class BulkVectorScorerTests extends KNNTestCase {
         DocIdSetIterator matchedDocs = new BitSetIterator(bitSet, bitSet.cardinality());
 
         VectorScorer vectorScorer = createVectorScorer(vectors, query);
-        BulkVectorScorer scorer = BulkVectorScorer.fullPrecision(vectorScorer, matchedDocs);
+        BulkVectorScorer scorer = BulkVectorScorer.forKSearch(vectorScorer, matchedDocs);
 
         assertEquals(bitSet.cardinality(), scorer.iterator().cost());
     }
@@ -243,7 +273,7 @@ public class BulkVectorScorerTests extends KNNTestCase {
 
         VectorScorer vectorScorer = createVectorScorer(vectors, query);
         DocIdSetIterator matchedDocs = DocIdSetIterator.empty();
-        BulkVectorScorer scorer = BulkVectorScorer.fullPrecision(vectorScorer, matchedDocs);
+        BulkVectorScorer scorer = BulkVectorScorer.forKSearch(vectorScorer, matchedDocs);
 
         assertEquals(DocIdSetIterator.NO_MORE_DOCS, scorer.iterator().nextDoc());
     }
