@@ -452,7 +452,7 @@ public class ExactSearcher {
 
         /**
          * The maximum number of results to retain during radial search. Acts as an upper bound
-         * on the heap size in {@link #searchWithMinScore} to prevent unbounded memory usage.
+         * on the heap size in {@link #collectTopK(Scorer, int)} to prevent unbounded memory usage.
          */
         Integer maxResultWindow;
 
