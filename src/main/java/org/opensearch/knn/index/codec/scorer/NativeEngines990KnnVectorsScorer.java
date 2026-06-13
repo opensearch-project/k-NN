@@ -70,6 +70,7 @@ public class NativeEngines990KnnVectorsScorer implements FlatVectorsScorer {
         return switch (similarityFunction) {
             case MAXIMUM_INNER_PRODUCT -> SimdVectorComputeService.SimilarityFunctionType.FP16_MAXIMUM_INNER_PRODUCT;
             case EUCLIDEAN -> SimdVectorComputeService.SimilarityFunctionType.FP16_L2;
+            case COSINE -> SimdVectorComputeService.SimilarityFunctionType.FP16_COSINE;
             default -> null;
         };
     }

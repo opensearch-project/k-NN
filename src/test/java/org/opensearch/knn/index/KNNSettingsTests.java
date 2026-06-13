@@ -6,6 +6,8 @@
 package org.opensearch.knn.index;
 
 import lombok.SneakyThrows;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.opensearch.action.admin.cluster.state.ClusterStateRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
@@ -311,5 +313,54 @@ public class KNNSettingsTests extends KNNTestCase {
         int availableProcessors = Runtime.getRuntime().availableProcessors();
         int expected = (availableProcessors >= 32) ? 4 : 1;
         assertEquals(expected, threadQtyWithEmpty);
+    }
+
+    public void testIsFaissAVX512Disabled_whenClusterServiceUnavailable_thenReturnsDefault() {
+        // Mock KNNSettings.state() to return a mock whose getSettingValue throws,
+        // simulating the cluster service being unavailable.
+        KNNSettings mockSettings = Mockito.mock(KNNSettings.class);
+        Mockito.when(mockSettings.getSettingValue(KNNSettings.KNN_FAISS_AVX512_DISABLED)).thenThrow(new NullPointerException("no cluster"));
+
+        try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class, Mockito.CALLS_REAL_METHODS)) {
+            knnSettingsStaticMock.when(KNNSettings::state).thenReturn(mockSettings);
+            boolean result = KNNSettings.isFaissAVX512Disabled();
+            assertEquals(KNNSettings.KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE, result);
+        }
+    }
+
+    public void testIsFaissAVX512SPRDisabled_whenClusterServiceUnavailable_thenReturnsDefault() {
+        // Mock KNNSettings.state() to return a mock whose getSettingValue throws,
+        // simulating the cluster service being unavailable.
+        KNNSettings mockSettings = Mockito.mock(KNNSettings.class);
+        Mockito.when(mockSettings.getSettingValue(KNNSettings.KNN_FAISS_AVX512_SPR_DISABLED))
+            .thenThrow(new NullPointerException("no cluster"));
+
+        try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class, Mockito.CALLS_REAL_METHODS)) {
+            knnSettingsStaticMock.when(KNNSettings::state).thenReturn(mockSettings);
+            boolean result = KNNSettings.isFaissAVX512SPRDisabled();
+            assertEquals(KNNSettings.KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE, result);
+        }
+    }
+
+    @SneakyThrows
+    public void testIsFaissAVX512Disabled_whenSettingAvailable_thenReturnsSettingValue() {
+        Node mockNode = createMockNode(Map.of(KNNSettings.KNN_FAISS_AVX512_DISABLED, true));
+        mockNode.start();
+        ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
+        KNNSettings.state().setClusterService(clusterService);
+        boolean result = KNNSettings.isFaissAVX512Disabled();
+        mockNode.close();
+        assertTrue(result);
+    }
+
+    @SneakyThrows
+    public void testIsFaissAVX512SPRDisabled_whenSettingAvailable_thenReturnsSettingValue() {
+        Node mockNode = createMockNode(Map.of(KNNSettings.KNN_FAISS_AVX512_SPR_DISABLED, true));
+        mockNode.start();
+        ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
+        KNNSettings.state().setClusterService(clusterService);
+        boolean result = KNNSettings.isFaissAVX512SPRDisabled();
+        mockNode.close();
+        assertTrue(result);
     }
 }

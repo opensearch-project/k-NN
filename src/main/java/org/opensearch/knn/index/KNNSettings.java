@@ -948,21 +948,41 @@ public class KNNSettings {
     }
 
     public static boolean isFaissAVX512Disabled() {
-        return parseBoolean(
-            Objects.requireNonNullElse(
-                KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_DISABLED),
-                KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE
-            ).toString()
-        );
+        try {
+            return parseBoolean(
+                Objects.requireNonNullElse(
+                    KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_DISABLED),
+                    KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE
+                ).toString()
+            );
+        } catch (Exception e) {
+            log.warn(
+                "Unable to get setting value {} from cluster settings. Using default value as {}",
+                KNN_FAISS_AVX512_DISABLED,
+                KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE,
+                e
+            );
+            return KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE;
+        }
     }
 
     public static boolean isFaissAVX512SPRDisabled() {
-        return parseBoolean(
-            Objects.requireNonNullElse(
-                KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_SPR_DISABLED),
-                KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE
-            ).toString()
-        );
+        try {
+            return parseBoolean(
+                Objects.requireNonNullElse(
+                    KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX512_SPR_DISABLED),
+                    KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE
+                ).toString()
+            );
+        } catch (Exception e) {
+            log.warn(
+                "Unable to get setting value {} from cluster settings. Using default value as {}",
+                KNN_FAISS_AVX512_SPR_DISABLED,
+                KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE,
+                e
+            );
+            return KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE;
+        }
     }
 
     public static Integer getFilteredExactSearchThreshold(final String indexName) {

@@ -148,7 +148,16 @@ public class FlatVectorsScorerProvider {
                         return SpaceType.L2.scoreTranslation(KNNScoringUtil.l2SquaredADC(target, quantizedByteVector));
                     }
                 };
-                case INNER_PRODUCT, COSINESIMIL -> new RandomVectorScorer.AbstractRandomVectorScorer(knnVectorValues) {
+                case COSINESIMIL -> new RandomVectorScorer.AbstractRandomVectorScorer(knnVectorValues) {
+                    @Override
+                    public float score(int internalVectorId) throws IOException {
+                        final byte[] quantizedByteVector = byteVectorValues.vectorValue(internalVectorId);
+                        // For cosine, the dot product of normalized vectors equals cosine similarity.
+                        // COSINESIMIL.scoreTranslation expects rawScore = 1 - cosine, which equals 1 - dot.
+                        return SpaceType.COSINESIMIL.scoreTranslation(1 - KNNScoringUtil.innerProductADC(target, quantizedByteVector));
+                    }
+                };
+                case INNER_PRODUCT -> new RandomVectorScorer.AbstractRandomVectorScorer(knnVectorValues) {
                     @Override
                     public float score(int internalVectorId) throws IOException {
                         final byte[] quantizedByteVector = byteVectorValues.vectorValue(internalVectorId);
