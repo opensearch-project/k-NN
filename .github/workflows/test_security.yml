@@ -28,7 +28,7 @@ jobs:
   Get-CI-Image-Tag:
     needs: check-files
     if: needs.check-files.outputs.RUN_SECURE_IT_TEST == 'true'
-    uses: opensearch-project/opensearch-build/.github/workflows/get-ci-image-tag.yml@c2498b758c08fb7bc48476509a5fc1b8dd5f7493 # main
+    uses: opensearch-project/opensearch-build/.github/workflows/get-ci-image-tag.yml@761e093b8c1349cc07f21c1d681d3b30bf9e1999 # main
     with:
       product: opensearch
 

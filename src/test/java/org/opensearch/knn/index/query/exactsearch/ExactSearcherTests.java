@@ -12,7 +12,9 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentCommitInfo;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReader;
+import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.FSDirectory;
@@ -33,6 +35,7 @@ import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -459,6 +462,172 @@ public class ExactSearcherTests extends KNNTestCase {
             assertEquals(topDocs.scoreDocs.length, dataVectors.size());
             List<Float> actualScores = Arrays.stream(topDocs.scoreDocs).map(scoreDoc -> scoreDoc.score).toList();
             assertEquals(expectedScores, actualScores);
+        }
+    }
+
+    @SneakyThrows
+    public void testExactSearchScorer_whenSegmentHasNoVectorField_thenReturnsNull() {
+        final float[] queryVector = new float[] { 0.1f, 2.0f, 3.0f };
+
+        final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
+            .field(FIELD_NAME)
+            .floatQueryVector(queryVector)
+            .k(10)
+            .build();
+
+        ExactSearcher exactSearcher = new ExactSearcher(null);
+        final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+        final SegmentReader reader = mock(SegmentReader.class);
+        when(leafReaderContext.reader()).thenReturn(reader);
+
+        final FieldInfos fieldInfos = mock(FieldInfos.class);
+        when(reader.getFieldInfos()).thenReturn(fieldInfos);
+        when(fieldInfos.fieldInfo(FIELD_NAME)).thenReturn(null);
+
+        Scorer scorer = exactSearcher.exactSearchScorer(leafReaderContext, exactSearcherContext);
+        assertNull(scorer);
+    }
+
+    @SneakyThrows
+    public void testExactSearchScorer_kSearch_returnsFullPrecisionScorer() {
+        final float[] queryVector = new float[] { 0.1f, 2.0f, 3.0f };
+        final SpaceType spaceType = SpaceType.L2;
+        final List<float[]> dataVectors = List.of(
+            new float[] { 1.0f, 2.0f, 3.0f },
+            new float[] { 4.0f, 5.0f, 6.0f },
+            new float[] { 0.0f, 1.0f, 2.0f }
+        );
+        final VectorSimilarityFunction similarityFunction = spaceType.getKnnVectorSimilarityFunction().getVectorSimilarityFunction();
+
+        final TestVectorValues.PreDefinedFloatVectorValues floatVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            dataVectors,
+            similarityFunction
+        );
+        final KNNVectorValues knnFloatVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, floatVectorValues);
+
+        DocIdSetIterator matchedDocsIterator = DocIdSetIterator.all(dataVectors.size());
+
+        final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
+            .field(FIELD_NAME)
+            .floatQueryVector(queryVector)
+            .matchedDocsIterator(matchedDocsIterator)
+            .k(10)
+            .build();
+
+        try (MockedStatic<KNNVectorValuesFactory> vectorValuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class)) {
+            ExactSearcher exactSearcher = new ExactSearcher(null);
+            final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+            final SegmentReader reader = mock(SegmentReader.class);
+            when(leafReaderContext.reader()).thenReturn(reader);
+
+            final FieldInfos fieldInfos = mock(FieldInfos.class);
+            final FieldInfo fieldInfo = mock(FieldInfo.class);
+            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(spaceType.getValue());
+            when(reader.getFieldInfos()).thenReturn(fieldInfos);
+            when(fieldInfos.fieldInfo(FIELD_NAME)).thenReturn(fieldInfo);
+
+            vectorValuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader))
+                .thenReturn(knnFloatVectorValues);
+
+            Scorer scorer = exactSearcher.exactSearchScorer(leafReaderContext, exactSearcherContext);
+            assertNotNull(scorer);
+            assertTrue(scorer instanceof BulkVectorScorer);
+
+            // Verify the scorer returns all docs with correct scores
+            List<Float> actualScores = new ArrayList<>();
+            DocIdSetIterator iter = scorer.iterator();
+            while (iter.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
+                actualScores.add(scorer.score());
+            }
+
+            assertEquals(dataVectors.size(), actualScores.size());
+            for (int i = 0; i < dataVectors.size(); i++) {
+                float expected = similarityFunction.compare(queryVector, dataVectors.get(i));
+                assertEquals(expected, actualScores.get(i), 1e-5f);
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testExactSearchScorer_radialSearch_returnsMinScoreScorer() {
+        final float[] queryVector = new float[] { 0.1f, 2.0f, 3.0f };
+        final SpaceType spaceType = SpaceType.L2;
+        final List<float[]> dataVectors = List.of(
+            new float[] { 0.1f, 2.0f, 3.0f },
+            new float[] { 100.0f, 100.0f, 100.0f },
+            new float[] { 0.2f, 2.1f, 3.1f }
+        );
+        final VectorSimilarityFunction similarityFunction = spaceType.getKnnVectorSimilarityFunction().getVectorSimilarityFunction();
+
+        // Compute scores to set a threshold
+        float score0 = similarityFunction.compare(queryVector, dataVectors.get(0));
+        float score1 = similarityFunction.compare(queryVector, dataVectors.get(1));
+        float score2 = similarityFunction.compare(queryVector, dataVectors.get(2));
+
+        // score0 and score2 should be high (close vectors), score1 should be low (far vector)
+        float minScore = (score1 + Math.min(score0, score2)) / 2.0f;
+
+        final TestVectorValues.PreDefinedFloatVectorValues floatVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            dataVectors,
+            similarityFunction
+        );
+        final KNNVectorValues knnFloatVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, floatVectorValues);
+
+        DocIdSetIterator matchedDocsIterator = DocIdSetIterator.all(dataVectors.size());
+
+        final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
+            .field(FIELD_NAME)
+            .floatQueryVector(queryVector)
+            .matchedDocsIterator(matchedDocsIterator)
+            .radius(minScore)
+            .isMemoryOptimizedSearchEnabled(true)
+            .k(10)
+            .build();
+
+        try (MockedStatic<KNNVectorValuesFactory> vectorValuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class)) {
+            ExactSearcher exactSearcher = new ExactSearcher(null);
+            final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+            final SegmentReader reader = mock(SegmentReader.class);
+            when(leafReaderContext.reader()).thenReturn(reader);
+
+            final FieldInfos fieldInfos = mock(FieldInfos.class);
+            final FieldInfo fieldInfo = mock(FieldInfo.class);
+            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(spaceType.getValue());
+            when(fieldInfo.attributes()).thenReturn(
+                Map.of(
+                    SPACE_TYPE,
+                    spaceType.getValue(),
+                    KNN_ENGINE,
+                    KNNEngine.FAISS.getName(),
+                    PARAMETERS,
+                    String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
+                )
+            );
+            when(reader.getFieldInfos()).thenReturn(fieldInfos);
+            when(fieldInfos.fieldInfo(FIELD_NAME)).thenReturn(fieldInfo);
+
+            vectorValuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader))
+                .thenReturn(knnFloatVectorValues);
+
+            Scorer scorer = exactSearcher.exactSearchScorer(leafReaderContext, exactSearcherContext);
+            assertNotNull(scorer);
+            assertTrue(scorer instanceof BulkVectorScorer);
+
+            // Verify the scorer only returns docs passing the minScore threshold
+            List<Integer> matchedDocIds = new ArrayList<>();
+            List<Float> actualScores = new ArrayList<>();
+            DocIdSetIterator iter = scorer.iterator();
+            while (iter.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
+                matchedDocIds.add(iter.docID());
+                actualScores.add(scorer.score());
+            }
+
+            // doc 1 (far vector) should be filtered out
+            for (int docId : matchedDocIds) {
+                float docScore = similarityFunction.compare(queryVector, dataVectors.get(docId));
+                assertTrue("doc " + docId + " should meet min score threshold", docScore >= minScore);
+            }
+            assertFalse("doc 1 should be filtered out", matchedDocIds.contains(1));
         }
     }
 }
