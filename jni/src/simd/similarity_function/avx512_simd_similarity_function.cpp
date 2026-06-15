@@ -10,7 +10,6 @@
 #include "faiss_score_to_lucene_transform.cpp"
 
 
-
 //
 // FP16
 //
@@ -262,6 +261,251 @@ struct AVX512SPRFP16L2 final : BaseSimilarityFunction<BulkScoreTransformFunc, Sc
     }
 };
 
+//
+// Native AVX512-FP16 Inner Product for Cosine Similarity
+//
+// Uses native AVX512-FP16 FMA instructions (_mm512_fmadd_ph) at 32 FP16 elements per
+// 512-bit register, with on-the-fly FP32->FP16 query conversion. To bound FP16
+// accumulation rounding error across long vectors, the FP16 accumulator is drained
+// into an FP32 accumulator every FP16_DRAIN_INTERVAL iterations -- trading a small
+// amount of throughput for substantially better numerical accuracy.
+//
+// Routed only from the cosine similarity path, where L2-normalized vectors guarantee
+// per-element products lie in [-1, 1].
+//
+#ifdef __AVX512FP16__
+
+// Drain FP16 accumulator into FP32 accumulator, then zero the FP16 accumulator.
+// Splits the 32 FP16 lanes into two halves of 16, widens each to FP32, and adds
+// to the FP32 accumulator.
+static inline void drain_ph_to_ps(__m512& acc_ps, __m512h& acc_ph) {
+    __m512i raw = _mm512_castph_si512(acc_ph);
+    acc_ps = _mm512_add_ps(acc_ps,
+                _mm512_cvtph_ps(_mm512_castsi512_si256(raw)));
+    acc_ps = _mm512_add_ps(acc_ps,
+                _mm512_cvtph_ps(_mm512_extracti64x4_epi64(raw, 1)));
+    acc_ph = _mm512_castsi512_ph(_mm512_setzero_si512());
+}
+
+// Convert 32 floats to a packed 512-bit float16 register (2x16 FP32 -> 1x32 FP16).
+static inline __m512h cvt2x16_fp32_to_ph(const float* p) {
+    __m256i lo = _mm512_cvtps_ph(_mm512_loadu_ps(p),
+                    _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
+    __m256i hi = _mm512_cvtps_ph(_mm512_loadu_ps(p + 16),
+                    _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
+    return _mm512_castsi512_ph(
+        _mm512_inserti64x4(_mm512_castsi256_si512(lo), hi, 1));
+}
+
+//
+// Native AVX512-FP16 Inner Product, cosine path only.
+//
+// PRECONDITION: query and data vectors are L2-normalized. This is the cosine
+// invariant. Running partial sums stay in [-1, +1] throughout, where FP16 ULP
+// is ~5e-4. Cumulative rounding error over dim=768 is ~sqrt(N)*ulp ~= 2e-3
+// expected, ~6e-3 worst-case — well below cosine ranking noise. Therefore we
+// accumulate entirely in FP16 and drain to FP32 only once per vector at the
+// end, before horizontal reduce.
+//
+// DO NOT route any unnormalized similarity through this kernel. The previous
+// version of this code drained to FP32 every FP16_DRAIN_INTERVAL iterations
+// precisely to handle the unnormalized case, where partial sums can grow into
+// binades with much larger ULP and per-FMA rounding error explodes.
+//
+
+template <BulkScoreTransform BulkScoreTransformFunc, ScoreTransform ScoreTransformFunc>
+struct AVX512NativeFP16IP final : BaseSimilarityFunction<BulkScoreTransformFunc, ScoreTransformFunc> {
+    void calculateSimilarityInBulk(SimdVectorSearchContext* srchContext,
+                                   int32_t* internalVectorIds,
+                                   float* scores,
+                                   const int32_t numVectors) {
+
+        int32_t processedCount = 0;
+        const auto* queryPtr = (const float*) srchContext->queryVectorSimdAligned;
+        const int32_t dim = srchContext->dimension;
+
+        constexpr int32_t vecBlock    = 8;
+        constexpr int32_t elemPerLoad = 32;
+
+        const int32_t simdDim = (dim / elemPerLoad) * elemPerLoad;
+        const int32_t tailDim = dim - simdDim;
+
+        // ---- Pre-convert query FP32 -> FP16 (once per call) ----
+        auto& tmpBuf = srchContext->tmpBuffer;
+        const size_t queryFP16Bytes = static_cast<size_t>(dim) * sizeof(_Float16);
+        if (tmpBuf.size() < queryFP16Bytes) {
+            tmpBuf.resize(queryFP16Bytes);
+        }
+        _Float16* queryFP16 = reinterpret_cast<_Float16*>(tmpBuf.data());
+
+        int32_t qi = 0;
+        for (; qi + 16 <= dim; qi += 16) {
+            __m256i converted = _mm512_cvtps_ph(
+                _mm512_loadu_ps(queryPtr + qi),
+                _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
+            _mm256_storeu_si256(reinterpret_cast<__m256i*>(queryFP16 + qi), converted);
+        }
+        for (; qi < dim; ++qi) {
+            queryFP16[qi] = static_cast<_Float16>(queryPtr[qi]);
+        }
+
+        // L2-targeted prefetch distance: 8 chunks ahead.
+        // At 64 bytes per chunk per vector and ~40 cycles/iter, this is
+        // ~320 cycles of lookahead — enough to hide DRAM round-trip.
+        // The old 1-chunk-ahead prefetcht0 was far too short for DRAM and
+        // consumed L1D fill buffers (12 entries), causing 39% fb_full stalls.
+        // prefetcht1 routes through the superqueue (48 entries) instead.
+        constexpr int32_t kPrefetchAheadElems = 8 * elemPerLoad;
+
+        // For next-batch prefetch: compute vector addresses inline to
+        // warm TLB and seed HW prefetcher during current batch computation.
+        const auto* mmapBase = (srchContext->mmapPages.size() == 1)
+            ? reinterpret_cast<const uint8_t*>(srchContext->mmapPages[0])
+            : nullptr;
+        const int64_t vecByteStride = srchContext->oneVectorByteSize;
+
+        __m512h sum[vecBlock];
+
+        for (; processedCount <= numVectors - vecBlock; processedCount += vecBlock) {
+            const uint8_t* vectors[vecBlock];
+            srchContext->getVectorPointersInBulk((uint8_t**)vectors, &internalVectorIds[processedCount], vecBlock);
+
+            // Warm first 3 cache lines of each vector into L1/L2.
+            #pragma unroll
+            for (int32_t v = 0; v < vecBlock; ++v) {
+                __builtin_prefetch(vectors[v], 0, 3);
+                __builtin_prefetch(vectors[v] + 64, 0, 2);
+                __builtin_prefetch(vectors[v] + 128, 0, 2);
+            }
+
+            // Pipeline: prefetch NEXT batch's first cache lines to overlap
+            // TLB page walks (~140 cycles each) and DRAM fetches with current
+            // batch computation (~2000+ cycles at dim=768).
+            const int32_t nextStart = processedCount + vecBlock;
+            if (mmapBase && nextStart <= numVectors - vecBlock) {
+                #pragma unroll
+                for (int32_t v = 0; v < vecBlock; ++v) {
+                    const auto* p = mmapBase + vecByteStride * internalVectorIds[nextStart + v];
+                    __builtin_prefetch(p, 0, 2);
+                    __builtin_prefetch(p + 64, 0, 2);
+                    __builtin_prefetch(p + 128, 0, 2);
+                }
+            }
+
+            #pragma unroll
+            for (int32_t v = 0; v < vecBlock; ++v) {
+                sum[v] = _mm512_setzero_ph();
+            }
+
+            // Hot loop with L2-targeted prefetch 8 chunks ahead.
+            // The conditional guard mispredicts only once (at the transition
+            // ~8 iters from the end) — ~15 cycles total, negligible vs the
+            // ~39% fb_full elimination from switching prefetcht0 → prefetcht1.
+            int32_t i = 0;
+            for (; i < simdDim; i += elemPerLoad) {
+                __m512h q0 = _mm512_loadu_ph(queryFP16 + i);
+
+                __m512h vRegs[vecBlock];
+                #pragma unroll
+                for (int32_t v = 0; v < vecBlock; ++v) {
+                    vRegs[v] = _mm512_loadu_ph(vectors[v] + 2 * i);
+                }
+
+                if ((i + kPrefetchAheadElems) < dim) {
+                    const int32_t prefOffset = (i + kPrefetchAheadElems) * 2;
+                    #pragma unroll
+                    for (int32_t v = 0; v < vecBlock; ++v) {
+                        __builtin_prefetch(vectors[v] + prefOffset, 0, 2);
+                    }
+                }
+
+                #pragma unroll
+                for (int32_t v = 0; v < vecBlock; ++v) {
+                    sum[v] = _mm512_fmadd_ph(q0, vRegs[v], sum[v]);
+                }
+            }
+
+            if (tailDim > 0) {
+                const __mmask32 tailMask = (__mmask32)((1ULL << tailDim) - 1);
+                __m512h q0 = _mm512_castsi512_ph(_mm512_maskz_loadu_epi16(tailMask, queryFP16 + simdDim));
+
+                __m512h vRegs[vecBlock];
+                #pragma unroll
+                for (int32_t v = 0; v < vecBlock; ++v) {
+                    vRegs[v] = _mm512_castsi512_ph(_mm512_maskz_loadu_epi16(tailMask, vectors[v] + 2 * simdDim));
+                }
+
+                #pragma unroll
+                for (int32_t v = 0; v < vecBlock; ++v) {
+                    sum[v] = _mm512_fmadd_ph(q0, vRegs[v], sum[v]);
+                }
+            }
+
+            #pragma unroll
+            for (int32_t v = 0; v < vecBlock; ++v) {
+                __m512 acc_ps = _mm512_setzero_ps();
+                drain_ph_to_ps(acc_ps, sum[v]);
+                scores[processedCount + v] = _mm512_reduce_add_ps(acc_ps);
+            }
+        }
+
+        // Scalar tail with one-vector-ahead prefetch pipeline
+        {
+            constexpr int32_t unrollFactor = 4;
+
+            for (; processedCount < numVectors; ++processedCount) {
+                const auto* vecPtr = (const uint8_t*) srchContext->getVectorPointer(internalVectorIds[processedCount]);
+
+                if (processedCount + 1 < numVectors) {
+                    const auto* nextPtr = (const uint8_t*) srchContext->getVectorPointer(internalVectorIds[processedCount + 1]);
+                    __builtin_prefetch(nextPtr, 0, 3);
+                    __builtin_prefetch(nextPtr + 64, 0, 2);
+                }
+
+                __m512h s[unrollFactor];
+                #pragma unroll
+                for (int32_t u = 0; u < unrollFactor; ++u) {
+                    s[u] = _mm512_setzero_ph();
+                }
+
+                const int32_t unrolledDim = simdDim & ~(unrollFactor * elemPerLoad - 1);
+                int32_t i = 0;
+
+                for (; i < unrolledDim; i += unrollFactor * elemPerLoad) {
+                    #pragma unroll
+                    for (int32_t u = 0; u < unrollFactor; ++u) {
+                        __m512h q = _mm512_loadu_ph(queryFP16 + i + u * elemPerLoad);
+                        __m512h v = _mm512_loadu_ph(vecPtr + 2 * (i + u * elemPerLoad));
+                        s[u] = _mm512_fmadd_ph(q, v, s[u]);
+                    }
+                }
+
+                for (; i < simdDim; i += elemPerLoad) {
+                    __m512h q = _mm512_loadu_ph(queryFP16 + i);
+                    __m512h v = _mm512_loadu_ph(vecPtr + 2 * i);
+                    s[0] = _mm512_fmadd_ph(q, v, s[0]);
+                }
+
+                if (tailDim > 0) {
+                    const __mmask32 tailMask = (__mmask32)((1ULL << tailDim) - 1);
+                    __m512h q = _mm512_castsi512_ph(_mm512_maskz_loadu_epi16(tailMask, queryFP16 + simdDim));
+                    __m512h v = _mm512_castsi512_ph(_mm512_maskz_loadu_epi16(tailMask, vecPtr + 2 * simdDim));
+                    s[0] = _mm512_fmadd_ph(q, v, s[0]);
+                }
+
+                __m512 acc_ps = _mm512_setzero_ps();
+                #pragma unroll
+                for (int32_t u = 0; u < unrollFactor; ++u) {
+                    drain_ph_to_ps(acc_ps, s[u]);
+                }
+                scores[processedCount] = _mm512_reduce_add_ps(acc_ps);
+            }
+        }
+
+        BulkScoreTransformFunc(scores, numVectors);
+    }
+};
+#endif // __AVX512FP16__
 
 //
 // SQ (ADC: 4-bit query x 1-bit data) - AVX512 SIMD implementation
@@ -460,7 +704,7 @@ static FORCE_INLINE void avx512_4bitDotProductBatch(
     }
 }
 
-template <bool IsMaxIP>
+template <SQMetricMode Mode>
 struct AVX512SQSimilarityFunction final : SimilarityFunction {
     HOT_SPOT void calculateSimilarityInBulk(SimdVectorSearchContext* srchContext,
                                             int32_t* internalVectorIds,
@@ -502,7 +746,7 @@ struct AVX512SQSimilarityFunction final : SimilarityFunction {
                                            + ax * ly * y1
                                            + lx * ly * scores[processedCount + i];
 
-                if constexpr (IsMaxIP) {
+                if constexpr (Mode == SQMetricMode::MAX_IP || Mode == SQMetricMode::COSINE) {
                     scores[processedCount + i] += queryAdditional + additional - centroidDp;
                 } else {
                     scores[processedCount + i] = std::max(0.0F, queryAdditional + additional - 2 * scores[processedCount + i]);
@@ -528,7 +772,7 @@ struct AVX512SQSimilarityFunction final : SimilarityFunction {
                                            + ax * ly * y1
                                            + lx * ly * scores[processedCount + i];
 
-                if constexpr (IsMaxIP) {
+                if constexpr (Mode == SQMetricMode::MAX_IP || Mode == SQMetricMode::COSINE) {
                     scores[processedCount + i] += queryAdditional + additional - centroidDp;
                 } else {
                     scores[processedCount + i] =
@@ -551,7 +795,7 @@ struct AVX512SQSimilarityFunction final : SimilarityFunction {
                                    + ax * ly * y1
                                    + lx * ly * qcDist;
 
-            if constexpr (IsMaxIP) {
+            if constexpr (Mode == SQMetricMode::MAX_IP || Mode == SQMetricMode::COSINE) {
                 scores[processedCount] += queryAdditional + additional - centroidDp;
             } else {
                 scores[processedCount] =
@@ -559,8 +803,10 @@ struct AVX512SQSimilarityFunction final : SimilarityFunction {
             }
         }
 
-        if constexpr (IsMaxIP) {
+        if constexpr (Mode == SQMetricMode::MAX_IP) {
             FaissScoreToLuceneScoreTransform::ipToMaxIpTransformBulk(scores, numVectors);
+        } else if constexpr (Mode == SQMetricMode::COSINE) {
+            FaissScoreToLuceneScoreTransform::cosineTransformBulk(scores, numVectors);
         } else {
             FaissScoreToLuceneScoreTransform::l2TransformBulk(scores, numVectors);
         }
@@ -591,9 +837,13 @@ struct AVX512SQSimilarityFunction final : SimilarityFunction {
                       + ax * ly * y1
                       + lx * ly * qcDist;
 
-        if constexpr (IsMaxIP) {
+        if constexpr (Mode == SQMetricMode::MAX_IP || Mode == SQMetricMode::COSINE) {
             score += queryAdditional + additional - centroidDp;
-            return FaissScoreToLuceneScoreTransform::ipToMaxIpTransform(score);
+            if constexpr (Mode == SQMetricMode::MAX_IP) {
+                return FaissScoreToLuceneScoreTransform::ipToMaxIpTransform(score);
+            } else {
+                return FaissScoreToLuceneScoreTransform::cosineTransform(score);
+            }
         } else {
             score = std::max(0.0F, queryAdditional + additional - 2 * score);
             return FaissScoreToLuceneScoreTransform::l2Transform(score);
@@ -609,14 +859,23 @@ struct AVX512SQSimilarityFunction final : SimilarityFunction {
 AVX512SPRFP16MaxIP<FaissScoreToLuceneScoreTransform::ipToMaxIpTransformBulk, FaissScoreToLuceneScoreTransform::ipToMaxIpTransform> FP16_MAX_INNER_PRODUCT_SIMIL_FUNC;
 // 2. L2
 AVX512SPRFP16L2<FaissScoreToLuceneScoreTransform::l2TransformBulk, FaissScoreToLuceneScoreTransform::l2Transform> FP16_L2_SIMIL_FUNC;
+// 3. Cosine: Uses native AVX512-FP16 IP kernel when available (SPR+), otherwise falls back to FP32 FMA path.
+//    Safe because cosine guarantees L2-normalized vectors (||v|| = ||q|| = 1), bounding dot product to [-1, 1].
+#ifdef __AVX512FP16__
+AVX512NativeFP16IP<FaissScoreToLuceneScoreTransform::cosineTransformBulk, FaissScoreToLuceneScoreTransform::cosineTransform> FP16_COSINE_SIMIL_FUNC;
+#else
+AVX512SPRFP16MaxIP<FaissScoreToLuceneScoreTransform::cosineTransformBulk, FaissScoreToLuceneScoreTransform::cosineTransform> FP16_COSINE_SIMIL_FUNC;
+#endif
 
 //
 // SQ
 //
 // 1. Max IP
-AVX512SQSimilarityFunction<true> SQ_IP_SIMIL_FUNC;
+AVX512SQSimilarityFunction<SQMetricMode::MAX_IP> SQ_IP_SIMIL_FUNC;
 // 2. L2
-AVX512SQSimilarityFunction<false> SQ_L2_SIMIL_FUNC;
+AVX512SQSimilarityFunction<SQMetricMode::L2> SQ_L2_SIMIL_FUNC;
+// 3. Cosine
+AVX512SQSimilarityFunction<SQMetricMode::COSINE> SQ_COSINE_SIMIL_FUNC;
 
 #ifndef __NO_SELECT_FUNCTION
 SimilarityFunction* SimilarityFunction::selectSimilarityFunction(const NativeSimilarityFunctionType nativeFunctionType) {
@@ -628,6 +887,10 @@ SimilarityFunction* SimilarityFunction::selectSimilarityFunction(const NativeSim
         return &SQ_IP_SIMIL_FUNC;
     } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ_L2) {
         return &SQ_L2_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ_COSINE) {
+        return &SQ_COSINE_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::FP16_COSINE) {
+        return &FP16_COSINE_SIMIL_FUNC;
     }
 
     throw std::runtime_error("Invalid native similarity function type was given, nativeFunctionType="
