@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Features
 * Add rescoring phase after radial search on quantized index [#3347](https://github.com/opensearch-project/k-NN/pull/3347)
 * Add base64 encoded vector indexing support for knn_vector fields [#3350](https://github.com/opensearch-project/k-NN/pull/3350)
+* Add Intel SVS Vamana method (`svs_vamana`) as the first experimental `:sandbox` tenant, with `flat`/`sq`/`lvq` encoders, `cosinesimil`, and `alpha` (opt-in via `-Pknn.sandbox.enabled`) [#3370](https://github.com/opensearch-project/k-NN/pull/3370)
 
 ### Maintenance
 
