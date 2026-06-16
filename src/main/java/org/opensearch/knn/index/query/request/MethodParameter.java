@@ -22,8 +22,10 @@ import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SEARCH_WINDOW_SIZE;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.EF_SEARCH_FIELD;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.NPROBE_FIELD;
+import static org.opensearch.knn.index.query.KNNQueryBuilder.SEARCH_WINDOW_SIZE_FIELD;
 
 /**
  * MethodParameters are engine and algorithm related parameters that clients can pass in knn query
@@ -67,6 +69,25 @@ public enum MethodParameter {
 
             ValidationException validationException = new ValidationException();
             validationException.addValidationError(METHOD_PARAMETER_NPROBES + " should be greater than 0");
+            return validationException;
+        }
+    },
+
+    SEARCH_WINDOW_SIZE(METHOD_PARAMETER_SEARCH_WINDOW_SIZE, Version.V_3_7_0, SEARCH_WINDOW_SIZE_FIELD) {
+        @Override
+        public Integer parse(Object value) {
+            return parseInteger(value, METHOD_PARAMETER_SEARCH_WINDOW_SIZE);
+        }
+
+        @Override
+        public ValidationException validate(Object value) {
+            final Integer searchWindow = parse(value);
+            if (searchWindow != null && searchWindow > 0) {
+                return null;
+            }
+
+            ValidationException validationException = new ValidationException();
+            validationException.addValidationError(METHOD_PARAMETER_SEARCH_WINDOW_SIZE + " should be greater than 0");
             return validationException;
         }
     };

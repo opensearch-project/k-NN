@@ -29,7 +29,9 @@ public class KNNLibraryLoaderBT extends KNNTestCase {
         Method[] methods = KNNLibraryLoader.class.getDeclaredMethods();
 
         for (Method method : methods) {
-            if (!Modifier.isPrivate(method.getModifiers())) {
+            // Skip parameterized loaders (e.g. the generic loadLibraryByVariant(baseName)); they cannot be
+            // invoked blindly and are covered through their no-arg callers (loadFaissLibrary, loadSimdLibrary).
+            if (!Modifier.isPrivate(method.getModifiers()) && method.getParameterCount() == 0) {
                 try {
                     method.invoke(null);
                 } catch (Exception e) {

@@ -59,7 +59,8 @@ public final class NativeIndexBuildStrategyFactory {
     ) throws IOException {
         final KNNEngine knnEngine = extractKNNEngine(fieldInfo);
         final boolean isTemplate = fieldInfo.attributes().containsKey(MODEL_ID);
-        final boolean iterative = !isTemplate && KNNEngine.FAISS == knnEngine;
+        // The experimental engine (SVS) builds iteratively via its own native lib, mirroring faiss.
+        final boolean iterative = !isTemplate && (KNNEngine.FAISS == knnEngine || KNNEngine.EXPERIMENTAL == knnEngine);
         final boolean isFaissSQOneBitField = FieldInfoExtractor.isSQField(fieldInfo)
             && FieldInfoExtractor.extractSQConfig(fieldInfo).getBits() == FaissSQEncoder.Bits.ONE.getValue();
 

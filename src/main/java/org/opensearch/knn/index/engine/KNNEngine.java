@@ -32,16 +32,29 @@ public enum KNNEngine implements KNNLibrary {
     NMSLIB(NMSLIB_NAME, Nmslib.INSTANCE, Version.V_3_0_0),
     FAISS(FAISS_NAME, Faiss.INSTANCE),
     LUCENE(LUCENE_NAME, Lucene.INSTANCE),
+    // A generic slot for an experimental engine contributed by an opt-in :sandbox tenant (e.g. SVS). Its
+    // name, library (methods/extension/scoring) and native service all come from a SandboxEngineProvider at
+    // runtime. Inert when no tenant is bundled (default build), so main names no specific tenant.
+    EXPERIMENTAL(SandboxEngine.engineName(), SandboxEngine.library()),
     UNDEFINED("undefined");
 
     public static final KNNEngine DEFAULT = FAISS;
     private final Version restrictedFromVersion; // Nullable field
 
-    private static final Set<KNNEngine> CUSTOM_SEGMENT_FILE_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB, KNNEngine.FAISS);
-    private static final Set<KNNEngine> ENGINES_SUPPORTING_FILTERS = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
+    private static final Set<KNNEngine> CUSTOM_SEGMENT_FILE_ENGINES = withExperimental(KNNEngine.NMSLIB, KNNEngine.FAISS);
+    private static final Set<KNNEngine> ENGINES_SUPPORTING_FILTERS = withExperimental(KNNEngine.LUCENE, KNNEngine.FAISS);
     public static final Set<KNNEngine> ENGINES_SUPPORTING_RADIAL_SEARCH = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
     public static final Set<KNNEngine> DEPRECATED_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB);
     public static final Set<KNNEngine> ENGINES_SUPPORTING_NESTED_FIELDS = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
+
+    // Include EXPERIMENTAL in a capability set only when a sandbox engine is actually bundled.
+    private static Set<KNNEngine> withExperimental(KNNEngine... base) {
+        ImmutableSet.Builder<KNNEngine> builder = ImmutableSet.<KNNEngine>builder().add(base);
+        if (SandboxEngine.isPresent()) {
+            builder.add(EXPERIMENTAL);
+        }
+        return builder.build();
+    }
 
     private static Map<KNNEngine, Integer> MAX_DIMENSIONS_BY_ENGINE = Map.of(
         KNNEngine.NMSLIB,
@@ -108,6 +121,10 @@ public enum KNNEngine implements KNNLibrary {
             return UNDEFINED;
         }
 
+        if (SandboxEngine.isPresent() && EXPERIMENTAL.getName().equalsIgnoreCase(name)) {
+            return EXPERIMENTAL;
+        }
+
         throw new IllegalArgumentException(String.format("Invalid engine type: %s", name));
     }
 
@@ -135,6 +152,11 @@ public enum KNNEngine implements KNNLibrary {
 
         if (path.endsWith(KNNEngine.FAISS.getExtension()) || path.endsWith(KNNEngine.FAISS.getCompoundExtension())) {
             return KNNEngine.FAISS;
+        }
+
+        if (SandboxEngine.isPresent()
+            && (path.endsWith(KNNEngine.EXPERIMENTAL.getExtension()) || path.endsWith(KNNEngine.EXPERIMENTAL.getCompoundExtension()))) {
+            return KNNEngine.EXPERIMENTAL;
         }
 
         throw new IllegalArgumentException("No engine matches the path's suffix");
