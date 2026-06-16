@@ -53,7 +53,10 @@ public final class OSDiversifyingChildrenByteKnnVectorQuery extends Diversifying
         // BitSet in segment), then topDocs() is called on the null inner collector.
         BitSet parentBitSet = parentFilter.getBitSet(context);
         if (parentBitSet == null) {
-            return new TopDocs(new org.apache.lucene.search.TotalHits(0, org.apache.lucene.search.TotalHits.Relation.EQUAL_TO), new org.apache.lucene.search.ScoreDoc[0]);
+            return new TopDocs(
+                new org.apache.lucene.search.TotalHits(0, org.apache.lucene.search.TotalHits.Relation.EQUAL_TO),
+                new org.apache.lucene.search.ScoreDoc[0]
+            );
         }
         return super.approximateSearch(context, acceptDocs, visitedLimit, knnCollectorManager);
     }
