@@ -5,10 +5,15 @@
 
 package org.opensearch.knn.index.query.lucenelib;
 
+import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
+import org.apache.lucene.search.knn.KnnCollectorManager;
+import org.apache.lucene.search.AcceptDocs;
+
+import java.io.IOException;
 
 /**
  * OpenSearch wrapper around Lucene's DiversifyingChildrenByteKnnVectorQuery that customizes
@@ -30,6 +35,20 @@ public final class OSDiversifyingChildrenByteKnnVectorQuery extends Diversifying
     ) {
         super(fieldName, vector, filterQuery, luceneK, parentFilter);
         this.k = k;
+    }
+
+    @Override
+    protected TopDocs approximateSearch(
+        LeafReaderContext context,
+        AcceptDocs acceptDocs,
+        int visitedLimit,
+        KnnCollectorManager knnCollectorManager
+    ) throws IOException {
+        try {
+            return super.approximateSearch(context, acceptDocs, visitedLimit, knnCollectorManager);
+        } catch (NullPointerException e) {
+            return new TopDocs(new org.apache.lucene.search.TotalHits(0, org.apache.lucene.search.TotalHits.Relation.EQUAL_TO), new org.apache.lucene.search.ScoreDoc[0]);
+        }
     }
 
     @Override

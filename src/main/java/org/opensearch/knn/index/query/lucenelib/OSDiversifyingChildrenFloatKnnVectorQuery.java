@@ -5,11 +5,17 @@
 
 package org.opensearch.knn.index.query.lucenelib;
 
+import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
+import org.apache.lucene.search.knn.KnnCollectorManager;
+import org.apache.lucene.search.AcceptDocs;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
+
+import java.io.IOException;
 
 /**
  * OpenSearch wrapper around Lucene's DiversifyingChildrenFloatKnnVectorQuery that customizes
@@ -49,6 +55,23 @@ public final class OSDiversifyingChildrenFloatKnnVectorQuery extends Diversifyin
         this.k = k;
         this.rescoreK = rescoreK;
         this.expandNestedDocs = expandNestedDocs;
+    }
+
+    @Override
+    protected TopDocs approximateSearch(
+        LeafReaderContext context,
+        AcceptDocs acceptDocs,
+        int visitedLimit,
+        KnnCollectorManager knnCollectorManager
+    ) throws IOException {
+        try {
+            return super.approximateSearch(context, acceptDocs, visitedLimit, knnCollectorManager);
+        } catch (NullPointerException e) {
+            // Workaround for Lucene bug: TimeLimitingKnnCollectorManager wraps a null collector
+            // when a segment has no vector values, then topDocs() is called on the null inner collector.
+            // This happens when documents without nested vector fields exist in a separate segment.
+            return new TopDocs(new org.apache.lucene.search.TotalHits(0, org.apache.lucene.search.TotalHits.Relation.EQUAL_TO), new org.apache.lucene.search.ScoreDoc[0]);
+        }
     }
 
     @Override
