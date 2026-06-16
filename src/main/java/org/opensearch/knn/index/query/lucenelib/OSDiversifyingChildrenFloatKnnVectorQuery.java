@@ -6,13 +6,13 @@
 package org.opensearch.knn.index.query.lucenelib;
 
 import org.apache.lucene.index.LeafReaderContext;
-import org.apache.lucene.search.KnnCollector;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
 import org.apache.lucene.search.knn.KnnCollectorManager;
 import org.apache.lucene.search.AcceptDocs;
+import org.apache.lucene.util.BitSet;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.io.IOException;
@@ -28,6 +28,7 @@ public final class OSDiversifyingChildrenFloatKnnVectorQuery extends Diversifyin
     private final int k;
     private final int rescoreK;
     private final boolean expandNestedDocs;
+    private final BitSetProducer parentFilter;
 
     public OSDiversifyingChildrenFloatKnnVectorQuery(
         final String fieldName,
@@ -55,6 +56,7 @@ public final class OSDiversifyingChildrenFloatKnnVectorQuery extends Diversifyin
         this.k = k;
         this.rescoreK = rescoreK;
         this.expandNestedDocs = expandNestedDocs;
+        this.parentFilter = parentFilter;
     }
 
     @Override
@@ -64,14 +66,15 @@ public final class OSDiversifyingChildrenFloatKnnVectorQuery extends Diversifyin
         int visitedLimit,
         KnnCollectorManager knnCollectorManager
     ) throws IOException {
-        try {
-            return super.approximateSearch(context, acceptDocs, visitedLimit, knnCollectorManager);
-        } catch (NullPointerException e) {
-            // Workaround for Lucene bug: TimeLimitingKnnCollectorManager wraps a null collector
-            // when a segment has no vector values, then topDocs() is called on the null inner collector.
-            // This happens when documents without nested vector fields exist in a separate segment.
+        // Check if the segment has parent documents (nested docs). If not, return empty results.
+        // This prevents a NPE in Lucene's TimeLimitingKnnCollectorManager which wraps a null
+        // collector when DiversifyingNearestChildrenKnnCollectorManager returns null (no parent
+        // BitSet in segment), then topDocs() is called on the null inner collector.
+        BitSet parentBitSet = parentFilter.getBitSet(context);
+        if (parentBitSet == null) {
             return new TopDocs(new org.apache.lucene.search.TotalHits(0, org.apache.lucene.search.TotalHits.Relation.EQUAL_TO), new org.apache.lucene.search.ScoreDoc[0]);
         }
+        return super.approximateSearch(context, acceptDocs, visitedLimit, knnCollectorManager);
     }
 
     @Override

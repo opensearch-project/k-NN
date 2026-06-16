@@ -12,6 +12,7 @@ import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
 import org.apache.lucene.search.knn.KnnCollectorManager;
 import org.apache.lucene.search.AcceptDocs;
+import org.apache.lucene.util.BitSet;
 
 import java.io.IOException;
 
@@ -24,6 +25,7 @@ import java.io.IOException;
  */
 public final class OSDiversifyingChildrenByteKnnVectorQuery extends DiversifyingChildrenByteKnnVectorQuery {
     private final int k;
+    private final BitSetProducer parentFilter;
 
     public OSDiversifyingChildrenByteKnnVectorQuery(
         final String fieldName,
@@ -35,6 +37,7 @@ public final class OSDiversifyingChildrenByteKnnVectorQuery extends Diversifying
     ) {
         super(fieldName, vector, filterQuery, luceneK, parentFilter);
         this.k = k;
+        this.parentFilter = parentFilter;
     }
 
     @Override
@@ -44,11 +47,15 @@ public final class OSDiversifyingChildrenByteKnnVectorQuery extends Diversifying
         int visitedLimit,
         KnnCollectorManager knnCollectorManager
     ) throws IOException {
-        try {
-            return super.approximateSearch(context, acceptDocs, visitedLimit, knnCollectorManager);
-        } catch (NullPointerException e) {
+        // Check if the segment has parent documents (nested docs). If not, return empty results.
+        // This prevents a NPE in Lucene's TimeLimitingKnnCollectorManager which wraps a null
+        // collector when DiversifyingNearestChildrenKnnCollectorManager returns null (no parent
+        // BitSet in segment), then topDocs() is called on the null inner collector.
+        BitSet parentBitSet = parentFilter.getBitSet(context);
+        if (parentBitSet == null) {
             return new TopDocs(new org.apache.lucene.search.TotalHits(0, org.apache.lucene.search.TotalHits.Relation.EQUAL_TO), new org.apache.lucene.search.ScoreDoc[0]);
         }
+        return super.approximateSearch(context, acceptDocs, visitedLimit, knnCollectorManager);
     }
 
     @Override
