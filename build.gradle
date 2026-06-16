@@ -357,6 +357,24 @@ opensearchplugin {
     noticeFile = rootProject.file('NOTICE.txt')
 }
 
+// Bundle the experimental :sandbox jar into the plugin zip as a RUNTIME-ONLY artifact, but ONLY when the
+// build opts in via -Pknn.sandbox.enabled=true. By default the :sandbox module is excluded from the build
+// graph entirely (see settings.gradle) and no sandbox jar is bundled, so the produced plugin is unchanged
+// and loads no sandbox tenant. When enabled, the root project still declares NO compile/api dependency on
+// :sandbox (so :sandbox classes never leak onto the root compileClasspath); we only copy the built sandbox
+// jar (+ its META-INF/services provider file) into the bundlePlugin zip so it is discoverable at runtime
+// via ServiceLoader.
+if (project.hasProperty('knn.sandbox.enabled') && project.property('knn.sandbox.enabled') == 'true') {
+    // Ensure the :sandbox project is evaluated before we reference its tasks.
+    evaluationDependsOn(':sandbox')
+    tasks.named("bundlePlugin").configure {
+        dependsOn ':sandbox:jar'
+        // Reference the sandbox jar lazily via its archive file provider so it lands at the
+        // root of the plugin zip alongside the other runtime jars.
+        from(project(':sandbox').tasks.named('jar').flatMap { it.archiveFile })
+    }
+}
+
 tasks.named("integTest").configure {
     it.dependsOn(project.tasks.named("bundlePlugin"))
 }
@@ -537,6 +555,17 @@ tasks.register('cmakeJniLib', Exec) {
     args.add("-DCOMMIT_LIB_PATCHES=${commit_lib_patches}")
     args.add("-DAPPLY_LIB_PATCHES=${apply_lib_patches}")
     args.add("-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+    // Opt-in build of the isolated Intel SVS sandbox tenant (libopensearchknn_svs), separate from the main
+    // Faiss library: -Pknn.sandbox.enabled=true [-Psvs.prefix=<libsvs-runtime prefix> | -Psvs.url=<artifact>]
+    if (project.hasProperty('knn.sandbox.enabled') && project.property('knn.sandbox.enabled') == 'true') {
+        args.add("-DCONFIG_SVS=ON")
+        if (project.hasProperty('svs.prefix')) {
+            args.add("-DSVS_RUNTIME_PREFIX=${project.property('svs.prefix')}")
+        }
+        if (project.hasProperty('svs.url')) {
+            args.add("-DSVS_RUNTIME_URL=${project.property('svs.url')}")
+        }
+    }
     def javaHome = Jvm.current().getJavaHome()
     logger.lifecycle("Java home directory used by gradle: $javaHome")
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
@@ -570,6 +599,10 @@ tasks.register('buildJniLib', Exec) {
     def knn_libs = ['opensearchknn_faiss', 'opensearchknn_common', 'opensearchknn_nmslib', 'opensearchknn_simd']
     if (project.hasProperty('knn_libs')) {
         knn_libs = ['opensearchknn_common'] + project.knn_libs.split(',').collect { it.trim() }
+    }
+    // Build the isolated SVS native library only when the sandbox tenant is opted in.
+    if (project.hasProperty('knn.sandbox.enabled') && project.property('knn.sandbox.enabled') == 'true') {
+        knn_libs = knn_libs + 'opensearchknn_svs'
     }
     args.addAll(knn_libs)
     args.add("--parallel")
@@ -662,6 +695,10 @@ integTest {
     commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes)
     filter {
         excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
+        // The SVS IT needs the opt-in sandbox tenant (jar + isolated native lib); skip it on default builds.
+        if (!(project.hasProperty('knn.sandbox.enabled') && project.property('knn.sandbox.enabled') == 'true')) {
+            excludeTestsMatching "org.opensearch.knn.index.FaissSVSVamanaIT"
+        }
     }
     mustRunAfter test
 }
@@ -672,6 +709,10 @@ task integTestRemoteIndexBuild(type: RestIntegTestTask) {
         // Temporarily skipping this test class, see: https://github.com/opensearch-project/k-NN/issues/2726
         excludeTestsMatching "org.opensearch.knn.index.SegmentReplicationIT"
         excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
+        // The SVS IT needs the opt-in sandbox tenant (jar + isolated native lib); skip it on default builds.
+        if (!(project.hasProperty('knn.sandbox.enabled') && project.property('knn.sandbox.enabled') == 'true')) {
+            excludeTestsMatching "org.opensearch.knn.index.FaissSVSVamanaIT"
+        }
     }
     systemProperty("test.remoteBuild", System.getProperty("test.remoteBuild"))
     systemProperty("test.bucket", System.getProperty("test.bucket"))

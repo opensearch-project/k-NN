@@ -18,3 +18,10 @@ include ":qa:rolling-upgrade"
 include ":qa:restart-upgrade"
 include ":remote-index-build-client"
 
+// The experimental :sandbox module (e.g. the Intel SVS tenant) is included in the build ONLY when opted
+// in via -Pknn.sandbox.enabled=true. By default it is excluded from the build graph entirely: not
+// compiled, not tested, not bundled — so a default build produces a plugin identical to upstream.
+if (startParameter.projectProperties['knn.sandbox.enabled'] == 'true') {
+    include ":sandbox"
+}
+
