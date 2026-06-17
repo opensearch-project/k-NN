@@ -6,6 +6,9 @@
 package org.opensearch.knn.index.query.lucenelib;
 
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.util.BitSet;
 
@@ -15,6 +18,8 @@ import java.io.IOException;
  * Utility methods for nested kNN vector queries.
  */
 final class NestedKnnUtil {
+
+    static final TopDocs EMPTY_TOP_DOCS = new TopDocs(new TotalHits(0, TotalHits.Relation.EQUAL_TO), new ScoreDoc[0]);
 
     private NestedKnnUtil() {}
 

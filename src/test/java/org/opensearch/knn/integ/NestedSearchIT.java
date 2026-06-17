@@ -155,6 +155,28 @@ public class NestedSearchIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testNestedSearchWithFaissMOS_whenDocWithoutNestedObjectInSeparateSegment_thenSucceed() {
+        createKnnIndex(2, KNNEngine.FAISS.getName(), Mode.ON_DISK);
+
+        String doc = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
+            .addVectors(FIELD_NAME_VECTOR, new Float[] { 1f, 1f }, new Float[] { 2f, 2f })
+            .build();
+        addKnnDoc(INDEX_NAME, "1", doc);
+        flushIndex(INDEX_NAME);
+
+        addKnnDoc(INDEX_NAME, "2", "{}");
+        flushIndex(INDEX_NAME);
+
+        refreshIndex(INDEX_NAME);
+
+        Float[] queryVector = { 1f, 1f };
+        Response response = queryNestedField(INDEX_NAME, 1, queryVector);
+        String entity = EntityUtils.toString(response.getEntity());
+        assertEquals(1, parseHits(entity));
+        assertEquals("1", parseIds(entity).get(0));
+    }
+
+    @SneakyThrows
     public void testNestedSearchWithFaiss_whenKIsTwo_SomeNestedDocsHasNoVectors_thenReturnTwoResults() {
         createKnnIndex(2, KNNEngine.FAISS.getName());
         indexAndTestKNNIndexWithVectorAndNonVectorField();

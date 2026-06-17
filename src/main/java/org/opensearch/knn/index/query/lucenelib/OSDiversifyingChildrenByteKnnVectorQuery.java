@@ -8,9 +8,7 @@ package org.opensearch.knn.index.query.lucenelib;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
-import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
 import org.apache.lucene.search.knn.KnnCollectorManager;
@@ -25,7 +23,6 @@ import java.io.IOException;
  * documents are returned, maintaining consistency with OpenSearch's k-NN query behavior.
  */
 public final class OSDiversifyingChildrenByteKnnVectorQuery extends DiversifyingChildrenByteKnnVectorQuery {
-    private static final TopDocs EMPTY_TOP_DOCS = new TopDocs(new TotalHits(0, TotalHits.Relation.EQUAL_TO), new ScoreDoc[0]);
 
     private final int k;
     private final BitSetProducer parentFilter;
@@ -51,7 +48,7 @@ public final class OSDiversifyingChildrenByteKnnVectorQuery extends Diversifying
         KnnCollectorManager knnCollectorManager
     ) throws IOException {
         if (NestedKnnUtil.hasNoParentDocs(parentFilter, context)) {
-            return EMPTY_TOP_DOCS;
+            return NestedKnnUtil.EMPTY_TOP_DOCS;
         }
         return super.approximateSearch(context, acceptDocs, visitedLimit, knnCollectorManager);
     }
