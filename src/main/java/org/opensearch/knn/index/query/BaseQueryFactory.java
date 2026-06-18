@@ -11,6 +11,8 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.ToChildBlockJoinQuery;
@@ -127,35 +129,56 @@ public abstract class BaseQueryFactory {
             // queries must match child documents. However, the efficient filter query in
             // the k-NN API is designed to work with root-level parent documents. Joining
             // down to child documents is therefore required to make this work.
+            final BitSetProducer parentFilter = queryShardContext.bitsetFilter(Queries.newNonNestedFilter());
+            final NestedHelper nestedHelper = new NestedHelper(queryShardContext.getMapperService());
 
-            // To-parent joins which target the root level can simply be unwrapped to get
-            // a query matching the desired child documents.
             if (filterQuery instanceof OpenSearchToParentBlockJoinQuery) {
-                final OpenSearchToParentBlockJoinQuery toParentQuery = (OpenSearchToParentBlockJoinQuery) filterQuery;
-
-                if (toParentQuery.getPath() == null) {
-                    return toParentQuery.getChildQuery();
-                }
+                // k-NN filters are evaluated at root scope (nested stack unwound above). For a nested
+                // wrapper clause, NestedQueryBuilder sets path=null when the join starts at root.
+                // The child query is the filter we need because efficient nested k-NN pre-filtering
+                // runs on nested child documents.
+                return ((OpenSearchToParentBlockJoinQuery) filterQuery).getChildQuery();
             }
 
-            // Set up for performing the join.
-            final Query parentQuery = Queries.newNonNestedFilter();
-            final BitSetProducer parentFilter = queryShardContext.bitsetFilter(parentQuery);
-
-            // mightMatchNestedDocs() is conservative and only returns false if the query
-            // can never match a nested document. If it returns true, a filter to exclude
-            // nested documents should be applied first to guarantee they never match.
-            final Query nonNestedFilterQuery;
-
-            if (new NestedHelper(queryShardContext.getMapperService()).mightMatchNestedDocs(filterQuery)) {
-                nonNestedFilterQuery = Queries.filtered(filterQuery, parentQuery);
-            } else {
-                nonNestedFilterQuery = filterQuery;
+            if (filterQuery instanceof BooleanQuery) {
+                return joinBooleanFilterToChildScope((BooleanQuery) filterQuery, parentFilter, nestedHelper);
             }
 
-            return new ToChildBlockJoinQuery(nonNestedFilterQuery, parentFilter);
+            if (nestedHelper.mightMatchNestedDocs(filterQuery)) {
+                return filterQuery;
+            }
+
+            return new ToChildBlockJoinQuery(filterQuery, parentFilter);
         }
 
         return filterQuery;
+    }
+
+    private static Query joinBooleanFilterToChildScope(
+        final BooleanQuery filterQuery,
+        final BitSetProducer parentFilter,
+        final NestedHelper nestedHelper
+    ) {
+        final BooleanQuery.Builder builder = new BooleanQuery.Builder();
+        for (BooleanClause clause : filterQuery.clauses()) {
+            builder.add(translateFilterClauseToChildScope(clause.query(), parentFilter, nestedHelper), clause.occur());
+        }
+        return builder.build();
+    }
+
+    private static Query translateFilterClauseToChildScope(
+        final Query clauseQuery,
+        final BitSetProducer parentFilter,
+        final NestedHelper nestedHelper
+    ) {
+        if (clauseQuery instanceof OpenSearchToParentBlockJoinQuery) {
+            return ((OpenSearchToParentBlockJoinQuery) clauseQuery).getChildQuery();
+        }
+
+        if (nestedHelper.mightMatchNestedDocs(clauseQuery)) {
+            return clauseQuery;
+        }
+
+        return new ToChildBlockJoinQuery(clauseQuery, parentFilter);
     }
 }
