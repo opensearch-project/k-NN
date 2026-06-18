@@ -13,6 +13,7 @@ import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.tests.util.LuceneTestCase.AwaitsFix;
 import org.junit.Assert;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -2550,6 +2551,204 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertNotNull(builder3);
     }
 
+    @SneakyThrows
+    public void testTypeParser_whenInvalidCompressionLevel_thenReject() {
+        int dimension = 16;
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder invalidCompressionBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, "99x")
+            .endObject();
+        expectThrows(
+            MapperParsingException.class,
+            () -> typeParser.parse(
+                TEST_FIELD_NAME,
+                xContentBuilderToMap(invalidCompressionBuilder),
+                buildParserContext(TEST_INDEX_NAME, settings)
+            )
+        );
+
+        XContentBuilder numericCompressionBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, 32)
+            .endObject();
+        expectThrows(
+            MapperParsingException.class,
+            () -> typeParser.parse(
+                TEST_FIELD_NAME,
+                xContentBuilderToMap(numericCompressionBuilder),
+                buildParserContext(TEST_INDEX_NAME, settings)
+            )
+        );
+
+        XContentBuilder emptyCompressionBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, "")
+            .endObject();
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(emptyCompressionBuilder),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        assertEquals(CompressionLevel.NOT_CONFIGURED, CompressionLevel.fromName(builder.getOriginalParameters().getCompressionLevel()));
+    }
+
+    @SneakyThrows
+    public void testTypeParser_whenCompression1x_thenFP32NoQuantization() {
+        int dimension = 16;
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder x1Builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x1.getName())
+            .endObject();
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(x1Builder),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        assertEquals(CompressionLevel.x1, CompressionLevel.fromName(builder.getOriginalParameters().getCompressionLevel()));
+        assertEquals(CompressionLevel.x1, builder.getKnnMethodConfigContext().getCompressionLevel());
+
+        XContentBuilder x1InMemoryBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x1.getName())
+            .field(MODE_PARAMETER, Mode.IN_MEMORY.getName())
+            .endObject();
+        builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(x1InMemoryBuilder),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        validateBuilderAfterParsing(
+            builder,
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            VectorDataType.FLOAT,
+            CompressionLevel.x1,
+            CompressionLevel.x1,
+            Mode.IN_MEMORY,
+            false
+        );
+    }
+
+    @SneakyThrows
+    public void testTypeParser_whenEncoderFlat_thenFP32NoQuantization() {
+        int dimension = 16;
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder flatEncoderBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, "flat")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(flatEncoderBuilder),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        assertEquals(CompressionLevel.x1, builder.getKnnMethodConfigContext().getCompressionLevel());
+        assertFalse(builder.getOriginalParameters().isLegacyMapping());
+    }
+
+    @SneakyThrows
+    public void testTypeParser_whenOnDiskWith32xCompression_thenSuccess() {
+        int dimension = 16;
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder onDisk32xBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x32.getName())
+            .endObject();
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(onDisk32xBuilder),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        validateBuilderAfterParsing(
+            builder,
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            VectorDataType.FLOAT,
+            CompressionLevel.x32,
+            CompressionLevel.x32,
+            Mode.ON_DISK,
+            true
+        );
+    }
+
+    @SneakyThrows
+    public void testTypeParser_whenInMemoryWith1xCompression_thenSuccess() {
+        int dimension = 16;
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder inMemory1xBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(MODE_PARAMETER, Mode.IN_MEMORY.getName())
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x1.getName())
+            .endObject();
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            TEST_FIELD_NAME,
+            xContentBuilderToMap(inMemory1xBuilder),
+            buildParserContext(TEST_INDEX_NAME, settings)
+        );
+        validateBuilderAfterParsing(
+            builder,
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            VectorDataType.FLOAT,
+            CompressionLevel.x1,
+            CompressionLevel.x1,
+            Mode.IN_MEMORY,
+            false
+        );
+    }
+
+    @AwaitsFix(bugUrl = "https://github.com/opensearch-project/k-NN/issues/3290")
+    public void testModeDeprecationWarning_placeholder() {
+        // TODO: [DEFAULT_FLIP] After Step 4, mode parameter is deprecated and derived from compression_level.
+        // Add warning assertions here to verify that:
+        // - Using mode=on_disk emits a deprecation warning after 3.7.0
+        // - Using mode=in_memory emits a deprecation warning after 3.7.0
+        // - compression_level alone (without mode) does not emit a deprecation warning
+        // - mode is correctly inferred from compression_level: x32 → on_disk behavior, x1 → in_memory behavior
+    }
+
     private void validateBuilderAfterParsing(
         KNNVectorFieldMapper.Builder builder,
         KNNEngine expectedEngine,
@@ -2664,6 +2863,168 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         }
         xContentBuilder.endObject();
         return xContentBuilder;
+    }
+
+    public void testBase64Indexing_allDataTypes_parsesCorrectly() throws IOException {
+        // --- Float ---
+        float[] expectedFloat = TEST_VECTOR;
+        java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocate(expectedFloat.length * Float.BYTES)
+            .order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        buffer.asFloatBuffer().put(expectedFloat);
+        String floatBase64 = java.util.Base64.getEncoder().encodeToString(buffer.array());
+
+        EngineFieldMapper floatMapper = createFieldMapperForBase64Test(VectorDataType.FLOAT, TEST_DIMENSION);
+        ParseContext floatCtx = createParseContextForBase64(floatBase64);
+        Optional<float[]> floatResult = floatMapper.getFloatsFromContext(floatCtx, TEST_DIMENSION);
+        assertTrue("Float base64 should parse", floatResult.isPresent());
+        assertArrayEquals(expectedFloat, floatResult.get(), 0.0f);
+
+        // --- Byte ---
+        byte[] expectedByte = TEST_BYTE_VECTOR;
+        String byteBase64 = java.util.Base64.getEncoder().encodeToString(expectedByte);
+
+        EngineFieldMapper byteMapper = createFieldMapperForBase64Test(VectorDataType.BYTE, TEST_DIMENSION);
+        ParseContext byteCtx = createParseContextForBase64(byteBase64);
+        Optional<byte[]> byteResult = byteMapper.getBytesFromContext(byteCtx, TEST_DIMENSION, VectorDataType.BYTE);
+        assertTrue("Byte base64 should parse", byteResult.isPresent());
+        assertArrayEquals(expectedByte, byteResult.get());
+
+        // --- Binary (dimension = bits, so dimension 8*TEST_DIMENSION needs TEST_DIMENSION bytes) ---
+        int binaryDimension = TEST_DIMENSION * Byte.SIZE;
+        byte[] expectedBinary = TEST_BYTE_VECTOR;
+        String binaryBase64 = java.util.Base64.getEncoder().encodeToString(expectedBinary);
+
+        EngineFieldMapper binaryMapper = createFieldMapperForBase64Test(VectorDataType.BINARY, binaryDimension);
+        ParseContext binaryCtx = createParseContextForBase64(binaryBase64);
+        Optional<byte[]> binaryResult = binaryMapper.getBytesFromContext(binaryCtx, binaryDimension, VectorDataType.BINARY);
+        assertTrue("Binary base64 should parse", binaryResult.isPresent());
+        assertArrayEquals(expectedBinary, binaryResult.get());
+    }
+
+    public void testBase64Indexing_invalidInput_throwsException() throws IOException {
+        // --- Float: byte length not multiple of 4 ---
+        String invalidFloatBase64 = java.util.Base64.getEncoder().encodeToString(new byte[] { 1, 2, 3 });
+        EngineFieldMapper floatMapper = createFieldMapperForBase64Test(VectorDataType.FLOAT, TEST_DIMENSION);
+        ParseContext floatCtx = createParseContextForBase64(invalidFloatBase64);
+        IllegalArgumentException floatEx = expectThrows(
+            IllegalArgumentException.class,
+            () -> floatMapper.getFloatsFromContext(floatCtx, TEST_DIMENSION)
+        );
+        assertTrue(floatEx.getMessage().contains("invalid byte length"));
+
+        // --- Byte: wrong dimension ---
+        byte[] wrongDimByteVector = new byte[TEST_DIMENSION + 1];
+        Arrays.fill(wrongDimByteVector, (byte) 5);
+        String wrongDimByteBase64 = java.util.Base64.getEncoder().encodeToString(wrongDimByteVector);
+        EngineFieldMapper byteMapper = createFieldMapperForBase64Test(VectorDataType.BYTE, TEST_DIMENSION);
+        ParseContext byteCtx = createParseContextForBase64(wrongDimByteBase64);
+        expectThrows(IllegalArgumentException.class, () -> byteMapper.getBytesFromContext(byteCtx, TEST_DIMENSION, VectorDataType.BYTE));
+
+        // --- Binary: wrong dimension (dimension=16 bits expects 2 bytes, provide 3) ---
+        int binaryDimension = 16;
+        byte[] wrongDimBinaryVector = new byte[] { 1, 2, 3 };
+        String wrongDimBinaryBase64 = java.util.Base64.getEncoder().encodeToString(wrongDimBinaryVector);
+        EngineFieldMapper binaryMapper = createFieldMapperForBase64Test(VectorDataType.BINARY, binaryDimension);
+        ParseContext binaryCtx = createParseContextForBase64(wrongDimBinaryBase64);
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> binaryMapper.getBytesFromContext(binaryCtx, binaryDimension, VectorDataType.BINARY)
+        );
+    }
+
+    public void testBase64Indexing_malformedBase64_throwsDescriptiveError() throws IOException {
+        String malformedBase64 = "not!valid@base64$$";
+
+        // Float path: malformed base64 should mention field name
+        EngineFieldMapper floatMapper = createFieldMapperForBase64Test(VectorDataType.FLOAT, TEST_DIMENSION);
+        ParseContext floatCtx = createParseContextForBase64(malformedBase64);
+        IllegalArgumentException floatEx = expectThrows(
+            IllegalArgumentException.class,
+            () -> floatMapper.getFloatsFromContext(floatCtx, TEST_DIMENSION)
+        );
+        assertTrue(floatEx.getMessage().contains("Invalid base64 encoding for vector field"));
+        assertTrue(floatEx.getMessage().contains(TEST_FIELD_NAME));
+        assertNotNull(floatEx.getCause());
+
+        // Byte path: malformed base64 should mention field name
+        EngineFieldMapper byteMapper = createFieldMapperForBase64Test(VectorDataType.BYTE, TEST_DIMENSION);
+        ParseContext byteCtx = createParseContextForBase64(malformedBase64);
+        IllegalArgumentException byteEx = expectThrows(
+            IllegalArgumentException.class,
+            () -> byteMapper.getBytesFromContext(byteCtx, TEST_DIMENSION, VectorDataType.BYTE)
+        );
+        assertTrue(byteEx.getMessage().contains("Invalid base64 encoding for vector field"));
+        assertTrue(byteEx.getMessage().contains(TEST_FIELD_NAME));
+        assertNotNull(byteEx.getCause());
+    }
+
+    private EngineFieldMapper createFieldMapperForBase64Test(VectorDataType dataType, int dimension) {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(dataType)
+            .versionCreated(CURRENT)
+            .dimension(dimension)
+            .build();
+
+        KNNMethodContext luceneMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.DEFAULT,
+            new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
+        );
+
+        OriginalMappingParameters originalMappingParameters = new OriginalMappingParameters(
+            dataType,
+            dimension,
+            luceneMethodContext,
+            Mode.NOT_CONFIGURED.getName(),
+            CompressionLevel.NOT_CONFIGURED.getName(),
+            null,
+            SpaceType.UNDEFINED.getValue(),
+            KNNEngine.UNDEFINED.getName()
+        );
+        originalMappingParameters.setResolvedKnnMethodContext(originalMappingParameters.getKnnMethodContext());
+
+        return EngineFieldMapper.createFieldMapper(
+            TEST_FIELD_NAME,
+            TEST_FIELD_NAME,
+            Collections.emptyMap(),
+            knnMethodConfigContext,
+            FieldMapper.MultiFields.empty(),
+            FieldMapper.CopyTo.empty(),
+            new Explicit<>(true, true),
+            false,
+            true,
+            originalMappingParameters,
+            CURRENT
+        );
+    }
+
+    @SneakyThrows
+    private ParseContext createParseContextForBase64(String base64Value) {
+        XContentParser parser = createXContentParserForBase64(base64Value);
+        IndexSettings indexSettingsMock = mock(IndexSettings.class);
+        when(indexSettingsMock.getSettings()).thenReturn(Settings.EMPTY);
+        ParseContext.Document document = new ParseContext.Document();
+        ContentPath contentPath = new ContentPath();
+        ParseContext parseContext = mock(ParseContext.class);
+        when(parseContext.doc()).thenReturn(document);
+        when(parseContext.path()).thenReturn(contentPath);
+        when(parseContext.parser()).thenReturn(parser);
+        when(parseContext.indexSettings()).thenReturn(indexSettingsMock);
+        return parseContext;
+    }
+
+    @SneakyThrows
+    private XContentParser createXContentParserForBase64(final String base64Value) {
+        XContentParser parser = XContentHelper.createParser(
+            NamedXContentRegistry.EMPTY,
+            LoggingDeprecationHandler.INSTANCE,
+            new BytesArray("{\"" + TEST_FIELD_NAME + "\":\"" + base64Value + "\"}"),
+            MediaTypeRegistry.JSON
+        );
+        parser.nextToken();
+        parser.nextToken();
+        parser.nextToken();
+        return parser;
     }
 
     private static float[] createInitializedFloatArray(int dimension, float value) {

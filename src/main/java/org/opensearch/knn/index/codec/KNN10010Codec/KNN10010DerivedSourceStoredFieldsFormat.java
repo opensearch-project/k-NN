@@ -5,12 +5,15 @@
 
 package org.opensearch.knn.index.codec.KNN10010Codec;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.AllArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.StoredFieldsFormat;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.StoredFieldsWriter;
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
@@ -25,10 +28,11 @@ import org.opensearch.knn.index.codec.derivedsource.DerivedSourceSegmentAttribut
 import org.opensearch.knn.index.util.IndexUtil;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
 
 @AllArgsConstructor
+@Log4j2
 public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat {
     // Stores the delegate codec name (in case it is different from the default one)
     static final String KNN_DELEGATE_CODEC_NAME = "knn_delegate_stored_fields_codec_key";
@@ -45,16 +49,13 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
         throws IOException {
 
         final StoredFieldsFormat delegatingFormat = getStoredFieldsFormat(segmentInfo);
-        List<DerivedFieldInfo> derivedVectorFields = Stream.concat(
-            DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(segmentInfo, false)
-                .stream()
-                .filter(field -> fieldInfos.fieldInfo(field) != null)
-                .map(field -> new DerivedFieldInfo(fieldInfos.fieldInfo(field), false)),
-            DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(segmentInfo, true)
-                .stream()
-                .filter(field -> fieldInfos.fieldInfo(field) != null)
-                .map(field -> new DerivedFieldInfo(fieldInfos.fieldInfo(field), true))
-        ).toList();
+        List<DerivedFieldInfo> derivedVectorFields = new ArrayList<>();
+        for (String field : DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(segmentInfo, false)) {
+            addDerivedFieldInfo(derivedVectorFields, fieldInfos, field, false);
+        }
+        for (String field : DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(segmentInfo, true)) {
+            addDerivedFieldInfo(derivedVectorFields, fieldInfos, field, true);
+        }
 
         // If no fields have it enabled, we can just short-circuit and return the delegate's fieldReader
         if (derivedVectorFields.isEmpty()) {
@@ -79,6 +80,41 @@ public class KNN10010DerivedSourceStoredFieldsFormat extends StoredFieldsFormat 
         } else {
             return delegate;
         }
+    }
+
+    private void addDerivedFieldInfo(List<DerivedFieldInfo> derivedFieldInfos, FieldInfos fieldInfos, String field, boolean isNested) {
+        FieldInfo fieldInfo = getFieldInfo(fieldInfos, field);
+        if (fieldInfo == null) {
+            return;
+        }
+        derivedFieldInfos.add(new DerivedFieldInfo(fieldInfo, isNested));
+    }
+
+    @VisibleForTesting
+    static FieldInfo getFieldInfo(FieldInfos fieldInfos, String field) {
+        FieldInfo fieldInfo = fieldInfos.fieldInfo(field);
+        if (fieldInfo != null) {
+            return fieldInfo;
+        }
+
+        FieldInfo matchedFieldInfo = null;
+        for (FieldInfo candidate : fieldInfos) {
+            if (candidate.name.equalsIgnoreCase(field) == false) {
+                continue;
+            }
+            if (matchedFieldInfo == null || candidate.hasVectorValues() && !matchedFieldInfo.hasVectorValues()) {
+                matchedFieldInfo = candidate;
+            } else if (matchedFieldInfo.hasVectorValues() && candidate.hasVectorValues()) {
+                log.warn(
+                    "Skipping derived vector field [{}] because field infos [{}] and [{}] both match case-insensitively",
+                    field,
+                    matchedFieldInfo.name,
+                    candidate.name
+                );
+                return null;
+            }
+        }
+        return matchedFieldInfo;
     }
 
     @Override

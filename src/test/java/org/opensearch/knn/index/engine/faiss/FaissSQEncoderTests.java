@@ -203,6 +203,37 @@ public class FaissSQEncoderTests extends KNNTestCase {
         return TrainingConfigValidationInput.builder().knnMethodContext(methodContext).knnMethodConfigContext(configContext).build();
     }
 
+    public void testBits1_quantizationConfigIsEmpty() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        MethodComponent methodComponent = encoder.getMethodComponent();
+        KNNMethodConfigContext context = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .build();
+
+        MethodComponentContext mcc = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 1));
+        KNNLibraryIndexingContext indexingContext = methodComponent.getKNNLibraryIndexingContext(mcc, context);
+
+        assertEquals(org.opensearch.knn.index.engine.qframe.QuantizationConfig.EMPTY, indexingContext.getQuantizationConfig());
+    }
+
+    public void testBits16_libraryIndexingContextUsesSQDescription() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        MethodComponent methodComponent = encoder.getMethodComponent();
+        KNNMethodConfigContext context = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .build();
+
+        MethodComponentContext mcc = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 16));
+        KNNLibraryIndexingContext indexingContext = methodComponent.getKNNLibraryIndexingContext(mcc, context);
+
+        Map<String, Object> params = indexingContext.getLibraryParameters();
+        assertNotEquals(FAISS_FLAT_DESCRIPTION, params.get(INDEX_DESCRIPTION_PARAMETER));
+    }
+
     // --- isSQOneBit utility ---
 
     public void testIsSQOneBit_whenSQWithBits1_thenTrue() {

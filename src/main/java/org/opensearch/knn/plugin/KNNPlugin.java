@@ -37,6 +37,7 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.shard.IndexSettingProvider;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.index.KNNCircuitBreaker;
+import org.opensearch.knn.index.KNNVectorDocValueFormat;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNNCodecService;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceIndexOperationListener;
@@ -48,6 +49,8 @@ import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.RescoreKNNVectorQuery;
+import org.opensearch.knn.index.query.RescoreRadialSearchQuery;
+import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
 import org.opensearch.knn.index.util.KNNClusterUtil;
@@ -120,6 +123,7 @@ import org.opensearch.rest.RestHandler;
 import org.opensearch.script.ScriptContext;
 import org.opensearch.script.ScriptEngine;
 import org.opensearch.script.ScriptService;
+import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.SearchExtBuilder;
 import org.opensearch.search.deciders.ConcurrentSearchRequestDecider;
 import org.opensearch.search.pipeline.SearchRequestProcessor;
@@ -263,6 +267,7 @@ public class KNNPlugin extends Plugin
         KNNCircuitBreaker.getInstance().initialize(threadPool, clusterService, client);
         KNNQueryBuilder.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         KNNWeight.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
+        RescoreRadialSearchQuery.initialize(new ExactSearcher(ModelDao.OpenSearchKNNModelDao.getInstance()));
         TrainingModelRequest.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
 
         clusterService.addListener(TrainingJobClusterStateListener.getInstance());
@@ -447,6 +452,9 @@ public class KNNPlugin extends Plugin
 
         entries.add(new NamedWriteableRegistry.Entry(Metadata.Custom.class, ModelGraveyard.TYPE, ModelGraveyard::new));
         entries.add(new NamedWriteableRegistry.Entry(NamedDiff.class, ModelGraveyard.TYPE, ModelGraveyard::readDiffFrom));
+        entries.add(
+            new NamedWriteableRegistry.Entry(DocValueFormat.class, KNNVectorDocValueFormat.NAME, KNNVectorDocValueFormat::fromStream)
+        );
         return entries;
     }
 

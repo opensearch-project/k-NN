@@ -87,6 +87,7 @@ public class KNNConstants {
     public static final String TOP_LEVEL_ENGINE_FEATURE = "top_level_engine_feature";
 
     public static final String RADIAL_SEARCH_KEY = "radial_search";
+    public static final int MAX_RESULTS_RADIAL_RESCORING = 10000;
     public static final String NULL_K = "null_k";
     public static final String MODEL_VERSION = "model_version";
     public static final String QUANTIZATION_STATE_FILE_SUFFIX = "osknnqstate";

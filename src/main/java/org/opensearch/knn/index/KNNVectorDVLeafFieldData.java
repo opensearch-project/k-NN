@@ -102,21 +102,29 @@ public class KNNVectorDVLeafFieldData implements LeafFieldData {
      * iterator so that multiple {@code Leaf} instances obtained from the same
      * {@code KNNVectorDVLeafFieldData} cannot interfere with each other's state.
      *
-     * <p><b>Return type:</b> {@code float[]} for FLOAT vectors —
-     * {@link org.opensearch.core.xcontent.XContentBuilder} serializes this as a JSON numeric array.
+     * <p><b>Return type:</b> Depends on the format and vector data type:
+     * <ul>
+     *   <li>Array format ({@link KNNVectorDocValueFormat#ARRAY_FORMAT}): returns {@code float[]} for
+     *       FLOAT vectors or {@code byte[]} for BYTE/BINARY vectors, serialized by
+     *       {@link org.opensearch.core.xcontent.XContentBuilder} as a JSON numeric array.</li>
+     *   <li>Binary format ({@link KNNVectorDocValueFormat#BINARY_FORMAT}, the default): returns a
+     *       base64-encoded {@link String}. For FLOAT vectors, bytes are in little-endian order.
+     *       For BYTE/BINARY vectors, raw bytes are encoded directly.</li>
+     * </ul>
      *
-     * @param format the doc value format — currently unused but required by the interface
+     * @param format the {@link KNNVectorDocValueFormat} that determines output encoding (array or binary)
      * @return a leaf fetcher that yields vector values per document, or an empty fetcher
      *         if the field has no vectors in this segment
-     * @throws UnsupportedOperationException if the vector data type is BYTE or BINARY
+     * @throws IllegalArgumentException if format is not an instance of {@link KNNVectorDocValueFormat}
      */
     @Override
     public DocValueFetcher.Leaf getLeafValueFetcher(final DocValueFormat format) {
-        if (vectorDataType == VectorDataType.BYTE || vectorDataType == VectorDataType.BINARY) {
-            throw new UnsupportedOperationException(
-                "docvalue_fields is not supported for [" + vectorDataType + "] vector field '" + fieldName + "'"
+        if (!(format instanceof KNNVectorDocValueFormat knnFormat)) {
+            throw new IllegalArgumentException(
+                "Unsupported DocValueFormat [" + format + "] for knn_vector field '" + fieldName + "'. Expected KNNVectorDocValueFormat."
             );
         }
+        final boolean isBinary = knnFormat.isBinary();
 
         final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, fieldName);
         // This is important because if for a segment there is no vector field present and then customer still ask for
@@ -152,9 +160,31 @@ public class KNNVectorDVLeafFieldData implements LeafFieldData {
 
             @Override
             public Object nextValue() throws IOException {
-                return vectorValues.conditionalCloneVector();
+                if (vectorDataType == VectorDataType.FLOAT) {
+                    if (isBinary) {
+                        // Convert float[] to little-endian byte[]; XContentBuilder will base64-encode it
+                        return KNNVectorDocValueFormat.floatToLittleEndianBytes((float[]) vectorValues.getVector());
+                    }
+                    return vectorValues.conditionalCloneVector();
+                }
+                // BYTE and BINARY data types both store byte[] vectors.
+                // For binary format, return byte[] directly — XContentBuilder base64-encodes it.
+                // For array format, convert to int[] since XContentBuilder treats byte[] as a binary blob,
+                // but serializes int[] as a JSON numeric array (e.g., [10, -20, 127]).
+                if (isBinary) {
+                    return vectorValues.conditionalCloneVector();
+                }
+                return toIntArray((byte[]) vectorValues.conditionalCloneVector());
             }
         };
+    }
+
+    private static int[] toIntArray(final byte[] bytes) {
+        final int[] ints = new int[bytes.length];
+        for (int i = 0; i < bytes.length; i++) {
+            ints[i] = bytes[i];
+        }
+        return ints;
     }
 
     private static final DocValueFetcher.Leaf EMPTY_DOCVALUE_FETCHER_LEAF = new DocValueFetcher.Leaf() {

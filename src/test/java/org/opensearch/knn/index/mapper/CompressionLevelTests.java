@@ -8,7 +8,10 @@ package org.opensearch.knn.index.mapper;
 import org.opensearch.core.common.Strings;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
+import org.opensearch.knn.index.engine.lucene.LuceneSQEncoder;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.Version;
 
 public class CompressionLevelTests extends KNNTestCase {
@@ -212,5 +215,75 @@ public class CompressionLevelTests extends KNNTestCase {
         rescoreContext = CompressionLevel.x8.getDefaultRescoreContext(Mode.ON_DISK, 500, Version.CURRENT, false, false);
         assertNotNull(rescoreContext);
         assertEquals(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD, rescoreContext.getOversampleFactor(), 0.0f);
+    }
+
+    public void testX32MapsToOneBitQuantization() {
+        assertEquals(1, CompressionLevel.x32.numBitsForFloat32());
+
+        assertEquals(CompressionLevel.x32, FaissSQEncoder.Bits.ONE.getCompressionLevel());
+        assertEquals(1, FaissSQEncoder.Bits.ONE.getValue());
+
+        assertEquals(CompressionLevel.x32, LuceneSQEncoder.Bits.ONE.getCompressionLevel());
+        assertEquals(1, LuceneSQEncoder.Bits.ONE.getValue());
+
+        assertEquals(1, ScalarQuantizationType.ONE_BIT.getId());
+    }
+
+    public void testCompressionLevelEnumMappings() {
+        assertEquals(1, CompressionLevel.x32.numBitsForFloat32());
+        assertEquals("32x", CompressionLevel.x32.getName());
+
+        assertEquals(2, CompressionLevel.x16.numBitsForFloat32());
+        assertEquals("16x", CompressionLevel.x16.getName());
+
+        assertEquals(4, CompressionLevel.x8.numBitsForFloat32());
+        assertEquals("8x", CompressionLevel.x8.getName());
+
+        assertEquals(8, CompressionLevel.x4.numBitsForFloat32());
+        assertEquals("4x", CompressionLevel.x4.getName());
+
+        assertEquals(16, CompressionLevel.x2.numBitsForFloat32());
+        assertEquals("2x", CompressionLevel.x2.getName());
+
+        assertEquals(32, CompressionLevel.x1.numBitsForFloat32());
+        assertEquals("1x", CompressionLevel.x1.getName());
+    }
+
+    public void testFromNameAllValidLevels() {
+        assertEquals(CompressionLevel.x1, CompressionLevel.fromName("1x"));
+        assertEquals(CompressionLevel.x2, CompressionLevel.fromName("2x"));
+        assertEquals(CompressionLevel.x4, CompressionLevel.fromName("4x"));
+        assertEquals(CompressionLevel.x8, CompressionLevel.fromName("8x"));
+        assertEquals(CompressionLevel.x16, CompressionLevel.fromName("16x"));
+        assertEquals(CompressionLevel.x32, CompressionLevel.fromName("32x"));
+        assertEquals(CompressionLevel.x64, CompressionLevel.fromName("64x"));
+    }
+
+    public void testDefaultCompressionIsX1() {
+        // TODO: [DEFAULT_FLIP] After Step 4, assert CompressionLevel.x32 (SQ 1-bit) instead
+        assertEquals(32, CompressionLevel.NOT_CONFIGURED.numBitsForFloat32());
+        assertEquals(CompressionLevel.x1.numBitsForFloat32(), CompressionLevel.NOT_CONFIGURED.numBitsForFloat32());
+    }
+
+    public void testMaxCompressionLevelConstant() {
+        assertEquals(CompressionLevel.x64, CompressionLevel.MAX_COMPRESSION_LEVEL);
+    }
+
+    public void testFromName_whenInvalid_thenThrows() {
+        expectThrows(IllegalArgumentException.class, () -> CompressionLevel.fromName("99x"));
+        expectThrows(IllegalArgumentException.class, () -> CompressionLevel.fromName("0x"));
+        expectThrows(IllegalArgumentException.class, () -> CompressionLevel.fromName("x32"));
+        expectThrows(IllegalArgumentException.class, () -> CompressionLevel.fromName("3x"));
+        expectThrows(IllegalArgumentException.class, () -> CompressionLevel.fromName("abc"));
+        expectThrows(IllegalArgumentException.class, () -> CompressionLevel.fromName("-1x"));
+    }
+
+    public void testX32ConsistentAcrossEngineEncoders() {
+        FaissSQEncoder.Bits faissBits1 = FaissSQEncoder.Bits.fromValue(1);
+        LuceneSQEncoder.Bits luceneBits1 = LuceneSQEncoder.Bits.fromValue(1);
+
+        assertEquals(faissBits1.getCompressionLevel(), luceneBits1.getCompressionLevel());
+        assertEquals(CompressionLevel.x32, faissBits1.getCompressionLevel());
+        assertEquals(CompressionLevel.x32, luceneBits1.getCompressionLevel());
     }
 }

@@ -804,6 +804,47 @@ run {
     }
 }
 
+// Task to start a dedicated coordinator node that joins the running test cluster.
+// Start the cluster first: ./gradlew run -PnumNodes=2
+// Then in another terminal: ./gradlew startCoordinator
+// The coordinator node will be available at localhost:9200+numNodes (e.g. 9202 for 2 nodes)
+task startCoordinator(type: Exec) {
+    def distroDir = "${buildDir}/testclusters/integTest-0/distro/${opensearch_version_no_snapshot}-ARCHIVE"
+    def coordDir = "${buildDir}/testclusters/coordinator-0"
+
+    doFirst {
+        delete coordDir
+        file("${coordDir}/data").mkdirs()
+        file("${coordDir}/logs").mkdirs()
+        file("${coordDir}/config").mkdirs()
+
+        copy {
+            from "${distroDir}/config"
+            into "${coordDir}/config"
+        }
+
+        def seedHosts = (0..<_numNodes).collect { "127.0.0.1:${9300 + it}" }.join('", "')
+        def coordHttpPort = 9200 + _numNodes
+        def coordTransportPort = 9300 + _numNodes
+        file("${coordDir}/config/opensearch.yml").text = """\
+cluster.name: integTest
+node.name: coordinator-0
+node.roles: []
+discovery.seed_hosts: ["${seedHosts}"]
+network.host: 127.0.0.1
+http.port: ${coordHttpPort}
+transport.port: ${coordTransportPort}
+path.data: ${coordDir}/data
+path.logs: ${coordDir}/logs
+"""
+    }
+
+    environment "OPENSEARCH_HOME", distroDir
+    environment "OPENSEARCH_PATH_CONF", "${coordDir}/config"
+    environment "OPENSEARCH_JAVA_OPTS", "-Xms512m -Xmx512m"
+    commandLine "${distroDir}/bin/opensearch"
+}
+
 // updateVersion: Task to auto increment to the next development iteration
 task updateVersion {
     onlyIf { System.getProperty('newVersion') }

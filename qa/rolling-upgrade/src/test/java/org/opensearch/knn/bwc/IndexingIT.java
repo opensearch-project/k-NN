@@ -5,8 +5,14 @@
 
 package org.opensearch.knn.bwc;
 
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.knn.KNNResult;
+import org.opensearch.knn.index.query.parser.RescoreParser;
+
+import java.util.List;
 
 import static org.opensearch.knn.TestUtils.NODES_BWC_CLUSTER;
 
@@ -618,6 +624,134 @@ public class IndexingIT extends AbstractRollingUpgradeTestCase {
                 validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
                 deleteKNNIndex(testIndex);
         }
+    }
+
+    /**
+     * Test BWC for 32x compression level with various rescore search parameters during rolling upgrade.
+     * Creates an index with 32x compression in old cluster, then validates search works
+     * with different rescore configurations in mixed and upgraded clusters:
+     * - rescore disabled (rescore: false)
+     * - rescore with explicit oversample_factor
+     * - rescore with default (implicit) settings
+     * - rescore with high oversample_factor
+     */
+    public void testCompression32xWithRescoreParametersRollingUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+
+        // mode and compression_level parameters are only supported on or after 2.17.0
+        if (isModeAndCompressionSupported(getBWCVersion()) == false) {
+            return;
+        }
+
+        int dimension = 8;
+        int k = 4;
+
+        switch (getClusterType()) {
+            case OLD:
+                String mapping = XContentFactory.jsonBuilder()
+                    .startObject()
+                    .startObject("properties")
+                    .startObject(TEST_FIELD)
+                    .field("type", "knn_vector")
+                    .field("dimension", dimension)
+                    .field("compression_level", "32x")
+                    .field("mode", "on_disk")
+                    .field("space_type", "l2")
+                    .startObject("method")
+                    .field("name", ALGO)
+                    .field("engine", FAISS_NAME)
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .toString();
+                createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+
+                Float[] vector1 = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+                Float[] vector2 = { 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f };
+                Float[] vector3 = { 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f };
+                Float[] vector4 = { 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f, 11.0f };
+                addKnnDoc(testIndex, "1", TEST_FIELD, vector1);
+                addKnnDoc(testIndex, "2", TEST_FIELD, vector2);
+                addKnnDoc(testIndex, "3", TEST_FIELD, vector3);
+                addKnnDoc(testIndex, "4", TEST_FIELD, vector4);
+                flush(testIndex, true);
+                break;
+            case MIXED:
+                validateRescoreSearch(k, dimension);
+                break;
+            case UPGRADED:
+                validateRescoreSearch(k, dimension);
+                deleteKNNIndex(testIndex);
+        }
+    }
+
+    private void validateRescoreSearch(int k, int dimension) throws Exception {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f };
+
+        // Search with rescore disabled
+        Response response = searchKNNIndex(
+            testIndex,
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("query")
+                .startObject("knn")
+                .startObject(TEST_FIELD)
+                .field("vector", queryVector)
+                .field("k", k)
+                .field(RescoreParser.RESCORE_PARAMETER, false)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject(),
+            k
+        );
+        assertOK(response);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), TEST_FIELD);
+        assertEquals(k, results.size());
+
+        // Search with explicit rescore oversample_factor
+        response = searchKNNIndex(
+            testIndex,
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("query")
+                .startObject("knn")
+                .startObject(TEST_FIELD)
+                .field("vector", queryVector)
+                .field("k", k)
+                .startObject(RescoreParser.RESCORE_PARAMETER)
+                .field(RescoreParser.RESCORE_OVERSAMPLE_PARAMETER, 2.0f)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject(),
+            k
+        );
+        assertOK(response);
+        results = parseSearchResponse(EntityUtils.toString(response.getEntity()), TEST_FIELD);
+        assertEquals(k, results.size());
+
+        // Search with default rescore (no rescore parameter)
+        response = searchKNNIndex(
+            testIndex,
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("query")
+                .startObject("knn")
+                .startObject(TEST_FIELD)
+                .field("vector", queryVector)
+                .field("k", k)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject(),
+            k
+        );
+        assertOK(response);
+        results = parseSearchResponse(EntityUtils.toString(response.getEntity()), TEST_FIELD);
+        assertEquals(k, results.size());
     }
 
 }

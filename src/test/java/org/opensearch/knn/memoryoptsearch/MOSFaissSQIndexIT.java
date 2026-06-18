@@ -31,6 +31,17 @@ public class MOSFaissSQIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
             Mode.ON_DISK,
             CompressionLevel.x32
         );
+
+        // Radial search
+        doTestNonNestedIndex(
+            VectorDataType.FLOAT,
+            SQ_ENCODER_PARAMS,
+            true,
+            SpaceType.INNER_PRODUCT,
+            NO_ADDITIONAL_SETTINGS,
+            Mode.ON_DISK,
+            CompressionLevel.x32
+        );
     }
 
     public void testNestedDiskBasedIndexWithIP() {
@@ -59,6 +70,17 @@ public class MOSFaissSQIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
             Mode.ON_DISK,
             CompressionLevel.x32
         );
+
+        // Radial search
+        doTestNonNestedIndex(
+            VectorDataType.FLOAT,
+            SQ_ENCODER_PARAMS,
+            true,
+            SpaceType.L2,
+            NO_ADDITIONAL_SETTINGS,
+            Mode.ON_DISK,
+            CompressionLevel.x32
+        );
     }
 
     public void testNestedDiskBasedIndexWithL2() {
@@ -82,6 +104,17 @@ public class MOSFaissSQIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
             VectorDataType.FLOAT,
             SQ_ENCODER_PARAMS,
             false,
+            SpaceType.COSINESIMIL,
+            NO_ADDITIONAL_SETTINGS,
+            Mode.ON_DISK,
+            CompressionLevel.x32
+        );
+
+        // Radial search
+        doTestNonNestedIndex(
+            VectorDataType.FLOAT,
+            SQ_ENCODER_PARAMS,
+            true,
             SpaceType.COSINESIMIL,
             NO_ADDITIONAL_SETTINGS,
             Mode.ON_DISK,
