@@ -634,7 +634,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
         Map<String, Object> parameters = ImmutableMap.of(
             INDEX_DESCRIPTION_PARAMETER,
-            "IVF4,Flat",
+            "HNSW32,Flat",
             KNNConstants.SPACE_TYPE,
             SpaceType.L2.getValue()
         );
