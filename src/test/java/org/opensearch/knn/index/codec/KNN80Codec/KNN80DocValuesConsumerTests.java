@@ -12,7 +12,7 @@ import org.apache.lucene.codecs.DocValuesConsumer;
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
-import org.apache.lucene.index.MergeAbortChecker;
+import org.apache.lucene.index.MergeAbortTestUtil;
 import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentWriteState;
@@ -58,10 +58,8 @@ import java.util.concurrent.ExecutionException;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -624,7 +622,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         verify(knn80DocValuesConsumer, never()).addKNNBinaryField(any(), any(), eq(false));
     }
 
-    public void testAddKNNBinaryField_fromModel_faiss_with_mergeAbort() throws IOException {
+    public void testAddKNNBinaryField_fromModel_faiss_with_mergeAbort() throws Exception {
         // Generate a trained faiss model
         KNNEngine knnEngine = KNNEngine.FAISS;
         SpaceType spaceType = SpaceType.INNER_PRODUCT;
@@ -660,63 +658,62 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         Model model = new Model(modelMetadata, modelBytes, modelId);
         JNICommons.freeVectorData(trainingPtr);
 
-        try (
-            MockedStatic<MergeAbortChecker> mergeHelper = mockStatic(MergeAbortChecker.class);
-            MockedStatic<ModelDao.OpenSearchKNNModelDao> modelDaoMockedStatic = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)
-        ) {
-            // Setup isMergeAborted return true
-            mergeHelper.when(MergeAbortChecker::isMergeAborted).thenReturn(true);
-            // Setup the model cache to return the correct model
-            ModelDao.OpenSearchKNNModelDao modelDao = mock(ModelDao.OpenSearchKNNModelDao.class);
-            when(modelDao.get(modelId)).thenReturn(model);
-            when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
+        // Build the segment and field info on the test thread (these use the randomized-test context).
+        String segmentName = String.format("test_segment%s", randomAlphaOfLength(4));
+        int docsInSegment = 100;
+        String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
 
-            modelDaoMockedStatic.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(modelDao);
+        SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
+            .directory(directory)
+            .segmentName(segmentName)
+            .docsInSegment(docsInSegment)
+            .codec(codec)
+            .build();
 
-            ClusterService clusterService = mock(ClusterService.class);
-            when(clusterService.getSettings()).thenReturn(Settings.EMPTY);
+        FieldInfo[] fieldInfoArray = new FieldInfo[] {
+            KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
+                .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+                .addAttribute(MODEL_ID, modelId)
+                .build() };
 
-            ClusterSettings clusterSettings = new ClusterSettings(
-                Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), "10kb").build(),
-                ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING)
-            );
+        FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
+        SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
 
-            when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
-            ModelCache.initialize(modelDao, clusterService);
+        KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
+        TestVectorValues.RandomVectorDocValuesProducer randomVectorDocValuesProducer = new TestVectorValues.RandomVectorDocValuesProducer(
+            docsInSegment,
+            dimension
+        );
 
-            // Build the segment and field info
-            String segmentName = String.format("test_segment%s", randomAlphaOfLength(4));
-            int docsInSegment = 100;
-            String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
+        // Run the merge-time index build on a real, aborted Lucene merge thread. This drives the
+        // production MergeAbortChecker.isMergeAborted() reflection path to return true -- the same path
+        // faiss invokes via JNI during a merge -- reproducing what the managed service sees on an aborted
+        // merge, without statically mocking a method invoked from native code (which is not reliably
+        // intercepted across all JDK/runtime combinations). The model DAO static mock is opened on this
+        // same thread because the build resolves model metadata through it.
+        Throwable thrown = MergeAbortTestUtil.runOnAbortedMergeThread(() -> {
+            try (
+                MockedStatic<ModelDao.OpenSearchKNNModelDao> modelDaoMockedStatic = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)
+            ) {
+                ModelDao.OpenSearchKNNModelDao modelDao = mock(ModelDao.OpenSearchKNNModelDao.class);
+                when(modelDao.get(modelId)).thenReturn(model);
+                when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
+                modelDaoMockedStatic.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(modelDao);
 
-            SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
-                .directory(directory)
-                .segmentName(segmentName)
-                .docsInSegment(docsInSegment)
-                .codec(codec)
-                .build();
+                ClusterService clusterService = mock(ClusterService.class);
+                when(clusterService.getSettings()).thenReturn(Settings.EMPTY);
+                ClusterSettings clusterSettings = new ClusterSettings(
+                    Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), "10kb").build(),
+                    ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING)
+                );
+                when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+                ModelCache.initialize(modelDao, clusterService);
 
-            FieldInfo[] fieldInfoArray = new FieldInfo[] {
-                KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
-                    .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
-                    .addAttribute(MODEL_ID, modelId)
-                    .build() };
+                knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true);
+            }
+        });
 
-            FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
-            SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
-
-            long initialMergeOperations = KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue();
-
-            // Add documents to the field
-            KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
-            TestVectorValues.RandomVectorDocValuesProducer randomVectorDocValuesProducer =
-                new TestVectorValues.RandomVectorDocValuesProducer(docsInSegment, dimension);
-            // Throw MergeAbortedException
-            expectThrows(
-                MergePolicy.MergeAbortedException.class,
-                () -> knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true)
-            );
-            mergeHelper.verify(MergeAbortChecker::isMergeAborted, atLeastOnce());
-        }
+        assertNotNull("Expected the aborted merge to fail the index build, but nothing was thrown", thrown);
+        assertTrue("Expected MergePolicy.MergeAbortedException but got: " + thrown, thrown instanceof MergePolicy.MergeAbortedException);
     }
 }
