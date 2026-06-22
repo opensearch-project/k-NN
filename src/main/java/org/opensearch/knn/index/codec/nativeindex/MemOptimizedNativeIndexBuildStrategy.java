@@ -126,6 +126,8 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
                 return null;
             });
 
+        } catch (IndexBuildAbortedException indexBuildAbortedException) {
+            throw indexBuildAbortedException;
         } catch (Exception exception) {
             throw new RuntimeException(
                 "Failed to build index, field name [" + indexInfo.getFieldName() + "], parameters " + indexInfo,

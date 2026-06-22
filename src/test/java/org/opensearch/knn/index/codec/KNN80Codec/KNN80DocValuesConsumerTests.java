@@ -12,6 +12,8 @@ import org.apache.lucene.codecs.DocValuesConsumer;
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.MergeAbortTestUtil;
+import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.store.Directory;
@@ -618,5 +620,100 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
         verify(delegate, times(1)).addBinaryField(fieldInfo, docValuesProducer);
         verify(knn80DocValuesConsumer, never()).addKNNBinaryField(any(), any(), eq(false));
+    }
+
+    public void testAddKNNBinaryField_fromModel_faiss_with_mergeAbort() throws Exception {
+        // Generate a trained faiss model
+        KNNEngine knnEngine = KNNEngine.FAISS;
+        SpaceType spaceType = SpaceType.INNER_PRODUCT;
+        int dimension = 16;
+        String modelId = "test-model-id";
+
+        float[][] trainingData = TestVectorValues.getRandomVectors(200, dimension);
+        long trainingPtr = JNICommons.storeVectorData(0, trainingData, trainingData.length * dimension);
+
+        Map<String, Object> parameters = ImmutableMap.of(
+            INDEX_DESCRIPTION_PARAMETER,
+            "HNSW32,Flat",
+            KNNConstants.SPACE_TYPE,
+            SpaceType.L2.getValue()
+        );
+
+        byte[] modelBytes = JNIService.trainIndex(parameters, dimension, trainingPtr, knnEngine);
+        ModelMetadata modelMetadata = new ModelMetadata(
+            knnEngine,
+            spaceType,
+            dimension,
+            ModelState.CREATED,
+            "timestamp",
+            "Empty description",
+            "",
+            "",
+            MethodComponentContext.EMPTY,
+            VectorDataType.FLOAT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED,
+            Version.V_EMPTY
+        );
+        Model model = new Model(modelMetadata, modelBytes, modelId);
+        JNICommons.freeVectorData(trainingPtr);
+
+        // Build the segment and field info on the test thread (these use the randomized-test context).
+        String segmentName = String.format("test_segment%s", randomAlphaOfLength(4));
+        int docsInSegment = 100;
+        String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
+
+        SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
+            .directory(directory)
+            .segmentName(segmentName)
+            .docsInSegment(docsInSegment)
+            .codec(codec)
+            .build();
+
+        FieldInfo[] fieldInfoArray = new FieldInfo[] {
+            KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
+                .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+                .addAttribute(MODEL_ID, modelId)
+                .build() };
+
+        FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
+        SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
+
+        KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
+        TestVectorValues.RandomVectorDocValuesProducer randomVectorDocValuesProducer = new TestVectorValues.RandomVectorDocValuesProducer(
+            docsInSegment,
+            dimension
+        );
+
+        // Run the merge-time index build on a real, aborted Lucene merge thread. This drives the
+        // production MergeAbortChecker.isMergeAborted() reflection path to return true -- the same path
+        // faiss invokes via JNI during a merge -- reproducing what the managed service sees on an aborted
+        // merge, without statically mocking a method invoked from native code (which is not reliably
+        // intercepted across all JDK/runtime combinations). The model DAO static mock is opened on this
+        // same thread because the build resolves model metadata through it.
+        Throwable thrown = MergeAbortTestUtil.runOnAbortedMergeThread(() -> {
+            try (
+                MockedStatic<ModelDao.OpenSearchKNNModelDao> modelDaoMockedStatic = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)
+            ) {
+                ModelDao.OpenSearchKNNModelDao modelDao = mock(ModelDao.OpenSearchKNNModelDao.class);
+                when(modelDao.get(modelId)).thenReturn(model);
+                when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
+                modelDaoMockedStatic.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(modelDao);
+
+                ClusterService clusterService = mock(ClusterService.class);
+                when(clusterService.getSettings()).thenReturn(Settings.EMPTY);
+                ClusterSettings clusterSettings = new ClusterSettings(
+                    Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), "10kb").build(),
+                    ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING)
+                );
+                when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+                ModelCache.initialize(modelDao, clusterService);
+
+                knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true);
+            }
+        });
+
+        assertNotNull("Expected the aborted merge to fail the index build, but nothing was thrown", thrown);
+        assertTrue("Expected MergePolicy.MergeAbortedException but got: " + thrown, thrown instanceof MergePolicy.MergeAbortedException);
     }
 }

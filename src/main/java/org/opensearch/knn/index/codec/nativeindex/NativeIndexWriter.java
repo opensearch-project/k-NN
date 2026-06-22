@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.store.IndexOutput;
 import org.opensearch.common.Nullable;
@@ -119,9 +120,36 @@ public class NativeIndexWriter {
         }
 
         long bytesPerVector = knnVectorValues.bytesPerVector();
-        startMergeStats(totalLiveDocs, bytesPerVector);
-        buildAndWriteIndex(knnVectorValues, totalLiveDocs);
-        endMergeStats(totalLiveDocs, bytesPerVector);
+
+        try {
+            startMergeStats(totalLiveDocs, bytesPerVector);
+            buildAndWriteIndex(knnVectorValues, totalLiveDocs);
+            endMergeStats(totalLiveDocs, bytesPerVector);
+        } catch (Exception ex) {
+            // The abort signal (IndexBuildAbortedException) can surface wrapped by intermediate layers,
+            // e.g. RuntimeException -> PrivilegedActionException -> IndexBuildAbortedException thrown from
+            // the FAISS JNI path. Inspect the whole cause chain so an aborted merge is always reported as
+            // a MergeAbortedException rather than being misclassified as a generic merge failure.
+            if (isMergeAborted(ex)) {
+                log.warn("Merge Aborted for field {}", fieldInfo.name, ex);
+                throw new MergePolicy.MergeAbortedException("KNN Merge aborted.");
+            }
+            log.error("Merge exception happened for field {}", fieldInfo.name, ex);
+            throw ex;
+        }
+    }
+
+    private static boolean isMergeAborted(final Throwable throwable) {
+        for (Throwable cause = throwable; cause != null; cause = cause.getCause()) {
+            if (cause instanceof IndexBuildAbortedException) {
+                return true;
+            }
+            // Guard against self-referential cause chains.
+            if (cause.getCause() == cause) {
+                break;
+            }
+        }
+        return false;
     }
 
     private void buildAndWriteIndex(final KNNVectorValues<?> knnVectorValues, int totalLiveDocs) throws IOException {
