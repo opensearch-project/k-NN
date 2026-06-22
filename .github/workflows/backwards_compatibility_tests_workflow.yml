@@ -44,7 +44,7 @@ jobs:
 
     steps:
       - name: Checkout k-NN
-        uses: actions/checkout@v1
+        uses: actions/checkout@50fbc622fc4ef5163becd7fab6573eac35f8462e # v1
 
       # Setup git user so that patches for native libraries can be applied and committed
       - name: Setup git user
@@ -53,7 +53,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Setup Java ${{ matrix.java }}
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@b6e674f4b717d7b0ae3baee0fbe79f498905dfde # v1
         with:
           java-version: ${{ matrix.java }}
 
@@ -98,7 +98,7 @@ jobs:
 
     steps:
       - name: Checkout k-NN
-        uses: actions/checkout@v1
+        uses: actions/checkout@50fbc622fc4ef5163becd7fab6573eac35f8462e # v1
 
       # Setup git user so that patches for native libraries can be applied and committed
       - name: Setup git user
@@ -107,7 +107,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Setup Java ${{ matrix.java }}
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@b6e674f4b717d7b0ae3baee0fbe79f498905dfde # v1
         with:
           java-version: ${{ matrix.java }}
 
