@@ -427,7 +427,10 @@ public class NestedSearchIT extends KNNRestTestCase {
 
         String mapping = builder.toString();
         if (memoryOptimizedSearch) {
-            Settings settings = Settings.builder().put(KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_MODE, true).build();
+            Settings settings = Settings.builder()
+                .put(getKNNDefaultIndexSettings())
+                .put(KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_MODE, true)
+                .build();
             createKnnIndex(INDEX_NAME, settings, mapping);
         } else {
             createKnnIndex(INDEX_NAME, mapping);
