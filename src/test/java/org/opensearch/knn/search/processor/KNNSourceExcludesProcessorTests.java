@@ -303,6 +303,15 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         assertFalse(factory.shouldGenerate(context));
     }
 
+    public void testFactory_shouldGenerate_storedFieldsNone_returnsFalse() {
+        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService);
+        SearchRequest request = new SearchRequest("test-index");
+        request.source(new SearchSourceBuilder().storedField("_none_"));
+
+        ProcessorGenerationContext context = new ProcessorGenerationContext(request);
+        assertFalse(factory.shouldGenerate(context));
+    }
+
     public void testFactory_shouldGenerate_validRequest_returnsTrue() {
         KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService);
         SearchRequest request = new SearchRequest("test-index");

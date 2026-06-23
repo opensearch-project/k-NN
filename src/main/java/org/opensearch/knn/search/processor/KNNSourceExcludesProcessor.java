@@ -216,10 +216,7 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
                 return false;
             }
 
-            // storedFields and fields are enabled and not set to _none_
-            if (storedFieldsContext != null
-                && storedFieldsContext.fetchFields() == true
-                && storedFieldsContext.fieldNames().contains(StoredFieldsContext._NONE_)) {
+            if (storedFieldsContext != null && storedFieldsContext.fetchFields() == false) {
                 return false;
             }
 
