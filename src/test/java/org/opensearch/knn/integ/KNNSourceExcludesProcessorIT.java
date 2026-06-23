@@ -383,11 +383,59 @@ public class KNNSourceExcludesProcessorIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testSearchResponse_aliasResolvesToConcreteIndex_excludesVectorField() {
-        String indexName = INDEX_NAME + "-alias-target";
+    public void testSearchResponse_aliasWithMultipleVectorFieldsAndDocs_excludesAllVectors() {
+        String indexName = INDEX_NAME + "-alias-multi";
         String aliasName = "my-test-alias";
-        createIndexWithVectorAndTextField(indexName);
-        indexDocumentWithVectorAndText(indexName, "1", TEST_VECTOR, "alias test");
+        String vectorField2 = "another_vector";
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(VECTOR_FIELD)
+            .field("type", TYPE_KNN_VECTOR)
+            .field("dimension", DIMENSION_VALUE)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .endObject()
+            .endObject()
+            .startObject(vectorField2)
+            .field("type", TYPE_KNN_VECTOR)
+            .field("dimension", DIMENSION_VALUE)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .endObject()
+            .endObject()
+            .startObject(TEXT_FIELD)
+            .field("type", "text")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(indexName, mapping);
+
+        String doc1 = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(VECTOR_FIELD, TEST_VECTOR)
+            .field(vectorField2, new Float[] { 5.0f, 6.0f, 7.0f, 8.0f })
+            .field(TEXT_FIELD, "document one")
+            .endObject()
+            .toString();
+        addKnnDoc(indexName, "1", doc1);
+
+        String doc2 = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(VECTOR_FIELD, new Float[] { 9.0f, 10.0f, 11.0f, 12.0f })
+            .field(vectorField2, new Float[] { 13.0f, 14.0f, 15.0f, 16.0f })
+            .field(TEXT_FIELD, "document two")
+            .endObject()
+            .toString();
+        addKnnDoc(indexName, "2", doc2);
+
         refreshIndex(indexName);
 
         // Create alias pointing to the concrete index
@@ -420,11 +468,14 @@ public class KNNSourceExcludesProcessorIT extends KNNRestTestCase {
         Response response = performSearch(aliasName, query);
         List<Map<String, Object>> hits = parseHits(response);
 
-        assertEquals(1, hits.size());
-        Map<String, Object> source = getSource(hits.get(0));
-        assertNotNull(source);
-        assertTrue(source.containsKey(TEXT_FIELD));
-        assertFalse("Vector field should be excluded when searching via alias", source.containsKey(VECTOR_FIELD));
+        assertEquals(2, hits.size());
+        for (Map<String, Object> hit : hits) {
+            Map<String, Object> source = getSource(hit);
+            assertNotNull(source);
+            assertTrue(source.containsKey(TEXT_FIELD));
+            assertFalse("First vector field should be excluded when searching via alias", source.containsKey(VECTOR_FIELD));
+            assertFalse("Second vector field should be excluded when searching via alias", source.containsKey(vectorField2));
+        }
 
         deleteIndex(indexName);
     }
