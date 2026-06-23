@@ -302,6 +302,30 @@ public class ExpandNestedDocsIT extends KNNRestTestCase {
         }
     }
 
+    @SneakyThrows
+    public void testExpandNestedDocs_whenDocWithoutNestedObjectInSeparateSegment_thenSucceed() {
+        createKnnIndex(engine, mode, dimension, dataType);
+
+        NestedKnnDocBuilder docBuilder = NestedKnnDocBuilder.create(FIELD_NAME_NESTED);
+        Float[] vector = createVector();
+        docBuilder.addVectors(FIELD_NAME_VECTOR, vector);
+        String doc = docBuilder.build();
+        addKnnDoc(INDEX_NAME, "1", doc);
+        flushIndex(INDEX_NAME);
+
+        addKnnDoc(INDEX_NAME, "2", "{}");
+        flushIndex(INDEX_NAME);
+
+        refreshIndex(INDEX_NAME);
+
+        Float[] queryVector = createVector();
+        Response response = queryNestedFieldWithExpandNestedDocs(INDEX_NAME, 1, queryVector);
+        String entity = EntityUtils.toString(response.getEntity());
+        Multimap<String, Integer> docIdToOffsets = parseInnerHits(entity, FIELD_NAME_NESTED);
+        assertEquals(1, docIdToOffsets.keySet().size());
+        assertTrue(docIdToOffsets.containsKey("1"));
+    }
+
     private Float[] createVector() {
         int vectorSize = VectorDataType.BINARY.equals(dataType) ? dimension / 8 : dimension;
         Float[] vector = new Float[vectorSize];
