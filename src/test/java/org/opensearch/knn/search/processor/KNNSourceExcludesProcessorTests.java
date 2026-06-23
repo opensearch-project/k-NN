@@ -63,10 +63,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     }
 
     public void testProcessRequest_indexWithVectorField_addsExclude() {
-        mockClusterStateWithMapping(
-            "test-index",
-            Map.of("properties", Map.of("my_vector", Map.of("type", "knn_vector", "dimension", 3)))
-        );
+        mockClusterStateWithMapping("test-index", Map.of("properties", Map.of("my_vector", Map.of("type", "knn_vector", "dimension", 3))));
 
         KNNSourceExcludesProcessor processor = createProcessor();
         SearchRequest request = new SearchRequest("test-index");
@@ -82,16 +79,11 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     }
 
     public void testProcessRequest_preservesUserIncludes() {
-        mockClusterStateWithMapping(
-            "test-index",
-            Map.of("properties", Map.of("my_vector", Map.of("type", "knn_vector", "dimension", 2)))
-        );
+        mockClusterStateWithMapping("test-index", Map.of("properties", Map.of("my_vector", Map.of("type", "knn_vector", "dimension", 2))));
 
         KNNSourceExcludesProcessor processor = createProcessor();
         SearchRequest request = new SearchRequest("test-index");
-        request.source(
-            new SearchSourceBuilder().fetchSource(new FetchSourceContext(true, new String[] { "title" }, new String[0]))
-        );
+        request.source(new SearchSourceBuilder().fetchSource(new FetchSourceContext(true, new String[] { "title" }, new String[0])));
 
         SearchRequest result = processor.processRequest(request);
 
@@ -101,16 +93,11 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     }
 
     public void testProcessRequest_userIncludesVectorField_noExclude() {
-        mockClusterStateWithMapping(
-            "test-index",
-            Map.of("properties", Map.of("my_vector", Map.of("type", "knn_vector", "dimension", 2)))
-        );
+        mockClusterStateWithMapping("test-index", Map.of("properties", Map.of("my_vector", Map.of("type", "knn_vector", "dimension", 2))));
 
         KNNSourceExcludesProcessor processor = createProcessor();
         SearchRequest request = new SearchRequest("test-index");
-        request.source(
-            new SearchSourceBuilder().fetchSource(new FetchSourceContext(true, new String[] { "my_vector" }, new String[0]))
-        );
+        request.source(new SearchSourceBuilder().fetchSource(new FetchSourceContext(true, new String[] { "my_vector" }, new String[0])));
 
         SearchRequest result = processor.processRequest(request);
 
@@ -120,10 +107,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     }
 
     public void testProcessRequest_preservesExistingExcludes() {
-        mockClusterStateWithMapping(
-            "test-index",
-            Map.of("properties", Map.of("vec", Map.of("type", "knn_vector", "dimension", 1)))
-        );
+        mockClusterStateWithMapping("test-index", Map.of("properties", Map.of("vec", Map.of("type", "knn_vector", "dimension", 1))));
 
         KNNSourceExcludesProcessor processor = createProcessor();
         SearchRequest request = new SearchRequest("test-index");
@@ -151,12 +135,8 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     }
 
     public void testProcessRequest_multipleIndices_collectsAllVectorFields() {
-        IndexMetadata idx1 = mockIndexMetadata(
-            Map.of("properties", Map.of("vec1", Map.of("type", "knn_vector", "dimension", 3)))
-        );
-        IndexMetadata idx2 = mockIndexMetadata(
-            Map.of("properties", Map.of("vec2", Map.of("type", "knn_vector", "dimension", 5)))
-        );
+        IndexMetadata idx1 = mockIndexMetadata(Map.of("properties", Map.of("vec1", Map.of("type", "knn_vector", "dimension", 3))));
+        IndexMetadata idx2 = mockIndexMetadata(Map.of("properties", Map.of("vec2", Map.of("type", "knn_vector", "dimension", 5))));
         mockClusterState(Map.of("index-1", idx1, "index-2", idx2));
 
         KNNSourceExcludesProcessor processor = createProcessor();
@@ -175,9 +155,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     public void testProcessRequest_innerHitIncludesVectorField_skipsExcludes() {
         mockClusterStateWithMapping(
             "test-index",
-            Map.of("properties", Map.of(
-                "nested_obj", Map.of("properties", Map.of("vec", Map.of("type", "knn_vector", "dimension", 3)))
-            ))
+            Map.of("properties", Map.of("nested_obj", Map.of("properties", Map.of("vec", Map.of("type", "knn_vector", "dimension", 3)))))
         );
 
         InnerHitBuilder innerHit = new InnerHitBuilder();
@@ -196,9 +174,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     public void testProcessRequest_innerHitWithoutIncludes_appliesExcludes() {
         mockClusterStateWithMapping(
             "test-index",
-            Map.of("properties", Map.of(
-                "nested_obj", Map.of("properties", Map.of("vec", Map.of("type", "knn_vector", "dimension", 3)))
-            ))
+            Map.of("properties", Map.of("nested_obj", Map.of("properties", Map.of("vec", Map.of("type", "knn_vector", "dimension", 3)))))
         );
 
         InnerHitBuilder innerHit = new InnerHitBuilder();
@@ -257,11 +233,13 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     public void testCollectVectorFields_deeplyNestedObject() {
         Map<String, Object> mapping = Map.of(
             "properties",
-            Map.of("level1", Map.of(
-                "properties", Map.of("level2", Map.of(
-                    "properties", Map.of("deep_vec", Map.of("type", "knn_vector", "dimension", 8))
-                ))
-            ))
+            Map.of(
+                "level1",
+                Map.of(
+                    "properties",
+                    Map.of("level2", Map.of("properties", Map.of("deep_vec", Map.of("type", "knn_vector", "dimension", 8))))
+                )
+            )
         );
 
         Set<String> fields = new HashSet<>();
@@ -325,7 +303,6 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         assertFalse(factory.shouldGenerate(context));
     }
 
-
     public void testFactory_shouldGenerate_validRequest_returnsTrue() {
         KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService);
         SearchRequest request = new SearchRequest("test-index");
@@ -338,9 +315,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     public void testFactory_shouldGenerate_withExistingExcludes_returnsTrue() {
         KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService);
         SearchRequest request = new SearchRequest("test-index");
-        request.source(
-            new SearchSourceBuilder().fetchSource(new FetchSourceContext(true, new String[0], new String[] { "some_field" }))
-        );
+        request.source(new SearchSourceBuilder().fetchSource(new FetchSourceContext(true, new String[0], new String[] { "some_field" })));
 
         ProcessorGenerationContext context = new ProcessorGenerationContext(request);
         assertTrue(factory.shouldGenerate(context));
@@ -349,9 +324,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     public void testFactory_shouldGenerate_withIncludes_returnsTrue() {
         KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService);
         SearchRequest request = new SearchRequest("test-index");
-        request.source(
-            new SearchSourceBuilder().fetchSource(new FetchSourceContext(true, new String[] { "title" }, new String[0]))
-        );
+        request.source(new SearchSourceBuilder().fetchSource(new FetchSourceContext(true, new String[] { "title" }, new String[0])));
 
         ProcessorGenerationContext context = new ProcessorGenerationContext(request);
         assertTrue(factory.shouldGenerate(context));

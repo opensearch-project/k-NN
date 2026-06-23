@@ -188,11 +188,7 @@ public class KNNSourceExcludesProcessorIT extends KNNRestTestCase {
 
         createKnnIndex(indexName, mapping);
 
-        String doc = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(TEXT_FIELD, "hello world")
-            .endObject()
-            .toString();
+        String doc = XContentFactory.jsonBuilder().startObject().field(TEXT_FIELD, "hello world").endObject().toString();
         addKnnDoc(indexName, "1", doc);
         refreshIndex(indexName);
 
@@ -344,10 +340,7 @@ public class KNNSourceExcludesProcessorIT extends KNNRestTestCase {
         assertTrue(source.containsKey(TEXT_FIELD));
         if (source.containsKey(nestedField)) {
             Map<String, Object> nestedSource = (Map<String, Object>) source.get(nestedField);
-            assertFalse(
-                "Nested vector field should be excluded",
-                nestedSource.containsKey(nestedVecField)
-            );
+            assertFalse("Nested vector field should be excluded", nestedSource.containsKey(nestedVecField));
         }
 
         deleteIndex(indexName);
@@ -446,12 +439,7 @@ public class KNNSourceExcludesProcessorIT extends KNNRestTestCase {
     }
 
     private void indexDocumentWithVectorAndText(String indexName, String docId, Float[] vector, String text) throws IOException {
-        String doc = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(VECTOR_FIELD, vector)
-            .field(TEXT_FIELD, text)
-            .endObject()
-            .toString();
+        String doc = XContentFactory.jsonBuilder().startObject().field(VECTOR_FIELD, vector).field(TEXT_FIELD, text).endObject().toString();
         addKnnDoc(indexName, docId, doc);
     }
 

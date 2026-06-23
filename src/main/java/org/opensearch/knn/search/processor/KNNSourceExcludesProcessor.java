@@ -18,7 +18,6 @@ import org.opensearch.index.query.NestedQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilderVisitor;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
-import org.opensearch.protobufs.InnerHitsOrBuilder;
 import org.opensearch.search.fetch.StoredFieldsContext;
 import org.opensearch.search.fetch.subphase.FetchSourceContext;
 import org.opensearch.search.pipeline.AbstractProcessor;
@@ -33,7 +32,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * A system-generated search request processor that automatically adds _source excludes for knn vector fields
@@ -49,8 +47,13 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
 
     private List<InnerHitBuilder> innerHitBuilders;
 
-    KNNSourceExcludesProcessor(String tag, String description, boolean ignoreFailure, ClusterService clusterService,
-                               List<InnerHitBuilder> innerHitBuilders) {
+    KNNSourceExcludesProcessor(
+        String tag,
+        String description,
+        boolean ignoreFailure,
+        ClusterService clusterService,
+        List<InnerHitBuilder> innerHitBuilders
+    ) {
         super(tag, description, ignoreFailure);
         this.clusterService = clusterService;
         this.innerHitBuilders = innerHitBuilders;
@@ -108,8 +111,7 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
      */
     @SuppressWarnings("unchecked")
     @VisibleForTesting
-    static void collectVectorFields(final Map<String, Object> mappingMap, final String prefix,
-                                    final Set<String> vectorFields) {
+    static void collectVectorFields(final Map<String, Object> mappingMap, final String prefix, final Set<String> vectorFields) {
         final Map<String, Object> properties = (Map<String, Object>) mappingMap.get("properties");
         if (properties == null) {
             return;
@@ -200,7 +202,9 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
         }
 
         private boolean sourceExplicitTrue(FetchSourceContext fetchSource) {
-            return fetchSource != null && fetchSource.fetchSource() && (fetchSource.includes().length == 0 && fetchSource.excludes().length == 0);
+            return fetchSource != null
+                && fetchSource.fetchSource()
+                && (fetchSource.includes().length == 0 && fetchSource.excludes().length == 0);
         }
 
         private boolean sourceExplicitFalse(FetchSourceContext fetchSource) {
@@ -213,8 +217,9 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
             }
 
             // storedFields and fields are enabled and not set to _none_
-            if (storedFieldsContext != null && storedFieldsContext.fetchFields() == true
-                    && storedFieldsContext.fieldNames().contains(StoredFieldsContext._NONE_)) {
+            if (storedFieldsContext != null
+                && storedFieldsContext.fetchFields() == true
+                && storedFieldsContext.fieldNames().contains(StoredFieldsContext._NONE_)) {
                 return false;
             }
 
@@ -223,12 +228,12 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
 
         @Override
         public SearchRequestProcessor create(
-                Map<String, Processor.Factory<SearchRequestProcessor>> processorFactories,
-                String tag,
-                String description,
-                boolean ignoreFailure,
-                Map<String, Object> config,
-                PipelineContext pipelineContext
+            Map<String, Processor.Factory<SearchRequestProcessor>> processorFactories,
+            String tag,
+            String description,
+            boolean ignoreFailure,
+            Map<String, Object> config,
+            PipelineContext pipelineContext
         ) {
             return new KNNSourceExcludesProcessor(tag, description, ignoreFailure, clusterService, innerHitBuilders);
         }

@@ -5,17 +5,9 @@
 
 package org.opensearch.knn.index;
 
-import org.apache.hc.core5.http.io.entity.EntityUtils;
-import org.opensearch.client.Response;
-import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.TieredMergePolicyProvider;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.common.settings.Settings;
-
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
 
 import static org.opensearch.knn.index.KNNSettings.KNN_DERIVED_SOURCE_ENABLED;
 
