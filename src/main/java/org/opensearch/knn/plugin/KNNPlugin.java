@@ -202,6 +202,7 @@ public class KNNPlugin extends Plugin
 
     private KNNStats knnStats;
     private ClusterService clusterService;
+    private IndexNameExpressionResolver indexNameExpressionResolver;
     private Supplier<RepositoriesService> repositoriesServiceSupplier;
     private final Map<String, MMRQueryTransformer<? extends QueryBuilder>> mmrQueryTransformers = new HashMap<>();
 
@@ -251,6 +252,7 @@ public class KNNPlugin extends Plugin
         Supplier<RepositoriesService> repositoriesServiceSupplier
     ) {
         this.clusterService = clusterService;
+        this.indexNameExpressionResolver = indexNameExpressionResolver;
         this.repositoriesServiceSupplier = repositoriesServiceSupplier;
 
         // Initialize Native Memory loading strategies
@@ -515,7 +517,7 @@ public class KNNPlugin extends Plugin
         KNNClusterUtil.instance().setSearchPipelineService(parameters.searchPipelineService);
         return Map.of(
             KNNSourceExcludesProcessor.Factory.TYPE,
-            new KNNSourceExcludesProcessor.Factory(clusterService),
+            new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver),
             MMROverSampleProcessor.MMROverSampleProcessorFactory.TYPE,
             new MMROverSampleProcessor.MMROverSampleProcessorFactory(parameters.client, mmrQueryTransformers)
         );

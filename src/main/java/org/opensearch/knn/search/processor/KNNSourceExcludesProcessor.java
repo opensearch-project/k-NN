@@ -11,6 +11,7 @@ import org.apache.lucene.search.BooleanClause;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.index.query.InnerHitBuilder;
@@ -45,6 +46,7 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
     public static final String TYPE = "knn_default_excludes";
 
     private final ClusterService clusterService;
+    private final IndexNameExpressionResolver indexNameExpressionResolver;
 
     private List<InnerHitBuilder> innerHitBuilders;
 
@@ -53,10 +55,12 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
         String description,
         boolean ignoreFailure,
         ClusterService clusterService,
+        IndexNameExpressionResolver indexNameExpressionResolver,
         List<InnerHitBuilder> innerHitBuilders
     ) {
         super(tag, description, ignoreFailure);
         this.clusterService = clusterService;
+        this.indexNameExpressionResolver = indexNameExpressionResolver;
         this.innerHitBuilders = innerHitBuilders;
     }
 
@@ -96,9 +100,10 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
         }
 
         ClusterState state = clusterService.state();
+        String[] concreteIndices = indexNameExpressionResolver.concreteIndexNames(state, request);
         Set<String> vectorFields = new HashSet<>();
 
-        for (String indexName : indices) {
+        for (String indexName : concreteIndices) {
             IndexMetadata indexMetadata = state.metadata().index(indexName);
             if (indexMetadata != null) {
                 MappingMetadata mappingMetadata = indexMetadata.mapping();
@@ -159,11 +164,13 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
         public static final String TYPE = "knn_default_excludes_factory";
 
         private final ClusterService clusterService;
+        private final IndexNameExpressionResolver indexNameExpressionResolver;
 
         private List<InnerHitBuilder> innerHitBuilders;
 
-        public Factory(ClusterService clusterService) {
+        public Factory(ClusterService clusterService, IndexNameExpressionResolver indexNameExpressionResolver) {
             this.clusterService = clusterService;
+            this.indexNameExpressionResolver = indexNameExpressionResolver;
         }
 
         @Override
@@ -236,7 +243,7 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
             Map<String, Object> config,
             PipelineContext pipelineContext
         ) {
-            return new KNNSourceExcludesProcessor(tag, description, ignoreFailure, clusterService, innerHitBuilders);
+            return new KNNSourceExcludesProcessor(tag, description, ignoreFailure, clusterService, indexNameExpressionResolver, innerHitBuilders);
         }
     }
 

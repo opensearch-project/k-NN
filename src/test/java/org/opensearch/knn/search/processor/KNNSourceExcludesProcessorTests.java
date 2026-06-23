@@ -8,6 +8,7 @@ package org.opensearch.knn.search.processor;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
@@ -27,21 +28,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class KNNSourceExcludesProcessorTests extends KNNTestCase {
 
     private ClusterService clusterService;
+    private IndexNameExpressionResolver indexNameExpressionResolver;
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
         clusterService = mock(ClusterService.class);
+        indexNameExpressionResolver = mock(IndexNameExpressionResolver.class);
     }
 
     private KNNSourceExcludesProcessor createProcessor(List<InnerHitBuilder> innerHitBuilders) {
-        return new KNNSourceExcludesProcessor("test-tag", "test-desc", false, clusterService, innerHitBuilders);
+        return new KNNSourceExcludesProcessor("test-tag", "test-desc", false, clusterService, indexNameExpressionResolver, innerHitBuilders);
     }
 
     private KNNSourceExcludesProcessor createProcessor() {
@@ -150,6 +154,28 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         Set<String> excludes = Set.of(ctx.excludes());
         assertTrue(excludes.contains("vec1"));
         assertTrue(excludes.contains("vec2"));
+    }
+
+    public void testProcessRequest_aliasResolvesToConcreteIndex_addsExclude() {
+        IndexMetadata idx = mockIndexMetadata(Map.of("properties", Map.of("vec", Map.of("type", "knn_vector", "dimension", 3))));
+        ClusterState state = mock(ClusterState.class);
+        Metadata metadata = mock(Metadata.class);
+        when(clusterService.state()).thenReturn(state);
+        when(state.metadata()).thenReturn(metadata);
+        when(metadata.index("concrete-index")).thenReturn(idx);
+        when(indexNameExpressionResolver.concreteIndexNames(any(ClusterState.class), any(SearchRequest.class))).thenReturn(
+            new String[] { "concrete-index" }
+        );
+
+        KNNSourceExcludesProcessor processor = createProcessor();
+        SearchRequest request = new SearchRequest("my-alias");
+        request.source(new SearchSourceBuilder());
+
+        SearchRequest result = processor.processRequest(request);
+
+        FetchSourceContext ctx = result.source().fetchSource();
+        assertNotNull(ctx);
+        assertArrayEquals(new String[] { "vec" }, ctx.excludes());
     }
 
     public void testProcessRequest_innerHitIncludesVectorField_skipsExcludes() {
@@ -311,13 +337,13 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     // Factory tests
 
     public void testFactory_shouldGenerate_nullSearchRequest_returnsFalse() {
-        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService);
+        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
         ProcessorGenerationContext context = new ProcessorGenerationContext(null);
         assertFalse(factory.shouldGenerate(context));
     }
 
     public void testFactory_shouldGenerate_withParentTask_returnsFalse() {
-        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService);
+        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
         SearchRequest request = new SearchRequest("test-index");
         request.source(new SearchSourceBuilder());
         request.setParentTask(new TaskId("node1", 1));
@@ -327,7 +353,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     }
 
     public void testFactory_shouldGenerate_sourceExplicitlyFalse_returnsFalse() {
-        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService);
+        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
         SearchRequest request = new SearchRequest("test-index");
         request.source(new SearchSourceBuilder().fetchSource(false));
 
@@ -336,7 +362,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     }
 
     public void testFactory_shouldGenerate_sourceExplicitlyTrue_returnsFalse() {
-        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService);
+        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
         SearchRequest request = new SearchRequest("test-index");
         request.source(new SearchSourceBuilder().fetchSource(new FetchSourceContext(true, new String[0], new String[0])));
 
@@ -345,7 +371,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     }
 
     public void testFactory_shouldGenerate_storedFieldsNone_returnsFalse() {
-        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService);
+        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
         SearchRequest request = new SearchRequest("test-index");
         request.source(new SearchSourceBuilder().storedField("_none_"));
 
@@ -354,7 +380,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     }
 
     public void testFactory_shouldGenerate_validRequest_returnsTrue() {
-        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService);
+        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
         SearchRequest request = new SearchRequest("test-index");
         request.source(new SearchSourceBuilder());
 
@@ -363,7 +389,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     }
 
     public void testFactory_shouldGenerate_withExistingExcludes_returnsTrue() {
-        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService);
+        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
         SearchRequest request = new SearchRequest("test-index");
         request.source(new SearchSourceBuilder().fetchSource(new FetchSourceContext(true, new String[0], new String[] { "some_field" })));
 
@@ -372,7 +398,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     }
 
     public void testFactory_shouldGenerate_withIncludes_returnsTrue() {
-        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService);
+        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
         SearchRequest request = new SearchRequest("test-index");
         request.source(new SearchSourceBuilder().fetchSource(new FetchSourceContext(true, new String[] { "title" }, new String[0])));
 
@@ -381,7 +407,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     }
 
     public void testFactory_shouldGenerate_nestedQueryWithExplicitTrueInnerHit_returnsFalse() {
-        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService);
+        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
         SearchRequest request = new SearchRequest("test-index");
 
         InnerHitBuilder innerHit = new InnerHitBuilder();
@@ -396,7 +422,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     }
 
     public void testFactory_shouldGenerate_nestedQueryWithNullInnerHitSource_returnsTrue() {
-        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService);
+        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
         SearchRequest request = new SearchRequest("test-index");
 
         InnerHitBuilder innerHit = new InnerHitBuilder();
@@ -410,7 +436,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     }
 
     public void testFactory_shouldGenerate_nestedQueryWithExcludesInInnerHit_returnsTrue() {
-        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService);
+        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
         SearchRequest request = new SearchRequest("test-index");
 
         InnerHitBuilder innerHit = new InnerHitBuilder();
@@ -425,7 +451,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     }
 
     public void testFactory_create_returnsValidProcessor() {
-        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService);
+        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
         SearchRequest request = new SearchRequest("test-index");
         request.source(new SearchSourceBuilder());
 
@@ -461,5 +487,8 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         for (Map.Entry<String, IndexMetadata> entry : indices.entrySet()) {
             when(metadata.index(entry.getKey())).thenReturn(entry.getValue());
         }
+        when(indexNameExpressionResolver.concreteIndexNames(any(ClusterState.class), any(SearchRequest.class))).thenReturn(
+            indices.keySet().toArray(new String[0])
+        );
     }
 }

@@ -10,6 +10,7 @@ import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.After;
 import org.junit.Before;
+import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.json.JsonXContent;
@@ -377,6 +378,168 @@ public class KNNSourceExcludesProcessorIT extends KNNRestTestCase {
             assertTrue(source.containsKey(TEXT_FIELD));
             assertFalse("Vector field should be excluded from KNN search results", source.containsKey(VECTOR_FIELD));
         }
+
+        deleteIndex(indexName);
+    }
+
+    @SneakyThrows
+    public void testSearchResponse_aliasResolvesToConcreteIndex_excludesVectorField() {
+        String indexName = INDEX_NAME + "-alias-target";
+        String aliasName = "my-test-alias";
+        createIndexWithVectorAndTextField(indexName);
+        indexDocumentWithVectorAndText(indexName, "1", TEST_VECTOR, "alias test");
+        refreshIndex(indexName);
+
+        // Create alias pointing to the concrete index
+        Request aliasRequest = new Request("POST", "/_aliases");
+        aliasRequest.setJsonEntity(
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .startArray("actions")
+                .startObject()
+                .startObject("add")
+                .field("index", indexName)
+                .field("alias", aliasName)
+                .endObject()
+                .endObject()
+                .endArray()
+                .endObject()
+                .toString()
+        );
+        client().performRequest(aliasRequest);
+
+        String query = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("match_all")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        Response response = performSearch(aliasName, query);
+        List<Map<String, Object>> hits = parseHits(response);
+
+        assertEquals(1, hits.size());
+        Map<String, Object> source = getSource(hits.get(0));
+        assertNotNull(source);
+        assertTrue(source.containsKey(TEXT_FIELD));
+        assertFalse("Vector field should be excluded when searching via alias", source.containsKey(VECTOR_FIELD));
+
+        deleteIndex(indexName);
+    }
+
+    @SneakyThrows
+    public void testSearchResponse_nestedQueryWithFetchFields_includesVectorField() {
+        String indexName = INDEX_NAME + "-fetch-fields";
+        String nestedField = "nested_obj";
+        String nestedVecField = "vec";
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(nestedField)
+            .field("type", "nested")
+            .startObject("properties")
+            .startObject(nestedVecField)
+            .field("type", TYPE_KNN_VECTOR)
+            .field("dimension", DIMENSION_VALUE)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .startObject(TEXT_FIELD)
+            .field("type", "text")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(indexName, mapping);
+
+        String doc = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(nestedField)
+            .field(nestedVecField, TEST_VECTOR)
+            .endObject()
+            .field(TEXT_FIELD, "fetch fields test")
+            .endObject()
+            .toString();
+        addKnnDoc(indexName, "1", doc);
+        refreshIndex(indexName);
+
+        // Query with nested inner_hits that uses "fields" to fetch the vector field
+        String query = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("nested")
+            .field("path", nestedField)
+            .startObject("query")
+            .startObject("match_all")
+            .endObject()
+            .endObject()
+            .startObject("inner_hits")
+            .startArray("fields")
+            .value(nestedField + "." + nestedVecField)
+            .endArray()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        Response response = performSearch(indexName, query);
+        List<Map<String, Object>> hits = parseHits(response);
+
+        assertEquals(1, hits.size());
+        Map<String, Object> hit = hits.get(0);
+        Map<String, Object> innerHits = (Map<String, Object>) hit.get("inner_hits");
+        assertNotNull(innerHits);
+        Map<String, Object> nestedInnerHit = (Map<String, Object>) innerHits.get(nestedField);
+        assertNotNull(nestedInnerHit);
+        Map<String, Object> innerHitsHits = (Map<String, Object>) nestedInnerHit.get("hits");
+        List<Map<String, Object>> innerHitsList = (List<Map<String, Object>>) innerHitsHits.get("hits");
+        assertFalse(innerHitsList.isEmpty());
+
+        // The inner hit should have the vector field in "fields" since it was explicitly requested
+        Map<String, Object> innerHitFields = (Map<String, Object>) innerHitsList.get(0).get("fields");
+        assertNotNull("Inner hit should have fields with vector data", innerHitFields);
+        assertTrue(
+            "Vector field should be present in inner hit fields when requested via fetch fields",
+            innerHitFields.containsKey(nestedField + "." + nestedVecField)
+        );
+
+        deleteIndex(indexName);
+    }
+
+    @SneakyThrows
+    public void testSearchResponse_storedFieldsNone_vectorFieldNotExcluded() {
+        String indexName = INDEX_NAME + "-stored-none";
+        createIndexWithVectorAndTextField(indexName);
+        indexDocumentWithVectorAndText(indexName, "1", TEST_VECTOR, "stored fields test");
+        refreshIndex(indexName);
+
+        // When stored_fields is _none_, _source is not returned and the processor should not apply
+        String query = XContentFactory.jsonBuilder()
+            .startObject()
+            .field("stored_fields", "_none_")
+            .startObject("query")
+            .startObject("match_all")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        Response response = performSearch(indexName, query);
+        List<Map<String, Object>> hits = parseHits(response);
+
+        assertEquals(1, hits.size());
+        Map<String, Object> source = getSource(hits.get(0));
+        assertNull("Source should not be returned when stored_fields is _none_", source);
 
         deleteIndex(indexName);
     }
