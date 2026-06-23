@@ -120,9 +120,6 @@ public class ADCIT extends KNNRestTestCase {
         // Query builder for both control and test searches
         XContentBuilder queryBuilder = XContentFactory.jsonBuilder()
             .startObject()
-            .startObject("_source")
-            .array("includes", TEST_FIELD_NAME)
-            .endObject()
             .startObject("query")
             .startObject("knn")
             .startObject(TEST_FIELD_NAME)
@@ -183,9 +180,6 @@ public class ADCIT extends KNNRestTestCase {
         // Search without filter
         XContentBuilder controlQueryBuilder = XContentFactory.jsonBuilder()
             .startObject()
-            .startObject("_source")
-            .array("includes", TEST_FIELD_NAME)
-            .endObject()
             .startObject("query")
             .startObject("knn")
             .startObject(TEST_FIELD_NAME)
@@ -215,9 +209,6 @@ public class ADCIT extends KNNRestTestCase {
         // Search with match_all filter
         XContentBuilder testQueryBuilder = XContentFactory.jsonBuilder()
             .startObject()
-            .startObject("_source")
-            .array("includes", TEST_FIELD_NAME)
-            .endObject()
             .startObject("query")
             .startObject("knn")
             .startObject(TEST_FIELD_NAME)
