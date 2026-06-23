@@ -1,0 +1,50 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+plugins {
+    id 'java'
+    id 'java-library'
+    id 'jacoco'
+    id "io.freefair.lombok" version "8.14"
+    id 'com.diffplug.spotless' version '6.25.0'
+    id 'opensearch.build'
+    id 'opensearch.java-agent'
+}
+
+repositories {
+    mavenLocal()
+    maven { url = uri("https://ci.opensearch.org/ci/dbc/snapshots/maven/") }
+    mavenCentral()
+    maven { url = uri("https://plugins.gradle.org/m2/") }
+}
+
+description = "Sandbox module for experimental k-NN algorithms and optimizations"
+
+compileJava {
+    options.compilerArgs = ["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor']
+}
+compileTestJava {
+    options.compilerArgs = ["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor']
+}
+
+dependencies {
+    compileOnly group: 'org.opensearch', name: 'opensearch', version: "${opensearch_version}"
+    testImplementation "org.opensearch.test:framework:${opensearch_version}"
+
+    // Compile-time-only dependency on the root k-NN project so sandbox tenants can
+    // extend main-module types (e.g. AbstractFaissMethod, Encoder, KNNConstants).
+    // The root project deliberately does NOT depend on :sandbox, so release-artifact
+    // isolation is preserved (bundlePlugin still excludes sandbox classes).
+    compileOnly project(':')
+    testImplementation project(':')
+
+    // Guava is provided to the main plugin at runtime by OpenSearch's transport-grpc module, so the
+    // root project declares it compileOnly. The sandbox test classpath has no such provider, so some
+    // main-module classes exercised in sandbox unit tests (e.g. FaissFlatEncoder, QuantizationConfig)
+    // would fail to initialize without it. Add it for the sandbox test runtime only.
+    testImplementation "com.google.guava:guava:${versions.guava}"
+}
+
+check.dependsOn spotlessCheck

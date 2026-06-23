@@ -33,6 +33,9 @@ public class KNNConstants {
     public static final String PROPERTIES = "properties";
     public static final String METHOD_PARAMETER = "method_parameters";
     public static final String METHOD_PARAMETER_EF_SEARCH = "ef_search";
+    // Query-time search-window parameter for the experimental sandbox engine's graph method (analogous to
+    // ef_search for HNSW)
+    public static final String METHOD_PARAMETER_SEARCH_WINDOW_SIZE = "search_window_size";
     public static final String METHOD_PARAMETER_EF_CONSTRUCTION = "ef_construction";
     public static final String METHOD_PARAMETER_M = "m";
     public static final String METHOD_IVF = "ivf";

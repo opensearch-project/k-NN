@@ -1,0 +1,19 @@
+# Linker version script for libopensearchknn_svs.
+#
+# The SVS library statically embeds its own copy of Faiss (built FAISS_ENABLE_SVS=ON), which is a
+# DIFFERENT version than the Faiss embedded in libopensearchknn_faiss. Both can be dlopen'd into the
+# same JVM. To prevent the two faiss::* symbol sets from interposing (an ODR hazard that could route
+# calls into the wrong faiss build), we export ONLY the JNI entry points and the JNI lifecycle hooks;
+# every other symbol (all of faiss::*, svs::*, the marshalling helpers) is local to this library.
+#
+# SvsService lives in the sandbox module package org.opensearch.knn.sandbox.svs, so its native methods
+# mangle to Java_org_opensearch_knn_sandbox_svs_SvsService_*. The broad Java_org_opensearch_knn_*
+# pattern keeps this robust to the exact package.
+{
+  global:
+    JNI_OnLoad;
+    JNI_OnUnload;
+    Java_org_opensearch_knn_*;
+  local:
+    *;
+};

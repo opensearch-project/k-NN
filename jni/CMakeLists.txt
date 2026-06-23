@@ -17,6 +17,8 @@ set(TARGET_LIB_COMMON opensearchknn_common)  # common lib for JNI
 set(TARGET_LIB_NMSLIB opensearchknn_nmslib)  # nmslib JNI
 set(TARGET_LIB_FAISS opensearchknn_faiss)    # faiss JNI
 set(TARGET_LIB_SIMD opensearchknn_simd)      # SIMD computing JNI
+set(TARGET_LIB_SVS opensearchknn_svs)        # Intel SVS JNI (experimental :sandbox tenant, opt-in)
+set(TARGET_LIB_JNI_HELPERS opensearchknn_jni_helpers)  # STATIC marshalling helpers embedded into the SVS lib
 set(TARGET_LIBS "")  # Libs to be installed
 
 set(CMAKE_CXX_STANDARD 17)
@@ -24,6 +26,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 option(CONFIG_FAISS "Configure faiss library build when this is on")
 option(CONFIG_NMSLIB "Configure nmslib library build when this is on")
 option(CONFIG_TEST "Configure tests when this is on")
+# CONFIG_SVS is deliberately NOT part of the CONFIG_ALL auto-on logic below: the experimental
+# Intel SVS tenant must never be built by a default (unflagged) build. It is enabled only when
+# the Gradle property -Pknn.sandbox.enabled=true passes -DCONFIG_SVS=ON.
+option(CONFIG_SVS "Configure the isolated Intel SVS JNI library build when this is on" OFF)
 
 if (${CONFIG_FAISS} STREQUAL OFF AND ${CONFIG_NMSLIB} STREQUAL OFF AND ${CONFIG_TEST} STREQUAL OFF)
     set(CONFIG_ALL ON)
@@ -124,6 +130,17 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
     )
     opensearch_set_common_properties(${TARGET_LIB_FAISS})
     list(APPEND TARGET_LIBS ${TARGET_LIB_FAISS})
+endif ()
+
+# ---------------------------------------------------------------------------
+
+# ------------------- SVS (experimental :sandbox tenant, opt-in) -------------------
+# Fully isolated from the main faiss JNI library. The main libopensearchknn_faiss*.so is built with
+# FAISS_ENABLE_SVS=OFF and contains zero SVS code. When -DCONFIG_SVS=ON (driven by the Gradle
+# -Pknn.sandbox.enabled=true opt-in) we build a SEPARATE libopensearchknn_svs*.so. All SVS-specific
+# native code + build logic lives under jni/sandbox/.
+if (${CONFIG_SVS} STREQUAL ON)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/sandbox/svs.cmake)
 endif ()
 
 # ---------------------------------------------------------------------------
