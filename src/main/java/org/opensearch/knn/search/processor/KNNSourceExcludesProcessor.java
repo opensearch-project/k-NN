@@ -243,7 +243,14 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
             Map<String, Object> config,
             PipelineContext pipelineContext
         ) {
-            return new KNNSourceExcludesProcessor(tag, description, ignoreFailure, clusterService, indexNameExpressionResolver, innerHitBuilders);
+            return new KNNSourceExcludesProcessor(
+                tag,
+                description,
+                ignoreFailure,
+                clusterService,
+                indexNameExpressionResolver,
+                innerHitBuilders
+            );
         }
     }
 

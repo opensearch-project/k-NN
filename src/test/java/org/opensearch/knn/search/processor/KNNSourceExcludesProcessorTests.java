@@ -45,7 +45,14 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
     }
 
     private KNNSourceExcludesProcessor createProcessor(List<InnerHitBuilder> innerHitBuilders) {
-        return new KNNSourceExcludesProcessor("test-tag", "test-desc", false, clusterService, indexNameExpressionResolver, innerHitBuilders);
+        return new KNNSourceExcludesProcessor(
+            "test-tag",
+            "test-desc",
+            false,
+            clusterService,
+            indexNameExpressionResolver,
+            innerHitBuilders
+        );
     }
 
     private KNNSourceExcludesProcessor createProcessor() {
