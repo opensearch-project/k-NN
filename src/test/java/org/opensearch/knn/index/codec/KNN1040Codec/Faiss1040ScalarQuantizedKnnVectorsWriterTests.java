@@ -387,6 +387,97 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
         }
     }
 
+    // ===================== merge with empty vectors (bug #3379) =====================
+
+    /**
+     * Reproduces bug #3379: mergeOneField should not crash when the flat reader returns
+     * zero-size FloatVectorValues (as happens when all docs with the vector field are deleted
+     * in a segment). Before the fix, this throws IOException caused by NoSuchFieldException.
+     */
+    @SneakyThrows
+    public void testMergeOneField_whenFlatReaderReturnsEmptyVectors_thenSkipsNativeBuild() {
+        final FieldInfo fi = createRealFieldInfo();
+
+        // Mock a FlatVectorsReader that returns empty FloatVectorValues (size == 0)
+        final FlatVectorsReader mockFlatReader = mock(FlatVectorsReader.class);
+        final FloatVectorValues emptyFloatValues = mock(FloatVectorValues.class);
+        when(emptyFloatValues.size()).thenReturn(0);
+        when(mockFlatReader.getFloatVectorValues(FIELD_NAME)).thenReturn(emptyFloatValues);
+
+        // Wire the supplier to return our mock reader
+        when(quantizedFlatVectorsReaderSupplier.apply(any())).thenReturn(mockFlatReader);
+
+        // We need a real segmentWriteState for openFlatVectorsReader
+        try (org.apache.lucene.store.Directory directory = newDirectory()) {
+            final FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { fi });
+            final SegmentInfo segInfo = createSegmentInfo(directory, "_merge0", 0);
+            final SegmentWriteState realWriteState = new SegmentWriteState(
+                InfoStream.NO_OUTPUT,
+                directory,
+                segInfo,
+                fieldInfos,
+                null,
+                IOContext.DEFAULT,
+                FIELD_NAME
+            );
+
+            Faiss1040ScalarQuantizedKnnVectorsWriter writer = new Faiss1040ScalarQuantizedKnnVectorsWriter(
+                realWriteState,
+                flatVectorsWriter,
+                quantizedFlatVectorsReaderSupplier,
+                new NativeIndexBuildStrategyFactory()
+            );
+
+            // mergeOneField should complete without error — the empty vectors should be skipped
+            writer.mergeOneField(fi, mock(MergeState.class));
+        }
+    }
+
+    /**
+     * Same as above but for the flush path: flush should not crash when the flat reader
+     * returns zero-size FloatVectorValues.
+     */
+    @SneakyThrows
+    public void testFlush_whenFlatReaderReturnsEmptyVectors_thenSkipsNativeBuild() {
+        final FieldInfo fi = createRealFieldInfo();
+
+        // Mock a FlatVectorsReader that returns empty FloatVectorValues (size == 0)
+        final FlatVectorsReader mockFlatReader = mock(FlatVectorsReader.class);
+        final FloatVectorValues emptyFloatValues = mock(FloatVectorValues.class);
+        when(emptyFloatValues.size()).thenReturn(0);
+        when(mockFlatReader.getFloatVectorValues(FIELD_NAME)).thenReturn(emptyFloatValues);
+
+        // Wire the supplier to return our mock reader
+        when(quantizedFlatVectorsReaderSupplier.apply(any())).thenReturn(mockFlatReader);
+
+        try (org.apache.lucene.store.Directory directory = newDirectory()) {
+            final FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { fi });
+            final SegmentInfo segInfo = createSegmentInfo(directory, "_flush0", 0);
+            final SegmentWriteState realWriteState = new SegmentWriteState(
+                InfoStream.NO_OUTPUT,
+                directory,
+                segInfo,
+                fieldInfos,
+                null,
+                IOContext.DEFAULT,
+                FIELD_NAME
+            );
+
+            Faiss1040ScalarQuantizedKnnVectorsWriter writer = new Faiss1040ScalarQuantizedKnnVectorsWriter(
+                realWriteState,
+                flatVectorsWriter,
+                quantizedFlatVectorsReaderSupplier,
+                new NativeIndexBuildStrategyFactory()
+            );
+
+            // Add the field first (flush requires fieldWriter != null to proceed past early return)
+            writer.addField(fi);
+
+            // flush should complete without error
+            writer.flush(0, null);
+        }
+    }
+
     // ===================== helpers =====================
 
     /** Creates a mock FieldInfo for unit tests that don't need real Lucene I/O. */

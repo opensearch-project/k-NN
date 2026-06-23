@@ -110,8 +110,13 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
         // and pass it to the build strategy. The writer owns the reader lifecycle.
         final FlatVectorsReader flatVectorsReader = openFlatVectorsReader();
         try {
+            final var floatVectorValues = flatVectorsReader.getFloatVectorValues(fieldInfo.getName());
+            if (floatVectorValues == null || floatVectorValues.size() == 0) {
+                log.debug("No scalar-quantized vectors found for field [{}], skipping native build", fieldInfo.getName());
+                return;
+            }
             final QuantizedByteVectorValues quantizedValues = KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(
-                flatVectorsReader.getFloatVectorValues(fieldInfo.getName())
+                floatVectorValues
             );
             doFlush(
                 fieldInfo,
@@ -145,8 +150,13 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
         // and pass it to the build strategy. The writer owns the reader lifecycle.
         final FlatVectorsReader flatVectorsReader = openFlatVectorsReader();
         try {
+            final var floatVectorValues = flatVectorsReader.getFloatVectorValues(fieldInfo.getName());
+            if (floatVectorValues == null || floatVectorValues.size() == 0) {
+                log.debug("No scalar-quantized vectors found for field [{}], skipping native build", fieldInfo.getName());
+                return;
+            }
             final QuantizedByteVectorValues quantizedValues = KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(
-                flatVectorsReader.getFloatVectorValues(fieldInfo.getName())
+                floatVectorValues
             );
             doMergeOneField(fieldInfo, mergeState, null, null, segmentWriteState, nativeIndexBuildStrategyFactory, quantizedValues);
         } finally {
