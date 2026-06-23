@@ -32,6 +32,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * A system-generated search request processor that automatically adds _source excludes for knn vector fields
@@ -69,7 +70,10 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
         // https://github.com/opensearch-project/k-NN/issues/3303
         for (InnerHitBuilder innerHitBuilder : innerHitBuilders) {
             FetchSourceContext ctx = innerHitBuilder.getFetchSourceContext();
-            if (ctx != null && Arrays.stream(ctx.includes()).anyMatch(vectorFields::contains)) {
+            List<String> fetchFields = innerHitBuilder.getFetchFields() != null
+                ? innerHitBuilder.getFetchFields().stream().map(fieldAndFormat -> fieldAndFormat.field).toList()
+                : List.of();
+            if (ctx != null && Stream.concat(Arrays.stream(ctx.includes()), fetchFields.stream()).anyMatch(vectorFields::contains)) {
                 return request;
             }
         }

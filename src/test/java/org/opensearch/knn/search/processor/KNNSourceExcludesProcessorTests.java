@@ -171,6 +171,47 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         assertNull(result.source().fetchSource());
     }
 
+    public void testProcessRequest_innerHitFetchFieldsIncludesVectorField_skipsExcludes() {
+        mockClusterStateWithMapping(
+            "test-index",
+            Map.of("properties", Map.of("nested_obj", Map.of("properties", Map.of("vec", Map.of("type", "knn_vector", "dimension", 3)))))
+        );
+
+        InnerHitBuilder innerHit = new InnerHitBuilder();
+        innerHit.setFetchSourceContext(new FetchSourceContext(true, new String[0], new String[0]));
+        innerHit.addFetchField("nested_obj.vec");
+
+        KNNSourceExcludesProcessor processor = createProcessor(List.of(innerHit));
+        SearchRequest request = new SearchRequest("test-index");
+        request.source(new SearchSourceBuilder());
+
+        SearchRequest result = processor.processRequest(request);
+
+        assertNull(result.source().fetchSource());
+    }
+
+    public void testProcessRequest_innerHitFetchFieldsWithoutVectorField_appliesExcludes() {
+        mockClusterStateWithMapping(
+            "test-index",
+            Map.of("properties", Map.of("nested_obj", Map.of("properties", Map.of("vec", Map.of("type", "knn_vector", "dimension", 3)))))
+        );
+
+        InnerHitBuilder innerHit = new InnerHitBuilder();
+        innerHit.setFetchSourceContext(new FetchSourceContext(true, new String[0], new String[0]));
+        innerHit.addFetchField("nested_obj.name");
+
+        KNNSourceExcludesProcessor processor = createProcessor(List.of(innerHit));
+        SearchRequest request = new SearchRequest("test-index");
+        request.source(new SearchSourceBuilder());
+
+        SearchRequest result = processor.processRequest(request);
+
+        FetchSourceContext ctx = result.source().fetchSource();
+        assertNotNull(ctx);
+        Set<String> excludes = Set.of(ctx.excludes());
+        assertTrue(excludes.contains("nested_obj.vec"));
+    }
+
     public void testProcessRequest_innerHitWithoutIncludes_appliesExcludes() {
         mockClusterStateWithMapping(
             "test-index",
