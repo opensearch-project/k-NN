@@ -22,9 +22,7 @@ import org.opensearch.search.fetch.subphase.FetchSourceContext;
 import org.opensearch.search.pipeline.ProcessorGenerationContext;
 import org.opensearch.core.tasks.TaskId;
 
-import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -44,19 +42,16 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         indexNameExpressionResolver = mock(IndexNameExpressionResolver.class);
     }
 
-    private KNNSourceExcludesProcessor createProcessor(List<InnerHitBuilder> innerHitBuilders) {
-        return new KNNSourceExcludesProcessor(
-            "test-tag",
-            "test-desc",
-            false,
-            clusterService,
-            indexNameExpressionResolver,
-            innerHitBuilders
-        );
+    private KNNSourceExcludesProcessor createProcessor() {
+        return new KNNSourceExcludesProcessor("test-tag", "test-desc", false, clusterService, indexNameExpressionResolver);
     }
 
-    private KNNSourceExcludesProcessor createProcessor() {
-        return createProcessor(Collections.emptyList());
+    private SearchRequest requestWithNestedQuery(String index, InnerHitBuilder innerHit) {
+        NestedQueryBuilder nestedQuery = new NestedQueryBuilder("nested_obj", new MatchAllQueryBuilder(), ScoreMode.None);
+        nestedQuery.innerHit(innerHit);
+        SearchRequest request = new SearchRequest(index);
+        request.source(new SearchSourceBuilder().query(nestedQuery));
+        return request;
     }
 
     public void testType() {
@@ -185,26 +180,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         assertArrayEquals(new String[] { "vec" }, ctx.excludes());
     }
 
-    public void testProcessRequest_innerHitIncludesVectorField_skipsExcludes() {
-        mockClusterStateWithMapping(
-            "test-index",
-            Map.of("properties", Map.of("nested_obj", Map.of("properties", Map.of("vec", Map.of("type", "knn_vector", "dimension", 3)))))
-        );
-
-        InnerHitBuilder innerHit = new InnerHitBuilder();
-        innerHit.setFetchSourceContext(new FetchSourceContext(true, new String[] { "nested_obj.vec" }, new String[0]));
-
-        KNNSourceExcludesProcessor processor = createProcessor(List.of(innerHit));
-        SearchRequest request = new SearchRequest("test-index");
-        request.source(new SearchSourceBuilder());
-
-        SearchRequest result = processor.processRequest(request);
-
-        // Should return unmodified because inner hit explicitly includes the vector field
-        assertNull(result.source().fetchSource());
-    }
-
-    public void testProcessRequest_innerHitFetchFieldsIncludesVectorField_skipsExcludes() {
+    public void testProcessRequest_innerHitExplicitTrueWithFetchFieldsVectorField_skipsExcludes() {
         mockClusterStateWithMapping(
             "test-index",
             Map.of("properties", Map.of("nested_obj", Map.of("properties", Map.of("vec", Map.of("type", "knn_vector", "dimension", 3)))))
@@ -214,12 +190,10 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         innerHit.setFetchSourceContext(new FetchSourceContext(true, new String[0], new String[0]));
         innerHit.addFetchField("nested_obj.vec");
 
-        KNNSourceExcludesProcessor processor = createProcessor(List.of(innerHit));
-        SearchRequest request = new SearchRequest("test-index");
-        request.source(new SearchSourceBuilder());
+        KNNSourceExcludesProcessor processor = createProcessor();
+        SearchRequest result = processor.processRequest(requestWithNestedQuery("test-index", innerHit));
 
-        SearchRequest result = processor.processRequest(request);
-
+        // sourceExplicitTrue + fetchField contains vector → skip excludes entirely
         assertNull(result.source().fetchSource());
     }
 
@@ -233,16 +207,12 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         innerHit.setFetchSourceContext(new FetchSourceContext(true, new String[0], new String[0]));
         innerHit.addFetchField("nested_obj.name");
 
-        KNNSourceExcludesProcessor processor = createProcessor(List.of(innerHit));
-        SearchRequest request = new SearchRequest("test-index");
-        request.source(new SearchSourceBuilder());
-
-        SearchRequest result = processor.processRequest(request);
+        KNNSourceExcludesProcessor processor = createProcessor();
+        SearchRequest result = processor.processRequest(requestWithNestedQuery("test-index", innerHit));
 
         FetchSourceContext ctx = result.source().fetchSource();
         assertNotNull(ctx);
-        Set<String> excludes = Set.of(ctx.excludes());
-        assertTrue(excludes.contains("nested_obj.vec"));
+        assertTrue(Set.of(ctx.excludes()).contains("nested_obj.vec"));
     }
 
     public void testProcessRequest_innerHitWithoutIncludes_appliesExcludes() {
@@ -253,21 +223,16 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
 
         InnerHitBuilder innerHit = new InnerHitBuilder();
 
-        KNNSourceExcludesProcessor processor = createProcessor(List.of(innerHit));
-        SearchRequest request = new SearchRequest("test-index");
-        request.source(new SearchSourceBuilder());
-
-        SearchRequest result = processor.processRequest(request);
+        KNNSourceExcludesProcessor processor = createProcessor();
+        SearchRequest result = processor.processRequest(requestWithNestedQuery("test-index", innerHit));
 
         FetchSourceContext ctx = result.source().fetchSource();
         assertNotNull(ctx);
-        Set<String> excludes = Set.of(ctx.excludes());
-        assertTrue(excludes.contains("nested_obj.vec"));
+        assertTrue(Set.of(ctx.excludes()).contains("nested_obj.vec"));
 
         FetchSourceContext innerCtx = innerHit.getFetchSourceContext();
         assertNotNull(innerCtx);
-        Set<String> innerExcludes = Set.of(innerCtx.excludes());
-        assertTrue(innerExcludes.contains("nested_obj.vec"));
+        assertTrue(Set.of(innerCtx.excludes()).contains("nested_obj.vec"));
     }
 
     public void testCollectVectorFields_nestedObject() {
@@ -408,50 +373,6 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
         SearchRequest request = new SearchRequest("test-index");
         request.source(new SearchSourceBuilder().fetchSource(new FetchSourceContext(true, new String[] { "title" }, new String[0])));
-
-        ProcessorGenerationContext context = new ProcessorGenerationContext(request);
-        assertTrue(factory.shouldGenerate(context));
-    }
-
-    public void testFactory_shouldGenerate_nestedQueryWithExplicitTrueInnerHit_returnsFalse() {
-        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
-        SearchRequest request = new SearchRequest("test-index");
-
-        InnerHitBuilder innerHit = new InnerHitBuilder();
-        innerHit.setFetchSourceContext(new FetchSourceContext(true, new String[0], new String[0]));
-        NestedQueryBuilder nestedQuery = new NestedQueryBuilder("nested_path", new MatchAllQueryBuilder(), ScoreMode.None);
-        nestedQuery.innerHit(innerHit);
-
-        request.source(new SearchSourceBuilder().query(nestedQuery));
-
-        ProcessorGenerationContext context = new ProcessorGenerationContext(request);
-        assertFalse(factory.shouldGenerate(context));
-    }
-
-    public void testFactory_shouldGenerate_nestedQueryWithNullInnerHitSource_returnsTrue() {
-        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
-        SearchRequest request = new SearchRequest("test-index");
-
-        InnerHitBuilder innerHit = new InnerHitBuilder();
-        NestedQueryBuilder nestedQuery = new NestedQueryBuilder("nested_path", new MatchAllQueryBuilder(), ScoreMode.None);
-        nestedQuery.innerHit(innerHit);
-
-        request.source(new SearchSourceBuilder().query(nestedQuery));
-
-        ProcessorGenerationContext context = new ProcessorGenerationContext(request);
-        assertTrue(factory.shouldGenerate(context));
-    }
-
-    public void testFactory_shouldGenerate_nestedQueryWithExcludesInInnerHit_returnsTrue() {
-        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
-        SearchRequest request = new SearchRequest("test-index");
-
-        InnerHitBuilder innerHit = new InnerHitBuilder();
-        innerHit.setFetchSourceContext(new FetchSourceContext(true, new String[0], new String[] { "some_field" }));
-        NestedQueryBuilder nestedQuery = new NestedQueryBuilder("nested_path", new MatchAllQueryBuilder(), ScoreMode.None);
-        nestedQuery.innerHit(innerHit);
-
-        request.source(new SearchSourceBuilder().query(nestedQuery));
 
         ProcessorGenerationContext context = new ProcessorGenerationContext(request);
         assertTrue(factory.shouldGenerate(context));

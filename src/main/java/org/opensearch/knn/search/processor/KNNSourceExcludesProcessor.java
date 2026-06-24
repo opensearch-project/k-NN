@@ -6,6 +6,7 @@
 package org.opensearch.knn.search.processor;
 
 import com.google.common.annotations.VisibleForTesting;
+import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.BooleanClause;
 import org.opensearch.action.search.SearchRequest;
@@ -48,20 +49,16 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
     private final ClusterService clusterService;
     private final IndexNameExpressionResolver indexNameExpressionResolver;
 
-    private List<InnerHitBuilder> innerHitBuilders;
-
     KNNSourceExcludesProcessor(
         String tag,
         String description,
         boolean ignoreFailure,
         ClusterService clusterService,
-        IndexNameExpressionResolver indexNameExpressionResolver,
-        List<InnerHitBuilder> innerHitBuilders
+        IndexNameExpressionResolver indexNameExpressionResolver
     ) {
         super(tag, description, ignoreFailure);
         this.clusterService = clusterService;
         this.indexNameExpressionResolver = indexNameExpressionResolver;
-        this.innerHitBuilders = innerHitBuilders;
     }
 
     @Override
@@ -71,18 +68,25 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
             return request;
         }
 
-        // https://github.com/opensearch-project/k-NN/issues/3303
-        for (InnerHitBuilder innerHitBuilder : innerHitBuilders) {
-            FetchSourceContext ctx = innerHitBuilder.getFetchSourceContext();
-            List<String> fetchFields = innerHitBuilder.getFetchFields() != null
-                ? innerHitBuilder.getFetchFields().stream().map(fieldAndFormat -> fieldAndFormat.field).toList()
-                : List.of();
-            if (ctx != null && Stream.concat(Arrays.stream(ctx.includes()), fetchFields.stream()).anyMatch(vectorFields::contains)) {
-                return request;
-            }
+        final InnerHitsExtractor innerHitsExtractor = new InnerHitsExtractor();
+        if (request.source().query() != null) {
+            request.source().query().visit(innerHitsExtractor);
         }
 
+        final List<InnerHitBuilder> innerHitBuilders = innerHitsExtractor.getInnerHitBuilders();
         for (InnerHitBuilder innerHitBuilder : innerHitBuilders) {
+            FetchSourceContext fetchSourceContext = innerHitBuilder.getFetchSourceContext();
+            List<String> fetchFields = innerHitBuilder.getFetchFields() != null
+                    ? innerHitBuilder.getFetchFields().stream().map(fieldAndFormat -> fieldAndFormat.field).toList()
+                    : List.of();
+
+            if (sourceExplicitTrue(fetchSourceContext)
+                    && Stream.concat(Arrays.stream(fetchSourceContext.includes()), fetchFields.stream()).anyMatch(vectorFields::contains)) {
+                // If source is explicitly true for inner hits we should not apply excludes at top level as it will return
+                // mask 1 in inner hits. https://github.com/opensearch-project/k-NN/issues/3303
+                return request;
+            }
+
             innerHitBuilder.setFetchSourceContext(applyExcludes(innerHitBuilder.getFetchSourceContext(), vectorFields));
         }
 
@@ -160,13 +164,17 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
         return TYPE;
     }
 
+    private static boolean sourceExplicitTrue(FetchSourceContext fetchSource) {
+        return fetchSource != null
+                && fetchSource.fetchSource()
+                && (fetchSource.includes().length == 0 && fetchSource.excludes().length == 0);
+    }
+
     public static class Factory implements SystemGeneratedProcessor.SystemGeneratedFactory<SearchRequestProcessor> {
         public static final String TYPE = "knn_default_excludes_factory";
 
         private final ClusterService clusterService;
         private final IndexNameExpressionResolver indexNameExpressionResolver;
-
-        private List<InnerHitBuilder> innerHitBuilders;
 
         public Factory(ClusterService clusterService, IndexNameExpressionResolver indexNameExpressionResolver) {
             this.clusterService = clusterService;
@@ -182,7 +190,7 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
             }
 
             final SearchRequest request = context.searchRequest();
-            if (request != null && request.source() != null) {
+            if (request.source() != null) {
                 final FetchSourceContext fetchSource = request.source().fetchSource();
                 final StoredFieldsContext storedFieldsContext = request.source().storedFields();
 
@@ -190,32 +198,10 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
                     return false;
                 }
 
-                final InnerHitsExtractor innerHitsExtractor = new InnerHitsExtractor();
-                innerHitsExtractor.accept(request.source().query());
-
-                final List<InnerHitBuilder> innerHitBuilders = innerHitsExtractor.getInnerHitBuilders();
-                for (InnerHitBuilder innerHitBuilder : innerHitBuilders) {
-                    FetchSourceContext fetchSourceContext = innerHitBuilder.getFetchSourceContext();
-                    if (sourceExplicitTrue(fetchSourceContext)) {
-                        // If source is explicitly true for inner hits we should not apply excludes at top level as it will return
-                        // mask 1 in inner hits. https://github.com/opensearch-project/k-NN/issues/3303
-                        return false;
-                    }
-                }
-
-                // Cache the inner hits
-                this.innerHitBuilders = innerHitBuilders;
-
                 return true;
             }
             // In all other cases do not add this processor
             return false;
-        }
-
-        private boolean sourceExplicitTrue(FetchSourceContext fetchSource) {
-            return fetchSource != null
-                && fetchSource.fetchSource()
-                && (fetchSource.includes().length == 0 && fetchSource.excludes().length == 0);
         }
 
         private boolean sourceExplicitFalse(FetchSourceContext fetchSource) {
@@ -248,12 +234,12 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
                 description,
                 ignoreFailure,
                 clusterService,
-                indexNameExpressionResolver,
-                innerHitBuilders
+                indexNameExpressionResolver
             );
         }
     }
 
+    @Getter
     private static class InnerHitsExtractor implements QueryBuilderVisitor {
 
         private final List<InnerHitBuilder> innerHitBuilders = new ArrayList<>();
@@ -268,10 +254,6 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
         @Override
         public QueryBuilderVisitor getChildVisitor(BooleanClause.Occur occur) {
             return this;
-        }
-
-        public List<InnerHitBuilder> getInnerHitBuilders() {
-            return innerHitBuilders;
         }
     }
 }
