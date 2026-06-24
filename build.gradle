@@ -672,6 +672,8 @@ task integTestRemoteIndexBuild(type: RestIntegTestTask) {
         // Temporarily skipping this test class, see: https://github.com/opensearch-project/k-NN/issues/2726
         excludeTestsMatching "org.opensearch.knn.index.SegmentReplicationIT"
         excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
+        // Flaky with remote index build, see: https://github.com/opensearch-project/k-NN/issues/3383
+        excludeTestsMatching "org.opensearch.knn.memoryoptsearch.MOSFaissFloatIndexIT.testFilteredSearch_whenVisitBudgetExhausted_thenFallbackToExactSearch"
     }
     systemProperty("test.remoteBuild", System.getProperty("test.remoteBuild"))
     systemProperty("test.bucket", System.getProperty("test.bucket"))
