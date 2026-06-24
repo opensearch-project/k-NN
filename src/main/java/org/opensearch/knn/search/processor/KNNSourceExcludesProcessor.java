@@ -77,11 +77,11 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
         for (InnerHitBuilder innerHitBuilder : innerHitBuilders) {
             FetchSourceContext fetchSourceContext = innerHitBuilder.getFetchSourceContext();
             List<String> fetchFields = innerHitBuilder.getFetchFields() != null
-                    ? innerHitBuilder.getFetchFields().stream().map(fieldAndFormat -> fieldAndFormat.field).toList()
-                    : List.of();
+                ? innerHitBuilder.getFetchFields().stream().map(fieldAndFormat -> fieldAndFormat.field).toList()
+                : List.of();
 
             if (sourceExplicitTrue(fetchSourceContext)
-                    && Stream.concat(Arrays.stream(fetchSourceContext.includes()), fetchFields.stream()).anyMatch(vectorFields::contains)) {
+                && Stream.concat(Arrays.stream(fetchSourceContext.includes()), fetchFields.stream()).anyMatch(vectorFields::contains)) {
                 // If source is explicitly true for inner hits we should not apply excludes at top level as it will return
                 // mask 1 in inner hits. https://github.com/opensearch-project/k-NN/issues/3303
                 return request;
@@ -166,8 +166,8 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
 
     private static boolean sourceExplicitTrue(FetchSourceContext fetchSource) {
         return fetchSource != null
-                && fetchSource.fetchSource()
-                && (fetchSource.includes().length == 0 && fetchSource.excludes().length == 0);
+            && fetchSource.fetchSource()
+            && (fetchSource.includes().length == 0 && fetchSource.excludes().length == 0);
     }
 
     public static class Factory implements SystemGeneratedProcessor.SystemGeneratedFactory<SearchRequestProcessor> {
@@ -229,13 +229,7 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
             Map<String, Object> config,
             PipelineContext pipelineContext
         ) {
-            return new KNNSourceExcludesProcessor(
-                tag,
-                description,
-                ignoreFailure,
-                clusterService,
-                indexNameExpressionResolver
-            );
+            return new KNNSourceExcludesProcessor(tag, description, ignoreFailure, clusterService, indexNameExpressionResolver);
         }
     }
 
