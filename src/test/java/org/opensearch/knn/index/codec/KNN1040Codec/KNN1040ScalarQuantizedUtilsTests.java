@@ -78,33 +78,4 @@ public class KNN1040ScalarQuantizedUtilsTests extends KNNTestCase {
         assertTrue(exception.getCause() instanceof NoSuchFieldException);
     }
 
-    /**
-     * Reproduces the bug: when quantizedVectorValues is declared in a superclass,
-     * getDeclaredField on the concrete class fails with NoSuchFieldException.
-     * After the fix, this should succeed.
-     */
-    @SneakyThrows
-    public void testExtractQuantizedByteVectorValues_whenFieldInSuperclass_thenReturnsValue() {
-        // Arrange: SubclassStubVectorValues extends StubVectorValues, which declares the field
-        SubclassStubVectorValues subclassStub = new SubclassStubVectorValues();
-        QuantizedByteVectorValues expected = mock(QuantizedByteVectorValues.class);
-
-        java.lang.reflect.Field field = StubVectorValues.class.getDeclaredField("quantizedVectorValues");
-        field.setAccessible(true);
-        field.set(subclassStub, expected);
-
-        // Act — this should find the field in the superclass
-        QuantizedByteVectorValues result = KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(subclassStub);
-
-        // Assert
-        assertSame(expected, result);
-    }
-
-    /**
-     * A subclass of StubVectorValues that does NOT declare quantizedVectorValues itself.
-     * The field only exists in the parent class (StubVectorValues).
-     */
-    static class SubclassStubVectorValues extends StubVectorValues {
-        // No quantizedVectorValues here — it's only in the parent
-    }
 }

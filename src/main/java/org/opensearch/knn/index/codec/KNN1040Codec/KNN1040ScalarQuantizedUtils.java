@@ -47,10 +47,7 @@ class KNN1040ScalarQuantizedUtils {
 
     public static QuantizedByteVectorValues extractQuantizedByteVectorValues(final KnnVectorValues floatVectorValues) throws IOException {
         try {
-            final Field f = findFieldInClassHierarchy(floatVectorValues.getClass(), QUANTIZED_VECTOR_VALUES_FIELD_NAME);
-            if (f == null) {
-                throw new NoSuchFieldException(QUANTIZED_VECTOR_VALUES_FIELD_NAME);
-            }
+            final Field f = floatVectorValues.getClass().getDeclaredField(QUANTIZED_VECTOR_VALUES_FIELD_NAME);
             f.setAccessible(true);
             return (QuantizedByteVectorValues) f.get(floatVectorValues);
         } catch (NoSuchFieldException | IllegalAccessException e) {
@@ -65,17 +62,5 @@ class KNN1040ScalarQuantizedUtils {
                 e
             );
         }
-    }
-
-    private static Field findFieldInClassHierarchy(final Class<?> candidateClass, final String fieldName) {
-        Class<?> currentClass = candidateClass;
-        while (currentClass != null) {
-            try {
-                return currentClass.getDeclaredField(fieldName);
-            } catch (NoSuchFieldException ignored) {
-                currentClass = currentClass.getSuperclass();
-            }
-        }
-        return null;
     }
 }
