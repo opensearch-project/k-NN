@@ -14,6 +14,7 @@ import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
 import org.apache.lucene.codecs.lucene104.QuantizedByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
@@ -145,8 +146,13 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
         // and pass it to the build strategy. The writer owns the reader lifecycle.
         final FlatVectorsReader flatVectorsReader = openFlatVectorsReader();
         try {
+            final FloatVectorValues floatVectorValues = flatVectorsReader.getFloatVectorValues(fieldInfo.getName());
+            if (floatVectorValues == null || floatVectorValues.size() == 0) {
+                log.debug("No scalar-quantized vectors found for field [{}], skipping native build", fieldInfo.getName());
+                return;
+            }
             final QuantizedByteVectorValues quantizedValues = KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(
-                flatVectorsReader.getFloatVectorValues(fieldInfo.getName())
+                floatVectorValues
             );
             doMergeOneField(fieldInfo, mergeState, null, null, segmentWriteState, nativeIndexBuildStrategyFactory, quantizedValues);
         } finally {
