@@ -13,6 +13,7 @@ import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.SegmentReader;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.index.mapper.MapperService;
+import org.opensearch.knn.common.exception.MemoryOptimizedSearchOldIndicesNotSupportedException;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -102,8 +103,12 @@ public class MemoryOptimizedSearchWarmup {
     ) {
         final List<FieldInfo> fields = new ArrayList<>();
         for (FieldInfo field : leafReader.getFieldInfos()) {
-            if (isMemoryOptimizedSearchField(field, mapperService, indexName)) {
-                fields.add(field);
+            try {
+                if (isMemoryOptimizedSearchField(field, mapperService, indexName)) {
+                    fields.add(field);
+                }
+            } catch (MemoryOptimizedSearchOldIndicesNotSupportedException e) {
+                log.info("Skipping memory optimized search warmup for field [{}]: {}", field.getName(), e.getMessage());
             }
         }
         return fields;

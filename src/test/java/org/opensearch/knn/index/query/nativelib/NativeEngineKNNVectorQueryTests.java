@@ -59,6 +59,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.mockito.MockitoAnnotations.openMocks;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.utils.TopDocsTestUtils.buildTopDocs;
 import static org.opensearch.knn.utils.TopDocsTestUtils.convertTopDocsToMap;
 
@@ -667,6 +668,208 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         doTestMemoryOptimizedSearchUsingExpandK(100, true, false);
     }
 
+    public void testMemoryOptimizedSearch_efSearchFromMethodParameters_greaterThanK() {
+        // ef_search=256 > k=50, no rescore: search should use ef_search, results trimmed to k
+        doTestMemoryOptimizedSearchWithEfSearch(50, 256, false, false);
+    }
+
+    public void testMemoryOptimizedSearch_efSearchFromMethodParameters_lessThanK() {
+        // ef_search=10 < k=50, no rescore: search should use k (ef_search is a no-op)
+        doTestMemoryOptimizedSearchWithEfSearch(50, 10, false, false);
+    }
+
+    public void testMemoryOptimizedSearch_efSearchWithRescore_efSearchDominates() {
+        // k=100, ef_search=256, oversample=2.0 -> firstPassK=200, search should use max(200,256)=256
+        // rescore input should be 200, final result should be k=100
+        doTestMemoryOptimizedSearchWithEfSearch(100, 256, true, false);
+    }
+
+    public void testMemoryOptimizedSearch_efSearchWithRescore_oversampleDominates() {
+        // k=100, ef_search=150, oversample=2.0 -> firstPassK=200, search should use max(200,150)=200
+        doTestMemoryOptimizedSearchWithEfSearch(100, 150, true, false);
+    }
+
+    public void testMemoryOptimizedSearch_efSearchFromIndexSetting() {
+        // ef_search not in method params, falls back to index setting (mocked to 200), k=50
+        doTestMemoryOptimizedSearchWithEfSearchFromIndexSetting(50, 200);
+    }
+
+    @SneakyThrows
+    private void doTestMemoryOptimizedSearchWithEfSearch(
+        final int k,
+        final int efSearch,
+        final boolean rescoreEnabled,
+        final boolean isShardLevelRescoringDisabled
+    ) {
+        try (MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)) {
+            mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any()))
+                .thenReturn(isShardLevelRescoringDisabled);
+
+            final IndexSearcher indexSearcher = mock(IndexSearcher.class);
+            final IndexReader indexReader = mock(CompositeReader.class);
+            when(indexSearcher.getIndexReader()).thenReturn(indexReader);
+            when(indexSearcher.getTaskExecutor()).thenReturn(taskExecutor);
+
+            Constructor<LeafReaderContext> ctor = LeafReaderContext.class.getDeclaredConstructor(
+                CompositeReaderContext.class,
+                LeafReader.class,
+                int.class,
+                int.class,
+                int.class,
+                int.class
+            );
+            ctor.setAccessible(true);
+            final LeafReader leafReader = mock(LeafReader.class);
+            when(indexReader.leaves()).thenReturn(
+                Arrays.asList(ctor.newInstance(null, leafReader, 0, 0, 0, 0), ctor.newInstance(null, leafReader, 1, 10000, 1, 10000))
+            );
+            when(indexReader.getContext()).thenReturn(indexReaderContext);
+
+            final int dimension = 128;
+            final KNNQuery knnQuery = mock(KNNQuery.class);
+            when(knnQuery.getField()).thenReturn("field");
+            when(knnQuery.getOriginalQueryVector()).thenReturn(new float[dimension]);
+            when(knnQuery.getQueryVector()).thenReturn(new float[dimension]);
+            when(knnQuery.getK()).thenReturn(k);
+            doReturn(Map.of(METHOD_PARAMETER_EF_SEARCH, efSearch)).when(knnQuery).getMethodParameters();
+            when(knnQuery.getIndexName()).thenReturn("test-index");
+            when(knnQuery.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+            when(knnQuery.isMemoryOptimizedSearch()).thenReturn(true);
+
+            final float oversampleFactor = 2.0f;
+            final int firstPassK;
+            if (rescoreEnabled) {
+                RescoreContext rescoreContext = RescoreContext.builder().oversampleFactor(oversampleFactor).build();
+                when(knnQuery.getRescoreContext()).thenReturn(rescoreContext);
+                firstPassK = rescoreContext.getFirstPassK(k, isShardLevelRescoringDisabled, dimension);
+            } else {
+                firstPassK = k;
+            }
+
+            final int expectedSearchK = Math.max(firstPassK, Math.max(k, efSearch));
+
+            final MemoryOptimizedKNNWeight weight = mock(MemoryOptimizedKNNWeight.class);
+
+            when(weight.searchLeaf(any(), anyInt())).thenAnswer(invocation -> {
+                final int passedK = invocation.getArgument(1);
+                assertEquals("searchLeaf should receive expectedSearchK", expectedSearchK, passedK);
+                final TotalHits totalHits = new TotalHits(passedK, TotalHits.Relation.EQUAL_TO);
+                final ScoreDoc[] scoreDocs = new ScoreDoc[passedK];
+                for (int i = 0; i < passedK; ++i) {
+                    scoreDocs[i] = new ScoreDoc(i, passedK - i);
+                }
+                return new PerLeafResult(null, 0, new TopDocs(totalHits, scoreDocs), PerLeafResult.SearchMode.APPROXIMATE_SEARCH);
+            });
+
+            when(weight.exactSearch(any(), any())).thenAnswer(invocation -> {
+                ExactSearcher.ExactSearcherContext context = invocation.getArgument(1);
+                final int passedK = context.getK();
+                final TotalHits totalHits = new TotalHits(passedK, TotalHits.Relation.EQUAL_TO);
+                final ScoreDoc[] scoreDocs = new ScoreDoc[passedK];
+                for (int i = 0; i < passedK; ++i) {
+                    scoreDocs[i] = new ScoreDoc(i, passedK - i);
+                }
+                return new TopDocs(totalHits, scoreDocs);
+            });
+
+            when(weight.approximateSearch(any(), any(), anyInt(), anyInt())).thenAnswer(invocation -> {
+                final int passedK = invocation.getArgument(3);
+                final TotalHits totalHits = new TotalHits(passedK, TotalHits.Relation.EQUAL_TO);
+                final ScoreDoc[] scoreDocs = new ScoreDoc[passedK];
+                for (int i = 0; i < passedK; ++i) {
+                    scoreDocs[i] = new ScoreDoc(i, passedK - i);
+                }
+                return new TopDocs(totalHits, scoreDocs);
+            });
+
+            when(knnQuery.createWeight(eq(indexSearcher), eq(ScoreMode.TOP_DOCS), eq(1f), anyInt())).thenAnswer(invocation -> {
+                final int expandedK = invocation.getArgument(3);
+                assertEquals("createWeight kOverride should be expectedSearchK", expectedSearchK, expandedK);
+                return weight;
+            });
+
+            if (rescoreEnabled == false && efSearch <= k) {
+                when(knnQuery.createWeight(indexSearcher, ScoreMode.TOP_DOCS, 1)).thenReturn(weight);
+            }
+
+            final NativeEngineKnnVectorQuery query = new NativeEngineKnnVectorQuery(knnQuery, QueryUtils.getInstance(), false);
+            query.createWeight(indexSearcher, ScoreMode.TOP_DOCS, 1);
+        }
+    }
+
+    @SneakyThrows
+    private void doTestMemoryOptimizedSearchWithEfSearchFromIndexSetting(final int k, final int indexSettingEfSearch) {
+        try (MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)) {
+            mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any())).thenReturn(false);
+            mockedKnnSettings.when(() -> KNNSettings.getEfSearchParam("test-index")).thenReturn(indexSettingEfSearch);
+
+            final IndexSearcher indexSearcher = mock(IndexSearcher.class);
+            final IndexReader indexReader = mock(CompositeReader.class);
+            when(indexSearcher.getIndexReader()).thenReturn(indexReader);
+            when(indexSearcher.getTaskExecutor()).thenReturn(taskExecutor);
+
+            Constructor<LeafReaderContext> ctor = LeafReaderContext.class.getDeclaredConstructor(
+                CompositeReaderContext.class,
+                LeafReader.class,
+                int.class,
+                int.class,
+                int.class,
+                int.class
+            );
+            ctor.setAccessible(true);
+            final LeafReader leafReader = mock(LeafReader.class);
+            when(indexReader.leaves()).thenReturn(
+                Arrays.asList(ctor.newInstance(null, leafReader, 0, 0, 0, 0), ctor.newInstance(null, leafReader, 1, 10000, 1, 10000))
+            );
+            when(indexReader.getContext()).thenReturn(indexReaderContext);
+
+            final int dimension = 128;
+            final KNNQuery knnQuery = mock(KNNQuery.class);
+            when(knnQuery.getField()).thenReturn("field");
+            when(knnQuery.getOriginalQueryVector()).thenReturn(new float[dimension]);
+            when(knnQuery.getQueryVector()).thenReturn(new float[dimension]);
+            when(knnQuery.getK()).thenReturn(k);
+            when(knnQuery.getMethodParameters()).thenReturn(null);
+            when(knnQuery.getIndexName()).thenReturn("test-index");
+            when(knnQuery.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+            when(knnQuery.isMemoryOptimizedSearch()).thenReturn(true);
+
+            final int expectedSearchK = Math.max(k, indexSettingEfSearch);
+
+            final MemoryOptimizedKNNWeight weight = mock(MemoryOptimizedKNNWeight.class);
+
+            when(weight.searchLeaf(any(), anyInt())).thenAnswer(invocation -> {
+                final int passedK = invocation.getArgument(1);
+                assertEquals("searchLeaf should receive expectedSearchK", expectedSearchK, passedK);
+                final TotalHits totalHits = new TotalHits(passedK, TotalHits.Relation.EQUAL_TO);
+                final ScoreDoc[] scoreDocs = new ScoreDoc[passedK];
+                for (int i = 0; i < passedK; ++i) {
+                    scoreDocs[i] = new ScoreDoc(i, passedK - i);
+                }
+                return new PerLeafResult(null, 0, new TopDocs(totalHits, scoreDocs), PerLeafResult.SearchMode.APPROXIMATE_SEARCH);
+            });
+
+            when(weight.approximateSearch(any(), any(), anyInt(), anyInt())).thenAnswer(invocation -> {
+                final int passedK = invocation.getArgument(3);
+                final TotalHits totalHits = new TotalHits(passedK, TotalHits.Relation.EQUAL_TO);
+                final ScoreDoc[] scoreDocs = new ScoreDoc[passedK];
+                for (int i = 0; i < passedK; ++i) {
+                    scoreDocs[i] = new ScoreDoc(i, passedK - i);
+                }
+                return new TopDocs(totalHits, scoreDocs);
+            });
+
+            when(knnQuery.createWeight(eq(indexSearcher), eq(ScoreMode.TOP_DOCS), eq(1f), anyInt())).thenAnswer(invocation -> {
+                final int expandedK = invocation.getArgument(3);
+                assertEquals("createWeight kOverride should be expectedSearchK", expectedSearchK, expandedK);
+                return weight;
+            });
+
+            final NativeEngineKnnVectorQuery query = new NativeEngineKnnVectorQuery(knnQuery, QueryUtils.getInstance(), false);
+            query.createWeight(indexSearcher, ScoreMode.TOP_DOCS, 1);
+        }
+    }
+
     @SneakyThrows
     private void doTestMemoryOptimizedSearchUsingExpandK(
         final int dimension,
@@ -679,6 +882,8 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
 
             mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any()))
                 .thenReturn(isShardLevelRescoringDisabled);
+            // Return ef_search < k so ef_search expansion is not triggered in these tests
+            mockedKnnSettings.when(() -> KNNSettings.getEfSearchParam(any())).thenReturn(1);
 
             // Prepare index searcher + reader
             final IndexSearcher indexSearcher = mock(IndexSearcher.class);

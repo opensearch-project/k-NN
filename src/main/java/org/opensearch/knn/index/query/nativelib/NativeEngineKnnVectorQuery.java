@@ -38,6 +38,7 @@ import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.index.query.memoryoptsearch.MemoryOptimizedKNNWeight;
 import org.opensearch.knn.index.query.memoryoptsearch.optimistic.OptimisticSearchStrategyUtils;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
+import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.knn.profile.KNNProfileUtil;
 import org.opensearch.knn.profile.LongMetric;
 import org.opensearch.knn.profile.query.KNNMetrics;
@@ -92,7 +93,8 @@ public class NativeEngineKnnVectorQuery extends Query {
         // Create Weight depending on whether 2-phase search is needed
         final boolean isShardLevelRescoringDisabled = KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(knnQuery.getIndexName());
         final Integer firstPassKFor2PhaseSearch = getFirstPassK(isShardLevelRescoringDisabled);
-        final IOSupplier<KNNWeight> weightSupplier = getKNNWeightSupplier(firstPassKFor2PhaseSearch, indexSearcher, scoreMode);
+        final int effectiveK = getEffectiveK(knnQuery.getK());
+        final IOSupplier<KNNWeight> weightSupplier = getKNNWeightSupplier(firstPassKFor2PhaseSearch, indexSearcher, scoreMode, effectiveK);
 
         // Create weight
         QueryProfiler profiler = KNNProfileUtil.getProfiler(indexSearcher);
@@ -112,9 +114,12 @@ public class NativeEngineKnnVectorQuery extends Query {
         List<PerLeafResult> perLeafResults;
         final int finalK = knnQuery.getK();
         if (isRescoreRequired(firstPassKFor2PhaseSearch) == false) {
-            perLeafResults = doSearch(indexSearcher, leafReaderContexts, knnWeight, finalK);
+            perLeafResults = doSearch(indexSearcher, leafReaderContexts, knnWeight, effectiveK);
         } else {
-            perLeafResults = doSearch(indexSearcher, leafReaderContexts, knnWeight, firstPassKFor2PhaseSearch);
+            // Search with max(firstPassK, effectiveK) to honor ef_search exploration,
+            // then trim to firstPassK for the rescore input.
+            final int searchK = Math.max(firstPassKFor2PhaseSearch, effectiveK);
+            perLeafResults = doSearch(indexSearcher, leafReaderContexts, knnWeight, searchK);
             if (isShardLevelRescoringDisabled == false) {
                 ResultUtil.reduceToTopK(perLeafResults, firstPassKFor2PhaseSearch);
             }
@@ -130,10 +135,9 @@ public class NativeEngineKnnVectorQuery extends Query {
             );
         }
 
-        // Since memory optimized search is using this class, we need to return the same totalHits value when it's disabled.
-        // e.g. Let's say we got 100 result per each segment where #segments=3, then 300 should be returned as total hit.
-        // Therefore, when memory optimized search is enabled, we should skip taking top-k and return whatever we got from approximate
-        // search.
+        // For non-memory-optimized search, reduce to top k across segments.
+        // For memory-optimized search, skip reduceToTopK to preserve totalHits behavior;
+        // the final trim to k is handled by TopDocs.merge via getTotalTopDoc.
         if (knnQuery.isMemoryOptimizedSearch() == false) {
             ResultUtil.reduceToTopK(perLeafResults, finalK);
         }
@@ -164,7 +168,7 @@ public class NativeEngineKnnVectorQuery extends Query {
             topDocs[i] = leafTopDocs;
         }
 
-        TopDocs topK = TopDocs.merge(getTotalTopDoc(topDocs), topDocs);
+        TopDocs topK = TopDocs.merge(getMergeTopN(topDocs, finalK, effectiveK), topDocs);
 
         if (topK.scoreDocs.length == 0) {
             return new MatchNoDocsQuery().createWeight(indexSearcher, scoreMode, boost);
@@ -181,14 +185,19 @@ public class NativeEngineKnnVectorQuery extends Query {
     private IOSupplier<KNNWeight> getKNNWeightSupplier(
         Integer firstPassKFor2PhaseSearch,
         IndexSearcher indexSearcher,
-        ScoreMode scoreMode
+        ScoreMode scoreMode,
+        int effectiveK
     ) {
-        if (isRescoreRequired(firstPassKFor2PhaseSearch) == false) {
-            return () -> (KNNWeight) knnQuery.createWeight(indexSearcher, scoreMode, 1);
-        } else {
-            // Create weight with expanded `k`.
-            return () -> (KNNWeight) knnQuery.createWeight(indexSearcher, scoreMode, 1, firstPassKFor2PhaseSearch);
+        if (isRescoreRequired(firstPassKFor2PhaseSearch)) {
+            // Search with max(firstPassK, effectiveK) to honor both oversample and ef_search.
+            final int searchK = Math.max(firstPassKFor2PhaseSearch, effectiveK);
+            return () -> (KNNWeight) knnQuery.createWeight(indexSearcher, scoreMode, 1, searchK);
         }
+        if (effectiveK > knnQuery.getK()) {
+            // ef_search > k: expand the collector budget without triggering rescore.
+            return () -> (KNNWeight) knnQuery.createWeight(indexSearcher, scoreMode, 1, effectiveK);
+        }
+        return () -> (KNNWeight) knnQuery.createWeight(indexSearcher, scoreMode, 1);
     }
 
     private Integer getFirstPassK(final boolean isShardLevelRescoringDisabled) {
@@ -204,18 +213,35 @@ public class NativeEngineKnnVectorQuery extends Query {
     }
 
     /**
-     * When expandNestedDocs is set to true, additional nested documents are retrieved.
-     * As a result, the total number of documents will exceed k.
-     * Instead of relying on the k value, we must count the total number of documents
-     * to accurately determine how many are in topDocs.
-     * The theoretical maximum value this method could return is Integer.MAX_VALUE,
-     * as a single shard cannot have more documents than Integer.MAX_VALUE.
+     * For memory-optimized search, returns max(k, ef_search) so the HNSW graph explores a wider
+     * candidate set. Results are trimmed back to k without a full-precision rescore.
+     * For non-memory-optimized search, ef_search is passed via methodParameters to the native engine
+     * directly, so no expansion is needed here.
+     *
+     * @return expanded k if ef_search > k for memory-optimized search, otherwise the original k
+     */
+    private int getEffectiveK(final int k) {
+        if (knnQuery.isMemoryOptimizedSearch() == false) {
+            return k;
+        }
+        int efSearch = IndexHyperParametersUtil.getHNSWEFSearchValue(knnQuery.getMethodParameters(), knnQuery.getIndexName());
+        return Math.max(k, efSearch);
+    }
+
+    /**
+     * Determines the topN parameter for TopDocs.merge.
+     *
+     * For expandNestedDocs or MOS without ef_search expansion: returns total doc count
+     * to preserve all results (totalHits behavior).
+     * For MOS with ef_search expansion: returns k to trim excess results from expanded search.
+     * For non-MOS without expandNestedDocs: uses k (already trimmed by reduceToTopK).
      *
      * @param topDocs the top documents
-     * @return the total number of documents in the topDocs
+     * @param k the user's requested result count
+     * @return the topN value to pass to TopDocs.merge
      */
-    private int getTotalTopDoc(TopDocs[] topDocs) {
-        if (knnQuery.isMemoryOptimizedSearch() || expandNestedDocs) {
+    private int getMergeTopN(TopDocs[] topDocs, int k, int effectiveK) {
+        if (expandNestedDocs || (knnQuery.isMemoryOptimizedSearch() && effectiveK == k)) {
             int sum = 0;
             for (TopDocs topDoc : topDocs) {
                 sum += topDoc.scoreDocs.length;
@@ -223,7 +249,7 @@ public class NativeEngineKnnVectorQuery extends Query {
             return sum;
         }
 
-        return knnQuery.getK();
+        return k;
     }
 
     /**

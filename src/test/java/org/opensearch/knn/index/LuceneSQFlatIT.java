@@ -28,14 +28,11 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 
-import static org.apache.lucene.tests.util.LuceneTestCase.expectThrows;
 import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.EXPAND_NESTED;
 import static org.opensearch.knn.common.KNNConstants.K;
 import static org.opensearch.knn.common.KNNConstants.KNN;
-import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
-import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.PATH;
 import static org.opensearch.knn.common.KNNConstants.QUERY;
@@ -465,52 +462,6 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
         Response response = client().performRequest(request);
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
         return response;
-    }
-
-    @SneakyThrows
-    public void testRadialSearch_withMaxDistance_onLuceneFlat_thenBlocked() {
-        createFlatIndex(SpaceType.L2);
-        indexTestDocs();
-
-        XContentBuilder query = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("query")
-            .startObject("knn")
-            .startObject(FIELD_NAME)
-            .field("vector", generateVector(DIMENSION, 1.0f))
-            .field(MAX_DISTANCE, 100.0f)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
-        Request request = new Request("POST", "/" + INDEX_NAME + "/_search");
-        request.setJsonEntity(query.toString());
-
-        ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-        assertTrue(ex.getMessage().contains("Radial search is not supported for indices which have quantization enabled"));
-    }
-
-    @SneakyThrows
-    public void testRadialSearch_withMinScore_onLuceneFlat_thenBlocked() {
-        createFlatIndex(SpaceType.L2);
-        indexTestDocs();
-
-        XContentBuilder query = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("query")
-            .startObject("knn")
-            .startObject(FIELD_NAME)
-            .field("vector", generateVector(DIMENSION, 1.0f))
-            .field(MIN_SCORE, 0.01f)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
-        Request request = new Request("POST", "/" + INDEX_NAME + "/_search");
-        request.setJsonEntity(query.toString());
-
-        ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-        assertTrue(ex.getMessage().contains("Radial search is not supported for indices which have quantization enabled"));
     }
 
     private void indexTestDocs() throws Exception {

@@ -175,4 +175,25 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
             result instanceof NativeEngines990KnnVectorsFormat
         );
     }
+
+    public void testResolve_whenCalledWithFieldContext_andSQSixteenBitEncoder_thenReturnsNativeFormat() {
+        MapperService mapperService = mock(MapperService.class);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING)).thenReturn(null);
+        when(mapperService.getIndexSettings()).thenReturn(indexSettings);
+
+        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(
+            Optional.of(mapperService),
+            mock(NativeIndexBuildStrategyFactory.class)
+        );
+
+        MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 16));
+        Map<String, Object> params = Map.of(METHOD_ENCODER_PARAMETER, encoderContext);
+
+        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, params, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH);
+        assertTrue(
+            "SQ with bits=16 should return NativeEngines990KnnVectorsFormat, got " + result.getClass().getSimpleName(),
+            result instanceof NativeEngines990KnnVectorsFormat
+        );
+    }
 }
