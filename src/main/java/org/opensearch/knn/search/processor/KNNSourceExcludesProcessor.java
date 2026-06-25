@@ -19,6 +19,7 @@ import org.opensearch.index.query.InnerHitBuilder;
 import org.opensearch.index.query.NestedQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilderVisitor;
+import org.opensearch.common.regex.Regex;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.search.fetch.StoredFieldsContext;
 import org.opensearch.search.fetch.subphase.FetchSourceContext;
@@ -34,12 +35,39 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 
 /**
- * A system-generated search request processor that automatically adds _source excludes for knn vector fields
- * found in the index mappings. This avoids returning large vector data in search responses by default.
- * User-provided includes are always preserved.
+ * A system-generated search request processor that automatically excludes {@code knn_vector} fields
+ * from {@code _source} in search responses. This prevents large vector arrays from being returned
+ * by default, reducing response payload size without requiring users to manually configure
+ * {@code _source} filtering.
+ *
+ * <p>The processor is injected into the search pipeline before user-defined processors
+ * ({@link ExecutionStage#PRE_USER_DEFINED}). It reads the index mappings at request time to discover
+ * all {@code knn_vector} fields, then appends them as {@code _source.excludes} on the request.
+ *
+ * <p><b>Skipped entirely when:</b>
+ * <ul>
+ *   <li>The request has no target indices, or none resolve to a concrete index.</li>
+ *   <li>The index mapping has {@code "_source": {"enabled": false}} — nothing to filter.</li>
+ *   <li>The request explicitly disables source ({@code _source: false}) or fully enables it
+ *       ({@code _source: true} with no includes/excludes).</li>
+ *   <li>{@code stored_fields: _none_} — source is suppressed at the transport layer.</li>
+ *   <li>Any inner hit has {@code _source: true} (fetch everything) or explicitly requests
+ *       a vector field via {@code _source.includes} or {@code fields} — adding top-level excludes
+ *       would mask the field in inner hit responses (see
+ *       <a href="https://github.com/opensearch-project/k-NN/issues/3303">issue 3303</a>).</li>
+ * </ul>
+ *
+ * <p><b>Excludes are not added for a vector field when:</b>
+ * <ul>
+ *   <li>The user's {@code _source.includes} already covers the field (exact or glob pattern).</li>
+ *   <li>The user's {@code _source.excludes} already covers the field (exact or glob pattern).</li>
+ *   <li>The index mapping's {@code _source.excludes} already covers the field.</li>
+ * </ul>
+ *
+ * <p>Inner hits whose source is explicitly disabled ({@code _source: false}) are left unchanged;
+ * excludes are only applied to inner hits whose source is unconstrained or has existing filters.
  */
 @Log4j2
 public final class KNNSourceExcludesProcessor extends AbstractProcessor implements SearchRequestProcessor, SystemGeneratedProcessor {
@@ -62,6 +90,11 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
     }
 
     @Override
+    public ExecutionStage getExecutionStage() {
+        return ExecutionStage.PRE_USER_DEFINED;
+    }
+
+    @Override
     public SearchRequest processRequest(SearchRequest request) {
         final Set<String> vectorFields = getVectorFieldsFromMappings(request);
         if (vectorFields.isEmpty()) {
@@ -80,14 +113,16 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
                 ? innerHitBuilder.getFetchFields().stream().map(fieldAndFormat -> fieldAndFormat.field).toList()
                 : List.of();
 
-            if (sourceExplicitTrue(fetchSourceContext)
-                && Stream.concat(Arrays.stream(fetchSourceContext.includes()), fetchFields.stream()).anyMatch(vectorFields::contains)) {
-                // If source is explicitly true for inner hits we should not apply excludes at top level as it will return
-                // mask 1 in inner hits. https://github.com/opensearch-project/k-NN/issues/3303
+            if (SourceInspector.isExplicitTrue(fetchSourceContext)
+                || SourceInspector.innerHitRequestsVector(fetchSourceContext, fetchFields, vectorFields)) {
                 return request;
             }
+        }
 
-            innerHitBuilder.setFetchSourceContext(applyExcludes(innerHitBuilder.getFetchSourceContext(), vectorFields));
+        for (InnerHitBuilder innerHitBuilder : innerHitBuilders) {
+            if (SourceInspector.isExplicitFalse(innerHitBuilder.getFetchSourceContext()) == false) {
+                innerHitBuilder.setFetchSourceContext(applyExcludes(innerHitBuilder.getFetchSourceContext(), vectorFields));
+            }
         }
 
         request.source().fetchSource(applyExcludes(request.source().fetchSource(), vectorFields));
@@ -95,7 +130,10 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
     }
 
     /**
-     * Collect all knn_vector field names from the index mappings for the target indices.
+     * Resolves concrete index names from the request (handling aliases, wildcards, date-math)
+     * and collects all exposed {@code knn_vector} field paths across those indices.
+     * Fields whose index has {@code _source} disabled, or that are already covered by the
+     * index-level {@code _source.excludes}, are not included.
      */
     private Set<String> getVectorFieldsFromMappings(SearchRequest request) {
         String[] indices = request.indices();
@@ -110,17 +148,38 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
         for (String indexName : concreteIndices) {
             IndexMetadata indexMetadata = state.metadata().index(indexName);
             if (indexMetadata != null) {
-                MappingMetadata mappingMetadata = indexMetadata.mapping();
-                if (mappingMetadata != null) {
-                    collectVectorFields(mappingMetadata.sourceAsMap(), "", vectorFields);
-                }
+                collectExposedVectorFields(indexMetadata, vectorFields);
             }
         }
         return vectorFields;
     }
 
     /**
-     * Recursively walk the mapping tree and collect field names with type "knn_vector".
+     * Adds all {@code knn_vector} field paths from the given index to {@code vectorFields},
+     * skipping the index if {@code _source} is disabled, and filtering out fields already
+     * covered by the index-level {@code _source.excludes}.
+     */
+    private static void collectExposedVectorFields(final IndexMetadata indexMetadata, final Set<String> vectorFields) {
+        final MappingMetadata mappingMetadata = indexMetadata.mapping();
+        if (mappingMetadata == null) {
+            return;
+        }
+        final Map<String, Object> mappingSource = mappingMetadata.sourceAsMap();
+        if (SourceInspector.isEnabled(mappingSource) == false) {
+            return;
+        }
+        collectVectorFields(mappingSource, "", vectorFields);
+        vectorFields.removeIf(field -> SourceInspector.isAlreadyExcluded(field, mappingSource));
+    }
+
+    /**
+     * Recursively walks the mapping {@code properties} tree and adds any field whose
+     * {@code type} is {@code knn_vector} to {@code vectorFields}.
+     * Nested and object fields are traversed by recursing into their {@code properties} block.
+     *
+     * @param mappingMap   the mapping node to inspect (top-level or a nested object block)
+     * @param prefix       dot-separated path prefix for this node (empty string at the root)
+     * @param vectorFields accumulator for discovered field paths
      */
     @SuppressWarnings("unchecked")
     @VisibleForTesting
@@ -136,7 +195,6 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
                 if (KNNVectorFieldMapper.CONTENT_TYPE.equals(fieldMapping.get("type"))) {
                     vectorFields.add(fullName);
                 }
-                // Recurse into nested objects
                 if (fieldMapping.containsKey("properties")) {
                     collectVectorFields(fieldMapping, fullName, vectorFields);
                 }
@@ -148,12 +206,12 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
         String[] userIncludes = (current != null) ? current.includes() : new String[0];
         String[] userExcludes = (current != null) ? current.excludes() : new String[0];
 
-        Set<String> includeSet = (userIncludes.length > 0) ? Set.of(userIncludes) : Set.of();
         Set<String> mergedExcludes = (userExcludes.length > 0) ? new HashSet<>(Arrays.asList(userExcludes)) : new HashSet<>();
 
-        for (String vf : vectorFields) {
-            if (!includeSet.contains(vf)) {
-                mergedExcludes.add(vf);
+        for (String vectorField : vectorFields) {
+            if (SourceInspector.patternMatchesAny(vectorField, Arrays.asList(userIncludes)) == false
+                && SourceInspector.patternMatchesAny(vectorField, Arrays.asList(userExcludes)) == false) {
+                mergedExcludes.add(vectorField);
             }
         }
         return new FetchSourceContext(true, userIncludes, mergedExcludes.toArray(new String[0]));
@@ -164,12 +222,80 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
         return TYPE;
     }
 
-    private static boolean sourceExplicitTrue(FetchSourceContext fetchSource) {
-        return fetchSource != null
-            && fetchSource.fetchSource()
-            && (fetchSource.includes().length == 0 && fetchSource.excludes().length == 0);
+    /** Helpers for inspecting _source configuration at both the mapping and request level. */
+    private static final class SourceInspector {
+
+        private SourceInspector() {}
+
+        @SuppressWarnings("unchecked")
+        private static boolean isEnabled(final Map<String, Object> mappingMap) {
+            final Object sourceMeta = mappingMap.get("_source");
+            if (sourceMeta instanceof Map) {
+                final Object enabled = ((Map<String, Object>) sourceMeta).get("enabled");
+                if (Boolean.FALSE.equals(enabled)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        @SuppressWarnings("unchecked")
+        private static boolean isAlreadyExcluded(final String fieldName, final Map<String, Object> mappingMap) {
+            final Object sourceMeta = mappingMap.get("_source");
+            if (!(sourceMeta instanceof Map)) {
+                return false;
+            }
+            final Object excludes = ((Map<String, Object>) sourceMeta).get("excludes");
+            if (!(excludes instanceof List)) {
+                return false;
+            }
+            return patternMatchesAny(fieldName, (List<?>) excludes);
+        }
+
+        private static boolean isExplicitTrue(final FetchSourceContext fetchSource) {
+            return fetchSource != null
+                && fetchSource.fetchSource()
+                && fetchSource.includes().length == 0
+                && fetchSource.excludes().length == 0;
+        }
+
+        private static boolean isExplicitFalse(final FetchSourceContext fetchSource) {
+            return fetchSource != null && fetchSource.fetchSource() == false;
+        }
+
+        private static boolean patternMatchesAny(final String fieldName, final List<?> patterns) {
+            for (Object pattern : patterns) {
+                if (pattern instanceof String p && Regex.simpleMatch(p, fieldName)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static boolean innerHitRequestsVector(
+            final FetchSourceContext fetchSourceContext,
+            final List<String> fetchFields,
+            final Set<String> vectorFields
+        ) {
+            for (String vectorField : vectorFields) {
+                if ((fetchSourceContext != null && patternMatchesAny(vectorField, Arrays.asList(fetchSourceContext.includes())))
+                    || patternMatchesAny(vectorField, fetchFields)) {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 
+    /**
+     * System-generated factory for {@link KNNSourceExcludesProcessor}.
+     *
+     * <p>{@link #shouldGenerate} is evaluated once per search request before the pipeline is built.
+     * It returns {@code false} for requests where applying source excludes would be a no-op or
+     * incorrect (parent-task sub-requests, source already disabled/fully-enabled, stored fields
+     * suppressed). Inner-hit source constraints are evaluated at {@link #processRequest} time
+     * since the factory does not have access to mapping data.
+     */
     public static class Factory implements SystemGeneratedProcessor.SystemGeneratedFactory<SearchRequestProcessor> {
         public static final String TYPE = "knn_default_excludes_factory";
 
@@ -194,30 +320,17 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
                 final FetchSourceContext fetchSource = request.source().fetchSource();
                 final StoredFieldsContext storedFieldsContext = request.source().storedFields();
 
-                if (shouldAppendExcludes(fetchSource, storedFieldsContext) == false) {
-                    return false;
-                }
-
-                return true;
+                return shouldAppendExcludes(fetchSource, storedFieldsContext);
             }
             // In all other cases do not add this processor
             return false;
         }
 
-        private boolean sourceExplicitFalse(FetchSourceContext fetchSource) {
-            return fetchSource != null && fetchSource.fetchSource() == false;
-        }
-
         private boolean shouldAppendExcludes(FetchSourceContext fetchSource, StoredFieldsContext storedFieldsContext) {
-            if (sourceExplicitFalse(fetchSource) || sourceExplicitTrue(fetchSource)) {
+            if (SourceInspector.isExplicitFalse(fetchSource) || SourceInspector.isExplicitTrue(fetchSource)) {
                 return false;
             }
-
-            if (storedFieldsContext != null && storedFieldsContext.fetchFields() == false) {
-                return false;
-            }
-
-            return true;
+            return storedFieldsContext == null || storedFieldsContext.fetchFields();
         }
 
         @Override
@@ -233,6 +346,10 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
         }
     }
 
+    /**
+     * Visitor that traverses the query tree and collects {@link InnerHitBuilder} instances
+     * from all {@link NestedQueryBuilder} nodes that have inner hits configured.
+     */
     @Getter
     private static class InnerHitsExtractor implements QueryBuilderVisitor {
 

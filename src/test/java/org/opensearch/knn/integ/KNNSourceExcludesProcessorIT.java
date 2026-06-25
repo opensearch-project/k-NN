@@ -12,19 +12,31 @@ import org.junit.After;
 import org.junit.Before;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.json.JsonXContent;
+import org.opensearch.index.query.MatchAllQueryBuilder;
+import org.opensearch.script.Script;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.opensearch.knn.search.processor.KNNSourceExcludesProcessor;
+import org.opensearch.knn.search.processor.mmr.MMROverSampleProcessor;
+import org.opensearch.knn.search.processor.mmr.MMRRerankProcessor;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.opensearch.knn.common.KNNConstants.CANDIDATES;
+import static org.opensearch.knn.common.KNNConstants.DIVERSITY;
+import static org.opensearch.knn.common.KNNConstants.K;
+import static org.opensearch.knn.common.KNNConstants.KNN;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
+import static org.opensearch.knn.common.KNNConstants.MMR;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
@@ -625,6 +637,592 @@ public class KNNSourceExcludesProcessorIT extends KNNRestTestCase {
         deleteIndex(indexName);
 
         enableSourceExcludesProcessor();
+    }
+
+    @SneakyThrows
+    public void testSearchResponse_sourceDisabledAtIndexLevel_noSourceReturned() {
+        String indexName = INDEX_NAME + "-source-disabled";
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("_source")
+            .field("enabled", false)
+            .endObject()
+            .startObject("properties")
+            .startObject(VECTOR_FIELD)
+            .field("type", TYPE_KNN_VECTOR)
+            .field("dimension", DIMENSION_VALUE)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .endObject()
+            .endObject()
+            .startObject(TEXT_FIELD)
+            .field("type", "text")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(indexName, mapping);
+        indexDocumentWithVectorAndText(indexName, "1", TEST_VECTOR, "hello world");
+        refreshIndex(indexName);
+
+        String query = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("match_all")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        Response response = performSearch(indexName, query);
+        List<Map<String, Object>> hits = parseHits(response);
+
+        assertEquals(1, hits.size());
+        assertNull("_source should not be returned when disabled at index level", getSource(hits.get(0)));
+
+        deleteIndex(indexName);
+    }
+
+    @SneakyThrows
+    public void testSearchResponse_vectorFieldExcludedByIndexMappingLiteral_processorDoesNotDuplicate() {
+        String indexName = INDEX_NAME + "-mapping-exclude-literal";
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("_source")
+            .array("excludes", VECTOR_FIELD)
+            .endObject()
+            .startObject("properties")
+            .startObject(VECTOR_FIELD)
+            .field("type", TYPE_KNN_VECTOR)
+            .field("dimension", DIMENSION_VALUE)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .endObject()
+            .endObject()
+            .startObject(TEXT_FIELD)
+            .field("type", "text")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(indexName, mapping);
+        indexDocumentWithVectorAndText(indexName, "1", TEST_VECTOR, "hello world");
+        refreshIndex(indexName);
+
+        String query = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("match_all")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        Response response = performSearch(indexName, query);
+        List<Map<String, Object>> hits = parseHits(response);
+
+        assertEquals(1, hits.size());
+        Map<String, Object> source = getSource(hits.get(0));
+        assertNotNull(source);
+        assertTrue(source.containsKey(TEXT_FIELD));
+        assertFalse("Vector field should be absent because mapping excludes it", source.containsKey(VECTOR_FIELD));
+
+        deleteIndex(indexName);
+    }
+
+    @SneakyThrows
+    public void testSearchResponse_vectorFieldExcludedByIndexMappingGlob_processorDoesNotDuplicate() {
+        String indexName = INDEX_NAME + "-mapping-exclude-glob";
+        String globPattern = "my_*";
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("_source")
+            .array("excludes", globPattern)
+            .endObject()
+            .startObject("properties")
+            .startObject(VECTOR_FIELD)
+            .field("type", TYPE_KNN_VECTOR)
+            .field("dimension", DIMENSION_VALUE)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .endObject()
+            .endObject()
+            .startObject(TEXT_FIELD)
+            .field("type", "text")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(indexName, mapping);
+        indexDocumentWithVectorAndText(indexName, "1", TEST_VECTOR, "hello world");
+        refreshIndex(indexName);
+
+        String query = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("match_all")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        Response response = performSearch(indexName, query);
+        List<Map<String, Object>> hits = parseHits(response);
+
+        assertEquals(1, hits.size());
+        Map<String, Object> source = getSource(hits.get(0));
+        assertNotNull(source);
+        assertFalse("Vector field matching glob should be absent", source.containsKey(VECTOR_FIELD));
+        assertTrue("Non-matching field should still be present", source.containsKey(TEXT_FIELD));
+
+        deleteIndex(indexName);
+    }
+
+    @SneakyThrows
+    public void testSearchResponse_innerHitExplicitTrueSource_noTopLevelExcludes() {
+        String indexName = INDEX_NAME + "-inner-hit-true";
+        String nestedField = "nested_obj";
+        String nestedVecField = "vec";
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(nestedField)
+            .field("type", "nested")
+            .startObject("properties")
+            .startObject(nestedVecField)
+            .field("type", TYPE_KNN_VECTOR)
+            .field("dimension", DIMENSION_VALUE)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .startObject(TEXT_FIELD)
+            .field("type", "text")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(indexName, mapping);
+
+        String doc = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(nestedField)
+            .field(nestedVecField, TEST_VECTOR)
+            .endObject()
+            .field(TEXT_FIELD, "inner hit true source test")
+            .endObject()
+            .toString();
+        addKnnDoc(indexName, "1", doc);
+        refreshIndex(indexName);
+
+        // Inner hit with _source: true — processor should not add top-level excludes (issue #3303)
+        String query = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("nested")
+            .field("path", nestedField)
+            .startObject("query")
+            .startObject("match_all")
+            .endObject()
+            .endObject()
+            .startObject("inner_hits")
+            .field("_source", true)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        Response response = performSearch(indexName, query);
+        List<Map<String, Object>> hits = parseHits(response);
+
+        assertEquals(1, hits.size());
+        Map<String, Object> hit = hits.get(0);
+
+        // Top-level source should contain the nested object (vector not excluded at top level)
+        Map<String, Object> source = getSource(hit);
+        assertNotNull(source);
+        assertTrue("Nested object should be present in top-level source", source.containsKey(nestedField));
+
+        // Inner hit source should contain the vector
+        Map<String, Object> innerHits = (Map<String, Object>) hit.get("inner_hits");
+        assertNotNull(innerHits);
+        Map<String, Object> nestedInnerHit = (Map<String, Object>) innerHits.get(nestedField);
+        Map<String, Object> innerHitsHits = (Map<String, Object>) nestedInnerHit.get("hits");
+        List<Map<String, Object>> innerHitsList = (List<Map<String, Object>>) innerHitsHits.get("hits");
+        assertFalse(innerHitsList.isEmpty());
+        Map<String, Object> innerSource = (Map<String, Object>) innerHitsList.get(0).get("_source");
+        assertNotNull("Inner hit should have _source", innerSource);
+        assertTrue("Vector field should be present in inner hit _source", innerSource.containsKey(nestedVecField));
+
+        deleteIndex(indexName);
+    }
+
+    @SneakyThrows
+    public void testSearchResponse_mmrAndSourceExcludesProcessorsTogether_vectorExcludedAndMMRReranks() {
+        // Enable both MMR and source-excludes processors simultaneously
+        updateClusterSettings(
+            ENABLED_SYSTEM_GENERATED_FACTORIES_SETTING.getKey(),
+            new String[] {
+                KNNSourceExcludesProcessor.Factory.TYPE,
+                MMROverSampleProcessor.MMROverSampleProcessorFactory.TYPE,
+                MMRRerankProcessor.MMRRerankProcessorFactory.TYPE }
+        );
+
+        String indexName = INDEX_NAME + "-mmr-tandem";
+        String textField2 = "description";
+
+        // Use FAISS since MMR tests use it; 2D vectors for simplicity
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(VECTOR_FIELD)
+            .field("type", TYPE_KNN_VECTOR)
+            .field("dimension", 2)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .endObject()
+            .endObject()
+            .startObject(TEXT_FIELD)
+            .field("type", "text")
+            .endObject()
+            .startObject(textField2)
+            .field("type", "text")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(indexName, mapping);
+
+        // Index 10 docs: 8 similar + 2 diverse
+        for (int i = 0; i < 8; i++) {
+            String doc = XContentFactory.jsonBuilder()
+                .startObject()
+                .field(VECTOR_FIELD, new float[] { 1.0f, 1.0f })
+                .field(TEXT_FIELD, "similar doc " + i)
+                .field(textField2, "description " + i)
+                .endObject()
+                .toString();
+            addKnnDoc(indexName, String.valueOf(i), doc);
+        }
+        addKnnDoc(
+            indexName,
+            "8",
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .field(VECTOR_FIELD, new float[] { 1.0f, 2.0f })
+                .field(TEXT_FIELD, "diverse doc 8")
+                .field(textField2, "description 8")
+                .endObject()
+                .toString()
+        );
+        addKnnDoc(
+            indexName,
+            "9",
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .field(VECTOR_FIELD, new float[] { 2.0f, 1.0f })
+                .field(TEXT_FIELD, "diverse doc 9")
+                .field(textField2, "description 9")
+                .endObject()
+                .toString()
+        );
+
+        refreshIndex(indexName);
+
+        String query = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject(KNN)
+            .startObject(VECTOR_FIELD)
+            .array("vector", new float[] { 1.0f, 1.0f })
+            .field(K, 3)
+            .endObject()
+            .endObject()
+            .endObject()
+            .startObject("ext")
+            .startObject(MMR)
+            .field(CANDIDATES, 9)
+            .field(DIVERSITY, 0.9)
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        Response response = performSearch(indexName, query);
+        List<Map<String, Object>> hits = parseHits(response);
+
+        assertEquals("MMR should return 3 results", 3, hits.size());
+        for (Map<String, Object> hit : hits) {
+            Map<String, Object> source = getSource(hit);
+            assertNotNull("_source should be present", source);
+            assertFalse("Vector field should be excluded by source-excludes processor", source.containsKey(VECTOR_FIELD));
+            assertTrue("Text field should be present", source.containsKey(TEXT_FIELD));
+            assertTrue("Description field should be present", source.containsKey(textField2));
+        }
+
+        deleteIndex(indexName);
+    }
+
+    @SneakyThrows
+    public void testSearchResponse_knnScoreScriptExactSearch_withPreFilter_vectorExcluded() {
+        String indexName = INDEX_NAME + "-knn-score-script";
+
+        // index.knn: false — exact search via knn_score script, no ANN graph built
+        Settings settings = Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put("index.knn", false).build();
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(VECTOR_FIELD)
+            .field("type", TYPE_KNN_VECTOR)
+            .field("dimension", DIMENSION_VALUE)
+            .endObject()
+            .startObject(TEXT_FIELD)
+            .field("type", "keyword")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(indexName, settings, mapping);
+
+        indexDocumentWithVectorAndText(indexName, "1", new Float[] { 1.0f, 2.0f, 3.0f, 4.0f }, "relevant");
+        indexDocumentWithVectorAndText(indexName, "2", new Float[] { 2.0f, 3.0f, 4.0f, 5.0f }, "relevant");
+        indexDocumentWithVectorAndText(indexName, "3", new Float[] { 10.0f, 10.0f, 10.0f, 10.0f }, "irrelevant");
+        refreshIndex(indexName);
+
+        // Use knn_score script (lang: knn) with a pre-filter on TEXT_FIELD to narrow candidates —
+        // the documented pattern for exact k-NN with filtering.
+        // Score is: 1 / (1 + l2_distance) for L2 space.
+        String query = XContentFactory.jsonBuilder()
+            .startObject()
+            .field("size", 2)
+            .startObject("query")
+            .startObject("script_score")
+            .startObject("query")
+            .startObject("term")
+            .field(TEXT_FIELD, "relevant")
+            .endObject()
+            .endObject()
+            .startObject("script")
+            .field("source", KNNScoringScriptEngine.SCRIPT_SOURCE)
+            .field("lang", KNNScoringScriptEngine.NAME)
+            .startObject("params")
+            .field("field", VECTOR_FIELD)
+            .array("query_value", new float[] { 1.0f, 2.0f, 3.0f, 4.0f })
+            .field("space_type", SpaceType.L2.getValue())
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        Response response = performSearch(indexName, query);
+        List<Map<String, Object>> hits = parseHits(response);
+
+        // Pre-filter narrows to "relevant" docs — doc 3 is excluded
+        assertEquals("Only relevant docs should be returned", 2, hits.size());
+
+        for (Map<String, Object> hit : hits) {
+            Map<String, Object> source = getSource(hit);
+            assertNotNull("_source should be present", source);
+            assertFalse(
+                "Vector field should be excluded by processor even with knn_score script exact search",
+                source.containsKey(VECTOR_FIELD)
+            );
+            assertEquals("Only relevant docs returned", "relevant", source.get(TEXT_FIELD));
+
+            // L2 space score formula: 1 / (1 + l2Squared(query, doc))
+            // l2Squared is the sum of squared differences per dimension — not the actual L2 norm.
+            double score = ((Number) hit.get("_score")).doubleValue();
+            assertTrue("Score should be positive", score > 0.0);
+            assertTrue("Score should be at most 1.0 (when l2Squared=0)", score <= 1.0 + 1e-6);
+        }
+
+        // Doc 1 == query vector → l2Squared = 0 → score = 1/(1+0) = 1.0 (highest)
+        assertEquals("Doc 1 (l2Squared=0) should rank first", "1", hits.get(0).get("_id"));
+        assertEquals(1.0, ((Number) hits.get(0).get("_score")).doubleValue(), 1e-6);
+
+        // Doc 2 = [2,3,4,5], query = [1,2,3,4] → l2Squared = 4 → score = 1/(1+4) = 0.2
+        assertEquals("Doc 2 should rank second", "2", hits.get(1).get("_id"));
+        assertEquals(0.2, ((Number) hits.get(1).get("_score")).doubleValue(), 1e-6);
+
+        deleteIndex(indexName);
+    }
+
+    @SneakyThrows
+    public void testSearchResponse_painlessScriptScoringExactSearch_indexKnnFalse_vectorExcluded() {
+        String indexName = INDEX_NAME + "-script-score";
+
+        // index.knn: false — no ANN graph; vectors are accessible via doc values for script scoring
+        Settings settings = Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put("index.knn", false).build();
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(VECTOR_FIELD)
+            .field("type", TYPE_KNN_VECTOR)
+            .field("dimension", DIMENSION_VALUE)
+            .endObject()
+            .startObject(TEXT_FIELD)
+            .field("type", "text")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(indexName, settings, mapping);
+
+        // Doc 1: identical to query vector — distance 0, highest score
+        // Doc 2: slightly different — small distance
+        // Doc 3: far away — large distance, lowest score
+        indexDocumentWithVectorAndText(indexName, "1", new Float[] { 1.0f, 2.0f, 3.0f, 4.0f }, "doc one");
+        indexDocumentWithVectorAndText(indexName, "2", new Float[] { 2.0f, 3.0f, 4.0f, 5.0f }, "doc two");
+        indexDocumentWithVectorAndText(indexName, "3", new Float[] { 10.0f, 10.0f, 10.0f, 10.0f }, "doc three far");
+        refreshIndex(indexName);
+
+        // Painless script: standard L2 score boosted by a constant multiplier (2.0) to manipulate the distance computation.
+        // score = (1 / (1 + l2Squared(queryVec, doc[field]))) * 2.0
+        String scriptSource = String.format("(1.0 / (1.0 + l2Squared([1.0f, 2.0f, 3.0f, 4.0f], doc['%s']))) * 2.0", VECTOR_FIELD);
+
+        Request request = constructScriptScoreContextSearchRequest(
+            indexName,
+            new MatchAllQueryBuilder(),
+            new HashMap<>(),
+            Script.DEFAULT_SCRIPT_LANG,
+            scriptSource,
+            3,
+            new HashMap<>()
+        );
+
+        Response response = client().performRequest(request);
+        List<Map<String, Object>> hits = parseHits(response);
+
+        assertEquals(3, hits.size());
+
+        // Doc 1 is identical to query — l2Squared = 0 → score = 2.0 (highest)
+        assertEquals("Doc 1 (l2=0) should rank first", "1", hits.get(0).get("_id"));
+
+        for (Map<String, Object> hit : hits) {
+            Map<String, Object> source = getSource(hit);
+            assertNotNull("_source should be present", source);
+            assertFalse(
+                "Vector field should be excluded by source-excludes processor even with script scoring on index.knn=false",
+                source.containsKey(VECTOR_FIELD)
+            );
+            assertTrue("Text field should be present", source.containsKey(TEXT_FIELD));
+
+            // Verify the script manipulation: all scores should be > 0 and ≤ 2.0 (the max with l2=0)
+            double score = ((Number) hit.get("_score")).doubleValue();
+            assertTrue("Score should be positive", score > 0.0);
+            assertTrue("Score should be at most 2.0 (boosted score when l2=0)", score <= 2.0 + 1e-6);
+        }
+
+        deleteIndex(indexName);
+    }
+
+    @SneakyThrows
+    public void testReindex_withProcessorEnabled_vectorReindexedAndExcludedInDestination() {
+        String sourceIndex = INDEX_NAME + "-reindex-source";
+        String destIndex = INDEX_NAME + "-reindex-dest";
+
+        createIndexWithVectorAndTextField(sourceIndex);
+        indexDocumentWithVectorAndText(sourceIndex, "1", TEST_VECTOR, "doc one");
+        indexDocumentWithVectorAndText(sourceIndex, "2", new Float[] { 5.0f, 6.0f, 7.0f, 8.0f }, "doc two");
+        refreshIndex(sourceIndex);
+
+        // Create destination index with same mapping
+        createIndexWithVectorAndTextField(destIndex);
+
+        // Reindex — internal search of source must not be affected by the processor
+        reindex(sourceIndex, destIndex);
+        refreshIndex(destIndex);
+
+        // Verify all docs were reindexed with vectors intact via _get (bypasses search pipeline)
+        for (String docId : new String[] { "1", "2" }) {
+            Map<String, Object> source = getKnnDoc(destIndex, docId);
+            assertNotNull("Doc " + docId + " should exist in destination", source);
+            assertTrue("Vector should be stored in destination doc " + docId, source.containsKey(VECTOR_FIELD));
+            assertTrue("Text field should be present in destination doc " + docId, source.containsKey(TEXT_FIELD));
+        }
+
+        // Search destination — processor should exclude vectors from search response
+        String query = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("match_all")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        List<Map<String, Object>> hits = parseHits(performSearch(destIndex, query));
+        assertEquals(2, hits.size());
+        for (Map<String, Object> hit : hits) {
+            Map<String, Object> hitSource = getSource(hit);
+            assertNotNull(hitSource);
+            assertTrue("Text field should be present in search response", hitSource.containsKey(TEXT_FIELD));
+            assertFalse("Vector should be excluded from search response in destination", hitSource.containsKey(VECTOR_FIELD));
+        }
+
+        deleteIndex(sourceIndex);
+        deleteIndex(destIndex);
+    }
+
+    @SneakyThrows
+    public void testUpdateByQuery_withProcessorEnabled_updatesSucceedAndVectorStillExcluded() {
+        String indexName = INDEX_NAME + "-update-by-query";
+        createIndexWithVectorAndTextField(indexName);
+
+        indexDocumentWithVectorAndText(indexName, "1", TEST_VECTOR, "original text one");
+        indexDocumentWithVectorAndText(indexName, "2", TEST_VECTOR, "original text two");
+        refreshIndex(indexName);
+
+        // Run update_by_query — its internal search must not be affected by the processor
+        String updateScript = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("script")
+            .field("source", "ctx._source." + TEXT_FIELD + " = 'updated text'")
+            .field("lang", "painless")
+            .endObject()
+            .endObject()
+            .toString();
+
+        updateKnnDocByQuery(indexName, updateScript);
+
+        // Use _get to verify the update succeeded — bypasses the search pipeline entirely
+        for (String docId : new String[] { "1", "2" }) {
+            Map<String, Object> source = getKnnDoc(indexName, docId);
+            assertNotNull("Doc " + docId + " should exist", source);
+            assertEquals("Doc " + docId + " text field should be updated", "updated text", source.get(TEXT_FIELD));
+            // _get returns full source — vector should still be stored (update didn't remove it)
+            assertTrue("Vector should still be stored in doc " + docId, source.containsKey(VECTOR_FIELD));
+        }
+
+        deleteIndex(indexName);
     }
 
     // Helper methods
