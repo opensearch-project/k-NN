@@ -25,6 +25,7 @@ import org.opensearch.knn.index.KnnCircuitBreakerException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -159,7 +160,7 @@ public class KNNVectorFieldMapperUtil {
         SpaceType resolvedSpaceType
     ) {
         return new KNNMethodContext(
-            KNNEngine.NMSLIB,
+            BuiltinKNNEngine.NMSLIB,
             resolvedSpaceType,
             new MethodComponentContext(
                 METHOD_HNSW,

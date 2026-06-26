@@ -13,7 +13,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
 
 import java.io.IOException;
@@ -50,7 +50,7 @@ public class RandomRotationIT extends KNNRestTestCase {
             .field(DIMENSION, dimension)
             .startObject(KNN_METHOD)
             .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
             .field(NAME, METHOD_HNSW)
             .startObject(PARAMETERS)
             .startObject("encoder")
@@ -469,7 +469,7 @@ public class RandomRotationIT extends KNNRestTestCase {
             .field(DIMENSION, dimension)
             .startObject(KNN_METHOD)
             .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
             .field(NAME, METHOD_HNSW)
             .startObject(PARAMETERS)
             .startObject("encoder")

@@ -15,6 +15,7 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.ArrayList;
@@ -153,7 +154,7 @@ public class MinScoreIT extends KNNRestTestCase {
             params.add(
                 new Object[] {
                     memoryOptimized,
-                    KNNEngine.FAISS,
+                    BuiltinKNNEngine.FAISS,
                     scenario.spaceType,
                     scenario.vectors,
                     scenario.query,
@@ -173,7 +174,7 @@ public class MinScoreIT extends KNNRestTestCase {
             params.add(
                 new Object[] {
                     false, // memory optimization not applicable for Lucene
-                    KNNEngine.LUCENE,
+                    BuiltinKNNEngine.LUCENE,
                     scenario.spaceType,
                     scenario.vectors,
                     scenario.query,
@@ -219,19 +220,19 @@ public class MinScoreIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", DIMENSION);
 
-        if (knnEngine == KNNEngine.LUCENE) {
+        if (knnEngine == BuiltinKNNEngine.LUCENE) {
             // Lucene engine configuration
             builder.field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
                 .startObject(KNNConstants.KNN_METHOD)
                 .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-                .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+                .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
                 .endObject();
         } else {
             // Faiss engine configuration
             builder.field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
                 .startObject(KNNConstants.KNN_METHOD)
                 .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-                .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+                .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
                 .startObject(KNNConstants.PARAMETERS)
                 .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, 128)
                 .field(KNNConstants.METHOD_PARAMETER_M, 16)
@@ -242,7 +243,7 @@ public class MinScoreIT extends KNNRestTestCase {
         builder.endObject().endObject().endObject();
 
         Settings.Builder settingsBuilder = Settings.builder().put("index.knn", true);
-        if (memoryOptimized && knnEngine == KNNEngine.FAISS) {
+        if (memoryOptimized && knnEngine == BuiltinKNNEngine.FAISS) {
             settingsBuilder.put(MEMORY_OPTIMIZED_KNN_SEARCH_MODE, true);
         }
         Settings settings = settingsBuilder.build();

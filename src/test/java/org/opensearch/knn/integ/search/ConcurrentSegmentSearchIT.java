@@ -17,7 +17,7 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
@@ -108,7 +108,7 @@ public class ConcurrentSegmentSearchIT extends KNNRestTestCase {
             .dimension(dimension)
             .method(
                 KNNJsonIndexMappingsBuilder.Method.builder()
-                    .engine(KNNEngine.FAISS.getName())
+                    .engine(BuiltinKNNEngine.FAISS.getName())
                     .methodName(METHOD_HNSW)
                     .spaceType(SpaceType.L2.getValue())
                     .parameters(KNNJsonIndexMappingsBuilder.Method.Parameters.builder().efConstruction(128).efSearch(128).m(16).build())
@@ -131,7 +131,7 @@ public class ConcurrentSegmentSearchIT extends KNNRestTestCase {
             for (int j = 0; j < k; j++) {
                 float[] primitiveArray = knnResults.get(j).getVector();
                 assertEquals(
-                    KNNEngine.FAISS.score(KNNScoringUtil.l2Squared(testData.queries[i], primitiveArray), SpaceType.L2),
+                    BuiltinKNNEngine.FAISS.score(KNNScoringUtil.l2Squared(testData.queries[i], primitiveArray), SpaceType.L2),
                     actualScores.get(j),
                     0.0001
                 );

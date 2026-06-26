@@ -23,7 +23,7 @@ import org.opensearch.knn.index.util.KNNClusterUtil;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
@@ -39,7 +39,7 @@ public class GetModelResponseTests extends KNNTestCase {
 
     private ModelMetadata getModelMetadata(ModelState state) {
         return new ModelMetadata(
-            KNNEngine.DEFAULT,
+            BuiltinKNNEngine.DEFAULT,
             SpaceType.DEFAULT,
             4,
             state,
@@ -78,7 +78,7 @@ public class GetModelResponseTests extends KNNTestCase {
             String expectedResponseString = String.format(
                 Locale.ROOT,
                 "{\"model_id\":\"test-model\",\"model_blob\":\"aGVsbG8=\",\"state\":\"created\",\"timestamp\":\"2021-03-27 10:15:30 AM +05:30\",\"description\":\"test model\",\"error\":\"\",\"space_type\":\"l2\",\"dimension\":4,\"engine\":\"%s\",\"training_node_assignment\":\"\",\"model_definition\":{\"name\":\"\",\"parameters\":{}},\"data_type\":\"float\",\"model_version\":\"%s\"}",
-                KNNEngine.DEFAULT.getName(),
+                BuiltinKNNEngine.DEFAULT.getName(),
                 Version.CURRENT.toString()
             );
             XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
@@ -98,7 +98,7 @@ public class GetModelResponseTests extends KNNTestCase {
             String expectedResponseString = String.format(
                 Locale.ROOT,
                 "{\"model_id\":\"test-model\",\"model_blob\":\"\",\"state\":\"failed\",\"timestamp\":\"2021-03-27 10:15:30 AM +05:30\",\"description\":\"test model\",\"error\":\"\",\"space_type\":\"l2\",\"dimension\":4,\"engine\":\"%s\",\"training_node_assignment\":\"\",\"model_definition\":{\"name\":\"\",\"parameters\":{}},\"data_type\":\"float\",\"model_version\":\"%s\"}",
-                KNNEngine.DEFAULT.getName(),
+                BuiltinKNNEngine.DEFAULT.getName(),
                 Version.CURRENT.toString()
             );
             XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();

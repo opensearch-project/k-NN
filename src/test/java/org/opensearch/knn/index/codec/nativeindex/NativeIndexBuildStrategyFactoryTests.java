@@ -15,6 +15,7 @@ import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -57,7 +58,7 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
             MockedStatic<KNNCodecUtil> mockedCodecUtil = Mockito.mockStatic(KNNCodecUtil.class);
             MockedStatic<KNNSettings> mockedSettings = Mockito.mockStatic(KNNSettings.class)
         ) {
-            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(KNNEngine.FAISS);
+            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(BuiltinKNNEngine.FAISS);
             mockedCodecUtil.when(() -> KNNCodecUtil.initializeVectorValues(any())).thenAnswer(i -> null);
             mockedSettings.when(KNNSettings::isKNNRemoteVectorBuildEnabled).thenReturn(false);
             when(knnVectorValues.bytesPerVector()).thenReturn(32);
@@ -80,7 +81,7 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
             MockedStatic<KNNCodecUtil> mockedCodecUtil = Mockito.mockStatic(KNNCodecUtil.class);
             MockedStatic<KNNSettings> mockedSettings = Mockito.mockStatic(KNNSettings.class)
         ) {
-            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(KNNEngine.FAISS);
+            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(BuiltinKNNEngine.FAISS);
             mockedCodecUtil.when(() -> KNNCodecUtil.initializeVectorValues(any())).thenAnswer(i -> null);
             mockedSettings.when(KNNSettings::isKNNRemoteVectorBuildEnabled).thenReturn(false);
             when(knnVectorValues.bytesPerVector()).thenReturn(32);
@@ -102,7 +103,7 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
             MockedStatic<KNNCodecUtil> mockedCodecUtil = Mockito.mockStatic(KNNCodecUtil.class);
             MockedStatic<KNNSettings> mockedSettings = Mockito.mockStatic(KNNSettings.class)
         ) {
-            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(KNNEngine.LUCENE);
+            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(BuiltinKNNEngine.LUCENE);
             mockedCodecUtil.when(() -> KNNCodecUtil.initializeVectorValues(any())).thenAnswer(i -> null);
             mockedSettings.when(KNNSettings::isKNNRemoteVectorBuildEnabled).thenReturn(false);
             when(knnVectorValues.bytesPerVector()).thenReturn(32);
@@ -125,7 +126,7 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
             MockedStatic<KNNSettings> mockedSettings = Mockito.mockStatic(KNNSettings.class);
             MockedStatic<RemoteIndexBuildStrategy> mockedRemote = Mockito.mockStatic(RemoteIndexBuildStrategy.class)
         ) {
-            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(KNNEngine.FAISS);
+            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(BuiltinKNNEngine.FAISS);
             mockedCodecUtil.when(() -> KNNCodecUtil.initializeVectorValues(any())).thenAnswer(i -> null);
             mockedSettings.when(KNNSettings::isKNNRemoteVectorBuildEnabled).thenReturn(true);
             when(knnVectorValues.bytesPerVector()).thenReturn(32);
@@ -134,7 +135,7 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
             int totalLiveDocs = 10;
             long vectorBlobLength = 32L * totalLiveDocs;
 
-            KNNEngine faissEngine = KNNEngine.FAISS;
+            KNNEngine faissEngine = BuiltinKNNEngine.FAISS;
             mockedRemote.when(() -> RemoteIndexBuildStrategy.shouldBuildIndexRemotely(any(IndexSettings.class), anyLong()))
                 .thenReturn(true);
 
@@ -144,7 +145,7 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
             // Mock supportsRemoteIndexBuild - KNNEngine is an enum so we need to use a real engine
             // FAISS supports remote index build when knnLibraryIndexingContext is provided
             // We need to mock the static method on RemoteIndexBuildStrategy
-            // Since KNNEngine.FAISS.supportsRemoteIndexBuild calls through to the library, we mock it indirectly
+            // Since BuiltinKNNEngine.FAISS.supportsRemoteIndexBuild calls through to the library, we mock it indirectly
             // by ensuring the condition is met through the RemoteIndexBuildStrategy static mock
 
             // Actually, KNNEngine is an enum and supportsRemoteIndexBuild is not static - we can't mock it directly.
@@ -174,7 +175,7 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
             MockedStatic<KNNCodecUtil> mockedCodecUtil = Mockito.mockStatic(KNNCodecUtil.class);
             MockedStatic<KNNSettings> mockedSettings = Mockito.mockStatic(KNNSettings.class)
         ) {
-            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(KNNEngine.FAISS);
+            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(BuiltinKNNEngine.FAISS);
             mockedCodecUtil.when(() -> KNNCodecUtil.initializeVectorValues(any())).thenAnswer(i -> null);
             mockedSettings.when(KNNSettings::isKNNRemoteVectorBuildEnabled).thenReturn(false);
             when(knnVectorValues.bytesPerVector()).thenReturn(32);
@@ -198,7 +199,7 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
             MockedStatic<KNNCodecUtil> mockedCodecUtil = Mockito.mockStatic(KNNCodecUtil.class);
             MockedStatic<KNNSettings> mockedSettings = Mockito.mockStatic(KNNSettings.class)
         ) {
-            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(KNNEngine.FAISS);
+            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(BuiltinKNNEngine.FAISS);
             mockedCodecUtil.when(() -> KNNCodecUtil.initializeVectorValues(any())).thenAnswer(i -> null);
             mockedSettings.when(KNNSettings::isKNNRemoteVectorBuildEnabled).thenReturn(true);
             when(knnVectorValues.bytesPerVector()).thenReturn(32);
@@ -223,7 +224,7 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
             MockedStatic<KNNCodecUtil> mockedCodecUtil = Mockito.mockStatic(KNNCodecUtil.class);
             MockedStatic<KNNSettings> mockedSettings = Mockito.mockStatic(KNNSettings.class)
         ) {
-            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(KNNEngine.FAISS);
+            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(BuiltinKNNEngine.FAISS);
             mockedCodecUtil.when(() -> KNNCodecUtil.initializeVectorValues(any())).thenAnswer(i -> null);
             mockedSettings.when(KNNSettings::isKNNRemoteVectorBuildEnabled).thenReturn(true);
             when(knnVectorValues.bytesPerVector()).thenReturn(32);
@@ -248,7 +249,7 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
             MockedStatic<KNNCodecUtil> mockedCodecUtil = Mockito.mockStatic(KNNCodecUtil.class);
             MockedStatic<KNNSettings> mockedSettings = Mockito.mockStatic(KNNSettings.class)
         ) {
-            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(KNNEngine.FAISS);
+            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(BuiltinKNNEngine.FAISS);
             mockedCodecUtil.when(() -> KNNCodecUtil.initializeVectorValues(any())).thenAnswer(i -> null);
             mockedSettings.when(KNNSettings::isKNNRemoteVectorBuildEnabled).thenReturn(true);
             when(knnVectorValues.bytesPerVector()).thenReturn(32);
@@ -273,7 +274,7 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
             MockedStatic<KNNCodecUtil> mockedCodecUtil = Mockito.mockStatic(KNNCodecUtil.class);
             MockedStatic<KNNSettings> mockedSettings = Mockito.mockStatic(KNNSettings.class)
         ) {
-            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(KNNEngine.FAISS);
+            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(BuiltinKNNEngine.FAISS);
             mockedCodecUtil.when(() -> KNNCodecUtil.initializeVectorValues(any())).thenAnswer(i -> null);
             mockedSettings.when(KNNSettings::isKNNRemoteVectorBuildEnabled).thenReturn(true);
             when(knnVectorValues.bytesPerVector()).thenReturn(32);
@@ -299,7 +300,7 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
             MockedStatic<KNNCodecUtil> mockedCodecUtil = Mockito.mockStatic(KNNCodecUtil.class);
             MockedStatic<KNNSettings> mockedSettings = Mockito.mockStatic(KNNSettings.class)
         ) {
-            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(KNNEngine.FAISS);
+            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(BuiltinKNNEngine.FAISS);
             mockedCodecUtil.when(() -> KNNCodecUtil.initializeVectorValues(any())).thenAnswer(i -> null);
             mockedSettings.when(KNNSettings::isKNNRemoteVectorBuildEnabled).thenReturn(false);
             when(knnVectorValues.bytesPerVector()).thenReturn(32);
@@ -321,7 +322,7 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
             MockedStatic<KNNCodecUtil> mockedCodecUtil = Mockito.mockStatic(KNNCodecUtil.class);
             MockedStatic<KNNSettings> mockedSettings = Mockito.mockStatic(KNNSettings.class)
         ) {
-            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(KNNEngine.NMSLIB);
+            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(BuiltinKNNEngine.NMSLIB);
             mockedCodecUtil.when(() -> KNNCodecUtil.initializeVectorValues(any())).thenAnswer(i -> null);
             mockedSettings.when(KNNSettings::isKNNRemoteVectorBuildEnabled).thenReturn(false);
             when(knnVectorValues.bytesPerVector()).thenReturn(32);

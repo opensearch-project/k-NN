@@ -30,7 +30,7 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.opensearch.knn.plugin.script.KNNScoringSpace;
@@ -711,7 +711,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
                 FIELD_NAME,
                 dimensions,
                 KNNConstants.METHOD_HNSW,
-                KNNEngine.LUCENE.getName(),
+                BuiltinKNNEngine.LUCENE.getName(),
                 SpaceType.DEFAULT.getValue(),
                 true
             ),
@@ -719,7 +719,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
                 FIELD_NAME,
                 dimensions,
                 KNNConstants.METHOD_HNSW,
-                KNNEngine.LUCENE.getName(),
+                BuiltinKNNEngine.LUCENE.getName(),
                 SpaceType.DEFAULT.getValue(),
                 false
             )
@@ -733,7 +733,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
                 FIELD_NAME,
                 dimensions,
                 KNNConstants.METHOD_HNSW,
-                KNNEngine.LUCENE.getName(),
+                BuiltinKNNEngine.LUCENE.getName(),
                 SpaceType.DEFAULT.getValue(),
                 true,
                 VectorDataType.BYTE
@@ -742,7 +742,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
                 FIELD_NAME,
                 dimensions,
                 KNNConstants.METHOD_HNSW,
-                KNNEngine.LUCENE.getName(),
+                BuiltinKNNEngine.LUCENE.getName(),
                 SpaceType.DEFAULT.getValue(),
                 false,
                 VectorDataType.BYTE
@@ -756,7 +756,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
                 FIELD_NAME,
                 dimensions,
                 KNNConstants.METHOD_HNSW,
-                KNNEngine.FAISS.getName(),
+                BuiltinKNNEngine.FAISS.getName(),
                 SpaceType.DEFAULT_BINARY.getValue(),
                 true,
                 VectorDataType.BINARY
@@ -765,7 +765,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
                 FIELD_NAME,
                 dimensions,
                 KNNConstants.METHOD_HNSW,
-                KNNEngine.FAISS.getName(),
+                BuiltinKNNEngine.FAISS.getName(),
                 SpaceType.DEFAULT_BINARY.getValue(),
                 false,
                 VectorDataType.BINARY

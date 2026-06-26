@@ -41,6 +41,7 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelCache;
@@ -198,7 +199,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         int docsInSegment = 100;
         String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
 
-        KNNEngine knnEngine = KNNEngine.NMSLIB;
+        KNNEngine knnEngine = BuiltinKNNEngine.NMSLIB;
         SpaceType spaceType = SpaceType.COSINESIMIL;
         int dimension = 16;
 
@@ -266,7 +267,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         int docsInSegment = 100;
         String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
 
-        KNNEngine knnEngine = KNNEngine.NMSLIB;
+        KNNEngine knnEngine = BuiltinKNNEngine.NMSLIB;
         SpaceType spaceType = SpaceType.COSINESIMIL;
         int dimension = 16;
 
@@ -320,7 +321,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         int docsInSegment = 100;
         String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
 
-        KNNEngine knnEngine = KNNEngine.FAISS;
+        KNNEngine knnEngine = BuiltinKNNEngine.FAISS;
         SpaceType spaceType = SpaceType.INNER_PRODUCT;
         int dimension = 16;
 
@@ -385,7 +386,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         int docsInSegment = 100;
         String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
 
-        KNNEngine knnEngine = KNNEngine.FAISS;
+        KNNEngine knnEngine = BuiltinKNNEngine.FAISS;
         SpaceType spaceType = SpaceType.HAMMING;
         VectorDataType dataType = VectorDataType.BINARY;
         int dimension = 16;
@@ -451,7 +452,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
     public void testAddKNNBinaryField_fromModel_faiss() throws IOException, ExecutionException, InterruptedException {
         // Generate a trained faiss model
-        KNNEngine knnEngine = KNNEngine.FAISS;
+        KNNEngine knnEngine = BuiltinKNNEngine.FAISS;
         SpaceType spaceType = SpaceType.INNER_PRODUCT;
         int dimension = 16;
         String modelId = "test-model-id";
@@ -609,7 +610,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
     public void testAddBinaryField_luceneEngine_noInvocations_addKNNBinary() throws IOException {
         var fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test-field")
             .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
-            .addAttribute(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .addAttribute(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
             .build();
         DocValuesProducer docValuesProducer = mock(DocValuesProducer.class);
 
@@ -626,7 +627,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
     public void testAddKNNBinaryField_fromModel_faiss_with_mergeAbort() throws IOException {
         // Generate a trained faiss model
-        KNNEngine knnEngine = KNNEngine.FAISS;
+        KNNEngine knnEngine = BuiltinKNNEngine.FAISS;
         SpaceType spaceType = SpaceType.INNER_PRODUCT;
         int dimension = 16;
         String modelId = "test-model-id";

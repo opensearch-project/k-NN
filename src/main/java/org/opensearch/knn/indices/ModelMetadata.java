@@ -31,6 +31,7 @@ import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
@@ -68,7 +69,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
      * @param in Stream input
      */
     public ModelMetadata(StreamInput in) throws IOException {
-        this.knnEngine = KNNEngine.getEngine(in.readString());
+        this.knnEngine = BuiltinKNNEngine.getEngine(in.readString());
         this.spaceType = SpaceType.getSpace(in.readString());
         this.dimension = in.readInt();
         this.state = new AtomicReference<>(ModelState.readFrom(in));
@@ -143,7 +144,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     ) {
         this.knnEngine = Objects.requireNonNull(knnEngine, "knnEngine must not be null");
         this.spaceType = Objects.requireNonNull(spaceType, "spaceType must not be null");
-        int maxDimensions = KNNEngine.getMaxDimensionByEngine(this.knnEngine);
+        int maxDimensions = BuiltinKNNEngine.getMaxDimensionByEngine(this.knnEngine);
         if (dimension <= 0 || dimension > maxDimensions) {
             throw new IllegalArgumentException(
                 String.format(
@@ -358,7 +359,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             );
         }
 
-        KNNEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
+        KNNEngine knnEngine = BuiltinKNNEngine.getEngine(modelMetadataArray[0]);
         SpaceType spaceType = SpaceType.getSpace(modelMetadataArray[1]);
         int dimension = Integer.parseInt(modelMetadataArray[2]);
         ModelState modelState = ModelState.getModelState(modelMetadataArray[3]);
@@ -473,7 +474,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         }
 
         ModelMetadata modelMetadata = new ModelMetadata(
-            KNNEngine.getEngine(objectToString(engine)),
+            BuiltinKNNEngine.getEngine(objectToString(engine)),
             SpaceType.getSpace(objectToString(space)),
             objectToInteger(dimension),
             ModelState.getModelState(objectToString(state)),

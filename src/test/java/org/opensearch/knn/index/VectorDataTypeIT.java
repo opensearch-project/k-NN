@@ -22,7 +22,7 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.script.Script;
 
@@ -543,7 +543,7 @@ public class VectorDataTypeIT extends KNNRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
             .startObject(PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, M)
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, EF_CONSTRUCTION)
@@ -591,7 +591,7 @@ public class VectorDataTypeIT extends KNNRestTestCase {
             .field("data_type", VectorDataType.BYTE.getValue())
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
-            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -739,7 +739,7 @@ public class VectorDataTypeIT extends KNNRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
-            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -786,15 +786,15 @@ public class VectorDataTypeIT extends KNNRestTestCase {
     }
 
     private void createKnnIndexMappingWithNmslibEngine(int dimension, SpaceType spaceType, String vectorDataType) throws Exception {
-        createKnnIndexMappingWithCustomEngine(dimension, spaceType, vectorDataType, KNNEngine.NMSLIB.getName());
+        createKnnIndexMappingWithCustomEngine(dimension, spaceType, vectorDataType, BuiltinKNNEngine.NMSLIB.getName());
     }
 
     private void createKnnIndexMappingWithLuceneEngine(int dimension, SpaceType spaceType, String vectorDataType) throws Exception {
-        createKnnIndexMappingWithCustomEngine(dimension, spaceType, vectorDataType, KNNEngine.LUCENE.getName());
+        createKnnIndexMappingWithCustomEngine(dimension, spaceType, vectorDataType, BuiltinKNNEngine.LUCENE.getName());
     }
 
     private void createKnnIndexMappingWithFaissEngine(int dimension, SpaceType spaceType, String vectorDataType) throws Exception {
-        createKnnIndexMappingWithCustomEngine(dimension, spaceType, vectorDataType, KNNEngine.FAISS.getName());
+        createKnnIndexMappingWithCustomEngine(dimension, spaceType, vectorDataType, BuiltinKNNEngine.FAISS.getName());
     }
 
     private void createKnnIndexMappingWithCustomEngine(int dimension, SpaceType spaceType, String vectorDataType, String engine)
