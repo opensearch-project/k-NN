@@ -406,10 +406,11 @@ public class ExactSearcher {
             (KNNVectorValuesIterator.DocIdsIteratorValues) quantizedValues.getVectorValuesIterator();
 
         if (SegmentLevelQuantizationUtil.isAdcEnabled(quantizationInfo)) {
-            SegmentLevelQuantizationUtil.transformVectorWithADC(context.getFloatQueryVector(), quantizationInfo, spaceType);
+            float[] transformQuery = context.getFloatQueryVector().clone();
+            SegmentLevelQuantizationUtil.transformVectorWithADC(transformQuery, quantizationInfo, spaceType);
             return VectorScorers.createScorer(
                 quantizedIteratorValues,
-                context.getFloatQueryVector(),
+                transformQuery,
                 scorerMode,
                 spaceType,
                 fieldInfo,
