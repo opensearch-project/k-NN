@@ -975,6 +975,11 @@ public class KNNSourceExcludesProcessorIT extends KNNRestTestCase {
         List<Map<String, Object>> hits = parseHits(response);
 
         assertEquals("MMR should return 3 results", 3, hits.size());
+
+        List<String> returnedIds = hits.stream().map(hit -> (String) hit.get("_id")).toList();
+        assertTrue("MMR with high diversity should select diverse doc 8", returnedIds.contains("8"));
+        assertTrue("MMR with high diversity should select diverse doc 9", returnedIds.contains("9"));
+
         for (Map<String, Object> hit : hits) {
             Map<String, Object> source = getSource(hit);
             assertNotNull("_source should be present", source);
