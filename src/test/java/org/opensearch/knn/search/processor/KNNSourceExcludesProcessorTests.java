@@ -144,6 +144,24 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         assertEquals(1, ctx.excludes().length);
     }
 
+    public void testProcessRequest_userExcludesDotStarPatternDoesNotCoverVectorField_addsLiteral() {
+        // "my_vector.*" does NOT match "my_vector" — Regex.simpleMatch requires at least a dot+char suffix.
+        // The processor correctly adds "my_vector" as a literal exclude alongside the user pattern.
+        mockClusterStateWithMapping("test-index", Map.of("properties", Map.of("my_vector", Map.of("type", "knn_vector", "dimension", 2))));
+
+        KNNSourceExcludesProcessor processor = createProcessor();
+        SearchRequest request = new SearchRequest("test-index");
+        request.source(new SearchSourceBuilder().fetchSource(new FetchSourceContext(true, new String[0], new String[] { "my_vector.*" })));
+
+        SearchRequest result = processor.processRequest(request);
+
+        FetchSourceContext ctx = result.source().fetchSource();
+        Set<String> excludes = Set.of(ctx.excludes());
+        assertTrue("my_vector.*  does not cover my_vector — literal should be added", excludes.contains("my_vector"));
+        assertTrue("User pattern should be preserved", excludes.contains("my_vector.*"));
+        assertEquals(2, ctx.excludes().length);
+    }
+
     public void testProcessRequest_preservesExistingExcludes() {
         mockClusterStateWithMapping("test-index", Map.of("properties", Map.of("vec", Map.of("type", "knn_vector", "dimension", 1))));
 

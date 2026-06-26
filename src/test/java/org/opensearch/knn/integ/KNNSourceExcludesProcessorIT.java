@@ -953,6 +953,7 @@ public class KNNSourceExcludesProcessorIT extends KNNRestTestCase {
 
         String query = XContentFactory.jsonBuilder()
             .startObject()
+            .field("size", 3)
             .startObject("query")
             .startObject(KNN)
             .startObject(VECTOR_FIELD)
