@@ -232,10 +232,7 @@ public class BulkVectorScorerTests extends KNNTestCase {
 
     @SneakyThrows
     public void testForRadialSearch_noDocsPassFilter() {
-        List<float[]> vectors = List.of(
-            new float[] { 0.0f, 1.0f, 0.0f },
-            new float[] { 0.0f, 0.0f, 1.0f }
-        );
+        List<float[]> vectors = List.of(new float[] { 0.0f, 1.0f, 0.0f }, new float[] { 0.0f, 0.0f, 1.0f });
 
         BulkVectorScorer scorer = BulkVectorScorer.forRadialSearch(
             createVectorScorer(vectors, QUERY, VectorSimilarityFunction.EUCLIDEAN),
