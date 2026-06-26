@@ -361,6 +361,75 @@ public class ExactSearcherTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    public void testExactSearch_whenQuantizationWithADC_thenQueryVectorNotMutated() {
+        try (
+            MockedStatic<KNNVectorValuesFactory> valuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class);
+            MockedStatic<org.opensearch.knn.index.query.SegmentLevelQuantizationInfo> quantizationInfoMockedStatic = Mockito.mockStatic(
+                org.opensearch.knn.index.query.SegmentLevelQuantizationInfo.class
+            );
+            MockedStatic<org.opensearch.knn.index.query.SegmentLevelQuantizationUtil> quantizationUtilMockedStatic = Mockito.mockStatic(
+                org.opensearch.knn.index.query.SegmentLevelQuantizationUtil.class
+            )
+        ) {
+            final float[] queryVector = new float[] { 0.1f, 2.0f, 3.0f };
+            final float[] queryVectorSnapshot = queryVector.clone();
+            final List<byte[]> quantizedDataVectors = List.of(new byte[] { 1, 0, 1 }, new byte[] { 0, 1, 0 }, new byte[] { 1, 1, 1 });
+            final SpaceType spaceType = SpaceType.L2;
+
+            final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
+                .field(FIELD_NAME)
+                .floatQueryVector(queryVector)
+                .useQuantizedVectorsForSearch(true)
+                .k(10)
+                .build();
+
+            ExactSearcher exactSearcher = new ExactSearcher(null);
+            final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+            final SegmentReader reader = mock(SegmentReader.class);
+            when(leafReaderContext.reader()).thenReturn(reader);
+
+            final FieldInfos fieldInfos = mock(FieldInfos.class);
+            final FieldInfo fieldInfo = mock(FieldInfo.class);
+            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(spaceType.getValue());
+            when(fieldInfo.getAttribute(QFRAMEWORK_CONFIG)).thenReturn("type=binary,bits=1,random_rotation=false,enable_adc=true");
+            when(reader.getFieldInfos()).thenReturn(fieldInfos);
+            when(fieldInfos.fieldInfo(FIELD_NAME)).thenReturn(fieldInfo);
+
+            final org.opensearch.knn.index.query.SegmentLevelQuantizationInfo quantizationInfo = mock(
+                org.opensearch.knn.index.query.SegmentLevelQuantizationInfo.class
+            );
+            quantizationInfoMockedStatic.when(
+                () -> org.opensearch.knn.index.query.SegmentLevelQuantizationInfo.build(reader, fieldInfo, FIELD_NAME)
+            ).thenReturn(quantizationInfo);
+            quantizationUtilMockedStatic.when(
+                () -> org.opensearch.knn.index.query.SegmentLevelQuantizationUtil.isAdcEnabled(quantizationInfo)
+            ).thenReturn(true);
+            quantizationUtilMockedStatic.when(
+                () -> org.opensearch.knn.index.query.SegmentLevelQuantizationUtil.transformVectorWithADC(any(float[].class), any(), any())
+            ).thenAnswer(invocation -> {
+                float[] vec = invocation.getArgument(0);
+                for (int i = 0; i < vec.length; i++) {
+                    vec[i] = 999.0f;
+                }
+                return null;
+            });
+
+            final KNNVectorValues knnFloatVectorValues = TestVectorValues.createKNNFloatVectorValues(
+                List.of(new float[] { 1, 2, 3 }, new float[] { 4, 5, 6 }, new float[] { 2, 3, 4 })
+            );
+            final KNNVectorValues knnByteVectorValues = TestVectorValues.createKNNBinaryVectorValues(quantizedDataVectors);
+            valuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader))
+                .thenReturn(knnFloatVectorValues);
+            valuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader, true))
+                .thenReturn(knnByteVectorValues);
+
+            exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
+
+            assertArrayEquals("ADC transformation must not mutate the shared query vector", queryVectorSnapshot, queryVector, 0.0f);
+        }
+    }
+
+    @SneakyThrows
     private void doTestRadialSearch_whenNoEngineFiles_thenSuccess(final boolean memoryOptimizedSearchEnabled) {
         // Prepare data before mocking static factory
         final float[] queryVector = new float[] { 0.1f, 2.0f, 3.0f };
