@@ -210,7 +210,7 @@ public class ExactSearcher {
         final SpaceType spaceType = getSpaceType(modelDao, fieldInfo);
         final float minScore = context.isMemoryOptimizedSearchEnabled ? context.getRadius() : engine.score(context.getRadius(), spaceType);
 
-        return collectTopK(BulkVectorScorer.forRadialSearch(vectorScorer, matchedDocs, minScore), context.getMaxResultWindow());
+        return collectTopK(BulkVectorScorer.forRadialSearch(vectorScorer, matchedDocs, minScore), context.getMaxResultWindow(), false);
     }
 
     /**
@@ -234,9 +234,14 @@ public class ExactSearcher {
     }
 
     private static TopDocs collectTopK(final Scorer scorer, final int heapSize) throws IOException {
+        return collectTopK(scorer, heapSize, true);
+    }
+
+    private static TopDocs collectTopK(final Scorer scorer, final int heapSize, final boolean updateMinCompetitiveScore) throws IOException {
         final HitQueue queue = new HitQueue(heapSize, true);
         ScoreDoc topDoc = queue.top();
         DocIdSetIterator iter = scorer.iterator();
+        int collectedCount = 0;
 
         for (int doc = iter.nextDoc(); doc != DocIdSetIterator.NO_MORE_DOCS; doc = iter.nextDoc()) {
             float score = scorer.score();
@@ -244,6 +249,10 @@ public class ExactSearcher {
                 topDoc.score = score;
                 topDoc.doc = doc;
                 topDoc = queue.updateTop();
+                collectedCount++;
+                if (updateMinCompetitiveScore && collectedCount >= heapSize) {
+                    scorer.setMinCompetitiveScore(topDoc.score);
+                }
             }
         }
 

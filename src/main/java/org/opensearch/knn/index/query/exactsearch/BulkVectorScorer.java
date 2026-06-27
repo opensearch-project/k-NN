@@ -27,6 +27,7 @@ public class BulkVectorScorer extends Scorer {
     private int currentDocId = -1;
     private int currentBatchIdx = 0;
     private float currentScore;
+    private float minCompetitiveScore = 0f;
 
     private BulkVectorScorer(final VectorScorer vectorScorer, final DocIdSetIterator matchedDocs, final Predicate<Float> scoreFilter)
         throws IOException {
@@ -70,7 +71,7 @@ public class BulkVectorScorer extends Scorer {
                     if (buffer.size == 0) {
                         return currentDocId = NO_MORE_DOCS;
                     }
-                    if (!scoreFilter.test(maxBatchScore)) {
+                    if (!scoreFilter.test(maxBatchScore) || maxBatchScore < minCompetitiveScore) {
                         currentBatchIdx = buffer.size;
                     }
                 }
@@ -100,6 +101,11 @@ public class BulkVectorScorer extends Scorer {
     }
 
     @Override
+    public void setMinCompetitiveScore(float score) {
+        this.minCompetitiveScore = score;
+    }
+
+    @Override
     public float getMaxScore(int upTo) {
         return Float.MAX_VALUE;
     }
@@ -112,7 +118,7 @@ public class BulkVectorScorer extends Scorer {
     private int scanBufferForMatch() {
         while (currentBatchIdx < buffer.size) {
             float score = buffer.features[currentBatchIdx];
-            if (scoreFilter.test(score)) {
+            if (scoreFilter.test(score) && score >= minCompetitiveScore) {
                 currentDocId = buffer.docs[currentBatchIdx];
                 currentScore = score;
                 currentBatchIdx++;

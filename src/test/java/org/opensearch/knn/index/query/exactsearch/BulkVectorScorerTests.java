@@ -366,6 +366,115 @@ public class BulkVectorScorerTests extends KNNTestCase {
         assertEquals(DocIdSetIterator.NO_MORE_DOCS, scorer.iterator().nextDoc());
     }
 
+    @SneakyThrows
+    public void testSetMinCompetitiveScore_skipsBatchBelowThreshold() {
+        List<float[]> vectors = List.of(
+            new float[] { 1.0f, 0.0f, 0.0f },
+            new float[] { 0.9f, 0.1f, 0.0f },
+            new float[] { 0.0f, 1.0f, 0.0f },
+            new float[] { 0.0f, 0.0f, 1.0f }
+        );
+
+        BulkVectorScorer scorer = BulkVectorScorer.forKSearch(
+            createVectorScorer(vectors, QUERY, VectorSimilarityFunction.EUCLIDEAN),
+            DocIdSetIterator.all(vectors.size())
+        );
+
+        float highScore = VectorSimilarityFunction.EUCLIDEAN.compare(QUERY, vectors.get(0));
+        scorer.setMinCompetitiveScore(highScore);
+
+        DocIdSetIterator iter = scorer.iterator();
+        assertEquals(0, iter.nextDoc());
+        assertEquals(highScore, scorer.score(), 1e-5f);
+
+        assertEquals(DocIdSetIterator.NO_MORE_DOCS, iter.nextDoc());
+    }
+
+    @SneakyThrows
+    public void testSetMinCompetitiveScore_filtersIndividualDocsInBatch() {
+        List<float[]> vectors = List.of(
+            new float[] { 0.9f, 0.1f, 0.0f },
+            new float[] { 1.0f, 0.0f, 0.0f },
+            new float[] { 0.0f, 1.0f, 0.0f }
+        );
+
+        BulkVectorScorer scorer = BulkVectorScorer.forKSearch(
+            createVectorScorer(vectors, QUERY, VectorSimilarityFunction.EUCLIDEAN),
+            DocIdSetIterator.all(vectors.size())
+        );
+
+        float scoreDoc1 = VectorSimilarityFunction.EUCLIDEAN.compare(QUERY, vectors.get(1));
+        float scoreDoc0 = VectorSimilarityFunction.EUCLIDEAN.compare(QUERY, vectors.get(0));
+        float minCompetitive = (scoreDoc0 + scoreDoc1) / 2.0f;
+        assertTrue(scoreDoc1 >= minCompetitive);
+        assertTrue(scoreDoc0 < minCompetitive);
+
+        scorer.setMinCompetitiveScore(minCompetitive);
+
+        DocIdSetIterator iter = scorer.iterator();
+        assertEquals(1, iter.nextDoc());
+        assertEquals(scoreDoc1, scorer.score(), 1e-5f);
+
+        assertEquals(DocIdSetIterator.NO_MORE_DOCS, iter.nextDoc());
+    }
+
+    @SneakyThrows
+    public void testSetMinCompetitiveScore_zeroDoesNotFilter() {
+        List<float[]> vectors = List.of(
+            new float[] { 1.0f, 0.0f, 0.0f },
+            new float[] { 0.0f, 1.0f, 0.0f },
+            new float[] { 0.0f, 0.0f, 1.0f }
+        );
+
+        BulkVectorScorer scorer = BulkVectorScorer.forKSearch(
+            createVectorScorer(vectors, QUERY, VectorSimilarityFunction.EUCLIDEAN),
+            DocIdSetIterator.all(vectors.size())
+        );
+
+        scorer.setMinCompetitiveScore(0f);
+
+        DocIdSetIterator iter = scorer.iterator();
+        assertEquals(0, iter.nextDoc());
+        assertEquals(1, iter.nextDoc());
+        assertEquals(2, iter.nextDoc());
+        assertEquals(DocIdSetIterator.NO_MORE_DOCS, iter.nextDoc());
+    }
+
+    @SneakyThrows
+    public void testSetMinCompetitiveScore_radialSearchStillFiltersOnMinScore() {
+        List<float[]> vectors = List.of(
+            new float[] { 1.0f, 0.0f, 0.0f },
+            new float[] { 0.9f, 0.1f, 0.0f },
+            new float[] { 0.0f, 1.0f, 0.0f },
+            new float[] { 0.0f, 0.0f, 1.0f }
+        );
+
+        float scoreDoc0 = VectorSimilarityFunction.EUCLIDEAN.compare(QUERY, vectors.get(0));
+        float scoreDoc1 = VectorSimilarityFunction.EUCLIDEAN.compare(QUERY, vectors.get(1));
+        float scoreDoc2 = VectorSimilarityFunction.EUCLIDEAN.compare(QUERY, vectors.get(2));
+
+        float radialMinScore = scoreDoc2 + 0.01f;
+        assertTrue(scoreDoc0 >= radialMinScore);
+        assertTrue(scoreDoc1 >= radialMinScore);
+        assertTrue(scoreDoc2 < radialMinScore);
+
+        BulkVectorScorer scorer = BulkVectorScorer.forRadialSearch(
+            createVectorScorer(vectors, QUERY, VectorSimilarityFunction.EUCLIDEAN),
+            DocIdSetIterator.all(vectors.size()),
+            radialMinScore
+        );
+
+        // minCompetitiveScore not set — radial filter alone decides
+        DocIdSetIterator iter = scorer.iterator();
+        assertEquals(0, iter.nextDoc());
+        assertEquals(scoreDoc0, scorer.score(), 1e-5f);
+
+        assertEquals(1, iter.nextDoc());
+        assertEquals(scoreDoc1, scorer.score(), 1e-5f);
+
+        assertEquals(DocIdSetIterator.NO_MORE_DOCS, iter.nextDoc());
+    }
+
     private VectorScorer createVectorScorer(List<float[]> vectors, float[] query, VectorSimilarityFunction similarity) throws IOException {
         TestVectorValues.PreDefinedFloatVectorValues floatVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
             vectors,
