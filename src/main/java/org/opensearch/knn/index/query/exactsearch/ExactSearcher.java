@@ -237,7 +237,8 @@ public class ExactSearcher {
         return collectTopK(scorer, heapSize, true);
     }
 
-    private static TopDocs collectTopK(final Scorer scorer, final int heapSize, final boolean updateMinCompetitiveScore) throws IOException {
+    private static TopDocs collectTopK(final Scorer scorer, final int heapSize, final boolean updateMinCompetitiveScore)
+        throws IOException {
         final HitQueue queue = new HitQueue(heapSize, true);
         ScoreDoc topDoc = queue.top();
         DocIdSetIterator iter = scorer.iterator();
