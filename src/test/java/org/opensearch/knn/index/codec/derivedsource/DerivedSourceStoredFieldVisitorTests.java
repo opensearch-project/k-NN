@@ -103,6 +103,19 @@ public class DerivedSourceStoredFieldVisitorTests extends OpenSearchTestCase {
         verify(delegate).stringField(fieldInfo, TEST_STRING_VALUE);
     }
 
+    public void testStringField_whenRoutingField_delegatesToDelegate() throws IOException {
+        StoredFieldVisitor delegate = mock(StoredFieldVisitor.class);
+        DerivedSourceVectorTransformer transformer = mock(DerivedSourceVectorTransformer.class);
+        FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("_routing").build();
+
+        DerivedSourceStoredFieldVisitor visitor = new DerivedSourceStoredFieldVisitor(delegate, TEST_DOC_ID, transformer);
+
+        visitor.stringField(fieldInfo, TEST_STRING_VALUE);
+
+        verify(delegate).stringField(fieldInfo, TEST_STRING_VALUE);
+        verifyNoInteractions(transformer);
+    }
+
     public void testLongField_delegatesToDelegate() throws IOException {
         StoredFieldVisitor delegate = mock(StoredFieldVisitor.class);
         DerivedSourceVectorTransformer transformer = mock(DerivedSourceVectorTransformer.class);
