@@ -33,6 +33,10 @@ buildscript {
         // set this to false. In dev environments, set to true. If false, repetitive execution of cmakeJniLib may fail.
         // To prevent this, set build.lib.apply_patches to false after the first cmakeJniLib run.
         commit_lib_patches = System.getProperty("build.lib.commit_patches", "true")
+        // Optional override for nmslib SIMD compile flags, forwarded to -DNMSLIB_SIMD_FLAGS (patch 0006).
+        // Set via -Dnmslib_simd_flags=... (e.g. -march=x86-64) to generalize the arch instead of sed-editing
+        // nmslib's CMakeLists.txt, which conflicts with git-apply of the same patch. Null = nmslib default.
+        nmslib_simd_flags = System.getProperty("nmslib_simd_flags")
 
         version_tokens = opensearch_version.tokenize('-')
         opensearch_build = version_tokens[0] + '.0'
@@ -336,6 +340,9 @@ task cmakeJniLib(type:Exec) {
     args.add("-DCOMMIT_LIB_PATCHES=${commit_lib_patches}")
     args.add("-DAPPLY_LIB_PATCHES=${apply_lib_patches}")
     args.add("-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+    if (nmslib_simd_flags?.trim()) {
+        args.add("-DNMSLIB_SIMD_FLAGS=${nmslib_simd_flags}")
+    }
     def javaHome = Jvm.current().getJavaHome()
     logger.lifecycle("Java home directory used by gradle: $javaHome")
     if (Os.isFamily(Os.FAMILY_MAC)) {
