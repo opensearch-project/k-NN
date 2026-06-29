@@ -77,4 +77,5 @@ public class KNN1040ScalarQuantizedUtilsTests extends KNNTestCase {
         assertTrue(exception.getMessage().contains("incompatible Lucene version"));
         assertTrue(exception.getCause() instanceof NoSuchFieldException);
     }
+
 }

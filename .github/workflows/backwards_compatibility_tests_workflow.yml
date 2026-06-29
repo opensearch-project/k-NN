@@ -36,7 +36,7 @@ jobs:
         java: [ 21 ]
         os: [ubuntu-latest]
         bwc_version : [ "2.0.1", "2.1.0", "2.2.1", "2.3.0", "2.4.1", "2.5.0", "2.6.0", "2.7.0", "2.8.0", "2.9.0", "2.10.0", "2.11.0", "2.12.0", "2.13.0", "2.14.0", "2.15.0", "2.16.0", "2.17.0", "2.18.0","2.19.1", "2.20.0-SNAPSHOT"]
-        opensearch_version : [ "3.7.0-SNAPSHOT" ]
+        opensearch_version : [ "3.8.0-SNAPSHOT" ]
         exclude:
           - os: windows-latest
             bwc_version: "2.0.1"
@@ -63,9 +63,11 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Setup Java ${{ matrix.java }}
-        uses: actions/setup-java@b6e674f4b717d7b0ae3baee0fbe79f498905dfde # v1
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:
           java-version: ${{ matrix.java }}
+          distribution: temurin
+          cache: gradle
 
       - if: startsWith(matrix.os,'ubuntu')
         name: Install dependencies on ubuntu
@@ -131,7 +133,7 @@ jobs:
         java: [ 21 ]
         os: [ubuntu-latest]
         bwc_version: [ "2.20.0-SNAPSHOT" ]
-        opensearch_version: [ "3.7.0-SNAPSHOT" ]
+        opensearch_version: [ "3.8.0-SNAPSHOT" ]
 
     name: k-NN Rolling-Upgrade BWC Tests
     runs-on: ${{ matrix.os }}
@@ -149,9 +151,11 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Setup Java ${{ matrix.java }}
-        uses: actions/setup-java@b6e674f4b717d7b0ae3baee0fbe79f498905dfde # v1
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:
           java-version: ${{ matrix.java }}
+          distribution: temurin
+          cache: gradle
 
       - if: startsWith(matrix.os,'ubuntu')
         name: Install dependencies on ubuntu
