@@ -54,9 +54,9 @@ buildscript {
     // This isn't applying from repositories.gradle so repeating git diff it here
     repositories {
         mavenLocal()
-        maven { url "https://ci.opensearch.org/ci/dbc/snapshots/maven/" }
         maven { url "https://ci.opensearch.org/maven2/" }
         mavenCentral()
+        maven { url "https://ci.opensearch.org/ci/dbc/snapshots/maven/" }
         maven { url "https://plugins.gradle.org/m2/" }
     }
 
