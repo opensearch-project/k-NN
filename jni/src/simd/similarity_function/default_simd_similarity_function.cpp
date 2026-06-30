@@ -44,6 +44,8 @@ struct DefaultFP16SimilarityFunction final : BaseSimilarityFunction<BulkScoreTra
 DefaultFP16SimilarityFunction<FaissScoreToLuceneScoreTransform::ipToMaxIpTransformBulk, FaissScoreToLuceneScoreTransform::ipToMaxIpTransform> DEFAULT_FP16_MAX_INNER_PRODUCT_SIMIL_FUNC;
 // 2. L2
 DefaultFP16SimilarityFunction<FaissScoreToLuceneScoreTransform::l2TransformBulk, FaissScoreToLuceneScoreTransform::l2Transform> DEFAULT_FP16_L2_SIMIL_FUNC;
+// 3. Cosine (same IP kernel, but with cosine score transform for L2-normalized vectors)
+DefaultFP16SimilarityFunction<FaissScoreToLuceneScoreTransform::cosineTransformBulk, FaissScoreToLuceneScoreTransform::cosineTransform> DEFAULT_FP16_COSINE_SIMIL_FUNC;
 
 
 //
@@ -156,7 +158,7 @@ static FORCE_INLINE void default4bitDotProductBatch(
     }
 }
 
-template <bool IsMaxIP>
+template <SQMetricMode Mode>
 struct DefaultSQSimilarityFunction final : SimilarityFunction {
     HOT_SPOT void calculateSimilarityInBulk(SimdVectorSearchContext* srchContext,
                                             int32_t* internalVectorIds,
@@ -194,7 +196,7 @@ struct DefaultSQSimilarityFunction final : SimilarityFunction {
                                            + ax * ly * y1
                                            + lx * ly * scores[processedCount + i];
 
-                if constexpr (IsMaxIP) {
+                if constexpr (Mode == SQMetricMode::MAX_IP || Mode == SQMetricMode::COSINE) {
                     scores[processedCount + i] += queryAdditional + additional - centroidDp;
                 } else {
                     scores[processedCount + i] = std::max(0.0F, queryAdditional + additional - 2 * scores[processedCount + i]);
@@ -216,7 +218,7 @@ struct DefaultSQSimilarityFunction final : SimilarityFunction {
                                            + ax * ly * y1
                                            + lx * ly * scores[processedCount + i];
 
-                if constexpr (IsMaxIP) {
+                if constexpr (Mode == SQMetricMode::MAX_IP || Mode == SQMetricMode::COSINE) {
                     scores[processedCount + i] += queryAdditional + additional - centroidDp;
                 } else {
                     scores[processedCount + i] =
@@ -239,7 +241,7 @@ struct DefaultSQSimilarityFunction final : SimilarityFunction {
                                    + ax * ly * y1
                                    + lx * ly * qcDist;
 
-            if constexpr (IsMaxIP) {
+            if constexpr (Mode == SQMetricMode::MAX_IP || Mode == SQMetricMode::COSINE) {
                 scores[processedCount] += queryAdditional + additional - centroidDp;
             } else {
                 scores[processedCount] =
@@ -247,8 +249,10 @@ struct DefaultSQSimilarityFunction final : SimilarityFunction {
             }
         }
 
-        if constexpr (IsMaxIP) {
+        if constexpr (Mode == SQMetricMode::MAX_IP) {
             FaissScoreToLuceneScoreTransform::ipToMaxIpTransformBulk(scores, numVectors);
+        } else if constexpr (Mode == SQMetricMode::COSINE) {
+            FaissScoreToLuceneScoreTransform::cosineTransformBulk(scores, numVectors);
         } else {
             FaissScoreToLuceneScoreTransform::l2TransformBulk(scores, numVectors);
         }
@@ -279,9 +283,13 @@ struct DefaultSQSimilarityFunction final : SimilarityFunction {
                     + ax * ly * y1
                     + lx * ly * qcDist;
 
-        if constexpr (IsMaxIP) {
+        if constexpr (Mode == SQMetricMode::MAX_IP || Mode == SQMetricMode::COSINE) {
             score += queryAdditional + additional - centroidDp;
-            return FaissScoreToLuceneScoreTransform::ipToMaxIpTransform(score);
+            if constexpr (Mode == SQMetricMode::MAX_IP) {
+                return FaissScoreToLuceneScoreTransform::ipToMaxIpTransform(score);
+            } else {
+                return FaissScoreToLuceneScoreTransform::cosineTransform(score);
+            }
         } else {
             score = std::max(0.0F, queryAdditional + additional - 2 * score);
             return FaissScoreToLuceneScoreTransform::l2Transform(score);
@@ -293,9 +301,11 @@ struct DefaultSQSimilarityFunction final : SimilarityFunction {
 // SQ
 //
 // 1. Max IP
-DefaultSQSimilarityFunction<true> SQ_IP_SIMIL_FUNC;
+DefaultSQSimilarityFunction<SQMetricMode::MAX_IP> SQ_IP_SIMIL_FUNC;
 // 2. L2
-DefaultSQSimilarityFunction<false> SQ_L2_SIMIL_FUNC;
+DefaultSQSimilarityFunction<SQMetricMode::L2> SQ_L2_SIMIL_FUNC;
+// 3. Cosine
+DefaultSQSimilarityFunction<SQMetricMode::COSINE> SQ_COSINE_SIMIL_FUNC;
 
 #ifndef __NO_SELECT_FUNCTION
 SimilarityFunction* SimilarityFunction::selectSimilarityFunction(const NativeSimilarityFunctionType nativeFunctionType) {
@@ -307,6 +317,10 @@ SimilarityFunction* SimilarityFunction::selectSimilarityFunction(const NativeSim
         return &SQ_IP_SIMIL_FUNC;
     } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ_L2) {
         return &SQ_L2_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ_COSINE) {
+        return &SQ_COSINE_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::FP16_COSINE) {
+        return &DEFAULT_FP16_COSINE_SIMIL_FUNC;
     }
 
     throw std::runtime_error("Invalid native similarity function type was given, nativeFunctionType="
