@@ -36,10 +36,8 @@ public final class ResolvedIndexSpec {
     private final int dimension;
     private final Version indexVersionCreated;
 
-    /**
-     * Whether this configuration uses the SQ 1-bit codec format (Faiss only).
-     */
-    public boolean usesSQ1BitCodecFormat() {
+    /** Faiss-specific: routes field to Faiss1040ScalarQuantizedKnnVectorsFormat. Temporary -- to be replaced by generalized codec format resolver. */
+    public boolean usesFaissSQ1BitCodecFormat() {
         return engine == KNNEngine.FAISS && isSQOneBit();
     }
 
@@ -119,6 +117,10 @@ public final class ResolvedIndexSpec {
         return METHOD_FLAT.equals(methodName);
     }
 
+    /**
+     * Returns true when the configured compression level implies lossy quantization that needs special handling.
+     * x1 is full precision and x2 is fp16 (near-lossless), so both are excluded; x4 and above are lossy.
+     */
     private boolean isQuantizedIndex() {
         return CompressionLevel.isConfigured(compressionLevel)
             && compressionLevel != CompressionLevel.x1

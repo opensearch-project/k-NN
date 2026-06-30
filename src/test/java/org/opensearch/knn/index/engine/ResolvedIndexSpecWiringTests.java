@@ -81,6 +81,11 @@ public class ResolvedIndexSpecWiringTests extends KNNTestCase {
             public org.opensearch.knn.index.mapper.VectorTransformer getVectorTransformer() {
                 return null;
             }
+
+            @Override
+            public ResolvedIndexSpec getResolvedSpec() {
+                return null;
+            }
         };
         assertNull(ctx.getResolvedSpec());
     }

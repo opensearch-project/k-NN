@@ -21,7 +21,7 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
 
     public void testFaissSQ1BitUsesSQ1BitCodecFormat() {
         ResolvedIndexSpec spec = baseFaissSQ1Bit().build();
-        assertTrue(spec.usesSQ1BitCodecFormat());
+        assertTrue(spec.usesFaissSQ1BitCodecFormat());
         assertTrue(spec.alwaysUseMemoryOptimizedSearch());
         assertTrue(spec.isMemoryOptimizedEligible());
         assertTrue(spec.requiresRescore());
@@ -29,7 +29,7 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
 
     public void testLuceneSQ1BitDoesNotUseSQ1BitCodecFormat() {
         ResolvedIndexSpec spec = baseFaissSQ1Bit().engine(KNNEngine.LUCENE).build();
-        assertFalse(spec.usesSQ1BitCodecFormat());
+        assertFalse(spec.usesFaissSQ1BitCodecFormat());
         assertFalse(spec.alwaysUseMemoryOptimizedSearch());
     }
 
@@ -59,7 +59,7 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
 
     public void testFaissPQNotMemoryOptimizedEligible() {
         ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.PQ)
-            .quantizationBits(Encoder.QuantizationBits.NOT_APPLICABLE)
+            .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
             .compressionLevel(CompressionLevel.x8)
             .build();
         assertFalse(spec.isMemoryOptimizedEligible());
@@ -103,7 +103,7 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
 
     public void testRadialSearch_QuantizedPQNotSupported() {
         ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.PQ)
-            .quantizationBits(Encoder.QuantizationBits.NOT_APPLICABLE)
+            .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
             .compressionLevel(CompressionLevel.x8)
             .build();
         assertFalse(spec.supportsRadialSearch());

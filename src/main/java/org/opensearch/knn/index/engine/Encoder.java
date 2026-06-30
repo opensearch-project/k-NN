@@ -17,6 +17,14 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 
 /**
  * Interface representing an encoder. An encoder generally refers to a vector quantizer.
+ *
+ * <p>Serves a dual role:
+ * <ul>
+ *   <li>Type classification (via {@link EncoderType} and {@link QuantizationBits}) that drives
+ *       ResolvedIndexSpec behavioral decisions.</li>
+ *   <li>Method component integration (via {@link #getMethodComponent()}) for the existing
+ *       resolution framework.</li>
+ * </ul>
  */
 public interface Encoder {
 
@@ -59,8 +67,8 @@ public interface Encoder {
         FOUR(4, CompressionLevel.x8),
         SEVEN(7, CompressionLevel.x4),
         SIXTEEN(16, CompressionLevel.x2),
-        FULL_PRECISION(32, CompressionLevel.x1),
-        NOT_APPLICABLE(-1, CompressionLevel.NOT_CONFIGURED);
+        /** Identity value for FLAT encoders: full precision float32 with no quantization applied. */
+        FULL_PRECISION(32, CompressionLevel.x1);
 
         private final int value;
         private final CompressionLevel compressionLevel;
@@ -132,6 +140,7 @@ public interface Encoder {
 
     /**
      * @return the set of bit widths this encoder supports
+     * TODO: Evaluate removal -- zero production callers, risks inconsistency with getQuantizationBits().
      */
     Set<QuantizationBits> getSupportedBits();
 

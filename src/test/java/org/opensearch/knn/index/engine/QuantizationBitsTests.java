@@ -23,7 +23,6 @@ public class QuantizationBitsTests extends KNNTestCase {
         assertEquals(7, Encoder.QuantizationBits.SEVEN.getValue());
         assertEquals(16, Encoder.QuantizationBits.SIXTEEN.getValue());
         assertEquals(32, Encoder.QuantizationBits.FULL_PRECISION.getValue());
-        assertEquals(-1, Encoder.QuantizationBits.NOT_APPLICABLE.getValue());
     }
 
     public void testGetCompressionLevelMapping() {
@@ -33,7 +32,6 @@ public class QuantizationBitsTests extends KNNTestCase {
         assertEquals(CompressionLevel.x4, Encoder.QuantizationBits.SEVEN.getCompressionLevel());
         assertEquals(CompressionLevel.x2, Encoder.QuantizationBits.SIXTEEN.getCompressionLevel());
         assertEquals(CompressionLevel.x1, Encoder.QuantizationBits.FULL_PRECISION.getCompressionLevel());
-        assertEquals(CompressionLevel.NOT_CONFIGURED, Encoder.QuantizationBits.NOT_APPLICABLE.getCompressionLevel());
     }
 
     public void testFromValueDefaultsToFullPrecision() {

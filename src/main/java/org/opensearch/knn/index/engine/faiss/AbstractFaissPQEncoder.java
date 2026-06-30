@@ -153,11 +153,7 @@ public abstract class AbstractFaissPQEncoder implements Encoder {
 
     @Override
     public Set<QuantizationBits> getSupportedBits() {
-        return EnumSet.of(QuantizationBits.NOT_APPLICABLE);
+        return EnumSet.noneOf(QuantizationBits.class);
     }
 
-    @Override
-    public QuantizationBits getQuantizationBits() {
-        return QuantizationBits.NOT_APPLICABLE;
-    }
 }

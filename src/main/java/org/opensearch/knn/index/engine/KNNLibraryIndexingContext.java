@@ -11,7 +11,6 @@ import org.opensearch.knn.index.mapper.PerDimensionValidator;
 import org.opensearch.knn.index.mapper.VectorTransformer;
 import org.opensearch.knn.index.mapper.VectorValidator;
 
-import org.opensearch.common.Nullable;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -67,13 +66,8 @@ public interface KNNLibraryIndexingContext {
 
     /**
      * Get the resolved index spec containing pre-computed behavioral decisions.
-     * May be null for model-based indices, training indices, or flat-index paths
-     * where full resolution does not run.
      *
-     * @return ResolvedIndexSpec or null
+     * @return ResolvedIndexSpec
      */
-    @Nullable
-    default ResolvedIndexSpec getResolvedSpec() {
-        return null;
-    }
+    ResolvedIndexSpec getResolvedSpec();
 }

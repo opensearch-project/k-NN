@@ -153,12 +153,11 @@ public abstract class AbstractKNNMethod implements KNNMethod {
         Map<String, Object> methodParams = knnMethodContext.getMethodComponentContext().getParameters();
         if (methodParams != null && methodParams.containsKey(METHOD_ENCODER_PARAMETER)) {
             Object encoderObj = methodParams.get(METHOD_ENCODER_PARAMETER);
-            if (encoderObj instanceof MethodComponentContext) {
-                MethodComponentContext encoderCtx = (MethodComponentContext) encoderObj;
+            if (encoderObj instanceof MethodComponentContext encoderCtx) {
                 encoderType = Encoder.EncoderType.fromName(encoderCtx.getName());
                 Object bitsObj = encoderCtx.getParameters().get(KNNConstants.SQ_BITS);
-                if (bitsObj instanceof Integer) {
-                    quantizationBits = Encoder.QuantizationBits.fromValue((Integer) bitsObj);
+                if (bitsObj instanceof Integer bitsInt) {
+                    quantizationBits = Encoder.QuantizationBits.fromValue(bitsInt);
                 } else if (encoderType == Encoder.EncoderType.FLAT) {
                     quantizationBits = Encoder.QuantizationBits.FULL_PRECISION;
                 } else if (encoderType == Encoder.EncoderType.BQ) {
@@ -167,6 +166,7 @@ public abstract class AbstractKNNMethod implements KNNMethod {
             }
         }
 
+        // Dimension is null during model training flows (resolved from training data, not mapping params)
         Integer dimension = knnMethodConfigContext.getDimension();
         return ResolvedIndexSpec.builder()
             .engine(knnMethodContext.getKnnEngine())

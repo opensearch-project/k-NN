@@ -79,7 +79,7 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
         KNNLibraryIndexingContext libraryContext = methodContext.getKnnEngine()
             .getKNNLibraryIndexingContext(methodContext, knnMethodConfigContext);
         boolean isLuceneEngine = KNNEngine.LUCENE.equals(methodContext.getKnnEngine());
-        ResolvedIndexSpec resolvedSpec = libraryContext != null ? libraryContext.getResolvedSpec() : null;
+        ResolvedIndexSpec resolvedSpec = libraryContext.getResolvedSpec();
 
         KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
             fullname,

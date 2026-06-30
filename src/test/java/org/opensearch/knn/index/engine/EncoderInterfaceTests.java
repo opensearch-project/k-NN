@@ -48,7 +48,7 @@ public class EncoderInterfaceTests extends KNNTestCase {
     public void testFaissHNSWPQEncoderType() {
         Encoder encoder = new org.opensearch.knn.index.engine.faiss.FaissHNSWPQEncoder();
         assertEquals(Encoder.EncoderType.PQ, encoder.getEncoderType());
-        assertEquals(Encoder.QuantizationBits.NOT_APPLICABLE, encoder.getQuantizationBits());
-        assertTrue(encoder.getSupportedBits().contains(Encoder.QuantizationBits.NOT_APPLICABLE));
+        assertEquals(Encoder.QuantizationBits.FULL_PRECISION, encoder.getQuantizationBits());
+        assertTrue(encoder.getSupportedBits().isEmpty());
     }
 }

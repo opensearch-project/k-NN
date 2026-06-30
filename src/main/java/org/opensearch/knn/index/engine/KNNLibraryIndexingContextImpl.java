@@ -32,7 +32,6 @@ public class KNNLibraryIndexingContextImpl implements KNNLibraryIndexingContext 
     @Builder.Default
     private QuantizationConfig quantizationConfig = QuantizationConfig.EMPTY;
     private Function<TrainingConfigValidationInput, TrainingConfigValidationOutput> trainingConfigValidationSetup;
-    @Nullable
     private ResolvedIndexSpec resolvedSpec;
 
     @Override
