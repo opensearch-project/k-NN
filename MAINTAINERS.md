@@ -8,7 +8,7 @@ This document contains a list of maintainers in this repo. See [opensearch-proje
 |-------------------------|-------------------------------------------------------|-------------|
 | Doo Yong Kim            | [0ctopus13prime](https://github.com/0ctopus13prime)   | Amazon      |
 | Heemin Kim              | [heemin32](https://github.com/heemin32)               | Amazon      |
- | Kunal Kotwani | [kotwanikunal](https://github.com/kotwanikunal)  | Amazon      |  
+| Kunal Kotwani | [kotwanikunal](https://github.com/kotwanikunal)  | Amazon      |  
 | Martin Gaievski         | [martin-gaievski](https://github.com/martin-gaievski) | Amazon      |
 | Naveen Tatikonda        | [naveentatikonda](https://github.com/naveentatikonda) | Amazon      |
 | Navneet Verma           | [navneet1v](https://github.com/navneet1v)             | Amazon      |
