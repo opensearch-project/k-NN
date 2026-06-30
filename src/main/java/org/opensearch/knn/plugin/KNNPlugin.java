@@ -97,6 +97,7 @@ import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
 import org.opensearch.knn.search.extension.MMRSearchExtBuilder;
 
+import org.opensearch.knn.search.processor.KNNSourceExcludesProcessor;
 import org.opensearch.knn.search.processor.mmr.MMRKnnQueryTransformer;
 import org.opensearch.knn.search.processor.mmr.MMROverSampleProcessor;
 import org.opensearch.knn.search.processor.mmr.MMRQueryTransformer;
@@ -201,6 +202,7 @@ public class KNNPlugin extends Plugin
 
     private KNNStats knnStats;
     private ClusterService clusterService;
+    private IndexNameExpressionResolver indexNameExpressionResolver;
     private Supplier<RepositoriesService> repositoriesServiceSupplier;
     private final Map<String, MMRQueryTransformer<? extends QueryBuilder>> mmrQueryTransformers = new HashMap<>();
 
@@ -250,6 +252,7 @@ public class KNNPlugin extends Plugin
         Supplier<RepositoriesService> repositoriesServiceSupplier
     ) {
         this.clusterService = clusterService;
+        this.indexNameExpressionResolver = indexNameExpressionResolver;
         this.repositoriesServiceSupplier = repositoriesServiceSupplier;
 
         // Initialize Native Memory loading strategies
@@ -287,7 +290,6 @@ public class KNNPlugin extends Plugin
 
     @Override
     public Collection<IndexSettingProvider> getAdditionalIndexSettingProviders() {
-        // Default derived source feature to true for knn indices.
         return ImmutableList.of(new IndexSettingProvider() {
             @Override
             public Settings getAdditionalIndexSettings(String indexName, boolean isDataStreamIndex, Settings templateAndRequestSettings) {
@@ -310,6 +312,7 @@ public class KNNPlugin extends Plugin
         });
     }
 
+    @Override
     public List<RestHandler> getRestHandlers(
         Settings settings,
         RestController restController,
@@ -480,8 +483,6 @@ public class KNNPlugin extends Plugin
 
     @Override
     public void onNodeStarted(DiscoveryNode localNode) {
-        // Attempt to fetch a cb tier from node attributes and cache the result.
-        // Get this node's circuit breaker tier attribute
         Optional<String> tierAttribute = Optional.ofNullable(localNode.getAttributes().get(KNN_CIRCUIT_BREAKER_TIER));
         if (tierAttribute.isPresent()) {
             KNNSettings.state().setNodeCbAttribute(tierAttribute);
@@ -515,6 +516,8 @@ public class KNNPlugin extends Plugin
     ) {
         KNNClusterUtil.instance().setSearchPipelineService(parameters.searchPipelineService);
         return Map.of(
+            KNNSourceExcludesProcessor.Factory.TYPE,
+            new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver),
             MMROverSampleProcessor.MMROverSampleProcessorFactory.TYPE,
             new MMROverSampleProcessor.MMROverSampleProcessorFactory(parameters.client, mmrQueryTransformers)
         );
