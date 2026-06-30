@@ -11,7 +11,9 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 
+import java.util.EnumSet;
 import java.util.Map;
+import java.util.Set;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -46,6 +48,16 @@ public class AbstractMethodResolverTests extends KNNTestCase {
             KNNMethodConfigContext knnMethodConfigContext
         ) {
             return DEFAULT_COMPRESSION;
+        }
+
+        @Override
+        public EncoderType getEncoderType() {
+            return EncoderType.FLAT;
+        }
+
+        @Override
+        public Set<QuantizationBits> getSupportedBits() {
+            return EnumSet.of(QuantizationBits.FULL_PRECISION);
         }
     };
 
