@@ -32,6 +32,7 @@ import static org.mockito.Mockito.mock;
 import static org.opensearch.core.xcontent.ToXContent.EMPTY_PARAMS;
 import static org.opensearch.index.query.AbstractQueryBuilder.BOOST_FIELD;
 import static org.opensearch.knn.index.KNNClusterTestUtils.mockClusterService;
+import static org.opensearch.knn.index.query.KNNQueryBuilder.EXPAND_NESTED_FIELD;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.NAME;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.EF_SEARCH_FIELD;
 import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_OVERSAMPLE_PARAMETER;
@@ -576,6 +577,53 @@ public class KNNQueryBuilderParserTests extends KNNTestCase {
         KNNQueryBuilderParser.toXContent(testBuilder, EMPTY_PARAMS, knnQueryBuilderFromObject);
         testBuilder.endObject();
         assertEquals(builderFromObject.toString(), testBuilder.toString());
+    }
+
+    public void testFromXContent_whenExpandNestedDocsOmitted_thenDefaultsToNull() throws Exception {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        builder.startObject();
+        builder.startObject(FIELD_NAME);
+        builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), queryVector);
+        builder.field(KNNQueryBuilder.K_FIELD.getPreferredName(), K);
+        builder.endObject();
+        builder.endObject();
+        XContentParser contentParser = createParser(builder);
+        contentParser.nextToken();
+        KNNQueryBuilder actualBuilder = KNNQueryBuilderParser.fromXContent(contentParser);
+        assertNull(actualBuilder.getExpandNested());
+    }
+
+    public void testFromXContent_whenExpandNestedDocsTrue_thenParseEnabled() throws Exception {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        builder.startObject();
+        builder.startObject(FIELD_NAME);
+        builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), queryVector);
+        builder.field(KNNQueryBuilder.K_FIELD.getPreferredName(), K);
+        builder.field(EXPAND_NESTED_FIELD.getPreferredName(), true);
+        builder.endObject();
+        builder.endObject();
+        XContentParser contentParser = createParser(builder);
+        contentParser.nextToken();
+        KNNQueryBuilder actualBuilder = KNNQueryBuilderParser.fromXContent(contentParser);
+        assertTrue(actualBuilder.getExpandNested());
+    }
+
+    public void testFromXContent_whenExpandNestedDocsFalse_thenParseDisabled() throws Exception {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        builder.startObject();
+        builder.startObject(FIELD_NAME);
+        builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), queryVector);
+        builder.field(KNNQueryBuilder.K_FIELD.getPreferredName(), K);
+        builder.field(EXPAND_NESTED_FIELD.getPreferredName(), false);
+        builder.endObject();
+        builder.endObject();
+        XContentParser contentParser = createParser(builder);
+        contentParser.nextToken();
+        KNNQueryBuilder actualBuilder = KNNQueryBuilderParser.fromXContent(contentParser);
+        assertFalse(actualBuilder.getExpandNested());
     }
 
     @Override
