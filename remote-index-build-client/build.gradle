@@ -15,8 +15,8 @@ plugins {
 
 repositories {
     mavenLocal()
-    maven { url = uri("https://ci.opensearch.org/ci/dbc/snapshots/maven/") }
     maven { url = uri("https://ci.opensearch.org/maven2/") }
+    maven { url = uri("https://ci.opensearch.org/ci/dbc/snapshots/maven/") }
     mavenCentral()
     maven { url = uri("https://plugins.gradle.org/m2/") }
 }
