@@ -6,14 +6,20 @@
 package org.opensearch.knn.index.query.lucenelib;
 
 import junit.framework.TestCase;
+import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
+import org.apache.lucene.search.knn.KnnCollectorManager;
+
+import java.io.IOException;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class OSDiversifyingChildrenByteKnnVectorQueryTests extends TestCase {
 
@@ -67,6 +73,35 @@ public class OSDiversifyingChildrenByteKnnVectorQueryTests extends TestCase {
         assertEquals(k, result.scoreDocs.length);
         assertTrue(result.scoreDocs[0].score >= result.scoreDocs[1].score);
         assertTrue(result.scoreDocs[1].score >= result.scoreDocs[2].score);
+    }
+
+    public void testApproximateSearch_whenParentBitSetNull_thenReturnEmptyResults() throws IOException {
+        String fieldName = "test_field";
+        byte[] queryVector = { 1, 2, 3 };
+        int luceneK = 10;
+        int k = 5;
+        Query filterQuery = mock(Query.class);
+        BitSetProducer parentFilter = mock(BitSetProducer.class);
+        LeafReaderContext context = mock(LeafReaderContext.class);
+        KnnCollectorManager knnCollectorManager = mock(KnnCollectorManager.class);
+        AcceptDocs acceptDocs = mock(AcceptDocs.class);
+
+        when(parentFilter.getBitSet(context)).thenReturn(null);
+
+        OSDiversifyingChildrenByteKnnVectorQuery query = new OSDiversifyingChildrenByteKnnVectorQuery(
+            fieldName,
+            queryVector,
+            filterQuery,
+            luceneK,
+            parentFilter,
+            k
+        );
+
+        TopDocs result = query.approximateSearch(context, acceptDocs, Integer.MAX_VALUE, knnCollectorManager);
+
+        assertNotNull(result);
+        assertEquals(0, result.totalHits.value());
+        assertEquals(0, result.scoreDocs.length);
     }
 
     public void testMergeLeafResults_withFewerResultsThanK() {
