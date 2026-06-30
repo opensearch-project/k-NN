@@ -119,6 +119,10 @@ public final class ResolvedIndexSpec {
         return METHOD_FLAT.equals(methodName);
     }
 
+    /**
+     * Returns true when the configured compression level implies lossy quantization that needs special handling.
+     * x1 is full precision and x2 is fp16 (near-lossless), so both are excluded; x4 and above are lossy.
+     */
     private boolean isQuantizedIndex() {
         return CompressionLevel.isConfigured(compressionLevel)
             && compressionLevel != CompressionLevel.x1
