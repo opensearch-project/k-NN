@@ -25,17 +25,38 @@ public class RadiusVectorSimilarityCollector extends AbstractKnnCollector {
     private final List<ScoreDoc> scoreDocList;
 
     /**
-     * Perform a similarity-based graph search. The graph is traversed till better scoring nodes are
-     * available, or the best candidate is below {@link #traversalSimilarity}. All traversed nodes
-     * above {@link #resultSimilarity} are collected.
+     * Perform a similarity-based graph search using the default HNSW strategy.
      *
      * @param traversalSimilarity (lower) similarity score for graph traversal.
      * @param resultSimilarity (higher) similarity score for result collection.
      * @param visitLimit limit on number of nodes to visit.
      */
     public RadiusVectorSimilarityCollector(float traversalSimilarity, float resultSimilarity, long visitLimit) {
-        // TODO: add search strategy support
-        super(1, visitLimit, DEFAULT_STRATEGY);
+        this(traversalSimilarity, resultSimilarity, visitLimit, DEFAULT_STRATEGY);
+    }
+
+    /**
+     * Perform a similarity-based graph search. The graph is traversed till better scoring nodes are
+     * available, or the best candidate is below {@link #traversalSimilarity}. All traversed nodes
+     * above {@link #resultSimilarity} are collected.
+     * <p>
+     * The provided {@code searchStrategy} is forwarded to the underlying collector, which allows
+     * callers to pass a {@link KnnSearchStrategy.Seeded} strategy so that the radial graph traversal
+     * begins from a set of pre-computed entry points (re-entrant search) instead of the default
+     * graph entry node.
+     *
+     * @param traversalSimilarity (lower) similarity score for graph traversal.
+     * @param resultSimilarity (higher) similarity score for result collection.
+     * @param visitLimit limit on number of nodes to visit.
+     * @param searchStrategy the HNSW search strategy to use (e.g. {@link KnnSearchStrategy.Seeded}).
+     */
+    public RadiusVectorSimilarityCollector(
+        float traversalSimilarity,
+        float resultSimilarity,
+        long visitLimit,
+        KnnSearchStrategy searchStrategy
+    ) {
+        super(1, visitLimit, searchStrategy);
         if (traversalSimilarity > resultSimilarity) {
             throw new IllegalArgumentException("traversalSimilarity should be <= resultSimilarity");
         }

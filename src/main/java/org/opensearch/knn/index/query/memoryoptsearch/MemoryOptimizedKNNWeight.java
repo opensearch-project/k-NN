@@ -30,10 +30,12 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.MemoryOptimizedSearchScoreConverter;
+import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.lucene.OptimisticKnnCollectorManager;
 import org.opensearch.lucene.ReentrantKnnCollectorManager;
 
 import java.io.IOException;
+import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO;
 import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
@@ -52,11 +54,13 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
     private static final KnnSearchStrategy.Hnsw DEFAULT_HNSW_SEARCH_STRATEGY = new KnnSearchStrategy.Hnsw(0);
 
     private final KnnCollectorManager knnCollectorManager;
+    private final IndexSearcher searcher;
     @Setter
     private ReentrantKnnCollectorManager reentrantKNNCollectorManager;
 
     public MemoryOptimizedKNNWeight(KNNQuery query, float boost, final Weight filterWeight, IndexSearcher searcher, Integer k) {
         super(query, boost, filterWeight);
+        this.searcher = searcher;
 
         if (k != null && k > 0) {
             // ANN Search
@@ -68,11 +72,14 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
                 this.knnCollectorManager = new DiversifyingNearestChildrenKnnCollectorManager(k, query.getParentsFilter(), searcher);
             }
         } else {
-            // Radius search
+            // Radius search.
+            // Forward the incoming searchStrategy so that a re-entrant (seeded) radial search can begin
+            // the graph traversal from pre-computed entry points instead of the default entry node.
             this.knnCollectorManager = (visitLimit, searchStrategy, context) -> new RadiusVectorSimilarityCollector(
                 DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO * query.getRadius(),
                 query.getRadius(),
-                visitLimit
+                visitLimit,
+                searchStrategy
             );
         }
     }
@@ -160,12 +167,76 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
                     spaceType
                 );
             } else {
-                // Radius search
-                return queryIndex(knnQuery.getVector(), cardinality, cardinality, context, filterIdsBitSet, reader, knnEngine, spaceType);
+                // Radius (radial) search via the memory-optimized path.
+                //
+                // Instead of running Lucene's radial graph traversal from the default entry node, we:
+                //   1. Run a top-k ANN search with k = ef_search to discover good entry points.
+                //   2. Run the radial (similarity-threshold) search re-entrant from those seeds.
+                return radialSearch(context, reader, knnEngine, spaceType, filterIdsBitSet, cardinality);
             }
         } catch (Exception e) {
             GRAPH_QUERY_ERRORS.increment();
             throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Two-phase radial search for the memory-optimized path.
+     * <p>
+     * Phase 1 performs a top-k approximate search with {@code k = ef_search} to collect a set of
+     * high-quality entry points. Phase 2 runs the radial (similarity-threshold) search seeded with
+     * those entry points via {@link ReentrantKnnCollectorManager}, so the graph traversal re-enters
+     * from known-good nodes rather than the default graph entry node. If phase 1 yields no seeds, the
+     * search falls back to a plain (un-seeded) radial search.
+     */
+    private TopDocs radialSearch(
+        final LeafReaderContext context,
+        final SegmentReader reader,
+        final KNNEngine knnEngine,
+        final SpaceType spaceType,
+        final BitSet filterIdsBitSet,
+        final int cardinality
+    ) throws IOException {
+        final Object targetVector = knnQuery.getVector();
+        final int visitedLimit = getFilterWeight() == null ? Integer.MAX_VALUE : cardinality;
+        final AcceptDocs acceptDocs = getAcceptedDocs(reader, cardinality, filterIdsBitSet);
+
+        // Phase 1: top-k ANN with k = ef_search to find seed entry points.
+        final int efSearch = IndexHyperParametersUtil.getHNSWEFSearchValue(knnQuery.getMethodParameters(), knnQuery.getIndexName());
+        final KnnCollector seedCollector = new TopKnnCollectorManager(efSearch, searcher).newCollector(
+            visitedLimit,
+            DEFAULT_HNSW_SEARCH_STRATEGY,
+            context
+        );
+        searchVector(targetVector, seedCollector, acceptDocs, reader);
+        final TopDocs seedTopDocs = seedCollector.topDocs();
+
+        // Phase 2: radial search, seeded from phase-1 results when available.
+        final KnnCollectorManager radialCollectorManager;
+        if (seedTopDocs != null && seedTopDocs.scoreDocs.length > 0) {
+            radialCollectorManager = new ReentrantKnnCollectorManager(
+                knnCollectorManager,
+                Map.of(context.ord, seedTopDocs),
+                targetVector,
+                knnQuery.getField()
+            );
+        } else {
+            radialCollectorManager = knnCollectorManager;
+        }
+
+        return queryIndex(targetVector, cardinality, cardinality, context, filterIdsBitSet, reader, knnEngine, spaceType, radialCollectorManager);
+    }
+
+    /**
+     * Issues the vector search against the segment using the given collector.
+     */
+    private void searchVector(final Object targetVector, final KnnCollector collector, final AcceptDocs acceptDocs, final SegmentReader reader)
+        throws IOException {
+        assert (targetVector instanceof float[] || targetVector instanceof byte[]);
+        if (targetVector instanceof float[] floatTargetVector) {
+            reader.getVectorReader().search(knnQuery.getField(), floatTargetVector, collector, acceptDocs);
+        } else {
+            reader.getVectorReader().search(knnQuery.getField(), (byte[]) targetVector, collector, acceptDocs);
         }
     }
 
@@ -179,6 +250,33 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         final KNNEngine knnEngine,
         final SpaceType spaceType
     ) throws IOException {
+        final KnnCollectorManager collectorManager = reentrantKNNCollectorManager != null
+            ? reentrantKNNCollectorManager
+            : knnCollectorManager;
+        return queryIndex(
+            targetVector,
+            cardinality,
+            visitLimitWhenFilterExists,
+            context,
+            filterIdsBitSet,
+            reader,
+            knnEngine,
+            spaceType,
+            collectorManager
+        );
+    }
+
+    private TopDocs queryIndex(
+        final Object targetVector,
+        final int cardinality,
+        final int visitLimitWhenFilterExists,
+        final LeafReaderContext context,
+        final BitSet filterIdsBitSet,
+        final SegmentReader reader,
+        final KNNEngine knnEngine,
+        final SpaceType spaceType,
+        final KnnCollectorManager collectorManager
+    ) throws IOException {
         assert (targetVector instanceof float[] || targetVector instanceof byte[]);
 
         // Determine visit limit
@@ -190,18 +288,11 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         }
 
         // Create a collector + bitset
-        final KnnCollectorManager collectorManager = reentrantKNNCollectorManager != null
-            ? reentrantKNNCollectorManager
-            : knnCollectorManager;
         final KnnCollector knnCollector = collectorManager.newCollector(visitedLimit, DEFAULT_HNSW_SEARCH_STRATEGY, context);
         final AcceptDocs acceptDocs = getAcceptedDocs(reader, cardinality, filterIdsBitSet);
 
         // Start searching index
-        if (targetVector instanceof float[] floatTargetVector) {
-            reader.getVectorReader().search(knnQuery.getField(), floatTargetVector, knnCollector, acceptDocs);
-        } else {
-            reader.getVectorReader().search(knnQuery.getField(), (byte[]) targetVector, knnCollector, acceptDocs);
-        }
+        searchVector(targetVector, knnCollector, acceptDocs, reader);
 
         // Make results to return
         TopDocs topDocs = knnCollector.topDocs();
