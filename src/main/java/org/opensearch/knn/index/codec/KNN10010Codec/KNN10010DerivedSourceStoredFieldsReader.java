@@ -6,12 +6,10 @@
 package org.opensearch.knn.index.codec.KNN10010Codec;
 
 import org.apache.lucene.codecs.StoredFieldsReader;
-import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.StoredFieldVisitor;
 import org.apache.lucene.util.IOUtils;
 import org.opensearch.index.fieldvisitor.FieldsVisitor;
-import org.opensearch.index.mapper.SourceFieldMapper;
 import org.opensearch.knn.index.codec.derivedsource.DerivedFieldInfo;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceReaders;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceStoredFieldVisitor;
@@ -71,31 +69,12 @@ public class KNN10010DerivedSourceStoredFieldsReader extends StoredFieldsReader 
         // If the visitor has explicitly indicated it does not need the fields, we should not inject them
         if (shouldInject) {
             initializeTransformerIfNeeded(storedFieldVisitor);
-            if (derivedSourceVectorTransformer.hasFieldsToInject() && visitorRequestsSource(storedFieldVisitor)) {
+            if (derivedSourceVectorTransformer.hasFieldsToInject()) {
                 delegate.document(docId, new DerivedSourceStoredFieldVisitor(storedFieldVisitor, docId, derivedSourceVectorTransformer));
                 return;
             }
         }
         delegate.document(docId, storedFieldVisitor);
-    }
-
-    /**
-     * Derived source injection only rewrites {@code _source}. Scroll-based {@code _delete_by_query} /
-     * {@code _update_by_query} fetch metadata fields like {@code _routing} with {@code fetch_source=false},
-     * so wrapping those visitors can prevent metadata from being returned.
-     */
-    private boolean visitorRequestsSource(StoredFieldVisitor storedFieldVisitor) throws IOException {
-        if (storedFieldVisitor instanceof FieldsVisitor fieldsVisitor) {
-            fieldsVisitor.reset();
-            FieldInfo sourceField = segmentReadState.fieldInfos.fieldInfo(SourceFieldMapper.NAME);
-            if (sourceField == null) {
-                return false;
-            }
-            StoredFieldVisitor.Status status = fieldsVisitor.needsField(sourceField);
-            fieldsVisitor.reset();
-            return status == StoredFieldVisitor.Status.YES;
-        }
-        return true;
     }
 
     private void initializeTransformerIfNeeded(StoredFieldVisitor visitor) {
@@ -140,27 +119,9 @@ public class KNN10010DerivedSourceStoredFieldsReader extends StoredFieldsReader 
     }
 
     /**
-     * Scroll and other sequential stored-field fetches use {@link StoredFieldsReader#getMergeInstance()}.
-     * Segment merges explicitly call {@link #wrapForMerge(StoredFieldsReader)} to disable injection.
-     */
-    @Override
-    public StoredFieldsReader getMergeInstance() {
-        try {
-            return new KNN10010DerivedSourceStoredFieldsReader(
-                delegate.getMergeInstance(),
-                derivedVectorFields,
-                derivedSourceReaders.getMergeInstance(),
-                segmentReadState,
-                true
-            );
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    /**
      * For merging, we need to tell the derived source stored fields reader to skip injecting the source. Otherwise,
-     * on merge we will end up just writing the source to disk.
+     * on merge we will end up just writing the source to disk. We cant override
+     * {@link StoredFieldsReader#getMergeInstance()} because it is used elsewhere than just merging.
      *
      * @return Merged instance that wont inject by default
      */
