@@ -11,8 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Introduce system-generated search pipeline processor to automatically exclude knn_vector fields from _source in search responses [#3152](https://github.com/opensearch-project/k-NN/pull/3152)
 
 ### Maintenance
+* Adapt k-NN vector codecs to Lucene 10.5 APIs [#3402](https://github.com/opensearch-project/k-NN/pull/3402)
 
 ### Bug Fixes
+* Preserve raw non-XContent `_source` fields when derived source is enabled [#3402](https://github.com/opensearch-project/k-NN/pull/3402)
 * Fix NPE in nested kNN search when index contains documents without nested object [#3368](https://github.com/opensearch-project/k-NN/pull/3368)
 * Turn off ACORN for MOS to match default Lucene HNSW behavior [#3346](https://github.com/opensearch-project/k-NN/pull/3346)
 * Preserve mixed-case derived source vector field names and add backward-compatible field resolution for previously lowercased segment metadata [#3313](https://github.com/opensearch-project/k-NN/pull/3313)

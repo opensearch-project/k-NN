@@ -18,6 +18,7 @@ import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.Sorter;
+import org.apache.lucene.util.IORunnable;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.RamUsageEstimator;
 import org.opensearch.knn.index.codec.nativeindex.AbstractNativeEnginesKnnVectorsWriter;
@@ -100,11 +101,19 @@ public class NativeEngines990KnnVectorsWriter extends AbstractNativeEnginesKnnVe
     }
 
     @Override
-    public void mergeOneField(final FieldInfo fieldInfo, final MergeState mergeState) throws IOException {
+    public IORunnable mergeOneField(final FieldInfo fieldInfo, final MergeState mergeState) throws IOException {
         // This will ensure that we are merging the FlatIndex during force merge.
         flatVectorsWriter.mergeOneField(fieldInfo, mergeState);
 
-        doMergeOneField(fieldInfo, mergeState, this::train, approximateThreshold, segmentWriteState, nativeIndexBuildStrategyFactory, null);
+        return () -> doMergeOneField(
+            fieldInfo,
+            mergeState,
+            this::train,
+            approximateThreshold,
+            segmentWriteState,
+            nativeIndexBuildStrategyFactory,
+            null
+        );
     }
 
     /**

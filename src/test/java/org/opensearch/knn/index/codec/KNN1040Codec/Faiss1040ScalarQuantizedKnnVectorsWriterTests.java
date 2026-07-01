@@ -28,6 +28,7 @@ import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.util.IOFunction;
 import org.apache.lucene.util.InfoStream;
+import org.apache.lucene.util.IORunnable;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
 import org.mockito.Mock;
@@ -355,7 +356,8 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
                 maxDocs,
                 InfoStream.NO_OUTPUT,
                 Runnable::run,
-                false
+                false,
+                null
             );
 
             // Step 3: Merge
@@ -370,7 +372,10 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
             );
 
             try (KnnVectorsWriter mergedWriter = format.fieldsWriter(mergedWriteState)) {
-                mergedWriter.mergeOneField(fi, mergeState);
+                final IORunnable deferredWork = mergedWriter.mergeOneField(fi, mergeState);
+                if (deferredWork != null) {
+                    deferredWork.run();
+                }
                 mergedWriter.finish();
             }
 

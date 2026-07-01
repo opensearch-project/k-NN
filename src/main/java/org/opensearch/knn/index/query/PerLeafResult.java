@@ -72,6 +72,11 @@ public class PerLeafResult {
         }
 
         @Override
+        public int nextClearBit(int start, int end) {
+            return end;
+        }
+
+        @Override
         public long ramBytesUsed() {
             throw new UnsupportedOperationException();
         }
@@ -130,6 +135,11 @@ public class PerLeafResult {
         @Override
         public int nextSetBit(int start, int end) {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int nextClearBit(int start, int end) {
+            return start;
         }
 
         @Override

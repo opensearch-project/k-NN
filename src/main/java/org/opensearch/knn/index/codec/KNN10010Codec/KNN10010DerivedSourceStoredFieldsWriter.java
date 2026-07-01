@@ -242,13 +242,14 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
                 MediaTypeRegistry.JSON
             );
         } catch (NotXContentException e) {
-            // If the content is not XContent, skip writing altogether. See:
-            // https://github.com/opensearch-project/k-NN/issues/2880
+            // Some OpenSearch internal documents, such as no-op tombstones, store _source as raw bytes rather than XContent.
+            // Derived source can only mask vector fields after parsing XContent, so preserve non-XContent _source unchanged.
             log.warn(
                 "Encountered NotXContent while deserializing _source field. Instead found String: [{}]",
                 new String(bytesRef.bytes, 0, Math.min(bytesRef.bytes.length, 512)),
                 e
             );
+            delegate.writeField(fieldInfo, bytesRef);
             return;
         }
         // Apply mask on vector fields in parsed source (idempotent - safe to apply even if already masked)

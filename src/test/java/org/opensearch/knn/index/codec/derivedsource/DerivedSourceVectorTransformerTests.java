@@ -12,6 +12,7 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.test.OpenSearchTestCase;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -114,6 +115,16 @@ public class DerivedSourceVectorTransformerTests extends OpenSearchTestCase {
             new String[] { "test_vector", "temp_vector", "user_vector" },
             new String[] {}
         );
+    }
+
+    public void testInjectVectors_whenSourceIsNonXContent_thenPreservesOriginalSource() throws Exception {
+        DerivedSourceVectorTransformer transformer = createTransformerWithFields("test_vector");
+        transformer.initialize(null, null);
+        byte[] rawSource = "filling gaps".getBytes(StandardCharsets.UTF_8);
+
+        byte[] transformedSource = transformer.injectVectors(0, rawSource);
+
+        assertArrayEquals(rawSource, transformedSource);
     }
 
     private void assertFieldFiltering(String[] includes, String[] excludes, String[] expectedPresent, String[] expectedAbsent) {
