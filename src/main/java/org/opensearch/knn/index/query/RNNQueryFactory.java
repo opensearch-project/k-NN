@@ -179,12 +179,7 @@ public class RNNQueryFactory extends BaseQueryFactory {
         final float resultSimilarity,
         final Query filterQuery
     ) {
-        return new FloatVectorSimilarityQuery(
-            fieldName,
-            floatVector,
-            resultSimilarity,
-            filterQuery
-        );
+        return new FloatVectorSimilarityQuery(fieldName, floatVector, resultSimilarity, 1.0f, filterQuery);
     }
 
     /**
@@ -197,11 +192,6 @@ public class RNNQueryFactory extends BaseQueryFactory {
         final float resultSimilarity,
         final Query filterQuery
     ) {
-        return new ByteVectorSimilarityQuery(
-            fieldName,
-            byteVector,
-            resultSimilarity,
-            filterQuery
-        );
+        return new ByteVectorSimilarityQuery(fieldName, byteVector, resultSimilarity, 1.0f, filterQuery);
     }
 }

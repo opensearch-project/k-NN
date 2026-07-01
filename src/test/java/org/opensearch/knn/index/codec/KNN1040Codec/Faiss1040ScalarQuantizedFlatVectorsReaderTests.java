@@ -8,7 +8,7 @@ package org.opensearch.knn.index.codec.KNN1040Codec;
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
-import org.apache.lucene.codecs.lucene104.QuantizedByteVectorValues;
+import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
 import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
@@ -28,10 +28,10 @@ public class Faiss1040ScalarQuantizedFlatVectorsReaderTests extends KNNTestCase 
     public void testConstructor_thenUsesScorerFromDelegate() {
         FlatVectorsReader delegate = mock(FlatVectorsReader.class);
         FlatVectorsScorer expectedScorer = mock(FlatVectorsScorer.class);
-        when(delegate.getFlatVectorScorer()).thenReturn(expectedScorer);
+        when(delegate.getFlatVectorScorer("test_field")).thenReturn(expectedScorer);
 
         Faiss1040ScalarQuantizedFlatVectorsReader reader = new Faiss1040ScalarQuantizedFlatVectorsReader(delegate);
-        assertSame(expectedScorer, reader.getFlatVectorScorer());
+        assertSame(expectedScorer, reader.getFlatVectorScorer("test_field"));
     }
 
     @SneakyThrows
