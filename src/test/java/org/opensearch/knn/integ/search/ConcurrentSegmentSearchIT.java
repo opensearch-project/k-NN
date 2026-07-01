@@ -64,7 +64,7 @@ public class ConcurrentSegmentSearchIT extends KNNCompressionRestTestCase {
         final XContentBuilder indexBuilder = createFaissHnswIndexMapping(fieldName, dimension);
         String mapping = indexBuilder.toString();
         createKnnIndex(indexName, mapping);
-        if (compressionConfig == CompressionTestConfig.FP32) {
+        if (compressionConfig == CompressionTestConfig.X1) {
             Map<String, Object> mappingMap = xContentBuilderToMap(indexBuilder);
             assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
         }

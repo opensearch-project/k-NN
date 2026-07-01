@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.index;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Floats;
 
@@ -43,6 +44,7 @@ import org.opensearch.search.profile.query.QueryTimingType;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -59,6 +61,11 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
 
     public OpenSearchIT(CompressionTestConfig compressionConfig) {
         super(compressionConfig);
+    }
+
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 });
     }
 
     @BeforeClass
@@ -105,7 +112,7 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
         Map<String, Object> mappingMap = xContentBuilderToMap(builder);
         String mapping = builder.toString();
         createKnnIndex(indexName, buildKNNIndexSettings(0), mapping);
-        if (compressionConfig == CompressionTestConfig.FP32) {
+        if (compressionConfig == CompressionTestConfig.X1) {
             assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
         }
 
@@ -157,7 +164,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testAddDoc_blockedWhenCbTrips() throws Exception {
-        assumeUncompressed();
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
         updateClusterSettings("knn.circuit_breaker.triggered", "true");
 
@@ -173,7 +179,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testUpdateDoc_blockedWhenCbTrips() throws Exception {
-        assumeUncompressed();
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
         Float[] vector = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);
@@ -192,7 +197,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testAddAndSearchIndex_whenCBTrips() throws Exception {
-        assumeUncompressed();
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
         for (int i = 1; i <= 4; i++) {
             Float[] vector = { (float) i, (float) (i + 1) };
@@ -224,7 +228,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testIndexingVectorValidation_differentSizes() throws Exception {
-        assumeUncompressed();
         Settings settings = Settings.builder().put(getKNNDefaultIndexSettings()).build();
 
         createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, 4));
@@ -246,7 +249,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
 
     @SneakyThrows
     public void testIndexingVectorValidation_zeroVector() {
-        assumeUncompressed();
         Settings settings = Settings.builder().put(getKNNDefaultIndexSettings()).build();
         final boolean valid = randomBoolean();
         final String method = KNNConstants.METHOD_HNSW;
@@ -275,7 +277,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testVectorMappingValidation_noDimension() throws Exception {
-        assumeUncompressed();
         Settings settings = Settings.builder().put(getKNNDefaultIndexSettings()).build();
 
         String mapping = XContentFactory.jsonBuilder()
@@ -293,7 +294,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testVectorMappingValidation_invalidDimension() {
-        assumeUncompressed();
         Settings settings = Settings.builder().put(getKNNDefaultIndexSettings()).build();
 
         Exception ex = expectThrows(
@@ -316,7 +316,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testVectorMappingValidation_invalidVectorNaN() throws IOException {
-        assumeUncompressed();
         Settings settings = Settings.builder().put(getKNNDefaultIndexSettings()).build();
 
         createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, 2));
@@ -327,7 +326,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testVectorMappingValidation_invalidVectorInfinity() throws IOException {
-        assumeUncompressed();
         Settings settings = Settings.builder().put(getKNNDefaultIndexSettings()).build();
 
         createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, 2));
@@ -338,7 +336,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testVectorMappingValidation_updateDimension() throws Exception {
-        assumeUncompressed();
         Settings settings = Settings.builder().put(getKNNDefaultIndexSettings()).build();
 
         createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, 4));
@@ -348,7 +345,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testVectorMappingValidation_multiFieldsDifferentDimension() throws Exception {
-        assumeUncompressed();
         Settings settings = Settings.builder().put(getKNNDefaultIndexSettings()).build();
 
         String f4 = FIELD_NAME + "-4";
@@ -380,7 +376,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testExistsQuery() throws Exception {
-        assumeUncompressed();
         String field1 = "field1";
         String field2 = "field2";
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(Arrays.asList(field1, field2), Arrays.asList(2, 2)));
@@ -415,7 +410,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testIndexingVectorValidation_updateVectorWithNull() throws Exception {
-        assumeUncompressed();
         Settings settings = Settings.builder().put(getKNNDefaultIndexSettings()).build();
 
         createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, 4));
@@ -599,7 +593,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testKNNIndex_whenBuildGraphThresholdIsPresent_thenGetThresholdValue() throws Exception {
-        assumeUncompressed();
         final Integer buildVectorDataStructureThreshold = randomIntBetween(
             INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MIN,
             INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MAX
@@ -622,7 +615,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testKNNIndex_whenBuildThresholdIsNotProvided_thenShouldNotReturnSetting() throws Exception {
-        assumeUncompressed();
         final String knnIndexMapping = createKnnIndexMapping(FIELD_NAME, KNNEngine.getMaxDimensionByEngine(KNNEngine.DEFAULT));
         final String indexName = "test-index-with-build-graph-settings";
         createKnnIndex(indexName, getDefaultIndexSettings(), knnIndexMapping);
@@ -638,7 +630,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testKNNIndex_whenGetIndexSettingWithDefaultIsCalled_thenReturnDefaultBuildGraphThresholdValue() throws Exception {
-        assumeUncompressed();
         final String knnIndexMapping = createKnnIndexMapping(FIELD_NAME, KNNEngine.getMaxDimensionByEngine(KNNEngine.DEFAULT));
         final String indexName = "test-index-with-build-vector-graph-settings";
         createKnnIndex(indexName, getDefaultIndexSettings(), knnIndexMapping);
@@ -784,7 +775,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testCreateNonKNNIndex_withKNNModelID_throwsException() throws Exception {
-        assumeUncompressed();
         Settings settings = Settings.builder().put(createKNNDefaultScriptScoreSettings()).build();
         ResponseException ex = expectThrows(
             ResponseException.class,
@@ -795,7 +785,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testCreateNonKNNIndex_withKNNMethodParams_throwsException() throws Exception {
-        assumeUncompressed();
         Settings settings = Settings.builder().put(createKNNDefaultScriptScoreSettings()).build();
         ResponseException ex = expectThrows(
             ResponseException.class,
@@ -899,7 +888,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
 
     @ExpectRemoteBuildValidation
     public void testKNNIndexSearchFieldsParameter() throws Exception {
-        assumeUncompressed();
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(Arrays.asList("vector1", "vector2", "vector3"), Arrays.asList(2, 3, 5)));
         // Add docs with knn_vector fields
         for (int i = 1; i <= 20; i++) {
@@ -982,7 +970,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
 
     @ExpectRemoteBuildValidation
     public void testKNNIndexSearchFieldsParameterWithOtherFields() throws Exception {
-        assumeUncompressed();
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
@@ -1089,7 +1076,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
 
     @ExpectRemoteBuildValidation
     public void testKNNIndexSearchFieldsParameterDocsWithOnlyOtherFields() throws Exception {
-        assumeUncompressed();
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
@@ -1187,7 +1173,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testKNNVectorMappingUpdate_whenMethodRemoved_thenThrowsException() throws Exception {
-        assumeUncompressed();
         String indexName = "test-knn-index";
         String fieldName = "my_vector2";
 
@@ -1225,7 +1210,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testCreateKNNIndexWithDifferentDimension() throws Exception {
-        assumeUncompressed();
         String indexName = "test-knn-index-partial";
         String fieldName = "my_vector2";
 
@@ -1249,7 +1233,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testKNNVectorMappingUpdate_whenMethodPartiallyRemoved_thenThrowsException() throws Exception {
-        assumeUncompressed();
         String indexName = "test-knn-index-success";
         String fieldName = "my_vector2";
 
@@ -1288,7 +1271,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testKNNSearchWithProfilerEnabled() throws Exception {
-        assumeUncompressed();
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(Arrays.asList("vector1", "vector2"), Arrays.asList(2, 3)));
         // Add docs with knn_vector fields
         for (int i = 1; i <= 20; i++) {
@@ -1341,7 +1323,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testKNNSearchWithProfilerEnabled_FaissNested() throws Exception {
-        assumeUncompressed();
         int dimension = 3;
         String nestedFieldPath = "nested_field.my_vector";
         String mapping = createKnnIndexNestedMapping(dimension, nestedFieldPath, "faiss");
@@ -1409,7 +1390,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testKNNSearchWithProfilerEnabled_MultipleResults() throws Exception {
-        assumeUncompressed();
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(Arrays.asList("vector1", "vector2"), Arrays.asList(2, 3)));
         // Add docs with knn_vector fields
         for (int i = 1; i <= 20; i++) {
@@ -1452,7 +1432,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testKNNSearchWithProfilerEnabled_FaissFilter() throws Exception {
-        assumeUncompressed();
         int dim = 3;
         String mapping = createKnnIndexMapping(FIELD_NAME, dim, "hnsw", "faiss", "l2", false);
         createKnnIndex(INDEX_NAME, mapping);
@@ -1594,7 +1573,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testKNNSearchWithProfilerEnabled_Rescore() throws Exception {
-        assumeUncompressed();
         int dim = 3;
         int k = 2;
         createOnDiskIndex(INDEX_NAME, dim, SpaceType.L2); // by default uses 32x and FAISS IVF
@@ -1650,7 +1628,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testKNNSearchWithProfilerEnabled_RescoreComplex() throws Exception {
-        assumeUncompressed();
         int dim = 3;
         int k = 2;
         createOnDiskIndex(INDEX_NAME, dim, SpaceType.L2); // by default uses 32x and FAISS IVF
@@ -1705,7 +1682,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testKNNSearchWithProfilerEnabled_RescoreLucene() throws Exception {
-        assumeUncompressed();
         int dim = 3;
         int k = 2;
         String mapping = createKnnIndexMapping(FIELD_NAME, dim, "hnsw", "lucene", "l2", false);
@@ -1762,7 +1738,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testKNNSearchWithProfilerEnabled_Radial() throws Exception {
-        assumeUncompressed();
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(Arrays.asList("vector1", "vector2"), Arrays.asList(2, 3)));
         // Add docs with knn_vector fields
         for (int i = 1; i <= 20; i++) {

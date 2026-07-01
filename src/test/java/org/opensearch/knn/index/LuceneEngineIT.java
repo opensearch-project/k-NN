@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
@@ -20,7 +21,8 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
@@ -30,6 +32,7 @@ import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -55,7 +58,16 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.VECTOR;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
-public class LuceneEngineIT extends KNNRestTestCase {
+public class LuceneEngineIT extends KNNCompressionRestTestCase {
+
+    public LuceneEngineIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
+
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 });
+    }
 
     private static final int DIMENSION = 3;
     private static final String DOC_ID = "doc1";
@@ -153,8 +165,9 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .startObject(PROPERTIES_FIELD_NAME)
             .startObject(luceneField)
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-            .field(DIMENSION_FIELD_NAME, DIMENSION)
-            .startObject(KNNConstants.KNN_METHOD)
+            .field(DIMENSION_FIELD_NAME, DIMENSION);
+        addCompressionMappingFields(builder);
+        builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, luceneSpaceType.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
@@ -166,8 +179,9 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .endObject()
             .startObject(nmslibField)
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-            .field(DIMENSION_FIELD_NAME, DIMENSION)
-            .startObject(KNNConstants.KNN_METHOD)
+            .field(DIMENSION_FIELD_NAME, DIMENSION);
+        addCompressionMappingFields(builder);
+        builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, nmslibSpaceType.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
@@ -204,8 +218,9 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .startObject(PROPERTIES_FIELD_NAME)
             .startObject(FIELD_NAME)
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-            .field(DIMENSION_FIELD_NAME, DIMENSION)
-            .startObject(KNNConstants.KNN_METHOD)
+            .field(DIMENSION_FIELD_NAME, DIMENSION);
+        addCompressionMappingFields(builder);
+        builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
@@ -296,8 +311,9 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .startObject(PROPERTIES_FIELD_NAME)
             .startObject(FIELD_NAME)
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-            .field(DIMENSION_FIELD_NAME, DIMENSION)
-            .startObject(KNNConstants.KNN_METHOD)
+            .field(DIMENSION_FIELD_NAME, DIMENSION);
+        addCompressionMappingFields(builder);
+        builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
@@ -341,8 +357,9 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .startObject(PROPERTIES_FIELD_NAME)
             .startObject(FIELD_NAME)
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-            .field(DIMENSION_FIELD_NAME, DIMENSION)
-            .startObject(KNNConstants.KNN_METHOD)
+            .field(DIMENSION_FIELD_NAME, DIMENSION);
+        addCompressionMappingFields(builder);
+        builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
@@ -943,8 +960,11 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .startObject(FIELD_NAME)
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
             .field(DIMENSION_FIELD_NAME, dimension)
-            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType)
-            .startObject(KNNConstants.KNN_METHOD)
+            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType);
+        if (vectorDataType == VectorDataType.FLOAT) {
+            addCompressionMappingFields(builder);
+        }
+        builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
@@ -1049,8 +1069,9 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .startObject("properties")
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
-            .field("dimension", 2)
-            .startObject(KNNConstants.KNN_METHOD)
+            .field("dimension", 2);
+        addCompressionMappingFields(builder);
+        builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE)
@@ -1219,8 +1240,9 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .startObject(PROPERTIES_FIELD_NAME)
             .startObject(FIELD_NAME)
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-            .field(DIMENSION_FIELD_NAME, DIMENSION)
-            .startObject(KNNConstants.KNN_METHOD)
+            .field(DIMENSION_FIELD_NAME, DIMENSION);
+        addCompressionMappingFields(builder);
+        builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())

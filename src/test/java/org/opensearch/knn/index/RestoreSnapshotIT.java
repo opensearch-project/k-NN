@@ -5,22 +5,37 @@
 
 package org.opensearch.knn.index;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.junit.Before;
 import org.junit.Test;
 import lombok.SneakyThrows;
+
+import java.util.List;
+import java.util.Collection;
+
 import static org.hamcrest.Matchers.containsString;
 
-public class RestoreSnapshotIT extends KNNRestTestCase {
+public class RestoreSnapshotIT extends KNNCompressionRestTestCase {
 
     private String index = "test-index";;
     private String snapshot = "snapshot-" + index;
     private String repository = "repo";
+
+    public RestoreSnapshotIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
+
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 });
+    }
 
     @Before
     @SneakyThrows

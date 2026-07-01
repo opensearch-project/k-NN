@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.index;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import com.carrotsearch.randomizedtesting.annotations.TimeoutSuite;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -30,7 +31,8 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
@@ -44,6 +46,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -81,13 +84,22 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 @TimeoutSuite(millis = 40 * TimeUnits.MINUTE)
-public class FaissIT extends KNNRestTestCase {
+public class FaissIT extends KNNCompressionRestTestCase {
+
+    public FaissIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
+
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 });
+    }
+
     private static final String DOC_ID_1 = "doc1";
     private static final String DOC_ID_2 = "doc2";
     private static final String DOC_ID_3 = "doc3";
@@ -238,7 +250,6 @@ public class FaissIT extends KNNRestTestCase {
         deleteKNNIndex(INDEX_NAME);
     }
 
-    // Pinned to FP32: relies on uncompressed score precision
     @SneakyThrows
     public void testRadialSearchWithCosineAndFilter_ensureThresholdEnforced_thenSucceed() {
         String indexName = "test-index-cosine-radial";
@@ -252,7 +263,6 @@ public class FaissIT extends KNNRestTestCase {
             .startObject(FIELD_NAME)
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
             .field(DIMENSION_FIELD_NAME, dimension)
-            .field(COMPRESSION_LEVEL_PARAMETER, "1x")
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
@@ -867,7 +877,6 @@ public class FaissIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testIVFSQFP16_whenIndexedAndQueried_thenSucceed() {
-
         String modelId = "test-model-ivf-sqfp16";
         int dimension = 128;
         int numDocs = 100;
@@ -2380,45 +2389,38 @@ public class FaissIT extends KNNRestTestCase {
         assertEquals(1, resultsQuery2.size());
     }
 
-    // Pinned to FP32: relies on uncompressed score precision
     public void testCosineSimilarity_withHNSW_withExactSearch_thenSucceed() throws Exception {
         testCosineSimilarityForApproximateSearch(NEVER_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD);
     }
 
-    // Pinned to FP32: relies on uncompressed score precision
     @ExpectRemoteBuildValidation
     public void testCosineSimilarity_withHNSW_withApproximate_thenSucceed() throws Exception {
         testCosineSimilarityForApproximateSearch(ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD);
         validateGraphEviction();
     }
 
-    // Pinned to FP32: relies on uncompressed score precision
     @ExpectRemoteBuildValidation
     public void testCosineSimilarity_withGraph_withRadialSearch_withDistanceThreshold_thenSucceed() throws Exception {
         testCosineSimilarityForRadialSearch(ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, null, 0.1f);
         validateGraphEviction();
     }
 
-    // Pinned to FP32: relies on uncompressed score precision
     @ExpectRemoteBuildValidation
     public void testCosineSimilarity_withGraph_withRadialSearch_withScore_thenSucceed() throws Exception {
         testCosineSimilarityForRadialSearch(ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, 0.9f, null);
         validateGraphEviction();
     }
 
-    // Pinned to FP32: relies on uncompressed score precision
     public void testCosineSimilarity_withNoGraphs_withRadialSearch_withDistanceThreshold_thenSucceed() throws Exception {
         testCosineSimilarityForRadialSearch(NEVER_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, null, 0.1f);
         validateGraphEviction();
     }
 
-    // Pinned to FP32: relies on uncompressed score precision
     public void testCosineSimilarity_withNoGraphs_withRadialSearch_withScore_thenSucceed() throws Exception {
         testCosineSimilarityForRadialSearch(NEVER_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, 0.9f, null);
         validateGraphEviction();
     }
 
-    // Pinned to FP32: relies on uncompressed score precision
     public void testEndToEnd_withApproxAndExactSearch_inSameIndex_ForCosineSpaceType() throws Exception {
         String indexName = randomLowerCaseString();
         String fieldName = randomLowerCaseString();
@@ -2430,9 +2432,9 @@ public class FaissIT extends KNNRestTestCase {
             .startObject("properties")
             .startObject(fieldName)
             .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .field(COMPRESSION_LEVEL_PARAMETER, "1x")
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field("dimension", dimension);
+        addCompressionMappingFields(builder);
+        builder.field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
@@ -2650,9 +2652,9 @@ public class FaissIT extends KNNRestTestCase {
             .startObject("properties")
             .startObject(fieldName)
             .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .field(COMPRESSION_LEVEL_PARAMETER, "1x")
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field("dimension", dimension);
+        addCompressionMappingFields(builder);
+        builder.field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())

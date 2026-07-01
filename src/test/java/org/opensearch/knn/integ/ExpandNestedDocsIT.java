@@ -38,7 +38,6 @@ import static com.carrotsearch.randomizedtesting.RandomizedTest.$;
 import static com.carrotsearch.randomizedtesting.RandomizedTest.$$;
 import static org.opensearch.knn.common.Constants.FIELD_FILTER;
 import static org.opensearch.knn.common.Constants.FIELD_TERM;
-import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.EXPAND_NESTED;
 import static org.opensearch.knn.common.KNNConstants.K;
@@ -83,7 +82,7 @@ public class ExpandNestedDocsIT extends KNNCompressionRestTestCase {
     }
 
     private static CompressionTestConfig deriveCompressionConfig(VectorDataType dataType, Mode mode) {
-        return (mode == Mode.ON_DISK && dataType == VectorDataType.FLOAT) ? CompressionTestConfig.SQ_1BIT : CompressionTestConfig.FP32;
+        return (mode == Mode.ON_DISK && dataType == VectorDataType.FLOAT) ? CompressionTestConfig.X32 : CompressionTestConfig.X1;
     }
 
     @ParametersFactory(argumentFormatting = "description:%1$s; engine:%2$s, data_type:%3$s, mode:%4$s, dimension:%5$s")
@@ -440,7 +439,7 @@ public class ExpandNestedDocsIT extends KNNCompressionRestTestCase {
             .field(MODE_PARAMETER, Mode.NOT_CONFIGURED.equals(mode) ? null : mode.getName())
             .field(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
         if (vectorDataType == VectorDataType.FLOAT) {
-            builder.field(COMPRESSION_LEVEL_PARAMETER, compressionConfig.getCompressionLevelName());
+            addCompressionMappingFields(builder);
         }
         builder.startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)

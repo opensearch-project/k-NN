@@ -12,7 +12,8 @@ import org.junit.Before;
 import org.opensearch.client.Response;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -48,7 +49,7 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR_FIELD_PATH;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_FIELD_SPACE_TYPE;
 import static org.opensearch.search.pipeline.SearchPipelineService.ENABLED_SYSTEM_GENERATED_FACTORIES_SETTING;
 
-public class MMRSearchExtBuilderIT extends KNNRestTestCase {
+public class MMRSearchExtBuilderIT extends KNNCompressionRestTestCase {
     private static final int DIMENSION_NUM = 2;
     private static final String FIELD_NAME = "vector_field";
     private static final String INDEX_NAME = "test_index";
@@ -57,6 +58,10 @@ public class MMRSearchExtBuilderIT extends KNNRestTestCase {
     private static final float[] DIVERSE_VECTOR_1 = new float[] { 1f, 2f };
     private static final float[] DIVERSE_VECTOR_2 = new float[] { 2f, 1f };
     private float DELTA = 1e-6F;
+
+    public MMRSearchExtBuilderIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
 
     @Before
     public void setUpForMMR() {
@@ -225,8 +230,9 @@ public class MMRSearchExtBuilderIT extends KNNRestTestCase {
             .startObject(PROPERTIES_FIELD)
             .startObject(FIELD_NAME)
             .field(TYPE, TYPE_KNN_VECTOR)
-            .field(DIMENSION, DIMENSION_NUM)
-            .startObject(KNN_METHOD)
+            .field(DIMENSION, DIMENSION_NUM);
+        addCompressionMappingFields(mappingBuilder);
+        mappingBuilder.startObject(KNN_METHOD)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
             .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .field(NAME, METHOD_HNSW)

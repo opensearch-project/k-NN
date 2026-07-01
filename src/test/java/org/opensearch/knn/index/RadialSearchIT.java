@@ -496,7 +496,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
         Response response = searchKNNIndex(indexName, query, 10);
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
 
-        if (compressionConfig == CompressionTestConfig.FP32) {
+        if (compressionConfig == CompressionTestConfig.X1) {
             assertEquals(
                 String.format("[%s] Expected %d results but got %d", testName, expectedCount, results.size()),
                 expectedCount,

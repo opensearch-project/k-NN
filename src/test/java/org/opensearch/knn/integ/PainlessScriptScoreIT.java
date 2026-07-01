@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.integ;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import lombok.SneakyThrows;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.CompressionTestConfig;
@@ -29,6 +30,7 @@ import org.opensearch.script.Script;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -46,6 +48,11 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
 
     public PainlessScriptScoreIT(CompressionTestConfig compressionConfig) {
         super(compressionConfig);
+    }
+
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 });
     }
 
     /*
@@ -128,7 +135,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testL2ScriptScoreFails() throws Exception {
-        assumeUncompressed();
         String source = String.format("1/(1 + l2Squared([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
         Request request = buildPainlessScoreScriptRequest(source, 3, getL2TestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
@@ -190,7 +196,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testL2ScriptScore() throws Exception {
-        assumeUncompressed();
 
         String source = String.format("1/(1 + l2Squared([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
         Request request = buildPainlessScoreScriptRequest(source, 3, getL2TestData());
@@ -240,7 +245,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testGetValueReturnsDocValues() throws Exception {
-        assumeUncompressed();
 
         String source = String.format("doc['%s'].value[0]", FIELD_NAME);
         Map<String, Float[]> testData = getKnnVectorTestData();
@@ -260,7 +264,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testGetValueScriptFailsWithMissingField() throws Exception {
-        assumeUncompressed();
         String source = String.format("doc['%s']", FIELD_NAME);
         Request request = buildPainlessScoreScriptRequest(source, 3, getKnnVectorTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
@@ -269,7 +272,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testGetValueScriptFailsWithOutOfBoundException() throws Exception {
-        assumeUncompressed();
         Map<String, Float[]> testData = getKnnVectorTestData();
         String source = String.format("doc['%s'].value[%d]", FIELD_NAME, testData.get("1").length);
         Request request = buildPainlessScoreScriptRequest(source, testData.size(), testData);
@@ -278,7 +280,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testGetValueScriptScoreWithNumericField() throws Exception {
-        assumeUncompressed();
 
         String source = String.format("doc['%s'].size() == 0 ? 0 : doc['%s'].value[0]", FIELD_NAME, FIELD_NAME);
         Map<String, Float[]> testData = getKnnVectorTestData();
@@ -298,7 +299,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testL2ScriptScoreWithNumericField() throws Exception {
-        assumeUncompressed();
 
         String source = String.format("doc['%s'].size() == 0 ? 0 : 1/(1 + l2Squared([1.0f, 1.0f], doc['%s']))", FIELD_NAME, FIELD_NAME);
         Request request = buildPainlessScoreScriptRequest(source, 3, getL2TestData());
@@ -317,7 +317,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testCosineSimilarityScriptScoreFails() throws Exception {
-        assumeUncompressed();
         String source = String.format("1 + cosineSimilarity([2.0f, -2.0f], doc['%s'])", FIELD_NAME);
         Request request = buildPainlessScoreScriptRequest(source, 3, getCosineTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
@@ -326,7 +325,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testCosineSimilarityScriptScore() throws Exception {
-        assumeUncompressed();
         String source = String.format("1 + cosineSimilarity([2.0f, -2.0f], doc['%s'])", FIELD_NAME);
         Request request = buildPainlessScoreScriptRequest(source, 3, getCosineTestData());
         Response response = client().performRequest(request);
@@ -343,7 +341,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testCosineSimilarityScriptScoreWithNumericField() throws Exception {
-        assumeUncompressed();
         String source = String.format("doc['%s'].size() == 0 ? 0 : 1 + cosineSimilarity([2.0f, -2.0f], doc['%s'])", FIELD_NAME, FIELD_NAME);
         Request request = buildPainlessScoreScriptRequest(source, 3, getCosineTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
@@ -362,7 +359,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
 
     // test fails without size check before executing method
     public void testCosineSimilarityNormalizedScriptScoreFails() throws Exception {
-        assumeUncompressed();
         String source = String.format("1 + cosineSimilarity([2.0f, -2.0f], doc['%s'], 3.0f)", FIELD_NAME);
         Request request = buildPainlessScoreScriptRequest(source, 3, getCosineTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
@@ -371,7 +367,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testCosineSimilarityNormalizedScriptScore() throws Exception {
-        assumeUncompressed();
         String source = String.format("1 + cosineSimilarity([2.0f, -2.0f], doc['%s'], 3.0f)", FIELD_NAME);
         Request request = buildPainlessScoreScriptRequest(source, 3, getCosineTestData());
         Response response = client().performRequest(request);
@@ -388,7 +383,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testCosineSimilarityNormalizedScriptScoreWithNumericField() throws Exception {
-        assumeUncompressed();
         String source = String.format(
             "doc['%s'].size() == 0 ? 0 : 1 + cosineSimilarity([2.0f, -2.0f], doc['%s'], 3.0f)",
             FIELD_NAME,
@@ -411,7 +405,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
 
     // L1 tests
     public void testL1ScriptScoreFails() throws Exception {
-        assumeUncompressed();
         String source = String.format("1/(1 + l1Norm([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
         Request request = buildPainlessScoreScriptRequest(source, 3, getL1TestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
@@ -420,7 +413,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testL1ScriptScore() throws Exception {
-        assumeUncompressed();
 
         String source = String.format("1/(1 + l1Norm([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
         Request request = buildPainlessScoreScriptRequest(source, 3, getL1TestData());
@@ -439,7 +431,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testL1ScriptScoreWithNumericField() throws Exception {
-        assumeUncompressed();
 
         String source = String.format("doc['%s'].size() == 0 ? 0 : 1/(1 + l1Norm([1.0f, 1.0f], doc['%s']))", FIELD_NAME, FIELD_NAME);
         Request request = buildPainlessScoreScriptRequest(source, 3, getL1TestData());
@@ -459,7 +450,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
 
     // L-inf tests
     public void testLInfScriptScoreFails() throws Exception {
-        assumeUncompressed();
         String source = String.format("1/(1 + lInfNorm([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
         Request request = buildPainlessScoreScriptRequest(source, 3, getLInfTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
@@ -468,7 +458,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testLInfScriptScore() throws Exception {
-        assumeUncompressed();
 
         String source = String.format("1/(1 + lInfNorm([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
         Request request = buildPainlessScoreScriptRequest(source, 3, getLInfTestData());
@@ -487,7 +476,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testLInfScriptScoreWithNumericField() throws Exception {
-        assumeUncompressed();
 
         String source = String.format("doc['%s'].size() == 0 ? 0 : 1/(1 + lInfNorm([1.0f, 1.0f], doc['%s']))", FIELD_NAME, FIELD_NAME);
         Request request = buildPainlessScoreScriptRequest(source, 3, getLInfTestData());
@@ -506,7 +494,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testInnerProdScriptScoreFails() throws Exception {
-        assumeUncompressed();
         String source = String.format("float x = innerProduct([1.0f, 1.0f], doc['%s']); return x >= 0? 2-1/(x+1):1/(1-x);", FIELD_NAME);
         Request request = buildPainlessScoreScriptRequest(source, 3, getInnerProdTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
@@ -515,7 +502,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testInnerProdScriptScore() throws Exception {
-        assumeUncompressed();
 
         String source = String.format("float x = innerProduct([1.0f, 1.0f], doc['%s']); return x >= 0? 2-1/(x+1):1/(1-x);", FIELD_NAME);
         Request request = buildPainlessScoreScriptRequest(source, 3, getInnerProdTestData());
@@ -534,7 +520,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testInnerProdScriptScoreWithNumericField() throws Exception {
-        assumeUncompressed();
 
         String source = String.format(
             "if (doc['%s'].size() == 0) "
@@ -560,7 +545,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testScriptedMetricIsSupported() throws Exception {
-        assumeUncompressed();
         Map<String, Float[]> testData = getKnnVectorTestData();
         // sum of first value from each vector
         String initScriptSource = "state.x = []";
@@ -589,7 +573,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     }
 
     public void testL2ScriptingWithLuceneBackedIndex() throws Exception {
-        assumeUncompressed();
         List<MappingProperty> properties = new ArrayList<>();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             KNNEngine.LUCENE,
@@ -624,7 +607,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
 
     @SneakyThrows
     public void testHammingPainlessScript_whenBinary_thenSuccess() {
-        assumeUncompressed();
         int dimensions = 16;
         String mappingForKnnDisabled = createKnnIndexMapping(FIELD_NAME, dimensions, VectorDataType.BINARY);
 
@@ -649,7 +631,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
 
     @SneakyThrows
     public void testPainlessScript_whenNonBinary_thenException() {
-        assumeUncompressed();
         int dimensions = 2;
         String mapping = createKnnIndexMapping(FIELD_NAME, dimensions);
         String source = String.format("1/(1 + hamming([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
@@ -662,7 +643,6 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
 
     @SneakyThrows
     public void testNonPainlessScript_whenBinary_thenException() {
-        assumeUncompressed();
         List<String> functions = Arrays.asList("l2Squared", "lInfNorm", "l1Norm", "innerProduct", "cosineSimilarity");
         int dimensions = 16;
         String mapping = createKnnIndexMapping(FIELD_NAME, dimensions, VectorDataType.BINARY);

@@ -9,6 +9,11 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.DerivedSourceTestCase;
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
+import org.opensearch.knn.CompressionTestConfig;
+
+import java.util.Collection;
+import java.util.List;
 import org.opensearch.knn.DerivedSourceUtils;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 
@@ -23,6 +28,15 @@ import static org.opensearch.knn.TestUtils.NODES_BWC_CLUSTER;
 import static org.opensearch.knn.TestUtils.RESTART_UPGRADE_OLD_CLUSTER;
 
 public class DerivedSourceBWCRestartIT extends DerivedSourceTestCase {
+
+    public DerivedSourceBWCRestartIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
+
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 });
+    }
 
     public void testFlat_indexAndForceMergeOnOld_injectOnNew() throws IOException {
         List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = getFlatIndexContexts("knn-bwc", false, false);

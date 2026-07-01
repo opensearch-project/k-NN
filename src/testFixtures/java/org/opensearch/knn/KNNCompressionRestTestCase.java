@@ -49,18 +49,18 @@ public abstract class KNNCompressionRestTestCase extends KNNRestTestCase {
     }
 
     /**
-     * Default parameterization that runs tests for both FP32 and SQ_1BIT compression.
+     * Default parameterization that runs tests for both X1 and X32 compression.
      * Subclasses can override this method to filter which compression configs they support.
      */
     @ParametersFactory(argumentFormatting = "compression:%1$s")
     public static Collection<Object[]> compressionParameters() {
-        return Arrays.asList(new Object[] { CompressionTestConfig.FP32 }, new Object[] { CompressionTestConfig.SQ_1BIT });
+        return Arrays.asList(new Object[] { CompressionTestConfig.X1 }, new Object[] { CompressionTestConfig.X32 });
     }
 
     /**
      * Returns supported compression configurations for this test class.
      * Override this method to restrict which compression levels a test supports.
-     * Default: all configurations (FP32, SQ_1BIT)
+     * Default: all configurations (NOT_CONFIGURED, X32)
      */
     protected List<CompressionTestConfig> supportedConfigs() {
         return Arrays.asList(CompressionTestConfig.values());
@@ -93,10 +93,9 @@ public abstract class KNNCompressionRestTestCase extends KNNRestTestCase {
             .startObject("properties")
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .field(MODE_PARAMETER, compressionConfig.getModeName())
-            .field(COMPRESSION_LEVEL_PARAMETER, compressionConfig.getCompressionLevelName());
+            .field("dimension", dimension);
 
+        addCompressionMappingFields(builder);
         addMethodParams(builder, engine, spaceType, m, efConstruction);
         builder.endObject().endObject().endObject();
 
@@ -113,10 +112,9 @@ public abstract class KNNCompressionRestTestCase extends KNNRestTestCase {
             .startObject("properties")
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .field(MODE_PARAMETER, compressionConfig.getModeName())
-            .field(COMPRESSION_LEVEL_PARAMETER, compressionConfig.getCompressionLevelName());
+            .field("dimension", dimension);
 
+        addCompressionMappingFields(builder);
         addMethodParams(builder, engine, spaceType, DEFAULT_HNSW_M, DEFAULT_HNSW_EF_CONSTRUCTION);
         builder.endObject().startObject("category").field("type", "keyword").endObject().endObject().endObject();
 
@@ -148,23 +146,21 @@ public abstract class KNNCompressionRestTestCase extends KNNRestTestCase {
         for (float score : scores) {
             assertTrue("Score should be positive", score > 0.0f);
 
-            // Space type specific bounds (compression affects precision but not valid range)
             switch (spaceType) {
                 case L2:
-                    // L2 scores are transformed: score = 1/(1+distance), so 0 < score <= 1
+
                     assertTrue("L2 score should be <= 1.0", score <= 1.0f);
                     break;
                 case COSINESIMIL:
-                    // Cosine scores: 0 < score <= 2 (after transformation)
+
                     assertTrue("Cosine score should be <= 2.0", score <= 2.0f);
                     break;
                 case INNER_PRODUCT:
-                    // IP scores can be any positive value after transformation
+
                     break;
             }
         }
 
-        // Verify scores are in descending order (relevance ranking)
         for (int i = 0; i < scores.size() - 1; i++) {
             assertTrue("Scores should be in descending order", scores.get(i) >= scores.get(i + 1));
         }
@@ -175,29 +171,19 @@ public abstract class KNNCompressionRestTestCase extends KNNRestTestCase {
      * Quantized compression generally has lower recall due to approximation.
      */
     protected float getMinRecallThreshold(SpaceType spaceType) {
-        if (compressionConfig == CompressionTestConfig.FP32) {
-            return 0.95f; // High precision expectation for uncompressed
+        if (compressionConfig == CompressionTestConfig.X1) {
+            return 0.95f;
         }
 
-        // Quantized thresholds vary by space type due to different approximation characteristics
         switch (spaceType) {
             case L2:
             case COSINESIMIL:
                 return 0.70f;
             case INNER_PRODUCT:
-                return 0.60f; // IP quantization can be more lossy
+                return 0.60f;
             default:
                 return 0.70f;
         }
-    }
-
-    /**
-     * Skips the current test for any non-FP32 configuration. Use in tests that assert
-     * uncompressed-specific behavior (exact scores, memory size, settings, mapping round-trips)
-     * so they execute only once under the parameterized class.
-     */
-    protected void assumeUncompressed() {
-        assumeTrue("Test is only applicable to the uncompressed (FP32) configuration", compressionConfig == CompressionTestConfig.FP32);
     }
 
     /**
@@ -205,7 +191,7 @@ public abstract class KNNCompressionRestTestCase extends KNNRestTestCase {
      * All configurations support it since script scoring uses stored vectors, not quantized index.
      */
     protected boolean isScriptScoringSupported() {
-        return true; // Script scoring works on doc_values regardless of index compression
+        return true;
     }
 
     /**
@@ -213,7 +199,7 @@ public abstract class KNNCompressionRestTestCase extends KNNRestTestCase {
      * Both FP32 and quantized support radial search.
      */
     protected boolean isRadialSearchSupported() {
-        return true; // Radial search supported for all compression levels
+        return true;
     }
 
     /**
@@ -238,6 +224,21 @@ public abstract class KNNCompressionRestTestCase extends KNNRestTestCase {
         if (compressionConfig.isCompressed()) {
             builder.field(MODE_PARAMETER, compressionConfig.getModeName());
         }
+    }
+
+    /**
+     * Applies the compression-related fields (compression_level and mode when compressed) to a
+     * {@link KNNJsonIndexMappingsBuilder} builder. Returns the same builder so it can be chained
+     * fluently. Injects nothing for the NOT_CONFIGURED configuration.
+     */
+    protected KNNJsonIndexMappingsBuilder.KNNJsonIndexMappingsBuilderBuilder addCompressionMappingFields(
+        KNNJsonIndexMappingsBuilder.KNNJsonIndexMappingsBuilderBuilder builder
+    ) {
+        if (compressionConfig.isCompressed()) {
+            builder.compressionLevel(compressionConfig.getCompressionLevelName());
+            builder.mode(compressionConfig.getModeName());
+        }
+        return builder;
     }
 
     @SneakyThrows

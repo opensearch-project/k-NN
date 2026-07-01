@@ -314,8 +314,6 @@ public class Compression32XIT extends KNNCompressionRestTestCase {
         assertEquals(label() + " min_score should succeed", 200, minScoreResponse.getStatusLine().getStatusCode());
     }
 
-    // Script scoring operates on raw vectors, so x32 and fp32 indices must return identical scores.
-    // Builds both compression variants internally, so it runs once per engine under the compressed config.
     @SneakyThrows
     public void testScriptScoring() {
         assumeTrue(

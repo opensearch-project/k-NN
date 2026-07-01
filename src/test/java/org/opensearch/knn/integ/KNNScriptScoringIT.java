@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.integ;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
+
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -41,6 +43,7 @@ import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -71,60 +74,55 @@ public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
         super(compressionConfig);
     }
 
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 });
+    }
+
     @ExpectRemoteBuildValidation
     public void testKNNL2ScriptScore() throws Exception {
-        assumeUncompressed();
         testKNNScriptScore(SpaceType.L2);
     }
 
     public void testKNNL2ByteScriptScore() throws Exception {
-        assumeUncompressed();
         testKNNByteScriptScore(SpaceType.L2);
     }
 
     @ExpectRemoteBuildValidation
     public void testKNNL1ScriptScore() throws Exception {
-        assumeUncompressed();
         testKNNScriptScore(SpaceType.L1);
     }
 
     public void testKNNL1ByteScriptScore() throws Exception {
-        assumeUncompressed();
         testKNNByteScriptScore(SpaceType.L1);
     }
 
     @ExpectRemoteBuildValidation
     public void testKNNLInfScriptScore() throws Exception {
-        assumeUncompressed();
         testKNNScriptScore(SpaceType.LINF);
     }
 
     public void testKNNLInfByteScriptScore() throws Exception {
-        assumeUncompressed();
         testKNNByteScriptScore(SpaceType.LINF);
     }
 
     @ExpectRemoteBuildValidation
     public void testKNNCosineScriptScore() throws Exception {
-        assumeUncompressed();
         testKNNScriptScore(SpaceType.COSINESIMIL);
     }
 
     public void testKNNByteCosineScriptScore() throws Exception {
-        assumeUncompressed();
         testKNNByteScriptScore(SpaceType.COSINESIMIL);
     }
 
     @SneakyThrows
     public void testKNNHammingScriptScore() {
-        assumeUncompressed();
         testKNNScriptScoreOnBinaryIndex(SpaceType.HAMMING);
     }
 
     @SuppressWarnings("unchecked")
     @SneakyThrows
     public void testKNNHammingScriptScore_whenNonBinary_thenException() {
-        assumeUncompressed();
         final int dims = randomIntBetween(2, 10) * 8;
         final float[] queryVector = randomVector(dims, VectorDataType.BYTE);
         final BiFunction<byte[], byte[], Float> scoreFunction = (BiFunction<byte[], byte[], Float>) getScoreFunction(
@@ -153,7 +151,6 @@ public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
 
     @SuppressWarnings("unchecked")
     public void testKNNNonHammingScriptScore_whenBinary_thenException() {
-        assumeUncompressed();
         final int dims = randomIntBetween(2, 10) * 8;
         final float[] queryVector = randomVector(dims, VectorDataType.BINARY);
         final BiFunction<byte[], byte[], Float> scoreFunction = (BiFunction<byte[], byte[], Float>) getScoreFunction(
@@ -181,7 +178,6 @@ public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
     }
 
     public void testKNNInvalidSourceScript() throws Exception {
-        assumeUncompressed();
         /*
          * Create knn index and populate data
          */
@@ -223,7 +219,6 @@ public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
     }
 
     public void testInvalidSpace() throws Exception {
-        assumeUncompressed();
         String INVALID_SPACE = "dummy";
         /*
          * Create knn index and populate data
@@ -248,7 +243,6 @@ public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
     }
 
     public void testMissingParamsInScript() throws Exception {
-        assumeUncompressed();
         /*
          * Create knn index and populate data
          */
@@ -282,7 +276,6 @@ public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
     }
 
     public void testUnequalDimensions() throws Exception {
-        assumeUncompressed();
         /*
          * Create knn index and populate data
          */
@@ -306,7 +299,6 @@ public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
 
     @SuppressWarnings("unchecked")
     public void testKNNScoreForNonVectorDocument() throws Exception {
-        assumeUncompressed();
         /*
          * Create knn index and populate data
          */
@@ -350,7 +342,6 @@ public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
 
     @SuppressWarnings("unchecked")
     public void testHammingScriptScore_Long() throws Exception {
-        assumeUncompressed();
         createIndex(INDEX_NAME, Settings.EMPTY);
         String longMapping = XContentFactory.jsonBuilder()
             .startObject()
@@ -460,7 +451,6 @@ public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
 
     @SuppressWarnings("unchecked")
     public void testHammingScriptScore_Base64() throws Exception {
-        assumeUncompressed();
         createIndex(INDEX_NAME, Settings.EMPTY);
         String longMapping = XContentFactory.jsonBuilder()
             .startObject()
@@ -571,7 +561,6 @@ public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
 
     @ExpectRemoteBuildValidation
     public void testKNNInnerProdScriptScore() throws Exception {
-        assumeUncompressed();
         testKNNScriptScore(SpaceType.INNER_PRODUCT);
     }
 
@@ -617,7 +606,6 @@ public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
     }
 
     public void testKNNScriptScoreWithRequestCacheEnabled() throws Exception {
-        assumeUncompressed();
         /*
          * Create knn index and populate data
          */
@@ -726,7 +714,6 @@ public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
     @SuppressWarnings("unchecked")
     @ExpectRemoteBuildValidation
     public void testKNNScriptScoreOnModelBasedIndex() throws Exception {
-        assumeUncompressed();
         int dimensions = randomIntBetween(2, 10);
         String trainMapping = createKnnIndexMapping(TRAIN_FIELD_PARAMETER, dimensions);
         createKnnIndex(TRAIN_INDEX_PARAMETER, trainMapping);
