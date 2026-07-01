@@ -6,7 +6,7 @@
 package org.opensearch.knn.index.codec.params;
 
 import lombok.Getter;
-import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding;
+import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 
 import java.util.Map;
@@ -25,7 +25,7 @@ public class KNNScalarQuantizedVectorsFormatParams extends KNNVectorsFormatParam
     private Float confidenceInterval;
     private int bits;
     private boolean compressFlag;
-    private ScalarEncoding bitEncoding;
+    private QuantizedByteVectorValues.ScalarEncoding bitEncoding;
 
     public KNNScalarQuantizedVectorsFormatParams(Map<String, Object> params, int defaultMaxConnections, int defaultBeamWidth) {
         super(params, defaultMaxConnections, defaultBeamWidth);
@@ -33,7 +33,7 @@ public class KNNScalarQuantizedVectorsFormatParams extends KNNVectorsFormatParam
         Map<String, Object> sqEncoderParams = encoderMethodComponentContext.getParameters();
         this.initConfidenceInterval(sqEncoderParams);
         this.initBits(sqEncoderParams);
-        this.bitEncoding = ScalarEncoding.fromNumBits(this.bits);
+        this.bitEncoding = QuantizedByteVectorValues.ScalarEncoding.fromNumBits(this.bits);
         // compression flag should be set after bits has been initialised as compressionFlag depends on bits.
         this.setCompressionFlag();
     }

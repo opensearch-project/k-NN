@@ -11,7 +11,6 @@ import org.apache.lucene.codecs.KnnFieldVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatFieldVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
-import org.apache.lucene.codecs.lucene104.QuantizedByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.FloatVectorValues;
@@ -20,8 +19,10 @@ import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.Sorter;
 import org.apache.lucene.util.IOFunction;
+import org.apache.lucene.util.IORunnable;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.RamUsageEstimator;
+import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
 import org.opensearch.knn.index.codec.nativeindex.AbstractNativeEnginesKnnVectorsWriter;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
@@ -133,7 +134,7 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
      * Merges flat vectors first, then builds the native HNSW graph for the merged segment.
      */
     @Override
-    public void mergeOneField(FieldInfo fieldInfo, MergeState mergeState) throws IOException {
+    public IORunnable mergeOneField(FieldInfo fieldInfo, MergeState mergeState) throws IOException {
         // Setting field info
         this.fieldInfo = fieldInfo;
 
@@ -144,20 +145,22 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
 
         // Open a reader on the merged flat files, extract QuantizedByteVectorValues,
         // and pass it to the build strategy. The writer owns the reader lifecycle.
-        final FlatVectorsReader flatVectorsReader = openFlatVectorsReader();
-        try {
-            final FloatVectorValues floatVectorValues = flatVectorsReader.getFloatVectorValues(fieldInfo.getName());
-            if (floatVectorValues == null || floatVectorValues.size() == 0) {
-                log.debug("No scalar-quantized vectors found for field [{}], skipping native build", fieldInfo.getName());
-                return;
+        return () -> {
+            final FlatVectorsReader flatVectorsReader = openFlatVectorsReader();
+            try {
+                final FloatVectorValues floatVectorValues = flatVectorsReader.getFloatVectorValues(fieldInfo.getName());
+                if (floatVectorValues == null || floatVectorValues.size() == 0) {
+                    log.debug("No scalar-quantized vectors found for field [{}], skipping native build", fieldInfo.getName());
+                    return;
+                }
+                final QuantizedByteVectorValues quantizedValues = KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(
+                    floatVectorValues
+                );
+                doMergeOneField(fieldInfo, mergeState, null, null, segmentWriteState, nativeIndexBuildStrategyFactory, quantizedValues);
+            } finally {
+                IOUtils.close(flatVectorsReader);
             }
-            final QuantizedByteVectorValues quantizedValues = KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(
-                floatVectorValues
-            );
-            doMergeOneField(fieldInfo, mergeState, null, null, segmentWriteState, nativeIndexBuildStrategyFactory, quantizedValues);
-        } finally {
-            IOUtils.close(flatVectorsReader);
-        }
+        };
     }
 
     @Override

@@ -13,6 +13,7 @@ import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsWriter;
 import org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
+import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
 
@@ -34,13 +35,13 @@ public class KNN1040ScalarQuantizedVectorsFormat extends Lucene104ScalarQuantize
         FlatVectorsScorerProvider.getLucene99FlatVectorsScorer()
     );
 
-    private final ScalarEncoding encoding;
+    private final QuantizedByteVectorValues.ScalarEncoding encoding;
 
     public KNN1040ScalarQuantizedVectorsFormat() {
-        this(ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE);
+        this(QuantizedByteVectorValues.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE);
     }
 
-    public KNN1040ScalarQuantizedVectorsFormat(final ScalarEncoding encoding) {
+    public KNN1040ScalarQuantizedVectorsFormat(final QuantizedByteVectorValues.ScalarEncoding encoding) {
         super(encoding);
         this.encoding = encoding;
     }

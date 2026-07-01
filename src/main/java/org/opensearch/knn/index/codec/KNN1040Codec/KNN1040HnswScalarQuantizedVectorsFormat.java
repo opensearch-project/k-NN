@@ -8,12 +8,12 @@ package org.opensearch.knn.index.codec.KNN1040Codec;
 import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.codecs.KnnVectorsWriter;
 import org.apache.lucene.codecs.lucene104.Lucene104HnswScalarQuantizedVectorsFormat;
-import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsReader;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsWriter;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.search.TaskExecutor;
+import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
@@ -39,11 +39,17 @@ public class KNN1040HnswScalarQuantizedVectorsFormat extends Lucene104HnswScalar
     private final KNN1040ScalarQuantizedVectorsFormat flatVectorsFormat;
 
     public KNN1040HnswScalarQuantizedVectorsFormat() {
-        this(ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, DEFAULT_NUM_MERGE_WORKER, null);
+        this(
+            QuantizedByteVectorValues.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE,
+            DEFAULT_MAX_CONN,
+            DEFAULT_BEAM_WIDTH,
+            DEFAULT_NUM_MERGE_WORKER,
+            null
+        );
     }
 
     public KNN1040HnswScalarQuantizedVectorsFormat(
-        ScalarEncoding encoding,
+        QuantizedByteVectorValues.ScalarEncoding encoding,
         int maxConn,
         int beamWidth,
         int numMergeWorkers,
@@ -53,7 +59,7 @@ public class KNN1040HnswScalarQuantizedVectorsFormat extends Lucene104HnswScalar
     }
 
     public KNN1040HnswScalarQuantizedVectorsFormat(
-        ScalarEncoding encoding,
+        QuantizedByteVectorValues.ScalarEncoding encoding,
         int maxConn,
         int beamWidth,
         int numMergeWorkers,
@@ -75,6 +81,7 @@ public class KNN1040HnswScalarQuantizedVectorsFormat extends Lucene104HnswScalar
             state,
             maxConn,
             beamWidth,
+            flatVectorsFormat,
             flatVectorsFormat.fieldsWriter(state),
             numMergeWorkers,
             mergeExec,
