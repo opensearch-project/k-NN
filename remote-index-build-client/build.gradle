@@ -8,7 +8,7 @@ plugins {
     id 'java-library'
     id 'jacoco'
     id "io.freefair.lombok" version "8.14"
-    id 'com.diffplug.spotless' version '6.25.0'
+    id 'com.diffplug.spotless' version '8.6.0'
     id 'opensearch.build'
     id 'opensearch.java-agent'
 }

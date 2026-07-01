@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.index.query;
 
-import static org.opensearch.knn.common.KNNConstants.DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO;
 import static org.opensearch.knn.common.KNNConstants.MAX_RESULTS_RADIAL_RESCORING;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPES;
@@ -183,7 +182,6 @@ public class RNNQueryFactory extends BaseQueryFactory {
         return new FloatVectorSimilarityQuery(
             fieldName,
             floatVector,
-            DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO * resultSimilarity,
             resultSimilarity,
             filterQuery
         );
@@ -202,7 +200,6 @@ public class RNNQueryFactory extends BaseQueryFactory {
         return new ByteVectorSimilarityQuery(
             fieldName,
             byteVector,
-            DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO * resultSimilarity,
             resultSimilarity,
             filterQuery
         );
