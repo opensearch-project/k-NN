@@ -5,12 +5,14 @@
 
 package org.opensearch.knn.index.engine;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import lombok.NoArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
 
 import java.util.ServiceLoader;
+
+import static lombok.AccessLevel.PRIVATE;
 
 /**
  * Discovers the optional {@link SandboxEngineProvider} (contributed by an opt-in {@code :sandbox} module)
@@ -19,26 +21,28 @@ import java.util.ServiceLoader;
  * is inert ({@link #library()} returns an {@link InertSandboxLibrary} that never resolves anything), and the
  * plugin behaves exactly as upstream.
  */
+@Log4j2
+@NoArgsConstructor(access = PRIVATE)
 public final class SandboxEngine {
-
-    private static final Logger logger = LogManager.getLogger(SandboxEngine.class);
 
     private static final SandboxEngineProvider PROVIDER = load();
     private static final KNNLibrary INERT_LIBRARY = new InertSandboxLibrary();
 
-    private SandboxEngine() {}
-
     private static SandboxEngineProvider load() {
+        // Trust boundary: this ServiceLoader only finds a provider when the :sandbox jar is on the classpath,
+        // which happens solely under the opt-in -Pknn.sandbox.enabled build. A default build bundles no
+        // provider, so nothing is loaded and the plugin is byte-for-byte upstream; the build flag, not runtime
+        // discovery, is what admits an experimental provider.
         SandboxEngineProvider found = null;
         for (SandboxEngineProvider provider : ServiceLoader.load(SandboxEngineProvider.class, SandboxEngine.class.getClassLoader())) {
             try {
                 if (found == null) {
                     found = provider;
                 } else {
-                    logger.warn("Multiple SandboxEngineProviders found; ignoring [{}]", provider.getClass().getName());
+                    log.warn("Multiple SandboxEngineProviders found; ignoring [{}]", provider.getClass().getName());
                 }
             } catch (Exception | LinkageError e) {
-                logger.warn("Skipping misconfigured SandboxEngineProvider", e);
+                log.warn("Skipping misconfigured SandboxEngineProvider", e);
             }
         }
         return found;

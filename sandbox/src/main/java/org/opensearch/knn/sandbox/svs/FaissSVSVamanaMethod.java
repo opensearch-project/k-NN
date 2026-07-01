@@ -39,7 +39,7 @@ import static org.opensearch.knn.sandbox.svs.SVSConstants.METHOD_SVS_VAMANA;
 /**
  * SVS Vamana method: graph-based approximate search using the Vamana algorithm (Subramanya et al.).
  */
-@ExperimentalAlgorithm(description = "Intel SVS Vamana graph-based ANN method", since = "3.7.0")
+@ExperimentalAlgorithm(description = "Intel SVS Vamana graph-based ANN method", since = "3.8.0")
 public class FaissSVSVamanaMethod extends AbstractFaissMethod {
 
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = Set.of(VectorDataType.FLOAT);

@@ -13,7 +13,9 @@
 # Resolution order:
 #   1. -DSVS_RUNTIME_PREFIX=<dir>  : a local, already-extracted package prefix (offline / air-gapped /
 #                                    reproducible CI). The dir must contain lib/cmake/svs_runtime.
-#   2. -DSVS_RUNTIME_URL=<url>     : a package artifact to download + extract (e.g. a mirrored copy).
+#   2. -DSVS_RUNTIME_URL=<url>     : a package artifact to download + extract (e.g. a mirrored copy). MUST be
+#                                    paired with -DSVS_RUNTIME_SHA256=<hex> (checksum-pinned); the only bypass
+#                                    is the dev-only -DSVS_RUNTIME_ALLOW_UNVERIFIED=ON.
 #   3. default URL                 : the conda-forge linux-64 libsvs-runtime 0.3.0 artifact (sha256-pinned).
 #
 # Sets SVS_RUNTIME_PREFIX (cache) to the resolved prefix and prepends it to CMAKE_PREFIX_PATH, then
@@ -32,8 +34,22 @@ if(DEFINED SVS_RUNTIME_PREFIX AND NOT "${SVS_RUNTIME_PREFIX}" STREQUAL "")
 else()
     include(FetchContent)
     if(DEFINED SVS_RUNTIME_URL AND NOT "${SVS_RUNTIME_URL}" STREQUAL "")
-        message(STATUS "SVS runtime: fetching ${SVS_RUNTIME_URL}")
-        FetchContent_Declare(svs_runtime_pkg URL "${SVS_RUNTIME_URL}")
+        # A custom artifact URL must be checksum-pinned, exactly like the default URL, so the downloaded
+        # native runtime cannot be silently swapped. Supply -DSVS_RUNTIME_SHA256=<hex>. The only way to skip
+        # verification is the explicit, documented dev-only escape hatch -DSVS_RUNTIME_ALLOW_UNVERIFIED=ON.
+        if(DEFINED SVS_RUNTIME_SHA256 AND NOT "${SVS_RUNTIME_SHA256}" STREQUAL "")
+            message(STATUS "SVS runtime: fetching ${SVS_RUNTIME_URL} (sha256-pinned)")
+            FetchContent_Declare(svs_runtime_pkg URL "${SVS_RUNTIME_URL}" URL_HASH SHA256=${SVS_RUNTIME_SHA256})
+        elseif(SVS_RUNTIME_ALLOW_UNVERIFIED)
+            message(WARNING
+                "SVS runtime: fetching ${SVS_RUNTIME_URL} WITHOUT checksum verification "
+                "(SVS_RUNTIME_ALLOW_UNVERIFIED=ON). Dev-only; never use for a release build.")
+            FetchContent_Declare(svs_runtime_pkg URL "${SVS_RUNTIME_URL}")
+        else()
+            message(FATAL_ERROR
+                "SVS runtime: a custom -DSVS_RUNTIME_URL requires -DSVS_RUNTIME_SHA256=<hex> to pin the "
+                "artifact. To bypass for local development only, pass -DSVS_RUNTIME_ALLOW_UNVERIFIED=ON.")
+        endif()
     else()
         message(STATUS "SVS runtime: fetching ${SVS_RUNTIME_CONDA_DEFAULT_URL}")
         FetchContent_Declare(svs_runtime_pkg

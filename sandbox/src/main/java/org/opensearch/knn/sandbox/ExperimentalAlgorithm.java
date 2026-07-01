@@ -22,7 +22,7 @@ import java.lang.annotation.Target;
  * <pre>{@code
  * @ExperimentalAlgorithm(
  *     description = "Graph-based approximate nearest neighbor using vamana algorithm",
- *     since = "3.7.0"
+ *     since = "3.8.0"
  * )
  * public class VamanaAlgorithm {
  *     // experimental implementation
@@ -52,7 +52,7 @@ public @interface ExperimentalAlgorithm {
     /**
      * The version in which this experimental component was first introduced.
      *
-     * @return the version string (e.g., "3.7.0"), empty by default
+     * @return the version string (e.g., "3.8.0"), empty by default
      */
     String since() default "";
 }

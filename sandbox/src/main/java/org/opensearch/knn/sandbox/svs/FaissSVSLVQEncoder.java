@@ -26,7 +26,7 @@ import static org.opensearch.knn.sandbox.svs.SVSConstants.METHOD_PARAMETER_LVQ_R
  * {@code SVSStorageKind} supports — {@code (4,0)}, {@code (4,4)}, {@code (4,8)} — are accepted; others are
  * rejected at index creation rather than failing deep in native code.
  */
-@ExperimentalAlgorithm(description = "Intel SVS Vamana LVQ encoder", since = "3.7.0")
+@ExperimentalAlgorithm(description = "Intel SVS Vamana LVQ encoder", since = "3.8.0")
 public class FaissSVSLVQEncoder implements Encoder {
 
     static final int DEFAULT_PRIMARY_BITS = 4;

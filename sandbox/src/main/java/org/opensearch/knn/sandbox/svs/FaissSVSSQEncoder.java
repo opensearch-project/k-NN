@@ -31,7 +31,7 @@ import static org.opensearch.knn.sandbox.svs.SVSConstants.FAISS_SVS_SQ_TYPE_SQ8;
  * {@link org.opensearch.knn.index.engine.faiss.FaissSQEncoder} it has no Lucene {@code bits} path; SVS
  * quantization is performed natively.
  */
-@ExperimentalAlgorithm(description = "Intel SVS Vamana scalar-quantization (sq) encoder", since = "3.7.0")
+@ExperimentalAlgorithm(description = "Intel SVS Vamana scalar-quantization (sq) encoder", since = "3.8.0")
 public class FaissSVSSQEncoder implements Encoder {
 
     private static final Set<String> SUPPORTED_TYPES = Set.of(FAISS_SVS_SQ_TYPE_FP16, FAISS_SVS_SQ_TYPE_SQ8);

@@ -695,10 +695,6 @@ integTest {
     commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes)
     filter {
         excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
-        // The SVS IT needs the opt-in sandbox tenant (jar + isolated native lib); skip it on default builds.
-        if (!(project.hasProperty('knn.sandbox.enabled') && project.property('knn.sandbox.enabled') == 'true')) {
-            excludeTestsMatching "org.opensearch.knn.index.FaissSVSVamanaIT"
-        }
     }
     mustRunAfter test
 }
@@ -709,10 +705,6 @@ task integTestRemoteIndexBuild(type: RestIntegTestTask) {
         // Temporarily skipping this test class, see: https://github.com/opensearch-project/k-NN/issues/2726
         excludeTestsMatching "org.opensearch.knn.index.SegmentReplicationIT"
         excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
-        // The SVS IT needs the opt-in sandbox tenant (jar + isolated native lib); skip it on default builds.
-        if (!(project.hasProperty('knn.sandbox.enabled') && project.property('knn.sandbox.enabled') == 'true')) {
-            excludeTestsMatching "org.opensearch.knn.index.FaissSVSVamanaIT"
-        }
     }
     systemProperty("test.remoteBuild", System.getProperty("test.remoteBuild"))
     systemProperty("test.bucket", System.getProperty("test.bucket"))

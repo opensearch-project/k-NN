@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import org.opensearch.gradle.test.RestIntegTestTask
+
 plugins {
     id 'java'
     id 'java-library'
@@ -12,6 +14,14 @@ plugins {
     id 'opensearch.build'
     id 'opensearch.java-agent'
 }
+
+// Test-cluster support for the REST integration tests.
+apply plugin: 'opensearch.testclusters'
+
+// Opt-in, non-released module with no third-party runtime jars; skip the per-dependency metadata checks.
+dependencyLicenses.enabled = false
+thirdPartyAudit.enabled = false
+loggerUsageCheck.enabled = false
 
 repositories {
     mavenLocal()
@@ -33,18 +43,55 @@ dependencies {
     compileOnly group: 'org.opensearch', name: 'opensearch', version: "${opensearch_version}"
     testImplementation "org.opensearch.test:framework:${opensearch_version}"
 
-    // Compile-time-only dependency on the root k-NN project so sandbox tenants can
-    // extend main-module types (e.g. AbstractFaissMethod, Encoder, KNNConstants).
-    // The root project deliberately does NOT depend on :sandbox, so release-artifact
-    // isolation is preserved (bundlePlugin still excludes sandbox classes).
+    // Compile-only on root so sandbox tenants can extend main-module types; root does NOT depend on
+    // :sandbox, so release-artifact isolation is preserved.
     compileOnly project(':')
     testImplementation project(':')
 
-    // Guava is provided to the main plugin at runtime by OpenSearch's transport-grpc module, so the
-    // root project declares it compileOnly. The sandbox test classpath has no such provider, so some
-    // main-module classes exercised in sandbox unit tests (e.g. FaissFlatEncoder, QuantizationConfig)
-    // would fail to initialize without it. Add it for the sandbox test runtime only.
+    // Root declares guava compileOnly (provided at runtime by transport-grpc); the sandbox test classpath
+    // has no such provider, so add it for the test runtime only.
     testImplementation "com.google.guava:guava:${versions.guava}"
+
+    // KNNRestTestCase (used by the SVS IT) is published by the root project's test-fixtures.
+    testImplementation testFixtures(project(':'))
 }
 
 check.dependsOn spotlessCheck
+
+// Default `test` runs fast unit tests only; the REST IT runs under integTest against a cluster.
+test {
+    exclude '**/*IT.class'
+}
+
+// REST integration tests for the SVS engine. Only meaningful on a flagged build (-Pknn.sandbox.enabled=true),
+// where bundlePlugin's zip carries the sandbox jar + the isolated SVS native lib.
+def sandboxIntegTestCluster = testClusters.create('integTest') {
+    testDistribution = "ARCHIVE"
+    plugin(rootProject.tasks.bundlePlugin.archiveFile)
+}
+
+task integTest(type: RestIntegTestTask) {
+    description = "Run REST integration tests for the experimental :sandbox engines."
+    group = "verification"
+    dependsOn rootProject.tasks.bundlePlugin
+    useCluster sandboxIntegTestCluster
+
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+
+    systemProperty 'tests.security.manager', 'false'
+    systemProperty "java.library.path", "${rootDir}/jni/build/release"
+    systemProperty('project.root', project.rootDir.absolutePath)
+    // KNNRestTestCase reads these to decide http vs https / credentials.
+    systemProperty("https", System.getProperty("https"))
+    systemProperty("user", System.getProperty("user"))
+    systemProperty("password", System.getProperty("password"))
+
+    filter {
+        includeTestsMatching "org.opensearch.knn.sandbox.svs.*IT"
+    }
+
+    mustRunAfter test
+}
+
+check.dependsOn integTest

@@ -43,7 +43,7 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
  * unsupported compression levels). It lives entirely in the sandbox: the core Faiss resolver knows nothing
  * about SVS.
  */
-@ExperimentalAlgorithm(description = "Intel SVS Vamana method resolver", since = "3.7.0")
+@ExperimentalAlgorithm(description = "Intel SVS Vamana method resolver", since = "3.8.0")
 public class SvsMethodResolver extends AbstractMethodResolver {
 
     // x4 maps to lvq(4,4); the core engines top out differently (no x4) and support higher levels SVS does not.
