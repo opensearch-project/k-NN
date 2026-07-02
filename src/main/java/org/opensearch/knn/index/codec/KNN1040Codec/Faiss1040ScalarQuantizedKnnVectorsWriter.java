@@ -11,8 +11,9 @@ import org.apache.lucene.codecs.KnnFieldVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatFieldVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
-import org.apache.lucene.codecs.lucene104.QuantizedByteVectorValues;
+import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.util.IORunnable;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.MergeState;
@@ -133,12 +134,14 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
      * Merges flat vectors first, then builds the native HNSW graph for the merged segment.
      */
     @Override
-    public void mergeOneField(FieldInfo fieldInfo, MergeState mergeState) throws IOException {
+    public IORunnable mergeOneField(FieldInfo fieldInfo, MergeState mergeState) throws IOException {
         // Setting field info
         this.fieldInfo = fieldInfo;
 
         // Merge, finish, and close the flat writer so that files are readable.
-        flatVectorsWriter.mergeOneField(fieldInfo, mergeState);
+        IORunnable mergeRunnable = flatVectorsWriter.mergeOneField(fieldInfo, mergeState);
+
+        if (mergeRunnable != null) mergeRunnable.run();
         flatVectorsWriter.finish();
         IOUtils.close(flatVectorsWriter);
 
@@ -149,7 +152,7 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
             final FloatVectorValues floatVectorValues = flatVectorsReader.getFloatVectorValues(fieldInfo.getName());
             if (floatVectorValues == null || floatVectorValues.size() == 0) {
                 log.debug("No scalar-quantized vectors found for field [{}], skipping native build", fieldInfo.getName());
-                return;
+                return null;
             }
             final QuantizedByteVectorValues quantizedValues = KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(
                 floatVectorValues
@@ -158,6 +161,7 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
         } finally {
             IOUtils.close(flatVectorsReader);
         }
+        return null;
     }
 
     @Override
