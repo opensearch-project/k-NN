@@ -104,6 +104,18 @@ public class DocAndScoreQueryTests extends OpenSearchTestCase {
         verify(knnWeight).explain(leaf1, 1, 1.2f);
     }
 
+    @SneakyThrows
+    public void testWeight_whenKnnWeightNull_thenExplainDoesNotThrow() {
+        int[] expectedDocs = { 0, 1, 2, 3, 4 };
+        float[] expectedScores = { 0.1f, 1.2f, 2.3f, 5.1f, 3.4f };
+        int[] findSegments = { 0, 2, 5 };
+
+        objectUnderTest = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, readerContext.id(), null);
+        Weight weight = objectUnderTest.createWeight(indexSearcher, ScoreMode.COMPLETE, 1);
+
+        assertNotNull(weight.explain(leaf1, 1));
+    }
+
     private IndexReader createTestIndexReader() throws IOException {
         ByteBuffersDirectory directory = new ByteBuffersDirectory();
         IndexWriter writer = new IndexWriter(directory, new IndexWriterConfig(new MockAnalyzer(random())));

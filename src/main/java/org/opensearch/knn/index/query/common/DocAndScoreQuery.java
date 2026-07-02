@@ -67,6 +67,10 @@ final class DocAndScoreQuery extends Query {
                     throw new RuntimeException(e);
                 }
 
+                if (knnWeight == null) {
+                    return Explanation.match(score, "k-NN score");
+                }
+
                 return knnWeight.explain(context, doc, score);
             }
 
