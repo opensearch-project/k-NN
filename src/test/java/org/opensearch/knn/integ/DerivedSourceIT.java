@@ -78,6 +78,156 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
         testMetaFields(indexConfigContexts);
     }
 
+    /**
+     * Regression test for routing_missing_exception in by-query operations on join-field child documents
+     * when {@code _routing.required} is true and the child contains a populated {@code knn_vector}.
+     *
+     * See https://github.com/opensearch-project/k-NN/issues/3395
+     */
+    @SneakyThrows
+    @ExpectRemoteBuildValidation
+    public void testByQueryOperations_preserveRouting_forJoinChildWithVector() {
+        final String indexName = "derived-join-routing-" + randomLowerCaseString();
+        final String routing = "company-1";
+
+        Settings settings = Settings.builder()
+            .put("index.knn", true)
+            .put("index.knn.derived_source.enabled", true)
+            .put("number_of_shards", 1)
+            .put("number_of_replicas", 0)
+            .build();
+
+        XContentBuilder mappingBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("_routing")
+            .field("required", true)
+            .endObject()
+            .startObject("properties")
+            .startObject("company")
+            .field("type", "keyword")
+            .endObject()
+            .startObject("join_field")
+            .field("type", "join")
+            .startObject("relations")
+            .field("course", "chunk")
+            .endObject()
+            .endObject()
+            .startObject("embedding")
+            .field("type", "knn_vector")
+            .field(DIMENSION, 3)
+            .startObject("method")
+            .field("name", "hnsw")
+            .field("space_type", "l2")
+            .field("engine", "faiss")
+            .endObject()
+            .endObject()
+            .startObject("metadata")
+            .startObject("properties")
+            .startObject("courseId")
+            .field("type", "keyword")
+            .endObject()
+            .startObject("topicType")
+            .field("type", "keyword")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        createKnnIndex(indexName, settings, mappingBuilder.toString());
+
+        XContentBuilder parentDoc = XContentFactory.jsonBuilder()
+            .startObject()
+            .field("company", routing)
+            .field("join_field", "course")
+            .endObject();
+        addKnnDoc(indexName, "course-1", parentDoc.toString(), routing);
+
+        XContentBuilder childDoc = XContentFactory.jsonBuilder()
+            .startObject()
+            .field("company", routing)
+            .startObject("join_field")
+            .field("name", "chunk")
+            .field("parent", "course-1")
+            .endObject()
+            .array("embedding", 0.1f, 0.2f, 0.3f)
+            .startObject("metadata")
+            .field("courseId", "course-1")
+            .field("topicType", "article")
+            .endObject()
+            .endObject();
+        addKnnDoc(indexName, "course-1_chunk_0", childDoc.toString(), routing);
+
+        // delete_by_query should not fail with routing_missing_exception when request routing is provided
+        XContentBuilder deleteByQuery = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("bool")
+            .startArray("must")
+            .startObject()
+            .startObject("term")
+            .field("company", routing)
+            .endObject()
+            .endObject()
+            .startObject()
+            .startObject("term")
+            .field("metadata.topicType", "article")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endArray()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        Request deleteRequest = new Request("POST", "/" + indexName + "/_delete_by_query");
+        deleteRequest.addParameter("routing", routing);
+        deleteRequest.addParameter("refresh", "true");
+        deleteRequest.addParameter("conflicts", "proceed");
+        deleteRequest.setJsonEntity(deleteByQuery.toString());
+        Map<String, Object> deleteResponse = entityAsMap(client().performRequest(deleteRequest));
+        assertTrue(
+            "Expected delete_by_query to have no failures",
+            ((List<?>) deleteResponse.get("failures")).isEmpty()
+        );
+        assertEquals(1, ((Number) deleteResponse.get("deleted")).intValue());
+
+        // Re-index child and ensure update_by_query also succeeds with required routing
+        addKnnDoc(indexName, "course-1_chunk_0", childDoc.toString(), routing);
+
+        XContentBuilder updateByQuery = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("script")
+            .field("lang", "painless")
+            .field("source", "ctx._source.metadata.topicType = params.v")
+            .startObject("params")
+            .field("v", "updated")
+            .endObject()
+            .endObject()
+            .startObject("query")
+            .startObject("term")
+            .field("company", routing)
+            .endObject()
+            .endObject()
+            .endObject();
+
+        Request updateRequest = new Request("POST", "/" + indexName + "/_update_by_query");
+        updateRequest.addParameter("routing", routing);
+        updateRequest.addParameter("refresh", "true");
+        updateRequest.addParameter("conflicts", "proceed");
+        updateRequest.setJsonEntity(updateByQuery.toString());
+        Map<String, Object> updateResponse = entityAsMap(client().performRequest(updateRequest));
+        assertTrue(
+            "Expected update_by_query to have no failures",
+            ((List<?>) updateResponse.get("failures")).isEmpty()
+        );
+        assertEquals(1, ((Number) updateResponse.get("updated")).intValue());
+
+        Map<String, Object> updatedDoc = getKnnDoc(indexName, "course-1_chunk_0", routing);
+        Map<String, Object> updatedMetadata = (Map<String, Object>) updatedDoc.get("metadata");
+        assertEquals("updated", updatedMetadata.get("topicType"));
+    }
+
     @SneakyThrows
     @ExpectRemoteBuildValidation
     public void testObjectField() {
