@@ -76,7 +76,7 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
             // Forward the incoming searchStrategy so that a re-entrant (seeded) radial search can begin
             // the graph traversal from pre-computed entry points instead of the default entry node.
             this.knnCollectorManager = (visitLimit, searchStrategy, context) -> new RadiusVectorSimilarityCollector(
-                DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO * query.getRadius(),
+                query.getRadius(),
                 query.getRadius(),
                 visitLimit,
                 searchStrategy
