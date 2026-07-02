@@ -8,7 +8,7 @@ package org.opensearch.knn.index.codec.nativeindex;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatFieldVectorsWriter;
-import org.apache.lucene.codecs.lucene104.QuantizedByteVectorValues;
+import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentWriteState;

@@ -6,7 +6,7 @@
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
 import lombok.SneakyThrows;
-import org.apache.lucene.codecs.lucene104.QuantizedByteVectorValues;
+import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
 import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;

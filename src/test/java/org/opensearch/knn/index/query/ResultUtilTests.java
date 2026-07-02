@@ -139,4 +139,13 @@ public class ResultUtilTests extends KNNTestCase {
         }
         return minScore;
     }
+
+    public void testMatchAllBitSet_nextClearBit_throwsUOE() {
+        expectThrows(UnsupportedOperationException.class, () -> PerLeafResult.MATCH_ALL_BIT_SET.nextClearBit(0, 10));
+    }
+
+    public void testMatchNoBitSet_nextClearBit_throwsUOE() {
+        expectThrows(UnsupportedOperationException.class, () -> PerLeafResult.EMPTY_RESULT.getFilterBits().nextClearBit(0, 10));
+    }
+
 }

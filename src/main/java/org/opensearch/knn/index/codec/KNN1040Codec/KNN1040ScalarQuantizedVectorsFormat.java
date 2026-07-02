@@ -8,6 +8,7 @@ package org.opensearch.knn.index.codec.KNN1040Codec;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
+import org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsReader;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsWriter;
 import org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat;
