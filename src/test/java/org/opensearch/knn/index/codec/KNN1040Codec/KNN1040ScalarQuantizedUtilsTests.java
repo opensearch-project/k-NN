@@ -7,7 +7,7 @@ package org.opensearch.knn.index.codec.KNN1040Codec;
 
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
-import org.apache.lucene.codecs.lucene104.QuantizedByteVectorValues;
+import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
 import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.opensearch.knn.KNNTestCase;
@@ -77,4 +77,5 @@ public class KNN1040ScalarQuantizedUtilsTests extends KNNTestCase {
         assertTrue(exception.getMessage().contains("incompatible Lucene version"));
         assertTrue(exception.getCause() instanceof NoSuchFieldException);
     }
+
 }
