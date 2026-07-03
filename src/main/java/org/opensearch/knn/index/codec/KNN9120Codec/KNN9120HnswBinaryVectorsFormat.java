@@ -90,6 +90,7 @@ public final class KNN9120HnswBinaryVectorsFormat extends KnnVectorsFormat {
             state,
             this.maxConn,
             this.beamWidth,
+            flatVectorsFormat,
             flatVectorsFormat.fieldsWriter(state),
             this.numMergeWorkers,
             this.mergeExec
