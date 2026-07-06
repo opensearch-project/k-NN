@@ -128,7 +128,10 @@ public class ExactSearcher {
         }
 
         final VectorScorer vectorScorer = createVectorScorer(reader, fieldInfo, leafReaderContext, context);
-        assert vectorScorer != null;
+        if (vectorScorer == null) {
+            log.error("VectorScorer is null for field [{}] in segment [{}]", context.getField(), reader.getSegmentName());
+            throw new IllegalStateException("VectorScorer is null for exact searcher");
+        }
 
         // When nested, matchedDocsIterator is already consumed inside NestedBestChildVectorScorer,
         // so pass null to avoid double consumption of the same iterator.

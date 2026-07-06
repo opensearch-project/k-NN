@@ -29,6 +29,7 @@ import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
+import org.opensearch.knn.index.query.scorers.VectorScorers;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
@@ -614,6 +615,48 @@ public class ExactSearcherTests extends KNNTestCase {
                 float expected = similarityFunction.compare(queryVector, dataVectors.get(i));
                 assertEquals(expected, actualScores.get(i), 1e-5f);
             }
+        }
+    }
+
+    @SneakyThrows
+    public void testExactSearchScorer_whenVectorScorerIsNull_thenThrowsIllegalStateException() {
+        final float[] queryVector = new float[] { 0.1f, 2.0f, 3.0f };
+        final SpaceType spaceType = SpaceType.L2;
+
+        final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
+            .field(FIELD_NAME)
+            .floatQueryVector(queryVector)
+            .k(10)
+            .build();
+
+        try (
+            MockedStatic<KNNVectorValuesFactory> vectorValuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class);
+            MockedStatic<VectorScorers> vectorScorersMockedStatic = Mockito.mockStatic(VectorScorers.class)
+        ) {
+            ExactSearcher exactSearcher = new ExactSearcher(null);
+            final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+            final SegmentReader reader = mock(SegmentReader.class);
+            when(leafReaderContext.reader()).thenReturn(reader);
+
+            final FieldInfos fieldInfos = mock(FieldInfos.class);
+            final FieldInfo fieldInfo = mock(FieldInfo.class);
+            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(spaceType.getValue());
+            when(reader.getFieldInfos()).thenReturn(fieldInfos);
+            when(fieldInfos.fieldInfo(FIELD_NAME)).thenReturn(fieldInfo);
+
+            final List<float[]> dataVectors = List.of(new float[] { 1.0f, 2.0f, 3.0f });
+            final KNNVectorValues knnFloatVectorValues = TestVectorValues.createKNNFloatVectorValues(dataVectors);
+            vectorValuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader))
+                .thenReturn(knnFloatVectorValues);
+
+            vectorScorersMockedStatic.when(() -> VectorScorers.createScorer(any(), any(float[].class), any(), any(), any(), any(), any()))
+                .thenReturn(null);
+
+            IllegalStateException exception = expectThrows(
+                IllegalStateException.class,
+                () -> exactSearcher.exactSearchScorer(leafReaderContext, exactSearcherContext)
+            );
+            assertTrue(exception.getMessage().contains("VectorScorer is null"));
         }
     }
 
