@@ -355,7 +355,8 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
                 maxDocs,
                 InfoStream.NO_OUTPUT,
                 Runnable::run,
-                false
+                false,
+                null
             );
 
             // Step 3: Merge

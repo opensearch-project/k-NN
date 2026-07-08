@@ -8,8 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Features
 * Add rescoring phase after radial search on quantized index [#3347](https://github.com/opensearch-project/k-NN/pull/3347)
 * Add base64 encoded vector indexing support for knn_vector fields [#3350](https://github.com/opensearch-project/k-NN/pull/3350)
+* Introduce system-generated search pipeline processor to automatically exclude knn_vector fields from _source in search responses [#3152](https://github.com/opensearch-project/k-NN/pull/3152)
 
 ### Maintenance
+* Upgrade Lucene to 10.5.0 [#3411](https://github.com/opensearch-project/k-NN/pull/3411)
 
 ### Bug Fixes
 * Fix NPE in nested kNN search when index contains documents without nested object [#3368](https://github.com/opensearch-project/k-NN/pull/3368)
@@ -22,8 +24,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix FAISS SQ merge failure when segment has no live vectors [#3381](https://github.com/opensearch-project/k-NN/pull/3381)
 * Fix isFaissSQfp16 to skip FP16 validation when SQ encoder uses bits=1 [#3366](https://github.com/opensearch-project/k-NN/pull/3366)
 * Fix score corruption in multi-segment FAISS indices with ADC [#3385](https://github.com/opensearch-project/k-NN/pull/3385)
+* Fix radial search max_distance threshold conversion for inner product with memory-optimized search [#3369](https://github.com/opensearch-project/k-NN/pull/3369)
 
 ### Refactoring
-
+* Refactor ExactSearcher to use BulkVectorScorer directly and rename factory methods [#3361](https://github.com/opensearch-project/k-NN/pull/3361)
 
 ### Enhancements
