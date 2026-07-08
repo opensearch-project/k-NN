@@ -148,11 +148,7 @@ public class SegmentReplicationIT extends KNNRestTestCase {
         request.addParameter("h", "index,shard,checkpoints_behind,bytes_behind,current_lag");
 
         final Response response = client().performRequest(request);
-        assertEquals(
-            request.getEndpoint() + ": failed",
-            RestStatus.OK,
-            RestStatus.fromCode(response.getStatusLine().getStatusCode())
-        );
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         final String responseBody = EntityUtils.toString(response.getEntity());
         if (responseBody.isBlank()) {
@@ -178,11 +174,7 @@ public class SegmentReplicationIT extends KNNRestTestCase {
         request.addParameter("preference", preference);
 
         final Response response = client().performRequest(request);
-        assertEquals(
-            request.getEndpoint() + ": failed",
-            RestStatus.OK,
-            RestStatus.fromCode(response.getStatusLine().getStatusCode())
-        );
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         final String responseBody = EntityUtils.toString(response.getEntity());
         final Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
