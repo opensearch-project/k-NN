@@ -153,9 +153,11 @@ Any PR that does not include a changelog entry will result in a failure of the v
 
 ### How to add my changes to [CHANGELOG](CHANGELOG.md)?
 
+The release notes are generated from the CHANGELOG, so a stale or inaccurate entry results in incorrect release notes. Please keep your entry accurate and up to date.
+
 Adding in the change is two step process:
-1. Add your changes to the corresponding section within the CHANGELOG file with dummy pull request information, publish the PR
-2. Update the entry for your change in [`CHANGELOG.md`](CHANGELOG.md) and make sure that you reference the pull request there.
+1. Add your changes to the corresponding section within the CHANGELOG file, referencing the pull request. If the PR number is not yet known, open the PR first to obtain it.
+2. Before the PR is merged, verify that the entry in [`CHANGELOG.md`](CHANGELOG.md) references the correct pull request and accurately describes the change.
 
 ### Where should I put my CHANGELOG entry?
 Please review the [branching strategy](https://github.com/opensearch-project/.github/blob/main/RELEASING.md#opensearch-branching) document. The changelog on the `main` branch will contain sections for the _next major_ and _next minor_ releases. Your entry should go into the section it is intended to be released in. In practice, most changes to `main` will be backported to the next minor release so most entries will likely be in that section.
