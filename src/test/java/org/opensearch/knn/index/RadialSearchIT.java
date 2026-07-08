@@ -45,6 +45,7 @@ public class RadialSearchIT extends KNNRestTestCase {
     private final float threshold;
     private final int expectedCount;
     private final boolean useFilter;
+    private final boolean mosEnabled;
 
     public RadialSearchIT(
         String testName,
@@ -55,7 +56,8 @@ public class RadialSearchIT extends KNNRestTestCase {
         String searchType,
         float threshold,
         int expectedCount,
-        boolean useFilter
+        boolean useFilter,
+        boolean mosEnabled
     ) {
         this.testName = testName;
         this.engine = engine;
@@ -66,12 +68,14 @@ public class RadialSearchIT extends KNNRestTestCase {
         this.threshold = threshold;
         this.expectedCount = expectedCount;
         this.useFilter = useFilter;
+        this.mosEnabled = mosEnabled;
     }
 
     @ParametersFactory(argumentFormatting = "{0}")
     public static Collection<Object[]> parameters() {
         List<Object[]> params = new ArrayList<>();
         addFaissParams(params);
+        addFaissMosParams(params);
         addLuceneParams(params);
         return params;
     }
@@ -177,9 +181,23 @@ public class RadialSearchIT extends KNNRestTestCase {
         );
     }
 
+    private static void addRadialCases(
+        List<Object[]> params,
+        String prefix,
+        KNNEngine engine,
+        SpaceType spaceType,
+        float[][] vectors,
+        float[] query,
+        boolean includeExact,
+        Object[]... thresholds
+    ) {
+        addRadialCases(params, prefix, engine, spaceType, vectors, query, includeExact, false, thresholds);
+    }
+
     /**
-     * Generates test cases for both ANN and ExactSearcher paths for a given engine/space configuration.
+     * Generates test cases for ANN, ExactSearcher, and optionally MOS paths for a given engine/space configuration.
      * Each threshold entry produces one test case; if exactSearcher is true, a mirror set with filter is added.
+     * If mosEnabled is true, generates MOS-specific test cases.
      */
     private static void addRadialCases(
         List<Object[]> params,
@@ -189,6 +207,7 @@ public class RadialSearchIT extends KNNRestTestCase {
         float[][] vectors,
         float[] query,
         boolean includeExact,
+        boolean mosEnabled,
         Object[]... thresholds
     ) {
         for (Object[] t : thresholds) {
@@ -205,7 +224,8 @@ public class RadialSearchIT extends KNNRestTestCase {
                     searchType,
                     threshold,
                     expected,
-                    false }
+                    false,
+                    mosEnabled }
             );
             if (includeExact) {
                 params.add(
@@ -218,10 +238,131 @@ public class RadialSearchIT extends KNNRestTestCase {
                         searchType,
                         threshold,
                         expected,
-                        true }
+                        true,
+                        mosEnabled }
                 );
             }
         }
+    }
+
+    private static void addFaissMosParams(List<Object[]> params) {
+        // MOS uses Lucene's search algorithm on Faiss-built HNSW graphs.
+        // After the fix, max_distance for IP should produce the same results regardless of sign convention.
+        // MOS does not support ExactSearcher (filter path), so includeExact=false.
+
+        // MOS L2: same behavior as standard Faiss L2
+        float[][] l2Vectors = {
+            { 1.0f, 0.0f },     // dist=0.0, score=1.0
+            { 1.0f, 0.5f },     // dist=0.25, score=0.8
+            { 0.0f, 0.0f },     // dist=1.0, score=0.5
+            { 0.0f, 3.0f }      // dist=10.0, score=0.091
+        };
+        float[] l2Query = { 1.0f, 0.0f };
+
+        addRadialCases(
+            params,
+            "Faiss_MOS_L2",
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            l2Vectors,
+            l2Query,
+            true,
+            true,
+            new Object[] { "max_distance", 0.5f, 2 },
+            new Object[] { "max_distance", 2.0f, 3 },
+            new Object[] { "min_score", 0.9f, 1 },
+            new Object[] { "min_score", 0.75f, 2 }
+        );
+
+        // MOS Cosine
+        float[][] cosVectors = {
+            { 1.0f, 0.0f },     // cos=1.0, score=1.0
+            { 3.0f, 1.0f },     // cos=0.949, score=0.975
+            { 1.0f, 1.0f },     // cos=0.707, score=0.854
+            { 0.0f, 1.0f }      // cos=0.0, score=0.5
+        };
+        float[] cosQuery = { 1.0f, 0.0f };
+
+        // MOS + Cosine + ExactSearcher has a pre-existing scoring mismatch (tracked separately).
+        // The VectorScorer produces scores in a different space than the MOS-converted threshold.
+        addRadialCases(
+            params,
+            "Faiss_MOS_COSINE",
+            KNNEngine.FAISS,
+            SpaceType.COSINESIMIL,
+            cosVectors,
+            cosQuery,
+            false,
+            true,
+            new Object[] { "max_distance", 0.1f, 2 },
+            new Object[] { "max_distance", 0.5f, 3 },
+            new Object[] { "min_score", 0.99f, 1 },
+            new Object[] { "min_score", 0.8f, 3 }
+        );
+
+        // MOS IP: The critical test. Negative max_distance (Faiss convention) should be selective.
+        // After abs() fix, both negative and positive values produce correct results.
+        float[][] ipVectors = {
+            { 1.0f, 0.0f },     // dot=1.0, score=2.0
+            { 0.8f, 0.1f },     // dot=0.8, score=1.8
+            { 0.3f, 0.3f },     // dot=0.3, score=1.3
+            { 0.0f, 1.0f }      // dot=0.0, score=1.0
+        };
+        float[] ipQuery = { 1.0f, 0.0f };
+
+        addRadialCases(
+            params,
+            "Faiss_MOS_IP",
+            KNNEngine.FAISS,
+            SpaceType.INNER_PRODUCT,
+            ipVectors,
+            ipQuery,
+            true,
+            true,
+            // Negative max_distance: Faiss convention d=-dot, so -0.5 means dot >= 0.5
+            new Object[] { "max_distance", -0.5f, 2 },
+            new Object[] { "max_distance", -0.1f, 3 },
+            // Positive max_distance: d=-dot convention means dot >= -0.1 (broad), returns all 4
+            new Object[] { "max_distance", 0.1f, 4 },
+            // min_score is engine-independent, should match standard Faiss exactly
+            new Object[] { "min_score", 1.9f, 1 },
+            new Object[] { "min_score", 1.4f, 2 },
+            new Object[] { "min_score", 1.01f, 3 }
+        );
+
+        // MOS IP with negative dot products
+        float[][] ipNegVectors = {
+            { 1.0f, 0.0f },     // dot=1.0, score=2.0, distance=-1.0
+            { 0.5f, 0.5f },     // dot=0.5, score=1.5, distance=-0.5
+            { -0.3f, 0.5f },    // dot=-0.3, score=0.769, distance=0.3
+            { -0.8f, 0.2f },    // dot=-0.8, score=0.556, distance=0.8
+            { -1.0f, 0.0f }     // dot=-1.0, score=0.5, distance=1.0
+        };
+        float[] ipNegQuery = { 1.0f, 0.0f };
+
+        addRadialCases(
+            params,
+            "Faiss_MOS_IP_neg",
+            KNNEngine.FAISS,
+            SpaceType.INNER_PRODUCT,
+            ipNegVectors,
+            ipNegQuery,
+            true,
+            true,
+            // Negative max_distance (Faiss convention): -0.4 means dot >= 0.4
+            new Object[] { "max_distance", -0.4f, 2 },
+            new Object[] { "max_distance", -0.01f, 2 },
+            // Positive max_distance: 0.4 means dot >= -0.4 (broad), returns 3 (dot: 1.0, 0.5, -0.3)
+            new Object[] { "max_distance", 0.4f, 3 },
+            // Very large positive: returns all 5
+            new Object[] { "max_distance", 0.9f, 4 },
+            new Object[] { "max_distance", 1.1f, 5 },
+            // min_score tests (same as non-MOS)
+            new Object[] { "min_score", 1.4f, 2 },
+            new Object[] { "min_score", 0.6f, 3 },
+            new Object[] { "min_score", 0.55f, 4 },
+            new Object[] { "min_score", 0.45f, 5 }
+        );
     }
 
     private static void addLuceneParams(List<Object[]> params) {
@@ -322,7 +463,11 @@ public class RadialSearchIT extends KNNRestTestCase {
 
         mapping.endObject().endObject().startObject(FILTER_FIELD).field("type", "keyword").endObject().endObject().endObject();
 
-        Settings settings = Settings.builder().put("index.knn", true).build();
+        Settings.Builder settingsBuilder = Settings.builder().put("index.knn", true);
+        if (mosEnabled) {
+            settingsBuilder.put("index.knn.memory_optimized_search", true);
+        }
+        Settings settings = settingsBuilder.build();
         createKnnIndex(indexName, settings, mapping.toString());
 
         for (int i = 0; i < testVectors.length; i++) {

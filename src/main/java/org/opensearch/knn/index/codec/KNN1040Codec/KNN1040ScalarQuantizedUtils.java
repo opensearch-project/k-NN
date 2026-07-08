@@ -6,7 +6,7 @@
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
 import lombok.experimental.UtilityClass;
-import org.apache.lucene.codecs.lucene104.QuantizedByteVectorValues;
+import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
 import org.apache.lucene.index.KnnVectorValues;
 
 import java.io.IOException;
