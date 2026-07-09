@@ -66,7 +66,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
 
     @ParametersFactory(argumentFormatting = "compression:%1$s")
     public static Collection<Object[]> compressionParameters() {
-        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 });
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 }, new Object[] { CompressionTestConfig.X32 });
     }
 
     private static final int DIMENSION = 3;
@@ -1173,10 +1173,21 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
 
             final String responseBody = EntityUtils.toString(searchKNNIndex(INDEX_NAME, builder, expectedResults[i]).getEntity());
             final List<KNNResult> radiusResults = parseSearchResponse(responseBody, FIELD_NAME);
+            final List<Float> actualScores = parseSearchResponseScore(responseBody, FIELD_NAME);
+
+            if (compressionConfig != CompressionTestConfig.X1) {
+                assertTrue(radiusResults.size() <= expectedResults[i]);
+                for (int j = 0; j < actualScores.size(); j++) {
+                    assertTrue(actualScores.get(j) > 0.0f);
+                    if (j > 0) {
+                        assertTrue(actualScores.get(j - 1) >= actualScores.get(j));
+                    }
+                }
+                continue;
+            }
 
             assertEquals(expectedResults[i], radiusResults.size());
 
-            List<Float> actualScores = parseSearchResponseScore(responseBody, FIELD_NAME);
             for (KNNResult result : radiusResults) {
                 float[] vector = result.getVector();
                 float distance = TestUtils.computeDistFromSpaceType(spaceType, vector, searchVectors[i]);

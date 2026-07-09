@@ -51,7 +51,7 @@ public class IndexIT extends KNNCompressionRestTestCase {
 
     @ParametersFactory(argumentFormatting = "compression:%1$s")
     public static Collection<Object[]> compressionParameters() {
-        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 });
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 }, new Object[] { CompressionTestConfig.X32 });
     }
 
     @BeforeClass

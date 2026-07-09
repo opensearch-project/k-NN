@@ -41,7 +41,7 @@ public class KNNMapperSearcherIT extends KNNCompressionRestTestCase {
 
     @ParametersFactory(argumentFormatting = "compression:%1$s")
     public static Collection<Object[]> compressionParameters() {
-        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 });
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 }, new Object[] { CompressionTestConfig.X32 });
     }
 
     private static final String INDEX_NAME = "test_index";
@@ -410,7 +410,7 @@ public class KNNMapperSearcherIT extends KNNCompressionRestTestCase {
         // Check with FlatMapper
         String indexName = INDEX_NAME + "_flat_index";
         createBasicKnnIndex(indexName, FIELD_NAME, testVector.length);
-        putMappingRequest(indexName, createFieldMapping(testVector.length));
+        putMappingRequest(indexName, createKnnIndexMapping(FIELD_NAME, testVector.length));
     }
 
     /**

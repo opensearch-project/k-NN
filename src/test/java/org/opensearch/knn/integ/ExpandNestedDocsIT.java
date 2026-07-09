@@ -436,10 +436,12 @@ public class ExpandNestedDocsIT extends KNNCompressionRestTestCase {
             .startObject(FIELD_NAME_VECTOR)
             .field(TYPE, TYPE_KNN_VECTOR)
             .field(DIMENSION, dimension)
-            .field(MODE_PARAMETER, Mode.NOT_CONFIGURED.equals(mode) ? null : mode.getName())
             .field(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
         if (vectorDataType == VectorDataType.FLOAT) {
             addCompressionMappingFields(builder);
+        }
+        if (!(vectorDataType == VectorDataType.FLOAT && compressionConfig.isCompressed())) {
+            builder.field(MODE_PARAMETER, Mode.NOT_CONFIGURED.equals(mode) ? null : mode.getName());
         }
         builder.startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)

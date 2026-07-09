@@ -810,9 +810,10 @@ public class RecallTestsIT extends KNNCompressionRestTestCase {
             .startObject(PROPERTIES_FIELD)
             .startObject(TRAIN_FIELD_NAME)
             .field(TYPE, TYPE_KNN_VECTOR)
-            .field(DIMENSION, TEST_DIMENSION);
-        addCompressionMappingFields(trainingIndexBuilder);
-        trainingIndexBuilder.endObject().endObject().endObject();
+            .field(DIMENSION, TEST_DIMENSION)
+            .endObject()
+            .endObject()
+            .endObject();
         createIndexAndIngestDocs(
             TRAIN_INDEX_NAME,
             TRAIN_FIELD_NAME,
