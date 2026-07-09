@@ -24,6 +24,7 @@ import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
 import org.opensearch.knn.index.engine.faiss.SQConfig;
 import org.opensearch.knn.index.engine.faiss.SQConfigParser;
@@ -78,6 +79,7 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
         KNNLibraryIndexingContext libraryContext = methodContext.getKnnEngine()
             .getKNNLibraryIndexingContext(methodContext, knnMethodConfigContext);
         boolean isLuceneEngine = KNNEngine.LUCENE.equals(methodContext.getKnnEngine());
+        ResolvedIndexSpec resolvedSpec = libraryContext.getResolvedSpec();
 
         KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
             fullname,
@@ -121,7 +123,8 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
                     return libraryContext;
                 }
             },
-            indexCreatedVersion
+            indexCreatedVersion,
+            resolvedSpec
         );
 
         return new EngineFieldMapper(

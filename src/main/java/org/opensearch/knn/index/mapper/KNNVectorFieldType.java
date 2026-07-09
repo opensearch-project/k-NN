@@ -25,6 +25,7 @@ import org.opensearch.knn.index.KNNVectorIndexFieldData;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
@@ -75,6 +76,7 @@ public class KNNVectorFieldType extends MappedFieldType {
      */
     boolean memoryOptimizedSearchAvailable;
     Version indexCreatedVersion;
+    ResolvedIndexSpec resolvedSpec;
 
     /**
      * Constructor for KNNVectorFieldType with index created version.
@@ -92,6 +94,27 @@ public class KNNVectorFieldType extends MappedFieldType {
         KNNMappingConfig annConfig,
         Version indexCreatedVersion
     ) {
+        this(name, metadata, vectorDataType, annConfig, indexCreatedVersion, null);
+    }
+
+    /**
+     * Constructor for KNNVectorFieldType with index created version and resolved index spec.
+     *
+     * @param name name of the field
+     * @param metadata metadata of the field
+     * @param vectorDataType data type of the vector
+     * @param annConfig configuration context for the ANN index
+     * @param indexCreatedVersion Index created version.
+     * @param resolvedSpec resolved index spec, may be null for model/training/flat paths
+     */
+    public KNNVectorFieldType(
+        String name,
+        Map<String, String> metadata,
+        VectorDataType vectorDataType,
+        KNNMappingConfig annConfig,
+        Version indexCreatedVersion,
+        ResolvedIndexSpec resolvedSpec
+    ) {
         this(name, metadata, vectorDataType, annConfig);
         this.alwaysUseMemoryOptimizedSearch = MemoryOptimizedSearchSupportSpec.isAlwaysUseMemoryOptimizedSearch(
             knnMappingConfig.getKnnMethodContext()
@@ -102,6 +125,7 @@ public class KNNVectorFieldType extends MappedFieldType {
             annConfig.getModelId()
         );
         this.indexCreatedVersion = indexCreatedVersion;
+        this.resolvedSpec = resolvedSpec;
     }
 
     /**
