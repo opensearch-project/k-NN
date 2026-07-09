@@ -116,16 +116,21 @@ public class KNNVectorFieldType extends MappedFieldType {
         ResolvedIndexSpec resolvedSpec
     ) {
         this(name, metadata, vectorDataType, annConfig);
-        this.alwaysUseMemoryOptimizedSearch = MemoryOptimizedSearchSupportSpec.isAlwaysUseMemoryOptimizedSearch(
-            knnMappingConfig.getKnnMethodContext()
-        );
-        this.memoryOptimizedSearchAvailable = MemoryOptimizedSearchSupportSpec.isSupportedFieldType(
-            knnMappingConfig.getKnnMethodContext(),
-            annConfig.getQuantizationConfig(),
-            annConfig.getModelId()
-        );
-        this.indexCreatedVersion = indexCreatedVersion;
         this.resolvedSpec = resolvedSpec;
+        if (resolvedSpec != null) {
+            this.alwaysUseMemoryOptimizedSearch = resolvedSpec.alwaysUseMemoryOptimizedSearch();
+            this.memoryOptimizedSearchAvailable = resolvedSpec.isMemoryOptimizedEligible();
+        } else {
+            this.alwaysUseMemoryOptimizedSearch = MemoryOptimizedSearchSupportSpec.isAlwaysUseMemoryOptimizedSearch(
+                knnMappingConfig.getKnnMethodContext()
+            );
+            this.memoryOptimizedSearchAvailable = MemoryOptimizedSearchSupportSpec.isSupportedFieldType(
+                knnMappingConfig.getKnnMethodContext(),
+                annConfig.getQuantizationConfig(),
+                annConfig.getModelId()
+            );
+        }
+        this.indexCreatedVersion = indexCreatedVersion;
     }
 
     /**

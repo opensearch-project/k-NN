@@ -186,7 +186,8 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
             buildIndexParams,
             createTestRepositoryMetadata(),
             MOCK_FULL_PATH,
-            getMockParameterMap()
+            getMockParameterMap(),
+            null
         );
         assertEquals(S3, request.getRepositoryType());
         assertEquals(TEST_BUCKET, request.getContainerName());
@@ -206,7 +207,8 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
             buildIndexParams,
             createTestRepositoryMetadata(),
             MOCK_FULL_PATH,
-            getMockSQOneBitParameterMap()
+            getMockSQOneBitParameterMap(),
+            null
         );
         assertEquals(VectorDataType.FLOAT.getValue(), request.getVectorDataType());
         assertTrue(request.isSkipStoredVectors());
@@ -218,7 +220,8 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
             buildIndexParams,
             createTestRepositoryMetadata(),
             MOCK_FULL_PATH,
-            getMockFP16ParameterMap()
+            getMockFP16ParameterMap(),
+            null
         );
         assertEquals("half_float", request.getVectorDataType());
         assertFalse(request.isSkipStoredVectors());

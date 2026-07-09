@@ -195,11 +195,11 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
             this.fieldType.putAttribute(DIMENSION, String.valueOf(knnMappingConfig.getDimension()));
             this.fieldType.putAttribute(SPACE_TYPE, resolvedKnnMethodContext.getSpaceType().getValue());
 
-            if (isSQOneBitEncoder(resolvedKnnMethodContext)) {
-                // 1-bit quantization has its own per-field format that handles quantization internally, so we
-                // don't set qframe_config (which drives the k-NN quantization framework). Instead
-                // we store a separate sq config attribute as a quick way for readers to
-                // identify 1-bit quantized fields without parsing the full PARAMETERS JSON.
+            ResolvedIndexSpec spec = knnLibraryIndexingContext.getResolvedSpec();
+            if (spec != null && spec.usesFaissSQ1BitCodecFormat()) {
+                SQConfig sqConfig = SQConfig.builder().bits(spec.getQuantizationBits().getValue()).build();
+                this.fieldType.putAttribute(SQ_CONFIG, SQConfigParser.toCsv(sqConfig));
+            } else if (spec == null && isSQOneBitEncoder(resolvedKnnMethodContext)) {
                 this.fieldType.putAttribute(SQ_CONFIG, getSQConfigValue(resolvedKnnMethodContext));
             } else {
                 // Conditionally add quantization config
