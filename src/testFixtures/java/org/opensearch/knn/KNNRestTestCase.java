@@ -68,6 +68,9 @@ import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
 import static org.opensearch.knn.TestUtils.FIELD;
 import static org.opensearch.knn.TestUtils.INDEX_KNN;
 import static org.opensearch.knn.TestUtils.KNN_VECTOR;
+import static org.opensearch.knn.TestUtils.LEGACY_KNN_ALGO_PARAM_EF_CONSTRUCTION;
+import static org.opensearch.knn.TestUtils.LEGACY_KNN_ALGO_PARAM_M;
+import static org.opensearch.knn.TestUtils.LEGACY_KNN_SPACE_TYPE;
 import static org.opensearch.knn.TestUtils.NUMBER_OF_REPLICAS;
 import static org.opensearch.knn.TestUtils.NUMBER_OF_SHARDS;
 import static org.opensearch.knn.TestUtils.PROPERTIES;
@@ -2271,12 +2274,23 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
     }
 
+    /**
+     * Builds index settings that configure the k-NN field through the legacy index settings. These settings were
+     * removed from KNNSettings in 3.0, but 2.x clusters still accept them, so BWC tests use this builder when
+     * creating indices on old clusters to verify legacy indices survive an upgrade.
+     */
     protected Settings.Builder createKNNIndexCustomLegacyFieldMappingIndexSettingsBuilder(
         SpaceType spaceType,
         Integer m,
         Integer ef_construction
     ) {
-        return Settings.builder().put(NUMBER_OF_SHARDS, 1).put(NUMBER_OF_REPLICAS, 0).put(INDEX_KNN, true);
+        return Settings.builder()
+            .put(NUMBER_OF_SHARDS, 1)
+            .put(NUMBER_OF_REPLICAS, 0)
+            .put(INDEX_KNN, true)
+            .put(LEGACY_KNN_SPACE_TYPE, spaceType.getValue())
+            .put(LEGACY_KNN_ALGO_PARAM_M, m)
+            .put(LEGACY_KNN_ALGO_PARAM_EF_CONSTRUCTION, ef_construction);
     }
 
     protected Settings createKNNIndexCustomLegacyFieldMappingIndexSettings(SpaceType spaceType, Integer m, Integer ef_construction) {
