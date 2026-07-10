@@ -346,7 +346,14 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
      */
     public KNNQueryBuilder(StreamInput in) throws IOException {
         super(in);
-        KNNQueryBuilder.Builder builder = KNNQueryBuilderParser.streamInput(in, IndexUtil::isClusterOnOrAfterMinRequiredVersion);
+        // Gate optional fields on the transport stream version (the version negotiated for this specific
+        // connection), not the cluster minimum version. Cluster state propagates asynchronously, so two nodes
+        // can transiently disagree on it during a rolling upgrade; the stream version is always identical on
+        // both ends of a connection, so writer and reader can never disagree about which fields are on the wire.
+        KNNQueryBuilder.Builder builder = KNNQueryBuilderParser.streamInput(
+            in,
+            key -> IndexUtil.isVersionOnOrAfterMinRequiredVersion(in.getVersion(), key)
+        );
         fieldName = builder.fieldName;
         vector = builder.vector;
         k = builder.k;
@@ -361,7 +368,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
 
     @Override
     protected void doWriteTo(StreamOutput out) throws IOException {
-        KNNQueryBuilderParser.streamOutput(out, this, IndexUtil::isClusterOnOrAfterMinRequiredVersion);
+        // See the matching comment in the StreamInput constructor: gate on stream version, not cluster version.
+        KNNQueryBuilderParser.streamOutput(out, this, key -> IndexUtil.isVersionOnOrAfterMinRequiredVersion(out.getVersion(), key));
     }
 
     /**

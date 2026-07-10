@@ -17,7 +17,6 @@ import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
-import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 
 import java.io.IOException;
@@ -119,39 +118,43 @@ public final class KNNQueryBuilderParser {
      * Stream input for KNNQueryBuilder
      *
      * @param in stream out
-     * @param minClusterVersionCheck function to check min version
+     * @param minVersionCheck function to check, for a given feature key, whether the stream version supports it.
+     *                        Callers must derive this from the transport stream version ({@code in.getVersion()}),
+     *                        not from cluster state, so that the writer and reader always agree (see #1622).
      * @return KNNQueryBuilder.Builder class
      * @throws IOException on stream failure
      */
-    public static KNNQueryBuilder.Builder streamInput(StreamInput in, Function<String, Boolean> minClusterVersionCheck) throws IOException {
+    public static KNNQueryBuilder.Builder streamInput(StreamInput in, Function<String, Boolean> minVersionCheck) throws IOException {
         KNNQueryBuilder.Builder builder = new KNNQueryBuilder.Builder();
         builder.fieldName(in.readString());
         builder.vector(in.readFloatArray());
-        if (minClusterVersionCheck.apply(KNNConstants.NULL_K)) {
+        if (minVersionCheck.apply(KNNConstants.NULL_K)) {
             builder.k(in.readOptionalInt());
         } else {
             builder.k(in.readInt());
         }
         builder.filter(in.readOptionalNamedWriteable(QueryBuilder.class));
 
-        if (minClusterVersionCheck.apply("ignore_unmapped")) {
+        if (minVersionCheck.apply("ignore_unmapped")) {
             builder.ignoreUnmapped(in.readOptionalBoolean());
         }
-        if (minClusterVersionCheck.apply(KNNConstants.RADIAL_SEARCH_KEY)) {
+        if (minVersionCheck.apply(KNNConstants.RADIAL_SEARCH_KEY)) {
             builder.maxDistance(in.readOptionalFloat());
         }
-        if (minClusterVersionCheck.apply(KNNConstants.RADIAL_SEARCH_KEY)) {
+        if (minVersionCheck.apply(KNNConstants.RADIAL_SEARCH_KEY)) {
             builder.minScore(in.readOptionalFloat());
         }
-        if (minClusterVersionCheck.apply(METHOD_PARAMETER)) {
-            builder.methodParameters(MethodParametersParser.streamInput(in, IndexUtil::isClusterOnOrAfterMinRequiredVersion));
+        if (minVersionCheck.apply(METHOD_PARAMETER)) {
+            // Forward the same (stream-version-based) predicate instead of re-deriving one from cluster state,
+            // so the nested method-parameters read agrees with everything else in this stream. See #1622.
+            builder.methodParameters(MethodParametersParser.streamInput(in, minVersionCheck));
         }
 
-        if (minClusterVersionCheck.apply(RESCORE_PARAMETER)) {
+        if (minVersionCheck.apply(RESCORE_PARAMETER)) {
             builder.rescoreContext(RescoreParser.streamInput(in));
         }
 
-        if (minClusterVersionCheck.apply(EXPAND_NESTED)) {
+        if (minVersionCheck.apply(EXPAND_NESTED)) {
             builder.expandNested(in.readOptionalBoolean());
         }
 
@@ -163,35 +166,39 @@ public final class KNNQueryBuilderParser {
      *
      * @param out stream out
      * @param builder KNNQueryBuilder to stream
-     * @param minClusterVersionCheck function to check min version
+     * @param minVersionCheck function to check, for a given feature key, whether the stream version supports it.
+     *                        Callers must derive this from the transport stream version ({@code out.getVersion()}),
+     *                        not from cluster state, so that the writer and reader always agree (see #1622).
      * @throws IOException on stream failure
      */
-    public static void streamOutput(StreamOutput out, KNNQueryBuilder builder, Function<String, Boolean> minClusterVersionCheck)
+    public static void streamOutput(StreamOutput out, KNNQueryBuilder builder, Function<String, Boolean> minVersionCheck)
         throws IOException {
         out.writeString(builder.fieldName());
         out.writeFloatArray((float[]) builder.vector());
-        if (minClusterVersionCheck.apply(KNNConstants.NULL_K)) {
+        if (minVersionCheck.apply(KNNConstants.NULL_K)) {
             out.writeOptionalInt(builder.getK());
         } else {
             out.writeInt(Optional.ofNullable(builder.getK()).orElse(0));
         }
         out.writeOptionalNamedWriteable(builder.getFilter());
-        if (minClusterVersionCheck.apply("ignore_unmapped")) {
+        if (minVersionCheck.apply("ignore_unmapped")) {
             out.writeOptionalBoolean(builder.isIgnoreUnmapped());
         }
-        if (minClusterVersionCheck.apply(KNNConstants.RADIAL_SEARCH_KEY)) {
+        if (minVersionCheck.apply(KNNConstants.RADIAL_SEARCH_KEY)) {
             out.writeOptionalFloat(builder.getMaxDistance());
         }
-        if (minClusterVersionCheck.apply(KNNConstants.RADIAL_SEARCH_KEY)) {
+        if (minVersionCheck.apply(KNNConstants.RADIAL_SEARCH_KEY)) {
             out.writeOptionalFloat(builder.getMinScore());
         }
-        if (minClusterVersionCheck.apply(METHOD_PARAMETER)) {
-            MethodParametersParser.streamOutput(out, builder.getMethodParameters(), IndexUtil::isClusterOnOrAfterMinRequiredVersion);
+        if (minVersionCheck.apply(METHOD_PARAMETER)) {
+            // Forward the same (stream-version-based) predicate instead of re-deriving one from cluster state,
+            // so the nested method-parameters write agrees with everything else in this stream. See #1622.
+            MethodParametersParser.streamOutput(out, builder.getMethodParameters(), minVersionCheck);
         }
-        if (minClusterVersionCheck.apply(RESCORE_PARAMETER)) {
+        if (minVersionCheck.apply(RESCORE_PARAMETER)) {
             RescoreParser.streamOutput(out, builder.getRescoreContext());
         }
-        if (minClusterVersionCheck.apply(EXPAND_NESTED)) {
+        if (minVersionCheck.apply(EXPAND_NESTED)) {
             out.writeOptionalBoolean(builder.getExpandNested());
         }
     }
