@@ -21,7 +21,6 @@ import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategy;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.ResolvedIndexSpec;
-import org.opensearch.knn.index.engine.faiss.FaissHNSWMethod;
 import org.opensearch.knn.index.remote.RemoteIndexWaiter;
 import org.opensearch.knn.index.remote.RemoteIndexWaiterFactory;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -334,14 +333,12 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         final ResolvedIndexSpec resolvedSpec
     ) {
         if (dataType == VectorDataType.FLOAT) {
-            if (resolvedSpec != null) {
-                if (resolvedSpec.usesFaissSQ1BitCodecFormat()) {
-                    return dataType.getValue();
-                }
-            } else if (FaissHNSWMethod.isSQOneBitIndex(dataType, parameters)) {
+            // SQ 1-bit sends fp32 vectors. Once support is added for building 1 bit SQ graphs
+            // in the Remote Vector Index Builder, then this can be modified to send 1 bit SQ vectors.
+            if (resolvedSpec.isFaissSQOneBit()) {
                 return dataType.getValue();
             }
-            if (FaissHNSWMethod.isFloat16Index(dataType, parameters)) {
+            if (resolvedSpec.isFP16QuantizedIndex()) {
                 return FLOAT16_VECTOR_TYPE_STRING;
             }
         }
@@ -349,15 +346,17 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         return dataType.getValue();
     }
 
+    /**
+     * Determines whether the Remote Vector Index Builder (RVIB) should skip writing flat vector storage (IO_FLAG_SKIP_STORAGE).
+     * When true, the RVIB writes only the HNSW graph, and the data node stitches it with locally-stored
+     * flat vectors at search time via {@link org.opensearch.knn.memoryoptsearch.faiss.FaissFlatIndexFactory}.
+     */
     private static boolean shouldSkipStoredVectors(
         final VectorDataType vectorDataType,
         final Map<String, Object> parameters,
         final ResolvedIndexSpec resolvedSpec
     ) {
-        if (resolvedSpec != null) {
-            return resolvedSpec.usesFaissSQ1BitCodecFormat();
-        }
-        return FaissHNSWMethod.isSQOneBitIndex(vectorDataType, parameters);
+        return resolvedSpec.isFaissSQOneBit();
     }
 
     /**
@@ -368,7 +367,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
      * @param repositoryMetadata RepositoryMetadata object
      * @param fullPath           Full blob path + file name representing location of the vectors/doc IDs (excludes repository-specific prefix)
      * @param parameters         Map of parameters to be parsed and passed to the remote build service
-     * @param resolvedSpec       ResolvedIndexSpec for spec-based decisions, may be null
+     * @param resolvedSpec       ResolvedIndexSpec for spec-based decisions, non-null (guaranteed by AbstractKNNMethod.buildResolvedIndexSpec)
      * @throws IOException if an I/O error occurs
      */
     static RemoteBuildRequest buildRemoteBuildRequest(
@@ -379,6 +378,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         Map<String, Object> parameters,
         ResolvedIndexSpec resolvedSpec
     ) throws IOException {
+        java.util.Objects.requireNonNull(resolvedSpec, "resolvedSpec must not be null in remote build path");
         final String repositoryType = repositoryMetadata.type();
         final String containerName;
         switch (repositoryType) {

@@ -482,9 +482,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             ResolvedIndexSpec spec = knnVectorFieldType.getResolvedSpec();
             if (spec != null) {
                 if (!spec.supportsRadialSearch()) {
-                    throw new UnsupportedOperationException("Radial search is not supported for indices which have quantization enabled");
+                    throw new UnsupportedOperationException("Radial search is not supported for this quantization configuration");
                 }
             } else {
+                // TODO: Remove fallback once all field mapper paths supply a ResolvedIndexSpec
                 knnVectorFieldType.validateSupportRadialSearch(knnEngine);
             }
         }
@@ -787,14 +788,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
     }
 
     private static RescoreContext resolveRescore(KNNVectorFieldType fieldType, RescoreContext userContext) {
-        ResolvedIndexSpec spec = fieldType.getResolvedSpec();
-        if (spec == null) {
-            return fieldType.resolveRescoreContext(userContext);
-        }
-        if (userContext != null) {
-            return userContext;
-        }
-        return spec.getRescoreContext();
+        return fieldType.resolveRescoreContext(userContext);
     }
 
     @Getter

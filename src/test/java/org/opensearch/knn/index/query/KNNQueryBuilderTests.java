@@ -46,8 +46,10 @@ import org.opensearch.knn.index.query.lucene.LuceneEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.index.util.KNNClusterUtil;
+import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -485,9 +487,15 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         );
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.HAMMING, methodComponentContext);
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 8));
-        doCallRealMethod().when(mockKNNVectorField).validateSupportRadialSearch(any(KNNEngine.class));
+        ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName("hnsw")
+            .vectorDataType(VectorDataType.BINARY)
+            .dimension(8)
+            .build();
+        when(mockKNNVectorField.getResolvedSpec()).thenReturn(spec);
         Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
-        assertTrue(e.getMessage().contains("Binary data type does not support radial search"));
+        assertTrue(e.getMessage().contains("Radial search is not supported"));
     }
 
     public void testDoToQuery_whenRadialSearchOnDiskMode_thenException() {
@@ -531,12 +539,20 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         };
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(bqMappingConfig);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        // Call real validateSupportRadialSearch() so it uses the mocked fields
-        doCallRealMethod().when(mockKNNVectorField).validateSupportRadialSearch(any(KNNEngine.class));
+        ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName("hnsw")
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.FOUR)
+            .compressionLevel(CompressionLevel.x4)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(1)
+            .build();
+        when(mockKNNVectorField.getResolvedSpec()).thenReturn(spec);
 
         // When/Then: BQ (QuantizationConfig != EMPTY) is still blocked for radial search
         Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
-        assertTrue(e.getMessage().contains("binary quantization"));
+        assertEquals("Radial search is not supported for this quantization configuration", e.getMessage());
     }
 
     // Given: a Faiss index with unsupported SQ compression level (x4, x8, x16)
@@ -552,7 +568,12 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext);
 
         CompressionLevel[] unsupportedLevels = { CompressionLevel.x4, CompressionLevel.x8, CompressionLevel.x16 };
-        for (CompressionLevel level : unsupportedLevels) {
+        Encoder.QuantizationBits[] unsupportedBits = {
+            Encoder.QuantizationBits.SEVEN,
+            Encoder.QuantizationBits.FOUR,
+            Encoder.QuantizationBits.TWO };
+        for (int i = 0; i < unsupportedLevels.length; i++) {
+            CompressionLevel level = unsupportedLevels[i];
             KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
                 .fieldName(FIELD_NAME)
                 .vector(queryVector)
@@ -582,10 +603,19 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                     return compressionLevel;
                 }
             });
-            doCallRealMethod().when(mockKNNVectorField).validateSupportRadialSearch(any(KNNEngine.class));
+            ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
+                .engine(KNNEngine.FAISS)
+                .methodName("hnsw")
+                .encoderType(Encoder.EncoderType.SQ)
+                .quantizationBits(unsupportedBits[i])
+                .compressionLevel(level)
+                .vectorDataType(VectorDataType.FLOAT)
+                .dimension(1)
+                .build();
+            when(mockKNNVectorField.getResolvedSpec()).thenReturn(spec);
 
             Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
-            assertTrue("Expected compression level in error message for " + level, e.getMessage().contains("compression level=" + level));
+            assertEquals("Radial search is not supported for this quantization configuration", e.getMessage());
         }
     }
 
@@ -641,31 +671,14 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertTrue(query instanceof RescoreRadialSearchQuery);
     }
 
-    // Validates that radial search on a Faiss index with 32x scalar quantization (SQ) is allowed.
-    //
-    // Previously, radial search was blocked for ALL quantized indices. We now allow it specifically
-    // for 32x SQ because the rescoring layer (RescoreRadialSearchQuery) handles false positive
-    // elimination by recomputing scores against full-precision vectors.
-    //
-    // 32x SQ is identified by: QuantizationConfig == EMPTY (not BQ) && CompressionLevel == x32.
-    // BQ indices (QuantizationConfig != EMPTY) remain blocked — see testDoToQuery_whenRadialSearchOnDiskMode_thenException.
-    //
-    // The test verifies doToQuery() produces a KNNQuery (Faiss radial path) without throwing
-    // UnsupportedOperationException, for both max_distance and min_score query types.
-    public void testDoToQuery_whenRadialSearchOnFaissSQ32x_thenNoUnsupportedOperationException() {
+    public void testDoToQuery_whenRadialSearchOnFaissSQ32x_thenException() {
         float[] queryVector = { 1.0f };
         Index dummyIndex = new Index("dummy", "dummy");
-
-        // Configure Faiss HNSW with L2 space type — standard Faiss engine setup
         MethodComponentContext methodComponentContext = new MethodComponentContext(
             org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
             ImmutableMap.of()
         );
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext);
-
-        // Simulate a 32x SQ mapping config:
-        // - QuantizationConfig defaults to EMPTY (not BQ) — passes the BQ guard
-        // - CompressionLevel is x32 — passes the "non-32x SQ" guard
         KNNMappingConfig faissSQ32xMappingConfig = new KNNMappingConfig() {
             @Override
             public Optional<KNNMethodContext> getKnnMethodContext() {
@@ -682,10 +695,17 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                 return CompressionLevel.x32;
             }
         };
+        ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName("hnsw")
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.FOUR)
+            .compressionLevel(CompressionLevel.x32)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(1)
+            .build();
 
-        // --- Test with maxDistance ---
-        // maxDistance triggers the radial search path (radius != null) in doToQuery().
-        // For Faiss engine, RNNQueryFactory.create() produces a KNNQuery with radius set.
+        // Test with maxDistance
         KNNQueryBuilder knnQueryBuilderWithDistance = KNNQueryBuilder.builder()
             .fieldName(FIELD_NAME)
             .vector(queryVector)
@@ -693,29 +713,15 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             .build();
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
-        IndexSettings indexSettings = mock(IndexSettings.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        // transformQueryVector is required so that the processed vector (e.g., L2-normalized for cosine)
-        // is non-null when passed to RescoreRadialSearchQuery
-        when(mockKNNVectorField.transformQueryVector(queryVector)).thenReturn(queryVector);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(faissSQ32xMappingConfig);
-        when(mockKNNVectorField.isRescoringRequiredForRadial()).thenReturn(true);
+        when(mockKNNVectorField.getResolvedSpec()).thenReturn(spec);
+        Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithDistance.doToQuery(mockQueryShardContext));
+        assertEquals("Radial search is not supported for this quantization configuration", e.getMessage());
 
-        // IndexSettings is required by RNNQueryFactory.create() to get maxResultWindow for KNNQuery.Context
-        when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
-        when(indexSettings.getMaxResultWindow()).thenReturn(1000);
-
-        Query query = knnQueryBuilderWithDistance.doToQuery(mockQueryShardContext);
-        assertNotNull(query);
-        // 32x SQ radial search wraps the inner KNNQuery in RescoreRadialSearchQuery
-        assertTrue(query instanceof RescoreRadialSearchQuery);
-        assertTrue(((RescoreRadialSearchQuery) query).getInnerQuery() instanceof KNNQuery);
-
-        // --- Test with minScore ---
-        // minScore is the alternative radial search parameter (converted to radius internally).
-        // Should follow the same path as maxDistance for Faiss engine.
+        // Test with minScore
         KNNQueryBuilder knnQueryBuilderWithScore = KNNQueryBuilder.builder()
             .fieldName(FIELD_NAME)
             .vector(queryVector)
@@ -723,48 +729,23 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             .build();
         QueryShardContext mockQueryShardContext2 = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField2 = mock(KNNVectorFieldType.class);
-        IndexSettings indexSettings2 = mock(IndexSettings.class);
         when(mockQueryShardContext2.index()).thenReturn(dummyIndex);
         when(mockKNNVectorField2.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        when(mockKNNVectorField2.transformQueryVector(queryVector)).thenReturn(queryVector);
         when(mockQueryShardContext2.fieldMapper(anyString())).thenReturn(mockKNNVectorField2);
         when(mockKNNVectorField2.getKnnMappingConfig()).thenReturn(faissSQ32xMappingConfig);
-        when(mockKNNVectorField2.isRescoringRequiredForRadial()).thenReturn(true);
-        when(mockQueryShardContext2.getIndexSettings()).thenReturn(indexSettings2);
-        when(indexSettings2.getMaxResultWindow()).thenReturn(1000);
-
-        Query query2 = knnQueryBuilderWithScore.doToQuery(mockQueryShardContext2);
-        assertNotNull(query2);
-        assertTrue(query2 instanceof RescoreRadialSearchQuery);
-        assertTrue(((RescoreRadialSearchQuery) query2).getInnerQuery() instanceof KNNQuery);
+        when(mockKNNVectorField2.getResolvedSpec()).thenReturn(spec);
+        Exception e2 = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithScore.doToQuery(mockQueryShardContext2));
+        assertEquals("Radial search is not supported for this quantization configuration", e2.getMessage());
     }
 
-    // Validates that radial search on a Lucene HNSW index with 32x scalar quantization (SQ) is allowed.
-    //
-    // This is the Lucene engine counterpart to testDoToQuery_whenRadialSearchOnFaissSQ32x. The key
-    // difference is the query type produced: Lucene radial search goes through RNNQueryFactory's
-    // Lucene branch, which creates a FloatVectorSimilarityQuery (Lucene's built-in radial query)
-    // instead of a KNNQuery (used by Faiss for JNI-based native search).
-    //
-    // The quantization guard logic is identical for both engines — it only checks QuantizationConfig
-    // and CompressionLevel, which are engine-agnostic mapping properties.
-    //
-    // Unlike the Faiss path, the Lucene path requires transformQueryVector to be mocked because
-    // doToQuery() transforms the query vector before passing it to RNNQueryFactory. For Faiss,
-    // the vector passes through without transformation for FLOAT data type.
-    public void testDoToQuery_whenRadialSearchOnLuceneSQ32x_thenNoUnsupportedOperationException() {
+    public void testDoToQuery_whenRadialSearchOnLuceneSQ32x_thenException() {
         float[] queryVector = { 1.0f };
         Index dummyIndex = new Index("dummy", "dummy");
-
-        // Configure Lucene HNSW with L2 space type
         MethodComponentContext methodComponentContext = new MethodComponentContext(
             org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
             ImmutableMap.of()
         );
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
-
-        // Simulate a 32x SQ mapping config — same structure as Faiss test.
-        // QuantizationConfig defaults to EMPTY (not BQ), CompressionLevel is x32.
         KNNMappingConfig luceneSQ32xMappingConfig = new KNNMappingConfig() {
             @Override
             public Optional<KNNMethodContext> getKnnMethodContext() {
@@ -781,10 +762,17 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                 return CompressionLevel.x32;
             }
         };
+        ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.LUCENE)
+            .methodName("hnsw")
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.FOUR)
+            .compressionLevel(CompressionLevel.x32)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(1)
+            .build();
 
-        // --- Test with maxDistance ---
-        // For Lucene engine, RNNQueryFactory.create() takes the non-custom-segment-files branch,
-        // producing a FloatVectorSimilarityQuery via getFloatVectorSimilarityQuery().
+        // Test with maxDistance
         KNNQueryBuilder knnQueryBuilderWithDistance = KNNQueryBuilder.builder()
             .fieldName(FIELD_NAME)
             .vector(queryVector)
@@ -792,28 +780,15 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             .build();
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
-        IndexSettings indexSettings = mock(IndexSettings.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        // transformQueryVector is required for Lucene path — doToQuery() calls it to normalize/transform
-        // the query vector before building the Lucene query. Without this mock, the vector becomes null
-        // and FloatVectorSimilarityQuery's constructor throws NPE.
-        when(mockKNNVectorField.transformQueryVector(queryVector)).thenReturn(queryVector);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(luceneSQ32xMappingConfig);
-        when(mockKNNVectorField.isRescoringRequiredForRadial()).thenReturn(true);
-        when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
-        when(indexSettings.getMaxResultWindow()).thenReturn(1000);
+        when(mockKNNVectorField.getResolvedSpec()).thenReturn(spec);
+        Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithDistance.doToQuery(mockQueryShardContext));
+        assertEquals("Radial search is not supported for this quantization configuration", e.getMessage());
 
-        Query query = knnQueryBuilderWithDistance.doToQuery(mockQueryShardContext);
-        assertNotNull(query);
-        // 32x SQ radial search wraps the inner FloatVectorSimilarityQuery in RescoreRadialSearchQuery
-        assertTrue(query instanceof RescoreRadialSearchQuery);
-        assertTrue(((RescoreRadialSearchQuery) query).getInnerQuery() instanceof FloatVectorSimilarityQuery);
-
-        // --- Test with minScore ---
-        // minScore follows the same Lucene radial path. Internally converted to a similarity threshold
-        // via KNNEngine.LUCENE.scoreToRadialThreshold() before being passed to FloatVectorSimilarityQuery.
+        // Test with minScore
         KNNQueryBuilder knnQueryBuilderWithScore = KNNQueryBuilder.builder()
             .fieldName(FIELD_NAME)
             .vector(queryVector)
@@ -821,47 +796,23 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             .build();
         QueryShardContext mockQueryShardContext2 = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField2 = mock(KNNVectorFieldType.class);
-        IndexSettings indexSettings2 = mock(IndexSettings.class);
         when(mockQueryShardContext2.index()).thenReturn(dummyIndex);
         when(mockKNNVectorField2.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        when(mockKNNVectorField2.transformQueryVector(queryVector)).thenReturn(queryVector);
         when(mockQueryShardContext2.fieldMapper(anyString())).thenReturn(mockKNNVectorField2);
         when(mockKNNVectorField2.getKnnMappingConfig()).thenReturn(luceneSQ32xMappingConfig);
-        when(mockKNNVectorField2.isRescoringRequiredForRadial()).thenReturn(true);
-        when(mockQueryShardContext2.getIndexSettings()).thenReturn(indexSettings2);
-        when(indexSettings2.getMaxResultWindow()).thenReturn(1000);
-
-        Query query2 = knnQueryBuilderWithScore.doToQuery(mockQueryShardContext2);
-        assertNotNull(query2);
-        assertTrue(query2 instanceof RescoreRadialSearchQuery);
-        assertTrue(((RescoreRadialSearchQuery) query2).getInnerQuery() instanceof FloatVectorSimilarityQuery);
+        when(mockKNNVectorField2.getResolvedSpec()).thenReturn(spec);
+        Exception e2 = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithScore.doToQuery(mockQueryShardContext2));
+        assertEquals("Radial search is not supported for this quantization configuration", e2.getMessage());
     }
 
-    // Validates that radial search on a Lucene FLAT index with 32x SQ is allowed.
-    //
-    // This test complements testDoToQuery_whenRadialSearchOnLuceneSQ32x by using METHOD_FLAT
-    // instead of METHOD_HNSW. The distinction matters because:
-    // - HNSW uses graph-based approximate search (traversal with similarity threshold)
-    // - FLAT uses brute-force exhaustive search (no graph)
-    //
-    // Both methods produce the same query type (FloatVectorSimilarityQuery) for radial search
-    // on the Lucene engine. The quantization guard logic is method-agnostic — it only checks
-    // QuantizationConfig and CompressionLevel, not the search method.
-    //
-    // This test ensures that the guard removal works for FLAT as well, since FLAT with 32x SQ
-    // is a valid production configuration (small indices or exact search requirements).
-    public void testDoToQuery_whenRadialSearchOnLuceneFlat32x_thenNoUnsupportedOperationException() {
+    public void testDoToQuery_whenRadialSearchOnLuceneFlat32x_thenException() {
         float[] queryVector = { 1.0f };
         Index dummyIndex = new Index("dummy", "dummy");
-
-        // Configure Lucene FLAT (brute-force) with L2 — no HNSW graph
         MethodComponentContext methodComponentContext = new MethodComponentContext(
             org.opensearch.knn.common.KNNConstants.METHOD_FLAT,
             ImmutableMap.of()
         );
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
-
-        // Same 32x SQ mapping config as the HNSW test — guard logic is identical
         KNNMappingConfig luceneFlat32xMappingConfig = new KNNMappingConfig() {
             @Override
             public Optional<KNNMethodContext> getKnnMethodContext() {
@@ -878,11 +829,16 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                 return CompressionLevel.x32;
             }
         };
+        ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.LUCENE)
+            .methodName("hnsw")
+            .encoderType(Encoder.EncoderType.BQ)
+            .compressionLevel(CompressionLevel.x32)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(1)
+            .build();
 
-        // --- Test with maxDistance ---
-        // FLAT and HNSW both take the same Lucene branch in RNNQueryFactory.create(),
-        // producing FloatVectorSimilarityQuery. The method type only affects how Lucene
-        // internally executes the search (exhaustive vs graph traversal).
+        // Test with maxDistance
         KNNQueryBuilder knnQueryBuilderWithDistance = KNNQueryBuilder.builder()
             .fieldName(FIELD_NAME)
             .vector(queryVector)
@@ -890,22 +846,15 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             .build();
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldType.class);
-        IndexSettings indexSettings = mock(IndexSettings.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        when(mockKNNVectorField.transformQueryVector(queryVector)).thenReturn(queryVector);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(luceneFlat32xMappingConfig);
-        when(mockKNNVectorField.isRescoringRequiredForRadial()).thenReturn(true);
-        when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
-        when(indexSettings.getMaxResultWindow()).thenReturn(1000);
+        when(mockKNNVectorField.getResolvedSpec()).thenReturn(spec);
+        Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithDistance.doToQuery(mockQueryShardContext));
+        assertEquals("Radial search is not supported for this quantization configuration", e.getMessage());
 
-        Query query = knnQueryBuilderWithDistance.doToQuery(mockQueryShardContext);
-        assertNotNull(query);
-        assertTrue(query instanceof RescoreRadialSearchQuery);
-        assertTrue(((RescoreRadialSearchQuery) query).getInnerQuery() instanceof FloatVectorSimilarityQuery);
-
-        // --- Test with minScore ---
+        // Test with minScore
         KNNQueryBuilder knnQueryBuilderWithScore = KNNQueryBuilder.builder()
             .fieldName(FIELD_NAME)
             .vector(queryVector)
@@ -913,20 +862,13 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             .build();
         QueryShardContext mockQueryShardContext2 = mock(QueryShardContext.class);
         KNNVectorFieldType mockKNNVectorField2 = mock(KNNVectorFieldType.class);
-        IndexSettings indexSettings2 = mock(IndexSettings.class);
         when(mockQueryShardContext2.index()).thenReturn(dummyIndex);
         when(mockKNNVectorField2.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        when(mockKNNVectorField2.transformQueryVector(queryVector)).thenReturn(queryVector);
         when(mockQueryShardContext2.fieldMapper(anyString())).thenReturn(mockKNNVectorField2);
         when(mockKNNVectorField2.getKnnMappingConfig()).thenReturn(luceneFlat32xMappingConfig);
-        when(mockKNNVectorField2.isRescoringRequiredForRadial()).thenReturn(true);
-        when(mockQueryShardContext2.getIndexSettings()).thenReturn(indexSettings2);
-        when(indexSettings2.getMaxResultWindow()).thenReturn(1000);
-
-        Query query2 = knnQueryBuilderWithScore.doToQuery(mockQueryShardContext2);
-        assertNotNull(query2);
-        assertTrue(query2 instanceof RescoreRadialSearchQuery);
-        assertTrue(((RescoreRadialSearchQuery) query2).getInnerQuery() instanceof FloatVectorSimilarityQuery);
+        when(mockKNNVectorField2.getResolvedSpec()).thenReturn(spec);
+        Exception e2 = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithScore.doToQuery(mockQueryShardContext2));
+        assertEquals("Radial search is not supported for this quantization configuration", e2.getMessage());
     }
 
     public void testDoToQuery_KnnQueryWithFilter_Lucene() {
@@ -1543,7 +1485,13 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             when(mockQueryShardContext.index()).thenReturn(dummyIndex);
             when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
             when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-            doCallRealMethod().when(mockKNNVectorField).validateSupportRadialSearch(any(KNNEngine.class));
+            ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
+                .engine(knnEngine)
+                .methodName("hnsw")
+                .vectorDataType(VectorDataType.FLOAT)
+                .dimension(4)
+                .build();
+            when(mockKNNVectorField.getResolvedSpec()).thenReturn(spec);
 
             expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
         }

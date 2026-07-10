@@ -7,10 +7,12 @@ package org.opensearch.knn.index.engine.lucene;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnVectorsFormat;
+import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.codec.KnnVectorsFormatContext;
 import org.opensearch.knn.index.codec.LuceneVectorsFormatType;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.engine.CodecFormatResolver;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 
 import java.util.Map;
@@ -53,7 +55,8 @@ public class LuceneCodecFormatResolver implements CodecFormatResolver {
         KNNMethodContext methodContext,
         Map<String, Object> params,
         int defaultMaxConnections,
-        int defaultBeamWidth
+        int defaultBeamWidth,
+        @Nullable ResolvedIndexSpec resolvedSpec
     ) {
         LuceneVectorsFormatType formatType = determineFormatType(field, methodContext, params, defaultMaxConnections, defaultBeamWidth);
         Function<KnnVectorsFormatContext, KnnVectorsFormat> factory = formatResolvers.get(formatType);

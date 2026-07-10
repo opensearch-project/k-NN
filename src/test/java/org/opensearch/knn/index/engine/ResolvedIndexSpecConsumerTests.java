@@ -34,11 +34,8 @@ public class ResolvedIndexSpecConsumerTests extends KNNTestCase {
     private static final String FIELD_NAME = "test-field";
 
     public void testMemoryOptimizedSearch_specProducesSameAsOldPath_SQ1Bit() {
-        KNNVectorFieldType oldPathFieldType = buildFieldTypeWithoutSpec(buildSQ1BitMethodContext(), 128);
         KNNVectorFieldType specPathFieldType = buildFieldTypeWithSpec(buildSQ1BitMethodContext(), 128, buildSQ1BitSpec());
 
-        assertEquals(oldPathFieldType.isAlwaysUseMemoryOptimizedSearch(), specPathFieldType.isAlwaysUseMemoryOptimizedSearch());
-        assertEquals(oldPathFieldType.isMemoryOptimizedSearchAvailable(), specPathFieldType.isMemoryOptimizedSearchAvailable());
         assertTrue(specPathFieldType.isAlwaysUseMemoryOptimizedSearch());
         assertTrue(specPathFieldType.isMemoryOptimizedSearchAvailable());
     }
@@ -64,11 +61,8 @@ public class ResolvedIndexSpecConsumerTests extends KNNTestCase {
             .indexVersionCreated(Version.CURRENT)
             .build();
 
-        KNNVectorFieldType oldPathFieldType = buildFieldTypeWithoutSpec(flatMethodContext, 128);
         KNNVectorFieldType specPathFieldType = buildFieldTypeWithSpec(flatMethodContext, 128, spec);
 
-        assertEquals(oldPathFieldType.isAlwaysUseMemoryOptimizedSearch(), specPathFieldType.isAlwaysUseMemoryOptimizedSearch());
-        assertEquals(oldPathFieldType.isMemoryOptimizedSearchAvailable(), specPathFieldType.isMemoryOptimizedSearchAvailable());
         assertFalse(specPathFieldType.isAlwaysUseMemoryOptimizedSearch());
         assertTrue(specPathFieldType.isMemoryOptimizedSearchAvailable());
     }
@@ -173,13 +167,15 @@ public class ResolvedIndexSpecConsumerTests extends KNNTestCase {
     public void testNullSpec_fallsBackToOldPath() {
         KNNVectorFieldType fieldType = buildFieldTypeWithoutSpec(buildSQ1BitMethodContext(), 128);
         assertNull(fieldType.getResolvedSpec());
+        // Fallback computes MOS flags from mapping config: SQ 1-bit always uses MOS
         assertTrue(fieldType.isAlwaysUseMemoryOptimizedSearch());
+        // isSupportedFieldType requires Faiss HNSW with FLAT/SQ/BQ + no model, which this satisfies
         assertTrue(fieldType.isMemoryOptimizedSearchAvailable());
     }
 
     public void testSQ1BitCodecFormat_viaSPec() {
         ResolvedIndexSpec spec = buildSQ1BitSpec();
-        assertTrue(spec.usesFaissSQ1BitCodecFormat());
+        assertTrue(spec.isFaissSQOneBit());
     }
 
     public void testSQ16Bit_notSQ1BitCodecFormat() {
@@ -194,7 +190,7 @@ public class ResolvedIndexSpecConsumerTests extends KNNTestCase {
             .dimension(128)
             .indexVersionCreated(Version.CURRENT)
             .build();
-        assertFalse(spec.usesFaissSQ1BitCodecFormat());
+        assertFalse(spec.isFaissSQOneBit());
     }
 
     // --- Helpers ---

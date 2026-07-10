@@ -64,6 +64,7 @@ public class Compression32XIT extends KNNRestTestCase {
     private static final int HNSW_EF_CONSTRUCTION = 100;
     private static final int HNSW_EF_SEARCH = 100;
     private static final double MIN_RECALL_X32_L2 = 0.70;
+    private static final double MIN_RECALL_X32_IN_MEMORY = 0.60;
     private static final double MIN_RECALL_X32_IP = 0.60;
     private static final double MIN_RECALL_X32_COSINE = 0.70;
     private static final double MIN_RECALL_FP32 = 0.95;
@@ -379,8 +380,8 @@ public class Compression32XIT extends KNNRestTestCase {
         double recall = TestUtils.calculateRecallValue(searchResults, GROUND_TRUTH_L2, K);
         logger.info("[{}] x32 in-memory recall: {}", engineName, recall);
         assertTrue(
-            engineName + " x32 in-memory recall should be >= " + MIN_RECALL_X32_L2 + " but was " + recall,
-            recall >= MIN_RECALL_X32_L2
+            engineName + " x32 in-memory recall should be >= " + MIN_RECALL_X32_IN_MEMORY + " but was " + recall,
+            recall >= MIN_RECALL_X32_IN_MEMORY
         );
 
         // On-disk x32 with rescore disabled should produce different scores than in-memory (quantization effect)

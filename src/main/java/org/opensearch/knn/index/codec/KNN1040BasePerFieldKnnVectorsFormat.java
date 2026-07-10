@@ -13,6 +13,7 @@ import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactor
 import org.opensearch.knn.index.engine.CodecFormatResolver;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
@@ -90,13 +91,14 @@ public abstract class KNN1040BasePerFieldKnnVectorsFormat extends PerFieldKnnVec
         nativeIndexBuildStrategyFactory.setKnnLibraryIndexingContext(knnMappingConfig.getKnnLibraryIndexingContext());
         final KNNEngine engine = knnMethodContext.getKnnEngine();
         final Map<String, Object> params = knnMethodContext.getMethodComponentContext().getParameters();
+        final ResolvedIndexSpec resolvedSpec = mappedFieldType.getResolvedSpec();
 
         if (engine == KNNEngine.LUCENE) {
-            return luceneFormatResolver.resolve(field, knnMethodContext, params, defaultMaxConnections, defaultBeamWidth);
+            return luceneFormatResolver.resolve(field, knnMethodContext, params, defaultMaxConnections, defaultBeamWidth, resolvedSpec);
         }
 
-        // Native engines — pass params so the resolver can detect SQ encoder
-        return nativeFormatResolver.resolve(field, knnMethodContext, params, defaultMaxConnections, defaultBeamWidth);
+        // Native engines — pass params so the resolver can detect SQ encoder when the spec is null
+        return nativeFormatResolver.resolve(field, knnMethodContext, params, defaultMaxConnections, defaultBeamWidth, resolvedSpec);
     }
 
     @Override
