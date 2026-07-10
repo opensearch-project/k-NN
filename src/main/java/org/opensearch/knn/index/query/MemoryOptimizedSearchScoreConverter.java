@@ -44,16 +44,20 @@ public final class MemoryOptimizedSearchScoreConverter {
      * @return Converted value to be used during Lucene search algorithm.
      */
     public static float distanceToRadialThreshold(final float distance, final SpaceType spaceType) {
-        if (spaceType != SpaceType.COSINESIMIL) {
-            return BuiltinKNNEngine.LUCENE.distanceToRadialThreshold(distance, spaceType);
+        switch (spaceType) {
+            case INNER_PRODUCT:
+                // Faiss distance for IP is -dot. Negate to get raw dot product for Lucene.
+                return BuiltinKNNEngine.LUCENE.distanceToRadialThreshold(-distance, spaceType);
+            case COSINESIMIL:
+                // For cosine similarity, `distance = 1 - inner_product_value`.
+                // therefore, we should extract it then convert it to max_inner_product_value
+                final float innerProductValue = BuiltinKNNEngine.FAISS.distanceToRadialThreshold(distance, SpaceType.COSINESIMIL);
+
+                // Convert inner product value to max inner product value.
+                return SpaceType.INNER_PRODUCT.scoreTranslation(-innerProductValue);
+            default:
+                return BuiltinKNNEngine.LUCENE.distanceToRadialThreshold(distance, spaceType);
         }
-
-        // For cosine similarity, `distance = 1 - inner_product_value`.
-        // therefore, we should extract it then convert it to max_inner_product_value
-        final float innerProductValue = BuiltinKNNEngine.FAISS.distanceToRadialThreshold(distance, SpaceType.COSINESIMIL);
-
-        // Convert inner product value to max inner product value.
-        return SpaceType.INNER_PRODUCT.scoreTranslation(-innerProductValue);
     }
 
     /**

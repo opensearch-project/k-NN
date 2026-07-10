@@ -17,6 +17,7 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
+import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.FP16_MAX_VALUE;
 import static org.opensearch.knn.common.KNNConstants.FP16_MIN_VALUE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
@@ -95,13 +96,16 @@ public class FaissFP16Util {
      */
     static boolean isFaissSQfp16(MethodComponentContext methodComponentContext) {
         MethodComponentContext encoderContext = extractEncoderMethodComponentContext(methodComponentContext);
-        if (encoderContext == null) {
+        if (encoderContext == null || !ENCODER_SQ.equals(encoderContext.getName())) {
             return false;
         }
 
-        // returns true if encoder name is "sq" and type is "fp16"
-        return ENCODER_SQ.equals(encoderContext.getName())
-            && FAISS_SQ_ENCODER_FP16.equals(encoderContext.getParameters().getOrDefault(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16));
+        Object bitsObj = encoderContext.getParameters().get(SQ_BITS);
+        if (bitsObj instanceof Integer && (Integer) bitsObj == FaissSQEncoder.Bits.ONE.getValue()) {
+            return false;
+        }
+
+        return FAISS_SQ_ENCODER_FP16.equals(encoderContext.getParameters().getOrDefault(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16));
     }
 
     /**

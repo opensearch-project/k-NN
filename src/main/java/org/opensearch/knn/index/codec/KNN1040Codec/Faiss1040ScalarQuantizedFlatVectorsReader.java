@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
+import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
@@ -44,7 +45,7 @@ public class Faiss1040ScalarQuantizedFlatVectorsReader extends FlatVectorsReader
      *                                              will be wrapped to implement {@code HasIndexSlice}
      */
     protected Faiss1040ScalarQuantizedFlatVectorsReader(final FlatVectorsReader lucene104ScalarQuantizedVectorsReader) {
-        super(lucene104ScalarQuantizedVectorsReader.getFlatVectorScorer());
+        super();
         this.delegateFlatVectorsReader = lucene104ScalarQuantizedVectorsReader;
     }
 
@@ -90,4 +91,10 @@ public class Faiss1040ScalarQuantizedFlatVectorsReader extends FlatVectorsReader
     public long ramBytesUsed() {
         return delegateFlatVectorsReader.ramBytesUsed();
     }
+
+    @Override
+    public FlatVectorsScorer getFlatVectorScorer(String field) throws IOException {
+        return delegateFlatVectorsReader.getFlatVectorScorer(field);
+    }
+
 }

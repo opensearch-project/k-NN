@@ -7,7 +7,7 @@ package org.opensearch.knn.index.codec.KNN1040Codec;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
-import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
+import org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
@@ -15,7 +15,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer.PrefetchableRandomVectorScorer;
 import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 
-import static org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE;
+import static org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE;
 
 public class KNN1040ScalarQuantizedVectorsFormatTests extends KNNTestCase {
 
@@ -68,8 +68,7 @@ public class KNN1040ScalarQuantizedVectorsFormatTests extends KNNTestCase {
     }
 
     public void testConstructor_allEncodings() {
-        for (Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding encoding : Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding
-            .values()) {
+        for (ScalarEncoding encoding : ScalarEncoding.values()) {
             KNN1040ScalarQuantizedVectorsFormat format = new KNN1040ScalarQuantizedVectorsFormat(encoding);
             assertNotNull(format);
             assertTrue(format.toString().contains(encoding.name()));

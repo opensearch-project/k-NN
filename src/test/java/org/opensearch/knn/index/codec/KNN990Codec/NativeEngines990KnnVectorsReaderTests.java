@@ -163,7 +163,7 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
 
             mockedStatic.when(BuiltinKNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
             FlatVectorsReader flatVectorsReader = mock(FlatVectorsReader.class);
-            when(flatVectorsReader.getFlatVectorScorer()).thenReturn(FlatVectorScorerUtil.getLucene99FlatVectorsScorer());
+            when(flatVectorsReader.getFlatVectorScorer("test_field")).thenReturn(FlatVectorScorerUtil.getLucene99FlatVectorsScorer());
             final NativeEngines990KnnVectorsReader reader_field_2 = createReader(fieldInfos, filesInSegment, flatVectorsReader);
             final NativeEngines990KnnVectorsReader reader_field_3 = createReader(fieldInfos, filesInSegment, flatVectorsReader);
             final NativeEngines990KnnVectorsReader reader_field_4 = createReader(fieldInfos, filesInSegment, flatVectorsReader);

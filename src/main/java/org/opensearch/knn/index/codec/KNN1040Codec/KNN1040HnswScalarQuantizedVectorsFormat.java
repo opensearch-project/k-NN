@@ -8,7 +8,7 @@ package org.opensearch.knn.index.codec.KNN1040Codec;
 import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.codecs.KnnVectorsWriter;
 import org.apache.lucene.codecs.lucene104.Lucene104HnswScalarQuantizedVectorsFormat;
-import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding;
+import org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsReader;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsWriter;
 import org.apache.lucene.index.SegmentReadState;
@@ -75,6 +75,7 @@ public class KNN1040HnswScalarQuantizedVectorsFormat extends Lucene104HnswScalar
             state,
             maxConn,
             beamWidth,
+            flatVectorsFormat,
             flatVectorsFormat.fieldsWriter(state),
             numMergeWorkers,
             mergeExec,

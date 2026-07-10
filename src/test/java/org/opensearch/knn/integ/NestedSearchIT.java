@@ -111,6 +111,72 @@ public class NestedSearchIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testNestedSearchWithLucene_whenDocWithoutNestedObjectInSeparateSegment_thenSucceed() {
+        createKnnIndex(2, BuiltinKNNEngine.LUCENE.getName());
+
+        String doc = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
+            .addVectors(FIELD_NAME_VECTOR, new Float[] { 1f, 1f }, new Float[] { 2f, 2f })
+            .build();
+        addKnnDoc(INDEX_NAME, "1", doc);
+        flushIndex(INDEX_NAME);
+
+        addKnnDoc(INDEX_NAME, "2", "{}");
+        flushIndex(INDEX_NAME);
+
+        refreshIndex(INDEX_NAME);
+
+        Float[] queryVector = { 1f, 1f };
+        Response response = queryNestedField(INDEX_NAME, 1, queryVector);
+        String entity = EntityUtils.toString(response.getEntity());
+        assertEquals(1, parseHits(entity));
+        assertEquals("1", parseIds(entity).get(0));
+    }
+
+    @SneakyThrows
+    public void testNestedSearchWithFaiss_whenDocWithoutNestedObjectInSeparateSegment_thenSucceed() {
+        createKnnIndex(2, BuiltinKNNEngine.FAISS.getName());
+
+        String doc = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
+            .addVectors(FIELD_NAME_VECTOR, new Float[] { 1f, 1f }, new Float[] { 2f, 2f })
+            .build();
+        addKnnDoc(INDEX_NAME, "1", doc);
+        flushIndex(INDEX_NAME);
+
+        addKnnDoc(INDEX_NAME, "2", "{}");
+        flushIndex(INDEX_NAME);
+
+        refreshIndex(INDEX_NAME);
+
+        Float[] queryVector = { 1f, 1f };
+        Response response = queryNestedField(INDEX_NAME, 1, queryVector);
+        String entity = EntityUtils.toString(response.getEntity());
+        assertEquals(1, parseHits(entity));
+        assertEquals("1", parseIds(entity).get(0));
+    }
+
+    @SneakyThrows
+    public void testNestedSearchWithFaissMOS_whenDocWithoutNestedObjectInSeparateSegment_thenSucceed() {
+        createKnnIndex(2, BuiltinKNNEngine.FAISS.getName(), true);
+
+        String doc = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
+            .addVectors(FIELD_NAME_VECTOR, new Float[] { 1f, 1f }, new Float[] { 2f, 2f })
+            .build();
+        addKnnDoc(INDEX_NAME, "1", doc);
+        flushIndex(INDEX_NAME);
+
+        addKnnDoc(INDEX_NAME, "2", "{}");
+        flushIndex(INDEX_NAME);
+
+        refreshIndex(INDEX_NAME);
+
+        Float[] queryVector = { 1f, 1f };
+        Response response = queryNestedField(INDEX_NAME, 1, queryVector);
+        String entity = EntityUtils.toString(response.getEntity());
+        assertEquals(1, parseHits(entity));
+        assertEquals("1", parseIds(entity).get(0));
+    }
+
+    @SneakyThrows
     public void testNestedSearchWithFaiss_whenKIsTwo_SomeNestedDocsHasNoVectors_thenReturnTwoResults() {
         createKnnIndex(2, BuiltinKNNEngine.FAISS.getName());
         indexAndTestKNNIndexWithVectorAndNonVectorField();
@@ -319,11 +385,18 @@ public class NestedSearchIT extends KNNRestTestCase {
      *  }
      */
     private void createKnnIndex(final int dimension, final String engine) throws Exception {
-        // Using default mode of IN_MEMORY
-        createKnnIndex(dimension, engine, Mode.IN_MEMORY);
+        createKnnIndex(dimension, engine, Mode.IN_MEMORY, false);
+    }
+
+    private void createKnnIndex(final int dimension, final String engine, boolean memoryOptimizedSearch) throws Exception {
+        createKnnIndex(dimension, engine, Mode.IN_MEMORY, memoryOptimizedSearch);
     }
 
     private void createKnnIndex(final int dimension, final String engine, Mode mode) throws Exception {
+        createKnnIndex(dimension, engine, mode, false);
+    }
+
+    private void createKnnIndex(final int dimension, final String engine, Mode mode, boolean memoryOptimizedSearch) throws Exception {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject(PROPERTIES_FIELD)
@@ -353,7 +426,15 @@ public class NestedSearchIT extends KNNRestTestCase {
             .endObject();
 
         String mapping = builder.toString();
-        createKnnIndex(INDEX_NAME, mapping);
+        if (memoryOptimizedSearch) {
+            Settings settings = Settings.builder()
+                .put(getKNNDefaultIndexSettings())
+                .put(KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_MODE, true)
+                .build();
+            createKnnIndex(INDEX_NAME, settings, mapping);
+        } else {
+            createKnnIndex(INDEX_NAME, mapping);
+        }
     }
 
     private Response queryNestedField(final String index, final int k, final Object[] vector) throws IOException {
