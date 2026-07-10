@@ -11,18 +11,21 @@
 
 package org.opensearch.knn.recall;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import lombok.SneakyThrows;
 import org.junit.Before;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -65,7 +68,16 @@ import static org.opensearch.knn.index.KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_EN
  * This test suite can take a long time to run. The primary reason is that training can take a long time for PQ.
  * The parameters for PQ have been reduced significantly, but it still takes time.
  */
-public class RecallTestsIT extends KNNRestTestCase {
+public class RecallTestsIT extends KNNCompressionRestTestCase {
+
+    public RecallTestsIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
+
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 });
+    }
 
     private static final String PROPERTIES_FIELD = "properties";
     private final static String TEST_INDEX_PREFIX_NAME = "test_index";
@@ -386,8 +398,9 @@ public class RecallTestsIT extends KNNRestTestCase {
                 .startObject(PROPERTIES_FIELD)
                 .startObject(TEST_FIELD_NAME)
                 .field(TYPE, TYPE_KNN_VECTOR)
-                .field(DIMENSION, TEST_DIMENSION)
-                .startObject(KNN_METHOD)
+                .field(DIMENSION, TEST_DIMENSION);
+            addCompressionMappingFields(builder);
+            builder.startObject(KNN_METHOD)
                 .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
                 .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
                 .field(NAME, METHOD_HNSW)
@@ -435,8 +448,9 @@ public class RecallTestsIT extends KNNRestTestCase {
                 .startObject(PROPERTIES_FIELD)
                 .startObject(TEST_FIELD_NAME)
                 .field(TYPE, TYPE_KNN_VECTOR)
-                .field(DIMENSION, TEST_DIMENSION)
-                .startObject(KNN_METHOD)
+                .field(DIMENSION, TEST_DIMENSION);
+            addCompressionMappingFields(builder);
+            builder.startObject(KNN_METHOD)
                 .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
                 .field(KNN_ENGINE, KNNEngine.FAISS.getName())
                 .field(NAME, METHOD_HNSW)

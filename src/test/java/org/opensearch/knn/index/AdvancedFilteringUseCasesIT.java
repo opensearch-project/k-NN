@@ -19,7 +19,8 @@ import org.junit.Assert;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
@@ -49,7 +50,11 @@ import static org.hamcrest.Matchers.containsString;
  * This class contains the IT for some advanced and tricky use-case of filters.
  * <a href="https://github.com/opensearch-project/k-NN/issues/1356">Github issue</a>
  */
-public class AdvancedFilteringUseCasesIT extends KNNRestTestCase {
+public class AdvancedFilteringUseCasesIT extends KNNCompressionRestTestCase {
+
+    public AdvancedFilteringUseCasesIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
 
     private static final String INDEX_NAME = "advanced_filtering_test_index";
 
@@ -504,8 +509,9 @@ public class AdvancedFilteringUseCasesIT extends KNNRestTestCase {
             .startObject(PROPERTIES_FIELD)
             .startObject(FIELD_NAME_VECTOR)
             .field(TYPE, TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .startObject(KNN_METHOD)
+            .field(DIMENSION, dimension);
+        addCompressionForEngine(builder, engine);
+        builder.startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
             .field(KNN_ENGINE, engine)
@@ -548,8 +554,9 @@ public class AdvancedFilteringUseCasesIT extends KNNRestTestCase {
             .endObject()
             .startObject(FIELD_NAME_VECTOR)
             .field(TYPE, TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .startObject(KNN_METHOD)
+            .field(DIMENSION, dimension);
+        addCompressionForEngine(builder, engine);
+        builder.startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
             .field(KNN_ENGINE, engine)
@@ -559,5 +566,10 @@ public class AdvancedFilteringUseCasesIT extends KNNRestTestCase {
             .endObject();
 
         return builder.toString();
+    }
+
+    @SneakyThrows
+    private void addCompressionForEngine(final XContentBuilder builder, final String engine) {
+        addCompressionMappingFields(builder);
     }
 }

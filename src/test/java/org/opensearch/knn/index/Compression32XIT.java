@@ -8,16 +8,17 @@ package org.opensearch.knn.index;
 import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
@@ -46,15 +47,21 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE
 import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.index.KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
+import static org.opensearch.knn.index.KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_MODE;
 
 /**
- * Integration tests for 32x compression (SQ 1-bit) across both Faiss and Lucene engines.
- * Parameterized by engine to ensure symmetric coverage.
+ * Integration tests for vector search across Faiss and Lucene engines, parameterized by both engine
+ * and compression (FP32 / no compression and SQ 1-bit / 32x). Recall, space type, filtering, lifecycle,
+ * nested, and dimension tests run under every engine x compression combination and assert against
+ * config-specific recall thresholds. Tests that exercise quantization-only behavior (in-memory
+ * quantization effect, rescore-improves-recall, x32-vs-fp32 script equivalence, memory-optimized search)
+ * are guarded to run only under the compressed configuration.
  */
 @Log4j2
-public class Compression32XIT extends KNNRestTestCase {
+public class Compression32XIT extends KNNCompressionRestTestCase {
 
     private static final int DIMENSION = 128;
     private static final int DOC_COUNT = 100;
@@ -66,7 +73,6 @@ public class Compression32XIT extends KNNRestTestCase {
     private static final double MIN_RECALL_X32_L2 = 0.70;
     private static final double MIN_RECALL_X32_IP = 0.60;
     private static final double MIN_RECALL_X32_COSINE = 0.70;
-    private static final double MIN_RECALL_FP32 = 0.95;
 
     private static final int DIMENSION_SMALL = 64;
     private static final String FIELD_NAME_2 = "test_field_2";
@@ -118,57 +124,57 @@ public class Compression32XIT extends KNNRestTestCase {
 
     private final String engineName;
 
-    public Compression32XIT(String engineName) {
+    public Compression32XIT(CompressionTestConfig compressionConfig, String engineName) {
+        super(compressionConfig);
         this.engineName = engineName;
     }
 
-    @ParametersFactory(argumentFormatting = "engine:%1$s")
-    public static Collection<Object[]> parameters() {
-        return Arrays.asList(new Object[] { FAISS_NAME }, new Object[] { LUCENE_NAME });
+    @ParametersFactory(argumentFormatting = "compression:%1$s, engine:%2$s")
+    public static Collection<Object[]> compressionParameters() {
+        List<Object[]> params = new ArrayList<>();
+        for (CompressionTestConfig config : CompressionTestConfig.values()) {
+            params.add(new Object[] { config, FAISS_NAME });
+            params.add(new Object[] { config, LUCENE_NAME });
+        }
+        return params;
     }
 
-    private String prefix() {
-        return engineName + "_x32_";
+    @Override
+    protected String prefix() {
+        return engineName + "_" + compressionConfig.name().toLowerCase(Locale.ROOT) + "_";
     }
 
-    // Verifies explicit mode=on_disk + compression_level=32x produces acceptable recall
+    private String label() {
+        return engineName + " " + compressionConfig.name();
+    }
+
+    private float minRecall(SpaceType spaceType) {
+        return compressionConfig.getMinRecallThreshold(spaceType);
+    }
+
     @SneakyThrows
-    public void testX32_kSearch() {
+    public void testKSearch() {
         String indexName = prefix() + "ksearch";
-        createX32Index(indexName, SpaceType.L2, DIMENSION);
+        createVectorIndex(indexName, SpaceType.L2, DIMENSION);
         bulkAddKnnDocs(indexName, FIELD_NAME, INDEX_VECTORS, DOC_COUNT);
         forceMergeKnnIndex(indexName, 1);
 
         List<List<String>> searchResults = bulkSearch(indexName, FIELD_NAME, QUERY_VECTORS, K);
         double recall = TestUtils.calculateRecallValue(searchResults, GROUND_TRUTH_L2, K);
-        logger.info("[{}] x32 k-search recall: {}", engineName, recall);
-        assertTrue(engineName + " x32 recall should be >= " + MIN_RECALL_X32_L2 + " but was " + recall, recall >= MIN_RECALL_X32_L2);
+        float threshold = minRecall(SpaceType.L2);
+        logger.info("[{}] k-search recall: {}", label(), recall);
+        assertTrue(label() + " recall should be >= " + threshold + " but was " + recall, recall >= threshold);
     }
 
-    // Verifies compression_level=1x opts out of quantization and retains FP32-level recall
     @SneakyThrows
-    public void testX32_optOut() {
-        String indexName = prefix() + "optout";
-        createFP32Index(indexName, SpaceType.L2, DIMENSION);
-        bulkAddKnnDocs(indexName, FIELD_NAME, INDEX_VECTORS, DOC_COUNT);
-        forceMergeKnnIndex(indexName, 1);
-
-        List<List<String>> searchResults = bulkSearch(indexName, FIELD_NAME, QUERY_VECTORS, K);
-        double recall = TestUtils.calculateRecallValue(searchResults, GROUND_TRUTH_L2, K);
-        logger.info("[{}] FP32 opt-out recall: {}", engineName, recall);
-        assertTrue(engineName + " FP32 recall should be >= " + MIN_RECALL_FP32 + " but was " + recall, recall >= MIN_RECALL_FP32);
-    }
-
-    // Validates x32 recall across L2, inner product, and cosine space types
-    @SneakyThrows
-    public void testX32_spaceTypes() {
+    public void testSpaceTypes() {
         String indexL2 = prefix() + "l2";
         String indexIP = prefix() + "ip";
         String indexCosine = prefix() + "cosine";
 
-        createX32Index(indexL2, SpaceType.L2, DIMENSION);
-        createX32Index(indexIP, SpaceType.INNER_PRODUCT, DIMENSION);
-        createX32Index(indexCosine, SpaceType.COSINESIMIL, DIMENSION);
+        createVectorIndex(indexL2, SpaceType.L2, DIMENSION);
+        createVectorIndex(indexIP, SpaceType.INNER_PRODUCT, DIMENSION);
+        createVectorIndex(indexCosine, SpaceType.COSINESIMIL, DIMENSION);
 
         bulkAddKnnDocs(indexL2, FIELD_NAME, INDEX_VECTORS, DOC_COUNT);
         bulkAddKnnDocs(indexIP, FIELD_NAME, INDEX_VECTORS, DOC_COUNT);
@@ -178,32 +184,33 @@ public class Compression32XIT extends KNNRestTestCase {
         forceMergeKnnIndex(indexIP, 1);
         forceMergeKnnIndex(indexCosine, 1);
 
-        List<List<String>> resultsL2 = bulkSearch(indexL2, FIELD_NAME, QUERY_VECTORS, K);
-        double recallL2 = TestUtils.calculateRecallValue(resultsL2, GROUND_TRUTH_L2, K);
-        assertTrue(engineName + " L2 recall should be >= " + MIN_RECALL_X32_L2 + " but was " + recallL2, recallL2 >= MIN_RECALL_X32_L2);
-
-        List<List<String>> resultsIP = bulkSearch(indexIP, FIELD_NAME, QUERY_VECTORS, K);
-        double recallIP = TestUtils.calculateRecallValue(resultsIP, GROUND_TRUTH_IP, K);
-        assertTrue(engineName + " IP recall should be >= " + MIN_RECALL_X32_IP + " but was " + recallIP, recallIP >= MIN_RECALL_X32_IP);
-
-        List<List<String>> resultsCosine = bulkSearch(indexCosine, FIELD_NAME, QUERY_VECTORS, K);
-        double recallCosine = TestUtils.calculateRecallValue(resultsCosine, GROUND_TRUTH_COSINE, K);
+        double recallL2 = TestUtils.calculateRecallValue(bulkSearch(indexL2, FIELD_NAME, QUERY_VECTORS, K), GROUND_TRUTH_L2, K);
         assertTrue(
-            engineName + " Cosine recall should be >= " + MIN_RECALL_X32_COSINE + " but was " + recallCosine,
-            recallCosine >= MIN_RECALL_X32_COSINE
+            label() + " L2 recall should be >= " + minRecall(SpaceType.L2) + " but was " + recallL2,
+            recallL2 >= minRecall(SpaceType.L2)
         );
 
-        // Validate score ranges per space type
+        double recallIP = TestUtils.calculateRecallValue(bulkSearch(indexIP, FIELD_NAME, QUERY_VECTORS, K), GROUND_TRUTH_IP, K);
+        assertTrue(
+            label() + " IP recall should be >= " + minRecall(SpaceType.INNER_PRODUCT) + " but was " + recallIP,
+            recallIP >= minRecall(SpaceType.INNER_PRODUCT)
+        );
+
+        double recallCosine = TestUtils.calculateRecallValue(bulkSearch(indexCosine, FIELD_NAME, QUERY_VECTORS, K), GROUND_TRUTH_COSINE, K);
+        assertTrue(
+            label() + " Cosine recall should be >= " + minRecall(SpaceType.COSINESIMIL) + " but was " + recallCosine,
+            recallCosine >= minRecall(SpaceType.COSINESIMIL)
+        );
+
         validateScoreRanges(indexL2, SpaceType.L2, 0.0f, 1.0f);
         validateScoreRanges(indexIP, SpaceType.INNER_PRODUCT, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY);
         validateScoreRanges(indexCosine, SpaceType.COSINESIMIL, 0.0f, 2.0f);
     }
 
-    // Validates x32 works with multiple knn_vector fields of different dimensions in one index
     @SneakyThrows
-    public void testX32_multiField() {
+    public void testMultiField() {
         String indexName = prefix() + "multifield";
-        createX32MultiFieldIndex(indexName);
+        createMultiFieldIndex(indexName);
 
         for (int i = 0; i < DOC_COUNT; i++) {
             addKnnDoc(
@@ -216,45 +223,46 @@ public class Compression32XIT extends KNNRestTestCase {
         refreshIndex(indexName);
         forceMergeKnnIndex(indexName, 1);
 
-        List<List<String>> resultsField1 = bulkSearch(indexName, FIELD_NAME, QUERY_VECTORS, K);
-        double recallField1 = TestUtils.calculateRecallValue(resultsField1, GROUND_TRUTH_L2, K);
+        double recallField1 = TestUtils.calculateRecallValue(bulkSearch(indexName, FIELD_NAME, QUERY_VECTORS, K), GROUND_TRUTH_L2, K);
         assertTrue(
-            engineName + " field1 recall should be >= " + MIN_RECALL_X32_L2 + " but was " + recallField1,
-            recallField1 >= MIN_RECALL_X32_L2
+            label() + " field1 recall should be >= " + minRecall(SpaceType.L2) + " but was " + recallField1,
+            recallField1 >= minRecall(SpaceType.L2)
         );
 
-        List<List<String>> resultsField2 = bulkSearch(indexName, FIELD_NAME_2, QUERY_VECTORS_SMALL, K);
-        double recallField2 = TestUtils.calculateRecallValue(resultsField2, GROUND_TRUTH_SMALL, K);
+        double recallField2 = TestUtils.calculateRecallValue(
+            bulkSearch(indexName, FIELD_NAME_2, QUERY_VECTORS_SMALL, K),
+            GROUND_TRUTH_SMALL,
+            K
+        );
         assertTrue(
-            engineName + " field2 recall should be >= " + MIN_RECALL_X32_L2 + " but was " + recallField2,
-            recallField2 >= MIN_RECALL_X32_L2
+            label() + " field2 recall should be >= " + minRecall(SpaceType.L2) + " but was " + recallField2,
+            recallField2 >= minRecall(SpaceType.L2)
         );
     }
 
-    // Validates x32 recall survives force merge, close/reopen, and snapshot/restore
     @SneakyThrows
-    public void testX32_lifecycle() {
+    public void testLifecycle() {
         String indexName = prefix() + "lifecycle";
-        createX32Index(indexName, SpaceType.L2, DIMENSION);
+        createVectorIndex(indexName, SpaceType.L2, DIMENSION);
         bulkAddKnnDocs(indexName, FIELD_NAME, INDEX_VECTORS, DOC_COUNT);
         forceMergeKnnIndex(indexName, 1);
 
-        List<List<String>> resultsAfterMerge = bulkSearch(indexName, FIELD_NAME, QUERY_VECTORS, K);
-        double recallAfterMerge = TestUtils.calculateRecallValue(resultsAfterMerge, GROUND_TRUTH_L2, K);
+        float threshold = minRecall(SpaceType.L2);
+
+        double recallAfterMerge = TestUtils.calculateRecallValue(bulkSearch(indexName, FIELD_NAME, QUERY_VECTORS, K), GROUND_TRUTH_L2, K);
         assertTrue(
-            engineName + " recall after merge should be >= " + MIN_RECALL_X32_L2 + " but was " + recallAfterMerge,
-            recallAfterMerge >= MIN_RECALL_X32_L2
+            label() + " recall after merge should be >= " + threshold + " but was " + recallAfterMerge,
+            recallAfterMerge >= threshold
         );
 
         closeIndex(indexName);
         openIndex(indexName);
         ensureGreen(indexName);
 
-        List<List<String>> resultsAfterReopen = bulkSearch(indexName, FIELD_NAME, QUERY_VECTORS, K);
-        double recallAfterReopen = TestUtils.calculateRecallValue(resultsAfterReopen, GROUND_TRUTH_L2, K);
+        double recallAfterReopen = TestUtils.calculateRecallValue(bulkSearch(indexName, FIELD_NAME, QUERY_VECTORS, K), GROUND_TRUTH_L2, K);
         assertTrue(
-            engineName + " recall after reopen should be >= " + MIN_RECALL_X32_L2 + " but was " + recallAfterReopen,
-            recallAfterReopen >= MIN_RECALL_X32_L2
+            label() + " recall after reopen should be >= " + threshold + " but was " + recallAfterReopen,
+            recallAfterReopen >= threshold
         );
 
         String repositoryName = prefix() + "repo-" + randomLowerCaseString();
@@ -271,19 +279,21 @@ public class Compression32XIT extends KNNRestTestCase {
         String restoredIndexName = indexName + restoreSuffix;
         ensureGreen(restoredIndexName);
 
-        List<List<String>> resultsAfterRestore = bulkSearch(restoredIndexName, FIELD_NAME, QUERY_VECTORS, K);
-        double recallAfterRestore = TestUtils.calculateRecallValue(resultsAfterRestore, GROUND_TRUTH_L2, K);
+        double recallAfterRestore = TestUtils.calculateRecallValue(
+            bulkSearch(restoredIndexName, FIELD_NAME, QUERY_VECTORS, K),
+            GROUND_TRUTH_L2,
+            K
+        );
         assertTrue(
-            engineName + " recall after restore should be >= " + MIN_RECALL_X32_L2 + " but was " + recallAfterRestore,
-            recallAfterRestore >= MIN_RECALL_X32_L2
+            label() + " recall after restore should be >= " + threshold + " but was " + recallAfterRestore,
+            recallAfterRestore >= threshold
         );
     }
 
-    // Validates radial search (max_distance, min_score) works on x32 quantized indices
     @SneakyThrows
-    public void testX32_radialSearch() {
+    public void testRadialSearch() {
         String indexName = prefix() + "radial";
-        createX32Index(indexName, SpaceType.L2, DIMENSION);
+        createVectorIndex(indexName, SpaceType.L2, DIMENSION);
         for (int i = 0; i < INDEX_VECTORS.length; i++) {
             addKnnDoc(indexName, String.valueOf(i), FIELD_NAME, INDEX_VECTORS[i]);
         }
@@ -295,18 +305,21 @@ public class Compression32XIT extends KNNRestTestCase {
         Request maxDistanceRequest = new Request("POST", "/" + indexName + "/_search");
         maxDistanceRequest.setJsonEntity(maxDistanceQuery);
         Response maxDistResponse = client().performRequest(maxDistanceRequest);
-        assertEquals(engineName + " max_distance should succeed", 200, maxDistResponse.getStatusLine().getStatusCode());
+        assertEquals(label() + " max_distance should succeed", 200, maxDistResponse.getStatusLine().getStatusCode());
 
         String minScoreQuery = buildRadialSearchQuery(FIELD_NAME, queryVector, "min_score", 0.001f);
         Request minScoreRequest = new Request("POST", "/" + indexName + "/_search");
         minScoreRequest.setJsonEntity(minScoreQuery);
         Response minScoreResponse = client().performRequest(minScoreRequest);
-        assertEquals(engineName + " min_score should succeed", 200, minScoreResponse.getStatusLine().getStatusCode());
+        assertEquals(label() + " min_score should succeed", 200, minScoreResponse.getStatusLine().getStatusCode());
     }
 
-    // Script scoring operates on raw vectors, so x32 and fp32 indices must return identical scores
     @SneakyThrows
-    public void testX32_scriptScoring() {
+    public void testScriptScoring() {
+        assumeTrue(
+            "Script scoring equivalence builds both variants internally; run once under the compressed config",
+            compressionConfig.isCompressed()
+        );
         String x32IndexName = prefix() + "script_x32";
         String fp32IndexName = prefix() + "script_fp32";
         int docCount = 20;
@@ -353,25 +366,26 @@ public class Compression32XIT extends KNNRestTestCase {
         }
     }
 
-    // Recall baseline with a larger dataset (200 docs, 128-dim) to catch scale-dependent issues
     @SneakyThrows
-    public void testX32_recallBaseline() {
+    public void testRecallBaseline() {
         String indexName = prefix() + "recall_baseline";
-        createX32Index(indexName, SpaceType.L2, DIMENSION);
+        createVectorIndex(indexName, SpaceType.L2, DIMENSION);
         bulkAddKnnDocs(indexName, FIELD_NAME, BASELINE_INDEX_VECTORS, BASELINE_DOC_COUNT);
         forceMergeKnnIndex(indexName, 1);
 
         List<List<String>> searchResults = bulkSearch(indexName, FIELD_NAME, BASELINE_QUERY_VECTORS, K);
         double recall = TestUtils.calculateRecallValue(searchResults, GROUND_TRUTH_BASELINE, K);
-        logger.info("[{}] x32 recall baseline (200 docs): {}", engineName, recall);
-        assertTrue(engineName + " recall baseline should be >= " + MIN_RECALL_X32_L2 + " but was " + recall, recall >= MIN_RECALL_X32_L2);
+        float threshold = minRecall(SpaceType.L2);
+        logger.info("[{}] recall baseline (200 docs): {}", label(), recall);
+        assertTrue(label() + " recall baseline should be >= " + threshold + " but was " + recall, recall >= threshold);
     }
 
-    // Verifies x32 with mode=in_memory produces acceptable recall and scores differ from fp32 ANN
+    // Quantization-only: in_memory mode produces acceptable recall, and on_disk scores differ from in_memory.
     @SneakyThrows
     public void testX32_inMemory() {
+        assumeTrue("Validates in-memory quantization behavior; compressed config only", compressionConfig.isCompressed());
         String indexName = prefix() + "in_memory";
-        createX32InMemoryIndex(indexName, SpaceType.L2);
+        createInMemoryIndex(indexName, SpaceType.L2);
         bulkAddKnnDocs(indexName, FIELD_NAME, INDEX_VECTORS, DOC_COUNT);
         forceMergeKnnIndex(indexName, 1);
 
@@ -383,9 +397,8 @@ public class Compression32XIT extends KNNRestTestCase {
             recall >= MIN_RECALL_X32_L2
         );
 
-        // On-disk x32 with rescore disabled should produce different scores than in-memory (quantization effect)
         String onDiskIndex = prefix() + "in_memory_compare";
-        createX32Index(onDiskIndex, SpaceType.L2, DIMENSION);
+        createVectorIndex(onDiskIndex, SpaceType.L2, DIMENSION);
         bulkAddKnnDocs(onDiskIndex, FIELD_NAME, INDEX_VECTORS, DOC_COUNT);
         forceMergeKnnIndex(onDiskIndex, 1);
 
@@ -394,20 +407,18 @@ public class Compression32XIT extends KNNRestTestCase {
         Response inMemResponse = searchKNNIndex(indexName, inMemQuery, K);
         List<KNNResult> inMemResults = parseSearchResponse(EntityUtils.toString(inMemResponse.getEntity()), FIELD_NAME);
 
-        // Verify in-memory results are valid (scores > 0, correct count)
-        assertFalse(engineName + " in-memory should return results", inMemResults.isEmpty());
         assertEquals(engineName + " in-memory should return K results", K, inMemResults.size());
         for (KNNResult r : inMemResults) {
             assertTrue(engineName + " in-memory scores should be positive", r.getScore() > 0);
         }
     }
 
-    // In-memory mode: rescore is a no-op because search already uses full-precision vectors.
-    // Differs from testX32_inMemory which validates recall; this test proves rescore has no effect.
+    // Quantization-only: in_memory rescore is a no-op because search already uses full-precision vectors.
     @SneakyThrows
     public void testX32_rescoreWithInMemory() {
+        assumeTrue("Validates rescore no-op under in-memory quantization; compressed config only", compressionConfig.isCompressed());
         String indexName = prefix() + "in_memory_rescore";
-        createX32InMemoryIndex(indexName, SpaceType.L2);
+        createInMemoryIndex(indexName, SpaceType.L2);
         bulkAddKnnDocs(indexName, FIELD_NAME, INDEX_VECTORS, DOC_COUNT);
         forceMergeKnnIndex(indexName, 1);
 
@@ -445,11 +456,10 @@ public class Compression32XIT extends KNNRestTestCase {
         }
     }
 
-    // Filtered ANN search: results must respect the filter predicate
     @SneakyThrows
-    public void testX32_filtering() {
+    public void testFiltering() {
         String indexName = prefix() + "filter";
-        createX32IndexWithFilterField(indexName, SpaceType.L2);
+        createVectorIndexWithFilterField(indexName, SpaceType.L2);
 
         int halfCount = DOC_COUNT / 2;
         for (int i = 0; i < DOC_COUNT; i++) {
@@ -463,19 +473,18 @@ public class Compression32XIT extends KNNRestTestCase {
         Response response = searchKNNIndex(indexName, filteredQuery, K);
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
 
-        assertFalse(engineName + " filtered results should not be empty", results.isEmpty());
+        assertFalse(label() + " filtered results should not be empty", results.isEmpty());
         assertTrue(results.size() <= K);
         for (KNNResult result : results) {
             int docId = Integer.parseInt(result.getDocId());
-            assertTrue(engineName + " filtered result should only contain alpha docs (id < " + halfCount + ")", docId < halfCount);
+            assertTrue(label() + " filtered result should only contain alpha docs (id < " + halfCount + ")", docId < halfCount);
         }
     }
 
-    // Filtered search + rescore: validates filter correctness, result stability, and score ordering
     @SneakyThrows
-    public void testX32_filteringWithRescore() {
+    public void testFilteringWithRescore() {
         String indexName = prefix() + "filter_rescore";
-        createX32IndexWithFilterField(indexName, SpaceType.L2);
+        createVectorIndexWithFilterField(indexName, SpaceType.L2);
 
         int halfCount = BASELINE_DOC_COUNT / 2;
         for (int i = 0; i < BASELINE_DOC_COUNT; i++) {
@@ -506,24 +515,23 @@ public class Compression32XIT extends KNNRestTestCase {
 
         for (KNNResult result : firstResults) {
             int docId = Integer.parseInt(result.getDocId());
-            assertTrue(engineName + " filtered+rescored should only contain alpha docs", docId < halfCount);
+            assertTrue(label() + " filtered+rescored should only contain alpha docs", docId < halfCount);
         }
 
         List<String> firstIds = firstResults.stream().map(KNNResult::getDocId).collect(Collectors.toList());
         List<String> secondIds = secondResults.stream().map(KNNResult::getDocId).collect(Collectors.toList());
-        assertEquals(engineName + " rescored results should be stable", firstIds, secondIds);
+        assertEquals(label() + " rescored results should be stable", firstIds, secondIds);
 
         for (int i = 0; i < firstResults.size() - 1; i++) {
             assertTrue(
-                engineName + " scores should be in descending order",
+                label() + " scores should be in descending order",
                 firstResults.get(i).getScore() >= firstResults.get(i + 1).getScore()
             );
         }
     }
 
-    // Validates x32 compression works with nested field type
     @SneakyThrows
-    public void testX32_nested() {
+    public void testNested() {
         String indexName = prefix() + "nested";
         String nestedPath = "nested_field";
         String nestedFieldPath = "nested_field.vector";
@@ -539,9 +547,8 @@ public class Compression32XIT extends KNNRestTestCase {
             .startObject("properties")
             .startObject("vector")
             .field("type", "knn_vector")
-            .field("dimension", nestedDimension)
-            .field(MODE_PARAMETER, "on_disk")
-            .field(COMPRESSION_LEVEL_PARAMETER, "32x");
+            .field("dimension", nestedDimension);
+        addCompressionMappingFields(builder);
         addMethodParams(builder, SpaceType.L2);
         builder.endObject().endObject().endObject().endObject().endObject();
 
@@ -573,13 +580,12 @@ public class Compression32XIT extends KNNRestTestCase {
 
         Response searchResponse = searchKNNIndex(indexName, queryBuilder, k);
         List<Object> hits = parseSearchResponseHits(EntityUtils.toString(searchResponse.getEntity()));
-        assertFalse(engineName + " nested search should return results", hits.isEmpty());
+        assertFalse(label() + " nested search should return results", hits.isEmpty());
         assertTrue(hits.size() <= k);
     }
 
-    // Validates x32 with nested field + expand_nested_docs (inner_hits)
     @SneakyThrows
-    public void testX32_expandNestedDocs() {
+    public void testExpandNestedDocs() {
         String indexName = prefix() + "expand_nested";
         String nestedPath = "nested_field";
         String vectorField = nestedPath + ".vector";
@@ -596,15 +602,13 @@ public class Compression32XIT extends KNNRestTestCase {
             .startObject("properties")
             .startObject("vector")
             .field("type", "knn_vector")
-            .field("dimension", nestedDimension)
-            .field(MODE_PARAMETER, "on_disk")
-            .field(COMPRESSION_LEVEL_PARAMETER, "32x");
+            .field("dimension", nestedDimension);
+        addCompressionMappingFields(mappingBuilder);
         addMethodParams(mappingBuilder, SpaceType.L2);
         mappingBuilder.endObject().endObject().endObject().endObject().endObject();
 
         createKnnIndex(indexName, defaultSettings(), mappingBuilder.toString());
 
-        // Index parent docs each with multiple nested vectors
         for (int p = 0; p < numParentDocs; p++) {
             XContentBuilder docBuilder = XContentFactory.jsonBuilder().startObject();
             docBuilder.startArray(nestedPath);
@@ -621,7 +625,6 @@ public class Compression32XIT extends KNNRestTestCase {
         refreshIndex(indexName);
         forceMergeKnnIndex(indexName, 1);
 
-        // Query with expand_nested_docs + inner_hits
         float[] queryVector = new float[nestedDimension];
         Arrays.fill(queryVector, 1.0f);
         XContentBuilder queryBuilder = XContentFactory.jsonBuilder()
@@ -648,20 +651,19 @@ public class Compression32XIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(response.getEntity());
         List<Object> hits = parseSearchResponseHits(responseBody);
 
-        // With expand_nested_docs, we can get more hits than parent docs
-        assertFalse(engineName + " expand_nested should return results", hits.isEmpty());
-        assertTrue(engineName + " expand_nested results should be <= k", hits.size() <= k);
+        assertFalse(label() + " expand_nested should return results", hits.isEmpty());
+        assertTrue(label() + " expand_nested results should be <= k", hits.size() <= k);
     }
 
-    // Tests x32 at dimension extremes and non-multiples-of-8 to catch quantization edge cases
     @SneakyThrows
-    public void testX32_dimensions() {
+    public void testDimensions() {
         int highDim = 768;
         int lowDim = 3;
         int oddDim = 13;
         int nonAlignedDim = 37;
         int docCount = 50;
         int queryCount = 5;
+        float threshold = minRecall(SpaceType.L2);
 
         float[][] highDimVectors = TestUtils.getIndexVectors(docCount, highDim, true);
         float[][] highDimQueries = TestUtils.getQueryVectors(queryCount, highDim, docCount, true);
@@ -669,46 +671,47 @@ public class Compression32XIT extends KNNRestTestCase {
         float[][] lowDimQueries = TestUtils.getQueryVectors(queryCount, lowDim, docCount, true);
 
         String highDimIndex = prefix() + "highdim";
-        createX32Index(highDimIndex, SpaceType.L2, highDim);
+        createVectorIndex(highDimIndex, SpaceType.L2, highDim);
         bulkAddKnnDocs(highDimIndex, FIELD_NAME, highDimVectors, docCount);
         forceMergeKnnIndex(highDimIndex, 1);
 
         String lowDimIndex = prefix() + "lowdim";
-        createX32Index(lowDimIndex, SpaceType.L2, lowDim);
+        createVectorIndex(lowDimIndex, SpaceType.L2, lowDim);
         bulkAddKnnDocs(lowDimIndex, FIELD_NAME, lowDimVectors, docCount);
         forceMergeKnnIndex(lowDimIndex, 1);
 
         List<Set<String>> groundTruthHighDim = TestUtils.computeGroundTruthValues(highDimVectors, highDimQueries, SpaceType.L2, K);
-        List<List<String>> highDimResults = bulkSearch(highDimIndex, FIELD_NAME, highDimQueries, K);
-        double recallHighDim = TestUtils.calculateRecallValue(highDimResults, groundTruthHighDim, K);
-        assertTrue(engineName + " high-dim recall should be >= " + MIN_RECALL_X32_L2, recallHighDim >= MIN_RECALL_X32_L2);
+        double recallHighDim = TestUtils.calculateRecallValue(
+            bulkSearch(highDimIndex, FIELD_NAME, highDimQueries, K),
+            groundTruthHighDim,
+            K
+        );
+        assertTrue(label() + " high-dim recall should be >= " + threshold, recallHighDim >= threshold);
 
         List<Set<String>> groundTruthLowDim = TestUtils.computeGroundTruthValues(lowDimVectors, lowDimQueries, SpaceType.L2, K);
-        List<List<String>> lowDimResults = bulkSearch(lowDimIndex, FIELD_NAME, lowDimQueries, K);
-        double recallLowDim = TestUtils.calculateRecallValue(lowDimResults, groundTruthLowDim, K);
-        assertTrue(engineName + " low-dim recall should be >= " + MIN_RECALL_X32_L2, recallLowDim >= MIN_RECALL_X32_L2);
+        double recallLowDim = TestUtils.calculateRecallValue(bulkSearch(lowDimIndex, FIELD_NAME, lowDimQueries, K), groundTruthLowDim, K);
+        assertTrue(label() + " low-dim recall should be >= " + threshold, recallLowDim >= threshold);
 
-        // Non-multiple-of-8 dimensions (tests quantization padding/alignment)
         for (int dim : new int[] { oddDim, nonAlignedDim }) {
             float[][] vectors = TestUtils.getIndexVectors(docCount, dim, true);
             float[][] queries = TestUtils.getQueryVectors(queryCount, dim, docCount, true);
             String idx = prefix() + "dim" + dim;
-            createX32Index(idx, SpaceType.L2, dim);
+            createVectorIndex(idx, SpaceType.L2, dim);
             bulkAddKnnDocs(idx, FIELD_NAME, vectors, docCount);
             forceMergeKnnIndex(idx, 1);
 
             List<Set<String>> gt = TestUtils.computeGroundTruthValues(vectors, queries, SpaceType.L2, K);
-            List<List<String>> results = bulkSearch(idx, FIELD_NAME, queries, K);
-            double recall = TestUtils.calculateRecallValue(results, gt, K);
-            assertTrue(engineName + " dim=" + dim + " recall should be >= " + MIN_RECALL_X32_L2, recall >= MIN_RECALL_X32_L2);
+            double recall = TestUtils.calculateRecallValue(bulkSearch(idx, FIELD_NAME, queries, K), gt, K);
+            assertTrue(label() + " dim=" + dim + " recall should be >= " + threshold, recall >= threshold);
         }
     }
 
-    // Validates rescore improves recall monotonically: no-rescore < default < high oversample
+    // Quantization-only: rescore improves recall monotonically (no-rescore < default < high oversample).
     @SneakyThrows
     public void testX32_rescoreVariations() {
+        assumeTrue("Validates rescore lifts quantized recall; compressed config only", compressionConfig.isCompressed());
         String indexName = prefix() + "rescore_variations";
-        createX32Index(indexName, SpaceType.L2, DIMENSION);
+        createVectorIndex(indexName, SpaceType.L2, DIMENSION);
         bulkAddKnnDocs(indexName, FIELD_NAME, BASELINE_INDEX_VECTORS, BASELINE_DOC_COUNT);
         forceMergeKnnIndex(indexName, 1);
 
@@ -722,7 +725,6 @@ public class Compression32XIT extends KNNRestTestCase {
         );
         double recallNoRescore = calculateRecallFromResults(noRescoreResults, groundTruth, K);
 
-        // Default rescore (no explicit oversample -- uses system default)
         List<List<KNNResult>> defaultRescoreResults = searchWithRescore(
             indexName,
             BASELINE_QUERY_VECTORS,
@@ -732,7 +734,6 @@ public class Compression32XIT extends KNNRestTestCase {
         double recallDefaultRescore = calculateRecallFromResults(defaultRescoreResults, groundTruth, K);
         assertTrue(engineName + " default rescore recall should be >= " + MIN_RECALL_X32_L2, recallDefaultRescore >= MIN_RECALL_X32_L2);
 
-        // Explicit 3x oversample
         List<List<KNNResult>> explicit3xResults = searchWithRescore(
             indexName,
             BASELINE_QUERY_VECTORS,
@@ -741,7 +742,6 @@ public class Compression32XIT extends KNNRestTestCase {
         );
         double recallExplicit3x = calculateRecallFromResults(explicit3xResults, groundTruth, K);
 
-        // 5x oversample
         List<List<KNNResult>> highOversampleResults = searchWithRescore(
             indexName,
             BASELINE_QUERY_VECTORS,
@@ -754,6 +754,80 @@ public class Compression32XIT extends KNNRestTestCase {
         assertTrue(engineName + " default rescore should improve recall", recallDefaultRescore >= recallNoRescore);
         assertTrue(engineName + " explicit 3x should improve recall", recallExplicit3x >= recallNoRescore);
         assertTrue(engineName + " higher oversample should improve recall", recallHighOversample >= recallExplicit3x);
+    }
+
+    // Explicit memory-optimized-search path under x32: ANN recall across L2, IP, and cosine.
+    @SneakyThrows
+    public void testX32_mos_annSpaceTypes() {
+        assumeTrue("Memory-optimized search is exercised under the compressed config only", compressionConfig.isCompressed());
+        assumeTrue("Memory-optimized search is only supported on the FAISS engine", FAISS_NAME.equals(engineName));
+
+        Settings mosSettings = mosSettings();
+        String indexL2 = prefix() + "mos_l2";
+        String indexIP = prefix() + "mos_ip";
+        String indexCosine = prefix() + "mos_cosine";
+
+        createVectorIndex(indexL2, SpaceType.L2, DIMENSION, mosSettings);
+        createVectorIndex(indexIP, SpaceType.INNER_PRODUCT, DIMENSION, mosSettings);
+        createVectorIndex(indexCosine, SpaceType.COSINESIMIL, DIMENSION, mosSettings);
+
+        bulkAddKnnDocs(indexL2, FIELD_NAME, INDEX_VECTORS, DOC_COUNT);
+        bulkAddKnnDocs(indexIP, FIELD_NAME, INDEX_VECTORS, DOC_COUNT);
+        bulkAddKnnDocs(indexCosine, FIELD_NAME, INDEX_VECTORS, DOC_COUNT);
+
+        forceMergeKnnIndex(indexL2, 1);
+        forceMergeKnnIndex(indexIP, 1);
+        forceMergeKnnIndex(indexCosine, 1);
+
+        double recallL2 = TestUtils.calculateRecallValue(bulkSearch(indexL2, FIELD_NAME, QUERY_VECTORS, K), GROUND_TRUTH_L2, K);
+        assertTrue(engineName + " MOS L2 recall should be >= " + MIN_RECALL_X32_L2 + " but was " + recallL2, recallL2 >= MIN_RECALL_X32_L2);
+
+        double recallIP = TestUtils.calculateRecallValue(bulkSearch(indexIP, FIELD_NAME, QUERY_VECTORS, K), GROUND_TRUTH_IP, K);
+        assertTrue(engineName + " MOS IP recall should be >= " + MIN_RECALL_X32_IP + " but was " + recallIP, recallIP >= MIN_RECALL_X32_IP);
+
+        double recallCosine = TestUtils.calculateRecallValue(bulkSearch(indexCosine, FIELD_NAME, QUERY_VECTORS, K), GROUND_TRUTH_COSINE, K);
+        assertTrue(
+            engineName + " MOS Cosine recall should be >= " + MIN_RECALL_X32_COSINE + " but was " + recallCosine,
+            recallCosine >= MIN_RECALL_X32_COSINE
+        );
+
+        validateScoreRanges(indexL2, SpaceType.L2, 0.0f, 1.0f);
+        validateScoreRanges(indexIP, SpaceType.INNER_PRODUCT, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY);
+        validateScoreRanges(indexCosine, SpaceType.COSINESIMIL, 0.0f, 2.0f);
+    }
+
+    // MOS filter-fallback path under x32: a high filtered_exact_search_threshold forces exact search.
+    @SneakyThrows
+    public void testX32_mos_filterFallback() {
+        assumeTrue("Memory-optimized search is exercised under the compressed config only", compressionConfig.isCompressed());
+        assumeTrue("Memory-optimized search is only supported on the FAISS engine", FAISS_NAME.equals(engineName));
+
+        String indexName = prefix() + "mos_filter_fallback";
+        createVectorIndexWithFilterField(indexName, SpaceType.L2, mosSettings());
+
+        int halfCount = DOC_COUNT / 2;
+        for (int i = 0; i < DOC_COUNT; i++) {
+            String category = (i < halfCount) ? "alpha" : "beta";
+            addKnnDocWithAttributes(indexName, String.valueOf(i), FIELD_NAME, INDEX_VECTORS[i], Map.of("category", category));
+        }
+        forceMergeKnnIndex(indexName, 1);
+
+        updateIndexSettings(indexName, Settings.builder().put(ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, DOC_COUNT));
+
+        float[] queryVector = QUERY_VECTORS[0];
+        KNNQueryBuilder filteredQuery = new KNNQueryBuilder(FIELD_NAME, queryVector, K, QueryBuilders.termQuery("category", "alpha"));
+        Response response = searchKNNIndex(indexName, filteredQuery, K);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
+
+        assertFalse(engineName + " MOS filter-fallback results should not be empty", results.isEmpty());
+        assertTrue(results.size() <= K);
+        for (KNNResult result : results) {
+            int docId = Integer.parseInt(result.getDocId());
+            assertTrue(engineName + " MOS filter-fallback should only contain alpha docs (id < " + halfCount + ")", docId < halfCount);
+        }
+        for (int i = 0; i < results.size() - 1; i++) {
+            assertTrue(engineName + " MOS scores should be descending", results.get(i).getScore() >= results.get(i + 1).getScore());
+        }
     }
 
     // --- Helper methods ---
@@ -832,6 +906,16 @@ public class Compression32XIT extends KNNRestTestCase {
             .build();
     }
 
+    private Settings mosSettings() {
+        return Settings.builder()
+            .put("number_of_shards", 1)
+            .put("number_of_replicas", 0)
+            .put(KNN_INDEX, true)
+            .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0)
+            .put(MEMORY_OPTIMIZED_KNN_SEARCH_MODE, true)
+            .build();
+    }
+
     @SneakyThrows
     private void addMethodParams(XContentBuilder builder, SpaceType spaceType) {
         builder.startObject(KNN_METHOD)
@@ -848,38 +932,27 @@ public class Compression32XIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    private void createX32Index(String indexName, SpaceType spaceType, int dimension) {
+    private void createVectorIndex(String indexName, SpaceType spaceType, int dimension) {
+        createVectorIndex(indexName, spaceType, dimension, defaultSettings());
+    }
+
+    @SneakyThrows
+    private void createVectorIndex(String indexName, SpaceType spaceType, int dimension, Settings settings) {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .field(MODE_PARAMETER, "on_disk")
-            .field(COMPRESSION_LEVEL_PARAMETER, "32x");
+            .field("dimension", dimension);
+        addCompressionMappingFields(builder);
         addMethodParams(builder, spaceType);
         builder.endObject().endObject().endObject();
 
-        createKnnIndex(indexName, defaultSettings(), builder.toString());
+        createKnnIndex(indexName, settings, builder.toString());
     }
 
     @SneakyThrows
-    private void createFP32Index(String indexName, SpaceType spaceType, int dimension) {
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("properties")
-            .startObject(FIELD_NAME)
-            .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .field(COMPRESSION_LEVEL_PARAMETER, "1x");
-        addMethodParams(builder, spaceType);
-        builder.endObject().endObject().endObject();
-
-        createKnnIndex(indexName, defaultSettings(), builder.toString());
-    }
-
-    @SneakyThrows
-    private void createX32InMemoryIndex(String indexName, SpaceType spaceType) {
+    private void createInMemoryIndex(String indexName, SpaceType spaceType) {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
@@ -895,38 +968,37 @@ public class Compression32XIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    private void createX32IndexWithFilterField(String indexName, SpaceType spaceType) {
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("properties")
-            .startObject(FIELD_NAME)
-            .field("type", "knn_vector")
-            .field("dimension", DIMENSION)
-            .field(MODE_PARAMETER, "on_disk")
-            .field(COMPRESSION_LEVEL_PARAMETER, "32x");
-        addMethodParams(builder, spaceType);
-        builder.endObject().startObject("category").field("type", "keyword").endObject().endObject().endObject();
-
-        createKnnIndex(indexName, defaultSettings(), builder.toString());
+    private void createVectorIndexWithFilterField(String indexName, SpaceType spaceType) {
+        createVectorIndexWithFilterField(indexName, spaceType, defaultSettings());
     }
 
     @SneakyThrows
-    private void createX32MultiFieldIndex(String indexName) {
+    private void createVectorIndexWithFilterField(String indexName, SpaceType spaceType, Settings settings) {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
-            .field("dimension", DIMENSION)
-            .field(MODE_PARAMETER, "on_disk")
-            .field(COMPRESSION_LEVEL_PARAMETER, "32x");
-        addMethodParams(builder, SpaceType.L2);
-        builder.endObject()
-            .startObject(FIELD_NAME_2)
+            .field("dimension", DIMENSION);
+        addCompressionMappingFields(builder);
+        addMethodParams(builder, spaceType);
+        builder.endObject().startObject("category").field("type", "keyword").endObject().endObject().endObject();
+
+        createKnnIndex(indexName, settings, builder.toString());
+    }
+
+    @SneakyThrows
+    private void createMultiFieldIndex(String indexName) {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
             .field("type", "knn_vector")
-            .field("dimension", DIMENSION_SMALL)
-            .field(MODE_PARAMETER, "on_disk")
-            .field(COMPRESSION_LEVEL_PARAMETER, "32x");
+            .field("dimension", DIMENSION);
+        addCompressionMappingFields(builder);
+        addMethodParams(builder, SpaceType.L2);
+        builder.endObject().startObject(FIELD_NAME_2).field("type", "knn_vector").field("dimension", DIMENSION_SMALL);
+        addCompressionMappingFields(builder);
         addMethodParams(builder, SpaceType.L2);
         builder.endObject().endObject().endObject();
 

@@ -25,6 +25,8 @@ public class KNNJsonIndexMappingsBuilder {
     private Integer dimension;
     private String nestedFieldName;
     private String vectorDataType;
+    private String compressionLevel;
+    private String mode;
     private Method method;
 
     public XContentBuilder getIndexMappingBuilder() throws IOException {
@@ -39,6 +41,7 @@ public class KNNJsonIndexMappingsBuilder {
                 .field("type", "knn_vector")
                 .field("dimension", dimension);
             addVectorDataType(xContentBuilder);
+            addCompression(xContentBuilder);
             addMethod(xContentBuilder);
             xContentBuilder.endObject().endObject().endObject().endObject().endObject();
             return xContentBuilder;
@@ -50,6 +53,7 @@ public class KNNJsonIndexMappingsBuilder {
                 .field("type", "knn_vector")
                 .field("dimension", dimension);
             addVectorDataType(xContentBuilder);
+            addCompression(xContentBuilder);
             addMethod(xContentBuilder);
             xContentBuilder.endObject().endObject().endObject();
             return xContentBuilder;
@@ -65,6 +69,15 @@ public class KNNJsonIndexMappingsBuilder {
             return;
         }
         xContentBuilder.field("data_type", vectorDataType);
+    }
+
+    private void addCompression(final XContentBuilder xContentBuilder) throws IOException {
+        if (compressionLevel != null) {
+            xContentBuilder.field(KNNConstants.COMPRESSION_LEVEL_PARAMETER, compressionLevel);
+        }
+        if (mode != null) {
+            xContentBuilder.field(KNNConstants.MODE_PARAMETER, mode);
+        }
     }
 
     private void addMethod(final XContentBuilder xContentBuilder) throws IOException {

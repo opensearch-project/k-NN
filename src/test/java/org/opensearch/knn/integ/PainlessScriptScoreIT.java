@@ -5,9 +5,11 @@
 
 package org.opensearch.knn.integ;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import lombok.SneakyThrows;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -28,6 +30,7 @@ import org.opensearch.script.Script;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -37,11 +40,20 @@ import java.util.Map;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.integ.PainlessScriptHelper.createMapping;
 
-public final class PainlessScriptScoreIT extends KNNRestTestCase {
+public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
 
     public static final int AGGREGATION_FIELD_NAME_MIN_LENGTH = 2;
     public static final int AGGREGATION_FIELD_NAME_MAX_LENGTH = 5;
     private static final String NUMERIC_INDEX_FIELD_NAME = "price";
+
+    public PainlessScriptScoreIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
+
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 });
+    }
 
     /*
      creates KnnIndex based on properties, we add single non-knn vector documents to verify whether actions
@@ -199,6 +211,37 @@ public final class PainlessScriptScoreIT extends KNNRestTestCase {
             assertEquals(expectedDocIDs[i], results.get(i).getDocId());
         }
         deleteKNNIndex(INDEX_NAME);
+    }
+
+    public void testL2ScriptScore_faiss_onCompressedIndex() throws Exception {
+        String indexName = prefix() + "painless_l2";
+        createHnswIndex(indexName, KNNEngine.FAISS.getName(), SpaceType.L2, 2);
+        for (Map.Entry<String, Float[]> doc : getL2TestData().entrySet()) {
+            addKnnDoc(indexName, doc.getKey(), FIELD_NAME, doc.getValue());
+        }
+        forceMergeKnnIndex(indexName);
+
+        String source = String.format("1/(1 + l2Squared([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
+        Request request = constructScriptScoreContextSearchRequest(
+            indexName,
+            new MatchAllQueryBuilder(),
+            Collections.emptyMap(),
+            Script.DEFAULT_SCRIPT_LANG,
+            source,
+            3,
+            Collections.emptyMap()
+        );
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
+        assertEquals(3, results.size());
+
+        String[] expectedDocIDs = { "2", "4", "3", "1" };
+        for (int i = 0; i < results.size(); i++) {
+            assertEquals(expectedDocIDs[i], results.get(i).getDocId());
+        }
+        deleteKNNIndex(indexName);
     }
 
     public void testGetValueReturnsDocValues() throws Exception {
