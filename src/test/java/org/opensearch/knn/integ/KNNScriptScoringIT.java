@@ -5,13 +5,16 @@
 
 package org.opensearch.knn.integ;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
+
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import lombok.SneakyThrows;
 import org.opensearch.ExceptionsHelper;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
@@ -40,6 +43,7 @@ import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -62,9 +66,18 @@ import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
 
-public class KNNScriptScoringIT extends KNNRestTestCase {
+public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
 
     private static final String TEST_MODEL = "test-model";
+
+    public KNNScriptScoringIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
+
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 });
+    }
 
     @ExpectRemoteBuildValidation
     public void testKNNL2ScriptScore() throws Exception {
@@ -549,6 +562,47 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     @ExpectRemoteBuildValidation
     public void testKNNInnerProdScriptScore() throws Exception {
         testKNNScriptScore(SpaceType.INNER_PRODUCT);
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testKNNScriptScore_faiss_onCompressedIndex() throws Exception {
+        String indexName = prefix() + "scriptscore";
+        createHnswIndex(indexName, FAISS_NAME, SpaceType.L2, 2);
+
+        Map<String, Float[]> documents = new HashMap<>();
+        documents.put("1", new Float[] { 6.0f, 6.0f });
+        documents.put("2", new Float[] { 2.0f, 2.0f });
+        documents.put("3", new Float[] { 4.0f, 4.0f });
+        documents.put("4", new Float[] { 3.0f, 3.0f });
+        for (Map.Entry<String, Float[]> doc : documents.entrySet()) {
+            addKnnDoc(indexName, doc.getKey(), FIELD_NAME, doc.getValue());
+        }
+        forceMergeKnnIndex(indexName);
+
+        float[] queryVector = { 1.0f, 1.0f };
+        Map<String, Object> params = new HashMap<>();
+        params.put("field", FIELD_NAME);
+        params.put("query_value", queryVector);
+        params.put("space_type", SpaceType.L2.getValue());
+        Request request = constructKNNScriptQueryRequest(indexName, new MatchAllQueryBuilder(), params, documents.size());
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            responseBody
+        ).map().get("hits")).get("hits");
+
+        List<String> docIds = hits.stream().map(hit -> ((String) ((Map<String, Object>) hit).get("_id"))).collect(Collectors.toList());
+        assertEquals(Arrays.asList("2", "4", "3", "1"), docIds);
+
+        List<Double> scores = hits.stream().map(hit -> ((Double) ((Map<String, Object>) hit).get("_score"))).collect(Collectors.toList());
+        double[] expectedScores = { 1.0 / (1 + 2), 1.0 / (1 + 8), 1.0 / (1 + 18), 1.0 / (1 + 50) };
+        for (int i = 0; i < expectedScores.length; i++) {
+            assertEquals(expectedScores[i], scores.get(i), 0.001);
+        }
+        deleteKNNIndex(indexName);
     }
 
     public void testKNNScriptScoreWithRequestCacheEnabled() throws Exception {

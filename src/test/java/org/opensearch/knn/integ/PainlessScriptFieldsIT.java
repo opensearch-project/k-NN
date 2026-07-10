@@ -10,7 +10,8 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.core.rest.RestStatus;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.integ.PainlessScriptHelper.MappingProperty;
@@ -30,9 +31,13 @@ import static org.opensearch.knn.integ.PainlessScriptHelper.createMapping;
 // it is clear if similarity method is supported by script_score, then same is applicable for script_fields
 // provided script_fields context is supported. Hence, we test for one similarity method to verify that script_fields
 // context is supported by this plugin.
-public final class PainlessScriptFieldsIT extends KNNRestTestCase {
+public final class PainlessScriptFieldsIT extends KNNCompressionRestTestCase {
 
     private static final String NUMERIC_INDEX_FIELD_NAME = "price";
+
+    public PainlessScriptFieldsIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
 
     private void buildTestIndex(final Map<String, Float[]> knnDocuments) throws Exception {
         List<MappingProperty> properties = buildMappingProperties();

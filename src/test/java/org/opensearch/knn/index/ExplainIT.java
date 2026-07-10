@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.ParseException;
@@ -15,8 +16,9 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
-import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.engine.BuiltinKNNEngine;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
@@ -24,6 +26,7 @@ import org.opensearch.knn.index.query.parser.RescoreParser;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -40,7 +43,16 @@ import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.RADIAL_SEARCH;
 
-public class ExplainIT extends KNNRestTestCase {
+public class ExplainIT extends KNNCompressionRestTestCase {
+
+    public ExplainIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
+
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 });
+    }
 
     @SneakyThrows
     public void testExplain_whenDefault_thenANNSearch() {
@@ -291,14 +303,14 @@ public class ExplainIT extends KNNRestTestCase {
     }
 
     private void createDefaultKnnIndex(int dimension) throws IOException {
-        // Create Mappings
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .startObject(KNN_METHOD)
+            .field("dimension", dimension);
+        addCompressionMappingFields(builder);
+        builder.startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
             .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())

@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.integ;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import lombok.SneakyThrows;
 import org.junit.Before;
 import org.opensearch.client.Request;
@@ -14,6 +15,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.knn.CompressionTestConfig;
 import org.opensearch.knn.DerivedSourceTestCase;
 import org.opensearch.knn.DerivedSourceUtils;
 import org.opensearch.knn.Pair;
@@ -23,6 +25,7 @@ import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -39,6 +42,15 @@ import static org.opensearch.knn.common.KNNConstants.DIMENSION;
  * a few gaps in functionality. Ignoring tests for now as feature is experimental.
  */
 public class DerivedSourceIT extends DerivedSourceTestCase {
+
+    public DerivedSourceIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
+
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 }, new Object[] { CompressionTestConfig.X32 });
+    }
 
     private final String snapshot = "snapshot-test";
     private final String repository = "repo";
@@ -279,8 +291,9 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             .field("path_match", "similar_products_vector.*.clip_vit_base_patch32")
             .startObject("mapping")
             .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .startObject("method")
+            .field("dimension", dimension);
+        addCompressionMappingFields(mappingsBuilder);
+        mappingsBuilder.startObject("method")
             .field("engine", "faiss")
             .field("space_type", "l2")
             .field("name", "hnsw")
@@ -349,8 +362,9 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             .startObject(KNNConstants.PROPERTIES)
             .startObject("nameVector")
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .startObject("method")
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingBuilder);
+        mappingBuilder.startObject("method")
             .field("engine", "lucene")
             .field("space_type", "l2")
             .field("name", "hnsw")
@@ -413,7 +427,11 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
         testReindex(indexConfigContexts);
 
         // Snapshot restore
-        testSnapshotRestore(repository, snapshot + getTestName().toLowerCase(Locale.ROOT), indexConfigContexts);
+        testSnapshotRestore(
+            repository,
+            snapshot + getTestName().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9-]", ""),
+            indexConfigContexts
+        );
     }
 
     @SneakyThrows
@@ -427,10 +445,9 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             .startObject("properties")
             .startObject(fieldName)
             .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .endObject()
-            .endObject()
-            .endObject();
+            .field("dimension", dimension);
+        addCompressionMappingFields(builder);
+        builder.endObject().endObject().endObject();
         String mapping = builder.toString();
         createKnnIndex(indexName, mapping);
         validateDerivedSetting(indexName, true);
@@ -448,10 +465,9 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             .startObject("properties")
             .startObject(fieldName)
             .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .endObject()
-            .endObject()
-            .endObject();
+            .field("dimension", dimension);
+        addCompressionMappingFields(builder);
+        builder.endObject().endObject().endObject();
         String mapping = builder.toString();
         expectThrows(
             ResponseException.class,
@@ -483,21 +499,19 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             .startObject(KNNConstants.PROPERTIES)
             .startObject(VECTOR_FIELD_1)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(KNNConstants.DIMENSION, DIMENSION)
-            .endObject()
+            .field(KNNConstants.DIMENSION, DIMENSION);
+        addCompressionMappingFields(mappingBuilder);
+        mappingBuilder.endObject()
             .startObject(VECTOR_FIELD_2)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(KNNConstants.DIMENSION, DIMENSION)
-            .endObject()
+            .field(KNNConstants.DIMENSION, DIMENSION);
+        addCompressionMappingFields(mappingBuilder);
+        mappingBuilder.endObject()
             .startObject(VECTOR_FIELD_3)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(KNNConstants.DIMENSION, DIMENSION)
-            .endObject()
-            .startObject(TEXT_FIELD)
-            .field(KNNConstants.TYPE, "text")
-            .endObject()
-            .endObject()
-            .endObject();
+            .field(KNNConstants.DIMENSION, DIMENSION);
+        addCompressionMappingFields(mappingBuilder);
+        mappingBuilder.endObject().startObject(TEXT_FIELD).field(KNNConstants.TYPE, "text").endObject().endObject().endObject();
 
         createKnnIndex(
             indexName,
@@ -637,17 +651,14 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             .startObject(KNNConstants.PROPERTIES)
             .startObject(VECTOR_FIELD_1)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingWithIncludes);
+        mappingWithIncludes.endObject()
             .startObject(VECTOR_FIELD_2)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
-            .startObject(TEXT_FIELD)
-            .field(KNNConstants.TYPE, "text")
-            .endObject()
-            .endObject()
-            .endObject();
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingWithIncludes);
+        mappingWithIncludes.endObject().startObject(TEXT_FIELD).field(KNNConstants.TYPE, "text").endObject().endObject().endObject();
 
         createKnnIndex(
             indexWithIncludes,
@@ -677,17 +688,14 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             .startObject(KNNConstants.PROPERTIES)
             .startObject(VECTOR_FIELD_1)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingWithExcludes);
+        mappingWithExcludes.endObject()
             .startObject(VECTOR_FIELD_2)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
-            .startObject(TEXT_FIELD)
-            .field(KNNConstants.TYPE, "text")
-            .endObject()
-            .endObject()
-            .endObject();
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingWithExcludes);
+        mappingWithExcludes.endObject().startObject(TEXT_FIELD).field(KNNConstants.TYPE, "text").endObject().endObject().endObject();
 
         createKnnIndex(
             indexWithExcludes,
@@ -718,17 +726,14 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             .startObject(KNNConstants.PROPERTIES)
             .startObject(VECTOR_FIELD_1)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingWithBoth);
+        mappingWithBoth.endObject()
             .startObject(VECTOR_FIELD_2)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
-            .startObject(TEXT_FIELD)
-            .field(KNNConstants.TYPE, "text")
-            .endObject()
-            .endObject()
-            .endObject();
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingWithBoth);
+        mappingWithBoth.endObject().startObject(TEXT_FIELD).field(KNNConstants.TYPE, "text").endObject().endObject().endObject();
 
         createKnnIndex(
             indexWithBoth,
@@ -758,12 +763,14 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             .startObject(KNNConstants.PROPERTIES)
             .startObject(VECTOR_FIELD_1)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingWithWildcardIncludes);
+        mappingWithWildcardIncludes.endObject()
             .startObject(VECTOR_FIELD_2)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingWithWildcardIncludes);
+        mappingWithWildcardIncludes.endObject()
             .startObject(TEXT_FIELD)
             .field(KNNConstants.TYPE, "text")
             .endObject()
@@ -802,12 +809,14 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             .startObject(KNNConstants.PROPERTIES)
             .startObject(VECTOR_FIELD_1)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingWithWildcardExcludes);
+        mappingWithWildcardExcludes.endObject()
             .startObject(VECTOR_FIELD_2)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingWithWildcardExcludes);
+        mappingWithWildcardExcludes.endObject()
             .startObject(TEXT_FIELD)
             .field(KNNConstants.TYPE, "text")
             .endObject()

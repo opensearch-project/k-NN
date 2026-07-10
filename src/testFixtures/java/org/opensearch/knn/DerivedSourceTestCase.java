@@ -29,7 +29,11 @@ import java.util.function.Supplier;
 
 import static org.opensearch.knn.TestUtils.BWC_VERSION;
 
-public class DerivedSourceTestCase extends KNNRestTestCase {
+public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
+
+    public DerivedSourceTestCase(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
 
     private static final List<Pair<String, Boolean>> INDEX_PREFIX_TO_ENABLED = List.of(
         new Pair<>("original-enable-", true),
@@ -1160,11 +1164,12 @@ public class DerivedSourceTestCase extends KNNRestTestCase {
     }
 
     protected String getIndexName(String testPrefix, String indexPrefix, boolean addRandom) {
-        String indexName = (testPrefix + "-" + indexPrefix + getTestName()).toLowerCase(Locale.ROOT);
+        String rawName = (testPrefix + "-" + indexPrefix + getTestName()).toLowerCase(Locale.ROOT);
+        String indexName = rawName.replaceAll("[^a-z0-9-]", "");
         if (addRandom) {
-            indexName += randomAlphaOfLength(6);
+            indexName += randomAlphaOfLength(6).toLowerCase(Locale.ROOT);
         }
-        return indexName.toLowerCase(Locale.ROOT);
+        return indexName;
     }
 
     protected Supplier<Integer> randomIntegerSupplier(long randomSeed, int min, int max) {

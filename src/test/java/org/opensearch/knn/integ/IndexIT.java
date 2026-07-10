@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.integ;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import com.google.common.primitives.Floats;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
@@ -13,9 +14,11 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.BeforeClass;
 import org.opensearch.client.Response;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNJsonIndexMappingsBuilder;
 import org.opensearch.knn.KNNJsonQueryBuilder;
-import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.SpaceType;
@@ -29,6 +32,7 @@ import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -39,8 +43,17 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
  * This class contains integration tests for index
  */
 @Log4j2
-public class IndexIT extends KNNRestTestCase {
+public class IndexIT extends KNNCompressionRestTestCase {
     private static TestUtils.TestData testData;
+
+    public IndexIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
+
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 }, new Object[] { CompressionTestConfig.X32 });
+    }
 
     @BeforeClass
     public static void setUpClass() throws IOException {
@@ -64,13 +77,14 @@ public class IndexIT extends KNNRestTestCase {
         ingestTestData(INDEX_NAME, FIELD_NAME);
 
         int k = 100;
+        float minRecall = getMinRecallThreshold(SpaceType.L2);
         for (int i = 0; i < testData.queries.length; i++) {
             List<KNNResult> knnResults = runKnnQuery(INDEX_NAME, FIELD_NAME, testData.queries[i], k);
             float recall = getRecall(
                 Set.of(Arrays.copyOf(testData.groundTruthValues[i], k)),
                 knnResults.stream().map(KNNResult::getDocId).collect(Collectors.toSet())
             );
-            assertTrue("Recall: " + recall, recall > 0.9);
+            assertTrue("Recall: " + recall, recall >= minRecall);
         }
     }
 
@@ -83,14 +97,15 @@ public class IndexIT extends KNNRestTestCase {
     public void testIndexWithNonVectorFields_whenValid_thenSucceed() {
         String indexName = INDEX_NAME + "_mixed";
 
-        String mapping = XContentFactory.jsonBuilder()
+        XContentBuilder mappingBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
             .field("dimension", 128)
-            .field("data_type", VectorDataType.FLOAT.getValue())
-            .startObject("method")
+            .field("data_type", VectorDataType.FLOAT.getValue());
+        addCompressionMappingFields(mappingBuilder);
+        String mapping = mappingBuilder.startObject("method")
             .field("name", METHOD_HNSW)
             .field("space_type", SpaceType.L2.getValue())
             .field("engine", BuiltinKNNEngine.FAISS.getName())
@@ -169,14 +184,15 @@ public class IndexIT extends KNNRestTestCase {
     public void testLuceneWithNonVectorFields_whenValid_thenSucceed() {
         String indexName = INDEX_NAME + "_lucene_mixed";
 
-        String mapping = XContentFactory.jsonBuilder()
+        XContentBuilder mappingBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
             .field("dimension", 128)
-            .field("data_type", VectorDataType.FLOAT.getValue())
-            .startObject("method")
+            .field("data_type", VectorDataType.FLOAT.getValue());
+        addCompressionMappingFields(mappingBuilder);
+        String mapping = mappingBuilder.startObject("method")
             .field("name", METHOD_HNSW)
             .field("space_type", SpaceType.L2.getValue())
             .field("engine", BuiltinKNNEngine.LUCENE.getName())
@@ -222,14 +238,15 @@ public class IndexIT extends KNNRestTestCase {
     public void testMixedSegmentsWithFaiss_whenValid_thenSucceed() {
         String indexName = INDEX_NAME + "_faiss_mixed_segments";
 
-        String mapping = XContentFactory.jsonBuilder()
+        XContentBuilder mappingBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
             .field("dimension", 128)
-            .field("data_type", VectorDataType.FLOAT.getValue())
-            .startObject("method")
+            .field("data_type", VectorDataType.FLOAT.getValue());
+        addCompressionMappingFields(mappingBuilder);
+        String mapping = mappingBuilder.startObject("method")
             .field("name", METHOD_HNSW)
             .field("space_type", SpaceType.L2.getValue())
             .field("engine", BuiltinKNNEngine.FAISS.getName())
@@ -275,14 +292,15 @@ public class IndexIT extends KNNRestTestCase {
     public void testMixedSegmentsWithLucene_whenValid_thenSucceed() {
         String indexName = INDEX_NAME + "_lucene_mixed_segments";
 
-        String mapping = XContentFactory.jsonBuilder()
+        XContentBuilder mappingBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
             .field("dimension", 128)
-            .field("data_type", VectorDataType.FLOAT.getValue())
-            .startObject("method")
+            .field("data_type", VectorDataType.FLOAT.getValue());
+        addCompressionMappingFields(mappingBuilder);
+        String mapping = mappingBuilder.startObject("method")
             .field("name", METHOD_HNSW)
             .field("space_type", SpaceType.L2.getValue())
             .field("engine", BuiltinKNNEngine.LUCENE.getName())
@@ -328,14 +346,15 @@ public class IndexIT extends KNNRestTestCase {
     public void testVectorFieldRemovalByUpdate_whenValid_thenSucceed() {
         String indexName = INDEX_NAME + "_vector_removal";
 
-        String mapping = XContentFactory.jsonBuilder()
+        XContentBuilder mappingBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
             .field("dimension", 128)
-            .field("data_type", VectorDataType.FLOAT.getValue())
-            .startObject("method")
+            .field("data_type", VectorDataType.FLOAT.getValue());
+        addCompressionMappingFields(mappingBuilder);
+        String mapping = mappingBuilder.startObject("method")
             .field("name", METHOD_HNSW)
             .field("space_type", SpaceType.L2.getValue())
             .field("engine", BuiltinKNNEngine.FAISS.getName())
@@ -380,14 +399,15 @@ public class IndexIT extends KNNRestTestCase {
     public void testVectorFieldRemovalByUpdateLucene_whenValid_thenSucceed() {
         String indexName = INDEX_NAME + "_vector_removal_lucene";
 
-        String mapping = XContentFactory.jsonBuilder()
+        XContentBuilder mappingBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
             .field("dimension", 128)
-            .field("data_type", VectorDataType.FLOAT.getValue())
-            .startObject("method")
+            .field("data_type", VectorDataType.FLOAT.getValue());
+        addCompressionMappingFields(mappingBuilder);
+        String mapping = mappingBuilder.startObject("method")
             .field("name", METHOD_HNSW)
             .field("space_type", SpaceType.L2.getValue())
             .field("engine", BuiltinKNNEngine.LUCENE.getName())
@@ -471,14 +491,10 @@ public class IndexIT extends KNNRestTestCase {
             .engine(knnEngine.getName())
             .build();
 
-        String knnIndexMapping = KNNJsonIndexMappingsBuilder.builder()
-            .fieldName(fieldName)
-            .dimension(dimension)
-            .vectorDataType(VectorDataType.FLOAT.getValue())
-            .method(method)
-            .build()
-            .getIndexMapping();
+        KNNJsonIndexMappingsBuilder.KNNJsonIndexMappingsBuilderBuilder mappingBuilder = addCompressionMappingFields(
+            KNNJsonIndexMappingsBuilder.builder().fieldName(fieldName).dimension(dimension).vectorDataType(VectorDataType.FLOAT.getValue())
+        ).method(method);
 
-        createKnnIndex(indexName, knnIndexMapping);
+        createKnnIndex(indexName, mappingBuilder.build().getIndexMapping());
     }
 }

@@ -13,13 +13,13 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
-import org.opensearch.knn.index.mapper.Mode;
 
 import java.io.IOException;
 import java.util.List;
@@ -37,7 +37,6 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRU
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
-import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.PATH;
@@ -49,7 +48,7 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR;
 import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_OVERSAMPLE_PARAMETER;
 import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_PARAMETER;
 
-public class NestedSearchIT extends KNNRestTestCase {
+public class NestedSearchIT extends KNNCompressionRestTestCase {
     private static final String INDEX_NAME = "test-index-nested-search";
     private static final String FIELD_NAME_NESTED = "test_nested";
     private static final String FIELD_NAME_VECTOR = "test_vector";
@@ -60,6 +59,10 @@ public class NestedSearchIT extends KNNRestTestCase {
     private static final int EF_CONSTRUCTION = 128;
     private static final int M = 16;
     private static final SpaceType SPACE_TYPE = SpaceType.L2;
+
+    public NestedSearchIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
 
     @SneakyThrows
     public void testNestedSearchWithLucene_whenKIsTwo_thenReturnTwoResults() {
@@ -179,12 +182,6 @@ public class NestedSearchIT extends KNNRestTestCase {
     @SneakyThrows
     public void testNestedSearchWithFaiss_whenKIsTwo_SomeNestedDocsHasNoVectors_thenReturnTwoResults() {
         createKnnIndex(2, BuiltinKNNEngine.FAISS.getName());
-        indexAndTestKNNIndexWithVectorAndNonVectorField();
-    }
-
-    @SneakyThrows
-    public void testNestedSearchWithOnDisk_whenKIsTwo_SomeNestedDocsHasNoVectors_thenReturnTwoResults() {
-        createKnnIndex(2, BuiltinKNNEngine.FAISS.getName(), Mode.ON_DISK);
         indexAndTestKNNIndexWithVectorAndNonVectorField();
     }
 
@@ -385,18 +382,10 @@ public class NestedSearchIT extends KNNRestTestCase {
      *  }
      */
     private void createKnnIndex(final int dimension, final String engine) throws Exception {
-        createKnnIndex(dimension, engine, Mode.IN_MEMORY, false);
+        createKnnIndex(dimension, engine, false);
     }
 
     private void createKnnIndex(final int dimension, final String engine, boolean memoryOptimizedSearch) throws Exception {
-        createKnnIndex(dimension, engine, Mode.IN_MEMORY, memoryOptimizedSearch);
-    }
-
-    private void createKnnIndex(final int dimension, final String engine, Mode mode) throws Exception {
-        createKnnIndex(dimension, engine, mode, false);
-    }
-
-    private void createKnnIndex(final int dimension, final String engine, Mode mode, boolean memoryOptimizedSearch) throws Exception {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject(PROPERTIES_FIELD)
@@ -408,9 +397,9 @@ public class NestedSearchIT extends KNNRestTestCase {
             .endObject()
             .startObject(FIELD_NAME_VECTOR)
             .field(TYPE, TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .field(MODE_PARAMETER, mode.getName())
-            .startObject(KNN_METHOD)
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(builder);
+        builder.startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SPACE_TYPE)
             .field(KNN_ENGINE, engine)

@@ -18,11 +18,17 @@ import org.junit.Assert;
 import org.opensearch.client.Response;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
+import java.io.IOException;
 import java.util.List;
+
+import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.NAME;
 
 /**
  * This IT class contains will contain special cases of IT for segment replication behavior.
@@ -30,13 +36,17 @@ import java.util.List;
  * at-least 2 node configuration.
  */
 @Log4j2
-public class SegmentReplicationIT extends KNNRestTestCase {
+public class SegmentReplicationIT extends KNNCompressionRestTestCase {
     private static final String INDEX_NAME = "segment-replicated-knn-index";
+
+    public SegmentReplicationIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
 
     @SneakyThrows
     @ExpectRemoteBuildValidation
     public void testSearchOnReplicas_whenIndexHasDeletedDocs_thenSuccess() {
-        createKnnIndex(INDEX_NAME, getKNNSegmentReplicatedIndexSettings(), createKNNIndexMethodFieldMapping(FIELD_NAME, 2));
+        createKnnIndex(INDEX_NAME, getKNNSegmentReplicatedIndexSettings(), createFieldMapping(2));
 
         Float[] vector = { 1.3f, 2.2f };
         int docsInIndex = 10;
@@ -92,5 +102,17 @@ public class SegmentReplicationIT extends KNNRestTestCase {
             return false;
         }
         return true;
+    }
+
+    private String createFieldMapping(int dimension) throws IOException {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", dimension);
+        addCompressionMappingFields(builder);
+        builder.startObject(KNN_METHOD).field(NAME, METHOD_HNSW).endObject().endObject().endObject().endObject();
+        return builder.toString();
     }
 }

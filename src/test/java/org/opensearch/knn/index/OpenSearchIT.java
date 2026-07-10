@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.index;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Floats;
 
@@ -18,7 +19,8 @@ import lombok.SneakyThrows;
 import org.apache.hc.core5.http.ParseException;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
@@ -43,6 +45,7 @@ import org.opensearch.search.profile.query.QueryTimingType;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -53,9 +56,18 @@ import static org.opensearch.knn.index.KNNSettings.ADVANCED_FILTERED_EXACT_SEARC
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MAX;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MIN;
 
-public class OpenSearchIT extends KNNRestTestCase {
+public class OpenSearchIT extends KNNCompressionRestTestCase {
 
     static TestUtils.TestData testData;
+
+    public OpenSearchIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
+
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 }, new Object[] { CompressionTestConfig.X32 });
+    }
 
     @BeforeClass
     public static void setUpClass() throws IOException {
@@ -79,14 +91,14 @@ public class OpenSearchIT extends KNNRestTestCase {
         List<Integer> efSearchValues = ImmutableList.of(16, 32, 64, 128);
         Integer dimension = testData.indexData.vectors[0].length;
 
-        // Create an index with a single FAISS knn_vector field
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(fieldName)
             .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .startObject(KNNConstants.KNN_METHOD)
+            .field("dimension", dimension);
+        addCompressionMappingFields(builder);
+        builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNNConstants.KNN_ENGINE, knnEngine.getName()) // FAISS engine
@@ -101,7 +113,9 @@ public class OpenSearchIT extends KNNRestTestCase {
         Map<String, Object> mappingMap = xContentBuilderToMap(builder);
         String mapping = builder.toString();
         createKnnIndex(indexName, buildKNNIndexSettings(0), mapping);
-        assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
+        if (compressionConfig == CompressionTestConfig.X1) {
+            assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
+        }
 
         // Index the test data
         for (int i = 0; i < testData.indexData.docs.length; i++) {
@@ -655,16 +669,16 @@ public class OpenSearchIT extends KNNRestTestCase {
         final Integer dimension = testData.indexData.vectors[0].length;
         final Settings knnIndexSettings = buildKNNIndexSettings(-1);
 
-        // Create an index with a single FAISS knn_vector field
         final XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(fieldName)
             .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .startObject(KNNConstants.KNN_METHOD)
+            .field("dimension", dimension);
+        addCompressionMappingFields(builder);
+        builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName()) // FAISS only
+            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
             .startObject(KNNConstants.PARAMETERS)
             .endObject()
             .endObject()
@@ -723,14 +737,14 @@ public class OpenSearchIT extends KNNRestTestCase {
         final Integer dimension = testData.indexData.vectors[0].length;
         final Settings knnIndexSettings = buildKNNIndexSettings(testData.indexData.docs.length);
 
-        // Create an index
         final XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(fieldName)
             .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .startObject(KNNConstants.KNN_METHOD)
+            .field("dimension", dimension);
+        addCompressionMappingFields(builder);
+        builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
             .startObject(KNNConstants.PARAMETERS)
@@ -809,14 +823,14 @@ public class OpenSearchIT extends KNNRestTestCase {
         final Integer dimension = testData.indexData.vectors[0].length;
         final Settings knnIndexSettings = buildKNNIndexSettings(-1);
 
-        // Create an index
         final XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(fieldName1)
             .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .startObject(KNNConstants.KNN_METHOD)
+            .field("dimension", dimension);
+        addCompressionMappingFields(builder);
+        builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
             .startObject(KNNConstants.PARAMETERS)
@@ -825,8 +839,9 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .startObject(fieldName2)
             .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .startObject(KNNConstants.KNN_METHOD)
+            .field("dimension", dimension);
+        addCompressionMappingFields(builder);
+        builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
             .startObject(KNNConstants.PARAMETERS)

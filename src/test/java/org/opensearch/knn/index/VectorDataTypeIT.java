@@ -805,8 +805,13 @@ public class VectorDataTypeIT extends KNNRestTestCase {
             .startObject(FIELD_NAME)
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
             .field(DIMENSION, dimension)
-            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType)
-            .startObject(KNNConstants.KNN_METHOD)
+            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType);
+
+        if (VectorDataType.FLOAT.getValue().equals(vectorDataType)) {
+            builder.field(KNNConstants.COMPRESSION_LEVEL_PARAMETER, "1x");
+        }
+
+        builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNNConstants.KNN_ENGINE, engine)

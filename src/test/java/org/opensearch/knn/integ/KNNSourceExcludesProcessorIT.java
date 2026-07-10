@@ -20,7 +20,6 @@ import org.opensearch.script.Script;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.BuiltinKNNEngine;
-import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.opensearch.knn.search.processor.KNNSourceExcludesProcessor;
 import org.opensearch.knn.search.processor.mmr.MMROverSampleProcessor;
