@@ -56,6 +56,7 @@ import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 public class ExactSearcherTests extends KNNTestCase {
 
@@ -119,6 +120,53 @@ public class ExactSearcherTests extends KNNTestCase {
             Mockito.verify(leafReaderContext).reader();
             assertEquals(1, docs.scoreDocs.length);
             assertEquals(spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector), docs.scoreDocs[0].score, 1e-6f);
+        }
+    }
+
+    @SneakyThrows
+    public void testExactSearchScorer_whenByteVectorDataType_thenUsesByteQueryVectorDirectly() {
+        final byte[] queryVector = new byte[] { 1, 2, 3 };
+        final byte[] vector = new byte[] { 4, 5, 6 };
+        final SpaceType spaceType = SpaceType.L2;
+
+        DocIdSetIterator matchedDocIdSetIterator = DocIdSetIterator.all(10);
+
+        final ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder exactSearcherContextBuilder =
+            ExactSearcher.ExactSearcherContext.builder()
+                .field(FIELD_NAME)
+                .byteQueryVector(queryVector)
+                .matchedDocsIterator(matchedDocIdSetIterator);
+
+        final KNNVectorValues knnByteVectorValues = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.BYTE,
+            new TestVectorValues.PreDefinedByteVectorValues(
+                List.of(vector),
+                spaceType.getKnnVectorSimilarityFunction().getVectorSimilarityFunction()
+            )
+        );
+
+        try (MockedStatic<KNNVectorValuesFactory> vectorValuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class)) {
+            ExactSearcher exactSearcher = new ExactSearcher(null);
+            final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+            final SegmentReader reader = mock(SegmentReader.class);
+
+            final FieldInfos fieldInfos = mock(FieldInfos.class);
+            final FieldInfo fieldInfo = mock(FieldInfo.class);
+            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(spaceType.getValue());
+            when(fieldInfo.getAttribute(VECTOR_DATA_TYPE_FIELD)).thenReturn(VectorDataType.BYTE.getValue());
+            when(reader.getFieldInfos()).thenReturn(fieldInfos);
+            when(fieldInfos.fieldInfo(FIELD_NAME)).thenReturn(fieldInfo);
+            when(leafReaderContext.reader()).thenReturn(reader);
+            vectorValuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader))
+                .thenReturn(knnByteVectorValues);
+
+            final Scorer scorer = exactSearcher.exactSearchScorer(leafReaderContext, exactSearcherContextBuilder.build());
+            assertNotNull(scorer);
+            final DocIdSetIterator iterator = scorer.iterator();
+            int docId = iterator.nextDoc();
+            assertNotEquals(DocIdSetIterator.NO_MORE_DOCS, docId);
+            float expectedScore = spaceType.getKnnVectorSimilarityFunction().getVectorSimilarityFunction().compare(queryVector, vector);
+            assertEquals(expectedScore, scorer.score(), 1e-6f);
         }
     }
 

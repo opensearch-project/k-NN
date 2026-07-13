@@ -524,28 +524,13 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
 
         byte[] byteVector = new byte[0];
         switch (vectorDataType) {
-            case BINARY:
+            case BINARY, BYTE:
                 byteVector = new byte[vector.length];
                 for (int i = 0; i < vector.length; i++) {
                     validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
                     byteVector[i] = (byte) vector[i];
                 }
                 spaceType.validateVector(byteVector);
-                break;
-            case BYTE:
-                if (isUsingLuceneQuery(knnEngine, memoryOptimizedSearchEnabled)) {
-                    byteVector = new byte[vector.length];
-                    for (int i = 0; i < vector.length; i++) {
-                        validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
-                        byteVector[i] = (byte) vector[i];
-                    }
-                    spaceType.validateVector(byteVector);
-                } else {
-                    for (float v : vector) {
-                        validateByteVectorValue(v, knnVectorFieldType.getVectorDataType());
-                    }
-                    spaceType.validateVector(vector);
-                }
                 break;
             default:
                 spaceType.validateVector(vector);
@@ -564,7 +549,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 .fieldName(this.fieldName)
                 .vector(getFloatVectorForCreatingQueryRequest(transformedQueryVector, vectorDataType, knnEngine))
                 .originalVector(vector)
-                .byteVector(getByteVectorForCreatingQueryRequest(vectorDataType, knnEngine, byteVector, memoryOptimizedSearchEnabled))
+                .byteVector(getByteVectorForCreatingQueryRequest(vectorDataType, byteVector))
                 .vectorDataType(vectorDataType)
                 .k(this.k)
                 .methodParameters(this.methodParameters)
@@ -583,7 +568,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 .fieldName(this.fieldName)
                 .vector(getFloatVectorForCreatingQueryRequest(transformedQueryVector, vectorDataType, knnEngine))
                 .originalVector(vector)
-                .byteVector(getByteVectorForCreatingQueryRequest(vectorDataType, knnEngine, byteVector, memoryOptimizedSearchEnabled))
+                .byteVector(getByteVectorForCreatingQueryRequest(vectorDataType, byteVector))
                 .vectorDataType(vectorDataType)
                 .vectorFieldType(knnVectorFieldType)
                 .radius(radius)
@@ -620,19 +605,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         }
 
         throw new IllegalArgumentException(String.format(Locale.ROOT, "Field '%s' is not built for ANN search.", this.fieldName));
-    }
-
-    /**
-     * Determine whether the query will be using Lucene query to perform vector search.
-     * Currently, if memory optimized search is enabled, it fallbacks to Lucene and delegate its HNSW graph searcher to perform ANN search
-     * on FAISS index. Hence, if it is true, then we need to use Lucene query.
-     *
-     * @param engine Engine type
-     * @param memoryOptimizedSearchEnabled A bool flag whether memory optimized search is enabled.
-     * @return True when it should use Lucene query False otherwise.
-     */
-    private static boolean isUsingLuceneQuery(final KNNEngine engine, final boolean memoryOptimizedSearchEnabled) {
-        return memoryOptimizedSearchEnabled || engine == BuiltinKNNEngine.LUCENE;
     }
 
     private ModelMetadata getModelMetadataForField(String modelId) {
@@ -687,15 +659,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         return null;
     }
 
-    private byte[] getByteVectorForCreatingQueryRequest(
-        VectorDataType vectorDataType,
-        KNNEngine knnEngine,
-        byte[] byteVector,
-        boolean memoryOptimizedSearchEnabled
-    ) {
-
-        if (VectorDataType.BINARY == vectorDataType
-            || (VectorDataType.BYTE == vectorDataType && isUsingLuceneQuery(knnEngine, memoryOptimizedSearchEnabled))) {
+    private byte[] getByteVectorForCreatingQueryRequest(VectorDataType vectorDataType, byte[] byteVector) {
+        if (VectorDataType.BINARY == vectorDataType || VectorDataType.BYTE == vectorDataType) {
             return byteVector;
         }
         return null;

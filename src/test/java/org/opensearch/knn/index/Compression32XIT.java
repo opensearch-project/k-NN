@@ -25,6 +25,7 @@ import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.util.ArrayList;
+import java.net.URL;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -80,17 +81,13 @@ public class Compression32XIT extends KNNCompressionRestTestCase {
     private static final int BASELINE_DOC_COUNT = 200;
     private static final int BASELINE_QUERY_COUNT = 20;
 
-    private static final float[][] INDEX_VECTORS = TestUtils.getIndexVectors(DOC_COUNT, DIMENSION, true);
-    private static final float[][] QUERY_VECTORS = TestUtils.getQueryVectors(QUERY_COUNT, DIMENSION, DOC_COUNT, true);
+    private static final TestUtils.TestData TEST_DATA = loadTestData();
+    private static final float[][] INDEX_VECTORS = Arrays.copyOf(TEST_DATA.indexData.vectors, DOC_COUNT);
+    private static final float[][] QUERY_VECTORS = Arrays.copyOf(TEST_DATA.queries, QUERY_COUNT);
     private static final float[][] INDEX_VECTORS_SMALL = TestUtils.getIndexVectors(DOC_COUNT, DIMENSION_SMALL, true);
     private static final float[][] QUERY_VECTORS_SMALL = TestUtils.getQueryVectors(QUERY_COUNT, DIMENSION_SMALL, DOC_COUNT, true);
-    private static final float[][] BASELINE_INDEX_VECTORS = TestUtils.getIndexVectors(BASELINE_DOC_COUNT, DIMENSION, true);
-    private static final float[][] BASELINE_QUERY_VECTORS = TestUtils.getQueryVectors(
-        BASELINE_QUERY_COUNT,
-        DIMENSION,
-        BASELINE_DOC_COUNT,
-        true
-    );
+    private static final float[][] BASELINE_INDEX_VECTORS = Arrays.copyOf(TEST_DATA.indexData.vectors, BASELINE_DOC_COUNT);
+    private static final float[][] BASELINE_QUERY_VECTORS = Arrays.copyOf(TEST_DATA.queries, BASELINE_QUERY_COUNT);
     private static final List<Set<String>> GROUND_TRUTH_L2 = TestUtils.computeGroundTruthValues(
         INDEX_VECTORS,
         QUERY_VECTORS,
@@ -115,6 +112,14 @@ public class Compression32XIT extends KNNCompressionRestTestCase {
         SpaceType.L2,
         K
     );
+
+    @SneakyThrows
+    private static TestUtils.TestData loadTestData() {
+        URL testIndexVectors = Compression32XIT.class.getClassLoader().getResource("data/test_vectors_1000x128.json");
+        URL testQueries = Compression32XIT.class.getClassLoader().getResource("data/test_queries_100x128.csv");
+        return new TestUtils.TestData(testIndexVectors.getPath(), testQueries.getPath());
+    }
+
     private static final List<Set<String>> GROUND_TRUTH_BASELINE = TestUtils.computeGroundTruthValues(
         BASELINE_INDEX_VECTORS,
         BASELINE_QUERY_VECTORS,

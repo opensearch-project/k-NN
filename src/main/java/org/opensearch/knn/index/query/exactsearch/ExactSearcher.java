@@ -339,14 +339,9 @@ public class ExactSearcher {
         }
 
         if (VectorDataType.BYTE == vectorDataType) {
-            final float[] floatQueryVector = context.getFloatQueryVector();
-            final byte[] byteQueryVector = new byte[floatQueryVector.length];
-            for (int i = 0; i < byteQueryVector.length; i++) {
-                byteQueryVector[i] = (byte) floatQueryVector[i];
-            }
             return VectorScorers.createScorer(
                 iteratorValues,
-                byteQueryVector,
+                context.getByteQueryVector(),
                 scorerMode,
                 spaceType,
                 fieldInfo,
