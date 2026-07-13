@@ -1205,14 +1205,16 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                 }
             }
 
-            if (memoryOptimizedEnabled) {
-                if (vectorDataType == VectorDataType.FLOAT) {
-                    assertEquals(queryVector.length, knnQuery.getQueryVector().length);
-                } else if (vectorDataType == VectorDataType.BYTE) {
-                    assertEquals(queryVector.length, knnQuery.getByteQueryVector().length);
-                } else if (vectorDataType == VectorDataType.BINARY) {
-                    assertEquals(queryVector.length, knnQuery.getByteQueryVector().length);
+            if (vectorDataType == VectorDataType.BYTE || vectorDataType == VectorDataType.BINARY) {
+                assertNotNull("byteQueryVector should always be set for " + vectorDataType, knnQuery.getByteQueryVector());
+                byte[] expectedByteVector = new byte[queryVector.length];
+                for (int i = 0; i < queryVector.length; i++) {
+                    expectedByteVector[i] = (byte) queryVector[i];
                 }
+                assertArrayEquals(expectedByteVector, knnQuery.getByteQueryVector());
+            }
+            if (memoryOptimizedEnabled && vectorDataType == VectorDataType.FLOAT) {
+                assertArrayEquals(queryVector, knnQuery.getQueryVector(), 0f);
             }
         }
     }
@@ -1661,7 +1663,12 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertEquals(1 / MIN_SCORE - 1, query.getRadius(), 0);
         // We save the given vector in original vector field.
         assertEquals(QUERY_VECTOR, query.getOriginalQueryVector());
-        assertNull(query.getByteQueryVector());
+        assertNotNull(query.getByteQueryVector());
+        byte[] expectedByteVector = new byte[QUERY_VECTOR.length];
+        for (int i = 0; i < QUERY_VECTOR.length; i++) {
+            expectedByteVector[i] = (byte) QUERY_VECTOR[i];
+        }
+        assertArrayEquals(expectedByteVector, query.getByteQueryVector());
     }
 
     public void testDoToQuery_whenBinary_thenValid() throws Exception {
