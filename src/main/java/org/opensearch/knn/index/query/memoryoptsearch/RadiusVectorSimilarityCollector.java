@@ -15,75 +15,60 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Clone of Lucene's VectorSimilarityCollector, which cannot be used directly due to its package-private visibility.
+ * Collector for radial (similarity-threshold) search over an HNSW graph.
+ * <p>
+ * Uses a fixed similarity threshold as a hard cutoff: collects all visited nodes at or above
+ * the threshold and refuses to explore below it. This is designed for the two-phase radial
+ * search where phase-1 seeds provide good entry points, so no exploration beyond the threshold
+ * is needed.
+ * <p>
+ * Compatible with Lucene 10.5's {@code HnswGraphSearcher} which computes the traversal bound as
+ * {@code Math.nextUp(minCompetitiveSimilarity())}. We return {@code Math.nextDown(similarity)}
+ * so the effective cutoff equals the threshold exactly.
  */
 public class RadiusVectorSimilarityCollector extends AbstractKnnCollector {
     private static final KnnSearchStrategy.Hnsw DEFAULT_STRATEGY = new KnnSearchStrategy.Hnsw(0);
 
-    private final float traversalSimilarity, resultSimilarity;
-    private float maxSimilarity;
+    private final float similarity;
     private final List<ScoreDoc> scoreDocList;
 
     /**
-     * Perform a similarity-based graph search using the default HNSW strategy.
-     *
-     * @param traversalSimilarity (lower) similarity score for graph traversal.
-     * @param resultSimilarity (higher) similarity score for result collection.
+     * @param similarity minimum similarity for both traversal and collection.
      * @param visitLimit limit on number of nodes to visit.
      */
-    public RadiusVectorSimilarityCollector(float traversalSimilarity, float resultSimilarity, long visitLimit) {
-        this(traversalSimilarity, resultSimilarity, visitLimit, DEFAULT_STRATEGY);
+    public RadiusVectorSimilarityCollector(float similarity, long visitLimit) {
+        this(similarity, visitLimit, DEFAULT_STRATEGY);
     }
 
     /**
-     * Perform a similarity-based graph search. The graph is traversed till better scoring nodes are
-     * available, or the best candidate is below {@link #traversalSimilarity}. All traversed nodes
-     * above {@link #resultSimilarity} are collected.
-     * <p>
-     * The provided {@code searchStrategy} is forwarded to the underlying collector, which allows
-     * callers to pass a {@link KnnSearchStrategy.Seeded} strategy so that the radial graph traversal
-     * begins from a set of pre-computed entry points (re-entrant search) instead of the default
-     * graph entry node.
-     *
-     * @param traversalSimilarity (lower) similarity score for graph traversal.
-     * @param resultSimilarity (higher) similarity score for result collection.
-     * @param visitLimit limit on number of nodes to visit.
-     * @param searchStrategy the HNSW search strategy to use (e.g. {@link KnnSearchStrategy.Seeded}).
+     * @param similarity     minimum similarity for both traversal and collection.
+     * @param visitLimit     limit on number of nodes to visit.
+     * @param searchStrategy the HNSW search strategy (e.g. {@link KnnSearchStrategy.Seeded}).
      */
-    public RadiusVectorSimilarityCollector(
-        float traversalSimilarity,
-        float resultSimilarity,
-        long visitLimit,
-        KnnSearchStrategy searchStrategy
-    ) {
+    public RadiusVectorSimilarityCollector(float similarity, long visitLimit, KnnSearchStrategy searchStrategy) {
         super(1, visitLimit, searchStrategy);
-        if (traversalSimilarity > resultSimilarity) {
-            throw new IllegalArgumentException("traversalSimilarity should be <= resultSimilarity");
-        }
-        this.traversalSimilarity = traversalSimilarity;
-        this.resultSimilarity = resultSimilarity;
-        this.maxSimilarity = Float.NEGATIVE_INFINITY;
+        this.similarity = similarity;
         this.scoreDocList = new ArrayList<>();
     }
 
     @Override
     public boolean collect(int docId, float similarity) {
-        maxSimilarity = Math.max(maxSimilarity, similarity);
-        if (similarity >= resultSimilarity) {
+        if (similarity >= this.similarity) {
             scoreDocList.add(new ScoreDoc(docId, similarity));
         }
-        return true;
+        // Return false: our minCompetitiveSimilarity is constant, no re-read needed.
+        return false;
     }
 
     @Override
     public float minCompetitiveSimilarity() {
-        return Math.min(traversalSimilarity, maxSimilarity);
+        // Lucene 10.5's HnswGraphSearcher uses Math.nextUp(this) as the traversal bound.
+        // Returning nextDown(similarity) makes the effective cutoff exactly equal to similarity.
+        return Math.nextDown(similarity);
     }
 
     @Override
     public TopDocs topDocs() {
-        // Results are not returned in a sorted order to prevent unnecessary calculations (because we do
-        // not need to maintain the topK)
         TotalHits.Relation relation = earlyTerminated() ? TotalHits.Relation.GREATER_THAN_OR_EQUAL_TO : TotalHits.Relation.EQUAL_TO;
         return new TopDocs(new TotalHits(visitedCount(), relation), scoreDocList.toArray(ScoreDoc[]::new));
     }

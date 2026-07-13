@@ -37,7 +37,6 @@ import org.opensearch.lucene.ReentrantKnnCollectorManager;
 import java.io.IOException;
 import java.util.Map;
 
-import static org.opensearch.knn.common.KNNConstants.DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO;
 import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
 
 /**
@@ -72,12 +71,9 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
                 this.knnCollectorManager = new DiversifyingNearestChildrenKnnCollectorManager(k, query.getParentsFilter(), searcher);
             }
         } else {
-            // Radius search.
-            // Forward the incoming searchStrategy so that a re-entrant (seeded) radial search can begin
-            // the graph traversal from pre-computed entry points instead of the default entry node.
+            final float radius = query.getRadius();
             this.knnCollectorManager = (visitLimit, searchStrategy, context) -> new RadiusVectorSimilarityCollector(
-                query.getRadius(),
-                query.getRadius(),
+                radius,
                 visitLimit,
                 searchStrategy
             );
