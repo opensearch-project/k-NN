@@ -8,8 +8,8 @@ package org.opensearch.knn.index.mapper;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 
 import java.util.Map;
@@ -49,7 +49,7 @@ public final class VectorTransformerFactory {
      * @return VectorTransformer An appropriate vector transformer instance
      */
     public static VectorTransformer getVectorTransformer(
-        final KNNEngine knnEngine,
+        final VectorSearchEngine knnEngine,
         final SpaceType spaceType,
         final MethodComponentContext methodComponentContext
     ) {
@@ -57,17 +57,17 @@ public final class VectorTransformerFactory {
     }
 
     private static boolean shouldNormalizeVector(
-        final KNNEngine knnEngine,
+        final VectorSearchEngine knnEngine,
         final SpaceType spaceType,
         final MethodComponentContext methodComponentContext
     ) {
         if (spaceType != SpaceType.COSINESIMIL) {
             return false;
         }
-        if (knnEngine == BuiltinKNNEngine.FAISS) {
+        if (knnEngine == KNNEngine.FAISS) {
             return true;
         }
-        if (knnEngine == BuiltinKNNEngine.LUCENE) {
+        if (knnEngine == KNNEngine.LUCENE) {
             return shouldNormalizeForLuceneEngine(methodComponentContext);
         }
         return false;

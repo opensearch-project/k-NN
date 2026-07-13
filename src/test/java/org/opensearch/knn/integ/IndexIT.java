@@ -23,8 +23,8 @@ import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
@@ -73,7 +73,7 @@ public class IndexIT extends KNNCompressionRestTestCase {
     @ExpectRemoteBuildValidation
     public void testFaissHnsw_when1000Data_thenRecallIsAboveNinePointZero() {
         // Create Index
-        createKnnHnswIndex(BuiltinKNNEngine.FAISS, INDEX_NAME, FIELD_NAME, 128);
+        createKnnHnswIndex(KNNEngine.FAISS, INDEX_NAME, FIELD_NAME, 128);
         ingestTestData(INDEX_NAME, FIELD_NAME);
 
         int k = 100;
@@ -108,7 +108,7 @@ public class IndexIT extends KNNCompressionRestTestCase {
         String mapping = mappingBuilder.startObject("method")
             .field("name", METHOD_HNSW)
             .field("space_type", SpaceType.L2.getValue())
-            .field("engine", BuiltinKNNEngine.FAISS.getName())
+            .field("engine", KNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .startObject("category")
@@ -158,7 +158,7 @@ public class IndexIT extends KNNCompressionRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", 128)
             .field("mode", Mode.ON_DISK.getName())
-            .field("engine", BuiltinKNNEngine.LUCENE.getName())
+            .field("engine", KNNEngine.LUCENE.getName())
             .field("compression_level", CompressionLevel.x4.getName())
             .endObject()
             .endObject()
@@ -195,7 +195,7 @@ public class IndexIT extends KNNCompressionRestTestCase {
         String mapping = mappingBuilder.startObject("method")
             .field("name", METHOD_HNSW)
             .field("space_type", SpaceType.L2.getValue())
-            .field("engine", BuiltinKNNEngine.LUCENE.getName())
+            .field("engine", KNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .startObject("category")
@@ -249,7 +249,7 @@ public class IndexIT extends KNNCompressionRestTestCase {
         String mapping = mappingBuilder.startObject("method")
             .field("name", METHOD_HNSW)
             .field("space_type", SpaceType.L2.getValue())
-            .field("engine", BuiltinKNNEngine.FAISS.getName())
+            .field("engine", KNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .startObject("category")
@@ -303,7 +303,7 @@ public class IndexIT extends KNNCompressionRestTestCase {
         String mapping = mappingBuilder.startObject("method")
             .field("name", METHOD_HNSW)
             .field("space_type", SpaceType.L2.getValue())
-            .field("engine", BuiltinKNNEngine.LUCENE.getName())
+            .field("engine", KNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .startObject("category")
@@ -357,7 +357,7 @@ public class IndexIT extends KNNCompressionRestTestCase {
         String mapping = mappingBuilder.startObject("method")
             .field("name", METHOD_HNSW)
             .field("space_type", SpaceType.L2.getValue())
-            .field("engine", BuiltinKNNEngine.FAISS.getName())
+            .field("engine", KNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .startObject("description")
@@ -410,7 +410,7 @@ public class IndexIT extends KNNCompressionRestTestCase {
         String mapping = mappingBuilder.startObject("method")
             .field("name", METHOD_HNSW)
             .field("space_type", SpaceType.L2.getValue())
-            .field("engine", BuiltinKNNEngine.LUCENE.getName())
+            .field("engine", KNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .startObject("description")
@@ -483,7 +483,7 @@ public class IndexIT extends KNNCompressionRestTestCase {
         assertEquals(testData.indexData.docs.length, getDocCount(indexName));
     }
 
-    private void createKnnHnswIndex(final KNNEngine knnEngine, final String indexName, final String fieldName, final int dimension)
+    private void createKnnHnswIndex(final VectorSearchEngine knnEngine, final String indexName, final String fieldName, final int dimension)
         throws IOException {
         KNNJsonIndexMappingsBuilder.Method method = KNNJsonIndexMappingsBuilder.Method.builder()
             .methodName(METHOD_HNSW)

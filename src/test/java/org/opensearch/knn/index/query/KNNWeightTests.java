@@ -40,8 +40,8 @@ import org.opensearch.knn.index.codec.KNN990Codec.QuantizationConfigKNNCollector
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
@@ -103,7 +103,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
             testQueryScore(
                 space::scoreTranslation,
                 SEGMENT_FILES_NMSLIB,
-                Map.of(SPACE_TYPE, space.getValue(), KNN_ENGINE, BuiltinKNNEngine.NMSLIB.getName())
+                Map.of(SPACE_TYPE, space.getValue(), KNN_ENGINE, KNNEngine.NMSLIB.getName())
             );
         }
     }
@@ -117,7 +117,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
                 SPACE_TYPE,
                 SpaceType.L2.getValue(),
                 KNN_ENGINE,
-                BuiltinKNNEngine.FAISS.getName(),
+                KNNEngine.FAISS.getName(),
                 PARAMETERS,
                 String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
             )
@@ -130,7 +130,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
                 SPACE_TYPE,
                 SpaceType.INNER_PRODUCT.getValue(),
                 KNN_ENGINE,
-                BuiltinKNNEngine.FAISS.getName(),
+                KNNEngine.FAISS.getName(),
                 PARAMETERS,
                 String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
             )
@@ -144,7 +144,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
                 SPACE_TYPE,
                 SpaceType.INNER_PRODUCT.getValue(),
                 KNN_ENGINE,
-                BuiltinKNNEngine.FAISS.getName(),
+                KNNEngine.FAISS.getName(),
                 PARAMETERS,
                 String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
             )
@@ -163,7 +163,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
 
         ModelDao modelDao = mock(ModelDao.class);
         ModelMetadata modelMetadata = mock(ModelMetadata.class);
-        when(modelMetadata.getKnnEngine()).thenReturn(BuiltinKNNEngine.FAISS);
+        when(modelMetadata.getKnnEngine()).thenReturn(KNNEngine.FAISS);
         when(modelMetadata.getSpaceType()).thenReturn(spaceType);
         when(modelMetadata.getState()).thenReturn(ModelState.CREATED);
         when(modelMetadata.getVectorDataType()).thenReturn(VectorDataType.DEFAULT);
@@ -232,7 +232,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
 
         ModelDao modelDao = mock(ModelDao.class);
         ModelMetadata modelMetadata = mock(ModelMetadata.class);
-        when(modelMetadata.getKnnEngine()).thenReturn(BuiltinKNNEngine.FAISS);
+        when(modelMetadata.getKnnEngine()).thenReturn(KNNEngine.FAISS);
         when(modelMetadata.getSpaceType()).thenReturn(spaceType);
 
         KNNWeight.initialize(modelDao);
@@ -409,7 +409,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         final FieldInfo fieldInfo = mock(FieldInfo.class);
         final Map<String, String> attributesMap = ImmutableMap.of(
             KNN_ENGINE,
-            BuiltinKNNEngine.FAISS.getName(),
+            KNNEngine.FAISS.getName(),
             PARAMETERS,
             String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
         );
@@ -471,7 +471,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
             () -> JNIService.queryBinaryIndex(anyLong(), eq(quantizedVector), eq(k), any(), any(), any(), anyInt(), any())
         ).thenReturn(knnQueryResults);
 
-        KNNEngine knnEngine = mock(KNNEngine.class);
+        VectorSearchEngine knnEngine = mock(VectorSearchEngine.class);
         when(knnEngine.score(anyFloat(), eq(SpaceType.HAMMING))).thenAnswer(invocation -> {
             Float score = invocation.getArgument(0);
             return 1 / (1 + score);
@@ -498,9 +498,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         when(reader.getFieldInfos()).thenReturn(fieldInfos);
         when(fieldInfos.fieldInfo(FIELD_NAME)).thenReturn(fieldInfo);
 
-        when(fieldInfo.attributes()).thenReturn(
-            Map.of(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName(), SPACE_TYPE, SpaceType.HAMMING.getValue())
-        );
+        when(fieldInfo.attributes()).thenReturn(Map.of(KNN_ENGINE, KNNEngine.FAISS.getName(), SPACE_TYPE, SpaceType.HAMMING.getValue()));
 
         FSDirectory directory = mock(FSDirectory.class);
         when(reader.directory()).thenReturn(directory);
@@ -643,7 +641,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         final FieldInfo fieldInfo = mock(FieldInfo.class);
         final Map<String, String> attributesMap = ImmutableMap.of(
             KNN_ENGINE,
-            BuiltinKNNEngine.FAISS.getName(),
+            KNNEngine.FAISS.getName(),
             SPACE_TYPE,
             isBinary ? SpaceType.HAMMING.getValue() : SpaceType.L2.getValue()
         );
@@ -741,7 +739,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         final FieldInfo fieldInfo = mock(FieldInfo.class);
         final Map<String, String> attributesMap = ImmutableMap.of(
             KNN_ENGINE,
-            BuiltinKNNEngine.FAISS.getName(),
+            KNNEngine.FAISS.getName(),
             SPACE_TYPE,
             SpaceType.L2.getValue()
         );
@@ -840,7 +838,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
             final KNNWeight knnWeight = new DefaultKNNWeight(query, boost, filterQueryWeight);
             final Map<String, String> attributesMap = ImmutableMap.of(
                 KNN_ENGINE,
-                BuiltinKNNEngine.FAISS.getName(),
+                KNNEngine.FAISS.getName(),
                 VECTOR_DATA_TYPE_FIELD,
                 isBinary ? VectorDataType.BINARY.getValue() : VectorDataType.FLOAT.getValue(),
                 SPACE_TYPE,
@@ -956,7 +954,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
                 SPACE_TYPE,
                 spaceType.getValue(),
                 KNN_ENGINE,
-                BuiltinKNNEngine.FAISS.getName(),
+                KNNEngine.FAISS.getName(),
                 PARAMETERS,
                 String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
             )
@@ -1011,7 +1009,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         final KNNWeight knnWeight = new DefaultKNNWeight(query, boost, filterQueryWeight);
         final Map<String, String> attributesMap = ImmutableMap.of(
             KNN_ENGINE,
-            BuiltinKNNEngine.FAISS.getName(),
+            KNNEngine.FAISS.getName(),
             SPACE_TYPE,
             SpaceType.L2.name(),
             PARAMETERS,
@@ -1089,7 +1087,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         final KNNWeight knnWeight = new DefaultKNNWeight(query, boost, filterQueryWeight);
         final Map<String, String> attributesMap = ImmutableMap.of(
             KNN_ENGINE,
-            BuiltinKNNEngine.FAISS.getName(),
+            KNNEngine.FAISS.getName(),
             SPACE_TYPE,
             SpaceType.L2.name(),
             PARAMETERS,
@@ -1177,7 +1175,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
             // Mock field Info
             final Map<String, String> attributesMap = ImmutableMap.of(
                 KNN_ENGINE,
-                BuiltinKNNEngine.FAISS.getName(),
+                KNNEngine.FAISS.getName(),
                 SPACE_TYPE,
                 SpaceType.L2.name(),
                 PARAMETERS,
@@ -1203,16 +1201,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
             // Then
             // Verifies ANN index was called
             jniServiceMockedStatic.verify(
-                () -> JNIService.queryIndex(
-                    anyLong(),
-                    any(float[].class),
-                    eq(K),
-                    anyMap(),
-                    eq(BuiltinKNNEngine.FAISS),
-                    any(),
-                    anyInt(),
-                    any()
-                )
+                () -> JNIService.queryIndex(anyLong(), any(float[].class), eq(K), anyMap(), eq(KNNEngine.FAISS), any(), anyInt(), any())
             );
             jniServiceMockedStatic.verifyNoMoreInteractions();
         }
@@ -1263,7 +1252,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
             final KNNWeight knnWeight = new DefaultKNNWeight(query, boost, filterQueryWeight);
             final Map<String, String> attributesMap = ImmutableMap.of(
                 KNN_ENGINE,
-                BuiltinKNNEngine.FAISS.getName(),
+                KNNEngine.FAISS.getName(),
                 SPACE_TYPE,
                 SpaceType.HAMMING.name(),
                 PARAMETERS,
@@ -1497,7 +1486,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         final FieldInfo fieldInfo = mock(FieldInfo.class);
         final Map<String, String> attributesMap = ImmutableMap.of(
             KNN_ENGINE,
-            BuiltinKNNEngine.FAISS.getName(),
+            KNNEngine.FAISS.getName(),
             SPACE_TYPE,
             SpaceType.L2.getValue()
         );
@@ -1596,7 +1585,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
                 SPACE_TYPE,
                 SpaceType.L2.getValue(),
                 KNN_ENGINE,
-                BuiltinKNNEngine.FAISS.getName(),
+                KNNEngine.FAISS.getName(),
                 PARAMETERS,
                 String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
             )
@@ -1665,7 +1654,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         // Prepare fieldInfo
         final Map<String, String> attributesMap = ImmutableMap.of(
             KNN_ENGINE,
-            BuiltinKNNEngine.FAISS.getName(),
+            KNNEngine.FAISS.getName(),
             SPACE_TYPE,
             SpaceType.L2.name(),
             PARAMETERS,
@@ -1735,8 +1724,8 @@ public class KNNWeightTests extends KNNWeightTestCase {
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
         when(fieldInfo.attributes()).thenReturn(fileAttributes);
 
-        String engineName = fieldInfo.attributes().getOrDefault(KNN_ENGINE, BuiltinKNNEngine.NMSLIB.getName());
-        KNNEngine knnEngine = BuiltinKNNEngine.getEngine(engineName);
+        String engineName = fieldInfo.attributes().getOrDefault(KNN_ENGINE, KNNEngine.NMSLIB.getName());
+        VectorSearchEngine knnEngine = KNNEngine.getEngine(engineName);
         List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), query.getField(), reader.getSegmentInfo().info);
         String expectIndexPath = String.format("%s_%s_%s%s%s", SEGMENT_NAME, 2011, FIELD_NAME, knnEngine.getExtension(), "c");
         assertEquals(engineFiles.get(0), expectIndexPath);
@@ -1787,7 +1776,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
             final FieldInfo fieldInfo = mock(FieldInfo.class);
             final Map<String, String> attributesMap = ImmutableMap.of(
                 KNN_ENGINE,
-                BuiltinKNNEngine.FAISS.getName(),
+                KNNEngine.FAISS.getName(),
                 PARAMETERS,
                 String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
             );
@@ -1870,7 +1859,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
                 final FieldInfo fieldInfo = mock(FieldInfo.class);
                 final Map<String, String> attributesMap = ImmutableMap.of(
                     KNN_ENGINE,
-                    BuiltinKNNEngine.FAISS.getName(),
+                    KNNEngine.FAISS.getName(),
                     PARAMETERS,
                     String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
                 );

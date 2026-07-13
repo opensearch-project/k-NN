@@ -36,13 +36,9 @@ public class SpaceTypeResolverTests extends KNNTestCase {
         final Settings emptySettings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
         final Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
 
-        final KNNMethodContext methodContext = new KNNMethodContext(
-            BuiltinKNNEngine.DEFAULT,
-            SpaceType.COSINESIMIL,
-            MethodComponentContext.EMPTY
-        );
+        final KNNMethodContext methodContext = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.COSINESIMIL, MethodComponentContext.EMPTY);
         final KNNMethodContext emptyMethodContext = new KNNMethodContext(
-            BuiltinKNNEngine.DEFAULT,
+            KNNEngine.DEFAULT,
             SpaceType.UNDEFINED,
             MethodComponentContext.EMPTY
         );
@@ -193,7 +189,7 @@ public class SpaceTypeResolverTests extends KNNTestCase {
         expectThrows(
             MapperParsingException.class,
             () -> SPACE_TYPE_RESOLVER.resolveSpaceType(
-                new KNNMethodContext(BuiltinKNNEngine.DEFAULT, SpaceType.L2, MethodComponentContext.EMPTY),
+                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.L2, MethodComponentContext.EMPTY),
                 SpaceType.INNER_PRODUCT.getValue(),
                 DONT_CARE_VECTOR_DATA
             )
@@ -201,7 +197,7 @@ public class SpaceTypeResolverTests extends KNNTestCase {
         assertEquals(
             SpaceType.DEFAULT,
             SPACE_TYPE_RESOLVER.resolveSpaceType(
-                new KNNMethodContext(BuiltinKNNEngine.DEFAULT, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
+                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
                 SpaceType.DEFAULT.getValue(),
                 DONT_CARE_VECTOR_DATA
             )
@@ -209,7 +205,7 @@ public class SpaceTypeResolverTests extends KNNTestCase {
         assertEquals(
             SpaceType.DEFAULT,
             SPACE_TYPE_RESOLVER.resolveSpaceType(
-                new KNNMethodContext(BuiltinKNNEngine.DEFAULT, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
+                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
                 SpaceType.UNDEFINED.getValue(),
                 DONT_CARE_VECTOR_DATA
             )
@@ -217,7 +213,7 @@ public class SpaceTypeResolverTests extends KNNTestCase {
         assertEquals(
             SpaceType.DEFAULT,
             SPACE_TYPE_RESOLVER.resolveSpaceType(
-                new KNNMethodContext(BuiltinKNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY),
+                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY),
                 SpaceType.DEFAULT.getValue(),
                 DONT_CARE_VECTOR_DATA
             )
@@ -229,7 +225,7 @@ public class SpaceTypeResolverTests extends KNNTestCase {
         assertEquals(
             SpaceType.DEFAULT,
             SPACE_TYPE_RESOLVER.resolveSpaceType(
-                new KNNMethodContext(BuiltinKNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY),
+                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY),
                 SpaceType.UNDEFINED.getValue(),
                 VectorDataType.BYTE
             )
@@ -238,7 +234,7 @@ public class SpaceTypeResolverTests extends KNNTestCase {
         assertEquals(
             SpaceType.DEFAULT,
             SPACE_TYPE_RESOLVER.resolveSpaceType(
-                new KNNMethodContext(BuiltinKNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY),
+                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY),
                 SpaceType.UNDEFINED.getValue(),
                 VectorDataType.FLOAT
             )
@@ -247,7 +243,7 @@ public class SpaceTypeResolverTests extends KNNTestCase {
         assertEquals(
             SpaceType.DEFAULT_BINARY,
             SPACE_TYPE_RESOLVER.resolveSpaceType(
-                new KNNMethodContext(BuiltinKNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY),
+                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY),
                 SpaceType.UNDEFINED.getValue(),
                 VectorDataType.BINARY
             )
@@ -259,7 +255,7 @@ public class SpaceTypeResolverTests extends KNNTestCase {
         assertEquals(
             SpaceType.L1,
             SPACE_TYPE_RESOLVER.resolveSpaceType(
-                new KNNMethodContext(BuiltinKNNEngine.DEFAULT, SpaceType.L1, MethodComponentContext.EMPTY),
+                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.L1, MethodComponentContext.EMPTY),
                 "",
                 null
             )

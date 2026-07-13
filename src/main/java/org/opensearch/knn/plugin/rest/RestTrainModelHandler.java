@@ -21,8 +21,8 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.SpaceTypeResolver;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.EngineResolver;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.mapper.CompressionLevel;
@@ -102,7 +102,7 @@ public class RestTrainModelHandler extends BaseRestHandler {
         int maximumVectorCount = DEFAULT_NOT_SET_INT_VALUE;
         int searchSize = DEFAULT_NOT_SET_INT_VALUE;
         SpaceType topLevelSpaceType = SpaceType.UNDEFINED;
-        KNNEngine topLevelEngine = KNNEngine.UNDEFINED;
+        VectorSearchEngine topLevelEngine = VectorSearchEngine.UNDEFINED;
 
         String compressionLevel = null;
         String mode = null;
@@ -136,7 +136,7 @@ public class RestTrainModelHandler extends BaseRestHandler {
                 && ensureSpaceTypeNotSet(topLevelSpaceType)) {
                     topLevelSpaceType = SpaceType.getSpace(parser.text());
                 } else if ((KNNConstants.KNN_ENGINE.equals(fieldName)) && ensureEngineNotSet(topLevelEngine)) {
-                    topLevelEngine = BuiltinKNNEngine.getEngine(parser.text());
+                    topLevelEngine = KNNEngine.getEngine(parser.text());
                 } else {
                     throw new IllegalArgumentException("Unable to parse token. \"" + fieldName + "\" is not a valid " + "parameter.");
                 }
@@ -161,8 +161,9 @@ public class RestTrainModelHandler extends BaseRestHandler {
             && topLevelSpaceType == SpaceType.UNDEFINED) {
             topLevelSpaceType = SpaceTypeResolver.getDefaultSpaceType(vectorDataType);
         }
-        if ((knnMethodContext == null || knnMethodContext.getKnnEngine() == KNNEngine.UNDEFINED) && topLevelEngine == KNNEngine.UNDEFINED) {
-            topLevelEngine = BuiltinKNNEngine.FAISS;
+        if ((knnMethodContext == null || knnMethodContext.getKnnEngine() == VectorSearchEngine.UNDEFINED)
+            && topLevelEngine == VectorSearchEngine.UNDEFINED) {
+            topLevelEngine = KNNEngine.FAISS;
         }
 
         ensureIfSetThenEquals(
@@ -181,7 +182,7 @@ public class RestTrainModelHandler extends BaseRestHandler {
             vectorDataType
         );
         setSpaceType(knnMethodContext, resolvedSpaceType);
-        KNNEngine resolvedEngine = EngineResolver.INSTANCE.resolveEngine(
+        VectorSearchEngine resolvedEngine = EngineResolver.INSTANCE.resolveEngine(
             KNNMethodConfigContext.builder()
                 .vectorDataType(vectorDataType)
                 .dimension(dimension)
@@ -255,14 +256,14 @@ public class RestTrainModelHandler extends BaseRestHandler {
         knnMethodContext.setSpaceType(resolvedSpaceType);
     }
 
-    private boolean ensureEngineNotSet(KNNEngine knnEngine) {
-        if (knnEngine != BuiltinKNNEngine.UNDEFINED) {
+    private boolean ensureEngineNotSet(VectorSearchEngine knnEngine) {
+        if (knnEngine != KNNEngine.UNDEFINED) {
             throw new IllegalArgumentException("Unable to parse KNNEngine as it is duplicated.");
         }
         return true;
     }
 
-    private void setEngine(KNNMethodContext knnMethodContext, KNNEngine resolvedEngine) {
+    private void setEngine(KNNMethodContext knnMethodContext, VectorSearchEngine resolvedEngine) {
         if (knnMethodContext == null || knnMethodContext.isEngineConfigured()) {
             return;
         }

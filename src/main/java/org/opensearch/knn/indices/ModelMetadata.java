@@ -31,8 +31,8 @@ import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 import java.io.IOException;
 import java.util.Map;
@@ -46,7 +46,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
 
     public static final String DELIMITER = ",";
 
-    final private KNNEngine knnEngine;
+    final private VectorSearchEngine knnEngine;
     final private SpaceType spaceType;
     final private int dimension;
 
@@ -69,7 +69,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
      * @param in Stream input
      */
     public ModelMetadata(StreamInput in) throws IOException {
-        this.knnEngine = BuiltinKNNEngine.getEngine(in.readString());
+        this.knnEngine = KNNEngine.getEngine(in.readString());
         this.spaceType = SpaceType.getSpace(in.readString());
         this.dimension = in.readInt();
         this.state = new AtomicReference<>(ModelState.readFrom(in));
@@ -128,7 +128,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
      * @param vectorDataType vector data type of the model
      */
     public ModelMetadata(
-        KNNEngine knnEngine,
+        VectorSearchEngine knnEngine,
         SpaceType spaceType,
         int dimension,
         ModelState modelState,
@@ -144,7 +144,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     ) {
         this.knnEngine = Objects.requireNonNull(knnEngine, "knnEngine must not be null");
         this.spaceType = Objects.requireNonNull(spaceType, "spaceType must not be null");
-        int maxDimensions = BuiltinKNNEngine.getMaxDimensionByEngine(this.knnEngine);
+        int maxDimensions = KNNEngine.getMaxDimensionByEngine(this.knnEngine);
         if (dimension <= 0 || dimension > maxDimensions) {
             throw new IllegalArgumentException(
                 String.format(
@@ -174,7 +174,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
      *
      * @return knnEngine
      */
-    public KNNEngine getKnnEngine() {
+    public VectorSearchEngine getKnnEngine() {
         return knnEngine;
     }
 
@@ -359,7 +359,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             );
         }
 
-        KNNEngine knnEngine = BuiltinKNNEngine.getEngine(modelMetadataArray[0]);
+        VectorSearchEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
         SpaceType spaceType = SpaceType.getSpace(modelMetadataArray[1]);
         int dimension = Integer.parseInt(modelMetadataArray[2]);
         ModelState modelState = ModelState.getModelState(modelMetadataArray[3]);
@@ -474,7 +474,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         }
 
         ModelMetadata modelMetadata = new ModelMetadata(
-            BuiltinKNNEngine.getEngine(objectToString(engine)),
+            KNNEngine.getEngine(objectToString(engine)),
             SpaceType.getSpace(objectToString(space)),
             objectToInteger(dimension),
             ModelState.getModelState(objectToString(state)),

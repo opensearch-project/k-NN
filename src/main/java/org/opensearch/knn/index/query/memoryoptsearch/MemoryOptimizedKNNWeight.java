@@ -26,7 +26,7 @@ import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.MemoryOptimizedSearchScoreConverter;
@@ -83,7 +83,7 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         final SegmentReader reader,
         final FieldInfo fieldInfo,
         final SpaceType spaceType,
-        final KNNEngine knnEngine,
+        final VectorSearchEngine knnEngine,
         final VectorDataType vectorDataType,
         final byte[] quantizedTargetVector,
         final float[] adcTransformedVector,
@@ -176,7 +176,7 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         final LeafReaderContext context,
         final BitSet filterIdsBitSet,
         final SegmentReader reader,
-        final KNNEngine knnEngine,
+        final VectorSearchEngine knnEngine,
         final SpaceType spaceType
     ) throws IOException {
         assert (targetVector instanceof float[] || targetVector instanceof byte[]);

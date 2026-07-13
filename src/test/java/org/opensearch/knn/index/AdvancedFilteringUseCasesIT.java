@@ -22,8 +22,8 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.CompressionTestConfig;
 import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.NestedKnnDocBuilder;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.io.IOException;
@@ -77,9 +77,9 @@ public class AdvancedFilteringUseCasesIT extends KNNCompressionRestTestCase {
 
     private static final Float[] QUERY_VECTOR = { 5f };
 
-    private static final List<String> enginesToTest = BuiltinKNNEngine.getEnginesThatSupportsFilters()
+    private static final List<String> enginesToTest = KNNEngine.getEnginesThatSupportsFilters()
         .stream()
-        .map(KNNEngine::getName)
+        .map(VectorSearchEngine::getName)
         .collect(Collectors.toList());
 
     /**
@@ -464,7 +464,7 @@ public class AdvancedFilteringUseCasesIT extends KNNCompressionRestTestCase {
         // Validate number of documents returned as the expected number of documents
         Assert.assertEquals("For engine " + engine + ", hits: ", DOCUMENT_IN_RESPONSE, parseHits(response));
         Assert.assertEquals("For engine " + engine + ", totalSearchHits: ", NUM_DOCS / 2, parseTotalSearchHits(response));
-        if (BuiltinKNNEngine.getEngine(engine) == BuiltinKNNEngine.FAISS) {
+        if (KNNEngine.getEngine(engine) == KNNEngine.FAISS) {
             // Update the filter threshold to 0 to ensure that we are hitting ANN Search use case for FAISS
             updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, 0));
             response = EntityUtils.toString(performSearch(INDEX_NAME, query).getEntity());

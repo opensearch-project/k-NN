@@ -80,11 +80,11 @@ public abstract class AbstractKNNLibrary implements KNNLibrary {
             return null;
         }
         int dimension = knnMethodConfigContext.getDimension();
-        if (dimension > BuiltinKNNEngine.getMaxDimensionByEngine(knnMethodContext.getKnnEngine())) {
+        if (dimension > KNNEngine.getMaxDimensionByEngine(knnMethodContext.getKnnEngine())) {
             return String.format(
                 Locale.ROOT,
                 "Dimension value cannot be greater than %s for vector with engine: %s",
-                BuiltinKNNEngine.getMaxDimensionByEngine(knnMethodContext.getKnnEngine()),
+                KNNEngine.getMaxDimensionByEngine(knnMethodContext.getKnnEngine()),
                 knnMethodContext.getKnnEngine().getName()
             );
         }

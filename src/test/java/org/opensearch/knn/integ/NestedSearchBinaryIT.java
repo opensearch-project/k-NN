@@ -17,8 +17,8 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -28,15 +28,15 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
 @Log4j2
 public class NestedSearchBinaryIT extends KNNRestTestCase {
-    private final KNNEngine engine;
+    private final VectorSearchEngine engine;
 
-    public NestedSearchBinaryIT(KNNEngine engine) {
+    public NestedSearchBinaryIT(VectorSearchEngine engine) {
         this.engine = engine;
     }
 
     @ParametersFactory
     public static Collection<Object[]> parameters() {
-        return Arrays.asList(new Object[] { BuiltinKNNEngine.LUCENE }, new Object[] { BuiltinKNNEngine.FAISS });
+        return Arrays.asList(new Object[] { KNNEngine.LUCENE }, new Object[] { KNNEngine.FAISS });
     }
 
     @SneakyThrows
@@ -141,7 +141,7 @@ public class NestedSearchBinaryIT extends KNNRestTestCase {
         final String nestedFieldName,
         final String fieldName,
         final int dimension,
-        final KNNEngine knnEngine
+        final VectorSearchEngine knnEngine
     ) throws Exception {
         KNNJsonIndexMappingsBuilder.Method method = KNNJsonIndexMappingsBuilder.Method.builder()
             .methodName(METHOD_HNSW)

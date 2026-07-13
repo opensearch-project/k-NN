@@ -14,8 +14,8 @@ import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80BinaryDocValues;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
 import java.io.IOException;
@@ -73,7 +73,7 @@ public class KNNCodecUtil {
     /**
      * Get Engine Files from segment with specific fieldName and engine extension
      *
-     * @param extension Engine extension comes from {@link KNNEngine#getExtension()}}
+     * @param extension Engine extension comes from {@link VectorSearchEngine#getExtension()}}
      * @param fieldName Filed for knn field
      * @param segmentInfo {@link SegmentInfo} One Segment info to use for compute.
      * @return List of engine files
@@ -107,7 +107,7 @@ public class KNNCodecUtil {
             return null;
         }
         // Only Native Engine put into indexPathMap
-        final KNNEngine knnEngine = getNativeKNNEngine(field);
+        final VectorSearchEngine knnEngine = getNativeKNNEngine(field);
         if (knnEngine == null) {
             return null;
         }
@@ -151,9 +151,9 @@ public class KNNCodecUtil {
      * @param field which field we need produce from engine
      * @return if and only if Native Engine we return specific engine, else return null
      */
-    private static KNNEngine getNativeKNNEngine(@NonNull FieldInfo field) {
-        final KNNEngine engine = FieldInfoExtractor.extractKNNEngine(field);
-        if (BuiltinKNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(engine)) {
+    private static VectorSearchEngine getNativeKNNEngine(@NonNull FieldInfo field) {
+        final VectorSearchEngine engine = FieldInfoExtractor.extractKNNEngine(field);
+        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(engine)) {
             return engine;
         }
         return null;

@@ -18,10 +18,10 @@ import org.opensearch.knn.index.mapper.Mode;
 import java.util.Locale;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
-import static org.opensearch.knn.index.engine.BuiltinKNNEngine.DEPRECATED_ENGINES;
+import static org.opensearch.knn.index.engine.KNNEngine.DEPRECATED_ENGINES;
 
 /**
- * Figures out what {@link KNNEngine} to use based on configuration details
+ * Figures out what {@link VectorSearchEngine} to use based on configuration details
  */
 public final class EngineResolver {
 
@@ -31,7 +31,7 @@ public final class EngineResolver {
     private EngineResolver() {}
 
     @VisibleForTesting
-    KNNEngine resolveEngine(
+    VectorSearchEngine resolveEngine(
         KNNMethodConfigContext knnMethodConfigContext,
         KNNMethodContext knnMethodContext,
         String topLevelString,
@@ -51,7 +51,7 @@ public final class EngineResolver {
      * @param topLevelEngineString Alternative top-level engine
      * @return {@link SpaceType} for the method
      */
-    public KNNEngine resolveEngine(
+    public VectorSearchEngine resolveEngine(
         KNNMethodConfigContext knnMethodConfigContext,
         KNNMethodContext knnMethodContext,
         String topLevelEngineString,
@@ -64,41 +64,41 @@ public final class EngineResolver {
     }
 
     /**
-     * Based on the provided {@link Mode} and {@link CompressionLevel}, resolve to a {@link KNNEngine}.
+     * Based on the provided {@link Mode} and {@link CompressionLevel}, resolve to a {@link VectorSearchEngine}.
      *
      * @param knnMethodConfigContext configuration context
      * @param knnMethodContext KNNMethodContext
      * @param topLevelEngineString Alternative top-level engine
      * @param requiresTraining whether config requires training
      * @param version opensearch index version
-     * @return {@link KNNEngine}
+     * @return {@link VectorSearchEngine}
      */
-    private KNNEngine resolveKNNEngine(
+    private VectorSearchEngine resolveKNNEngine(
         KNNMethodConfigContext knnMethodConfigContext,
         KNNMethodContext knnMethodContext,
         String topLevelEngineString,
         boolean requiresTraining,
         Version version
     ) {
-        KNNEngine userConfiguredEngine = resolveAndValidateUserConfiguredEngine(
+        VectorSearchEngine userConfiguredEngine = resolveAndValidateUserConfiguredEngine(
             knnMethodContext,
             topLevelEngineString,
             knnMethodConfigContext,
             requiresTraining
         );
-        if (userConfiguredEngine != KNNEngine.UNDEFINED) {
+        if (userConfiguredEngine != VectorSearchEngine.UNDEFINED) {
             return userConfiguredEngine;
         }
 
         // Handle training case
         if (requiresTraining) {
             // Faiss is the only engine that supports training, so we default to faiss here for now
-            return BuiltinKNNEngine.FAISS;
+            return KNNEngine.FAISS;
         }
 
         // Flat method is only supported by Lucene
         if (knnMethodContext != null && METHOD_FLAT.equalsIgnoreCase(knnMethodContext.getMethodComponentContext().getName())) {
-            return BuiltinKNNEngine.LUCENE;
+            return KNNEngine.LUCENE;
         }
 
         Mode mode = knnMethodConfigContext.getMode();
@@ -106,18 +106,18 @@ public final class EngineResolver {
 
         // If both mode and compression are not specified, we can just default
         if (Mode.isConfigured(mode) == false && CompressionLevel.isConfigured(compressionLevel) == false) {
-            return BuiltinKNNEngine.DEFAULT;
+            return KNNEngine.DEFAULT;
         }
 
         if (compressionLevel == CompressionLevel.x4) {
             // Lucene is only engine that supports 4x - so we have to default to it here.
-            return BuiltinKNNEngine.LUCENE;
+            return KNNEngine.LUCENE;
         }
         if (CompressionLevel.isConfigured(compressionLevel) == false || compressionLevel == CompressionLevel.x1) {
             // For 1x or no compression, we need to default to faiss if mode is provided and use nmslib otherwise based on version check
             return resolveEngineForX1OrNoCompression(mode, version);
         }
-        return BuiltinKNNEngine.FAISS;
+        return KNNEngine.FAISS;
     }
 
     private boolean hasUserConfiguredMethodEngine(KNNMethodContext knnMethodContext) {
@@ -125,19 +125,19 @@ public final class EngineResolver {
     }
 
     private boolean hasUserConfiguredTopLevelEngine(String topLevelEngineString) {
-        KNNEngine topLevelEngine = getEngineFromString(topLevelEngineString);
-        return topLevelEngine != null && topLevelEngine != KNNEngine.UNDEFINED;
+        VectorSearchEngine topLevelEngine = getEngineFromString(topLevelEngineString);
+        return topLevelEngine != null && topLevelEngine != VectorSearchEngine.UNDEFINED;
     }
 
-    private KNNEngine resolveAndValidateUserConfiguredEngine(
+    private VectorSearchEngine resolveAndValidateUserConfiguredEngine(
         KNNMethodContext knnMethodContext,
         String topLevelEngineString,
         KNNMethodConfigContext knnMethodConfigContext,
         boolean requiresTraining
     ) {
         if (hasUserConfiguredMethodEngine(knnMethodContext) && hasUserConfiguredTopLevelEngine(topLevelEngineString)) {
-            KNNEngine methodEngine = knnMethodContext.getKnnEngine();
-            KNNEngine topLevelEngine = validateTopLevelEngine(topLevelEngineString, knnMethodConfigContext, requiresTraining);
+            VectorSearchEngine methodEngine = knnMethodContext.getKnnEngine();
+            VectorSearchEngine topLevelEngine = validateTopLevelEngine(topLevelEngineString, knnMethodConfigContext, requiresTraining);
             if (methodEngine == topLevelEngine) {
                 return topLevelEngine;
             }
@@ -156,41 +156,41 @@ public final class EngineResolver {
         if (hasUserConfiguredTopLevelEngine(topLevelEngineString)) {
             return validateTopLevelEngine(topLevelEngineString, knnMethodConfigContext, requiresTraining);
         }
-        return KNNEngine.UNDEFINED;
+        return VectorSearchEngine.UNDEFINED;
     }
 
-    private KNNEngine resolveEngineForX1OrNoCompression(Mode mode, Version version) {
+    private VectorSearchEngine resolveEngineForX1OrNoCompression(Mode mode, Version version) {
         if (version != null && version.onOrAfter(Version.V_2_19_0)) {
-            return BuiltinKNNEngine.FAISS;
+            return KNNEngine.FAISS;
         }
-        return mode == Mode.ON_DISK ? BuiltinKNNEngine.FAISS : BuiltinKNNEngine.NMSLIB;
+        return mode == Mode.ON_DISK ? KNNEngine.FAISS : KNNEngine.NMSLIB;
     }
 
-    private KNNEngine logAndReturnEngine(KNNEngine knnEngine) {
+    private VectorSearchEngine logAndReturnEngine(VectorSearchEngine knnEngine) {
         if (DEPRECATED_ENGINES.contains(knnEngine)) {
             logger.warn("[Deprecation] {} engine is deprecated and will be removed in a future release.", knnEngine);
         }
         return knnEngine;
     }
 
-    private KNNEngine getEngineFromString(String knnEngineString) {
+    private VectorSearchEngine getEngineFromString(String knnEngineString) {
         if (Strings.isEmpty(knnEngineString)) {
-            return KNNEngine.UNDEFINED;
+            return VectorSearchEngine.UNDEFINED;
         }
 
-        return BuiltinKNNEngine.getEngine(knnEngineString);
+        return KNNEngine.getEngine(knnEngineString);
     }
 
-    private KNNEngine validateTopLevelEngine(
+    private VectorSearchEngine validateTopLevelEngine(
         String topLevelEngineString,
         KNNMethodConfigContext knnMethodConfigContext,
         boolean requiresTraining
     ) {
-        KNNEngine topLevelEngine = getEngineFromString(topLevelEngineString);
-        if (requiresTraining && topLevelEngine != BuiltinKNNEngine.FAISS) {
+        VectorSearchEngine topLevelEngine = getEngineFromString(topLevelEngineString);
+        if (requiresTraining && topLevelEngine != KNNEngine.FAISS) {
             throw new MapperParsingException(String.format(Locale.ROOT, "Cannot specify engine other than FAISS for training"));
         }
-        if (knnMethodConfigContext.getCompressionLevel() == CompressionLevel.x4 && topLevelEngine != BuiltinKNNEngine.LUCENE) {
+        if (knnMethodConfigContext.getCompressionLevel() == CompressionLevel.x4 && topLevelEngine != KNNEngine.LUCENE) {
             throw new MapperParsingException(String.format(Locale.ROOT, "Lucene is the only engine that supports 4x compression"));
         }
         return topLevelEngine;

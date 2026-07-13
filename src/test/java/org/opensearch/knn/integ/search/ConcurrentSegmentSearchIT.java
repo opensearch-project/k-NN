@@ -18,7 +18,7 @@ import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
@@ -118,7 +118,7 @@ public class ConcurrentSegmentSearchIT extends KNNCompressionRestTestCase {
         addCompressionMappingFields(builder);
         return builder.startObject("method")
             .field("name", METHOD_HNSW)
-            .field("engine", BuiltinKNNEngine.FAISS.getName())
+            .field("engine", KNNEngine.FAISS.getName())
             .field("space_type", SpaceType.L2.getValue())
             .startObject("parameters")
             .field("ef_construction", 128)
@@ -144,7 +144,7 @@ public class ConcurrentSegmentSearchIT extends KNNCompressionRestTestCase {
             for (int j = 0; j < k; j++) {
                 float[] primitiveArray = knnResults.get(j).getVector();
                 assertEquals(
-                    BuiltinKNNEngine.FAISS.score(KNNScoringUtil.l2Squared(testData.queries[i], primitiveArray), SpaceType.L2),
+                    KNNEngine.FAISS.score(KNNScoringUtil.l2Squared(testData.queries[i], primitiveArray), SpaceType.L2),
                     actualScores.get(j),
                     0.0001
                 );

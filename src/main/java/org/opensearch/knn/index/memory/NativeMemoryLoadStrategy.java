@@ -18,8 +18,8 @@ import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.jni.JNIService;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.training.TrainingDataConsumer;
 import org.opensearch.knn.training.VectorReader;
 
@@ -81,7 +81,7 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             }
 
             // Prepare for opening index input from directory.
-            final KNNEngine knnEngine = BuiltinKNNEngine.getEngineNameFromPath(vectorFileName);
+            final VectorSearchEngine knnEngine = KNNEngine.getEngineNameFromPath(vectorFileName);
             final Directory directory = indexEntryContext.getDirectory();
             final int indexSizeKb = Math.toIntExact(directory.fileLength(vectorFileName) / 1024);
 
@@ -102,7 +102,7 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
 
         private NativeMemoryAllocation.IndexAllocation createIndexAllocation(
             final NativeMemoryEntryContext.IndexEntryContext indexEntryContext,
-            final KNNEngine knnEngine,
+            final VectorSearchEngine knnEngine,
             final long indexAddress,
             final int indexSizeKb,
             final String vectorFileName

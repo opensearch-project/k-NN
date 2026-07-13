@@ -8,7 +8,7 @@ package org.opensearch.knn.index.codec.backward_codecs.KNN950Codec;
 import org.apache.lucene.backward_codecs.lucene95.Lucene95HnswVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.backward_codecs.BasePerFieldKnnVectorsFormat;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.Optional;
 
@@ -38,6 +38,6 @@ public class KNN950PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat
      * @return Maximum constant dimension set by KNNEngine
      */
     public int getMaxDimensions(String fieldName) {
-        return BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.LUCENE);
+        return KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE);
     }
 }

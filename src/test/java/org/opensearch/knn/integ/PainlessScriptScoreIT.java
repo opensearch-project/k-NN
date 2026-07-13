@@ -23,7 +23,7 @@ import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.knn.integ.PainlessScriptHelper.MappingProperty;
 import org.opensearch.script.Script;
@@ -215,7 +215,7 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
 
     public void testL2ScriptScore_faiss_onCompressedIndex() throws Exception {
         String indexName = prefix() + "painless_l2";
-        createHnswIndex(indexName, BuiltinKNNEngine.FAISS.getName(), SpaceType.L2, 2);
+        createHnswIndex(indexName, KNNEngine.FAISS.getName(), SpaceType.L2, 2);
         for (Map.Entry<String, Float[]> doc : getL2TestData().entrySet()) {
             addKnnDoc(indexName, doc.getKey(), FIELD_NAME, doc.getValue());
         }
@@ -575,7 +575,7 @@ public final class PainlessScriptScoreIT extends KNNCompressionRestTestCase {
     public void testL2ScriptingWithLuceneBackedIndex() throws Exception {
         List<MappingProperty> properties = new ArrayList<>();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
-            BuiltinKNNEngine.LUCENE,
+            KNNEngine.LUCENE,
             SpaceType.DEFAULT,
             new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
         );

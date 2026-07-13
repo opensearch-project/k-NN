@@ -14,7 +14,7 @@ import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import com.google.common.annotations.VisibleForTesting;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
 
@@ -89,7 +89,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
      */
     @Override
     public int getMaxDimensions(String fieldName) {
-        return BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.FAISS);
+        return KNNEngine.getMaxDimensionByEngine(KNNEngine.FAISS);
     }
 
     @Override

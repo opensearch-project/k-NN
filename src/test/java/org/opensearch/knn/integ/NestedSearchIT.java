@@ -18,7 +18,7 @@ import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.io.IOException;
@@ -66,7 +66,7 @@ public class NestedSearchIT extends KNNCompressionRestTestCase {
 
     @SneakyThrows
     public void testNestedSearchWithLucene_whenKIsTwo_thenReturnTwoResults() {
-        createKnnIndex(2, BuiltinKNNEngine.LUCENE.getName());
+        createKnnIndex(2, KNNEngine.LUCENE.getName());
 
         int totalDocCount = 15;
         for (int i = 0; i < totalDocCount; i++) {
@@ -91,7 +91,7 @@ public class NestedSearchIT extends KNNCompressionRestTestCase {
     @SneakyThrows
     @ExpectRemoteBuildValidation
     public void testNestedSearchWithFaiss_whenKIsTwo_thenReturnTwoResults() {
-        createKnnIndex(2, BuiltinKNNEngine.FAISS.getName());
+        createKnnIndex(2, KNNEngine.FAISS.getName());
 
         int totalDocCount = 15;
         for (int i = 0; i < totalDocCount; i++) {
@@ -115,7 +115,7 @@ public class NestedSearchIT extends KNNCompressionRestTestCase {
 
     @SneakyThrows
     public void testNestedSearchWithLucene_whenDocWithoutNestedObjectInSeparateSegment_thenSucceed() {
-        createKnnIndex(2, BuiltinKNNEngine.LUCENE.getName());
+        createKnnIndex(2, KNNEngine.LUCENE.getName());
 
         String doc = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
             .addVectors(FIELD_NAME_VECTOR, new Float[] { 1f, 1f }, new Float[] { 2f, 2f })
@@ -137,7 +137,7 @@ public class NestedSearchIT extends KNNCompressionRestTestCase {
 
     @SneakyThrows
     public void testNestedSearchWithFaiss_whenDocWithoutNestedObjectInSeparateSegment_thenSucceed() {
-        createKnnIndex(2, BuiltinKNNEngine.FAISS.getName());
+        createKnnIndex(2, KNNEngine.FAISS.getName());
 
         String doc = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
             .addVectors(FIELD_NAME_VECTOR, new Float[] { 1f, 1f }, new Float[] { 2f, 2f })
@@ -159,7 +159,7 @@ public class NestedSearchIT extends KNNCompressionRestTestCase {
 
     @SneakyThrows
     public void testNestedSearchWithFaissMOS_whenDocWithoutNestedObjectInSeparateSegment_thenSucceed() {
-        createKnnIndex(2, BuiltinKNNEngine.FAISS.getName(), true);
+        createKnnIndex(2, KNNEngine.FAISS.getName(), true);
 
         String doc = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
             .addVectors(FIELD_NAME_VECTOR, new Float[] { 1f, 1f }, new Float[] { 2f, 2f })
@@ -181,14 +181,14 @@ public class NestedSearchIT extends KNNCompressionRestTestCase {
 
     @SneakyThrows
     public void testNestedSearchWithFaiss_whenKIsTwo_SomeNestedDocsHasNoVectors_thenReturnTwoResults() {
-        createKnnIndex(2, BuiltinKNNEngine.FAISS.getName());
+        createKnnIndex(2, KNNEngine.FAISS.getName());
         indexAndTestKNNIndexWithVectorAndNonVectorField();
     }
 
     @SneakyThrows
     @ExpectRemoteBuildValidation
     public void testNestedSearchWithFaiss_whenRescoreEnabled_thenSucceed() {
-        createKnnIndex(2, BuiltinKNNEngine.FAISS.getName());
+        createKnnIndex(2, KNNEngine.FAISS.getName());
 
         int totalDocCount = 15;
         for (int i = 0; i < totalDocCount; i++) {
@@ -239,7 +239,7 @@ public class NestedSearchIT extends KNNCompressionRestTestCase {
     @SneakyThrows
     @ExpectRemoteBuildValidation
     public void testNestedSearchWithFaiss_whenDoingExactSearch_thenReturnCorrectResults() {
-        createKnnIndex(3, BuiltinKNNEngine.FAISS.getName());
+        createKnnIndex(3, KNNEngine.FAISS.getName());
 
         for (int i = 1; i < 4; i++) {
             float value = (float) i;
@@ -298,7 +298,7 @@ public class NestedSearchIT extends KNNCompressionRestTestCase {
     @SneakyThrows
     @ExpectRemoteBuildValidation
     public void testNestedWithFaiss_whenFilter_whenDoRadialSearch_thenReturnCorrectResults() {
-        createKnnIndex(3, BuiltinKNNEngine.FAISS.getName());
+        createKnnIndex(3, KNNEngine.FAISS.getName());
 
         for (int i = 1; i < 4; i++) {
             float value = (float) i;

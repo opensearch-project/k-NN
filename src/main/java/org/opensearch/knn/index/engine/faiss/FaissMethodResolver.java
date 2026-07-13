@@ -9,7 +9,7 @@ import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.AbstractMethodResolver;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -59,7 +59,7 @@ public class FaissMethodResolver extends AbstractMethodResolver {
 
         KNNMethodContext resolvedKNNMethodContext = initResolvedKNNMethodContext(
             knnMethodContext,
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             spaceType,
             shouldRequireTraining ? METHOD_IVF : METHOD_HNSW
         );
@@ -171,7 +171,7 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         ValidationException validationException = validateCompressionSupported(
             compressionLevel,
             SUPPORTED_COMPRESSION_LEVELS,
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             null
         );
         if (validationException != null) {

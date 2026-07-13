@@ -12,8 +12,8 @@ import org.opensearch.knn.common.exception.MemoryOptimizedSearchOldIndicesNotSup
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -47,7 +47,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
         // Lucene + any configurations must be supported.
         mustNotIsSupportedFieldType(
             new TestingSpec(
-                BuiltinKNNEngine.LUCENE,
+                KNNEngine.LUCENE,
                 SpaceType.INNER_PRODUCT,
                 VectorDataType.FLOAT,
                 mock(MethodComponentContext.class),
@@ -58,7 +58,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
         );
         mustNotIsSupportedFieldType(
             new TestingSpec(
-                BuiltinKNNEngine.LUCENE,
+                KNNEngine.LUCENE,
                 SpaceType.INNER_PRODUCT,
                 VectorDataType.BYTE,
                 mock(MethodComponentContext.class),
@@ -69,7 +69,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
         );
         mustNotIsSupportedFieldType(
             new TestingSpec(
-                BuiltinKNNEngine.LUCENE,
+                KNNEngine.LUCENE,
                 SpaceType.L2,
                 VectorDataType.FLOAT,
                 mock(MethodComponentContext.class),
@@ -80,7 +80,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
         );
         mustNotIsSupportedFieldType(
             new TestingSpec(
-                BuiltinKNNEngine.LUCENE,
+                KNNEngine.LUCENE,
                 SpaceType.L2,
                 VectorDataType.BYTE,
                 mock(MethodComponentContext.class),
@@ -95,7 +95,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
         for (final Version version : Arrays.asList(Version.V_2_19_0, Version.V_3_0_0, Version.V_3_1_0, Version.V_3_2_0, Version.CURRENT)) {
             mustIsSupportedFieldType(
                 new TestingSpec(
-                    BuiltinKNNEngine.FAISS,
+                    KNNEngine.FAISS,
                     SpaceType.L2,
                     VectorDataType.FLOAT,
                     new MethodComponentContext(
@@ -118,7 +118,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
 
         mustIsSupportedFieldType(
             new TestingSpec(
-                BuiltinKNNEngine.FAISS,
+                KNNEngine.FAISS,
                 SpaceType.L2,
                 VectorDataType.FLOAT,
                 new MethodComponentContext(
@@ -133,7 +133,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
 
         mustIsSupportedFieldType(
             new TestingSpec(
-                BuiltinKNNEngine.FAISS,
+                KNNEngine.FAISS,
                 SpaceType.L2,
                 VectorDataType.FLOAT,
                 new MethodComponentContext(
@@ -148,7 +148,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
 
         mustIsSupportedFieldType(
             new TestingSpec(
-                BuiltinKNNEngine.FAISS,
+                KNNEngine.FAISS,
                 SpaceType.HAMMING,
                 VectorDataType.BINARY,
                 new MethodComponentContext(
@@ -163,7 +163,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
 
         mustIsSupportedFieldType(
             new TestingSpec(
-                BuiltinKNNEngine.FAISS,
+                KNNEngine.FAISS,
                 SpaceType.HAMMING,
                 VectorDataType.BINARY,
                 new MethodComponentContext(
@@ -178,7 +178,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
 
         mustIsSupportedFieldType(
             new TestingSpec(
-                BuiltinKNNEngine.FAISS,
+                KNNEngine.FAISS,
                 SpaceType.HAMMING,
                 VectorDataType.BINARY,
                 new MethodComponentContext(
@@ -195,7 +195,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
     public void testFaissQuantizationCases() {
         mustIsSupportedFieldType(
             new TestingSpec(
-                BuiltinKNNEngine.FAISS,
+                KNNEngine.FAISS,
                 SpaceType.HAMMING,
                 VectorDataType.BINARY,
                 new MethodComponentContext(
@@ -210,7 +210,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
 
         mustIsSupportedFieldType(
             new TestingSpec(
-                BuiltinKNNEngine.FAISS,
+                KNNEngine.FAISS,
                 SpaceType.HAMMING,
                 VectorDataType.BINARY,
                 new MethodComponentContext(
@@ -225,7 +225,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
 
         mustIsSupportedFieldType(
             new TestingSpec(
-                BuiltinKNNEngine.FAISS,
+                KNNEngine.FAISS,
                 SpaceType.HAMMING,
                 VectorDataType.BINARY,
                 new MethodComponentContext(
@@ -243,7 +243,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
         // Unsupported encoding
         mustNotIsSupportedFieldType(
             new TestingSpec(
-                BuiltinKNNEngine.FAISS,
+                KNNEngine.FAISS,
                 SpaceType.L2,
                 VectorDataType.FLOAT,
                 new MethodComponentContext(
@@ -259,7 +259,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
         // Invalid encoder type
         mustNotIsSupportedFieldType(
             new TestingSpec(
-                BuiltinKNNEngine.FAISS,
+                KNNEngine.FAISS,
                 SpaceType.L2,
                 VectorDataType.FLOAT,
                 new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_ENCODER_PARAMETER, new Object())),
@@ -274,7 +274,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
         // Non-empty model id
         mustNotIsSupportedFieldType(
             new TestingSpec(
-                BuiltinKNNEngine.FAISS,
+                KNNEngine.FAISS,
                 SpaceType.INNER_PRODUCT,
                 VectorDataType.FLOAT,
                 new MethodComponentContext(
@@ -290,7 +290,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
 
     public void testIsAlwaysUseMemoryOptimizedSearch_whenSQOneBitEncoder_thenReturnsTrue() {
         KNNMethodContext methodContext = new KNNMethodContext(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L2,
             new MethodComponentContext(
                 METHOD_HNSW,
@@ -303,7 +303,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
     public void testIsAlwaysUseMemoryOptimizedSearch_whenNonSQOneBitEncoder_thenReturnsFalse() {
         for (String encoder : Arrays.asList(ENCODER_FLAT, ENCODER_SQ, ENCODER_BINARY)) {
             KNNMethodContext methodContext = new KNNMethodContext(
-                BuiltinKNNEngine.FAISS,
+                KNNEngine.FAISS,
                 SpaceType.L2,
                 new MethodComponentContext(
                     METHOD_HNSW,
@@ -320,7 +320,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
 
     public void testIsAlwaysUseMemoryOptimizedSearch_whenNoEncoderParameter_thenReturnsFalse() {
         KNNMethodContext methodContext = new KNNMethodContext(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L2,
             new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
         );
@@ -443,7 +443,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
     }
 
     private static class TestingSpec {
-        final KNNEngine knnEngine;
+        final VectorSearchEngine knnEngine;
         final SpaceType spaceType;
         final VectorDataType vectorDataType;
         final Optional<KNNMethodContext> methodComponentContext;
@@ -452,7 +452,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
         final Version version;
 
         private TestingSpec(
-            final KNNEngine knnEngine,
+            final VectorSearchEngine knnEngine,
             final SpaceType spaceType,
             final VectorDataType vectorDataType,
             final MethodComponentContext methodComponentContext,

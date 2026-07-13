@@ -22,8 +22,8 @@ import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 import java.io.IOException;
 import java.net.URL;
@@ -43,15 +43,15 @@ public class BinaryIndexIT extends KNNRestTestCase {
     private static TestUtils.TestData testData;
     private static final int NEVER_BUILD_GRAPH = -1;
     private static final int ALWAYS_BUILD_GRAPH = 0;
-    private final KNNEngine engine;
+    private final VectorSearchEngine engine;
 
-    public BinaryIndexIT(KNNEngine engine) {
+    public BinaryIndexIT(VectorSearchEngine engine) {
         this.engine = engine;
     }
 
     @ParametersFactory
     public static Collection<Object[]> parameters() {
-        return Arrays.asList(new Object[] { BuiltinKNNEngine.LUCENE }, new Object[] { BuiltinKNNEngine.FAISS });
+        return Arrays.asList(new Object[] { KNNEngine.LUCENE }, new Object[] { KNNEngine.FAISS });
     }
 
     @BeforeClass
@@ -232,7 +232,7 @@ public class BinaryIndexIT extends KNNRestTestCase {
     }
 
     private void createKnnHnswBinaryIndex(
-        final KNNEngine knnEngine,
+        final VectorSearchEngine knnEngine,
         final String indexName,
         final String fieldName,
         final int dimension,
@@ -253,8 +253,12 @@ public class BinaryIndexIT extends KNNRestTestCase {
         createKnnIndex(indexName, buildKNNIndexSettings(threshold), knnIndexMapping);
     }
 
-    private void createKnnHnswBinaryIndex(final KNNEngine knnEngine, final String indexName, final String fieldName, final int dimension)
-        throws IOException {
+    private void createKnnHnswBinaryIndex(
+        final VectorSearchEngine knnEngine,
+        final String indexName,
+        final String fieldName,
+        final int dimension
+    ) throws IOException {
         createKnnHnswBinaryIndex(knnEngine, indexName, fieldName, dimension, ALWAYS_BUILD_GRAPH);
     }
 }

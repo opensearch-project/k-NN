@@ -10,7 +10,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.opensearch.Version;
 import org.opensearch.core.common.Strings;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.util.Collections;
@@ -117,7 +117,13 @@ public enum CompressionLevel {
         return getDefaultRescoreContext(mode, dimension, version, isFlatMethod, false, null);
     }
 
-    public RescoreContext getDefaultRescoreContext(Mode mode, int dimension, Version version, boolean isFlatMethod, KNNEngine engine) {
+    public RescoreContext getDefaultRescoreContext(
+        Mode mode,
+        int dimension,
+        Version version,
+        boolean isFlatMethod,
+        VectorSearchEngine engine
+    ) {
         return getDefaultRescoreContext(mode, dimension, version, isFlatMethod, false, engine);
     }
 
@@ -136,7 +142,7 @@ public enum CompressionLevel {
         Version version,
         boolean isFlatMethod,
         boolean isSQOneBit,
-        KNNEngine engine
+        VectorSearchEngine engine
     ) {
         // For sq(bits=1) encoder, use fixed oversample factor.
         if (isSQOneBit) {

@@ -27,7 +27,7 @@ import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import java.io.IOException;
@@ -170,7 +170,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, luceneSpaceType.getValue())
-            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
             .startObject(KNNConstants.PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, M)
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, EF_CONSTRUCTION)
@@ -184,7 +184,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, nmslibSpaceType.getValue())
-            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(KNNConstants.PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, M)
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, EF_CONSTRUCTION)
@@ -223,7 +223,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
             .startObject(KNNConstants.PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
@@ -316,7 +316,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .startObject(INTEGER_FIELD_NAME)
@@ -362,7 +362,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .startObject(INTEGER_FIELD_NAME)
@@ -750,7 +750,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
             .startObject(KNNConstants.PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, M)
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, EF_CONSTRUCTION)
@@ -925,7 +925,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
             .startObject(KNNConstants.PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, M)
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, EF_CONSTRUCTION)
@@ -967,7 +967,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
             .startObject(KNNConstants.PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, M)
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, EF_CONSTRUCTION)
@@ -1010,7 +1010,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
                 float[] primitiveArray = knnResults.get(j).getVector();
                 float distance = TestUtils.computeDistFromSpaceType(spaceType, primitiveArray, queryVector);
                 float rawScore = VECTOR_SIMILARITY_TO_SCORE.get(spaceType.getKnnVectorSimilarityFunction()).apply(distance);
-                assertEquals(BuiltinKNNEngine.LUCENE.score(rawScore, spaceType), actualScores.get(j), 0.0001);
+                assertEquals(KNNEngine.LUCENE.score(rawScore, spaceType), actualScores.get(j), 0.0001);
             }
         }
     }
@@ -1074,7 +1074,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
-            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE)
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE)
             .endObject()
             .endObject()
             .endObject()
@@ -1200,7 +1200,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
                 } else {
                     assertTrue(rawScore >= scoreThreshold);
                 }
-                assertEquals(BuiltinKNNEngine.LUCENE.score(rawScore, spaceType), actualScores.get(radiusResults.indexOf(result)), 0.0001);
+                assertEquals(KNNEngine.LUCENE.score(rawScore, spaceType), actualScores.get(radiusResults.indexOf(result)), 0.0001);
             }
         }
     }
@@ -1256,7 +1256,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -1299,7 +1299,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
             .startObject(KNNConstants.PARAMETERS)
             .startObject(METHOD_ENCODER_PARAMETER)
             .field(NAME, ENCODER_SQ)

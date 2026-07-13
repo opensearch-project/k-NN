@@ -11,8 +11,8 @@ import lombok.extern.log4j.Log4j2;
 import org.opensearch.knn.KNNJsonIndexMappingsBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -39,12 +39,12 @@ public class BinaryIndexInvalidMappingIT extends KNNRestTestCase {
             $$(
                 $(
                     "Creation of binary index with nmslib engine should fail",
-                    createKnnHnswBinaryIndexMapping(BuiltinKNNEngine.NMSLIB, FIELD_NAME, 16, null),
+                    createKnnHnswBinaryIndexMapping(KNNEngine.NMSLIB, FIELD_NAME, 16, null),
                     "Validation Failed"
                 ),
                 $(
                     "Creation of binary index with encoder should fail",
-                    createKnnHnswBinaryIndexMapping(BuiltinKNNEngine.FAISS, FIELD_NAME, 16, ENCODER_SQ),
+                    createKnnHnswBinaryIndexMapping(KNNEngine.FAISS, FIELD_NAME, 16, ENCODER_SQ),
                     "Validation Failed"
                 )
             )
@@ -52,7 +52,7 @@ public class BinaryIndexInvalidMappingIT extends KNNRestTestCase {
     }
 
     private static String createKnnHnswBinaryIndexMapping(
-        final KNNEngine knnEngine,
+        final VectorSearchEngine knnEngine,
         final String fieldName,
         final int dimension,
         final String encoderName

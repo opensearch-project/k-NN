@@ -27,8 +27,8 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.backward_codecs.KNN10010Codec.KNN10010Codec;
 import org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec.KNN9120PerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -77,11 +77,11 @@ public class KNN80DocValuesProducerTests extends KNNTestCase {
         String fieldName1 = String.format("test_field1%s", randomAlphaOfLength(4));
         String fieldName2 = String.format("test_field2%s", randomAlphaOfLength(4));
         List<String> segmentFiles = Arrays.asList(
-            String.format("%s_2011_%s%s", segmentName, fieldName1, BuiltinKNNEngine.NMSLIB.getExtension()),
-            String.format("%s_165_%s%s", segmentName, fieldName2, BuiltinKNNEngine.FAISS.getExtension())
+            String.format("%s_2011_%s%s", segmentName, fieldName1, KNNEngine.NMSLIB.getExtension()),
+            String.format("%s_165_%s%s", segmentName, fieldName2, KNNEngine.FAISS.getExtension())
         );
 
-        KNNEngine knnEngine = BuiltinKNNEngine.NMSLIB;
+        VectorSearchEngine knnEngine = KNNEngine.NMSLIB;
         SpaceType spaceType = SpaceType.COSINESIMIL;
         SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
             .directory(directory)
@@ -146,11 +146,11 @@ public class KNN80DocValuesProducerTests extends KNNTestCase {
         String fieldName1 = String.format("test_field1%s", randomAlphaOfLength(4));
         String fieldName2 = String.format("test_field2%s", randomAlphaOfLength(4));
         List<String> segmentFiles = Arrays.asList(
-            String.format("%s_2011_%s%s", segmentName, fieldName1, BuiltinKNNEngine.NMSLIB.getExtension()),
-            String.format("%s_165_%s%s", segmentName, fieldName2, BuiltinKNNEngine.FAISS.getExtension())
+            String.format("%s_2011_%s%s", segmentName, fieldName1, KNNEngine.NMSLIB.getExtension()),
+            String.format("%s_165_%s%s", segmentName, fieldName2, KNNEngine.FAISS.getExtension())
         );
 
-        KNNEngine knnEngine = BuiltinKNNEngine.NMSLIB;
+        VectorSearchEngine knnEngine = KNNEngine.NMSLIB;
         SpaceType spaceType = SpaceType.COSINESIMIL;
         SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
             .directory(directory)

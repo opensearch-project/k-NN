@@ -29,8 +29,8 @@ import org.opensearch.index.query.WithFieldName;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorQueryType;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -60,7 +60,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
 import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
-import static org.opensearch.knn.index.engine.BuiltinKNNEngine.FAISS;
+import static org.opensearch.knn.index.engine.KNNEngine.FAISS;
 import static org.opensearch.knn.index.engine.validation.ParameterValidator.validateParameters;
 import static org.opensearch.knn.index.query.parser.MethodParametersParser.validateMethodParameters;
 import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_OVERSAMPLE_PARAMETER;
@@ -440,7 +440,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         KNNMappingConfig knnMappingConfig = knnVectorFieldType.getKnnMappingConfig();
         QueryConfigFromMapping queryConfigFromMapping = getQueryConfig(knnMappingConfig, knnVectorFieldType);
 
-        KNNEngine knnEngine = queryConfigFromMapping.getKnnEngine();
+        VectorSearchEngine knnEngine = queryConfigFromMapping.getKnnEngine();
         MethodComponentContext methodComponentContext = queryConfigFromMapping.getMethodComponentContext();
         SpaceType spaceType = queryConfigFromMapping.getSpaceType();
         VectorDataType vectorDataType = queryConfigFromMapping.getVectorDataType();
@@ -536,9 +536,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 spaceType.validateVector(vector);
         }
 
-        if (BuiltinKNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine)
+        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine)
             && filter != null
-            && !BuiltinKNNEngine.getEnginesThatSupportsFilters().contains(knnEngine)) {
+            && !KNNEngine.getEnginesThatSupportsFilters().contains(knnEngine)) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Engine [%s] does not support filters", knnEngine));
         }
 
@@ -650,7 +650,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
     private float[] getFloatVectorForCreatingQueryRequest(
         final float[] transformedVector,
         VectorDataType vectorDataType,
-        KNNEngine knnEngine
+        VectorSearchEngine knnEngine
     ) {
 
         if ((VectorDataType.FLOAT == vectorDataType) || (VectorDataType.BYTE == vectorDataType && FAISS == knnEngine)) {
@@ -747,7 +747,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
     @Getter
     @AllArgsConstructor
     private static class QueryConfigFromMapping {
-        private final KNNEngine knnEngine;
+        private final VectorSearchEngine knnEngine;
         private final MethodComponentContext methodComponentContext;
         private final SpaceType spaceType;
         private final VectorDataType vectorDataType;

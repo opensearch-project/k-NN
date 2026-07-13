@@ -37,8 +37,8 @@ import org.opensearch.knn.common.exception.DeleteModelException;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
@@ -136,7 +136,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         Model model = new Model(
             new ModelMetadata(
-                BuiltinKNNEngine.DEFAULT,
+                KNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.CREATED,
@@ -160,7 +160,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         modelId = "failed-2";
         model = new Model(
             new ModelMetadata(
-                BuiltinKNNEngine.DEFAULT,
+                KNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.FAILED,
@@ -192,7 +192,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         Model model = new Model(
             new ModelMetadata(
-                BuiltinKNNEngine.DEFAULT,
+                KNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.CREATED,
@@ -257,7 +257,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         Model model = new Model(
             new ModelMetadata(
-                BuiltinKNNEngine.DEFAULT,
+                KNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.TRAINING,
@@ -323,7 +323,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         // Model is in invalid state
         Model model = new Model(
             new ModelMetadata(
-                BuiltinKNNEngine.DEFAULT,
+                KNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.TRAINING,
@@ -364,7 +364,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         Model model = new Model(
             new ModelMetadata(
-                BuiltinKNNEngine.DEFAULT,
+                KNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.TRAINING,
@@ -407,7 +407,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         // User provided model id that already exists - should be able to update
         Model updatedModel = new Model(
             new ModelMetadata(
-                BuiltinKNNEngine.DEFAULT,
+                KNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.CREATED,
@@ -462,7 +462,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         // model id exists
         Model model = new Model(
             new ModelMetadata(
-                BuiltinKNNEngine.DEFAULT,
+                KNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.CREATED,
@@ -485,7 +485,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         // Get model during training
         model = new Model(
             new ModelMetadata(
-                BuiltinKNNEngine.DEFAULT,
+                KNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.TRAINING,
@@ -522,7 +522,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         // Model exists
         byte[] modelBlob = "hello".getBytes();
 
-        KNNEngine knnEngine = BuiltinKNNEngine.FAISS;
+        VectorSearchEngine knnEngine = KNNEngine.FAISS;
         SpaceType spaceType = SpaceType.INNER_PRODUCT;
         int dimension = 2;
         ModelMetadata modelMetadata = new ModelMetadata(
@@ -607,7 +607,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         // model id exists and model is still in Training
         Model model = new Model(
             new ModelMetadata(
-                BuiltinKNNEngine.DEFAULT,
+                KNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.TRAINING,
@@ -645,7 +645,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         // model id exists
         Model model1 = new Model(
             new ModelMetadata(
-                BuiltinKNNEngine.DEFAULT,
+                KNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.CREATED,
@@ -717,7 +717,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         Model model = new Model(
             new ModelMetadata(
-                BuiltinKNNEngine.DEFAULT,
+                KNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.TRAINING,
@@ -763,7 +763,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         Model model = new Model(
             new ModelMetadata(
-                BuiltinKNNEngine.DEFAULT,
+                KNNEngine.DEFAULT,
                 SpaceType.DEFAULT,
                 dimension,
                 ModelState.CREATED,

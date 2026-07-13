@@ -13,7 +13,7 @@ import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer.PrefetchableRandomVectorScorer;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import static org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE;
 
@@ -34,7 +34,7 @@ public class KNN1040ScalarQuantizedVectorsFormatTests extends KNNTestCase {
 
     public void testGetMaxDimensions_returnsLuceneMax() {
         KNN1040ScalarQuantizedVectorsFormat format = new KNN1040ScalarQuantizedVectorsFormat();
-        assertEquals(BuiltinKNNEngine.getMaxDimensionByEngine(BuiltinKNNEngine.LUCENE), format.getMaxDimensions("any_field"));
+        assertEquals(KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE), format.getMaxDimensions("any_field"));
     }
 
     public void testGetName_returnsClassName() {

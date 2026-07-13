@@ -8,7 +8,7 @@ package org.opensearch.knn.index.engine.faiss;
 import org.opensearch.Version;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
@@ -119,7 +119,7 @@ public class FaissHNSWMethodTests extends KNNTestCase {
             .build();
 
         KNNMethodContext methodContext = new KNNMethodContext(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             org.opensearch.knn.index.SpaceType.L2,
             new MethodComponentContext(
                 METHOD_HNSW,
@@ -147,7 +147,7 @@ public class FaissHNSWMethodTests extends KNNTestCase {
             .build();
 
         KNNMethodContext methodContext = new KNNMethodContext(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             org.opensearch.knn.index.SpaceType.L2,
             new MethodComponentContext(
                 METHOD_HNSW,
@@ -176,7 +176,7 @@ public class FaissHNSWMethodTests extends KNNTestCase {
             .build();
 
         KNNMethodContext methodContext = new KNNMethodContext(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             org.opensearch.knn.index.SpaceType.L2,
             new MethodComponentContext(METHOD_HNSW, Map.of())
         );
@@ -200,7 +200,7 @@ public class FaissHNSWMethodTests extends KNNTestCase {
             .build();
 
         KNNMethodContext methodContext = new KNNMethodContext(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             org.opensearch.knn.index.SpaceType.L2,
             new MethodComponentContext(METHOD_HNSW, Map.of())
         );

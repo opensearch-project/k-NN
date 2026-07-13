@@ -16,8 +16,8 @@ import org.opensearch.knn.CompressionTestConfig;
 import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,7 +33,7 @@ import static org.opensearch.knn.index.KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_M
 public class MinScoreIT extends KNNCompressionRestTestCase {
 
     private final boolean memoryOptimized;
-    private final KNNEngine knnEngine;
+    private final VectorSearchEngine knnEngine;
     private final SpaceType spaceType;
     private final float[][] testVectors;
     private final float[] queryVector;
@@ -43,7 +43,7 @@ public class MinScoreIT extends KNNCompressionRestTestCase {
     public MinScoreIT(
         CompressionTestConfig compressionConfig,
         boolean memoryOptimized,
-        KNNEngine knnEngine,
+        VectorSearchEngine knnEngine,
         SpaceType spaceType,
         float[][] testVectors,
         float[] queryVector,
@@ -158,7 +158,7 @@ public class MinScoreIT extends KNNCompressionRestTestCase {
                 new Object[] {
                     CompressionTestConfig.X1,
                     memoryOptimized,
-                    BuiltinKNNEngine.FAISS,
+                    KNNEngine.FAISS,
                     scenario.spaceType,
                     scenario.vectors,
                     scenario.query,
@@ -179,7 +179,7 @@ public class MinScoreIT extends KNNCompressionRestTestCase {
                 new Object[] {
                     CompressionTestConfig.X1,
                     false, // memory optimization not applicable for Lucene
-                    BuiltinKNNEngine.LUCENE,
+                    KNNEngine.LUCENE,
                     scenario.spaceType,
                     scenario.vectors,
                     scenario.query,
@@ -225,17 +225,17 @@ public class MinScoreIT extends KNNCompressionRestTestCase {
             .field("dimension", DIMENSION);
         addCompressionMappingFields(builder);
 
-        if (knnEngine == BuiltinKNNEngine.LUCENE) {
+        if (knnEngine == KNNEngine.LUCENE) {
             builder.field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
                 .startObject(KNNConstants.KNN_METHOD)
                 .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-                .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
+                .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
                 .endObject();
         } else {
             builder.field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
                 .startObject(KNNConstants.KNN_METHOD)
                 .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-                .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+                .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
                 .startObject(KNNConstants.PARAMETERS)
                 .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, 128)
                 .field(KNNConstants.METHOD_PARAMETER_M, 16)
@@ -246,7 +246,7 @@ public class MinScoreIT extends KNNCompressionRestTestCase {
         builder.endObject().endObject().endObject();
 
         Settings.Builder settingsBuilder = Settings.builder().put("index.knn", true);
-        if (memoryOptimized && knnEngine == BuiltinKNNEngine.FAISS) {
+        if (memoryOptimized && knnEngine == KNNEngine.FAISS) {
             settingsBuilder.put(MEMORY_OPTIMIZED_KNN_SEARCH_MODE, true);
         }
         Settings settings = settingsBuilder.build();

@@ -16,8 +16,8 @@ import org.opensearch.knn.CompressionTestConfig;
 import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -42,7 +42,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
     private static final String FILTER_FIELD = "color";
 
     private final String testName;
-    private final KNNEngine engine;
+    private final VectorSearchEngine engine;
     private final SpaceType spaceType;
     private final float[][] testVectors;
     private final float[] queryVector;
@@ -55,7 +55,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
     public RadialSearchIT(
         CompressionTestConfig compressionConfig,
         String testName,
-        KNNEngine engine,
+        VectorSearchEngine engine,
         SpaceType spaceType,
         float[][] testVectors,
         float[] queryVector,
@@ -110,7 +110,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
         addRadialCases(
             params,
             "Faiss_L2",
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L2,
             l2Vectors,
             l2Query,
@@ -133,7 +133,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
         addRadialCases(
             params,
             "Faiss_COSINE",
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.COSINESIMIL,
             cosVectors,
             cosQuery,
@@ -156,7 +156,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
         addRadialCases(
             params,
             "Faiss_IP",
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.INNER_PRODUCT,
             ipVectors,
             ipQuery,
@@ -182,7 +182,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
         addRadialCases(
             params,
             "Faiss_IP_neg",
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.INNER_PRODUCT,
             ipNegVectors,
             ipNegQuery,
@@ -201,7 +201,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
     private static void addRadialCases(
         List<Object[]> params,
         String prefix,
-        KNNEngine engine,
+        VectorSearchEngine engine,
         SpaceType spaceType,
         float[][] vectors,
         float[] query,
@@ -219,7 +219,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
     private static void addRadialCases(
         List<Object[]> params,
         String prefix,
-        KNNEngine engine,
+        VectorSearchEngine engine,
         SpaceType spaceType,
         float[][] vectors,
         float[] query,
@@ -279,7 +279,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
         addRadialCases(
             params,
             "Faiss_MOS_L2",
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L2,
             l2Vectors,
             l2Query,
@@ -305,7 +305,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
         addRadialCases(
             params,
             "Faiss_MOS_COSINE",
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.COSINESIMIL,
             cosVectors,
             cosQuery,
@@ -330,7 +330,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
         addRadialCases(
             params,
             "Faiss_MOS_IP",
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.INNER_PRODUCT,
             ipVectors,
             ipQuery,
@@ -360,7 +360,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
         addRadialCases(
             params,
             "Faiss_MOS_IP_neg",
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.INNER_PRODUCT,
             ipNegVectors,
             ipNegQuery,
@@ -397,7 +397,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
         addRadialCases(
             params,
             "Lucene_L2",
-            BuiltinKNNEngine.LUCENE,
+            KNNEngine.LUCENE,
             SpaceType.L2,
             l2Vectors,
             l2Query,
@@ -420,7 +420,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
         addRadialCases(
             params,
             "Lucene_COSINE",
-            BuiltinKNNEngine.LUCENE,
+            KNNEngine.LUCENE,
             SpaceType.COSINESIMIL,
             cosVectors,
             cosQuery,
@@ -443,7 +443,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
         addRadialCases(
             params,
             "Lucene_IP",
-            BuiltinKNNEngine.LUCENE,
+            KNNEngine.LUCENE,
             SpaceType.INNER_PRODUCT,
             ipVectors,
             ipQuery,
@@ -472,7 +472,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.KNN_ENGINE, engine.getName());
 
-        if (engine == BuiltinKNNEngine.FAISS) {
+        if (engine == KNNEngine.FAISS) {
             mapping.startObject(KNNConstants.PARAMETERS)
                 .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, 128)
                 .field(KNNConstants.METHOD_PARAMETER_M, 16)

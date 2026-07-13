@@ -12,7 +12,7 @@ import org.apache.lucene.util.quantization.OptimizedScalarQuantizer;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.jni.JNIService;
 
@@ -288,7 +288,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
         final long indexMemoryAddress,
         final QuantizedByteVectorValues binarizedVectorValues,
         final int quantizedVecBytes,
-        final KNNEngine knnEngine
+        final VectorSearchEngine knnEngine
     ) throws IOException {
         // Each vector block: [quantized binary code] + 4 correction factor fields (4 bytes each)
         // lowerInterval(float) + upperInterval(float) + additionalCorrection(float) + quantizedComponentSum(int)

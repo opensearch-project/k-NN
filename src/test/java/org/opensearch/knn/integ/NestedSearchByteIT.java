@@ -16,8 +16,8 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 import java.util.List;
 
@@ -27,7 +27,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 public class NestedSearchByteIT extends KNNRestTestCase {
     @SneakyThrows
     public void testNestedSearchWithHnswByte_whenKIsTwo_thenReturnTwoResults() {
-        for (KNNEngine engine : List.of(BuiltinKNNEngine.FAISS, BuiltinKNNEngine.LUCENE)) {
+        for (VectorSearchEngine engine : List.of(KNNEngine.FAISS, KNNEngine.LUCENE)) {
             String indexName = INDEX_NAME + "_" + engine.getName().toLowerCase();
             String nestedFieldName = "nested";
             createKnnByteIndexWithNestedField(indexName, nestedFieldName, FIELD_NAME, 2, engine);
@@ -92,7 +92,7 @@ public class NestedSearchByteIT extends KNNRestTestCase {
     public void testNestedSearchWithFaissHnswByte_whenDoingExactSearch_thenReturnCorrectResults() {
         String nestedFieldName = "nested";
         String filterFieldName = "parking";
-        createKnnByteIndexWithNestedField(INDEX_NAME, nestedFieldName, FIELD_NAME, 3, BuiltinKNNEngine.FAISS);
+        createKnnByteIndexWithNestedField(INDEX_NAME, nestedFieldName, FIELD_NAME, 3, KNNEngine.FAISS);
 
         for (byte i = 1; i < 4; i++) {
             String doc = NestedKnnDocBuilder.create(nestedFieldName)
@@ -130,7 +130,7 @@ public class NestedSearchByteIT extends KNNRestTestCase {
     public void testNestedSearchWithLuceneByte_whenDocWithoutNestedObjectInSeparateSegment_thenSucceed() {
         String indexName = INDEX_NAME + "_lucene_byte_npe";
         String nestedFieldName = "nested";
-        createKnnByteIndexWithNestedField(indexName, nestedFieldName, FIELD_NAME, 4, BuiltinKNNEngine.LUCENE);
+        createKnnByteIndexWithNestedField(indexName, nestedFieldName, FIELD_NAME, 4, KNNEngine.LUCENE);
 
         String doc = NestedKnnDocBuilder.create(nestedFieldName)
             .addVectors(FIELD_NAME, new Byte[] { 1, 2, 3, 4 }, new Byte[] { 5, 6, 7, 8 })
@@ -164,7 +164,7 @@ public class NestedSearchByteIT extends KNNRestTestCase {
         final String nestedFieldName,
         final String fieldName,
         final int dimension,
-        final KNNEngine knnEngine
+        final VectorSearchEngine knnEngine
     ) throws Exception {
         KNNJsonIndexMappingsBuilder.Method method = KNNJsonIndexMappingsBuilder.Method.builder()
             .methodName(METHOD_HNSW)

@@ -21,8 +21,8 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 
@@ -37,7 +37,7 @@ import java.util.Map;
 public class ModelMetadataTests extends KNNTestCase {
 
     public void testStreams() throws IOException {
-        KNNEngine knnEngine = BuiltinKNNEngine.DEFAULT;
+        VectorSearchEngine knnEngine = KNNEngine.DEFAULT;
         SpaceType spaceType = SpaceType.L2;
         int dimension = 128;
 
@@ -84,7 +84,7 @@ public class ModelMetadataTests extends KNNTestCase {
     }
 
     public void testGetKnnEngine() {
-        KNNEngine knnEngine = BuiltinKNNEngine.DEFAULT;
+        VectorSearchEngine knnEngine = KNNEngine.DEFAULT;
         ModelMetadata modelMetadata = new ModelMetadata(
             knnEngine,
             SpaceType.L2,
@@ -107,7 +107,7 @@ public class ModelMetadataTests extends KNNTestCase {
     public void testGetSpaceType() {
         SpaceType spaceType = SpaceType.L2;
         ModelMetadata modelMetadata = new ModelMetadata(
-            BuiltinKNNEngine.DEFAULT,
+            KNNEngine.DEFAULT,
             spaceType,
             128,
             ModelState.CREATED,
@@ -128,7 +128,7 @@ public class ModelMetadataTests extends KNNTestCase {
     public void testGetDimension() {
         int dimension = 128;
         ModelMetadata modelMetadata = new ModelMetadata(
-            BuiltinKNNEngine.DEFAULT,
+            KNNEngine.DEFAULT,
             SpaceType.L2,
             dimension,
             ModelState.CREATED,
@@ -149,7 +149,7 @@ public class ModelMetadataTests extends KNNTestCase {
     public void testGetState() {
         ModelState modelState = ModelState.FAILED;
         ModelMetadata modelMetadata = new ModelMetadata(
-            BuiltinKNNEngine.DEFAULT,
+            KNNEngine.DEFAULT,
             SpaceType.L2,
             12,
             modelState,
@@ -170,7 +170,7 @@ public class ModelMetadataTests extends KNNTestCase {
     public void testGetTimestamp() {
         String timeValue = ZonedDateTime.now(ZoneOffset.UTC).toString();
         ModelMetadata modelMetadata = new ModelMetadata(
-            BuiltinKNNEngine.DEFAULT,
+            KNNEngine.DEFAULT,
             SpaceType.L2,
             12,
             ModelState.CREATED,
@@ -191,7 +191,7 @@ public class ModelMetadataTests extends KNNTestCase {
     public void testDescription() {
         String description = "test description";
         ModelMetadata modelMetadata = new ModelMetadata(
-            BuiltinKNNEngine.DEFAULT,
+            KNNEngine.DEFAULT,
             SpaceType.L2,
             12,
             ModelState.CREATED,
@@ -212,7 +212,7 @@ public class ModelMetadataTests extends KNNTestCase {
     public void testGetError() {
         String error = "test error";
         ModelMetadata modelMetadata = new ModelMetadata(
-            BuiltinKNNEngine.DEFAULT,
+            KNNEngine.DEFAULT,
             SpaceType.L2,
             12,
             ModelState.CREATED,
@@ -233,7 +233,7 @@ public class ModelMetadataTests extends KNNTestCase {
     public void testGetVectorDataType() {
         VectorDataType vectorDataType = VectorDataType.BINARY;
         ModelMetadata modelMetadata = new ModelMetadata(
-            BuiltinKNNEngine.DEFAULT,
+            KNNEngine.DEFAULT,
             SpaceType.L2,
             12,
             ModelState.CREATED,
@@ -254,7 +254,7 @@ public class ModelMetadataTests extends KNNTestCase {
     public void testGetModelVersion() {
         Version version = Version.CURRENT;
         ModelMetadata modelMetadata = new ModelMetadata(
-            BuiltinKNNEngine.DEFAULT,
+            KNNEngine.DEFAULT,
             SpaceType.L2,
             12,
             ModelState.CREATED,
@@ -275,7 +275,7 @@ public class ModelMetadataTests extends KNNTestCase {
     public void testSetState() {
         ModelState modelState = ModelState.FAILED;
         ModelMetadata modelMetadata = new ModelMetadata(
-            BuiltinKNNEngine.DEFAULT,
+            KNNEngine.DEFAULT,
             SpaceType.L2,
             12,
             modelState,
@@ -300,7 +300,7 @@ public class ModelMetadataTests extends KNNTestCase {
     public void testSetError() {
         String error = "";
         ModelMetadata modelMetadata = new ModelMetadata(
-            BuiltinKNNEngine.DEFAULT,
+            KNNEngine.DEFAULT,
             SpaceType.L2,
             12,
             ModelState.TRAINING,
@@ -323,7 +323,7 @@ public class ModelMetadataTests extends KNNTestCase {
     }
 
     public void testToString() {
-        KNNEngine knnEngine = BuiltinKNNEngine.DEFAULT;
+        VectorSearchEngine knnEngine = KNNEngine.DEFAULT;
         SpaceType spaceType = SpaceType.L2;
         int dimension = 128;
         ModelState modelState = ModelState.TRAINING;
@@ -385,7 +385,7 @@ public class ModelMetadataTests extends KNNTestCase {
         String time2 = ZonedDateTime.of(2021, 9, 30, 12, 20, 45, 1, ZoneId.systemDefault()).toString();
 
         ModelMetadata modelMetadata1 = new ModelMetadata(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L2,
             128,
             ModelState.CREATED,
@@ -400,7 +400,7 @@ public class ModelMetadataTests extends KNNTestCase {
             Version.CURRENT
         );
         ModelMetadata modelMetadata2 = new ModelMetadata(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L2,
             128,
             ModelState.CREATED,
@@ -416,7 +416,7 @@ public class ModelMetadataTests extends KNNTestCase {
         );
 
         ModelMetadata modelMetadata3 = new ModelMetadata(
-            BuiltinKNNEngine.NMSLIB,
+            KNNEngine.NMSLIB,
             SpaceType.L2,
             128,
             ModelState.CREATED,
@@ -431,7 +431,7 @@ public class ModelMetadataTests extends KNNTestCase {
             Version.CURRENT
         );
         ModelMetadata modelMetadata4 = new ModelMetadata(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L1,
             128,
             ModelState.CREATED,
@@ -446,7 +446,7 @@ public class ModelMetadataTests extends KNNTestCase {
             Version.CURRENT
         );
         ModelMetadata modelMetadata5 = new ModelMetadata(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L2,
             129,
             ModelState.CREATED,
@@ -461,7 +461,7 @@ public class ModelMetadataTests extends KNNTestCase {
             Version.CURRENT
         );
         ModelMetadata modelMetadata6 = new ModelMetadata(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L2,
             128,
             ModelState.TRAINING,
@@ -476,7 +476,7 @@ public class ModelMetadataTests extends KNNTestCase {
             Version.CURRENT
         );
         ModelMetadata modelMetadata7 = new ModelMetadata(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L2,
             128,
             ModelState.CREATED,
@@ -491,7 +491,7 @@ public class ModelMetadataTests extends KNNTestCase {
             Version.CURRENT
         );
         ModelMetadata modelMetadata8 = new ModelMetadata(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L2,
             128,
             ModelState.CREATED,
@@ -506,7 +506,7 @@ public class ModelMetadataTests extends KNNTestCase {
             Version.CURRENT
         );
         ModelMetadata modelMetadata9 = new ModelMetadata(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L2,
             128,
             ModelState.CREATED,
@@ -522,7 +522,7 @@ public class ModelMetadataTests extends KNNTestCase {
         );
 
         ModelMetadata modelMetadata10 = new ModelMetadata(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L2,
             128,
             ModelState.CREATED,
@@ -556,7 +556,7 @@ public class ModelMetadataTests extends KNNTestCase {
         String time2 = ZonedDateTime.of(2021, 9, 30, 12, 20, 45, 1, ZoneId.systemDefault()).toString();
 
         ModelMetadata modelMetadata1 = new ModelMetadata(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L2,
             128,
             ModelState.CREATED,
@@ -571,7 +571,7 @@ public class ModelMetadataTests extends KNNTestCase {
             Version.CURRENT
         );
         ModelMetadata modelMetadata2 = new ModelMetadata(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L2,
             128,
             ModelState.CREATED,
@@ -587,7 +587,7 @@ public class ModelMetadataTests extends KNNTestCase {
         );
 
         ModelMetadata modelMetadata3 = new ModelMetadata(
-            BuiltinKNNEngine.NMSLIB,
+            KNNEngine.NMSLIB,
             SpaceType.L2,
             128,
             ModelState.CREATED,
@@ -602,7 +602,7 @@ public class ModelMetadataTests extends KNNTestCase {
             Version.CURRENT
         );
         ModelMetadata modelMetadata4 = new ModelMetadata(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L1,
             128,
             ModelState.CREATED,
@@ -617,7 +617,7 @@ public class ModelMetadataTests extends KNNTestCase {
             Version.CURRENT
         );
         ModelMetadata modelMetadata5 = new ModelMetadata(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L2,
             129,
             ModelState.CREATED,
@@ -632,7 +632,7 @@ public class ModelMetadataTests extends KNNTestCase {
             Version.CURRENT
         );
         ModelMetadata modelMetadata6 = new ModelMetadata(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L2,
             128,
             ModelState.TRAINING,
@@ -647,7 +647,7 @@ public class ModelMetadataTests extends KNNTestCase {
             Version.CURRENT
         );
         ModelMetadata modelMetadata7 = new ModelMetadata(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L2,
             128,
             ModelState.CREATED,
@@ -662,7 +662,7 @@ public class ModelMetadataTests extends KNNTestCase {
             Version.CURRENT
         );
         ModelMetadata modelMetadata8 = new ModelMetadata(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L2,
             128,
             ModelState.CREATED,
@@ -677,7 +677,7 @@ public class ModelMetadataTests extends KNNTestCase {
             Version.CURRENT
         );
         ModelMetadata modelMetadata9 = new ModelMetadata(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L2,
             128,
             ModelState.CREATED,
@@ -693,7 +693,7 @@ public class ModelMetadataTests extends KNNTestCase {
         );
 
         ModelMetadata modelMetadata10 = new ModelMetadata(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             SpaceType.L2,
             128,
             ModelState.CREATED,
@@ -722,7 +722,7 @@ public class ModelMetadataTests extends KNNTestCase {
     }
 
     public void testFromString() {
-        KNNEngine knnEngine = BuiltinKNNEngine.DEFAULT;
+        VectorSearchEngine knnEngine = KNNEngine.DEFAULT;
         SpaceType spaceType = SpaceType.L2;
         int dimension = 128;
         ModelState modelState = ModelState.TRAINING;
@@ -883,7 +883,7 @@ public class ModelMetadataTests extends KNNTestCase {
     }
 
     public void testFromResponseMap() throws IOException {
-        KNNEngine knnEngine = BuiltinKNNEngine.DEFAULT;
+        VectorSearchEngine knnEngine = KNNEngine.DEFAULT;
         SpaceType spaceType = SpaceType.L2;
         int dimension = 128;
         ModelState modelState = ModelState.TRAINING;
@@ -992,7 +992,7 @@ public class ModelMetadataTests extends KNNTestCase {
     }
 
     public void testBlockCommasInDescription() {
-        KNNEngine knnEngine = BuiltinKNNEngine.DEFAULT;
+        VectorSearchEngine knnEngine = KNNEngine.DEFAULT;
         SpaceType spaceType = SpaceType.L2;
         int dimension = 128;
         ModelState modelState = ModelState.TRAINING;

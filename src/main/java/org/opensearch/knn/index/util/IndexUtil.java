@@ -27,8 +27,8 @@ import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.request.MethodParameter;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
@@ -280,7 +280,7 @@ public class IndexUtil {
      */
     public static Map<String, Object> getParametersAtLoading(
         SpaceType spaceType,
-        KNNEngine knnEngine,
+        VectorSearchEngine knnEngine,
         String indexName,
         VectorDataType vectorDataType,
         SegmentLevelQuantizationInfo segmentLevelQuantizationInfo
@@ -289,7 +289,7 @@ public class IndexUtil {
 
         // For nmslib, we need to add the dynamic ef_search parameter that needs to be passed in when the
         // hnsw graphs are loaded into memory
-        if (BuiltinKNNEngine.NMSLIB.equals(knnEngine)) {
+        if (KNNEngine.NMSLIB.equals(knnEngine)) {
             loadParameters.put(HNSW_ALGO_EF_SEARCH, KNNSettings.getEfSearchParam(indexName));
         }
         loadParameters.put(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
@@ -329,7 +329,7 @@ public class IndexUtil {
      * @param indexAddr Address to check if loaded index requires shared state
      * @return true if state can be shared; false otherwise
      */
-    public static boolean isSharedIndexStateRequired(KNNEngine knnEngine, String modelId, long indexAddr) {
+    public static boolean isSharedIndexStateRequired(VectorSearchEngine knnEngine, String modelId, long indexAddr) {
         if (StringUtils.isEmpty(modelId)) {
             return false;
         }
@@ -343,8 +343,8 @@ public class IndexUtil {
      * @param parameters parameters associated with an index
      * @return true if it is binary index
      */
-    public static boolean isBinaryIndex(KNNEngine knnEngine, Map<String, Object> parameters) {
-        return BuiltinKNNEngine.FAISS == knnEngine
+    public static boolean isBinaryIndex(VectorSearchEngine knnEngine, Map<String, Object> parameters) {
+        return KNNEngine.FAISS == knnEngine
             && parameters.get(VECTOR_DATA_TYPE_FIELD) != null
             && parameters.get(VECTOR_DATA_TYPE_FIELD).toString().equals(VectorDataType.BINARY.getValue());
     }
@@ -355,8 +355,8 @@ public class IndexUtil {
      * @param parameters parameters associated with an index
      * @return true if ADC is enabled
      */
-    public static boolean isADCEnabled(KNNEngine knnEngine, Map<String, Object> parameters) {
-        return BuiltinKNNEngine.FAISS == knnEngine
+    public static boolean isADCEnabled(VectorSearchEngine knnEngine, Map<String, Object> parameters) {
+        return KNNEngine.FAISS == knnEngine
             && parameters != null
             && parameters.get(ADC_ENABLED_FAISS_INDEX_INTERNAL_PARAMETER) != null
             && (boolean) parameters.get(ADC_ENABLED_FAISS_INDEX_INTERNAL_PARAMETER);

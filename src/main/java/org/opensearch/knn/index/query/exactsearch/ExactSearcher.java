@@ -30,8 +30,8 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.query.scorers.VectorScorerMode;
 import org.opensearch.knn.index.query.scorers.VectorScorers;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -139,10 +139,10 @@ public class ExactSearcher {
         final DocIdSetIterator matchedDocs = context.getParentsFilter() != null ? null : context.getMatchedDocsIterator();
 
         if (context.getRadius() != null) {
-            assert extractKNNEngine(fieldInfo) == BuiltinKNNEngine.FAISS : "Exact searcher for Radial search is only used by FAISS engine";
+            assert extractKNNEngine(fieldInfo) == KNNEngine.FAISS : "Exact searcher for Radial search is only used by FAISS engine";
             final float minScore = context.isMemoryOptimizedSearchEnabled
                 ? context.getRadius()
-                : BuiltinKNNEngine.FAISS.score(context.getRadius(), getSpaceType(modelDao, fieldInfo));
+                : KNNEngine.FAISS.score(context.getRadius(), getSpaceType(modelDao, fieldInfo));
 
             return BulkVectorScorer.forRadialSearch(vectorScorer, matchedDocs, minScore);
         }
@@ -183,9 +183,9 @@ public class ExactSearcher {
      * Performs a radial (distance-threshold) search by converting the query radius to a minimum
      * similarity score and returning all documents that meet or exceed that threshold.
      *
-     * <p>Currently only the {@link KNNEngine#FAISS} engine supports radial search. The radius
+     * <p>Currently only the {@link VectorSearchEngine#FAISS} engine supports radial search. The radius
      * value from the query is interpreted as a raw distance and is converted to a normalized
-     * score via {@link KNNEngine#score(float, SpaceType)}, unless memory-optimized search is
+     * score via {@link VectorSearchEngine#score(float, SpaceType)}, unless memory-optimized search is
      * enabled — in which case the radius is already expressed as a score.
      *
      * @param fieldInfo    the {@link FieldInfo} for the vector field (must not be {@code null})
@@ -207,8 +207,8 @@ public class ExactSearcher {
     ) throws IOException {
         assert context.isMemoryOptimizedSearchEnabled != null;
 
-        final KNNEngine engine = extractKNNEngine(fieldInfo);
-        if (BuiltinKNNEngine.FAISS != engine) {
+        final VectorSearchEngine engine = extractKNNEngine(fieldInfo);
+        if (KNNEngine.FAISS != engine) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Engine [%s] does not support radial search", engine));
         }
         final SpaceType spaceType = getSpaceType(modelDao, fieldInfo);

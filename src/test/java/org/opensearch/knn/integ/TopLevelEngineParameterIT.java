@@ -20,8 +20,8 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.CompressionTestConfig;
 import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 
 import java.io.IOException;
@@ -82,18 +82,18 @@ public class TopLevelEngineParameterIT extends KNNCompressionRestTestCase {
     @SneakyThrows
     public void testEngineWithCompression() {
         // faiss, 2x compression -> valid
-        createTestIndexWithCompression(BuiltinKNNEngine.FAISS, "2x");
+        createTestIndexWithCompression(KNNEngine.FAISS, "2x");
         addKnnDoc(INDEX_NAME, "0", FIELD_NAME, TEST_VECTOR);
         validateKNNSearch(INDEX_NAME, FIELD_NAME, DIMENSION, 1, K);
         deleteIndex(INDEX_NAME);
 
         // faiss, 4x compression -> exception
-        Exception e = expectThrows(Exception.class, () -> createTestIndexWithCompression(BuiltinKNNEngine.FAISS, "4x"));
+        Exception e = expectThrows(Exception.class, () -> createTestIndexWithCompression(KNNEngine.FAISS, "4x"));
         assertTrue(e.getMessage(), e.getMessage().contains("Lucene is the only engine that supports 4x compression"));
         deleteIndex(INDEX_NAME);
 
         // lucene, 4x compression -> valid
-        createTestIndexWithCompression(BuiltinKNNEngine.LUCENE, "4x");
+        createTestIndexWithCompression(KNNEngine.LUCENE, "4x");
         addKnnDoc(INDEX_NAME, "0", FIELD_NAME, TEST_VECTOR);
         validateKNNSearch(INDEX_NAME, FIELD_NAME, DIMENSION, 1, K);
         deleteIndex(INDEX_NAME);
@@ -106,7 +106,7 @@ public class TopLevelEngineParameterIT extends KNNCompressionRestTestCase {
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
             .field("dimension", DIMENSION)
-            .field(TOP_LEVEL_PARAMETER_ENGINE, BuiltinKNNEngine.LUCENE.getName());
+            .field(TOP_LEVEL_PARAMETER_ENGINE, KNNEngine.LUCENE.getName());
         addCompressionMappingFields(builder);
         builder.endObject().endObject().endObject();
 
@@ -124,7 +124,7 @@ public class TopLevelEngineParameterIT extends KNNCompressionRestTestCase {
             .field("dimension", DIMENSION)
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
-            .field(KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
+            .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
             .endObject();
         addCompressionMappingFields(builder);
         builder.endObject().endObject().endObject();
@@ -140,10 +140,10 @@ public class TopLevelEngineParameterIT extends KNNCompressionRestTestCase {
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
             .field("dimension", DIMENSION)
-            .field(TOP_LEVEL_PARAMETER_ENGINE, BuiltinKNNEngine.LUCENE.getName())
+            .field(TOP_LEVEL_PARAMETER_ENGINE, KNNEngine.LUCENE.getName())
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
-            .field(KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
+            .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
             .endObject();
         addCompressionMappingFields(builder);
         builder.endObject().endObject().endObject();
@@ -173,10 +173,10 @@ public class TopLevelEngineParameterIT extends KNNCompressionRestTestCase {
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
             .field("dimension", DIMENSION)
-            .field(TOP_LEVEL_PARAMETER_ENGINE, BuiltinKNNEngine.LUCENE.getName())
+            .field(TOP_LEVEL_PARAMETER_ENGINE, KNNEngine.LUCENE.getName())
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
-            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -186,7 +186,7 @@ public class TopLevelEngineParameterIT extends KNNCompressionRestTestCase {
         createKnnIndex(INDEX_NAME, mapping);
     }
 
-    private void createTestIndexWithCompression(KNNEngine engine, String compressionLevel) throws IOException {
+    private void createTestIndexWithCompression(VectorSearchEngine engine, String compressionLevel) throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")

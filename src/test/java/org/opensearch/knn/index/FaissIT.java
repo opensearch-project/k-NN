@@ -38,7 +38,7 @@ import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
@@ -152,7 +152,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(PARAMETERS)
             .field(METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
             .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
@@ -211,7 +211,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(PARAMETERS)
             .field(METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
             .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
@@ -266,7 +266,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(PARAMETERS)
             .field(METHOD_PARAMETER_M, 16)
             .field(METHOD_PARAMETER_EF_CONSTRUCTION, 128)
@@ -348,7 +348,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(PARAMETERS)
             .field(METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
             .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
@@ -517,7 +517,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .startObject(INTEGER_FIELD_NAME)
@@ -562,7 +562,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .startObject(INTEGER_FIELD_NAME)
@@ -686,7 +686,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             for (int j = 0; j < k; j++) {
                 float[] primitiveArray = knnResults.get(j).getVector();
                 assertEquals(
-                    BuiltinKNNEngine.FAISS.score(KNNScoringUtil.l2Squared(testData.queries[i], primitiveArray), spaceType),
+                    KNNEngine.FAISS.score(KNNScoringUtil.l2Squared(testData.queries[i], primitiveArray), spaceType),
                     actualScores.get(j),
                     0.0001
                 );
@@ -725,7 +725,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(PARAMETERS)
             .field(METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
             .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
@@ -775,7 +775,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(PARAMETERS)
             .startObject(METHOD_ENCODER_PARAMETER)
             .field(NAME, ENCODER_SQ)
@@ -832,7 +832,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(PARAMETERS)
             .startObject(METHOD_ENCODER_PARAMETER)
             .field(NAME, ENCODER_SQ)
@@ -959,7 +959,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(PARAMETERS)
             .field(METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
             .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
@@ -1069,7 +1069,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(PARAMETERS)
             .field(METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
             .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
@@ -1398,7 +1398,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             for (int j = 0; j < k; j++) {
                 float[] primitiveArray = knnResults.get(j).getVector();
                 assertEquals(
-                    BuiltinKNNEngine.FAISS.score(KNNScoringUtil.l2Squared(testData.queries[i], primitiveArray), spaceType),
+                    KNNEngine.FAISS.score(KNNScoringUtil.l2Squared(testData.queries[i], primitiveArray), spaceType),
                     actualScores.get(j),
                     0.0001
                 );
@@ -1539,7 +1539,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -1573,7 +1573,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -1760,7 +1760,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .startObject(categoryField)
@@ -1811,7 +1811,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
-            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -1842,8 +1842,8 @@ public class FaissIT extends KNNCompressionRestTestCase {
 
         // Check that the expected scores are returned
         final List<Float> expectedScores = Arrays.asList(
-            BuiltinKNNEngine.FAISS.score(8.0f, SpaceType.INNER_PRODUCT),
-            BuiltinKNNEngine.FAISS.score(-8.0f, SpaceType.INNER_PRODUCT)
+            KNNEngine.FAISS.score(8.0f, SpaceType.INNER_PRODUCT),
+            KNNEngine.FAISS.score(-8.0f, SpaceType.INNER_PRODUCT)
         );
         assertEquals(expectedScores.size(), knnResults.size());
         for (int i = 0; i < expectedScores.size(); i++) {
@@ -2002,7 +2002,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.HAMMING.getValue())
-            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(PARAMETERS)
             .field(METHOD_PARAMETER_M, 24)
             .field(METHOD_PARAMETER_EF_CONSTRUCTION, 128)
@@ -2115,7 +2115,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(PARAMETERS)
             .field(METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
             .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
@@ -2217,7 +2217,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(PARAMETERS)
             .field(METHOD_PARAMETER_M, 16)
             .field(METHOD_PARAMETER_EF_CONSTRUCTION, 128)
@@ -2329,7 +2329,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.LUCENE.getName())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .startObject(INTEGER_FIELD_NAME)
@@ -2437,7 +2437,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
         builder.field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -2491,7 +2491,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
-            .field(KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -2657,7 +2657,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
         builder.field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-            .field(KNNConstants.KNN_ENGINE, BuiltinKNNEngine.FAISS.getName())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -2703,7 +2703,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             for (int j = 0; j < k; j++) {
                 final float[] primitiveArray = knnResults.get(j).getVector();
                 assertEquals(
-                    BuiltinKNNEngine.FAISS.score(scoringFunction.apply(testData.queries[i], primitiveArray), spaceType),
+                    KNNEngine.FAISS.score(scoringFunction.apply(testData.queries[i], primitiveArray), spaceType),
                     actualScores.get(j),
                     0.0001
                 );

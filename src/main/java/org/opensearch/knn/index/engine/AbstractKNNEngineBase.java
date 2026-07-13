@@ -18,9 +18,9 @@ import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
 import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
 
 /**
- * Abstract base implementation of the {@link KNNEngine}.
+ * Abstract base implementation of the {@link VectorSearchEngine}.
  */
-public abstract class AbstractKNNEngineBase implements KNNEngine {
+public abstract class AbstractKNNEngineBase implements VectorSearchEngine {
     private final String name;
 
     public AbstractKNNEngineBase(String name) {

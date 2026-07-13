@@ -8,8 +8,8 @@ package org.opensearch.knn.index.mapper;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 
@@ -27,7 +27,7 @@ public class OriginalMappingParametersTests extends KNNTestCase {
                 null,
                 null,
                 SpaceType.UNDEFINED.getValue(),
-                KNNEngine.UNDEFINED.getName()
+                VectorSearchEngine.UNDEFINED.getName()
             ).isLegacyMapping()
         );
         assertFalse(
@@ -39,7 +39,7 @@ public class OriginalMappingParametersTests extends KNNTestCase {
                 null,
                 "model-id",
                 SpaceType.UNDEFINED.getValue(),
-                KNNEngine.UNDEFINED.getName()
+                VectorSearchEngine.UNDEFINED.getName()
             ).isLegacyMapping()
         );
         assertFalse(
@@ -51,7 +51,7 @@ public class OriginalMappingParametersTests extends KNNTestCase {
                 null,
                 null,
                 SpaceType.UNDEFINED.getValue(),
-                KNNEngine.UNDEFINED.getName()
+                VectorSearchEngine.UNDEFINED.getName()
             ).isLegacyMapping()
         );
         assertFalse(
@@ -63,19 +63,19 @@ public class OriginalMappingParametersTests extends KNNTestCase {
                 CompressionLevel.x2.getName(),
                 null,
                 SpaceType.UNDEFINED.getValue(),
-                KNNEngine.UNDEFINED.getName()
+                VectorSearchEngine.UNDEFINED.getName()
             ).isLegacyMapping()
         );
         assertFalse(
             new OriginalMappingParameters(
                 VectorDataType.DEFAULT,
                 123,
-                new KNNMethodContext(BuiltinKNNEngine.DEFAULT, SpaceType.L2, new MethodComponentContext(null, Collections.emptyMap())),
+                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.L2, new MethodComponentContext(null, Collections.emptyMap())),
                 null,
                 null,
                 null,
                 SpaceType.UNDEFINED.getValue(),
-                KNNEngine.UNDEFINED.getName()
+                VectorSearchEngine.UNDEFINED.getName()
             ).isLegacyMapping()
         );
     }

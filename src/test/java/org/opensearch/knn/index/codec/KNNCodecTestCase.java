@@ -54,8 +54,8 @@ import org.apache.lucene.store.Directory;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
@@ -107,7 +107,7 @@ public class KNNCodecTestCase extends KNNTestCase {
             .vectorDataType(VectorDataType.DEFAULT)
             .build();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
-            BuiltinKNNEngine.NMSLIB,
+            KNNEngine.NMSLIB,
             SpaceType.DEFAULT,
             new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
         );
@@ -227,7 +227,7 @@ public class KNNCodecTestCase extends KNNTestCase {
     public void testBuildFromModelTemplate(Codec codec) {
         // Setup model params
         String modelId = "test-model";
-        KNNEngine knnEngine = BuiltinKNNEngine.FAISS;
+        VectorSearchEngine knnEngine = KNNEngine.FAISS;
         SpaceType spaceType = SpaceType.L2;
         int dimension = 3;
 
@@ -237,7 +237,7 @@ public class KNNCodecTestCase extends KNNTestCase {
             ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, "Flat", SPACE_TYPE, spaceType.getValue()),
             dimension,
             vectorsPointer,
-            BuiltinKNNEngine.FAISS
+            KNNEngine.FAISS
         );
 
         // Set the mocked OpenSearchKNNModelDao to INSTANCE.
@@ -371,7 +371,7 @@ public class KNNCodecTestCase extends KNNTestCase {
     ) throws Exception {
         final MapperService mapperService = mock(MapperService.class);
         final KNNMethodContext knnMethodContext = new KNNMethodContext(
-            BuiltinKNNEngine.LUCENE,
+            KNNEngine.LUCENE,
             SpaceType.L2,
             new MethodComponentContext(METHOD_HNSW, Map.of(HNSW_ALGO_M, 16, HNSW_ALGO_EF_CONSTRUCTION, 256))
         );
@@ -421,7 +421,7 @@ public class KNNCodecTestCase extends KNNTestCase {
 
         Query query = KNNQueryFactory.create(
             BaseQueryFactory.CreateQueryRequest.builder()
-                .knnEngine(BuiltinKNNEngine.LUCENE)
+                .knnEngine(KNNEngine.LUCENE)
                 .indexName("dummy")
                 .fieldName(FIELD_NAME_ONE)
                 .vector(new float[] { 1.0f, 0.0f, 0.0f })
@@ -456,7 +456,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         IndexSearcher searcher1 = new IndexSearcher(reader1);
         Query query1 = KNNQueryFactory.create(
             BaseQueryFactory.CreateQueryRequest.builder()
-                .knnEngine(BuiltinKNNEngine.LUCENE)
+                .knnEngine(KNNEngine.LUCENE)
                 .indexName("dummy")
                 .fieldName(FIELD_NAME_TWO)
                 .vector(new float[] { 1.0f, 0.0f })

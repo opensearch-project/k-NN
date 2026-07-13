@@ -7,8 +7,8 @@ package org.opensearch.knn.index.query;
 
 import org.apache.lucene.search.ScoreDoc;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.engine.BuiltinKNNEngine;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 /**
  * Utility class for converting between Faiss and Lucene score representations
@@ -20,7 +20,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
  * With the same query, results are expected to be identical regardless of
  * whether memory optimization is enabled.
  *
- * <p>However, unlike {@link KNNEngine},
+ * <p>However, unlike {@link VectorSearchEngine},
  * the input here is a Faiss score, which must be converted to Lucene’s
  * scoring range.</p>
  *
@@ -47,16 +47,16 @@ public final class MemoryOptimizedSearchScoreConverter {
         switch (spaceType) {
             case INNER_PRODUCT:
                 // Faiss distance for IP is -dot. Negate to get raw dot product for Lucene.
-                return BuiltinKNNEngine.LUCENE.distanceToRadialThreshold(-distance, spaceType);
+                return KNNEngine.LUCENE.distanceToRadialThreshold(-distance, spaceType);
             case COSINESIMIL:
                 // For cosine similarity, `distance = 1 - inner_product_value`.
                 // therefore, we should extract it then convert it to max_inner_product_value
-                final float innerProductValue = BuiltinKNNEngine.FAISS.distanceToRadialThreshold(distance, SpaceType.COSINESIMIL);
+                final float innerProductValue = KNNEngine.FAISS.distanceToRadialThreshold(distance, SpaceType.COSINESIMIL);
 
                 // Convert inner product value to max inner product value.
                 return SpaceType.INNER_PRODUCT.scoreTranslation(-innerProductValue);
             default:
-                return BuiltinKNNEngine.LUCENE.distanceToRadialThreshold(distance, spaceType);
+                return KNNEngine.LUCENE.distanceToRadialThreshold(distance, spaceType);
         }
     }
 
@@ -69,12 +69,12 @@ public final class MemoryOptimizedSearchScoreConverter {
      */
     public static float scoreToRadialThreshold(final float score, final SpaceType spaceType) {
         if (spaceType != SpaceType.COSINESIMIL) {
-            return BuiltinKNNEngine.LUCENE.scoreToRadialThreshold(score, spaceType);
+            return KNNEngine.LUCENE.scoreToRadialThreshold(score, spaceType);
         }
 
         // Since `score = (2 - (1 - inner_product_value)) / 2 = (1 + inner_product_value) / 2`,
         // we should extract it then convert it to max inner product value.
-        final float innerProductValue = BuiltinKNNEngine.FAISS.scoreToRadialThreshold(score, SpaceType.COSINESIMIL);
+        final float innerProductValue = KNNEngine.FAISS.scoreToRadialThreshold(score, SpaceType.COSINESIMIL);
 
         // Convert inner product value to max inner product value.
         return SpaceType.INNER_PRODUCT.scoreTranslation(-innerProductValue);
@@ -106,6 +106,6 @@ public final class MemoryOptimizedSearchScoreConverter {
         // Reverse MAXIMUM_INNER_PRODUCT score translation to recover the raw inner product value.
         final float innerProductValue = ipScore >= 1 ? ipScore - 1 : 1 - 1 / ipScore;
         // Transform to cosine similarity score range.
-        return BuiltinKNNEngine.FAISS.score(innerProductValue, SpaceType.COSINESIMIL);
+        return KNNEngine.FAISS.score(innerProductValue, SpaceType.COSINESIMIL);
     }
 }

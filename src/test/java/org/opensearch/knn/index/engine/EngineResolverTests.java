@@ -28,10 +28,10 @@ public class EngineResolverTests extends KNNTestCase {
 
     public void testResolveEngine_whenEngineSpecifiedInMethod_thenThatEngine() {
         assertEquals(
-            BuiltinKNNEngine.LUCENE,
+            KNNEngine.LUCENE,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().build(),
-                new KNNMethodContext(BuiltinKNNEngine.LUCENE, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
+                new KNNMethodContext(KNNEngine.LUCENE, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
                 null,
                 false
             )
@@ -39,16 +39,16 @@ public class EngineResolverTests extends KNNTestCase {
     }
 
     public void testResolveEngine_whenRequiresTraining_thenFaiss() {
-        assertEquals(BuiltinKNNEngine.FAISS, ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), null, null, true));
+        assertEquals(KNNEngine.FAISS, ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), null, null, true));
     }
 
     public void testResolveEngine_whenModeAndCompressionAreFalse_thenDefault() {
-        assertEquals(BuiltinKNNEngine.DEFAULT, ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), null, null, false));
+        assertEquals(KNNEngine.DEFAULT, ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), null, null, false));
         assertEquals(
-            BuiltinKNNEngine.DEFAULT,
+            KNNEngine.DEFAULT,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().build(),
-                new KNNMethodContext(BuiltinKNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY, false),
+                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY, false),
                 null,
                 false
             )
@@ -56,12 +56,12 @@ public class EngineResolverTests extends KNNTestCase {
     }
 
     public void testResolveEngine_whenModeSpecifiedAndCompressionIsNotSpecified_whenVersionBefore2_19_thenNMSLIB() {
-        assertEquals(BuiltinKNNEngine.DEFAULT, ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), null, null, false));
+        assertEquals(KNNEngine.DEFAULT, ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), null, null, false));
         assertEquals(
-            BuiltinKNNEngine.NMSLIB,
+            KNNEngine.NMSLIB,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().mode(Mode.IN_MEMORY).build(),
-                new KNNMethodContext(BuiltinKNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY, false),
+                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY, false),
                 null,
                 false,
                 Version.V_2_18_0
@@ -70,12 +70,12 @@ public class EngineResolverTests extends KNNTestCase {
     }
 
     public void testResolveEngine_whenModeSpecifiedAndCompressionIsNotSpecified_thenFAISS() {
-        assertEquals(BuiltinKNNEngine.DEFAULT, ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), null, null, false));
+        assertEquals(KNNEngine.DEFAULT, ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), null, null, false));
         assertEquals(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().mode(Mode.IN_MEMORY).build(),
-                new KNNMethodContext(BuiltinKNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY, false),
+                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY, false),
                 null,
                 false
             )
@@ -84,7 +84,7 @@ public class EngineResolverTests extends KNNTestCase {
 
     public void testResolveEngine_whenCompressionIs1x_thenEngineBasedOnMode() {
         assertEquals(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().mode(Mode.ON_DISK).compressionLevel(CompressionLevel.x1).build(),
                 null,
@@ -93,11 +93,11 @@ public class EngineResolverTests extends KNNTestCase {
             )
         );
         assertEquals(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().compressionLevel(CompressionLevel.x1).build(), null, null, false)
         );
         assertEquals(
-            BuiltinKNNEngine.NMSLIB,
+            KNNEngine.NMSLIB,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().compressionLevel(CompressionLevel.x1).build(),
                 null,
@@ -110,7 +110,7 @@ public class EngineResolverTests extends KNNTestCase {
 
     public void testResolveEngine_whenCompressionIs4x_thenEngineIsLucene() {
         assertEquals(
-            BuiltinKNNEngine.LUCENE,
+            KNNEngine.LUCENE,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().mode(Mode.ON_DISK).compressionLevel(CompressionLevel.x4).build(),
                 null,
@@ -119,14 +119,14 @@ public class EngineResolverTests extends KNNTestCase {
             )
         );
         assertEquals(
-            BuiltinKNNEngine.LUCENE,
+            KNNEngine.LUCENE,
             ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().compressionLevel(CompressionLevel.x4).build(), null, null, false)
         );
     }
 
     public void testResolveEngine_whenConfiguredForBQ_thenEngineIsFaiss() {
         assertEquals(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().mode(Mode.ON_DISK).compressionLevel(CompressionLevel.x2).build(),
                 null,
@@ -135,7 +135,7 @@ public class EngineResolverTests extends KNNTestCase {
             )
         );
         assertEquals(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().mode(Mode.IN_MEMORY).compressionLevel(CompressionLevel.x2).build(),
                 null,
@@ -144,7 +144,7 @@ public class EngineResolverTests extends KNNTestCase {
             )
         );
         assertEquals(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().mode(Mode.ON_DISK).compressionLevel(CompressionLevel.x8).build(),
                 null,
@@ -153,7 +153,7 @@ public class EngineResolverTests extends KNNTestCase {
             )
         );
         assertEquals(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().mode(Mode.IN_MEMORY).compressionLevel(CompressionLevel.x8).build(),
                 null,
@@ -162,7 +162,7 @@ public class EngineResolverTests extends KNNTestCase {
             )
         );
         assertEquals(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().mode(Mode.ON_DISK).compressionLevel(CompressionLevel.x16).build(),
                 null,
@@ -171,7 +171,7 @@ public class EngineResolverTests extends KNNTestCase {
             )
         );
         assertEquals(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().mode(Mode.IN_MEMORY).compressionLevel(CompressionLevel.x16).build(),
                 null,
@@ -180,7 +180,7 @@ public class EngineResolverTests extends KNNTestCase {
             )
         );
         assertEquals(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().mode(Mode.ON_DISK).compressionLevel(CompressionLevel.x32).build(),
                 null,
@@ -189,7 +189,7 @@ public class EngineResolverTests extends KNNTestCase {
             )
         );
         assertEquals(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().mode(Mode.IN_MEMORY).compressionLevel(CompressionLevel.x32).build(),
                 null,
@@ -202,10 +202,10 @@ public class EngineResolverTests extends KNNTestCase {
     public void testResolveEngine_whenMethodAndTopLevelEngineSpecified() throws IOException {
         // only method defined; set to faiss (default)
         assertEquals(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().build(),
-                new KNNMethodContext(BuiltinKNNEngine.FAISS, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
+                new KNNMethodContext(KNNEngine.FAISS, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
                 null,
                 false,
                 Version.CURRENT
@@ -214,10 +214,10 @@ public class EngineResolverTests extends KNNTestCase {
 
         // only method defined; set to lucene (non-default)
         assertEquals(
-            BuiltinKNNEngine.LUCENE,
+            KNNEngine.LUCENE,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().build(),
-                new KNNMethodContext(BuiltinKNNEngine.LUCENE, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
+                new KNNMethodContext(KNNEngine.LUCENE, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
                 null,
                 false,
                 Version.CURRENT
@@ -229,7 +229,7 @@ public class EngineResolverTests extends KNNTestCase {
             MapperParsingException.class,
             () -> ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().build(),
-                new KNNMethodContext(BuiltinKNNEngine.LUCENE, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
+                new KNNMethodContext(KNNEngine.LUCENE, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
                 "faiss",
                 false,
                 Version.CURRENT
@@ -241,7 +241,7 @@ public class EngineResolverTests extends KNNTestCase {
             MapperParsingException.class,
             () -> ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().build(),
-                new KNNMethodContext(BuiltinKNNEngine.FAISS, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
+                new KNNMethodContext(KNNEngine.FAISS, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
                 "lucene",
                 false,
                 Version.CURRENT
@@ -250,19 +250,19 @@ public class EngineResolverTests extends KNNTestCase {
 
         // only top-level defined; set to faiss (default)
         assertEquals(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), null, "faiss", false, Version.CURRENT)
         );
 
         // only top-level defined; set to lucene (non-default)
         assertEquals(
-            BuiltinKNNEngine.LUCENE,
+            KNNEngine.LUCENE,
             ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), null, "lucene", false, Version.CURRENT)
         );
 
         // no engine defined; method not defined
         assertEquals(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), null, "", false, Version.CURRENT)
         );
 
@@ -276,10 +276,10 @@ public class EngineResolverTests extends KNNTestCase {
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
         assertEquals(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().build(),
-                new KNNMethodContext(BuiltinKNNEngine.UNDEFINED, SpaceType.DEFAULT, MethodComponentContext.EMPTY, false),
+                new KNNMethodContext(KNNEngine.UNDEFINED, SpaceType.DEFAULT, MethodComponentContext.EMPTY, false),
                 "",
                 false,
                 Version.CURRENT
@@ -289,20 +289,20 @@ public class EngineResolverTests extends KNNTestCase {
 
     public void testResolveEngine_whenFlatMethodWithNoEngine_thenLucene() {
         KNNMethodContext flatMethodContext = new KNNMethodContext(
-            KNNEngine.UNDEFINED,
+            VectorSearchEngine.UNDEFINED,
             SpaceType.L2,
             new MethodComponentContext(METHOD_FLAT, Map.of()),
             false
         );
         assertEquals(
-            BuiltinKNNEngine.LUCENE,
+            KNNEngine.LUCENE,
             ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), flatMethodContext, null, false)
         );
     }
 
     public void testResolveEngine_whenOnDiskWith32xCompression_thenFaiss() {
         assertEquals(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().mode(Mode.ON_DISK).compressionLevel(CompressionLevel.x32).build(),
                 null,
@@ -314,7 +314,7 @@ public class EngineResolverTests extends KNNTestCase {
 
     public void testResolveEngine_whenInMemoryWith1xCompression_thenFaiss() {
         assertEquals(
-            BuiltinKNNEngine.FAISS,
+            KNNEngine.FAISS,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().mode(Mode.IN_MEMORY).compressionLevel(CompressionLevel.x1).build(),
                 null,
@@ -342,7 +342,7 @@ public class EngineResolverTests extends KNNTestCase {
             MapperParsingException.class,
             () -> ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().compressionLevel(CompressionLevel.x4).build(),
-                new KNNMethodContext(BuiltinKNNEngine.LUCENE, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
+                new KNNMethodContext(KNNEngine.LUCENE, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
                 "lucene",
                 true,
                 Version.CURRENT
@@ -358,7 +358,7 @@ public class EngineResolverTests extends KNNTestCase {
         for (Version version : versions) {
             assertEquals(
                 "Expected DEFAULT engine for version " + version + " with no mode/compression",
-                BuiltinKNNEngine.DEFAULT,
+                KNNEngine.DEFAULT,
                 ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), null, null, false, version)
             );
         }
@@ -366,10 +366,10 @@ public class EngineResolverTests extends KNNTestCase {
 
     public void testResolveEngine_whenInMemoryModeAcrossVersions_thenVersionDeterminesEngine() {
         assertEquals(
-            BuiltinKNNEngine.NMSLIB,
+            KNNEngine.NMSLIB,
             ENGINE_RESOLVER.resolveEngine(
                 KNNMethodConfigContext.builder().mode(Mode.IN_MEMORY).build(),
-                new KNNMethodContext(BuiltinKNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY, false),
+                new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY, false),
                 null,
                 false,
                 Version.V_2_18_0
@@ -380,10 +380,10 @@ public class EngineResolverTests extends KNNTestCase {
         for (Version version : postV219Versions) {
             assertEquals(
                 "Expected FAISS for version " + version + " with IN_MEMORY mode",
-                BuiltinKNNEngine.FAISS,
+                KNNEngine.FAISS,
                 ENGINE_RESOLVER.resolveEngine(
                     KNNMethodConfigContext.builder().mode(Mode.IN_MEMORY).build(),
-                    new KNNMethodContext(BuiltinKNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY, false),
+                    new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.UNDEFINED, MethodComponentContext.EMPTY, false),
                     null,
                     false,
                     version
@@ -398,7 +398,7 @@ public class EngineResolverTests extends KNNTestCase {
         for (Version version : versions) {
             assertEquals(
                 "Expected FAISS for version " + version + " with x32 compression",
-                BuiltinKNNEngine.FAISS,
+                KNNEngine.FAISS,
                 ENGINE_RESOLVER.resolveEngine(
                     KNNMethodConfigContext.builder().compressionLevel(CompressionLevel.x32).build(),
                     null,
