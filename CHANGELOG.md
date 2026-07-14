@@ -30,4 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Refactoring
 * Refactor ExactSearcher to use BulkVectorScorer directly and rename factory methods [#3361](https://github.com/opensearch-project/k-NN/pull/3361)
 
+### Infrastructure
+* Fix BWC version reference in Rolling-Upgrade BWC test workflow [#3422](https://github.com/opensearch-project/k-NN/pull/3422)
+
 ### Enhancements
