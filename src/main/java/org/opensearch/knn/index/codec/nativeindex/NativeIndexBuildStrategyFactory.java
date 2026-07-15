@@ -60,12 +60,12 @@ public final class NativeIndexBuildStrategyFactory {
         final KNNEngine knnEngine = extractKNNEngine(fieldInfo);
         final boolean isTemplate = fieldInfo.attributes().containsKey(MODEL_ID);
         final boolean iterative = !isTemplate && KNNEngine.FAISS == knnEngine;
-        final boolean isFaissSQOneBitField = FieldInfoExtractor.isSQField(fieldInfo)
-            && FieldInfoExtractor.extractSQConfig(fieldInfo).getBits() == FaissSQEncoder.Bits.ONE.getValue();
+        final boolean isFaissSQMosField = FieldInfoExtractor.isSQField(fieldInfo)
+            && FaissSQEncoder.isMosBits(FieldInfoExtractor.extractSQConfig(fieldInfo).getBits());
 
         // Determine build strategy
         final NativeIndexBuildStrategy strategy;
-        if (isFaissSQOneBitField) {
+        if (isFaissSQMosField) {
             strategy = MemOptimizedScalarQuantizedIndexBuildStrategy.getInstance();
         } else if (iterative) {
             strategy = MemOptimizedNativeIndexBuildStrategy.getInstance();
