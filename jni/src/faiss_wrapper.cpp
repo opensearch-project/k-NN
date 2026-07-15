@@ -27,6 +27,7 @@
 #include "commons.h"
 #include "faiss/IndexBinaryIVF.h"
 #include "faiss/IndexBinaryHNSW.h"
+#include "faiss/invlists/InvertedLists.h"
 
 #include <algorithm>
 #include <jni.h>
@@ -80,6 +81,51 @@ void InternalTrainIndex(faiss::Index * index, faiss::idx_t n, const float* x);
 
 // Train a binary index with data provided
 void InternalTrainBinaryIndex(faiss::IndexBinary * index, faiss::idx_t n, const uint8_t* x);
+
+// Validates that a deserialized template index is one of the types that the
+// k-NN train path legitimately produces. For IVF types, additionally validates
+// that inverted lists use only ArrayInvertedLists.
+//
+// Allowed types:
+//   IndexIVFFlat, IndexIVFPQ, IndexIVFScalarQuantizer (all are IndexIVF)
+//   IndexHNSWPQ
+static void validateTemplateIndex(faiss::Index* index) {
+    if (dynamic_cast<faiss::IndexIVF*>(index) != nullptr) {
+        auto* ivf = dynamic_cast<faiss::IndexIVF*>(index);
+        if (ivf->invlists != nullptr &&
+            dynamic_cast<faiss::ArrayInvertedLists*>(ivf->invlists) == nullptr) {
+            throw std::runtime_error(
+                "Template index contains unsupported inverted lists type. "
+                "Only ArrayInvertedLists is allowed.");
+        }
+        return;
+    }
+    if (auto* hnswpq = dynamic_cast<faiss::IndexHNSWPQ*>(index)) {
+        // With HNSWPQ no other storage type is supported
+        if (dynamic_cast<faiss::IndexPQ*>(hnswpq->storage) == nullptr) {
+            throw std::runtime_error(
+                "Template index HNSWPQ has unsupported storage type. "
+                "Only IndexPQ is allowed.");
+        }
+        return;
+    }
+    throw std::runtime_error(
+        "Template index is not a supported index type.");
+}
+
+static void validateTemplateIndex(faiss::IndexBinary* index) {
+    auto* ivf = dynamic_cast<faiss::IndexBinaryIVF*>(index);
+    if (ivf == nullptr) {
+        throw std::runtime_error(
+            "Template index is not a valid IVF index type.");
+    }
+    if (ivf->invlists != nullptr &&
+        dynamic_cast<faiss::ArrayInvertedLists*>(ivf->invlists) == nullptr) {
+        throw std::runtime_error(
+            "Template index contains unsupported inverted lists type. "
+            "Only ArrayInvertedLists is allowed.");
+    }
+}
 
 // Converts the int FilterIds to Faiss ids type array.
 void convertFilterIdsToFaissIdType(const int* filterIds, int filterIdsLength, faiss::idx_t* convertedFilterIds);
@@ -307,9 +353,13 @@ void knn_jni::faiss_wrapper::CreateIndexFromTemplate(knn_jni::JNIUtilInterface *
     }
     jniUtil->ReleaseByteArrayElements(env, templateIndexJ, indexBytesJ, JNI_ABORT);
 
-    // Create faiss index
+    // IO_FLAG_READ_ONLY is an added guard to make sure only on-heap inverted lists
+    // are written since k-NN only supports ArrayInvertedLists. This does not affect
+    // ArrayInvertedLists which has no read_only check and writes to in-memory
+    // std::vectors unconditionally.
     std::unique_ptr<faiss::Index> indexWriter;
-    indexWriter.reset(faiss::read_index(&vectorIoReader, 0));
+    indexWriter.reset(faiss::read_index(&vectorIoReader, faiss::IO_FLAG_READ_ONLY));
+    validateTemplateIndex(indexWriter.get());
 
     auto idVector = jniUtil->ConvertJavaIntArrayToCppIntVector(env, idsJ);
     faiss::IndexIDMap idMap =  faiss::IndexIDMap(indexWriter.get());
@@ -380,9 +430,13 @@ void knn_jni::faiss_wrapper::CreateBinaryIndexFromTemplate(knn_jni::JNIUtilInter
     }
     jniUtil->ReleaseByteArrayElements(env, templateIndexJ, indexBytesJ, JNI_ABORT);
 
-    // Create faiss index
+    // IO_FLAG_READ_ONLY is an added guard to make sure only on-heap inverted lists
+    // are written since k-NN only supports ArrayInvertedLists. This does not affect
+    // ArrayInvertedLists which has no read_only check and writes to in-memory
+    // std::vectors unconditionally.
     std::unique_ptr<faiss::IndexBinary> indexWriter;
-    indexWriter.reset(faiss::read_index_binary(&vectorIoReader, 0));
+    indexWriter.reset(faiss::read_index_binary(&vectorIoReader, faiss::IO_FLAG_READ_ONLY));
+    validateTemplateIndex(indexWriter.get());
 
     auto idVector = jniUtil->ConvertJavaIntArrayToCppIntVector(env, idsJ);
     faiss::IndexBinaryIDMap idMap =  faiss::IndexBinaryIDMap(indexWriter.get());
@@ -453,8 +507,12 @@ void knn_jni::faiss_wrapper::CreateByteIndexFromTemplate(knn_jni::JNIUtilInterfa
     }
     jniUtil->ReleaseByteArrayElements(env, templateIndexJ, indexBytesJ, JNI_ABORT);
 
-    // Create faiss index
-    std::unique_ptr<faiss::Index> indexWriter (faiss::read_index(&vectorIoReader, 0));
+    // IO_FLAG_READ_ONLY is an added guard to make sure only on-heap inverted lists
+    // are written since k-NN only supports ArrayInvertedLists. This does not affect
+    // ArrayInvertedLists which has no read_only check and writes to in-memory
+    // std::vectors unconditionally.
+    std::unique_ptr<faiss::Index> indexWriter (faiss::read_index(&vectorIoReader, faiss::IO_FLAG_READ_ONLY));
+    validateTemplateIndex(indexWriter.get());
 
     auto ids = jniUtil->ConvertJavaIntArrayToCppIntVector(env, idsJ);
     faiss::IndexIDMap idMap =  faiss::IndexIDMap(indexWriter.get());

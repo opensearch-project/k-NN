@@ -230,10 +230,17 @@ public class KNNCodecTestCase extends KNNTestCase {
         SpaceType spaceType = SpaceType.L2;
         int dimension = 3;
 
-        // "Train" a faiss flat index - this really just creates an empty index that does brute force k-NN
-        long vectorsPointer = JNICommons.storeVectorData(0, new float[0][0], 0);
+        // Train a faiss IVF index to use as a model template
+        int numTrainingVectors = 64;
+        float[][] trainingData = new float[numTrainingVectors][dimension];
+        for (int i = 0; i < numTrainingVectors; i++) {
+            for (int j = 0; j < dimension; j++) {
+                trainingData[i][j] = random().nextFloat();
+            }
+        }
+        long vectorsPointer = JNICommons.storeVectorData(0, trainingData, numTrainingVectors * dimension);
         byte[] modelBlob = JNIService.trainIndex(
-            ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, "Flat", SPACE_TYPE, spaceType.getValue()),
+            ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, "IVF4,Flat", SPACE_TYPE, spaceType.getValue()),
             dimension,
             vectorsPointer,
             KNNEngine.FAISS
