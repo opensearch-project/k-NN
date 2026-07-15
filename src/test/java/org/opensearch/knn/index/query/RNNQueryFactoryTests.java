@@ -17,8 +17,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.apache.lucene.search.ByteVectorSimilarityQuery;
-import org.apache.lucene.search.FloatVectorSimilarityQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.index.IndexSettings;
@@ -66,7 +64,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
                 testRadius,
                 DEFAULT_VECTOR_DATA_TYPE_FIELD
             );
-            assertEquals(FloatVectorSimilarityQuery.class, query.getClass());
+            assertEquals(RadialSearchQuery.class, query.getClass());
         }
     }
 
@@ -92,7 +90,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
                 .filter(FILTER_QUERY_BUILDER)
                 .build();
             Query query = RNNQueryFactory.create(createQueryRequest);
-            assertEquals(ByteVectorSimilarityQuery.class, query.getClass());
+            assertEquals(RadialSearchQuery.class, query.getClass());
         }
     }
 
@@ -115,7 +113,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
                 .radius(testRadius)
                 .build();
             Query query = RNNQueryFactory.create(createQueryRequest);
-            assertEquals(FloatVectorSimilarityQuery.class, query.getClass());
+            assertEquals(RadialSearchQuery.class, query.getClass());
         }
     }
 
@@ -244,7 +242,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
         assertEquals(customMaxResultWindow, rescoreQuery.getMaxResultsSize());
     }
 
-    // Verify that Lucene radial search with 32x SQ wraps the inner FloatVectorSimilarityQuery
+    // Verify that Lucene radial search with 32x SQ wraps the inner RadialSearchQuery
     // in RescoreRadialSearchQuery.
     public void testCreate_whenLuceneSQ32x_thenWrapsInRescoreRadialSearchQuery() {
         List<KNNEngine> luceneEngines = Arrays.stream(KNNEngine.values())
@@ -269,7 +267,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
 
             assertTrue(query instanceof RescoreRadialSearchQuery);
             RescoreRadialSearchQuery rescoreQuery = (RescoreRadialSearchQuery) query;
-            assertTrue(rescoreQuery.getInnerQuery() instanceof FloatVectorSimilarityQuery);
+            assertTrue(rescoreQuery.getInnerQuery() instanceof RadialSearchQuery);
             assertEquals(testFieldName, rescoreQuery.getField());
             assertEquals(testRadius, rescoreQuery.getRadius(), 0.0f);
         }
@@ -300,7 +298,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
         assertFalse(query instanceof RescoreRadialSearchQuery);
     }
 
-    // Verify that non-quantized Lucene radial search returns bare FloatVectorSimilarityQuery (no wrapper).
+    // Verify that non-quantized Lucene radial search returns bare RadialSearchQuery (no wrapper).
     public void testCreate_whenLuceneNotQuantized_thenNoWrapper() {
         List<KNNEngine> luceneEngines = Arrays.stream(KNNEngine.values())
             .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
@@ -318,7 +316,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
 
             Query query = RNNQueryFactory.create(createQueryRequest);
 
-            assertTrue(query instanceof FloatVectorSimilarityQuery);
+            assertTrue(query instanceof RadialSearchQuery);
             assertFalse(query instanceof RescoreRadialSearchQuery);
         }
     }

@@ -36,11 +36,7 @@ public class RadiusVectorSimilarityCollectorTests {
         final DocIdSetIterator seedDocs = DocIdSetIterator.all(5);
         final KnnSearchStrategy.Seeded seededStrategy = new KnnSearchStrategy.Seeded(seedDocs, 5, KnnSearchStrategy.Hnsw.DEFAULT);
 
-        final RadiusVectorSimilarityCollector collector = new RadiusVectorSimilarityCollector(
-            SIMILARITY,
-            VISIT_LIMIT,
-            seededStrategy
-        );
+        final RadiusVectorSimilarityCollector collector = new RadiusVectorSimilarityCollector(SIMILARITY, VISIT_LIMIT, seededStrategy);
 
         assertSame(
             "RadiusVectorSimilarityCollector must forward the provided search strategy so seeding takes effect",

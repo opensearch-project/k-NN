@@ -38,7 +38,7 @@ import java.util.Objects;
  *
  * <h2>Solution</h2>
  * <p>This query wraps the inner radial search query ({@link KNNQuery} for Faiss or
- * {@code FloatVectorSimilarityQuery} for Lucene) and adds a second-phase rescoring step.
+ * {@link RadialSearchQuery} for Lucene/MOS) and adds a second-phase rescoring step.
  * The inner query performs the first-pass radial search on quantized vectors with the user's
  * radius. The wrapper then rescores the first-pass candidates using full-precision vectors
  * and filters out any results that fall outside the true radius.</p>
