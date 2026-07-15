@@ -358,8 +358,13 @@ void knn_jni::faiss_wrapper::CreateIndexFromTemplate(knn_jni::JNIUtilInterface *
     // ArrayInvertedLists which has no read_only check and writes to in-memory
     // std::vectors unconditionally.
     std::unique_ptr<faiss::Index> indexWriter;
-    indexWriter.reset(faiss::read_index(&vectorIoReader, faiss::IO_FLAG_READ_ONLY));
-    validateTemplateIndex(indexWriter.get());
+    try {
+        indexWriter.reset(faiss::read_index(&vectorIoReader, faiss::IO_FLAG_READ_ONLY));
+        validateTemplateIndex(indexWriter.get());
+    } catch (...) {
+        delete inputVectors;
+        throw;
+    }
 
     auto idVector = jniUtil->ConvertJavaIntArrayToCppIntVector(env, idsJ);
     faiss::IndexIDMap idMap =  faiss::IndexIDMap(indexWriter.get());
@@ -435,8 +440,13 @@ void knn_jni::faiss_wrapper::CreateBinaryIndexFromTemplate(knn_jni::JNIUtilInter
     // ArrayInvertedLists which has no read_only check and writes to in-memory
     // std::vectors unconditionally.
     std::unique_ptr<faiss::IndexBinary> indexWriter;
-    indexWriter.reset(faiss::read_index_binary(&vectorIoReader, faiss::IO_FLAG_READ_ONLY));
-    validateTemplateIndex(indexWriter.get());
+    try {
+        indexWriter.reset(faiss::read_index_binary(&vectorIoReader, faiss::IO_FLAG_READ_ONLY));
+        validateTemplateIndex(indexWriter.get());
+    } catch (...) {
+        delete inputVectors;
+        throw;
+    }
 
     auto idVector = jniUtil->ConvertJavaIntArrayToCppIntVector(env, idsJ);
     faiss::IndexBinaryIDMap idMap =  faiss::IndexBinaryIDMap(indexWriter.get());
@@ -511,8 +521,14 @@ void knn_jni::faiss_wrapper::CreateByteIndexFromTemplate(knn_jni::JNIUtilInterfa
     // are written since k-NN only supports ArrayInvertedLists. This does not affect
     // ArrayInvertedLists which has no read_only check and writes to in-memory
     // std::vectors unconditionally.
-    std::unique_ptr<faiss::Index> indexWriter (faiss::read_index(&vectorIoReader, faiss::IO_FLAG_READ_ONLY));
-    validateTemplateIndex(indexWriter.get());
+    std::unique_ptr<faiss::Index> indexWriter;
+    try {
+        indexWriter.reset(faiss::read_index(&vectorIoReader, faiss::IO_FLAG_READ_ONLY));
+        validateTemplateIndex(indexWriter.get());
+    } catch (...) {
+        delete inputVectors;
+        throw;
+    }
 
     auto ids = jniUtil->ConvertJavaIntArrayToCppIntVector(env, idsJ);
     faiss::IndexIDMap idMap =  faiss::IndexIDMap(indexWriter.get());
@@ -522,7 +538,6 @@ void knn_jni::faiss_wrapper::CreateByteIndexFromTemplate(knn_jni::JNIUtilInterfa
     int batchSize = 1000;
     std::vector <float> inputFloatVectors(batchSize * dim);
     std::vector <int64_t> floatVectorsIds(batchSize);
-    int id = 0;
     auto iter = inputVectors->begin();
 
     for (int id = 0; id < numVectors; id += batchSize) {
