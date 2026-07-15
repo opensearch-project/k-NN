@@ -169,12 +169,19 @@ public class FaissSQMappingIT extends KNNRestTestCase {
         validateMappingFails(mapping, "incompatible");
     }
 
-    // --- invalid bits values ---
+    // --- multi-bit SQ (bits ∈ {2, 4}) ---
 
-    public void testSQEncoder_whenBits2_thenFail() throws Exception {
+    public void testSQEncoder_whenBits2_thenSucceed() throws Exception {
         String mapping = buildSQMapping(2, null, null, null, null);
-        validateMappingFails(mapping, "Unsupported bits value");
+        validateMappingOnly(INDEX_NAME, mapping, 2);
     }
+
+    public void testSQEncoder_whenBits4_thenSucceed() throws Exception {
+        String mapping = buildSQMapping(4, null, null, null, null);
+        validateMappingOnly(INDEX_NAME, mapping, 4);
+    }
+
+    // --- invalid bits values ---
 
     public void testSQEncoder_whenBits8_thenFail() throws Exception {
         String mapping = buildSQMapping(8, null, null, null, null);

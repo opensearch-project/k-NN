@@ -154,7 +154,7 @@ public class MemoryOptimizedSearchSupportSpec {
     /**
      * Determines whether memory-optimized search must always be used for the given KNN method context,
      * regardless of the cluster-level memory-optimized search setting. Currently, this returns {@code true}
-     * only when the encoder is sq with bits=1 (1-bit quantization), as these indices always require
+     * when the encoder is sq with bits in {1, 2, 4} (the multi-bit MOS path), as these indices always require
      * memory-optimized search for correctness.
      *
      * @param knnMethodContext Optional method context containing engine, space type, and encoder information.
@@ -162,6 +162,6 @@ public class MemoryOptimizedSearchSupportSpec {
      */
     public static boolean isAlwaysUseMemoryOptimizedSearch(final Optional<KNNMethodContext> knnMethodContext) {
         return knnMethodContext.isPresent()
-            && FaissSQEncoder.isSQOneBit(knnMethodContext.get().getMethodComponentContext().getParameters());
+            && FaissSQEncoder.isSQMultiBit(knnMethodContext.get().getMethodComponentContext().getParameters());
     }
 }
