@@ -240,7 +240,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         }
         long vectorsPointer = JNICommons.storeVectorData(0, trainingData, numTrainingVectors * dimension);
         byte[] modelBlob = JNIService.trainIndex(
-            ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, "IVF4,Flat", SPACE_TYPE, spaceType.getValue()),
+            ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, "IVF1,Flat", SPACE_TYPE, spaceType.getValue()),
             dimension,
             vectorsPointer,
             KNNEngine.FAISS
