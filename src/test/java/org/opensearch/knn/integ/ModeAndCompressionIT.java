@@ -584,6 +584,56 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
     }
 
     /**
+     * Regression test for merging a vectorless segment with a FAISS 1-bit scalar-quantized segment.
+     * First force-merges non-vector documents into one segment, then adds vector documents in a
+     * second segment and force-merges both segments before searching.
+     */
+    @SneakyThrows
+    public void testForceMergeWithVectorlessSegment_whenFaissSQ_thenSucceed() {
+        final int vectorDocCount = 10;
+        final int k = 5;
+        final String indexName = INDEX_NAME + "_sq_vectorless_force_merge";
+
+        try (
+            XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(FIELD_NAME)
+                .field("type", "knn_vector")
+                .field("dimension", DIMENSION)
+                .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x32.getName())
+                .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+                .endObject()
+                .startObject(FIELD_NAME_NON_KNN)
+                .field("type", "text")
+                .endObject()
+                .endObject()
+                .endObject()
+        ) {
+            createKnnIndex(indexName, buildKNNIndexSettings(0), builder.toString());
+
+            for (int docId = vectorDocCount; docId < vectorDocCount * 2; docId++) {
+                addNonKNNDoc(indexName, String.valueOf(docId), FIELD_NAME_NON_KNN, "Non-vector document " + docId);
+            }
+            forceMergeKnnIndex(indexName, 1);
+            assertEquals(vectorDocCount, getDocCount(indexName));
+            assertEquals(1, getTotalSegmentCount(indexName));
+
+            float[][] vectors = new float[vectorDocCount][DIMENSION];
+            for (int docId = 0; docId < vectorDocCount; docId++) {
+                Arrays.fill(vectors[docId], (float) docId);
+            }
+            bulkAddKnnDocs(indexName, FIELD_NAME, vectors, vectorDocCount);
+            assertEquals(vectorDocCount * 2, getDocCount(indexName));
+            assertEquals(2, getTotalSegmentCount(indexName));
+
+            forceMergeKnnIndex(indexName, 1);
+            assertEquals(1, getTotalSegmentCount(indexName));
+            validateKNNSearch(indexName, FIELD_NAME, DIMENSION, vectorDocCount, k);
+        }
+    }
+
+    /**
      * Test segment with knn_vector field mapping but no docs containing the vector field.
      * Creates a doc with vector field, then updates it to remove the vector field.
      * Validates k-NN search functionality works without errors for ON_DISK mode with compression.

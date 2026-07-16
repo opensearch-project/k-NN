@@ -37,10 +37,10 @@ public class EmptyQuantizedByteVectorValuesTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testVectorValue_thenReturnsEmptyByteArray() {
+    public void testVectorValue_thenThrowsUnsupportedOperationException() {
         EmptyQuantizedByteVectorValues values = new EmptyQuantizedByteVectorValues(mock(FloatVectorValues.class));
 
-        assertEquals(0, values.vectorValue(0).length);
+        expectThrows(UnsupportedOperationException.class, () -> values.vectorValue(0));
     }
 
     public void testIterator_thenDelegatesToFloatVectorValues() {

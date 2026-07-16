@@ -5,13 +5,11 @@
 
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
-import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
-import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
 
 import java.io.IOException;
 
@@ -39,7 +37,6 @@ import java.io.IOException;
  *
  * <p>All other operations are delegated directly to the underlying reader.
  */
-@Log4j2
 public class Faiss1040ScalarQuantizedFlatVectorsReader extends FlatVectorsReader {
     private final FlatVectorsReader delegateFlatVectorsReader;
 
@@ -70,8 +67,8 @@ public class Faiss1040ScalarQuantizedFlatVectorsReader extends FlatVectorsReader
     /**
      * Returns {@link FloatVectorValues} wrapped with {@link ScalarQuantizedFloatVectorValues}
      * so that the result implements {@link org.apache.lucene.codecs.lucene95.HasIndexSlice}.
-     * Empty values that do not expose Lucene's private quantized backing are wrapped with
-     * {@link EmptyQuantizedByteVectorValues} to preserve the same return type.
+     * Empty values are wrapped with {@link EmptyQuantizedByteVectorValues} without attempting
+     * to extract Lucene's private quantized backing.
      */
     @Override
     public FloatVectorValues getFloatVectorValues(String field) throws IOException {
@@ -80,22 +77,14 @@ public class Faiss1040ScalarQuantizedFlatVectorsReader extends FlatVectorsReader
             return null;
         }
 
-        final QuantizedByteVectorValues quantizedValues;
-        try {
-            quantizedValues = KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(floatVectorValues);
-        } catch (IOException e) {
-            if (e.getCause() instanceof NoSuchFieldException && floatVectorValues.size() == 0) {
-                log.debug(
-                    "Received empty vector values [{}] without quantized backing for field [{}]",
-                    floatVectorValues.getClass().getSimpleName(),
-                    field
-                );
-                return new ScalarQuantizedFloatVectorValues(floatVectorValues, new EmptyQuantizedByteVectorValues(floatVectorValues));
-            }
-            throw e;
+        if (floatVectorValues.size() == 0) {
+            return new ScalarQuantizedFloatVectorValues(floatVectorValues, new EmptyQuantizedByteVectorValues(floatVectorValues));
         }
 
-        return new ScalarQuantizedFloatVectorValues(floatVectorValues, quantizedValues);
+        return new ScalarQuantizedFloatVectorValues(
+            floatVectorValues,
+            KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(floatVectorValues)
+        );
     }
 
     @Override

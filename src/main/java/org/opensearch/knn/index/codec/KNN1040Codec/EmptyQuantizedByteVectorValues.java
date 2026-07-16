@@ -18,14 +18,13 @@ import java.io.IOException;
  * An empty implementation of {@link QuantizedByteVectorValues} used when Lucene returns empty
  * vector values that do not expose the {@code quantizedVectorValues} field.
  *
- * <p>This class delegates size and iteration operations to the underlying {@link FloatVectorValues}
- * while returning empty values for quantization-specific operations. It maintains the
+ * <p>This class delegates size and iteration operations to the underlying {@link FloatVectorValues},
+ * rejects vector access, and returns empty defaults for quantization-specific operations. It maintains the
  * {@link ScalarQuantizedFloatVectorValues} return type expected by callers without fabricating
  * quantized data for a segment that contains no vectors.
  */
 class EmptyQuantizedByteVectorValues extends QuantizedByteVectorValues {
     private final FloatVectorValues floatVectorValues;
-    private final byte[] emptyVector = new byte[0];
 
     EmptyQuantizedByteVectorValues(final FloatVectorValues floatVectorValues) {
         this.floatVectorValues = floatVectorValues;
@@ -43,7 +42,7 @@ class EmptyQuantizedByteVectorValues extends QuantizedByteVectorValues {
 
     @Override
     public byte[] vectorValue(int ord) throws IOException {
-        return emptyVector;
+        throw new UnsupportedOperationException();
     }
 
     @Override
