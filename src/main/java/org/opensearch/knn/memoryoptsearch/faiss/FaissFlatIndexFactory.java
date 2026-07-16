@@ -29,12 +29,12 @@ public class FaissFlatIndexFactory {
      * indices where flat storage was skipped (IO_FLAG_SKIP_STORAGE). Returns {@code null} if the field
      * does not require externally-provided flat storage.
      *
-     * <p>Currently supports SQ 1-bit. To add support for other flat storage types (e.g., fp32 flat),
-     * add new conditions here.
+     * <p>Supports the SQ memory-optimized-search path for bits in {1, 2, 4} — for all of these the
+     * .faiss file holds only the HNSW graph and the quantized codes live in Lucene's flat .veq file.
+     * To add support for other flat storage types (e.g., fp32 flat), add new conditions here.
      */
     static FaissIndex createFlatIndex(final FieldInfo fieldInfo, final FlatVectorsReader flatVectorsReader) {
-        if (FieldInfoExtractor.isSQField(fieldInfo)
-            && FieldInfoExtractor.extractSQConfig(fieldInfo).getBits() == FaissSQEncoder.Bits.ONE.getValue()) {
+        if (FieldInfoExtractor.isSQField(fieldInfo) && FaissSQEncoder.isMosBits(FieldInfoExtractor.extractSQConfig(fieldInfo).getBits())) {
             return new FaissScalarQuantizedFlatIndex(flatVectorsReader, fieldInfo.getName());
         }
         return null;

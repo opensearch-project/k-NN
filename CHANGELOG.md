@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Parameterize integration test framework for compression level [#3416](https://github.com/opensearch-project/k-NN/pull/3416)
 * Accept SQ 2-bit and 4-bit quantization at the mapping and codec layers [#3429](https://github.com/opensearch-project/k-NN/pull/3429)
 * Build SQ B-bit HNSW graph with multi-bit symmetric distance for SQ bits ∈ {1, 2, 4} [#3431](https://github.com/opensearch-project/k-NN/pull/3431)
+* Wire multi-bit SQ search through Lucene scorer for bits ∈ {2, 4} [#3432](https://github.com/opensearch-project/k-NN/pull/3432)
 
 ### Maintenance
 * Upgrade Lucene to 10.5.0 [#3411](https://github.com/opensearch-project/k-NN/pull/3411)
