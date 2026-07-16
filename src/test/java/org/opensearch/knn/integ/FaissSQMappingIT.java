@@ -72,6 +72,20 @@ public class FaissSQMappingIT extends KNNRestTestCase {
         deleteKNNIndex(indexName);
     }
 
+    /**
+     * Validates a multi-bit SQ ({@code bits ∈ {2, 4}}) index end-to-end: mapping is applied,
+     * documents index without error, and search returns the requested top-k. Correctness of
+     * ranking is a recall concern owned by benchmark tests; this smoke test only asserts the
+     * search path does not crash and returns k hits.
+     */
+    private void validateMultiBitIndex(String indexName, String mapping, Integer expectedBits) throws Exception {
+        createKnnIndex(indexName, mapping);
+        validateMapping(indexName, expectedBits, null, null);
+        addKNNDocs(indexName, FIELD_NAME, TEST_DIMENSION, 0, NUM_DOCS);
+        validateKNNSearch(indexName, FIELD_NAME, TEST_DIMENSION, NUM_DOCS, K);
+        deleteKNNIndex(indexName);
+    }
+
     @SuppressWarnings("unchecked")
     private void validateMapping(String indexName, Integer expectedBits, String expectedType, Boolean expectedClip) throws Exception {
         Map<String, Object> actualMapping = getIndexMappingAsMap(indexName);
