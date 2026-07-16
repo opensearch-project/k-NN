@@ -207,7 +207,8 @@ jlong knn_jni::faiss_wrapper::InitFaissSQIndex(knn_jni::JNIUtilInterface *jniUti
                                                 jobject parametersJ,
                                                 BinaryIndexService *indexService,
                                                 jfloat centroidDp,
-                                                jint quantizedVecBytes) {
+                                                jint quantizedVecBytes,
+                                                jint docBits) {
     if (dimJ <= 0) {
         throw std::runtime_error("Vectors dimensions cannot be less than or equal to 0");
     }
@@ -253,7 +254,8 @@ jlong knn_jni::faiss_wrapper::InitFaissSQIndex(knn_jni::JNIUtilInterface *jniUti
                                            threadCount,
                                            std::move(subParametersCpp),
                                            centroidDp,
-                                           quantizedVecBytes);
+                                           quantizedVecBytes,
+                                           docBits);
 }
 
 void knn_jni::faiss_wrapper::InsertToIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ, jlong vectorsAddressJ, jint dimJ,
