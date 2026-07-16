@@ -54,6 +54,40 @@ public class KNNVectorSerializerTests extends KNNTestCase {
         assertArrayEquals(vector, deserializedVector, 0.1f);
     }
 
+    public void testByteToFloatArray_whenNullBytesRef_thenThrows() {
+        final KNNVectorSerializer vectorSerializer = KNNVectorAsCollectionOfFloatsSerializer.INSTANCE;
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> vectorSerializer.byteToFloatArray(null));
+        assertEquals("Byte stream cannot be deserialized to array of floats", exception.getMessage());
+    }
+
+    public void testByteToFloatArray_whenInvalidLength_thenThrows() {
+        final KNNVectorSerializer vectorSerializer = KNNVectorAsCollectionOfFloatsSerializer.INSTANCE;
+        BytesRef invalidBytesRef = new BytesRef(new byte[] { 0x01, 0x02, 0x03 });
+
+        IllegalArgumentException exception = assertThrows(
+            IllegalArgumentException.class,
+            () -> vectorSerializer.byteToFloatArray(invalidBytesRef)
+        );
+        assertEquals("Byte stream cannot be deserialized to array of floats", exception.getMessage());
+    }
+
+    public void testFloatToByteArray_whenEmptyVector_thenReturnsEmptyArray() {
+        final KNNVectorSerializer vectorSerializer = KNNVectorAsCollectionOfFloatsSerializer.INSTANCE;
+        byte[] result = vectorSerializer.floatToByteArray(new float[] {});
+
+        assertNotNull(result);
+        assertEquals(0, result.length);
+    }
+
+    public void testByteToFloatArray_whenEmptyBytesRef_thenReturnsEmptyArray() {
+        final KNNVectorSerializer vectorSerializer = KNNVectorAsCollectionOfFloatsSerializer.INSTANCE;
+        float[] result = vectorSerializer.byteToFloatArray(new BytesRef(new byte[] {}));
+
+        assertNotNull(result);
+        assertEquals(0, result.length);
+    }
+
     private float[] getArrayOfRandomFloats(int arrayLength) {
         float[] vector = new float[arrayLength];
         IntStream.range(0, arrayLength).forEach(index -> vector[index] = random.nextFloat());
