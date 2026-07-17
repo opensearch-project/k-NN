@@ -19,6 +19,7 @@ import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
+import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
@@ -195,12 +196,12 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
             this.fieldType.putAttribute(DIMENSION, String.valueOf(knnMappingConfig.getDimension()));
             this.fieldType.putAttribute(SPACE_TYPE, resolvedKnnMethodContext.getSpaceType().getValue());
 
-            if (isSQOneBitEncoder(resolvedKnnMethodContext)) {
-                // 1-bit quantization has its own per-field format that handles quantization internally, so we
-                // don't set qframe_config (which drives the k-NN quantization framework). Instead
-                // we store a separate sq config attribute as a quick way for readers to
-                // identify 1-bit quantized fields without parsing the full PARAMETERS JSON.
-                this.fieldType.putAttribute(SQ_CONFIG, getSQConfigValue(resolvedKnnMethodContext));
+            ResolvedIndexSpec spec = knnLibraryIndexingContext.getResolvedSpec();
+            // 1-bit quantization has its own per-field format that handles quantization internally,
+            // so we set sq_config instead of qframe_config
+            if (spec.isSQOneBit()) {
+                SQConfig sqConfig = SQConfig.builder().bits(spec.getQuantizationBits().getValue()).build();
+                this.fieldType.putAttribute(SQ_CONFIG, SQConfigParser.toCsv(sqConfig));
             } else {
                 // Conditionally add quantization config
                 if (quantizationConfig != null && quantizationConfig != QuantizationConfig.EMPTY) {
@@ -336,7 +337,7 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
         MethodComponentContext encoderCtx = (MethodComponentContext) methodContext.getMethodComponentContext()
             .getParameters()
             .get(METHOD_ENCODER_PARAMETER);
-        Object bits = encoderCtx.getParameters().getOrDefault(SQ_BITS, FaissSQEncoder.Bits.ONE.getValue());
+        Object bits = encoderCtx.getParameters().getOrDefault(SQ_BITS, Encoder.QuantizationBits.ONE.getValue());
         SQConfig config = SQConfig.builder().bits((Integer) bits).build();
         return SQConfigParser.toCsv(config);
     }

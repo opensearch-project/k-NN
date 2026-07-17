@@ -6,8 +6,6 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableSet;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import org.opensearch.Version;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.Encoder;
@@ -21,14 +19,12 @@ import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
 import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 
-import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_FLAT_DESCRIPTION;
@@ -62,28 +58,7 @@ import static org.opensearch.knn.common.KNNConstants.NAME;
 public class FaissSQEncoder implements Encoder {
 
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
-    private static final Set<Integer> VALID_BITS = Arrays.stream(Bits.values()).map(Bits::getValue).collect(Collectors.toUnmodifiableSet());
-
-    /**
-     * Supported bit widths for SQ quantization. Each maps to a specific quantization strategy
-     * and compression level.
-     */
-    @Getter
-    @RequiredArgsConstructor
-    public enum Bits {
-        ONE(1, CompressionLevel.x32),
-        SIXTEEN(16, CompressionLevel.x2);
-
-        private final int value;
-        private final CompressionLevel compressionLevel;
-
-        public static Bits fromValue(int value) {
-            for (Bits b : values()) {
-                if (b.value == value) return b;
-            }
-            throw new IllegalArgumentException(String.format(Locale.ROOT, "Unsupported bits value: %d", value));
-        }
-    }
+    private static final Set<Integer> VALID_BITS = Set.of(QuantizationBits.ONE.getValue(), QuantizationBits.SIXTEEN.getValue());
 
     private final static MethodComponent METHOD_COMPONENT = MethodComponent.Builder.builder(ENCODER_SQ)
         .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
@@ -104,7 +79,7 @@ public class FaissSQEncoder implements Encoder {
             Object bitsObj = params.get(SQ_BITS);
 
             // bits=1 path: 1-bit quantization — use flat description, Faiss only builds the HNSW graph
-            if (bitsObj instanceof Integer && (Integer) bitsObj == Bits.ONE.getValue()) {
+            if (bitsObj instanceof Integer && (Integer) bitsObj == QuantizationBits.ONE.getValue()) {
                 int bits = (Integer) bitsObj;
                 return KNNLibraryIndexingContextImpl.builder().parameters(new HashMap<>() {
                     {
@@ -135,7 +110,7 @@ public class FaissSQEncoder implements Encoder {
         if (methodComponentContext != null && methodComponentContext.getParameters().containsKey(SQ_BITS)) {
             Object bitsObj = methodComponentContext.getParameters().get(SQ_BITS);
             if (bitsObj instanceof Integer) {
-                return Bits.fromValue((Integer) bitsObj).getCompressionLevel();
+                return QuantizationBits.fromValue((Integer) bitsObj).getCompressionLevel();
             }
         }
         // Legacy path — type=fp16 is x2
@@ -187,11 +162,18 @@ public class FaissSQEncoder implements Encoder {
                 .build();
         }
 
+        // Reject invalid bits values with original error message (BWC)
+        if (bitsObj instanceof Integer && !VALID_BITS.contains((Integer) bitsObj)) {
+            return builder.valid(false)
+                .errorMessage(String.format(Locale.ROOT, "Unsupported bits value: %d. Supported values: %s", (Integer) bitsObj, VALID_BITS))
+                .build();
+        }
+
         if (bitsObj instanceof Integer) {
             int bits = (Integer) bitsObj;
 
             // type and clip is only applicable for fp16 (bits=16)
-            if (Bits.SIXTEEN.getValue() != bits) {
+            if (QuantizationBits.SIXTEEN.getValue() != bits) {
                 if (hasType) {
                     return builder.valid(false)
                         .errorMessage(
@@ -229,7 +211,7 @@ public class FaissSQEncoder implements Encoder {
             // Validate compression level compatibility if explicitly set
             CompressionLevel configuredCompression = configContext.getCompressionLevel();
             if (CompressionLevel.isConfigured(configuredCompression)) {
-                CompressionLevel expectedCompression = Bits.fromValue(bits).getCompressionLevel();
+                CompressionLevel expectedCompression = QuantizationBits.fromValue(bits).getCompressionLevel();
                 if (configuredCompression != expectedCompression) {
                     return builder.valid(false)
                         .errorMessage(
@@ -273,7 +255,7 @@ public class FaissSQEncoder implements Encoder {
             return false;
         }
         Object bits = encoderCtx.getParameters().get(SQ_BITS);
-        return bits instanceof Integer && (Integer) bits == Bits.ONE.getValue();
+        return bits instanceof Integer && (Integer) bits == QuantizationBits.ONE.getValue();
     }
 
     @Override

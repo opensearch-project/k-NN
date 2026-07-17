@@ -17,6 +17,10 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.common.exception.TerminalIOException;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.Encoder;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
 import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
 import org.opensearch.repositories.RepositoriesService;
@@ -181,12 +185,21 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
     }
 
     public void testBuildRequest() throws IOException {
+        ResolvedIndexSpec resolvedSpec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName("hnsw")
+            .encoderType(Encoder.EncoderType.SQ)
+            .compressionLevel(CompressionLevel.NOT_CONFIGURED)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(2)
+            .build();
         RemoteBuildRequest request = RemoteIndexBuildStrategy.buildRemoteBuildRequest(
             createTestIndexSettings(),
             buildIndexParams,
             createTestRepositoryMetadata(),
             MOCK_FULL_PATH,
-            getMockParameterMap()
+            getMockParameterMap(),
+            resolvedSpec
         );
         assertEquals(S3, request.getRepositoryType());
         assertEquals(TEST_BUCKET, request.getContainerName());
@@ -201,24 +214,44 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
     }
 
     public void testBuildRequestSQOneBit() throws IOException {
+        ResolvedIndexSpec resolvedSpec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName("hnsw")
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.ONE)
+            .compressionLevel(CompressionLevel.x32)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(2)
+            .build();
         RemoteBuildRequest request = RemoteIndexBuildStrategy.buildRemoteBuildRequest(
             createTestIndexSettings(),
             buildIndexParams,
             createTestRepositoryMetadata(),
             MOCK_FULL_PATH,
-            getMockSQOneBitParameterMap()
+            getMockSQOneBitParameterMap(),
+            resolvedSpec
         );
         assertEquals(VectorDataType.FLOAT.getValue(), request.getVectorDataType());
         assertTrue(request.isSkipStoredVectors());
     }
 
     public void testBuildRequestFP16() throws IOException {
+        ResolvedIndexSpec resolvedSpec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName("hnsw")
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.SIXTEEN)
+            .compressionLevel(CompressionLevel.x2)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(2)
+            .build();
         RemoteBuildRequest request = RemoteIndexBuildStrategy.buildRemoteBuildRequest(
             createTestIndexSettings(),
             buildIndexParams,
             createTestRepositoryMetadata(),
             MOCK_FULL_PATH,
-            getMockFP16ParameterMap()
+            getMockFP16ParameterMap(),
+            resolvedSpec
         );
         assertEquals("half_float", request.getVectorDataType());
         assertFalse(request.isSkipStoredVectors());

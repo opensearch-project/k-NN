@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.index.mapper;
 
-import com.google.common.annotations.VisibleForTesting;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.opensearch.Version;
@@ -91,7 +90,7 @@ public enum CompressionLevel {
     }
 
     /**
-     * Returns the appropriate {@link RescoreContext} based on the given {@code mode} and {@code dimension}.
+     * Returns the appropriate {@link RescoreContext} based on the given parameters.
      *
      * <p>If the {@code mode} is present in the valid {@code modesForRescore} set, the method checks the value of
      * {@code dimension}:
@@ -103,33 +102,14 @@ public enum CompressionLevel {
      * </ul>
      * If the {@code mode} is not valid, the method returns {@code null}.
      *
-     * @param mode      The {@link Mode} for which to retrieve the {@link RescoreContext}.
-     * @param dimension The dimensional value that determines the {@link RescoreContext} behavior.
-     * @return A {@link RescoreContext} with an oversample factor of 5.0f if {@code dimension} is less than
-     * or equal to 1000, the default {@link RescoreContext} if greater, or {@code null} if the mode
-     * is invalid.
+     * @param mode         The {@link Mode} for which to retrieve the {@link RescoreContext}.
+     * @param dimension    The dimensional value that determines the {@link RescoreContext} behavior.
+     * @param version      The index created version.
+     * @param isFlatMethod Whether the method is flat.
+     * @param isSQOneBit   Whether the encoder is sq with bits=1.
+     * @param engine       The KNN engine; may be null.
+     * @return A {@link RescoreContext} or {@code null} if the mode is not valid for rescoring.
      */
-    public RescoreContext getDefaultRescoreContext(Mode mode, int dimension, Version version) {
-        return getDefaultRescoreContext(mode, dimension, version, false, false, null);
-    }
-
-    public RescoreContext getDefaultRescoreContext(Mode mode, int dimension, Version version, boolean isFlatMethod) {
-        return getDefaultRescoreContext(mode, dimension, version, isFlatMethod, false, null);
-    }
-
-    public RescoreContext getDefaultRescoreContext(Mode mode, int dimension, Version version, boolean isFlatMethod, KNNEngine engine) {
-        return getDefaultRescoreContext(mode, dimension, version, isFlatMethod, false, engine);
-    }
-
-    public RescoreContext getDefaultRescoreContext(Mode mode, int dimension, Version version, boolean isFlatMethod, boolean isSQOneBit) {
-        return getDefaultRescoreContext(mode, dimension, version, isFlatMethod, isSQOneBit, null);
-    }
-
-    @VisibleForTesting
-    RescoreContext getDefaultRescoreContext(Mode mode, int dimension) {
-        return getDefaultRescoreContext(mode, dimension, Version.CURRENT, false, false, null);
-    }
-
     public RescoreContext getDefaultRescoreContext(
         Mode mode,
         int dimension,

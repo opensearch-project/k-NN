@@ -116,16 +116,22 @@ public class KNNVectorFieldType extends MappedFieldType {
         ResolvedIndexSpec resolvedSpec
     ) {
         this(name, metadata, vectorDataType, annConfig);
-        this.alwaysUseMemoryOptimizedSearch = MemoryOptimizedSearchSupportSpec.isAlwaysUseMemoryOptimizedSearch(
-            knnMappingConfig.getKnnMethodContext()
-        );
-        this.memoryOptimizedSearchAvailable = MemoryOptimizedSearchSupportSpec.isSupportedFieldType(
-            knnMappingConfig.getKnnMethodContext(),
-            annConfig.getQuantizationConfig(),
-            annConfig.getModelId()
-        );
-        this.indexCreatedVersion = indexCreatedVersion;
         this.resolvedSpec = resolvedSpec;
+        if (resolvedSpec != null) {
+            this.alwaysUseMemoryOptimizedSearch = resolvedSpec.alwaysUseMemoryOptimizedSearch();
+            this.memoryOptimizedSearchAvailable = resolvedSpec.isMemoryOptimizedEligible();
+        } else {
+            // TODO: Remove fallback once all field mapper paths supply a ResolvedIndexSpec (model-based, flat)
+            this.alwaysUseMemoryOptimizedSearch = MemoryOptimizedSearchSupportSpec.isAlwaysUseMemoryOptimizedSearch(
+                annConfig.getKnnMethodContext()
+            );
+            this.memoryOptimizedSearchAvailable = MemoryOptimizedSearchSupportSpec.isSupportedFieldType(
+                annConfig.getKnnMethodContext(),
+                annConfig.getQuantizationConfig(),
+                annConfig.getModelId()
+            );
+        }
+        this.indexCreatedVersion = indexCreatedVersion;
     }
 
     /**
@@ -204,6 +210,10 @@ public class KNNVectorFieldType extends MappedFieldType {
         if (userProvidedContext != null) {
             return userProvidedContext;
         }
+        if (resolvedSpec != null) {
+            return resolvedSpec.getRescoreContext();
+        }
+        // TODO: Remove fallback once all field mapper paths supply a ResolvedIndexSpec
         final KNNMappingConfig knnMappingConfig = getKnnMappingConfig();
         final Optional<KNNMethodContext> methodContext = knnMappingConfig.getKnnMethodContext();
         final boolean isFlatMethod = methodContext.isPresent()

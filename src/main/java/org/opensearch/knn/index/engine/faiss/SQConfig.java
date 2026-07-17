@@ -8,6 +8,7 @@ package org.opensearch.knn.index.engine.faiss;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import org.opensearch.knn.index.engine.Encoder;
 
 /**
  * Configuration for the SQ (Scalar Quantization) encoder stored as a field attribute.
@@ -17,7 +18,7 @@ import lombok.Getter;
 @EqualsAndHashCode
 public class SQConfig {
     @Builder.Default
-    private int bits = FaissSQEncoder.Bits.ONE.getValue();
+    private int bits = Encoder.QuantizationBits.ONE.getValue();
 
     public static final SQConfig EMPTY = SQConfig.builder().bits(0).build();
 }

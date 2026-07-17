@@ -119,7 +119,7 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             // On 3.6.0+, also set bits for consistency with the new bits-based validation
             if (knnMethodConfigContext.getVersionCreated() != null
                 && knnMethodConfigContext.getVersionCreated().onOrAfter(Version.V_3_6_0)) {
-                encoderComponentContext.getParameters().put(SQ_BITS, FaissSQEncoder.Bits.SIXTEEN.getValue());
+                encoderComponentContext.getParameters().put(SQ_BITS, Encoder.QuantizationBits.SIXTEEN.getValue());
             }
         }
 
@@ -139,7 +139,7 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             if (shouldUseSQOneBitForX32(knnMethodConfigContext, encoderMap)) {
                 encoderComponentContext = new MethodComponentContext(ENCODER_SQ, new HashMap<>());
                 encoder = encoderMap.get(ENCODER_SQ);
-                encoderComponentContext.getParameters().put(SQ_BITS, FaissSQEncoder.Bits.ONE.getValue());
+                encoderComponentContext.getParameters().put(SQ_BITS, Encoder.QuantizationBits.ONE.getValue());
             } else {
                 encoderComponentContext = new MethodComponentContext(QFrameBitEncoder.NAME, new HashMap<>());
                 encoder = encoderMap.get(QFrameBitEncoder.NAME);
@@ -157,7 +157,7 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         // When auto-resolved to bits=1, remove the type and clip defaults that were injected —
         // the 1-bit quantization path doesn't use them, and validateEncoderConfig would reject them.
         if (encoderComponentContext.getParameters().get(SQ_BITS) instanceof Integer bitsVal
-            && bitsVal == FaissSQEncoder.Bits.ONE.getValue()) {
+            && bitsVal == Encoder.QuantizationBits.ONE.getValue()) {
             encoderComponentContext.getParameters().remove(FAISS_SQ_TYPE);
             encoderComponentContext.getParameters().remove(FAISS_SQ_CLIP);
         }
