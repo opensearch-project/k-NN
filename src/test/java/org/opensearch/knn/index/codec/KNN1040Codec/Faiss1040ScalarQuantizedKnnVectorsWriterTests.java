@@ -27,6 +27,7 @@ import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
+import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.util.IOFunction;
 import org.apache.lucene.util.InfoStream;
@@ -452,7 +453,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
         final Faiss1040ScalarQuantizedKnnVectorsFormat format = new Faiss1040ScalarQuantizedKnnVectorsFormat();
         final Lucene104ScalarQuantizedVectorsFormat luceneSqFormat = new Lucene104ScalarQuantizedVectorsFormat(SINGLE_BIT_QUERY_NIBBLE);
 
-        try (org.apache.lucene.store.Directory directory = newDirectory()) {
+        try (Directory directory = newDirectory()) {
             final SegmentInfo vectorSegmentInfo = createSegmentInfo(directory, "_0", vectorsPerSegment);
             final SegmentWriteState vectorWriteState = new SegmentWriteState(
                 InfoStream.NO_OUTPUT,
