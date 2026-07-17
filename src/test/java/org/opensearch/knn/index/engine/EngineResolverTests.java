@@ -324,6 +324,38 @@ public class EngineResolverTests extends KNNTestCase {
         );
     }
 
+    public void testResolveEngine_whenModeProvidedOnV370_thenStillResolvesCorrectly() {
+        // On V_3_7_0+ mode is deprecated but still honored — verify correct resolution
+        assertEquals(
+            KNNEngine.FAISS,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().mode(Mode.ON_DISK).compressionLevel(CompressionLevel.x32).build(),
+                null,
+                null,
+                false,
+                Version.V_3_7_0
+            )
+        );
+        assertEquals(
+            KNNEngine.FAISS,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().mode(Mode.IN_MEMORY).compressionLevel(CompressionLevel.x1).build(),
+                null,
+                null,
+                false,
+                Version.V_3_7_0
+            )
+        );
+    }
+
+    public void testResolveEngine_whenOnlyModeProvidedOnV370_thenResolvesLegacyPath() {
+        // Mode-only (no compression) still resolves via legacy path
+        assertEquals(
+            KNNEngine.FAISS,
+            ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().mode(Mode.ON_DISK).build(), null, null, false, Version.V_3_7_0)
+        );
+    }
+
     public void testValidateTopLevelEngine() throws IOException {
         // only top-level defined; set to faiss with compression 4x
         expectThrows(

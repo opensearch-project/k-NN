@@ -17,6 +17,7 @@ import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.Locale;
 
+import static org.opensearch.knn.common.KNNConstants.KNN_DEFAULT_COMPRESSION_FLIP_VERSION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 import static org.opensearch.knn.index.engine.KNNEngine.DEPRECATED_ENGINES;
 
@@ -104,8 +105,18 @@ public final class EngineResolver {
         Mode mode = knnMethodConfigContext.getMode();
         CompressionLevel compressionLevel = knnMethodConfigContext.getCompressionLevel();
 
-        // If both mode and compression are not specified, we can just default
-        if (Mode.isConfigured(mode) == false && CompressionLevel.isConfigured(compressionLevel) == false) {
+        // Mode deprecation is tied to the default compression flip: log deprecation warning if user explicitly provided mode
+        if (version != null && version.onOrAfter(KNN_DEFAULT_COMPRESSION_FLIP_VERSION) && Mode.isConfigured(mode)) {
+            logger.warn(
+                "[Deprecation] The 'mode' parameter is deprecated starting with version "
+                    + KNN_DEFAULT_COMPRESSION_FLIP_VERSION
+                    + ". Mode is now derived from 'compression_level'. Explicitly setting 'mode' will be "
+                    + "removed in a future release."
+            );
+        }
+
+        // If compression is not specified, we can default unless mode is configured (legacy path)
+        if (CompressionLevel.isConfigured(compressionLevel) == false && Mode.isConfigured(mode) == false) {
             return KNNEngine.DEFAULT;
         }
 

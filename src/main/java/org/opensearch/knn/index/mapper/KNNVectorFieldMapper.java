@@ -943,6 +943,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 .versionCreated(indexCreatedVersion)
                 .dimension(fieldType().getKnnMappingConfig().getDimension())
                 .compressionLevel(fieldType().getKnnMappingConfig().getCompressionLevel())
+                // The mapping config carries the resolved compression, which may have been derived from the
+                // encoder. Preserve what the user originally configured so mode derivation stays correct on merge.
+                .userConfiguredCompressionLevel(CompressionLevel.fromName(originalMappingParameters.getCompressionLevel()))
                 .mode(fieldType().getKnnMappingConfig().getMode())
                 .build();
         }

@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.common;
 
+import org.opensearch.Version;
 import org.opensearch.knn.index.VectorDataType;
 
 import java.util.List;
@@ -192,6 +193,8 @@ public class KNNConstants {
 
     public static final String MODE_PARAMETER = "mode";
     public static final String COMPRESSION_LEVEL_PARAMETER = "compression_level";
+    // Version at which the default compression level flips to x32 and the 'mode' parameter is deprecated.
+    public static final Version KNN_DEFAULT_COMPRESSION_FLIP_VERSION = Version.V_3_8_0;
 
     // Repository filepath constants
     public static final String VECTOR_BLOB_FILE_EXTENSION = ".knnvec";

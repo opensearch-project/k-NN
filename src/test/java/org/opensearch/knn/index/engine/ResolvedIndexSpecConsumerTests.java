@@ -235,6 +235,89 @@ public class ResolvedIndexSpecConsumerTests extends KNNTestCase {
         return new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.FLOAT, mappingConfig, Version.CURRENT);
     }
 
+    public void testRescore_derivedOnDiskMode_producesNonNullRescore() {
+        ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName(METHOD_HNSW)
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.ONE)
+            .compressionLevel(CompressionLevel.x32)
+            .mode(Mode.ON_DISK)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .indexVersionCreated(Version.CURRENT)
+            .build();
+        RescoreContext rescoreContext = spec.getRescoreContext();
+        assertNotNull(rescoreContext);
+    }
+
+    public void testRescore_notConfiguredModeWithX32_sameAsOnDisk() {
+        ResolvedIndexSpec specOnDisk = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName(METHOD_HNSW)
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.ONE)
+            .compressionLevel(CompressionLevel.x32)
+            .mode(Mode.ON_DISK)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .indexVersionCreated(Version.CURRENT)
+            .build();
+
+        ResolvedIndexSpec specNotConfigured = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName(METHOD_HNSW)
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.ONE)
+            .compressionLevel(CompressionLevel.x32)
+            .mode(Mode.NOT_CONFIGURED)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .indexVersionCreated(Version.CURRENT)
+            .build();
+
+        RescoreContext onDiskRescore = specOnDisk.getRescoreContext();
+        RescoreContext notConfiguredRescore = specNotConfigured.getRescoreContext();
+
+        assertNotNull(onDiskRescore);
+        assertNotNull(notConfiguredRescore);
+        assertEquals(onDiskRescore.getOversampleFactor(), notConfiguredRescore.getOversampleFactor(), 0.001f);
+    }
+
+    public void testRescore_explicitOnDiskVsDerivedOnDisk_identical() {
+        ResolvedIndexSpec specExplicit = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName(METHOD_HNSW)
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.SIXTEEN)
+            .compressionLevel(CompressionLevel.x32)
+            .mode(Mode.ON_DISK)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(500)
+            .indexVersionCreated(Version.CURRENT)
+            .build();
+
+        ResolvedIndexSpec specDerived = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName(METHOD_HNSW)
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.SIXTEEN)
+            .compressionLevel(CompressionLevel.x32)
+            .mode(Mode.ON_DISK)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(500)
+            .indexVersionCreated(Version.CURRENT)
+            .build();
+
+        RescoreContext explicit = specExplicit.getRescoreContext();
+        RescoreContext derived = specDerived.getRescoreContext();
+
+        assertNotNull(explicit);
+        assertNotNull(derived);
+        assertEquals(explicit.getOversampleFactor(), derived.getOversampleFactor(), 0.001f);
+        assertEquals(explicit.isAllowOverrideOversampleFactor(), derived.isAllowOverrideOversampleFactor());
+    }
+
     private KNNVectorFieldType buildFieldTypeWithSpec(KNNMethodContext methodContext, int dimension, ResolvedIndexSpec spec) {
         KNNMappingConfig mappingConfig = new KNNMappingConfig() {
             @Override

@@ -17,7 +17,6 @@ import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
 import org.opensearch.knn.index.mapper.CompressionLevel;
-import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -39,9 +38,7 @@ import static org.opensearch.knn.index.engine.lucene.LuceneSQEncoder.LUCENE_SQ_B
 
 /**
  * Resolves method configuration for the Lucene HNSW method. Supports optional scalar quantization
- * encoding and {@link org.opensearch.knn.index.mapper.Mode}-based compression resolution, with
- * supported compression levels of {@link org.opensearch.knn.index.mapper.CompressionLevel#x1} and
- * {@link org.opensearch.knn.index.mapper.CompressionLevel#x4}.
+ * encoding and compression-level-based resolution, with supported compression levels of x1, x4, and x32.
  */
 public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
 
@@ -142,12 +139,10 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
         String encoderName = encoderComponentContext.getName();
         Encoder encoder = SUPPORTED_ENCODERS.get(encoderName);
 
-        // Skip the additional validation at the end if not using SQ
-        // TODO: Once validateEncoderParams is defined as an interface method, we can clean this up
-        if (encoder == null || !encoderName.equals(ENCODER_SQ)) {
+        if (encoder == null) {
             return;
         }
-        validateEncoderParams(resolvedKNNMethodContext, knnMethodConfigContext);
+        encoder.validate(resolvedKNNMethodContext, knnMethodConfigContext);
     }
 
     // Method validates for explicit contradictions in the config
@@ -166,17 +161,7 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
     }
 
     private CompressionLevel getDefaultCompressionLevel(KNNMethodConfigContext knnMethodConfigContext) {
-        if (CompressionLevel.isConfigured(knnMethodConfigContext.getCompressionLevel())) {
-            return knnMethodConfigContext.getCompressionLevel();
-        }
-        if (knnMethodConfigContext.getMode() == Mode.ON_DISK) {
-            // Starting with version 3.6, supporting 32x compression by default
-            if (Version.V_3_6_0.onOrBefore(knnMethodConfigContext.getVersionCreated())) {
-                return CompressionLevel.x32;
-            }
-            return CompressionLevel.x4;
-        }
-        return CompressionLevel.x1;
+        return getDefaultCompressionLevel(knnMethodConfigContext, CompressionLevel.x4);
     }
 
     // TODO: The Encoder interface currently only has validateEncoderConfig() which uses

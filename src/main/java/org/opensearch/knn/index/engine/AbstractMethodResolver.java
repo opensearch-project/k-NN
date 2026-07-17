@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.engine;
 
+import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -181,5 +182,31 @@ public abstract class AbstractMethodResolver implements MethodResolver {
             validationException.addValidationError("Cannot specify an encoder that conflicts with the provided compression level");
             throw validationException;
         }
+    }
+
+    /**
+     * Resolves the default compression level from the config context. If the compression level is explicitly
+     * configured, returns it directly. Otherwise, for ON_DISK mode on V_3_6_0+, returns x32; for ON_DISK mode
+     * on earlier versions, returns the provided fallback; otherwise returns x1.
+     *
+     * @param knnMethodConfigContext the config context
+     * @param priorVersionOnDiskDefault the default compression for ON_DISK mode before V_3_6_0
+     * @return the resolved default compression level
+     */
+    protected CompressionLevel getDefaultCompressionLevel(
+        KNNMethodConfigContext knnMethodConfigContext,
+        CompressionLevel priorVersionOnDiskDefault
+    ) {
+        if (CompressionLevel.isConfigured(knnMethodConfigContext.getCompressionLevel())) {
+            return knnMethodConfigContext.getCompressionLevel();
+        }
+        if (knnMethodConfigContext.getMode() == Mode.ON_DISK) {
+            Version version = knnMethodConfigContext.getVersionCreated();
+            if (version != null && version.onOrAfter(Version.V_3_6_0)) {
+                return CompressionLevel.x32;
+            }
+            return priorVersionOnDiskDefault;
+        }
+        return CompressionLevel.x1;
     }
 }

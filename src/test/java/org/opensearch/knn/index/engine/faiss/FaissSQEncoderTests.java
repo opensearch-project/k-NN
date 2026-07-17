@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import org.opensearch.Version;
+import org.opensearch.common.ValidationException;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -264,5 +265,91 @@ public class FaissSQEncoderTests extends KNNTestCase {
 
     public void testIsSQOneBit_whenEncoderNotMethodComponentContext_thenFalse() {
         assertFalse(FaissSQEncoder.isSQOneBit(Map.of(METHOD_ENCODER_PARAMETER, "not_a_context")));
+    }
+
+    // --- validate() direct tests ---
+
+    public void testValidateDirectly_whenInvalidBits_thenThrows() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> encoder.validate(
+                buildMethodContext(Map.of(SQ_BITS, 99)),
+                buildConfigContext(Version.CURRENT, CompressionLevel.NOT_CONFIGURED)
+            )
+        );
+        assertTrue(e.getMessage().contains("Unsupported bits value"));
+    }
+
+    public void testValidateDirectly_whenV360NoBitsFloat_thenThrows() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> encoder.validate(
+                buildMethodContext(Map.of(FAISS_SQ_TYPE, "fp16")),
+                buildConfigContext(Version.CURRENT, CompressionLevel.NOT_CONFIGURED)
+            )
+        );
+        assertTrue(e.getMessage().contains("required"));
+    }
+
+    public void testValidateDirectly_whenV360WithTypeOnBits1_thenThrows() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> encoder.validate(
+                buildMethodContext(Map.of(SQ_BITS, 1, FAISS_SQ_TYPE, "fp16")),
+                buildConfigContext(Version.CURRENT, CompressionLevel.NOT_CONFIGURED)
+            )
+        );
+        assertTrue(e.getMessage().contains("type"));
+    }
+
+    public void testValidateDirectly_whenV360WithClipOnBits1_thenThrows() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> encoder.validate(
+                buildMethodContext(Map.of(SQ_BITS, 1, FAISS_SQ_CLIP, true)),
+                buildConfigContext(Version.CURRENT, CompressionLevel.NOT_CONFIGURED)
+            )
+        );
+        assertTrue(e.getMessage().contains("clip"));
+    }
+
+    public void testValidateDirectly_whenValidConfig_thenNoException() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        encoder.validate(buildMethodContext(Map.of(SQ_BITS, 1)), buildConfigContext(Version.CURRENT, CompressionLevel.x32));
+    }
+
+    public void testValidateDirectly_whenNullInputs_thenNoException() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        encoder.validate(null, null);
+    }
+
+    public void testValidateDirectly_whenPreV360NoBits_thenNoException() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        encoder.validate(
+            buildMethodContext(Map.of(FAISS_SQ_TYPE, "fp16")),
+            buildConfigContext(Version.V_3_5_0, CompressionLevel.NOT_CONFIGURED)
+        );
+    }
+
+    private KNNMethodContext buildMethodContext(Map<String, Object> encoderParams) {
+        MethodComponentContext encoderCtx = new MethodComponentContext(ENCODER_SQ, new HashMap<>(encoderParams));
+        return new KNNMethodContext(
+            KNNEngine.FAISS,
+            org.opensearch.knn.index.SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_ENCODER_PARAMETER, encoderCtx))
+        );
+    }
+
+    private KNNMethodConfigContext buildConfigContext(Version version, CompressionLevel compressionLevel) {
+        return KNNMethodConfigContext.builder()
+            .versionCreated(version)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .compressionLevel(compressionLevel)
+            .build();
     }
 }
