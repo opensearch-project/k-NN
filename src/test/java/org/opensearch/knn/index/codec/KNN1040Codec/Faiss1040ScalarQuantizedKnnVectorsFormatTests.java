@@ -24,11 +24,14 @@ import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.InfoStream;
 import org.apache.lucene.util.Version;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
+import org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer.PrefetchableRandomVectorScorer;
 import org.opensearch.knn.index.engine.KNNEngine;
 
@@ -39,6 +42,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE;
 
 @Log4j2
 public class Faiss1040ScalarQuantizedKnnVectorsFormatTests extends KNNTestCase {
@@ -133,6 +137,59 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormatTests extends KNNTestCase {
     public void testToString_thenContainsFormatInfo() {
         final String str = new Faiss1040ScalarQuantizedKnnVectorsFormat().toString();
         assertTrue(str.contains(Faiss1040ScalarQuantizedKnnVectorsFormat.class.getSimpleName()));
+    }
+
+    public void testDefaultConstructor_usesOneBitEncoding() {
+        // Backward-compatibility: no-arg and single-arg constructors must still resolve to the
+        // 1-bit flat format that shipped in 3.x. Any change here would silently switch existing
+        // indices to a different encoding on the next segment write.
+        assertSame(
+            Faiss1040ScalarQuantizedKnnVectorsFormat.getFaissSqFlatFormat(),
+            reflectFlatFormat(new Faiss1040ScalarQuantizedKnnVectorsFormat())
+        );
+        assertSame(
+            Faiss1040ScalarQuantizedKnnVectorsFormat.getFaissSqFlatFormat(),
+            reflectFlatFormat(new Faiss1040ScalarQuantizedKnnVectorsFormat(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE, new NativeIndexBuildStrategyFactory()))
+        );
+    }
+
+    public void testExplicitEncoding_selectsMatchingFlatFormat() {
+        // Verify each supported encoding wires through to a distinct flat format instance.
+        // Cache-sharing means repeated construction with the same encoding returns the same
+        // underlying format; different encodings return different instances.
+        for (ScalarEncoding encoding : new ScalarEncoding[] {
+            ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE,
+            ScalarEncoding.DIBIT_QUERY_NIBBLE,
+            ScalarEncoding.PACKED_NIBBLE }) {
+            Faiss1040ScalarQuantizedKnnVectorsFormat first = new Faiss1040ScalarQuantizedKnnVectorsFormat(
+                    INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE,
+                new NativeIndexBuildStrategyFactory(),
+                encoding
+            );
+            Faiss1040ScalarQuantizedKnnVectorsFormat second = new Faiss1040ScalarQuantizedKnnVectorsFormat(
+                    INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE,
+                new NativeIndexBuildStrategyFactory(),
+                encoding
+            );
+            assertSame("Flat format for " + encoding + " should be cached and reused", reflectFlatFormat(first), reflectFlatFormat(second));
+        }
+
+        // Different encodings must produce different flat format instances.
+        assertNotSame(
+            reflectFlatFormat(
+                new Faiss1040ScalarQuantizedKnnVectorsFormat(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE, new NativeIndexBuildStrategyFactory(), ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE)
+            ),
+            reflectFlatFormat(
+                new Faiss1040ScalarQuantizedKnnVectorsFormat(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE, new NativeIndexBuildStrategyFactory(), ScalarEncoding.DIBIT_QUERY_NIBBLE)
+            )
+        );
+    }
+
+    @SneakyThrows
+    private static KNN1040ScalarQuantizedVectorsFormat reflectFlatFormat(Faiss1040ScalarQuantizedKnnVectorsFormat format) {
+        java.lang.reflect.Field field = Faiss1040ScalarQuantizedKnnVectorsFormat.class.getDeclaredField("faissSqFlatFormat");
+        field.setAccessible(true);
+        return (KNN1040ScalarQuantizedVectorsFormat) field.get(format);
     }
 
     @SneakyThrows
