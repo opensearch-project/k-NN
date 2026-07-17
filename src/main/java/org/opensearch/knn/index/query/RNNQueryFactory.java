@@ -66,13 +66,19 @@ public class RNNQueryFactory extends BaseQueryFactory {
         final Float radius = createQueryRequest.getRadius();
         final float[] vector = createQueryRequest.getVector();
 
+        log.info("[RADIAL-DEBUG] RNNQueryFactory.create: field={}, radius={}, engine={}, MOS={}",
+            fieldName, radius, createQueryRequest.getKnnEngine(), createQueryRequest.isMemoryOptimizedSearchEnabled());
+
         final Query innerQuery;
         if (createQueryRequest.isMemoryOptimizedSearchEnabled()) {
             // MOS (Faiss HNSW via Lucene's vector reader): use the unified seeded radial search.
+            log.info("[RADIAL-DEBUG] Routing to createSeededRadialQuery (MOS path)");
             innerQuery = createSeededRadialQuery(createQueryRequest);
         } else if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
+            log.info("[RADIAL-DEBUG] Routing to createNativeEngineRadialQuery (native FAISS/NMSLIB path)");
             innerQuery = createNativeEngineRadialQuery(createQueryRequest);
         } else {
+            log.info("[RADIAL-DEBUG] Routing to createLuceneRadialQuery (Lucene engine path)");
             innerQuery = createLuceneRadialQuery(createQueryRequest);
         }
 
@@ -85,6 +91,8 @@ public class RNNQueryFactory extends BaseQueryFactory {
             } else {
                 maxResultsSize = MAX_RESULTS_RADIAL_RESCORING;
             }
+            log.info("[RADIAL-DEBUG] Wrapping with RescoreRadialSearchQuery: radius={}, MOS={}, maxResultsSize={}",
+                radius, createQueryRequest.isMemoryOptimizedSearchEnabled(), maxResultsSize);
             return new RescoreRadialSearchQuery(
                 innerQuery,
                 fieldName,
@@ -112,13 +120,8 @@ public class RNNQueryFactory extends BaseQueryFactory {
         final Query filterQuery = getFilterQuery(request);
         final int efSearch = resolveEfSearch(request);
 
-        log.debug(
-            "Creating seeded radial query for index: {}, field: {}, radius: {}, efSearch: {}",
-            request.getIndexName(),
-            fieldName,
-            radius,
-            efSearch
-        );
+        log.info("[RADIAL-DEBUG] createSeededRadialQuery: index={}, field={}, radius={}, efSearch={}",
+            request.getIndexName(), fieldName, radius, efSearch);
 
         return new RadialSearchQuery(fieldName, request.getVector(), radius, efSearch, filterQuery);
     }
@@ -173,9 +176,8 @@ public class RNNQueryFactory extends BaseQueryFactory {
         final Float radius = request.getRadius();
         final Query filterQuery = getFilterQuery(request);
 
-        log.debug(
-            String.format("Creating Lucene r-NN query for index: %s \"\", field: %s \"\", k: %f", request.getIndexName(), fieldName, radius)
-        );
+        log.info("[RADIAL-DEBUG] createLuceneRadialQuery: index={}, field={}, radius={}, efSearch={}",
+            request.getIndexName(), fieldName, radius, resolveEfSearch(request));
 
         switch (request.getVectorDataType()) {
             case BYTE:

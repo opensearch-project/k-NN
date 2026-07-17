@@ -156,6 +156,8 @@ public class RadialSearchQuery extends Query {
         }
 
         // Phase 1: top-k ANN with k = ef_search to find seed entry points.
+        log.info("[RADIAL-DEBUG] RadialSearchQuery.searchLeaf: field={}, similarity={}, efSearch={}, maxDoc={}",
+            field, similarity, efSearch, reader.maxDoc());
         KnnCollector seedCollector = new TopKnnCollectorManager(efSearch, searcher).newCollector(
             visitLimit,
             DEFAULT_HNSW_SEARCH_STRATEGY,
@@ -167,6 +169,10 @@ public class RadialSearchQuery extends Query {
             reader.searchNearestVectors(field, target, seedCollector, acceptDocs);
         }
         TopDocs seedTopDocs = seedCollector.topDocs();
+        log.info("[RADIAL-DEBUG] Phase 1 seeds: count={}, minScore={}, maxScore={}",
+            seedTopDocs.scoreDocs.length,
+            seedTopDocs.scoreDocs.length > 0 ? seedTopDocs.scoreDocs[seedTopDocs.scoreDocs.length - 1].score : "N/A",
+            seedTopDocs.scoreDocs.length > 0 ? seedTopDocs.scoreDocs[0].score : "N/A");
 
         // Phase 2: radial search, seeded from phase-1 results.
         final KnnCollectorManager radialCollectorManager;
@@ -186,6 +192,10 @@ public class RadialSearchQuery extends Query {
             reader.searchNearestVectors(field, target, radialCollector, acceptDocs);
         }
         TopDocs results = radialCollector.topDocs();
+
+        log.info("[RADIAL-DEBUG] Phase 2 results: count={}, visited={}",
+            results == null ? 0 : results.scoreDocs.length,
+            radialCollector.visitedCount());
 
         if (results == null || results.scoreDocs.length == 0) {
             return new TopDocs(new TotalHits(0, TotalHits.Relation.EQUAL_TO), new ScoreDoc[0]);
