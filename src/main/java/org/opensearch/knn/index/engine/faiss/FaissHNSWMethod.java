@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.KNN1040Codec.ScalarEncodingResolver;
 import org.opensearch.knn.index.engine.AbstractKNNMethod;
 import org.opensearch.knn.index.engine.DefaultHnswSearchContext;
 import org.opensearch.knn.index.engine.Encoder;
@@ -200,7 +201,7 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
             final VectorDataType vectorDataType = extractVectorDataType(parameters);
             final Map<String, Object> encoderMap = extractEncoderMap(parameters);
 
-            if (isSQOneBitIndex(vectorDataType, parameters)) {
+            if (isSQMosIndex(vectorDataType, parameters)) {
                 return true;
             }
 
@@ -325,17 +326,20 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
     }
 
     /**
-     * Checks whether the given parameters represent an SQ 1-bit index (encoder: sq, bits: 1).
+     * Checks whether the given parameters represent an SQ memory-optimized-search (MOS) index —
+     * i.e. an sq encoder with a supported MOS bit width ({@code bits ∈ {1, 2, 4}}).
      *
-     * TODO: Consolidate the logic in this function with {@link FaissSQEncoder#isSQOneBit} into one function,
-     * so that there is a single source of truth. Currently, this is not possible because
-     * {@link FaissSQEncoder#isSQOneBit} assumes the encoder object is a {@link MethodComponentContext}.
+     * <p>The remote index build path shares the same wire behavior across all three widths: the data
+     * node uploads fp32 vectors, the remote builder constructs an HNSW graph over fp32 neighbors,
+     * and the data node stitches that graph with its locally-quantized {@code .veq} at search time
+     * via {@link org.opensearch.knn.memoryoptsearch.faiss.FaissFlatIndexFactory}. So a single
+     * predicate identifies "an SQ index the remote builder can produce a valid graph for."
      *
      * @param vectorDataType The data type for the vector field
      * @param parameters KNN library indexing parameters
-     * @return true if SQ 1 bit, false otherwise
+     * @return true if the encoder is sq with bits in {1, 2, 4}, false otherwise
      */
-    public static boolean isSQOneBitIndex(final VectorDataType vectorDataType, final Map<String, Object> parameters) {
+    public static boolean isSQMosIndex(final VectorDataType vectorDataType, final Map<String, Object> parameters) {
         try {
             if (vectorDataType != VectorDataType.FLOAT) {
                 return false;
@@ -346,9 +350,13 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
                 return false;
             }
             Object bits = encoderMap.get(SQ_BITS);
-            return bits instanceof Integer && (Integer) bits == FaissSQEncoder.Bits.ONE.getValue();
+            return bits instanceof Integer && FaissSQEncoder.isSQCodedBits((Integer) bits);
         } catch (final Exception e) {
-            log.error("Failed to check if method parameters contain an sq encoder with bits=1", e);
+            log.error(
+                "Failed to check if method parameters contain an sq encoder with bits in {}",
+                ScalarEncodingResolver.supportedDocBitsString(),
+                e
+            );
             // Ignore
             return false;
         }

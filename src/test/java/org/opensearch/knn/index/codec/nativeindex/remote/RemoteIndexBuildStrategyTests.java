@@ -212,6 +212,73 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         assertTrue(request.isSkipStoredVectors());
     }
 
+    public void testBuildRequestSQTwoBit() throws IOException {
+        // Same wire contract as SQ 1-bit: fp32 vectors uploaded, RVIB builds the HNSW graph over
+        // fp32 neighbors, data node stitches with locally-quantized .veq (2-bit) at search time.
+        RemoteBuildRequest request = RemoteIndexBuildStrategy.buildRemoteBuildRequest(
+            createTestIndexSettings(),
+            buildIndexParams,
+            createTestRepositoryMetadata(),
+            MOCK_FULL_PATH,
+            getMockSQParameterMap(2)
+        );
+        assertEquals(VectorDataType.FLOAT.getValue(), request.getVectorDataType());
+        assertTrue(request.isSkipStoredVectors());
+    }
+
+    public void testBuildRequestSQFourBit() throws IOException {
+        // Same wire contract as SQ 1-bit/2-bit — the data node quantizes to 4-bit codes locally
+        // and uploads fp32 to RVIB, which produces an HNSW graph over the fp32 neighbors.
+        RemoteBuildRequest request = RemoteIndexBuildStrategy.buildRemoteBuildRequest(
+            createTestIndexSettings(),
+            buildIndexParams,
+            createTestRepositoryMetadata(),
+            MOCK_FULL_PATH,
+            getMockSQParameterMap(4)
+        );
+        assertEquals(VectorDataType.FLOAT.getValue(), request.getVectorDataType());
+        assertTrue(request.isSkipStoredVectors());
+    }
+
+    public void testBuildRequestSQFP16_thenNoSkipStoredVectors() throws IOException {
+        // Sanity: fp16 is not the MOS path, so skipStoredVectors must remain false — RVIB writes
+        // its own flat storage in this case.
+        RemoteBuildRequest request = RemoteIndexBuildStrategy.buildRemoteBuildRequest(
+            createTestIndexSettings(),
+            buildIndexParams,
+            createTestRepositoryMetadata(),
+            MOCK_FULL_PATH,
+            getMockSQParameterMap(16)
+        );
+        assertFalse(request.isSkipStoredVectors());
+    }
+
+    private Map<String, Object> getMockSQParameterMap(int bits) {
+        Map<String, Object> encoderParams = Map.of(NAME, ENCODER_SQ, SQ_BITS, bits);
+        Map<String, Object> innerParams = Map.of(
+            METHOD_PARAMETER_EF_SEARCH,
+            24,
+            METHOD_PARAMETER_EF_CONSTRUCTION,
+            28,
+            METHOD_PARAMETER_M,
+            12,
+            METHOD_ENCODER_PARAMETER,
+            encoderParams
+        );
+        return Map.of(
+            INDEX_DESCRIPTION_PARAMETER,
+            "HNSW12,Flat",
+            SPACE_TYPE,
+            INNER_PRODUCT.getValue(),
+            NAME,
+            METHOD_HNSW,
+            VECTOR_DATA_TYPE_FIELD,
+            VectorDataType.FLOAT.getValue(),
+            PARAMETERS,
+            innerParams
+        );
+    }
+
     public void testBuildRequestFP16() throws IOException {
         RemoteBuildRequest request = RemoteIndexBuildStrategy.buildRemoteBuildRequest(
             createTestIndexSettings(),
