@@ -17,17 +17,21 @@ import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactor
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Dedicated format for Faiss SQ vector fields.
  *
- * <p>Uses {@link KNN1040ScalarQuantizedVectorsFormat} with 1-bit quantization
- * ({@link ScalarEncoding#SINGLE_BIT_QUERY_NIBBLE}) for flat vector storage (.vec/.veq files),
- * while HNSW graph construction is delegated to the native Faiss engine (.faiss files).
+ * <p>Uses {@link KNN1040ScalarQuantizedVectorsFormat} for flat vector storage (.vec/.veq files),
+ * while HNSW graph construction is delegated to the native Faiss engine (.faiss files). The
+ * {@link ScalarEncoding} determines the document bit width (1, 2, or 4) and is resolved from the
+ * field's configured bits via {@link ScalarEncodingResolver}; it defaults to 1-bit
+ * ({@link ScalarEncoding#SINGLE_BIT_QUERY_NIBBLE}) for backward compatibility.
  *
- * <p>A field is routed to this format when its method parameters contain
- * {@code "encoder": {"name": "sq", "bits": 1}}. See {@code FaissCodecFormatResolver} for the
- * routing logic in {@code BasePerFieldKnnVectorsFormat.getKnnVectorsFormatForField}.
+ * <p>A field is routed to this format when its method parameters contain an {@code sq} encoder
+ * with a supported bit width. See {@code FaissCodecFormatResolver} for the routing logic.
  *
  * @see Faiss1040ScalarQuantizedKnnVectorsWriter
  * @see Faiss1040ScalarQuantizedKnnVectorsReader
@@ -37,26 +41,43 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
 
     private static final String FORMAT_NAME = "Faiss1040ScalarQuantizedKnnVectorsFormat";
 
-    // Shared across all format instances; KNN1040ScalarQuantizedVectorsFormat is stateless.
-    // TODO : We have to make it scalable for other encoding types, not limit this on `ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE`.
-    private static final KNN1040ScalarQuantizedVectorsFormat faissSqFlatFormat = new KNN1040ScalarQuantizedVectorsFormat(
-        ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE
-    );
+    private static final ScalarEncoding DEFAULT_ENCODING = ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE;
 
+    // KNN1040ScalarQuantizedVectorsFormat is stateless per encoding, so we cache one instance per
+    // encoding and share it across all format instances.
+    private static final Map<ScalarEncoding, KNN1040ScalarQuantizedVectorsFormat> FLAT_FORMAT_CACHE = new ConcurrentHashMap<>();
+
+    private final KNN1040ScalarQuantizedVectorsFormat faissSqFlatFormat;
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
 
+    /**
+     * Returns the flat format for the default (1-bit) encoding. Retained as a static accessor for tests.
+     */
     @VisibleForTesting
     static KNN1040ScalarQuantizedVectorsFormat getFaissSqFlatFormat() {
-        return faissSqFlatFormat;
+        return flatFormatFor(DEFAULT_ENCODING);
+    }
+
+    private static KNN1040ScalarQuantizedVectorsFormat flatFormatFor(final ScalarEncoding encoding) {
+        return FLAT_FORMAT_CACHE.computeIfAbsent(encoding, KNN1040ScalarQuantizedVectorsFormat::new);
     }
 
     public Faiss1040ScalarQuantizedKnnVectorsFormat() {
-        this(new NativeIndexBuildStrategyFactory());
+        this(new NativeIndexBuildStrategyFactory(), DEFAULT_ENCODING);
     }
 
     public Faiss1040ScalarQuantizedKnnVectorsFormat(final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory) {
+        this(nativeIndexBuildStrategyFactory, DEFAULT_ENCODING);
+    }
+
+    public Faiss1040ScalarQuantizedKnnVectorsFormat(
+        final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory,
+        final ScalarEncoding encoding
+    ) {
         super(FORMAT_NAME);
+        Objects.requireNonNull(encoding, "ScalarEncoding must not be null");
         this.nativeIndexBuildStrategyFactory = nativeIndexBuildStrategyFactory;
+        this.faissSqFlatFormat = flatFormatFor(encoding);
     }
 
     @Override
