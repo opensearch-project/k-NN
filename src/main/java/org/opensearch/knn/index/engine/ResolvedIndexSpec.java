@@ -36,16 +36,11 @@ public final class ResolvedIndexSpec {
     private final int dimension;
     private final Version indexVersionCreated;
 
-    /** Faiss-specific: routes field to Faiss1040ScalarQuantizedKnnVectorsFormat. Temporary -- to be replaced by generalized codec format resolver. */
-    public boolean usesFaissSQ1BitCodecFormat() {
-        return engine == KNNEngine.FAISS && isSQOneBit();
-    }
-
     /**
      * Whether this configuration always uses memory optimized search.
      */
     public boolean alwaysUseMemoryOptimizedSearch() {
-        return engine == KNNEngine.FAISS && isSQOneBit();
+        return isSQOneBit();
     }
 
     /**
@@ -80,7 +75,6 @@ public final class ResolvedIndexSpec {
         if (encoderType == Encoder.EncoderType.BQ) {
             return false;
         }
-        // Among quantized indices, only flat method or SQ 1-bit supports radial
         if (isQuantizedIndex()) {
             return isMethodFlat() || isSQOneBit();
         }
@@ -109,8 +103,26 @@ public final class ResolvedIndexSpec {
         return getRescoreContext() != null;
     }
 
-    private boolean isSQOneBit() {
+    /**
+     * Whether this is an SQ encoder producing fp16 quantized output. Distinct from native halfFloat data type storage.
+     * Equivalent to FaissHNSWMethod.isFloat16Index:
+     * encoder is SQ, dataType is FLOAT, and bits is SIXTEEN or legacy (null/FULL_PRECISION defaults to fp16).
+     */
+    public boolean isFP16QuantizedIndex() {
+        // FULL_PRECISION represents the legacy path where SQ encoder is specified without explicit bits param.
+        // buildResolvedIndexSpec defaults to FULL_PRECISION in this case, and the old FaissHNSWMethod.isFloat16Index()
+        // treated SQ-with-no-bits as fp16 by convention.
+        return vectorDataType == VectorDataType.FLOAT
+            && encoderType == Encoder.EncoderType.SQ
+            && (quantizationBits == Encoder.QuantizationBits.SIXTEEN || quantizationBits == Encoder.QuantizationBits.FULL_PRECISION);
+    }
+
+    public boolean isSQOneBit() {
         return encoderType == Encoder.EncoderType.SQ && quantizationBits == Encoder.QuantizationBits.ONE;
+    }
+
+    public boolean isFaissSQOneBit() {
+        return engine == KNNEngine.FAISS && isSQOneBit();
     }
 
     private boolean isMethodFlat() {

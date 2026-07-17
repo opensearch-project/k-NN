@@ -21,7 +21,7 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
 
     public void testFaissSQ1BitUsesSQ1BitCodecFormat() {
         ResolvedIndexSpec spec = baseFaissSQ1Bit().build();
-        assertTrue(spec.usesFaissSQ1BitCodecFormat());
+        assertTrue(spec.isFaissSQOneBit());
         assertTrue(spec.alwaysUseMemoryOptimizedSearch());
         assertTrue(spec.isMemoryOptimizedEligible());
         assertTrue(spec.requiresRescore());
@@ -29,8 +29,8 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
 
     public void testLuceneSQ1BitDoesNotUseSQ1BitCodecFormat() {
         ResolvedIndexSpec spec = baseFaissSQ1Bit().engine(KNNEngine.LUCENE).build();
-        assertFalse(spec.usesFaissSQ1BitCodecFormat());
-        assertFalse(spec.alwaysUseMemoryOptimizedSearch());
+        assertFalse(spec.isFaissSQOneBit());
+        assertTrue(spec.alwaysUseMemoryOptimizedSearch());
     }
 
     // --- Memory optimized eligibility ---
@@ -209,6 +209,57 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
     }
 
     // --- Helpers ---
+
+    // --- Coverage: alwaysUseMemoryOptimizedSearch engine-agnostic ---
+
+    public void testAlwaysUseMemoryOptimizedSearch() {
+        assertTrue("SQ 1-bit Faiss should always use memory optimized search", baseFaissSQ1Bit().build().alwaysUseMemoryOptimizedSearch());
+        assertTrue(
+            "SQ 1-bit Lucene should always use memory optimized search",
+            baseFaissSQ1Bit().engine(KNNEngine.LUCENE).build().alwaysUseMemoryOptimizedSearch()
+        );
+        assertFalse(
+            "SQ 16-bit should not always use memory optimized search",
+            baseFaiss().encoderType(Encoder.EncoderType.SQ)
+                .quantizationBits(Encoder.QuantizationBits.SIXTEEN)
+                .compressionLevel(CompressionLevel.x2)
+                .build()
+                .alwaysUseMemoryOptimizedSearch()
+        );
+        assertFalse("Flat encoder should not always use memory optimized search", baseFaiss().build().alwaysUseMemoryOptimizedSearch());
+    }
+
+    // --- Coverage: isFaissSQOneBit is Faiss-only ---
+
+    public void testIsFaissSQOneBit_FaissSQ1Bit_true() {
+        ResolvedIndexSpec spec = baseFaissSQ1Bit().build();
+        assertTrue(spec.isFaissSQOneBit());
+    }
+
+    public void testIsFaissSQOneBit_LuceneSQ1Bit_false() {
+        ResolvedIndexSpec spec = baseFaissSQ1Bit().engine(KNNEngine.LUCENE).build();
+        assertFalse(spec.isFaissSQOneBit());
+    }
+
+    // --- Coverage: isSQOneBit public method ---
+
+    public void testIsSQOneBit_true() {
+        ResolvedIndexSpec spec = baseFaissSQ1Bit().build();
+        assertTrue(spec.isSQOneBit());
+    }
+
+    public void testIsSQOneBit_false_forSQ16() {
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.SIXTEEN)
+            .compressionLevel(CompressionLevel.x2)
+            .build();
+        assertFalse(spec.isSQOneBit());
+    }
+
+    public void testIsSQOneBit_false_forFlat() {
+        ResolvedIndexSpec spec = baseFaiss().build();
+        assertFalse(spec.isSQOneBit());
+    }
 
     private ResolvedIndexSpec.ResolvedIndexSpecBuilder baseFaiss() {
         return ResolvedIndexSpec.builder()

@@ -108,7 +108,7 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
         MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 1));
         Map<String, Object> params = Map.of(METHOD_ENCODER_PARAMETER, encoderContext);
 
-        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, params, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH);
+        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, params, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, null);
         assertTrue(
             "Expected Faiss104ScalarQuantizedKnnVectorsFormat but got " + result.getClass().getSimpleName(),
             result instanceof Faiss1040ScalarQuantizedKnnVectorsFormat
@@ -123,7 +123,7 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
 
         FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(mapperService, mock(NativeIndexBuildStrategyFactory.class));
 
-        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, Map.of(), DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH);
+        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, Map.of(), DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, null);
         assertTrue(
             "Expected NativeEngines990KnnVectorsFormat but got " + result.getClass().getSimpleName(),
             result instanceof NativeEngines990KnnVectorsFormat
@@ -141,7 +141,7 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
         MethodComponentContext encoderContext = new MethodComponentContext("sq", Map.of());
         Map<String, Object> params = Map.of(METHOD_ENCODER_PARAMETER, encoderContext);
 
-        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, params, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH);
+        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, params, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, null);
         assertTrue(
             "Expected NativeEngines990KnnVectorsFormat but got " + result.getClass().getSimpleName(),
             result instanceof NativeEngines990KnnVectorsFormat
@@ -156,7 +156,7 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
 
         FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(mapperService, mock(NativeIndexBuildStrategyFactory.class));
         // Null params should fall back to default native format
-        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, null, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH);
+        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, null, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, null);
         assertTrue(
             "Expected NativeEngines990KnnVectorsFormat but got " + result.getClass().getSimpleName(),
             result instanceof NativeEngines990KnnVectorsFormat
@@ -174,7 +174,7 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
         MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 16));
         Map<String, Object> params = Map.of(METHOD_ENCODER_PARAMETER, encoderContext);
 
-        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, params, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH);
+        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, params, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, null);
         assertTrue(
             "SQ with bits=16 should return NativeEngines990KnnVectorsFormat, got " + result.getClass().getSimpleName(),
             result instanceof NativeEngines990KnnVectorsFormat

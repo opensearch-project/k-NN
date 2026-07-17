@@ -165,7 +165,7 @@ public class BinaryIndexIT extends KNNRestTestCase {
         // Query
         float[] queryVector = { (byte) 0b10001111, (byte) 0b10000000 };
         Exception e = expectThrows(Exception.class, () -> runRnnQuery(INDEX_NAME, FIELD_NAME, queryVector, 1, 4));
-        assertTrue(e.getMessage(), e.getMessage().contains("Binary data type does not support radial search"));
+        assertTrue(e.getMessage(), e.getMessage().contains("Radial search is not supported for this quantization configuration"));
     }
 
     private float getRecall(final Set<String> truth, final Set<String> result) {

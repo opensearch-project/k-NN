@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix knn query against a field alias returning zero hits silently [#3485](https://github.com/opensearch-project/k-NN/pull/3485)
 
 ### Refactoring
+* Wire ResolvedIndexSpec consumers through spec-driven resolution flow [#3421](https://github.com/opensearch-project/k-NN/pull/3421)
 
 ### Enhancements
 * Support `index.knn.advanced.approximate_threshold` for the Lucene engine [#3451](https://github.com/opensearch-project/k-NN/pull/3451)

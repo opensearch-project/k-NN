@@ -268,7 +268,7 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
             }
             // bits is null for legacy pre-3.6.0 indexes which default to fp16
             Object bits = encoderMap.get(SQ_BITS);
-            return bits == null || (bits instanceof Integer && (Integer) bits == FaissSQEncoder.Bits.SIXTEEN.getValue());
+            return bits == null || (bits instanceof Integer && (Integer) bits == Encoder.QuantizationBits.SIXTEEN.getValue());
         } catch (final Exception e) {
             log.debug(e.getMessage());
             // Ignore
@@ -346,7 +346,7 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
                 return false;
             }
             Object bits = encoderMap.get(SQ_BITS);
-            return bits instanceof Integer && (Integer) bits == FaissSQEncoder.Bits.ONE.getValue();
+            return bits instanceof Integer && (Integer) bits == Encoder.QuantizationBits.ONE.getValue();
         } catch (final Exception e) {
             log.error("Failed to check if method parameters contain an sq encoder with bits=1", e);
             // Ignore
