@@ -10,7 +10,6 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNN1040Codec.Faiss1040ScalarQuantizedKnnVectorsFormat;
-import org.opensearch.knn.index.codec.KNN1040Codec.ScalarEncodingResolver;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.CodecFormatResolver;
@@ -45,7 +44,7 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
     /**
      * Resolves the format for a specific field. Returns {@link Faiss1040ScalarQuantizedKnnVectorsFormat} when
      * the encoder is sq with bits in {1, 2, 4} (the multi-bit MOS path), otherwise falls back to the default
-     * native format. The document bit width is threaded into the format via {@link ScalarEncodingResolver}.
+     * native format. The document bit width is resolved per-field at write time by the format itself.
      */
     @Override
     public KnnVectorsFormat resolve(
@@ -56,11 +55,10 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
         int defaultBeamWidth
     ) {
         if (isSQMultiBit(params)) {
-            final int docBits = FaissSQEncoder.getSQBits(params);
-            return new Faiss1040ScalarQuantizedKnnVectorsFormat(
-                nativeIndexBuildStrategyFactory,
-                ScalarEncodingResolver.forDocBits(docBits)
-            );
+            // Encoding is not passed here — Faiss1040ScalarQuantizedKnnVectorsFormat resolves it
+            // per-field from SQ_CONFIG at fieldsWriter() time. This keeps the format instance
+            // encoding-agnostic so SPI-instantiated instances cannot silently miswrite fields.
+            return new Faiss1040ScalarQuantizedKnnVectorsFormat(nativeIndexBuildStrategyFactory);
         }
         return resolve();
     }

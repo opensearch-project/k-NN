@@ -107,7 +107,7 @@ public class FaissSQEncoder implements Encoder {
             // Multi-bit MOS path (bits in {1,2,4}): document vectors are scalar-quantized to B bits and
             // stored in Lucene's flat SQ files; Faiss only builds the HNSW graph. Use the flat description
             // and carry SQ_BITS = B so the codec/build path can resolve the document bit width.
-            if (bitsObj instanceof Integer && isMosBits((Integer) bitsObj)) {
+            if (bitsObj instanceof Integer && isSQCodedBits((Integer) bitsObj)) {
                 int bits = (Integer) bitsObj;
                 return KNNLibraryIndexingContextImpl.builder().parameters(new HashMap<>() {
                     {
@@ -256,14 +256,15 @@ public class FaissSQEncoder implements Encoder {
     }
 
     /**
-     * Returns true if {@code bits} is a document bit width served by the memory-optimized SQ (MOS) path.
-     * These are the non-fp16 widths {1, 2, 4} that delegate HNSW construction to native Faiss over
-     * scalar-quantized codes. fp16 (16) is excluded — it uses the standard Faiss SQ description.
+     * Returns true if {@code bits} is a document bit width stored as integer-coded scalar quantization
+     * codes in Lucene's flat SQ format. These are the widths {1, 2, 4} — HNSW construction is
+     * delegated to native Faiss over the coded bytes. fp16 (16) is excluded — it is a compressed
+     * float representation (not integer-quantized codes) and takes the standard Faiss SQ description.
      *
      * @param bits the configured sq encoder bit width
      * @return true for bits in {1, 2, 4}
      */
-    public static boolean isMosBits(final int bits) {
+    public static boolean isSQCodedBits(final int bits) {
         return bits == Bits.ONE.getValue() || bits == Bits.TWO.getValue() || bits == Bits.FOUR.getValue();
     }
 
@@ -299,7 +300,7 @@ public class FaissSQEncoder implements Encoder {
      */
     public static boolean isSQMultiBit(Map<String, Object> params) {
         Integer bits = getSQBits(params);
-        return bits != null && isMosBits(bits);
+        return bits != null && isSQCodedBits(bits);
     }
 
     /**

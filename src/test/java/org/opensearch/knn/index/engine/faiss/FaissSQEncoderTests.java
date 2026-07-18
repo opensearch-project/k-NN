@@ -317,16 +317,16 @@ public class FaissSQEncoderTests extends KNNTestCase {
         assertEquals(CompressionLevel.x8, encoder.calculateCompressionLevel(mcc, null));
     }
 
-    // --- isMosBits utility ---
+    // --- isSQCodedBits utility ---
 
-    public void testIsMosBits() {
-        assertTrue(FaissSQEncoder.isMosBits(1));
-        assertTrue(FaissSQEncoder.isMosBits(2));
-        assertTrue(FaissSQEncoder.isMosBits(4));
-        // fp16 is SQ but not the MOS bit-plane path
-        assertFalse(FaissSQEncoder.isMosBits(16));
+    public void testIsSQCodedBits() {
+        assertTrue(FaissSQEncoder.isSQCodedBits(1));
+        assertTrue(FaissSQEncoder.isSQCodedBits(2));
+        assertTrue(FaissSQEncoder.isSQCodedBits(4));
+        // fp16 is SQ but stores compressed floats, not integer-coded bits
+        assertFalse(FaissSQEncoder.isSQCodedBits(16));
         for (int bits : new int[] { 0, 3, 5, 7, 8, -1 }) {
-            assertFalse("Expected " + bits + " to not be MOS bits", FaissSQEncoder.isMosBits(bits));
+            assertFalse("Expected " + bits + " to not be SQ-coded bits", FaissSQEncoder.isSQCodedBits(bits));
         }
     }
 

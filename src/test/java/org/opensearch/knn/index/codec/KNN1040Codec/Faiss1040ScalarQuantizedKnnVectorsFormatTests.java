@@ -6,12 +6,14 @@
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
 import lombok.SneakyThrows;
+import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.codecs.KnnVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
@@ -24,18 +26,20 @@ import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.InfoStream;
 import org.apache.lucene.util.Version;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
-import org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer.PrefetchableRandomVectorScorer;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.faiss.SQConfig;
+import org.opensearch.knn.index.engine.faiss.SQConfigParser;
 
-import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+
+import static org.opensearch.knn.common.KNNConstants.SQ_CONFIG;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -70,7 +74,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormatTests extends KNNTestCase {
             0,
             false,
             false,
-            mock(org.apache.lucene.codecs.Codec.class),
+            mock(Codec.class),
             mock(Map.class),
             new byte[16],
             mock(Map.class),
@@ -82,35 +86,31 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormatTests extends KNNTestCase {
         Mockito.when(directory.openInput(any(), any())).thenReturn(input);
         Mockito.when(directory.createOutput(anyString(), any())).thenReturn(mock(IndexOutput.class));
 
-        final FieldInfos fieldInfos = mock(FieldInfos.class);
-        final FieldInfo fieldInfo = mock(FieldInfo.class);
-        Mockito.when(fieldInfo.getName()).thenReturn("test-field");
-        Mockito.when(fieldInfos.fieldInfo(anyInt())).thenReturn(fieldInfo);
-        Mockito.when(fieldInfos.iterator()).thenReturn(new Iterator<FieldInfo>() {
-            @Override
-            public boolean hasNext() {
-                return false;
-            }
+        // Segment carries a single SQ field with bits=1 (matches Lucene's per-field routing —
+        // this format instance is only ever asked to handle its routed SQ field).
+        final FieldInfo sqFieldInfo = mock(FieldInfo.class);
+        Mockito.when(sqFieldInfo.getName()).thenReturn("test-field");
+        Mockito.when(sqFieldInfo.getAttribute(SQ_CONFIG)).thenReturn(SQConfigParser.toCsv(SQConfig.builder().bits(1).build()));
 
-            @Override
-            public FieldInfo next() {
-                return null;
-            }
-        });
+        final FieldInfos fieldInfos = mock(FieldInfos.class);
+        Mockito.when(fieldInfos.fieldInfo(anyInt())).thenReturn(sqFieldInfo);
+        Mockito.when(fieldInfos.iterator()).thenReturn(List.of(sqFieldInfo).iterator());
 
         final SegmentReadState mockedSegmentReadState = new SegmentReadState(
             directory,
             mockedSegmentInfo,
             fieldInfos,
             mock(IOContext.class),
-            "test-segment-suffix"
+            ""
         );
 
+        final FieldInfos writeFieldInfos = mock(FieldInfos.class);
+        Mockito.when(writeFieldInfos.iterator()).thenReturn(List.of(sqFieldInfo).iterator());
         final SegmentWriteState mockedSegmentWriteState = new SegmentWriteState(
             mock(InfoStream.class),
             directory,
             mockedSegmentInfo,
-            mock(FieldInfos.class),
+            writeFieldInfos,
             null,
             mock(IOContext.class)
         );
@@ -137,55 +137,119 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormatTests extends KNNTestCase {
         assertTrue(str.contains(Faiss1040ScalarQuantizedKnnVectorsFormat.class.getSimpleName()));
     }
 
-    public void testDefaultConstructor_usesOneBitEncoding() {
-        // Backward-compatibility: no-arg and single-arg constructors must still resolve to the
-        // 1-bit flat format that shipped in 3.x. Any change here would silently switch existing
-        // indices to a different encoding on the next segment write.
-        assertSame(
-            Faiss1040ScalarQuantizedKnnVectorsFormat.getFaissSqFlatFormat(),
-            reflectFlatFormat(new Faiss1040ScalarQuantizedKnnVectorsFormat())
-        );
-        assertSame(
-            Faiss1040ScalarQuantizedKnnVectorsFormat.getFaissSqFlatFormat(),
-            reflectFlatFormat(new Faiss1040ScalarQuantizedKnnVectorsFormat(new NativeIndexBuildStrategyFactory()))
-        );
-    }
-
-    public void testExplicitEncoding_selectsMatchingFlatFormat() {
-        // Verify each supported encoding wires through to a distinct flat format instance.
-        // Cache-sharing means repeated construction with the same encoding returns the same
-        // underlying format; different encodings return different instances.
-        for (ScalarEncoding encoding : new ScalarEncoding[] {
-            ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE,
-            ScalarEncoding.DIBIT_QUERY_NIBBLE,
-            ScalarEncoding.PACKED_NIBBLE }) {
-            Faiss1040ScalarQuantizedKnnVectorsFormat first = new Faiss1040ScalarQuantizedKnnVectorsFormat(
-                new NativeIndexBuildStrategyFactory(),
-                encoding
-            );
-            Faiss1040ScalarQuantizedKnnVectorsFormat second = new Faiss1040ScalarQuantizedKnnVectorsFormat(
-                new NativeIndexBuildStrategyFactory(),
-                encoding
-            );
-            assertSame("Flat format for " + encoding + " should be cached and reused", reflectFlatFormat(first), reflectFlatFormat(second));
-        }
-
-        // Different encodings must produce different flat format instances.
-        assertNotSame(
-            reflectFlatFormat(
-                new Faiss1040ScalarQuantizedKnnVectorsFormat(new NativeIndexBuildStrategyFactory(), ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE)
-            ),
-            reflectFlatFormat(
-                new Faiss1040ScalarQuantizedKnnVectorsFormat(new NativeIndexBuildStrategyFactory(), ScalarEncoding.DIBIT_QUERY_NIBBLE)
-            )
-        );
-    }
-
+    /**
+     * Regression guard for the "SPI-instantiated format silently miswrites 2/4-bit fields as
+     * 1-bit" bug: verifies that a format constructed via the no-arg SPI constructor still uses
+     * the correct per-field encoding when asked for a writer, because encoding is resolved from
+     * the field's {@code SQ_CONFIG} attribute at write time (not baked in at construction time).
+     */
+    /**
+     * Regression guard for the "SPI-instantiated format silently miswrites 2/4-bit fields as
+     * 1-bit" bug: verifies that a format constructed via the no-arg SPI constructor resolves
+     * the correct per-field encoding from the field's {@code SQ_CONFIG} attribute at the moment
+     * Lucene calls {@code fieldsWriter().fieldsWriter().addField()}. The encoding lives on the
+     * cached {@code KNN1040ScalarQuantizedVectorsFormat} instance the writer resolves.
+     */
     @SneakyThrows
-    private static KNN1040ScalarQuantizedVectorsFormat reflectFlatFormat(Faiss1040ScalarQuantizedKnnVectorsFormat format) {
-        java.lang.reflect.Field field = Faiss1040ScalarQuantizedKnnVectorsFormat.class.getDeclaredField("faissSqFlatFormat");
-        field.setAccessible(true);
-        return (KNN1040ScalarQuantizedVectorsFormat) field.get(format);
+    public void testFieldsWriter_encodingResolvedPerFieldFromSQConfig() {
+        try (MMapDirectory dir = new MMapDirectory(createTempDir())) {
+            for (int bits : new int[] { 1, 2, 4 }) {
+                // Write a segment through the same flat format the wrapper resolves to, with
+                // SQ_CONFIG=bits=<bits>. Then open a reader via the no-arg SPI constructor and
+                // verify the round-trip works: writer resolved the correct encoding, and reader
+                // picked it up from the .vemq header end-to-end.
+                final SegmentReadState readState = KNN1040ScalarQuantizedTestUtils.writeQuantizedVectors(
+                    dir,
+                    "seg_bits_" + bits,
+                    new KNN1040ScalarQuantizedVectorsFormat(ScalarEncodingResolver.forDocBits(bits)),
+                    bits,
+                    random()
+                );
+
+                try (KnnVectorsReader rawReader = new Faiss1040ScalarQuantizedKnnVectorsFormat().fieldsReader(readState)) {
+                    assertTrue(rawReader instanceof Faiss1040ScalarQuantizedKnnVectorsReader);
+                    final FlatVectorsReader flatReader = ((Faiss1040ScalarQuantizedKnnVectorsReader) rawReader).getFlatVectorsReader();
+                    final FloatVectorValues values = flatReader.getFloatVectorValues(KNN1040ScalarQuantizedTestUtils.FIELD_NAME);
+                    assertNotNull("Values must exist for field written with bits=" + bits, values);
+                    assertEquals(
+                        "bits=" + bits + " must produce " + KNN1040ScalarQuantizedTestUtils.NUM_VECTORS + " vectors",
+                        KNN1040ScalarQuantizedTestUtils.NUM_VECTORS,
+                        values.size()
+                    );
+                }
+            }
+        }
+    }
+
+    /**
+     * Fail-loud invariant: if an SQ field with {@code bits=0} reaches the writer via
+     * {@code addField()}, the lazy encoding resolver must throw rather than silently default to
+     * 1-bit. This is the exact silent-default failure mode this refactor was written to eliminate.
+     */
+    @SneakyThrows
+    public void testFieldsWriter_addFieldWithBitsZero_thenThrows() {
+        final FieldInfo malformedSqField = mock(FieldInfo.class);
+        Mockito.when(malformedSqField.getName()).thenReturn("malformed_sq_field");
+        // Syntactically valid SQ_CONFIG with a zero-bits payload — bypasses SQConfigParser's
+        // "empty means SQConfig.EMPTY" shortcut and hits the fail-loud guard in the resolver.
+        Mockito.when(malformedSqField.getAttribute(SQ_CONFIG)).thenReturn("bits=0");
+
+        final KnnVectorsWriter writer = buildWriterForSegmentWithField(malformedSqField);
+        try {
+            final IllegalStateException ex = expectThrows(IllegalStateException.class, () -> writer.addField(malformedSqField));
+            assertTrue(
+                "Expected fail-loud message mentioning bits and the field name, got: " + ex.getMessage(),
+                ex.getMessage().contains("bits") && ex.getMessage().contains("malformed_sq_field")
+            );
+        } finally {
+            writer.close();
+        }
+    }
+
+    /**
+     * Builds a writer through the no-arg (SPI) constructor path, with a segment containing the
+     * given field. Encoding resolution is deferred until {@code addField()} is called on the
+     * returned writer — this mirrors the actual Lucene write path.
+     */
+    @SneakyThrows
+    private KnnVectorsWriter buildWriterForSegmentWithField(FieldInfo fieldInfo) {
+        final SegmentInfo segmentInfo = new SegmentInfo(
+            mock(Directory.class),
+            mock(Version.class),
+            mock(Version.class),
+            "test-segment",
+            0,
+            false,
+            false,
+            mock(Codec.class),
+            mock(Map.class),
+            new byte[16],
+            mock(Map.class),
+            mock(Sort.class)
+        );
+
+        final Directory directory = mock(Directory.class);
+        Mockito.when(directory.createOutput(anyString(), any())).thenReturn(mock(IndexOutput.class));
+
+        final FieldInfos writeFieldInfos = mock(FieldInfos.class);
+        Mockito.when(writeFieldInfos.iterator()).thenReturn(List.of(fieldInfo).iterator());
+
+        final SegmentWriteState writeState = new SegmentWriteState(
+            mock(InfoStream.class),
+            directory,
+            segmentInfo,
+            writeFieldInfos,
+            null,
+            mock(IOContext.class)
+        );
+
+        final Faiss1040ScalarQuantizedKnnVectorsFormat format = new Faiss1040ScalarQuantizedKnnVectorsFormat();
+        try (MockedStatic<CodecUtil> mockedCodecUtil = Mockito.mockStatic(CodecUtil.class)) {
+            mockedCodecUtil.when(
+                () -> CodecUtil.writeIndexHeader(any(IndexOutput.class), anyString(), anyInt(), any(byte[].class), anyString())
+            ).thenAnswer((Answer<Void>) invocation -> null);
+            return format.fieldsWriter(writeState);
+        }
     }
 
     @SneakyThrows
@@ -198,7 +262,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormatTests extends KNNTestCase {
             0,
             false,
             false,
-            mock(org.apache.lucene.codecs.Codec.class),
+            mock(Codec.class),
             mock(Map.class),
             new byte[16],
             mock(Map.class),
@@ -209,25 +273,21 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormatTests extends KNNTestCase {
         final IndexInput input = mock(IndexInput.class);
         Mockito.when(directory.openInput(any(), any())).thenReturn(input);
 
-        final FieldInfos fieldInfos = mock(FieldInfos.class);
-        Mockito.when(fieldInfos.iterator()).thenReturn(new Iterator<FieldInfo>() {
-            @Override
-            public boolean hasNext() {
-                return false;
-            }
+        // Segment carries a single SQ field (bits=1) — the format's read path resolves encoding
+        // per-field from SQ_CONFIG just like the write path.
+        final FieldInfo sqFieldInfo = mock(FieldInfo.class);
+        Mockito.when(sqFieldInfo.getName()).thenReturn("test-field");
+        Mockito.when(sqFieldInfo.getAttribute(SQ_CONFIG)).thenReturn(SQConfigParser.toCsv(SQConfig.builder().bits(1).build()));
 
-            @Override
-            public FieldInfo next() {
-                return null;
-            }
-        });
+        final FieldInfos fieldInfos = mock(FieldInfos.class);
+        Mockito.when(fieldInfos.iterator()).thenReturn(List.of(sqFieldInfo).iterator());
 
         final SegmentReadState mockedSegmentReadState = new SegmentReadState(
             directory,
             mockedSegmentInfo,
             fieldInfos,
             mock(IOContext.class),
-            "test-segment-suffix"
+            ""
         );
 
         final Faiss1040ScalarQuantizedKnnVectorsFormat format = new Faiss1040ScalarQuantizedKnnVectorsFormat();
@@ -252,7 +312,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormatTests extends KNNTestCase {
         try (MMapDirectory dir = new MMapDirectory(createTempDir())) {
             SegmentReadState readState = KNN1040ScalarQuantizedTestUtils.writeQuantizedVectors(
                 dir,
-                Faiss1040ScalarQuantizedKnnVectorsFormat.getFaissSqFlatFormat(),
+                new KNN1040ScalarQuantizedVectorsFormat(),
                 random()
             );
 
