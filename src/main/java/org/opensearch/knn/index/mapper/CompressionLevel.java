@@ -17,6 +17,8 @@ import java.util.Collections;
 import java.util.Locale;
 import java.util.Set;
 
+import static org.opensearch.knn.common.KNNConstants.SQ_MULTI_BIT_X16_X8_DEFAULTS_FLIP_VERSION;
+
 /**
  * Enum representing the compression level for float vectors. Compression in this sense refers to compressing a
  * full precision value into a smaller number of bits. For instance. "16x" compression would mean that 2 bits would
@@ -127,8 +129,8 @@ public enum CompressionLevel {
         return getDefaultRescoreContext(mode, dimension, version, isFlatMethod, false, engine);
     }
 
-    public RescoreContext getDefaultRescoreContext(Mode mode, int dimension, Version version, boolean isFlatMethod, boolean isSQOneBit) {
-        return getDefaultRescoreContext(mode, dimension, version, isFlatMethod, isSQOneBit, null);
+    public RescoreContext getDefaultRescoreContext(Mode mode, int dimension, Version version, boolean isFlatMethod, boolean isSQMultiBit) {
+        return getDefaultRescoreContext(mode, dimension, version, isFlatMethod, isSQMultiBit, null);
     }
 
     @VisibleForTesting
@@ -141,11 +143,22 @@ public enum CompressionLevel {
         int dimension,
         Version version,
         boolean isFlatMethod,
-        boolean isSQOneBit,
+        boolean isSQMultiBit,
         VectorSearchEngine engine
     ) {
-        // For sq(bits=1) encoder, use fixed oversample factor.
-        if (isSQOneBit) {
+        // For multi-bit SQ encoders (bits ∈ {1, 2, 4}), use a fixed oversample factor and disallow
+        // overrides. On indices created on/after the flip version, x16 (bits=2) and x8 (bits=4)
+        // default to oversample=1 since higher-bit codes recover most recall on their own; older
+        // indices and x32 (bits=1) keep the existing Faiss SQ factor.
+        // TODO: bump the x16/x8 gate to Version.V_3_9_0 once it is defined in OpenSearch core.
+        if (isSQMultiBit) {
+            if ((this == x16 || this == x8) && version.onOrAfter(SQ_MULTI_BIT_X16_X8_DEFAULTS_FLIP_VERSION)) {
+                return RescoreContext.builder()
+                    .oversampleFactor(RescoreContext.SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR)
+                    .allowOverrideOversampleFactor(false)
+                    .userProvided(false)
+                    .build();
+            }
             return RescoreContext.builder()
                 .oversampleFactor(RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR)
                 .allowOverrideOversampleFactor(false)
@@ -158,7 +171,7 @@ public enum CompressionLevel {
         }
         if (modesForRescore.contains(mode)) {
             if (engine != null) {
-                final RescoreContext rescoreContext = engine.getRescoreContext(this, mode, dimension, version, isFlatMethod, isSQOneBit);
+                final RescoreContext rescoreContext = engine.getRescoreContext(this, mode, dimension, version, isFlatMethod, isSQMultiBit);
                 if (rescoreContext != null) {
                     return rescoreContext;
                 }

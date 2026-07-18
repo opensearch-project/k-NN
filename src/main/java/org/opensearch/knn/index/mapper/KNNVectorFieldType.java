@@ -184,7 +184,7 @@ public class KNNVectorFieldType extends MappedFieldType {
         final Optional<KNNMethodContext> methodContext = knnMappingConfig.getKnnMethodContext();
         final boolean isFlatMethod = methodContext.isPresent()
             && METHOD_FLAT.equals(methodContext.get().getMethodComponentContext().getName());
-        final boolean isSQOneBit = methodContext.map(mc -> FaissSQEncoder.isSQOneBit(mc.getMethodComponentContext().getParameters()))
+        final boolean isSQMultiBit = methodContext.map(mc -> FaissSQEncoder.isSQMultiBit(mc.getMethodComponentContext().getParameters()))
             .orElse(false);
         final int dimension = knnMappingConfig.getDimension();
         final CompressionLevel compressionLevel = knnMappingConfig.getCompressionLevel();
@@ -198,7 +198,7 @@ public class KNNVectorFieldType extends MappedFieldType {
             dimension,
             knnMappingConfig.getIndexCreatedVersion(),
             isFlatMethod,
-            isSQOneBit,
+            isSQMultiBit,
             engine
         );
     }
