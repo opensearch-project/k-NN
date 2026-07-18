@@ -12,6 +12,8 @@ import org.apache.lucene.codecs.KnnVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatFieldVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
+import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
+import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.DocValuesSkipIndexType;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.FieldInfo;
@@ -25,6 +27,7 @@ import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
+import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.util.IOFunction;
 import org.apache.lucene.util.InfoStream;
@@ -41,6 +44,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
 
+import static org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doThrow;
@@ -434,7 +438,130 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
         }
     }
 
+    /**
+     * Reproduces the reader-side failure left after #3381: Lucene requests vector values from each
+     * input segment before the merged-output empty guard runs. A vectorless input segment must not
+     * fail quantized-value extraction while it is merged with a segment containing vectors.
+     */
+    @SneakyThrows
+    public void testMergeOneField_whenInputSegmentHasNoVectors_thenSucceeds() {
+        final int vectorsPerSegment = 150;
+        final int vectorlessSegmentDocs = 1;
+        final float[][] vectors = generateRandomVectors(vectorsPerSegment, DIMENSION);
+        final FieldInfo fi = createRealFieldInfo();
+        final FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { fi });
+        final Faiss1040ScalarQuantizedKnnVectorsFormat format = new Faiss1040ScalarQuantizedKnnVectorsFormat();
+        final Lucene104ScalarQuantizedVectorsFormat luceneSqFormat = new Lucene104ScalarQuantizedVectorsFormat(SINGLE_BIT_QUERY_NIBBLE);
+
+        try (Directory directory = newDirectory()) {
+            final SegmentInfo vectorSegmentInfo = createSegmentInfo(directory, "_0", vectorsPerSegment);
+            final SegmentWriteState vectorWriteState = new SegmentWriteState(
+                InfoStream.NO_OUTPUT,
+                directory,
+                vectorSegmentInfo,
+                fieldInfos,
+                null,
+                IOContext.DEFAULT,
+                FIELD_NAME
+            );
+
+            try (KnnVectorsWriter writer = format.fieldsWriter(vectorWriteState)) {
+                KnnFieldVectorsWriter<float[]> fieldWriter = (KnnFieldVectorsWriter<float[]>) writer.addField(fi);
+                for (int i = 0; i < vectorsPerSegment; i++) {
+                    fieldWriter.addValue(i, vectors[i]);
+                }
+                writer.flush(vectorsPerSegment, null);
+                writer.finish();
+            }
+
+            final SegmentInfo emptySegmentInfo = createSegmentInfo(directory, "_1", vectorlessSegmentDocs);
+            final SegmentWriteState emptyWriteState = new SegmentWriteState(
+                InfoStream.NO_OUTPUT,
+                directory,
+                emptySegmentInfo,
+                fieldInfos,
+                null,
+                IOContext.DEFAULT,
+                FIELD_NAME
+            );
+            writeEmptyScalarQuantizedSegment(luceneSqFormat, emptyWriteState, fi);
+
+            final SegmentReadState emptyReadState = new SegmentReadState(
+                directory,
+                emptySegmentInfo,
+                fieldInfos,
+                IOContext.DEFAULT,
+                FIELD_NAME
+            );
+            try (KnnVectorsReader emptySegmentReader = format.fieldsReader(emptyReadState)) {
+                final FloatVectorValues emptyValues = emptySegmentReader.getFloatVectorValues(FIELD_NAME);
+                assertNotNull(emptyValues);
+                assertTrue(emptyValues instanceof ScalarQuantizedFloatVectorValues);
+                assertEquals(0, emptyValues.size());
+                assertTrue(emptyValues instanceof HasIndexSlice);
+                assertNull(((HasIndexSlice) emptyValues).getSlice());
+                ((Faiss1040ScalarQuantizedKnnVectorsReader) emptySegmentReader).warmUp(FIELD_NAME);
+            }
+
+            try (
+                KnnVectorsReader vectorSegmentReader = format.fieldsReader(
+                    new SegmentReadState(directory, vectorSegmentInfo, fieldInfos, IOContext.DEFAULT, FIELD_NAME)
+                );
+                KnnVectorsReader emptySegmentReader = format.fieldsReader(emptyReadState)
+            ) {
+                final SegmentInfo mergedSegmentInfo = createSegmentInfo(directory, "_merged", vectorsPerSegment + vectorlessSegmentDocs);
+                final MergeState mergeState = new MergeState(
+                    new MergeState.DocMap[] { docID -> docID, docID -> vectorsPerSegment + docID },
+                    mergedSegmentInfo,
+                    fieldInfos,
+                    null,
+                    null,
+                    null,
+                    null,
+                    new FieldInfos[] { fieldInfos, fieldInfos },
+                    new org.apache.lucene.util.Bits[2],
+                    null,
+                    null,
+                    new KnnVectorsReader[] { vectorSegmentReader, emptySegmentReader },
+                    new int[] { vectorsPerSegment, vectorlessSegmentDocs },
+                    InfoStream.NO_OUTPUT,
+                    Runnable::run,
+                    false,
+                    null
+                );
+                final SegmentWriteState mergedWriteState = new SegmentWriteState(
+                    InfoStream.NO_OUTPUT,
+                    directory,
+                    mergedSegmentInfo,
+                    fieldInfos,
+                    null,
+                    IOContext.DEFAULT,
+                    FIELD_NAME
+                );
+
+                try (KnnVectorsWriter mergedWriter = format.fieldsWriter(mergedWriteState)) {
+                    mergedWriter.mergeOneField(fi, mergeState);
+                    mergedWriter.finish();
+                }
+
+                verifyVectorsReadable(format, directory, mergedWriteState, fi, vectors, vectorsPerSegment);
+            }
+        }
+    }
+
     // ===================== helpers =====================
+
+    private void writeEmptyScalarQuantizedSegment(
+        Lucene104ScalarQuantizedVectorsFormat format,
+        SegmentWriteState writeState,
+        FieldInfo fieldInfo
+    ) throws IOException {
+        try (KnnVectorsWriter writer = format.fieldsWriter(writeState)) {
+            writer.addField(fieldInfo);
+            writer.flush(writeState.segmentInfo.maxDoc(), null);
+            writer.finish();
+        }
+    }
 
     /** Creates a mock FieldInfo for unit tests that don't need real Lucene I/O. */
     @SneakyThrows

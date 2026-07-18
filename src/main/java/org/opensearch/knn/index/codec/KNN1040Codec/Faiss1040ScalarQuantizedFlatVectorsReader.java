@@ -67,10 +67,19 @@ public class Faiss1040ScalarQuantizedFlatVectorsReader extends FlatVectorsReader
     /**
      * Returns {@link FloatVectorValues} wrapped with {@link ScalarQuantizedFloatVectorValues}
      * so that the result implements {@link org.apache.lucene.codecs.lucene95.HasIndexSlice}.
+     * Empty values are wrapped with no quantized backing because Lucene does not expose one.
      */
     @Override
     public FloatVectorValues getFloatVectorValues(String field) throws IOException {
         final FloatVectorValues floatVectorValues = delegateFlatVectorsReader.getFloatVectorValues(field);
+        if (floatVectorValues == null) {
+            return null;
+        }
+
+        if (floatVectorValues.size() == 0) {
+            return new ScalarQuantizedFloatVectorValues(floatVectorValues, null);
+        }
+
         return new ScalarQuantizedFloatVectorValues(
             floatVectorValues,
             KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(floatVectorValues)
