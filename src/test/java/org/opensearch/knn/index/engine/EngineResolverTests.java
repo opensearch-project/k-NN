@@ -17,6 +17,7 @@ import org.opensearch.knn.index.mapper.Mode;
 import java.io.IOException;
 import java.util.Map;
 
+import static org.opensearch.knn.common.KNNConstants.KNN_DEFAULT_COMPRESSION_FLIP_VERSION;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
@@ -324,8 +325,8 @@ public class EngineResolverTests extends KNNTestCase {
         );
     }
 
-    public void testResolveEngine_whenModeProvidedOnV370_thenStillResolvesCorrectly() {
-        // On V_3_7_0+ mode is deprecated but still honored — verify correct resolution
+    public void testResolveEngine_whenModeProvidedOnV380_thenStillResolvesCorrectly() {
+        // On KNN_DEFAULT_COMPRESSION_FLIP_VERSION (V_3_8_0)+ mode is deprecated but still honored — verify correct resolution
         assertEquals(
             KNNEngine.FAISS,
             ENGINE_RESOLVER.resolveEngine(
@@ -333,7 +334,7 @@ public class EngineResolverTests extends KNNTestCase {
                 null,
                 null,
                 false,
-                Version.V_3_7_0
+                KNN_DEFAULT_COMPRESSION_FLIP_VERSION
             )
         );
         assertEquals(
@@ -343,16 +344,22 @@ public class EngineResolverTests extends KNNTestCase {
                 null,
                 null,
                 false,
-                Version.V_3_7_0
+                KNN_DEFAULT_COMPRESSION_FLIP_VERSION
             )
         );
     }
 
-    public void testResolveEngine_whenOnlyModeProvidedOnV370_thenResolvesLegacyPath() {
+    public void testResolveEngine_whenOnlyModeProvidedOnV380_thenResolvesLegacyPath() {
         // Mode-only (no compression) still resolves via legacy path
         assertEquals(
             KNNEngine.FAISS,
-            ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().mode(Mode.ON_DISK).build(), null, null, false, Version.V_3_7_0)
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().mode(Mode.ON_DISK).build(),
+                null,
+                null,
+                false,
+                KNN_DEFAULT_COMPRESSION_FLIP_VERSION
+            )
         );
     }
 
@@ -383,8 +390,8 @@ public class EngineResolverTests extends KNNTestCase {
     }
 
     public void testResolveEngine_whenNoModeNoCompressionAcrossVersions_thenDefault() {
-        // TODO: [DEFAULT_FLIP] After Step 4, split into: indexVersionCreated < V_3_7_0 → assert DEFAULT,
-        // indexVersionCreated >= V_3_7_0 → assert x32 default triggers engine resolution
+        // TODO: [DEFAULT_FLIP] After Step 4, split into: indexVersionCreated < KNN_DEFAULT_COMPRESSION_FLIP_VERSION → assert DEFAULT,
+        // indexVersionCreated >= KNN_DEFAULT_COMPRESSION_FLIP_VERSION → assert x32 default triggers engine resolution
         Version[] versions = new Version[] { Version.V_2_18_0, Version.V_3_0_0, Version.V_3_5_0, Version.V_3_6_0, Version.CURRENT };
 
         for (Version version : versions) {

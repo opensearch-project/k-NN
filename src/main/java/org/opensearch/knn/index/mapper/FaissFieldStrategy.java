@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.mapper;
 
+import lombok.extern.log4j.Log4j2;
+
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.DocValuesType;
@@ -40,6 +42,7 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
  * Vector field creation delegates to the parent class default behavior via returning null
  * from createFloatFields/createByteFields, signaling the caller to use its default path.
  */
+@Log4j2
 public final class FaissFieldStrategy implements EngineFieldStrategy {
 
     public static final FaissFieldStrategy INSTANCE = new FaissFieldStrategy();
@@ -139,6 +142,7 @@ public final class FaissFieldStrategy implements EngineFieldStrategy {
             } catch (Exception e) {
                 // SpaceType may not have a direct Lucene VectorSimilarityFunction mapping (e.g. HAMMING, L1).
                 // Fall back to DEFAULT similarity function for backward compatibility with pre-3.0 behavior.
+                log.info("No direct VectorSimilarityFunction for {}, using DEFAULT", spaceType);
             }
         }
         return SpaceType.DEFAULT.getKnnVectorSimilarityFunction().getVectorSimilarityFunction();

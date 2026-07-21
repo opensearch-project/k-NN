@@ -292,9 +292,7 @@ public enum KNNEngine implements KNNLibrary {
         switch (this) {
             case LUCENE:
                 return LuceneFieldStrategy.INSTANCE;
-            case FAISS:
-                return FaissFieldStrategy.INSTANCE;
-            case NMSLIB:
+            case FAISS, NMSLIB:
                 return FaissFieldStrategy.INSTANCE;
             default:
                 throw new UnsupportedOperationException("Engine " + name + " does not support field strategies");
