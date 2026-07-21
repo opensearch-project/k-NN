@@ -58,7 +58,8 @@ public:
         writeIndex,
         (
             faiss::IOWriter* writer,
-            long indexPtr
+            jlong idMapAddress,
+            bool skipFlat
         ),
         (override));
 };

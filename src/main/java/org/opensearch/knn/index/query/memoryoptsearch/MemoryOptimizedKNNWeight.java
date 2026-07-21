@@ -24,7 +24,6 @@ import org.apache.lucene.search.knn.TopKnnCollectorManager;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
-import org.apache.lucene.util.Version;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -94,7 +93,6 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         final int k
     ) {
         try {
-            final Version segmentLuceneVersion = reader.getSegmentInfo().info.getVersion();
             if (k > 0) {
                 // KNN search
                 if (quantizedTargetVector != null) {
