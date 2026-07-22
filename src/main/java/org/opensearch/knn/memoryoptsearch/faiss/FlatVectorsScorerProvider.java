@@ -86,7 +86,7 @@ public class FlatVectorsScorerProvider {
             // Since Lucene doesn't provide hamming distance scorer, we return our own hamming distance scorer
             return HAMMING_VECTOR_SCORER;
         } else if (FieldInfoExtractor.isSQField(fieldInfo)
-            && FieldInfoExtractor.extractSQConfig(fieldInfo).getBits() == FaissSQEncoder.Bits.ONE.getValue()) {
+            && FaissSQEncoder.isMosBits(FieldInfoExtractor.extractSQConfig(fieldInfo).getBits())) {
                 return getKNN1040ScalarQuantizedVectorScorer(delegateScorer);
             } else if (delegateScorer != null) {
                 // For all other cases, return the delegate scorer

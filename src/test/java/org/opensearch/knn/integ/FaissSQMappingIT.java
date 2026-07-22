@@ -72,6 +72,20 @@ public class FaissSQMappingIT extends KNNRestTestCase {
         deleteKNNIndex(indexName);
     }
 
+    /**
+     * Validates a multi-bit SQ ({@code bits ∈ {2, 4}}) index end-to-end: mapping is applied,
+     * documents index without error, and search returns the requested top-k. Correctness of
+     * ranking is a recall concern owned by benchmark tests; this smoke test only asserts the
+     * search path does not crash and returns k hits.
+     */
+    private void validateMultiBitIndex(String indexName, String mapping, Integer expectedBits) throws Exception {
+        createKnnIndex(indexName, mapping);
+        validateMapping(indexName, expectedBits, null, null);
+        addKNNDocs(indexName, FIELD_NAME, TEST_DIMENSION, 0, NUM_DOCS);
+        validateKNNSearch(indexName, FIELD_NAME, TEST_DIMENSION, NUM_DOCS, K);
+        deleteKNNIndex(indexName);
+    }
+
     @SuppressWarnings("unchecked")
     private void validateMapping(String indexName, Integer expectedBits, String expectedType, Boolean expectedClip) throws Exception {
         Map<String, Object> actualMapping = getIndexMappingAsMap(indexName);
@@ -169,12 +183,19 @@ public class FaissSQMappingIT extends KNNRestTestCase {
         validateMappingFails(mapping, "incompatible");
     }
 
-    // --- invalid bits values ---
+    // --- multi-bit SQ (bits ∈ {2, 4}) ---
 
-    public void testSQEncoder_whenBits2_thenFail() throws Exception {
+    public void testSQEncoder_whenBits2_thenSucceed() throws Exception {
         String mapping = buildSQMapping(2, null, null, null, null);
-        validateMappingFails(mapping, "Unsupported bits value");
+        validateMultiBitIndex(INDEX_NAME, mapping, 2);
     }
+
+    public void testSQEncoder_whenBits4_thenSucceed() throws Exception {
+        String mapping = buildSQMapping(4, null, null, null, null);
+        validateMultiBitIndex(INDEX_NAME, mapping, 4);
+    }
+
+    // --- invalid bits values ---
 
     public void testSQEncoder_whenBits8_thenFail() throws Exception {
         String mapping = buildSQMapping(8, null, null, null, null);

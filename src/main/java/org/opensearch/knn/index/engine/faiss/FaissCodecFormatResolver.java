@@ -10,6 +10,7 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNN1040Codec.Faiss1040ScalarQuantizedKnnVectorsFormat;
+import org.opensearch.knn.index.codec.KNN1040Codec.ScalarEncodingResolver;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.CodecFormatResolver;
@@ -17,6 +18,8 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 
 import java.util.Map;
 import java.util.Optional;
+
+import static org.opensearch.knn.index.engine.faiss.FaissSQEncoder.isSQMultiBit;
 
 /**
  * {@link CodecFormatResolver} implementation for native engines (FAISS, NMSLIB).
@@ -41,7 +44,8 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
 
     /**
      * Resolves the format for a specific field. Returns {@link Faiss1040ScalarQuantizedKnnVectorsFormat} when
-     * the encoder is sq with bits=1, otherwise falls back to the default native format.
+     * the encoder is sq with bits in {1, 2, 4} (the multi-bit MOS path), otherwise falls back to the default
+     * native format. The document bit width is threaded into the format via {@link ScalarEncodingResolver}.
      */
     @Override
     public KnnVectorsFormat resolve(
@@ -51,8 +55,12 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
         int defaultMaxConnections,
         int defaultBeamWidth
     ) {
-        if (isSQOneBitEncoder(params)) {
-            return new Faiss1040ScalarQuantizedKnnVectorsFormat(nativeIndexBuildStrategyFactory);
+        if (isSQMultiBit(params)) {
+            final int docBits = FaissSQEncoder.getSQBits(params);
+            return new Faiss1040ScalarQuantizedKnnVectorsFormat(
+                nativeIndexBuildStrategyFactory,
+                ScalarEncodingResolver.forDocBits(docBits)
+            );
         }
         return resolve();
     }
@@ -75,7 +83,4 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
             : KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE;
     }
 
-    private static boolean isSQOneBitEncoder(Map<String, Object> params) {
-        return FaissSQEncoder.isSQOneBit(params);
-    }
 }
