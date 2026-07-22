@@ -130,6 +130,11 @@ public class AbstractMethodResolverTests extends KNNTestCase {
         assertEquals(CompressionLevel.x4, TEST_RESOLVER.getDefaultCompressionLevel(ctx, CompressionLevel.x4));
     }
 
+    public void testGetDefaultCompressionLevel_whenOnDiskAndNullVersion_thenReturnFallback() {
+        KNNMethodConfigContext ctx = KNNMethodConfigContext.builder().mode(Mode.ON_DISK).build();
+        assertEquals(CompressionLevel.x4, TEST_RESOLVER.getDefaultCompressionLevel(ctx, CompressionLevel.x4));
+    }
+
     public void testGetDefaultCompressionLevel_whenNotOnDisk_thenReturnX1() {
         KNNMethodConfigContext ctx = KNNMethodConfigContext.builder().mode(Mode.IN_MEMORY).versionCreated(Version.V_3_6_0).build();
         assertEquals(CompressionLevel.x1, TEST_RESOLVER.getDefaultCompressionLevel(ctx, CompressionLevel.x4));

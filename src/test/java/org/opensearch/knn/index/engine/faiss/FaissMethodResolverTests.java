@@ -359,7 +359,7 @@ public class FaissMethodResolverTests extends KNNTestCase {
     }
 
     public void testResolveMethod_whenNoCompressionSpecified_thenResolvesToX1() {
-        // TODO: [DEFAULT_FLIP] After Step 4, assert CompressionLevel.x32 for V_3_7_0+, keep x1 for older versions
+        // TODO: [DEFAULT_FLIP] After Step 4, assert CompressionLevel.x32 for V_3_8_0+, keep x1 for older versions
         ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             null,
             KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build(),
@@ -443,8 +443,8 @@ public class FaissMethodResolverTests extends KNNTestCase {
     }
 
     public void testResolveMethod_whenNoCompressionAcrossVersions_thenAlwaysResolvesToX1() {
-        // TODO: [DEFAULT_FLIP] After Step 4, split into: indexVersionCreated < V_3_7_0 → assert x1,
-        // indexVersionCreated >= V_3_7_0 → assert x32
+        // TODO: [DEFAULT_FLIP] After Step 4, split into: indexVersionCreated < V_3_8_0 → assert x1,
+        // indexVersionCreated >= V_3_8_0 → assert x32
         Version[] versions = new Version[] { Version.V_3_5_0, Version.V_3_6_0, Version.V_3_7_0, Version.CURRENT };
 
         for (Version version : versions) {

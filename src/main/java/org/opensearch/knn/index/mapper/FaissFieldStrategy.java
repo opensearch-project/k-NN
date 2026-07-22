@@ -7,7 +7,6 @@ package org.opensearch.knn.index.mapper;
 
 import lombok.extern.log4j.Log4j2;
 
-import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.VectorEncoding;
@@ -26,7 +25,6 @@ import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 
 import java.io.IOException;
-import java.util.List;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
@@ -38,9 +36,8 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 /**
  * Faiss (and NMSLIB) engine implementation of {@link EngineFieldStrategy}.
- * Handles field type construction and vector field creation for non-Lucene KNN engines.
- * Vector field creation delegates to the parent class default behavior via returning null
- * from createFloatFields/createByteFields, signaling the caller to use its default path.
+ * Handles field type construction for non-Lucene KNN engines. Vector field creation uses the
+ * {@link EngineFieldStrategy} interface defaults, signaling the caller to use its default path.
  */
 @Log4j2
 public final class FaissFieldStrategy implements EngineFieldStrategy {
@@ -107,32 +104,6 @@ public final class FaissFieldStrategy implements EngineFieldStrategy {
 
         VectorTransformer vectorTransformer = knnLibraryIndexingContext.getVectorTransformer();
         return new FieldTypeConfig(fieldType, null, vectorTransformer, useLuceneBasedVectorField);
-    }
-
-    @Override
-    public List<Field> createFloatFields(
-        String name,
-        float[] array,
-        FieldType fieldType,
-        FieldType vectorFieldType,
-        boolean stored,
-        boolean hasDocValues,
-        boolean isDerivedSourceEnabled
-    ) {
-        return null;
-    }
-
-    @Override
-    public List<Field> createByteFields(
-        String name,
-        byte[] array,
-        FieldType fieldType,
-        FieldType vectorFieldType,
-        boolean stored,
-        boolean hasDocValues,
-        boolean isDerivedSourceEnabled
-    ) {
-        return null;
     }
 
     private static VectorSimilarityFunction findBestMatchingVectorSimilarityFunction(SpaceType spaceType, Version indexCreatedVersion) {

@@ -43,6 +43,9 @@ public interface EngineFieldStrategy {
 
     /**
      * Creates the list of fields for indexing a float vector.
+     * <p>
+     * Returns null to signal the caller should use the parent class default field creation path.
+     * Override only when the engine requires custom field construction (e.g. Lucene doc-values fields).
      *
      * @param name the field name
      * @param array the float vector
@@ -51,9 +54,9 @@ public interface EngineFieldStrategy {
      * @param stored whether the field is stored
      * @param hasDocValues whether the field has doc values
      * @param isDerivedSourceEnabled whether derived source is enabled
-     * @return list of fields to add to the document
+     * @return list of fields to add to the document, or null to use the default field creation path
      */
-    List<Field> createFloatFields(
+    default List<Field> createFloatFields(
         String name,
         float[] array,
         FieldType fieldType,
@@ -61,10 +64,15 @@ public interface EngineFieldStrategy {
         boolean stored,
         boolean hasDocValues,
         boolean isDerivedSourceEnabled
-    );
+    ) {
+        return null;
+    }
 
     /**
      * Creates the list of fields for indexing a byte vector.
+     * <p>
+     * Returns null to signal the caller should use the parent class default field creation path.
+     * Override only when the engine requires custom field construction (e.g. Lucene doc-values fields).
      *
      * @param name the field name
      * @param array the byte vector
@@ -73,9 +81,9 @@ public interface EngineFieldStrategy {
      * @param stored whether the field is stored
      * @param hasDocValues whether the field has doc values
      * @param isDerivedSourceEnabled whether derived source is enabled
-     * @return list of fields to add to the document
+     * @return list of fields to add to the document, or null to use the default field creation path
      */
-    List<Field> createByteFields(
+    default List<Field> createByteFields(
         String name,
         byte[] array,
         FieldType fieldType,
@@ -83,5 +91,7 @@ public interface EngineFieldStrategy {
         boolean stored,
         boolean hasDocValues,
         boolean isDerivedSourceEnabled
-    );
+    ) {
+        return null;
+    }
 }

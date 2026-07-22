@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.index.engine;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -23,7 +22,6 @@ import org.opensearch.knn.index.mapper.Mode;
 @Setter
 @Getter
 @Builder
-@AllArgsConstructor
 @EqualsAndHashCode
 public final class KNNMethodConfigContext {
     private VectorDataType vectorDataType;
@@ -35,45 +33,39 @@ public final class KNNMethodConfigContext {
     @Builder.Default
     private CompressionLevel compressionLevel = CompressionLevel.NOT_CONFIGURED;
     /**
-     * Snapshot of the compression level as it was configured by the user, taken before method resolution
-     * overwrites {@link #compressionLevel} with an encoder-derived value (e.g. binary encoder bits=1
-     * resolves to x32). A null value means resolution has not overwritten the compression level, so
-     * {@link #compressionLevel} still holds the user-configured value.
+     * Snapshot of the compression level as it was configured by the user, captured at construction time
+     * before method resolution overwrites {@link #compressionLevel} with an encoder-derived value (e.g.
+     * binary encoder bits=1 resolves to x32). Mode derivation must be based on this value: a user asking
+     * for compression_level=32x implies on_disk behavior, but an encoder that internally maps to x32
+     * does not.
      */
     @EqualsAndHashCode.Exclude
-    private CompressionLevel userConfiguredCompressionLevel;
+    private final CompressionLevel userConfiguredCompressionLevel;
 
     public static final KNNMethodConfigContext EMPTY = KNNMethodConfigContext.builder().build();
 
-    /**
-     * Sets the resolved compression level. On the first call, snapshots the current (user-configured)
-     * compression level so that consumers can distinguish compression the user explicitly requested from
-     * compression derived from the encoder during method resolution.
-     *
-     * @param compressionLevel the resolved compression level
-     */
-    public void setCompressionLevel(CompressionLevel compressionLevel) {
-        if (userConfiguredCompressionLevel == null) {
-            userConfiguredCompressionLevel = this.compressionLevel;
-        }
+    KNNMethodConfigContext(
+        VectorDataType vectorDataType,
+        Integer dimension,
+        Version versionCreated,
+        Mode mode,
+        CompressionLevel compressionLevel,
+        CompressionLevel userConfiguredCompressionLevel
+    ) {
+        this.vectorDataType = vectorDataType;
+        this.dimension = dimension;
+        this.versionCreated = versionCreated;
+        this.mode = mode;
         this.compressionLevel = compressionLevel;
-    }
-
-    /**
-     * Returns the compression level explicitly configured by the user, which may differ from
-     * {@link #getCompressionLevel()} when resolution derived the compression from the encoder. Mode
-     * derivation must be based on this value: a user asking for compression_level=32x implies on_disk
-     * behavior, but an encoder that internally maps to x32 does not.
-     *
-     * @return the user-configured compression level
-     */
-    public CompressionLevel getUserConfiguredCompressionLevel() {
-        return userConfiguredCompressionLevel == null ? compressionLevel : userConfiguredCompressionLevel;
+        // At build time, compressionLevel still holds the user's value since resolution has not run yet.
+        // Callers reconstructing a context post-resolution (e.g. mapper merge) pass the user value explicitly.
+        this.userConfiguredCompressionLevel = userConfiguredCompressionLevel == null ? compressionLevel : userConfiguredCompressionLevel;
     }
 
     /**
      * Derives the appropriate {@link Mode} from the given {@link CompressionLevel}.
-     * For V_3_7_0+ indices, mode is derived from compression rather than being an independent axis.
+     * Starting with {@code KNNConstants.KNN_DEFAULT_COMPRESSION_FLIP_VERSION} (V_3_8_0), mode is derived
+     * from compression rather than being an independent axis.
      *
      * @param compressionLevel the compression level to derive mode from
      * @return the derived mode

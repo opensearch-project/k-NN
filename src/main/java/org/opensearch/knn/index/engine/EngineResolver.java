@@ -6,10 +6,9 @@
 package org.opensearch.knn.index.engine;
 
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Strings;
 import org.opensearch.Version;
+import org.opensearch.common.logging.DeprecationLogger;
 import org.opensearch.index.mapper.MapperParsingException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
@@ -26,7 +25,7 @@ import static org.opensearch.knn.index.engine.KNNEngine.DEPRECATED_ENGINES;
  */
 public final class EngineResolver {
 
-    private static Logger logger = LogManager.getLogger(EngineResolver.class);
+    private static final DeprecationLogger deprecationLogger = DeprecationLogger.getLogger(EngineResolver.class);
     public static final EngineResolver INSTANCE = new EngineResolver();
 
     private EngineResolver() {}
@@ -107,11 +106,11 @@ public final class EngineResolver {
 
         // Mode deprecation is tied to the default compression flip: log deprecation warning if user explicitly provided mode
         if (version != null && version.onOrAfter(KNN_DEFAULT_COMPRESSION_FLIP_VERSION) && Mode.isConfigured(mode)) {
-            logger.warn(
-                "[Deprecation] The 'mode' parameter is deprecated starting with version "
-                    + KNN_DEFAULT_COMPRESSION_FLIP_VERSION
-                    + ". Mode is now derived from 'compression_level'. Explicitly setting 'mode' will be "
-                    + "removed in a future release."
+            deprecationLogger.deprecate(
+                "knn_mode_parameter",
+                "The 'mode' parameter is deprecated starting with version {}. Mode is now derived from "
+                    + "'compression_level'. Explicitly setting 'mode' will be removed in a future release.",
+                KNN_DEFAULT_COMPRESSION_FLIP_VERSION
             );
         }
 
@@ -179,7 +178,11 @@ public final class EngineResolver {
 
     private KNNEngine logAndReturnEngine(KNNEngine knnEngine) {
         if (DEPRECATED_ENGINES.contains(knnEngine)) {
-            logger.warn("[Deprecation] {} engine is deprecated and will be removed in a future release.", knnEngine);
+            deprecationLogger.deprecate(
+                "knn_engine_deprecated",
+                "{} engine is deprecated and will be removed in a future release.",
+                knnEngine
+            );
         }
         return knnEngine;
     }

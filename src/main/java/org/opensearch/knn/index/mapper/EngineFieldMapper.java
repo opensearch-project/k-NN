@@ -106,7 +106,8 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
             stored,
             hasDocValues,
             knnMethodConfigContext,
-            originalMappingParameters
+            originalMappingParameters,
+            libraryContext
         );
     }
 
@@ -119,7 +120,8 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
         boolean stored,
         boolean hasDocValues,
         KNNMethodConfigContext knnMethodConfigContext,
-        OriginalMappingParameters originalMappingParameters
+        OriginalMappingParameters originalMappingParameters,
+        KNNLibraryIndexingContext knnLibraryIndexingContext
     ) {
         super(
             name,
@@ -138,10 +140,6 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
         VectorDataType vectorDataType = mappedFieldType.getVectorDataType();
         KNNMethodContext resolvedKnnMethodContext = originalMappingParameters.getResolvedKnnMethodContext();
         KNNEngine knnEngine = resolvedKnnMethodContext.getKnnEngine();
-        KNNLibraryIndexingContext knnLibraryIndexingContext = knnEngine.getKNNLibraryIndexingContext(
-            resolvedKnnMethodContext,
-            knnMethodConfigContext
-        );
 
         this.fieldStrategy = knnEngine.getFieldStrategy();
         FieldTypeConfig config = fieldStrategy.buildFieldTypeConfig(

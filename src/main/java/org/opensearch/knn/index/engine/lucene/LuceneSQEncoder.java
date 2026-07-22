@@ -85,6 +85,22 @@ public class LuceneSQEncoder implements Encoder {
         )
         .build();
 
+    /**
+     * Validates the SQ encoder configuration on the resolved method context. Checks performed:
+     * <ul>
+     *     <li>The {@code bits} parameter is required on indices created with version 3.6.0 or later and must be a
+     *     supported value (see {@link #LUCENE_SQ_BITS_SUPPORTED}); {@code bits=1} is rejected on earlier versions.</li>
+     *     <li>The {@code bits} value must be compatible with any explicitly configured compression level
+     *     (e.g. {@code bits=1} requires x32 compression, {@code bits=7} requires x4).</li>
+     *     <li>Non-bit parameters (e.g. {@code confidence_interval}) are rejected when {@code bits=1}, since the
+     *     1-bit scalar quantization path does not use them.</li>
+     * </ul>
+     * Returns silently without validation if either the method context or the config context is null.
+     *
+     * @param resolvedMethodContext the resolved method context containing the encoder parameters
+     * @param configContext the config context containing index version and compression level
+     * @throws ValidationException if any of the above checks fail
+     */
     @Override
     public void validate(KNNMethodContext resolvedMethodContext, KNNMethodConfigContext configContext) {
         if (resolvedMethodContext == null || configContext == null) {
@@ -102,7 +118,6 @@ public class LuceneSQEncoder implements Encoder {
         Version version = configContext.getVersionCreated();
         boolean isV360OrLater = version != null && version.onOrAfter(Version.V_3_6_0);
         Object bitsObj = encoderParams.get(LUCENE_SQ_BITS);
-        Set<String> nonBitParameters = encoderParams.keySet().stream().filter(k -> !k.equals(LUCENE_SQ_BITS)).collect(Collectors.toSet());
 
         ValidationException validationException = new ValidationException();
 
@@ -119,10 +134,12 @@ public class LuceneSQEncoder implements Encoder {
             throw validationException;
         }
 
-        if (bitsObj instanceof Integer) {
-            int bits = (Integer) bitsObj;
-
+        if (bitsObj instanceof Integer bits) {
             if (bits == Bits.ONE.getValue()) {
+                Set<String> nonBitParameters = encoderParams.keySet()
+                    .stream()
+                    .filter(k -> !k.equals(LUCENE_SQ_BITS))
+                    .collect(Collectors.toSet());
                 if (!nonBitParameters.isEmpty()) {
                     validationException.addValidationError(
                         String.format(

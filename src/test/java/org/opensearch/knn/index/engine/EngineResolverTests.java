@@ -349,6 +349,48 @@ public class EngineResolverTests extends KNNTestCase {
         );
     }
 
+    public void testResolveEngine_whenModeProvidedWithNullVersion_thenNoDeprecationAndResolves() {
+        // Null version skips the deprecation check and falls through to legacy resolution
+        assertEquals(
+            KNNEngine.FAISS,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().mode(Mode.ON_DISK).compressionLevel(CompressionLevel.x32).build(),
+                null,
+                null,
+                false,
+                null
+            )
+        );
+    }
+
+    public void testResolveEngine_whenModeProvidedBeforeFlipVersion_thenNoDeprecationAndResolves() {
+        // Versions before KNN_DEFAULT_COMPRESSION_FLIP_VERSION do not log deprecation for mode
+        assertEquals(
+            KNNEngine.FAISS,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().mode(Mode.ON_DISK).compressionLevel(CompressionLevel.x32).build(),
+                null,
+                null,
+                false,
+                Version.V_3_6_0
+            )
+        );
+    }
+
+    public void testResolveEngine_whenDeprecatedEngineResolved_thenStillReturnsEngine() {
+        // NMSLIB is deprecated; logAndReturnEngine should log via deprecation logger and return it unchanged
+        assertEquals(
+            KNNEngine.NMSLIB,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().build(),
+                new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
+                null,
+                false,
+                Version.V_2_18_0
+            )
+        );
+    }
+
     public void testResolveEngine_whenOnlyModeProvidedOnV380_thenResolvesLegacyPath() {
         // Mode-only (no compression) still resolves via legacy path
         assertEquals(

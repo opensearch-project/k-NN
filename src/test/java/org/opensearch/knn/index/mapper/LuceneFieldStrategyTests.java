@@ -141,4 +141,26 @@ public class LuceneFieldStrategyTests extends KNNTestCase {
 
         assertEquals(1, fields.size());
     }
+
+    public void testCreateFloatFieldsWithDocValuesButNullVectorFieldType() {
+        int dimension = 3;
+        FieldType fieldType = KnnFloatVectorField.createFieldType(dimension, VectorSimilarityFunction.EUCLIDEAN);
+
+        float[] vector = new float[] { 1.0f, 2.0f, 3.0f };
+
+        List<Field> fields = LuceneFieldStrategy.INSTANCE.createFloatFields("test_field", vector, fieldType, null, false, true, false);
+
+        assertEquals(1, fields.size());
+    }
+
+    public void testCreateByteFieldsWithDocValuesButNullVectorFieldType() {
+        int dimension = 3;
+        FieldType fieldType = KnnByteVectorField.createFieldType(dimension, VectorSimilarityFunction.EUCLIDEAN);
+
+        byte[] vector = new byte[] { 1, 2, 3 };
+
+        List<Field> fields = LuceneFieldStrategy.INSTANCE.createByteFields("test_field", vector, fieldType, null, false, true, false);
+
+        assertEquals(1, fields.size());
+    }
 }

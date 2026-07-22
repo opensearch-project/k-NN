@@ -335,6 +335,45 @@ public class FaissSQEncoderTests extends KNNTestCase {
         );
     }
 
+    public void testValidateDirectly_whenNullConfigContext_thenNoException() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        encoder.validate(buildMethodContext(Map.of(SQ_BITS, 1)), null);
+    }
+
+    public void testValidateDirectly_whenEncoderContextMissing_thenNoException() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        KNNMethodContext methodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            org.opensearch.knn.index.SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, Map.of())
+        );
+        encoder.validate(methodContext, buildConfigContext(Version.CURRENT, CompressionLevel.NOT_CONFIGURED));
+    }
+
+    public void testValidateDirectly_whenNullVersionNoBits_thenNoException() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        encoder.validate(buildMethodContext(Map.of(FAISS_SQ_TYPE, "fp16")), buildConfigContext(null, CompressionLevel.NOT_CONFIGURED));
+    }
+
+    public void testValidateDirectly_whenV360NoBitsByteDataType_thenNoException() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        KNNMethodConfigContext configContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.BYTE)
+            .dimension(128)
+            .compressionLevel(CompressionLevel.NOT_CONFIGURED)
+            .build();
+        encoder.validate(buildMethodContext(Map.of(FAISS_SQ_TYPE, "fp16")), configContext);
+    }
+
+    public void testValidateDirectly_whenBits16WithNoCompressionConfigured_thenNoException() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        encoder.validate(
+            buildMethodContext(Map.of(SQ_BITS, 16, FAISS_SQ_TYPE, "fp16", FAISS_SQ_CLIP, true)),
+            buildConfigContext(Version.CURRENT, CompressionLevel.NOT_CONFIGURED)
+        );
+    }
+
     private KNNMethodContext buildMethodContext(Map<String, Object> encoderParams) {
         MethodComponentContext encoderCtx = new MethodComponentContext(ENCODER_SQ, new HashMap<>(encoderParams));
         return new KNNMethodContext(

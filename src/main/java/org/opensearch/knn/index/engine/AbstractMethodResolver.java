@@ -200,13 +200,13 @@ public abstract class AbstractMethodResolver implements MethodResolver {
         if (CompressionLevel.isConfigured(knnMethodConfigContext.getCompressionLevel())) {
             return knnMethodConfigContext.getCompressionLevel();
         }
-        if (knnMethodConfigContext.getMode() == Mode.ON_DISK) {
-            Version version = knnMethodConfigContext.getVersionCreated();
-            if (version != null && version.onOrAfter(Version.V_3_6_0)) {
-                return CompressionLevel.x32;
-            }
-            return priorVersionOnDiskDefault;
+        if (knnMethodConfigContext.getMode() != Mode.ON_DISK) {
+            return CompressionLevel.x1;
         }
-        return CompressionLevel.x1;
+        Version version = knnMethodConfigContext.getVersionCreated();
+        if (version != null && version.onOrAfter(Version.V_3_6_0)) {
+            return CompressionLevel.x32;
+        }
+        return priorVersionOnDiskDefault;
     }
 }
