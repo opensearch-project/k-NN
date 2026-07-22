@@ -8,6 +8,7 @@ package org.opensearch.knn.index.query;
 import com.google.common.annotations.VisibleForTesting;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.DocIdSetIterator;
@@ -38,7 +39,7 @@ import java.util.Objects;
  *
  * <h2>Solution</h2>
  * <p>This query wraps the inner radial search query ({@link KNNQuery} for Faiss or
- * {@code FloatVectorSimilarityQuery} for Lucene) and adds a second-phase rescoring step.
+ * {@link RadialSearchQuery} for Lucene/MOS) and adds a second-phase rescoring step.
  * The inner query performs the first-pass radial search on quantized vectors with the user's
  * radius. The wrapper then rescores the first-pass candidates using full-precision vectors
  * and filters out any results that fall outside the true radius.</p>
@@ -46,6 +47,7 @@ import java.util.Objects;
  * @see RescoreKNNVectorQuery similar pattern for Lucene engine top-K rescoring
  * @see org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery similar pattern for Faiss engine top-K rescoring
  */
+@Log4j2
 @Getter
 @EqualsAndHashCode(callSuper = false)
 public class RescoreRadialSearchQuery extends Query {
@@ -251,6 +253,9 @@ public class RescoreRadialSearchQuery extends Query {
                         numDocsToRescore = matchedDocs.cost();
                     }
 
+                    log.info("[RADIAL-DEBUG] RescoreRadialSearchQuery: candidatesFromInner={}, radius={}, MOS={}",
+                        numDocsToRescore, radius, memoryOptimizedSearchEnabled);
+
                     // 4. Build ExactSearcherContext — rescore with full-precision vectors
                     final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
                         .matchedDocsIterator(docsToRescore)
@@ -265,6 +270,8 @@ public class RescoreRadialSearchQuery extends Query {
 
                     // 5. Rescore — ExactSearcher handles radius → minScore conversion internally
                     final TopDocs rescored = EXACT_SEARCHER_SINGLETON.searchLeaf(context, exactSearcherContext);
+
+                    log.info("[RADIAL-DEBUG] RescoreRadialSearchQuery: afterRescore={}", rescored.scoreDocs.length);
 
                     // 6. Return scorer over rescored results
                     return new KNNScorer(rescored, boost);

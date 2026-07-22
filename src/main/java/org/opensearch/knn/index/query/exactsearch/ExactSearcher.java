@@ -30,6 +30,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
+import org.opensearch.knn.index.query.MemoryOptimizedSearchScoreConverter;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.scorers.VectorScorerMode;
 import org.opensearch.knn.index.query.scorers.VectorScorers;
@@ -211,7 +212,22 @@ public class ExactSearcher {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Engine [%s] does not support radial search", engine));
         }
         final SpaceType spaceType = getSpaceType(modelDao, fieldInfo);
-        final float minScore = context.isMemoryOptimizedSearchEnabled ? context.getRadius() : engine.score(context.getRadius(), spaceType);
+        final float minScore;
+        if (context.isMemoryOptimizedSearchEnabled) {
+            if (spaceType == SpaceType.COSINESIMIL) {
+                // The radius is in MAXIMUM_INNER_PRODUCT score space (from MemoryOptimizedSearchScoreConverter),
+                // but the rescore step uses Lucene's native COSINE function which returns (1+cos_sim)/2.
+                // Convert: IP score → raw cos_sim → Lucene cosine score.
+                minScore = MemoryOptimizedSearchScoreConverter.convertInnerProductScoreToCosineScore(context.getRadius());
+            } else {
+                minScore = context.getRadius();
+            }
+        } else {
+            minScore = engine.score(context.getRadius(), spaceType);
+        }
+
+        log.info("[RADIAL-DEBUG] ExactSearcher.doRadialSearch: engine={}, spaceType={}, radius={}, MOS={}, minScore={}",
+            engine, spaceType, context.getRadius(), context.isMemoryOptimizedSearchEnabled, minScore);
 
         return collectTopK(BulkVectorScorer.forRadialSearch(vectorScorer, matchedDocs, minScore), context.getMaxResultWindow(), false);
     }

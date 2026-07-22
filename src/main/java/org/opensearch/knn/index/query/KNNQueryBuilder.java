@@ -510,6 +510,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             }
         }
 
+        log.info("[RADIAL-DEBUG] KNNQueryBuilder: maxDistance={}, minScore={}, radius={}, spaceType={}, engine={}, MOS={}",
+            this.maxDistance, this.minScore, radius, spaceType, knnEngine, memoryOptimizedSearchEnabled);
+
         final int vectorLength = VectorDataType.BINARY == vectorDataType ? vector.length * Byte.SIZE : vector.length;
         if (knnMappingConfig.getDimension() != vectorLength) {
             throw new IllegalArgumentException(

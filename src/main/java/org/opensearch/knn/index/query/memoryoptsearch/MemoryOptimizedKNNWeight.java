@@ -35,7 +35,6 @@ import org.opensearch.lucene.ReentrantKnnCollectorManager;
 
 import java.io.IOException;
 
-import static org.opensearch.knn.common.KNNConstants.DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO;
 import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
 
 /**
@@ -52,28 +51,20 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
     private static final KnnSearchStrategy.Hnsw DEFAULT_HNSW_SEARCH_STRATEGY = new KnnSearchStrategy.Hnsw(0);
 
     private final KnnCollectorManager knnCollectorManager;
+    private final IndexSearcher searcher;
     @Setter
     private ReentrantKnnCollectorManager reentrantKNNCollectorManager;
 
     public MemoryOptimizedKNNWeight(KNNQuery query, float boost, final Weight filterWeight, IndexSearcher searcher, Integer k) {
         super(query, boost, filterWeight);
+        this.searcher = searcher;
 
-        if (k != null && k > 0) {
-            // ANN Search
-            if (query.getParentsFilter() == null) {
-                // Non-nested case
-                this.knnCollectorManager = new OptimisticKnnCollectorManager(k, new TopKnnCollectorManager(k, searcher));
-            } else {
-                // Nested case
-                this.knnCollectorManager = new DiversifyingNearestChildrenKnnCollectorManager(k, query.getParentsFilter(), searcher);
-            }
+        if (query.getParentsFilter() == null) {
+            // Non-nested case
+            this.knnCollectorManager = new OptimisticKnnCollectorManager(k, new TopKnnCollectorManager(k, searcher));
         } else {
-            // Radius search
-            this.knnCollectorManager = (visitLimit, searchStrategy, context) -> new RadiusVectorSimilarityCollector(
-                DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO * query.getRadius(),
-                query.getRadius(),
-                visitLimit
-            );
+            // Nested case
+            this.knnCollectorManager = new DiversifyingNearestChildrenKnnCollectorManager(k, query.getParentsFilter(), searcher);
         }
     }
 
@@ -93,37 +84,11 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         final int k
     ) {
         try {
-            if (k > 0) {
-                // KNN search
-                if (quantizedTargetVector != null) {
-                    // Quantization case
-                    if (quantizationService.getVectorDataTypeForTransfer(fieldInfo) == VectorDataType.BINARY) {
-                        return queryIndex(
-                            quantizedTargetVector,
-                            cardinality,
-                            cardinality + 1,
-                            context,
-                            filterIdsBitSet,
-                            reader,
-                            knnEngine,
-                            spaceType
-                        );
-                    }
-
-                    // Should never occur, safety if ever any other quantization is added
-                    throw new IllegalStateException(
-                        "VectorDataType for transfer acquired ["
-                            + quantizationService.getVectorDataTypeForTransfer(fieldInfo)
-                            + "] while it is expected to get ["
-                            + VectorDataType.BINARY
-                            + "]"
-                    );
-                }
-
-                if (knnQuery.getVectorDataType() == VectorDataType.BINARY || knnQuery.getVectorDataType() == VectorDataType.BYTE) {
-                    // when data_type is set byte or binary
+            if (quantizedTargetVector != null) {
+                // Quantization case
+                if (quantizationService.getVectorDataTypeForTransfer(fieldInfo) == VectorDataType.BINARY) {
                     return queryIndex(
-                        knnQuery.getByteQueryVector(),
+                        quantizedTargetVector,
                         cardinality,
                         cardinality + 1,
                         context,
@@ -134,23 +99,18 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
                     );
                 }
 
-                if (adcTransformedVector != null) {
-                    // ADC case
-                    return queryIndex(
-                        adcTransformedVector,
-                        cardinality,
-                        cardinality + 1,
-                        context,
-                        filterIdsBitSet,
-                        reader,
-                        knnEngine,
-                        spaceType
-                    );
-                }
+                throw new IllegalStateException(
+                    "VectorDataType for transfer acquired ["
+                        + quantizationService.getVectorDataTypeForTransfer(fieldInfo)
+                        + "] while it is expected to get ["
+                        + VectorDataType.BINARY
+                        + "]"
+                );
+            }
 
-                // fallback to float
+            if (knnQuery.getVectorDataType() == VectorDataType.BINARY || knnQuery.getVectorDataType() == VectorDataType.BYTE) {
                 return queryIndex(
-                    knnQuery.getQueryVector(),
+                    knnQuery.getByteQueryVector(),
                     cardinality,
                     cardinality + 1,
                     context,
@@ -159,10 +119,31 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
                     knnEngine,
                     spaceType
                 );
-            } else {
-                // Radius search
-                return queryIndex(knnQuery.getVector(), cardinality, cardinality, context, filterIdsBitSet, reader, knnEngine, spaceType);
             }
+
+            if (adcTransformedVector != null) {
+                return queryIndex(
+                    adcTransformedVector,
+                    cardinality,
+                    cardinality + 1,
+                    context,
+                    filterIdsBitSet,
+                    reader,
+                    knnEngine,
+                    spaceType
+                );
+            }
+
+            return queryIndex(
+                knnQuery.getQueryVector(),
+                cardinality,
+                cardinality + 1,
+                context,
+                filterIdsBitSet,
+                reader,
+                knnEngine,
+                spaceType
+            );
         } catch (Exception e) {
             GRAPH_QUERY_ERRORS.increment();
             throw new RuntimeException(e);
@@ -179,6 +160,33 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         final KNNEngine knnEngine,
         final SpaceType spaceType
     ) throws IOException {
+        final KnnCollectorManager collectorManager = reentrantKNNCollectorManager != null
+            ? reentrantKNNCollectorManager
+            : knnCollectorManager;
+        return queryIndex(
+            targetVector,
+            cardinality,
+            visitLimitWhenFilterExists,
+            context,
+            filterIdsBitSet,
+            reader,
+            knnEngine,
+            spaceType,
+            collectorManager
+        );
+    }
+
+    private TopDocs queryIndex(
+        final Object targetVector,
+        final int cardinality,
+        final int visitLimitWhenFilterExists,
+        final LeafReaderContext context,
+        final BitSet filterIdsBitSet,
+        final SegmentReader reader,
+        final KNNEngine knnEngine,
+        final SpaceType spaceType,
+        final KnnCollectorManager collectorManager
+    ) throws IOException {
         assert (targetVector instanceof float[] || targetVector instanceof byte[]);
 
         // Determine visit limit
@@ -190,18 +198,11 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         }
 
         // Create a collector + bitset
-        final KnnCollectorManager collectorManager = reentrantKNNCollectorManager != null
-            ? reentrantKNNCollectorManager
-            : knnCollectorManager;
         final KnnCollector knnCollector = collectorManager.newCollector(visitedLimit, DEFAULT_HNSW_SEARCH_STRATEGY, context);
         final AcceptDocs acceptDocs = getAcceptedDocs(reader, cardinality, filterIdsBitSet);
 
         // Start searching index
-        if (targetVector instanceof float[] floatTargetVector) {
-            reader.getVectorReader().search(knnQuery.getField(), floatTargetVector, knnCollector, acceptDocs);
-        } else {
-            reader.getVectorReader().search(knnQuery.getField(), (byte[]) targetVector, knnCollector, acceptDocs);
-        }
+        searchVector(targetVector, knnCollector, acceptDocs, reader);
 
         // Make results to return
         TopDocs topDocs = knnCollector.topDocs();
@@ -219,6 +220,20 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         }
         addExplainIfRequired(topDocs, knnEngine, spaceType);
         return topDocs;
+    }
+
+    private void searchVector(
+        final Object targetVector,
+        final KnnCollector collector,
+        final AcceptDocs acceptDocs,
+        final SegmentReader reader
+    ) throws IOException {
+        assert (targetVector instanceof float[] || targetVector instanceof byte[]);
+        if (targetVector instanceof float[] floatTargetVector) {
+            reader.getVectorReader().search(knnQuery.getField(), floatTargetVector, collector, acceptDocs);
+        } else {
+            reader.getVectorReader().search(knnQuery.getField(), (byte[]) targetVector, collector, acceptDocs);
+        }
     }
 
     private AcceptDocs getAcceptedDocs(SegmentReader reader, int cardinality, BitSet filterIdsBitSet) {
