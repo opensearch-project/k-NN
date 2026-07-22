@@ -13,6 +13,7 @@ import org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncod
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import com.google.common.annotations.VisibleForTesting;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
 
@@ -44,6 +45,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
     );
 
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
+    private final int approximateThreshold;
 
     @VisibleForTesting
     static KNN1040ScalarQuantizedVectorsFormat getFaissSqFlatFormat() {
@@ -55,7 +57,15 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
     }
 
     public Faiss1040ScalarQuantizedKnnVectorsFormat(final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory) {
+        this(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE, nativeIndexBuildStrategyFactory);
+    }
+
+    public Faiss1040ScalarQuantizedKnnVectorsFormat(
+        final int approximateThreshold,
+        final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
+    ) {
         super(FORMAT_NAME);
+        this.approximateThreshold = approximateThreshold;
         this.nativeIndexBuildStrategyFactory = nativeIndexBuildStrategyFactory;
     }
 
@@ -65,7 +75,8 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
             state,
             faissSqFlatFormat.fieldsWriter(state),
             faissSqFlatFormat::fieldsReader,
-            nativeIndexBuildStrategyFactory
+            nativeIndexBuildStrategyFactory,
+            approximateThreshold
         );
     }
 
