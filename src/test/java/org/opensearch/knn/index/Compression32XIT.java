@@ -19,6 +19,7 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.knn.CompressionTestConfig;
 import org.opensearch.knn.KNNCompressionRestTestCase;
+import org.opensearch.knn.KNNJsonQueryBuilder;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
@@ -35,7 +36,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.common.KNNConstants.ANN_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.EXACT_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
@@ -835,7 +838,153 @@ public class Compression32XIT extends KNNCompressionRestTestCase {
         }
     }
 
+    // Approximate-threshold graph skip under x32 SQ: a below-threshold segment builds no graph and must be
+    // served by exact search over the quantized .veq codes, on the same score scale as a graph-backed sibling
+    // segment in the same index. This is the end-to-end proof of the SQ x32 approximate-threshold change.
+    //
+    // Both rescore states are checked. With rescore off there is no full-precision second pass, so if the
+    // graph-less segment wrongly scored against raw .vec (FP32) instead of the .veq codes its graph-backed
+    // sibling uses, the identical-vector scores would diverge and this test would catch it.
+    @SneakyThrows
+    public void testX32_approximateThreshold_graphlessSegmentServedByExactSearch() {
+        assumeTrue("Faiss SQ x32 dedicated format only applies to the compressed config", compressionConfig.isCompressed());
+        assumeTrue("Faiss SQ x32 dedicated format only applies to the FAISS engine", FAISS_NAME.equals(engineName));
+
+        String indexName = prefix() + "approx_threshold_graphless";
+        // Graph is built for the first segment (threshold 0 => never skip).
+        createVectorIndex(indexName, SpaceType.L2, DIMENSION);
+
+        float[] vector = INDEX_VECTORS[0];
+        addKnnDoc(indexName, "graph_backed", FIELD_NAME, toObjectArray(vector));
+        refreshIndex(indexName);
+        assertEquals(1, getDocCount(indexName));
+
+        // Flip the threshold so the next segment skips the graph build entirely.
+        updateIndexSettings(indexName, Settings.builder().put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, -1));
+
+        // Identical vector in a new (graph-less) segment.
+        addKnnDoc(indexName, "graph_less", FIELD_NAME, toObjectArray(vector));
+        refreshIndex(indexName);
+        assertEquals(2, getDocCount(indexName));
+
+        // Default rescore, then rescore explicitly off (the stricter case: no full-precision pass to re-align).
+        assertGraphlessSegmentMatchesGraphBacked(indexName, null);
+        assertGraphlessSegmentMatchesGraphBacked(indexName, false);
+    }
+
+    // Searches the mixed graph-backed + graph-less index and asserts (1) both docs are returned, (2) the two
+    // identical vectors score identically (same .veq scale), and (3) explain shows one segment fell back to
+    // exact search due to missing native engine files while the other used approximate search.
+    @SneakyThrows
+    private void assertGraphlessSegmentMatchesGraphBacked(String indexName, Boolean rescoreEnabled) {
+        final int k = 2;
+        String context = engineName + " [rescore=" + rescoreEnabled + "]";
+        // Build the query as raw JSON (non-deprecated path) to mimic a real user request and, for the
+        // rescore-off case, emit "rescore": false as literal JSON (KNNQueryBuilder XContent drops the flag).
+        String query = KNNJsonQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(toObjectArray(QUERY_VECTORS[0]))
+            .k(k)
+            .rescoreEnabled(rescoreEnabled)
+            .build()
+            .getQueryString();
+        Response response = searchKNNIndex(indexName, query, k);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> results = parseSearchResponse(responseBody, FIELD_NAME);
+
+        // Both docs must be found: the graph-backed one via ANN, the graph-less one via exact-search fallback.
+        assertEquals(context + " both segments should return a hit", k, results.size());
+
+        // Identical vectors must score identically across the ANN and exact-search paths, i.e. the graph-less
+        // exact search scores against the same quantized .veq codes as the graph-backed sibling (same scale).
+        List<Float> scores = parseSearchResponseScore(responseBody, FIELD_NAME);
+        assertEquals(
+            context + " graph-backed and graph-less segments must score identical vectors on the same scale",
+            scores.get(0),
+            scores.get(1),
+            0.001
+        );
+
+        // Prove the routing directly (not just via score equality): with explain on, the graph-backed
+        // segment reports Approximate-NN while the graph-less segment reports exact search because its
+        // native engine files are missing. Asserting both appear confirms the two segments took different
+        // paths and that the graph-less one truly fell back to exact search.
+        String explainResponseBody = EntityUtils.toString(performSearch(indexName, query, "explain=true").getEntity());
+        List<String> explanations = parseSearchResponseHits(explainResponseBody).stream()
+            .map(hit -> ((Map<String, Object>) hit).get("_explanation").toString())
+            .collect(Collectors.toList());
+        assertTrue(
+            context + " graph-less segment must explain as exact search due to missing native engine files: " + explanations,
+            explanations.stream().anyMatch(e -> e.contains(EXACT_SEARCH) && e.contains("no native engine files are available"))
+        );
+        assertTrue(
+            context + " graph-backed segment must explain as approximate search: " + explanations,
+            explanations.stream().anyMatch(e -> e.contains(ANN_SEARCH))
+        );
+    }
+
+    // Guard: x8 must NOT honor the approximate threshold yet. x8 produces a native quantization state, so the
+    // shared writer's `quantizationState == null` clause blocks the skip and the graph is always built - even
+    // with the threshold set to always-skip. This protects against accidentally flipping x8 into the SQ x32
+    // skip path before its graph-less exact-search byte source exists. Requested in review (#3434).
+    @SneakyThrows
+    public void testX8_approximateThreshold_stillBuildsGraph() {
+        // x8 is expressed as on_disk + 8x compression, independent of the class compression parameter, so run
+        // this once under the FAISS engine rather than per compression config.
+        assumeTrue("x8 quantized graph build is a FAISS engine concern", FAISS_NAME.equals(engineName));
+        assumeTrue("Run once; use the compressed config to avoid duplicate runs", compressionConfig.isCompressed());
+
+        String indexName = prefix() + "x8_threshold_still_builds";
+        // Threshold -1 would skip the graph for a level that honored the threshold; x8 must ignore it.
+        Settings settings = Settings.builder()
+            .put("number_of_shards", 1)
+            .put("number_of_replicas", 0)
+            .put(KNN_INDEX, true)
+            .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, -1)
+            .build();
+        createX8OnDiskIndex(indexName, SpaceType.L2, settings);
+
+        for (int i = 0; i < 5; i++) {
+            addKnnDoc(indexName, String.valueOf(i), FIELD_NAME, toObjectArray(INDEX_VECTORS[i]));
+        }
+        refreshIndex(indexName);
+
+        final int k = 5;
+        String query = KNNJsonQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(toObjectArray(QUERY_VECTORS[0]))
+            .k(k)
+            .build()
+            .getQueryString();
+        String explainBody = EntityUtils.toString(performSearch(indexName, query, "explain=true").getEntity());
+        List<String> explanations = parseSearchResponseHits(explainBody).stream()
+            .map(hit -> ((Map<String, Object>) hit).get("_explanation").toString())
+            .collect(Collectors.toList());
+
+        assertFalse(engineName + " x8 explanations should not be empty", explanations.isEmpty());
+        // No segment should have fallen back to exact search for want of native engine files: the graph is built.
+        assertFalse(
+            engineName + " x8 must build its graph despite the skip threshold; no missing-engine-files fallback expected: " + explanations,
+            explanations.stream().anyMatch(e -> e.contains("no native engine files are available"))
+        );
+    }
+
     // --- Helper methods ---
+
+    @SneakyThrows
+    private void createX8OnDiskIndex(String indexName, SpaceType spaceType, Settings settings) {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", DIMENSION)
+            .field(MODE_PARAMETER, "on_disk")
+            .field(COMPRESSION_LEVEL_PARAMETER, "8x");
+        addMethodParams(builder, spaceType);
+        builder.endObject().endObject().endObject();
+        createKnnIndex(indexName, settings, builder.toString());
+    }
 
     @SneakyThrows
     private void validateScoreRanges(String indexName, SpaceType spaceType, float minScore, float maxScore) {

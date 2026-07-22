@@ -12,8 +12,6 @@ import org.apache.lucene.codecs.KnnVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatFieldVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
-import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
-import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.DocValuesSkipIndexType;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.FieldInfo;
@@ -27,12 +25,15 @@ import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
+import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
+import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.util.IOFunction;
 import org.apache.lucene.util.InfoStream;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
+import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -41,7 +42,9 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 import static org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE;
@@ -56,6 +59,12 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
 
     private static final int DIMENSION = 128;
     private static final String FIELD_NAME = "test_field";
+    // Approximate-threshold values, named for intent (mirrors FaissIT). 0 => never skip (default, always
+    // build the graph); -1 => always skip (short-circuits on the threshold value alone); a value above the
+    // segment doc count => the segment is below threshold, so skip.
+    private static final int ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD = 0;
+    private static final int NEVER_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD = -1;
+    private static final int BELOW_VECTOR_DATA_STRUCTURE_THRESHOLD = 10_000;
     private static final String PARAMETERS_JSON = "{"
         + "\"index_description\":\"BHNSW16,Flat\","
         + "\"spaceType\":\"innerproduct\","
@@ -89,7 +98,8 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
             segmentWriteState,
             flatVectorsWriter,
             quantizedFlatVectorsReaderSupplier,
-            new NativeIndexBuildStrategyFactory()
+            new NativeIndexBuildStrategyFactory(),
+            ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD
         );
         mockedFlatFieldVectorsWriter = mock(FlatFieldVectorsWriter.class);
         Mockito.doNothing().when(mockedFlatFieldVectorsWriter).addValue(Mockito.anyInt(), Mockito.any());
@@ -430,7 +440,8 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
                 realWriteState,
                 flatVectorsWriter,
                 quantizedFlatVectorsReaderSupplier,
-                new NativeIndexBuildStrategyFactory()
+                new NativeIndexBuildStrategyFactory(),
+                ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD
             );
 
             // mergeOneField should complete without error — the empty vectors should be skipped
@@ -549,6 +560,108 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
         }
     }
 
+    // ===================== approximate threshold: graph-skip on flush/merge =====================
+
+    /**
+     * Below-threshold flush skips the native graph build (no .faiss) while the flat .vec/.veq byte sources
+     * are still written and readable. Covered for both a threshold above the doc count and the -1
+     * (always-skip) sentinel, which short-circuits on the threshold value alone.
+     */
+    @SneakyThrows
+    public void testFlush_whenBelowApproximateThreshold_thenSkipsGraphButWritesFlatVectors() {
+        assertFlushSkipsGraphButWritesFlatVectors(BELOW_VECTOR_DATA_STRUCTURE_THRESHOLD);
+    }
+
+    @SneakyThrows
+    public void testFlush_whenAlwaysSkipThreshold_thenSkipsGraphButWritesFlatVectors() {
+        assertFlushSkipsGraphButWritesFlatVectors(NEVER_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD);
+    }
+
+    /**
+     * At the default threshold (0 => never skip), an SQ x32 segment must still build the native graph AND
+     * write the flat vectors, and the built graph must be searchable. Guards that the plumbing does not
+     * accidentally skip in the default configuration.
+     */
+    @SneakyThrows
+    public void testFlush_whenDefaultThreshold_thenBuildsGraph() {
+        final int numVectors = 3;
+        final float[][] vectors = generateRandomVectors(numVectors, DIMENSION);
+
+        try (org.apache.lucene.store.Directory directory = newDirectory()) {
+            final SegmentWriteState writeState = createWriteState(directory, "_0", numVectors);
+            final FieldInfo fi = createRealFieldInfo();
+            final Faiss1040ScalarQuantizedKnnVectorsFormat format = new Faiss1040ScalarQuantizedKnnVectorsFormat(
+                ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD,
+                new NativeIndexBuildStrategyFactory()
+            );
+
+            flushVectors(format, writeState, fi, vectors);
+
+            final List<String> files = Arrays.asList(directory.listAll());
+            assertTrue("Default-threshold SQ segment must build a .faiss graph file. Files: " + files, hasFaissFile(files));
+            assertTrue(".vec must be written. Files: " + files, files.stream().anyMatch(f -> f.endsWith(".vec")));
+            assertTrue(".veq quantized codes must be written. Files: " + files, files.stream().anyMatch(f -> f.endsWith(".veq")));
+            verifyVectorsReadable(format, directory, writeState, fi, vectors, numVectors);
+            // The segment's vectors must be scoreable, not just present on disk.
+            assertSegmentScoreable(format, directory, writeState, fi, vectors[0], numVectors);
+        }
+    }
+
+    // Merge combinations. mergeOneField reads only the flat .vec/.veq from the source segments (never the
+    // source .faiss), so source segments may be graph-backed or graph-less independently. Each source's
+    // per-segment threshold decides whether it built a graph; the merge threshold decides the merged segment.
+    // In every case the merged flat vectors must remain readable.
+
+    /** graph + graph -> merge below threshold: merged segment skips the graph. */
+    @SneakyThrows
+    public void testMergeOneField_whenGraphBackedSourcesMergedBelowThreshold_thenMergedSkipsGraph() {
+        assertMergeGraphOutcome(
+            new int[] { ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD },
+            BELOW_VECTOR_DATA_STRUCTURE_THRESHOLD,
+            false
+        );
+    }
+
+    /** no-graph + no-graph -> merge below threshold: merged segment skips the graph. */
+    @SneakyThrows
+    public void testMergeOneField_whenGraphlessSourcesMergedBelowThreshold_thenMergedSkipsGraph() {
+        assertMergeGraphOutcome(
+            new int[] { NEVER_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, NEVER_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD },
+            BELOW_VECTOR_DATA_STRUCTURE_THRESHOLD,
+            false
+        );
+    }
+
+    /** no-graph + no-graph -> merge at default threshold: merged segment builds the graph. */
+    @SneakyThrows
+    public void testMergeOneField_whenGraphlessSourcesMergedAtDefault_thenMergedBuildsGraph() {
+        assertMergeGraphOutcome(
+            new int[] { NEVER_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, NEVER_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD },
+            ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD,
+            true
+        );
+    }
+
+    /** mixed (graph + no-graph) -> merge at default threshold: merged segment builds the graph. */
+    @SneakyThrows
+    public void testMergeOneField_whenMixedSourcesMergedAtDefault_thenMergedBuildsGraph() {
+        assertMergeGraphOutcome(
+            new int[] { ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, NEVER_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD },
+            ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD,
+            true
+        );
+    }
+
+    /** mixed (graph + no-graph) -> merge below threshold: merged segment skips the graph. */
+    @SneakyThrows
+    public void testMergeOneField_whenMixedSourcesMergedBelowThreshold_thenMergedSkipsGraph() {
+        assertMergeGraphOutcome(
+            new int[] { ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD, NEVER_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD },
+            BELOW_VECTOR_DATA_STRUCTURE_THRESHOLD,
+            false
+        );
+    }
+
     // ===================== helpers =====================
 
     private void writeEmptyScalarQuantizedSegment(
@@ -560,6 +673,246 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
             writer.addField(fieldInfo);
             writer.flush(writeState.segmentInfo.maxDoc(), null);
             writer.finish();
+        }
+    }
+
+    /** True if any file is a native Faiss graph file (.faiss, or .faissc when using compound files). */
+    private static boolean hasFaissFile(List<String> files) {
+        return files.stream().anyMatch(f -> f.endsWith(".faiss") || f.endsWith(".faissc"));
+    }
+
+    /**
+     * True if a file belongs to the named segment. Lucene names segment files "{segment}_...", so match on
+     * the "{segment}_" prefix rather than a substring (e.g. "_1" would otherwise match "_0_165...").
+     */
+    private static boolean belongsToSegment(String file, String segmentName) {
+        return file.startsWith(segmentName + "_");
+    }
+
+    /** True if a native Faiss graph file exists for the named segment. */
+    private static boolean hasFaissFileForSegment(List<String> files, String segmentName) {
+        return files.stream().anyMatch(f -> (f.endsWith(".faiss") || f.endsWith(".faissc")) && belongsToSegment(f, segmentName));
+    }
+
+    /** Writes vectors through the format's writer for a single segment (flush path). */
+    @SneakyThrows
+    private void flushVectors(
+        Faiss1040ScalarQuantizedKnnVectorsFormat format,
+        SegmentWriteState writeState,
+        FieldInfo fi,
+        float[][] vectors
+    ) {
+        try (KnnVectorsWriter knnWriter = format.fieldsWriter(writeState)) {
+            @SuppressWarnings("unchecked")
+            KnnFieldVectorsWriter<float[]> fw = (KnnFieldVectorsWriter<float[]>) knnWriter.addField(fi);
+            for (int i = 0; i < vectors.length; i++) {
+                fw.addValue(i, vectors[i]);
+            }
+            knnWriter.flush(vectors.length, null);
+            knnWriter.finish();
+        }
+    }
+
+    /**
+     * Below-threshold flush at the given threshold must skip the native graph build (no .faiss) while the
+     * flat .vec/.veq byte sources are still written and readable.
+     */
+    @SneakyThrows
+    private void assertFlushSkipsGraphButWritesFlatVectors(int threshold) {
+        final int numVectors = 3; // below any positive threshold used here; -1 always skips
+        final float[][] vectors = generateRandomVectors(numVectors, DIMENSION);
+
+        try (org.apache.lucene.store.Directory directory = newDirectory()) {
+            final SegmentWriteState writeState = createWriteState(directory, "_0", numVectors);
+            final FieldInfo fi = createRealFieldInfo();
+            final Faiss1040ScalarQuantizedKnnVectorsFormat format = new Faiss1040ScalarQuantizedKnnVectorsFormat(
+                threshold,
+                new NativeIndexBuildStrategyFactory()
+            );
+
+            flushVectors(format, writeState, fi, vectors);
+
+            final List<String> files = Arrays.asList(directory.listAll());
+            assertFalse(
+                "Below-threshold SQ segment must not write a .faiss graph file (threshold=" + threshold + "). Files: " + files,
+                hasFaissFile(files)
+            );
+            // Flat vectors must survive the skip so exact search can score against them.
+            assertTrue(".vec must be written. Files: " + files, files.stream().anyMatch(f -> f.endsWith(".vec")));
+            assertTrue(".veq quantized codes must be written. Files: " + files, files.stream().anyMatch(f -> f.endsWith(".veq")));
+            verifyVectorsReadable(format, directory, writeState, fi, vectors, numVectors);
+        }
+    }
+
+    /**
+     * Proves the written segment's vectors are scoreable (not merely present on disk) by obtaining a
+     * RandomVectorScorer from the flat reader over the .veq codes and scoring every doc. This is the
+     * searchability signal available at the writer/component layer: the codec reader's full search() needs
+     * the memory-optimized native searcher (warmup + a loaded .faiss), and the graph-less exact-search
+     * fallback is a KNNWeight/ExactSearcher path, both of which are exercised end-to-end at the integ layer
+     * (Compression32XIT). Works for graph-backed and graph-less segments alike.
+     */
+    @SneakyThrows
+    private void assertSegmentScoreable(
+        Faiss1040ScalarQuantizedKnnVectorsFormat format,
+        org.apache.lucene.store.Directory directory,
+        SegmentWriteState writeState,
+        FieldInfo fi,
+        float[] query,
+        int numDocs
+    ) {
+        final SegmentReadState readState = new SegmentReadState(
+            directory,
+            writeState.segmentInfo,
+            new FieldInfos(new FieldInfo[] { fi }),
+            IOContext.DEFAULT,
+            FIELD_NAME
+        );
+        try (KnnVectorsReader knnReader = format.fieldsReader(readState)) {
+            final FlatVectorsReader flatReader = ((Faiss1040ScalarQuantizedKnnVectorsReader) knnReader).getFlatVectorsReader();
+            final RandomVectorScorer scorer = flatReader.getRandomVectorScorer(FIELD_NAME, query);
+            assertNotNull("Flat reader must provide a scorer over the .veq codes", scorer);
+            for (int doc = 0; doc < numDocs; doc++) {
+                final float score = scorer.score(doc);
+                assertTrue("Score for doc " + doc + " must be finite", Float.isFinite(score));
+            }
+        }
+    }
+
+    /**
+     * Builds N source segments (one per entry in {@code sourceThresholds}, each deciding whether that source
+     * builds its graph), asserts each source's flat files are present before merging, merges them with a
+     * writer configured at {@code mergeThreshold}, then asserts whether the merged segment built a graph and
+     * that all merged vectors are readable. mergeOneField reads only the flat files, so graph-less sources
+     * merge fine.
+     */
+    @SneakyThrows
+    private void assertMergeGraphOutcome(int[] sourceThresholds, int mergeThreshold, boolean expectMergedGraph) {
+        final int numSegments = sourceThresholds.length;
+        final int vectorsPerSegment = 3;
+        final int totalVectors = numSegments * vectorsPerSegment;
+
+        final float[][][] segmentVectors = new float[numSegments][][];
+        for (int s = 0; s < numSegments; s++) {
+            segmentVectors[s] = generateRandomVectors(vectorsPerSegment, DIMENSION);
+        }
+
+        final FieldInfo fi = createRealFieldInfo();
+        final FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { fi });
+        final Faiss1040ScalarQuantizedKnnVectorsFormat mergeFormat = new Faiss1040ScalarQuantizedKnnVectorsFormat(
+            mergeThreshold,
+            new NativeIndexBuildStrategyFactory()
+        );
+
+        try (org.apache.lucene.store.Directory directory = newDirectory()) {
+            final SegmentInfo[] segInfos = new SegmentInfo[numSegments];
+            final KnnVectorsReader[] readers = new KnnVectorsReader[numSegments];
+
+            for (int s = 0; s < numSegments; s++) {
+                final String segName = "_" + s;
+                segInfos[s] = createSegmentInfo(directory, segName, vectorsPerSegment);
+                final SegmentWriteState ws = new SegmentWriteState(
+                    InfoStream.NO_OUTPUT,
+                    directory,
+                    segInfos[s],
+                    fieldInfos,
+                    null,
+                    IOContext.DEFAULT,
+                    FIELD_NAME
+                );
+                final Faiss1040ScalarQuantizedKnnVectorsFormat sourceFormat = new Faiss1040ScalarQuantizedKnnVectorsFormat(
+                    sourceThresholds[s],
+                    new NativeIndexBuildStrategyFactory()
+                );
+                flushVectors(sourceFormat, ws, fi, segmentVectors[s]);
+
+                // Verify the source segment is reliable to merge: its flat vectors must exist, and its graph
+                // must match the source threshold (built when not skipped, absent when skipped).
+                final List<String> sourceFiles = Arrays.asList(directory.listAll());
+                assertTrue(
+                    "Source segment " + segName + " must have .vec before merge. Files: " + sourceFiles,
+                    sourceFiles.stream().anyMatch(f -> f.endsWith(".vec") && belongsToSegment(f, segName))
+                );
+                assertTrue(
+                    "Source segment " + segName + " must have .veq before merge. Files: " + sourceFiles,
+                    sourceFiles.stream().anyMatch(f -> f.endsWith(".veq") && belongsToSegment(f, segName))
+                );
+                final boolean sourceBuiltGraph = sourceThresholds[s] == ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD;
+                assertEquals(
+                    "Source segment " + segName + " graph presence must match its threshold. Files: " + sourceFiles,
+                    sourceBuiltGraph,
+                    hasFaissFileForSegment(sourceFiles, segName)
+                );
+
+                readers[s] = sourceFormat.fieldsReader(
+                    new SegmentReadState(directory, segInfos[s], fieldInfos, IOContext.DEFAULT, FIELD_NAME)
+                );
+            }
+
+            final MergeState.DocMap[] docMaps = new MergeState.DocMap[numSegments];
+            final int[] maxDocs = new int[numSegments];
+            final FieldInfos[] perSegFieldInfos = new FieldInfos[numSegments];
+            int docBase = 0;
+            for (int s = 0; s < numSegments; s++) {
+                final int base = docBase;
+                docMaps[s] = docID -> base + docID;
+                maxDocs[s] = vectorsPerSegment;
+                perSegFieldInfos[s] = fieldInfos;
+                docBase += vectorsPerSegment;
+            }
+
+            final SegmentInfo mergedSegInfo = createSegmentInfo(directory, "_merged", totalVectors);
+            final MergeState mergeState = new MergeState(
+                docMaps,
+                mergedSegInfo,
+                fieldInfos,
+                null,
+                null,
+                null,
+                null,
+                perSegFieldInfos,
+                new org.apache.lucene.util.Bits[numSegments],
+                null,
+                null,
+                readers,
+                maxDocs,
+                InfoStream.NO_OUTPUT,
+                Runnable::run,
+                false,
+                null
+            );
+
+            final SegmentWriteState mergedWriteState = new SegmentWriteState(
+                InfoStream.NO_OUTPUT,
+                directory,
+                mergedSegInfo,
+                fieldInfos,
+                null,
+                IOContext.DEFAULT,
+                FIELD_NAME
+            );
+
+            try (KnnVectorsWriter mergedWriter = mergeFormat.fieldsWriter(mergedWriteState)) {
+                mergedWriter.mergeOneField(fi, mergeState);
+                mergedWriter.finish();
+            }
+
+            for (KnnVectorsReader reader : readers) {
+                reader.close();
+            }
+
+            final List<String> files = Arrays.asList(directory.listAll());
+            assertEquals(
+                "Merged segment graph presence must match the merge threshold. Files: " + files,
+                expectMergedGraph,
+                hasFaissFileForSegment(files, "_merged")
+            );
+
+            final float[][] allVectors = new float[totalVectors][];
+            for (int s = 0; s < numSegments; s++) {
+                System.arraycopy(segmentVectors[s], 0, allVectors, s * vectorsPerSegment, vectorsPerSegment);
+            }
+            verifyVectorsReadable(mergeFormat, directory, mergedWriteState, fi, allVectors, totalVectors);
         }
     }
 
