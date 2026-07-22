@@ -36,10 +36,13 @@ jobs:
     strategy:
       matrix:
         java: [21, 25]
-    env:
-       CC: gcc10-gcc
-       CXX: gcc10-g++
-       FC: gcc10-gfortran
+    # No fleet-wide compiler env pin. The AL2 CI image provides two toolchains:
+    #   - gcc10-* : required to build nmslib (fails to compile under GCC 11+, see k-NN#2484).
+    #   - /usr/bin/gcc = GCC 12.4 (x86_64, built from source): required for faiss AVX-512 SPR
+    #     intrinsics (-mavx512fp16 / _mm512_cvt_roundps_ph).
+    # We use a two-step compile below (mirrors scripts/build.sh) so both libraries build with
+    # the compiler they need. On arm64 both aliases resolve to gcc10 via update-alternatives,
+    # so the two-step is harmless there.
 
     name: Run Integration Tests on Linux
     runs-on: ubuntu-latest
@@ -70,26 +73,58 @@ jobs:
 
       - name: Run build
         # switching the user, as OpenSearch cluster can only be started as root/Administrator on linux-deb/linux-rpm/windows-zip.
+        #
+        # Two-step compile (mirrors scripts/build.sh, keeps nmslib on gcc10 and faiss+SPR on
+        # GCC 12+). We detect the SIMD tier from lscpu and pass the same -Davx*.enabled flags
+        # to both compile stages, so cmake caches don't clash. Java build/tests run in the
+        # second stage under the default (GCC 12.4 on x86, gcc10 on arm64) toolchain.
         run: |
+          set -euo pipefail
           chown -R 1000:1000 `pwd`
-          if lscpu  | grep -i avx512f | grep -i avx512cd | grep -i avx512vl | grep -i avx512dq | grep -i avx512bw          
+
+          if lscpu | grep -i avx512f | grep -i avx512cd | grep -i avx512vl | grep -i avx512dq | grep -i avx512bw > /dev/null
           then
-            if lscpu | grep -q "GenuineIntel" && lscpu | grep -i avx512_fp16 | grep -i avx512_bf16 | grep -i avx512_vpopcntdq
+            if lscpu | grep -q "GenuineIntel" && lscpu | grep -i avx512_fp16 | grep -i avx512_bf16 | grep -i avx512_vpopcntdq > /dev/null
             then
               echo "the system is an Intel(R) Sapphire Rapids or a newer-generation processor"
-              su `id -un 1000` -c "whoami && java -version && ./gradlew build -Davx512_spr.enabled=true -Dnproc.count=`nproc`"
+              SIMD_FLAGS="-Davx512_spr.enabled=true"
             else
               echo "avx512 available on system"
-              su `id -un 1000` -c "whoami && java -version && ./gradlew build -Davx512_spr.enabled=false -Dnproc.count=`nproc`"
+              SIMD_FLAGS="-Davx512_spr.enabled=false"
             fi
-          elif lscpu  | grep -i avx2
+          elif lscpu | grep -i avx2 > /dev/null
           then
             echo "avx2 available on system"
-            su `id -un 1000` -c "whoami && java -version && ./gradlew build -Davx512.enabled=false -Davx512_spr.enabled=false -Dnproc.count=`nproc`"
+            SIMD_FLAGS="-Davx512.enabled=false -Davx512_spr.enabled=false"
           else
             echo "avx512 and avx2 not available on system"
-            su `id -un 1000` -c "whoami && java -version && ./gradlew build -Davx2.enabled=false -Davx512.enabled=false -Davx512_spr.enabled=false -Dnproc.count=`nproc`"
+            SIMD_FLAGS="-Davx2.enabled=false -Davx512.enabled=false -Davx512_spr.enabled=false"
           fi
+
+          NPROC=`nproc`
+          # Step 1: build nmslib with gcc10 (nmslib does not compile under GCC 11+, see k-NN#2484).
+          # Explicitly disable all faiss SIMD tiers here so init-simd.cmake doesn't probe AVX-512
+          # SPR intrinsics against GCC 10 (that probe requires GCC 12+ and would fail loud). The
+          # per-arch faiss SIMD variant we actually want is built in step 2 with the default gcc.
+          echo "=== Step 1: build nmslib with gcc10 ==="
+          su `id -un 1000` -c "whoami && java -version && \
+              env CC=gcc10-gcc CXX=gcc10-g++ FC=gcc10-gfortran \
+                  ./gradlew :buildJniLib -Pknn_libs=opensearchknn_nmslib \
+                                         -Davx2.enabled=false -Davx512.enabled=false -Davx512_spr.enabled=false \
+                                         -Dnproc.count=${NPROC}"
+
+          # Wipe cmake configure cache so step 2 re-runs cmake with the default (GCC 12+) toolchain
+          # and the correct SIMD tier for this runner. The release/ output dir is preserved, so
+          # libopensearchknn_nmslib.so from step 1 stays intact.
+          rm -rf jni/build/CMakeCache.txt jni/build/CMakeFiles
+
+          # Step 2: build faiss/simd and run the full gradle build (Java compile, test, integTest)
+          # with the default toolchain (GCC 12.4 on x86 -> AVX-512 SPR supported; gcc10 on arm64).
+          # -Dbuild.lib.apply_patches=false: patches were already applied in step 1.
+          echo "=== Step 2: build faiss/simd + run Java build with default gcc ==="
+          su `id -un 1000` -c "whoami && java -version && \
+              ./gradlew build -Pknn_libs=opensearchknn_faiss,opensearchknn_simd ${SIMD_FLAGS} \
+                              -Dbuild.lib.apply_patches=false -Dnproc.count=${NPROC}"
 
   check-results:
     needs: [check-files, integ-test-with-security-linux]
