@@ -26,6 +26,7 @@ import org.apache.lucene.search.ScorerSupplier;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.tests.util.LuceneTestCase.AwaitsFix;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.indices.ModelDao;
@@ -42,6 +43,9 @@ import static org.opensearch.knn.common.KNNConstants.MAX_RESULTS_RADIAL_RESCORIN
 // Tests for RescoreRadialSearchQuery — the pass-through skeleton.
 // At this stage the wrapper delegates entirely to the inner query without rescoring.
 // These tests verify the wrapper structure and delegation, not rescoring correctness.
+// The quantized radial feature is disabled. Retain the tests with the implementation for future
+// reconsideration, but do not run them while the public query path is blocked.
+@AwaitsFix(bugUrl = "https://github.com/opensearch-project/k-NN/issues/3452")
 public class RescoreRadialSearchQueryTests extends KNNTestCase {
     private static final String FIELD_NAME = "test-field";
     private static final float[] QUERY_VECTOR = { 1.0f, 2.0f, 3.0f };
