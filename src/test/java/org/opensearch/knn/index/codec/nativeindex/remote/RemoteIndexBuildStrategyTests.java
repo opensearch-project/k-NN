@@ -135,13 +135,13 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
             final String fileName = "test_field.faiss";
             IndexOutput output = directory.createOutput(fileName, IOContext.DEFAULT);
 
-            // Simulate partial remote write — write some garbage bytes as if S3 download partially completed
-            byte[] partialData = new byte[] { 0x49, 0x78, 0x4d, 0x70, 0x00, 0x04, 0x00, 0x00 }; // "IxMp" header fragment
-            output.writeBytes(partialData, partialData.length);
-            assertEquals(partialData.length, output.getFilePointer());
-
-            // Create a real IndexOutputWithBuffer wrapping this partially-written output
+            // Create IndexOutputWithBuffer first, then write THROUGH it to track bytesWritten
             IndexOutputWithBuffer realIndexOutputWithBuffer = new IndexOutputWithBuffer(output);
+
+            // Simulate partial remote write via writeFromStreamWithBuffer (as S3 download would)
+            byte[] partialData = new byte[] { 0x49, 0x78, 0x4d, 0x70, 0x00, 0x04, 0x00, 0x00 }; // "IxMp" header fragment
+            realIndexOutputWithBuffer.writeFromStreamWithBuffer(new java.io.ByteArrayInputStream(partialData), partialData.length);
+            assertTrue(realIndexOutputWithBuffer.getBytesWritten() > 0);
 
             // Build params with the real IndexOutputWithBuffer and this directory
             SegmentWriteState realSegmentWriteState = new SegmentWriteState(
@@ -181,20 +181,20 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
             // Verify fallback was called
             assertTrue(fallback.get());
 
-            // Verify the IndexOutput was recreated — file pointer should be at 0 (fresh output)
-            assertEquals(0, realIndexOutputWithBuffer.getIndexOutput().getFilePointer());
+            // Verify bytesWritten was reset to 0 after recreate
+            assertEquals(0, realIndexOutputWithBuffer.getBytesWritten());
 
             // Close and verify file exists with zero length (clean slate for fallback to write)
-            realIndexOutputWithBuffer.getIndexOutput().close();
+            realIndexOutputWithBuffer.close();
             assertEquals(0, directory.fileLength(fileName));
         }
     }
 
     /**
-     * Test that when remote build fails BEFORE any data is written to IndexOutput, the recreate
-     * still works correctly — deleting an empty file and creating a fresh one.
+     * Test that when remote build fails BEFORE any data is written to IndexOutput, recreate
+     * is NOT called (bytesWritten == 0), and the fallback writes to the original output directly.
      */
-    public void testFallback_whenNothingWritten_thenRecreatesIndexOutput() throws IOException {
+    public void testFallback_whenNothingWritten_thenSkipsRecreate() throws IOException {
         try (Directory directory = newDirectory()) {
             final String fileName = "test_field_empty.faiss";
             IndexOutput output = directory.createOutput(fileName, IOContext.DEFAULT);
@@ -203,6 +203,7 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
             assertEquals(0, output.getFilePointer());
 
             IndexOutputWithBuffer realIndexOutputWithBuffer = new IndexOutputWithBuffer(output);
+            assertEquals(0, realIndexOutputWithBuffer.getBytesWritten());
 
             SegmentWriteState realSegmentWriteState = new SegmentWriteState(
                 mock(InfoStream.class),
@@ -241,12 +242,11 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
             // Verify fallback was called
             assertTrue(fallback.get());
 
-            // Verify the IndexOutput was recreated — file pointer should be at 0
-            assertEquals(0, realIndexOutputWithBuffer.getIndexOutput().getFilePointer());
+            // Verify bytesWritten is still 0 (reset was not called since nothing was written)
+            assertEquals(0, realIndexOutputWithBuffer.getBytesWritten());
 
-            // Close and verify file is empty (recreate deleted the empty file and created a new one)
-            realIndexOutputWithBuffer.getIndexOutput().close();
-            assertEquals(0, directory.fileLength(fileName));
+            // Close
+            realIndexOutputWithBuffer.close();
         }
     }
 

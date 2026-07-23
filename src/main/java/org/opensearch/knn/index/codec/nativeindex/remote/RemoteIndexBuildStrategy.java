@@ -178,7 +178,16 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             metrics.endRemoteIndexBuildMetrics(success);
         }
         // Recreate the IndexOutput before fallback to discard any partially written remote data
-        indexInfo.getIndexOutputWithBuffer().recreate(indexInfo.getSegmentWriteState().directory, indexInfo.getSegmentWriteState().context);
+        assert !success : "Should not reach fallback path when remote build succeeded";
+        if (indexInfo.getIndexOutputWithBuffer().getBytesWritten() > 0) {
+            log.info(
+                "Clearing the indexOutput buffer since some data has been written in file: {} : {} bytes, before falling back to local index build",
+                indexInfo.getIndexOutputWithBuffer().getName(),
+                indexInfo.getIndexOutputWithBuffer().getBytesWritten()
+            );
+            indexInfo.getIndexOutputWithBuffer()
+                .reset(indexInfo.getSegmentWriteState().directory, indexInfo.getSegmentWriteState().context);
+        }
         fallbackStrategy.buildAndWriteIndex(indexInfo);
     }
 
