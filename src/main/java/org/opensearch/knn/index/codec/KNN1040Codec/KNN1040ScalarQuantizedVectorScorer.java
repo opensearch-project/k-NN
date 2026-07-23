@@ -243,10 +243,10 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
                 targetCorrectiveTerms.additionalCorrection(),
                 targetCorrectiveTerms.quantizedComponentSum(),
                 addressAndSize,
-                similarityFunction == VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT
-                    || similarityFunction == VectorSimilarityFunction.COSINE
+                similarityFunction == VectorSimilarityFunction.COSINE ? SimdVectorComputeService.SimilarityFunctionType.SQ_COSINE.ordinal()
+                    : similarityFunction == VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT
                         ? SimdVectorComputeService.SimilarityFunctionType.SQ_IP.ordinal()
-                        : SimdVectorComputeService.SimilarityFunctionType.SQ_L2.ordinal(),
+                    : SimdVectorComputeService.SimilarityFunctionType.SQ_L2.ordinal(),
                 dimension,
                 centroidDp
             );
