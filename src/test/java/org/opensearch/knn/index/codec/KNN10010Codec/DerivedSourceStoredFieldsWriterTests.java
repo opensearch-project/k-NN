@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -63,6 +64,38 @@ public class DerivedSourceStoredFieldsWriterTests extends KNNTestCase {
         byte[] shiftedBytes = new byte[originalBytes.length + 2];
         System.arraycopy(originalBytes, 0, shiftedBytes, 1, originalBytes.length);
         derivedSourceStoredFieldsWriter.writeField(fieldInfo, new BytesRef(shiftedBytes, 1, originalBytes.length));
+    }
+
+    @SneakyThrows
+    public void testWriteFieldPreservesNonXContentSource() {
+        StoredFieldsWriter delegate = mock(StoredFieldsWriter.class);
+        SegmentInfo segmentInfo = mock(SegmentInfo.class);
+        MapperService mapperService = mock(MapperService.class);
+        DocumentMapper documentMapper = mock(DocumentMapper.class);
+        MappingLookup mappingLookup = mock(MappingLookup.class);
+        KNNVectorFieldType vectorFieldType = mock(KNNVectorFieldType.class);
+
+        String fieldName = "vector";
+        when(vectorFieldType.name()).thenReturn(fieldName);
+        when(mapperService.fieldTypes()).thenReturn(List.of(vectorFieldType));
+        when(mapperService.documentMapper()).thenReturn(documentMapper);
+        when(documentMapper.metadataMapper(SourceFieldMapper.class)).thenReturn(null);
+        when(documentMapper.mappers()).thenReturn(mappingLookup);
+        when(mappingLookup.getMapper(fieldName)).thenReturn(null);
+        when(mappingLookup.getNestedScope(fieldName)).thenReturn(null);
+
+        FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder(SourceFieldMapper.NAME).build();
+        BytesRef rawSource = new BytesRef("filling gaps");
+        KNN10010DerivedSourceStoredFieldsWriter derivedSourceStoredFieldsWriter = new KNN10010DerivedSourceStoredFieldsWriter(
+            "mock-codec",
+            delegate,
+            segmentInfo,
+            mapperService
+        );
+
+        derivedSourceStoredFieldsWriter.writeField(fieldInfo, rawSource);
+
+        verify(delegate).writeField(same(fieldInfo), same(rawSource));
     }
 
     @SneakyThrows
