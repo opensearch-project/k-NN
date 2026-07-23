@@ -733,6 +733,54 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         validateQueryResultsWithFilters(searchVector, 5, 1, expectedDocIdsKGreaterThanFilterResult, expectedDocIdsKLimitsFilterResult);
     }
 
+    @SneakyThrows
+    public void testRadialSearch_withMaxDistance_onLuceneSQ1bit_thenBlocked() {
+        createKnnIndexMappingWithLuceneEngineWithModeAndCompression(CompressionLevel.x32, DIMENSION, Mode.NOT_CONFIGURED);
+        addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, new Float[] { 1.0f, 1.0f, 1.0f });
+        refreshIndex(INDEX_NAME);
+
+        XContentBuilder query = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("knn")
+            .startObject(FIELD_NAME)
+            .field("vector", new float[] { 1.0f, 1.0f, 1.0f })
+            .field(MAX_DISTANCE, 100.0f)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        org.opensearch.client.Request request = new org.opensearch.client.Request("POST", "/" + INDEX_NAME + "/_search");
+        request.setJsonEntity(query.toString());
+
+        ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
+        assertTrue(ex.getMessage().contains("Radial search is not supported for indices which have quantization enabled"));
+    }
+
+    @SneakyThrows
+    public void testRadialSearch_withMinScore_onLuceneSQ1bit_thenBlocked() {
+        createKnnIndexMappingWithLuceneEngineWithModeAndCompression(CompressionLevel.x32, DIMENSION, Mode.NOT_CONFIGURED);
+        addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, new Float[] { 1.0f, 1.0f, 1.0f });
+        refreshIndex(INDEX_NAME);
+
+        XContentBuilder query = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("knn")
+            .startObject(FIELD_NAME)
+            .field("vector", new float[] { 1.0f, 1.0f, 1.0f })
+            .field(MIN_SCORE, 0.01f)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        org.opensearch.client.Request request = new org.opensearch.client.Request("POST", "/" + INDEX_NAME + "/_search");
+        request.setJsonEntity(query.toString());
+
+        ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
+        assertTrue(ex.getMessage().contains("Radial search is not supported for indices which have quantization enabled"));
+    }
+
     private void createKnnIndexMappingWithLuceneEngineAndSQEncoder(
         int dimension,
         SpaceType spaceType,
@@ -921,8 +969,11 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
             .startObject(FIELD_NAME)
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
             .field(DIMENSION_FIELD_NAME, dimension)
-            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType)
-            .startObject(KNNConstants.KNN_METHOD)
+            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType);
+        if (vectorDataType == VectorDataType.FLOAT) {
+            addCompressionMappingFields(builder);
+        }
+        builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
@@ -960,11 +1011,8 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
             .startObject(FIELD_NAME)
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
             .field(DIMENSION_FIELD_NAME, dimension)
-            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType);
-        if (vectorDataType == VectorDataType.FLOAT) {
-            addCompressionMappingFields(builder);
-        }
-        builder.startObject(KNNConstants.KNN_METHOD)
+            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType)
+            .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
