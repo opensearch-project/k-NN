@@ -81,16 +81,29 @@ public class KNN10010DerivedSourceStoredFieldsReader extends StoredFieldsReader 
         if (transformerInitialized) {
             return;
         }
-        String[] includes = null;
-        String[] excludes = null;
-
-        if (visitor instanceof FieldsVisitor) {
-            includes = ((FieldsVisitor) visitor).includes();
-            excludes = ((FieldsVisitor) visitor).excludes();
-        }
-
-        derivedSourceVectorTransformer.initialize(includes, excludes);
+        derivedSourceVectorTransformer.initialize(resolveIncludes(visitor), resolveExcludes(visitor));
         transformerInitialized = true;
+    }
+
+    /**
+     * Resolves the source include patterns to use for vector injection from the visitor, or {@code null}
+     * when the visitor is not a {@link FieldsVisitor}.
+     */
+    static String[] resolveIncludes(StoredFieldVisitor visitor) {
+        return visitor instanceof FieldsVisitor ? ((FieldsVisitor) visitor).includes() : null;
+    }
+
+    /**
+     * Resolves the source exclude patterns to use for vector injection from the visitor, or {@code null}
+     * when the visitor is not a {@link FieldsVisitor}.
+     *
+     * <p>Uses {@link FieldsVisitor#codecExcludes()} rather than {@link FieldsVisitor#excludes()}: codec
+     * excludes are the response-level excludes minus any field an inner hit (or the fields API) requests,
+     * so a vector excluded from the top-level response is still reconstructed here when a nested inner hit
+     * needs it. See OpenSearch core PR #22521 and k-NN issue #3303.
+     */
+    static String[] resolveExcludes(StoredFieldVisitor visitor) {
+        return visitor instanceof FieldsVisitor ? ((FieldsVisitor) visitor).codecExcludes() : null;
     }
 
     @Override

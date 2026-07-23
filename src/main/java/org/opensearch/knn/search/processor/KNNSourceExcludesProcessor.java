@@ -9,6 +9,8 @@ import com.google.common.annotations.VisibleForTesting;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.BooleanClause;
+import org.opensearch.action.search.MultiSearchAction;
+import org.opensearch.action.search.SearchAction;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -109,18 +111,9 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
         final List<InnerHitBuilder> innerHitBuilders = innerHitsExtractor.getInnerHitBuilders();
         for (InnerHitBuilder innerHitBuilder : innerHitBuilders) {
             FetchSourceContext fetchSourceContext = innerHitBuilder.getFetchSourceContext();
-            List<String> fetchFields = innerHitBuilder.getFetchFields() != null
-                ? innerHitBuilder.getFetchFields().stream().map(fieldAndFormat -> fieldAndFormat.field).toList()
-                : List.of();
+            StoredFieldsContext storedFieldsContext = innerHitBuilder.getStoredFieldsContext();
 
-            if (SourceInspector.isExplicitTrue(fetchSourceContext)
-                || SourceInspector.innerHitRequestsVector(fetchSourceContext, fetchFields, vectorFields)) {
-                return request;
-            }
-        }
-
-        for (InnerHitBuilder innerHitBuilder : innerHitBuilders) {
-            if (SourceInspector.isExplicitFalse(innerHitBuilder.getFetchSourceContext()) == false) {
+            if (shouldAppendExcludes(fetchSourceContext, storedFieldsContext)) {
                 innerHitBuilder.setFetchSourceContext(applyExcludes(innerHitBuilder.getFetchSourceContext(), vectorFields));
             }
         }
@@ -217,6 +210,13 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
         return new FetchSourceContext(true, userIncludes, mergedExcludes.toArray(new String[0]));
     }
 
+    private static boolean shouldAppendExcludes(FetchSourceContext fetchSource, StoredFieldsContext storedFieldsContext) {
+        if (SourceInspector.isExplicitFalse(fetchSource) || SourceInspector.isExplicitTrue(fetchSource)) {
+            return false;
+        }
+        return storedFieldsContext == null || storedFieldsContext.fetchFields();
+    }
+
     @Override
     public String getType() {
         return TYPE;
@@ -271,20 +271,6 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
             }
             return false;
         }
-
-        private static boolean innerHitRequestsVector(
-            final FetchSourceContext fetchSourceContext,
-            final List<String> fetchFields,
-            final Set<String> vectorFields
-        ) {
-            for (String vectorField : vectorFields) {
-                if ((fetchSourceContext != null && patternMatchesAny(vectorField, Arrays.asList(fetchSourceContext.includes())))
-                    || patternMatchesAny(vectorField, fetchFields)) {
-                    return true;
-                }
-            }
-            return false;
-        }
     }
 
     /**
@@ -299,6 +285,14 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
     public static class Factory implements SystemGeneratedProcessor.SystemGeneratedFactory<SearchRequestProcessor> {
         public static final String TYPE = "knn_default_excludes_factory";
 
+        /**
+         * Parent actions for which this processor should be generated.
+         * <p>A {@code null} parent action denotes a top-level user search with no parent task and is always allowed.
+         * {@link SearchAction#NAME} covers the leaf search executed on a remote cluster during cross-cluster search;
+         * {@link MultiSearchAction#NAME} covers the child searches fanned out from a multi-search request.
+         */
+        private static final Set<String> ALLOWED_PARENT_ACTIONS = Set.of(SearchAction.NAME, MultiSearchAction.NAME);
+
         private final ClusterService clusterService;
         private final IndexNameExpressionResolver indexNameExpressionResolver;
 
@@ -309,9 +303,14 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
 
         @Override
         public boolean shouldGenerate(ProcessorGenerationContext context) {
-            // TODO: Access parent action and use an allowlisted list of action to generate the processor
-            // For now, we will add this processor for all search requests except parent task requests
-            if (context.searchRequest() == null || context.searchRequest().getParentTask().isSet()) {
+            if (context.searchRequest() == null) {
+                return false;
+            }
+
+            // Only generate the processor for allowlisted parent actions. A null parent action is a top-level
+            // user search; msearch and cross-cluster leaf searches are the other cases where excluding vector
+            // fields from the response is meaningful. Any other parent action is skipped.
+            if (context.parentAction() != null && ALLOWED_PARENT_ACTIONS.contains(context.parentAction()) == false) {
                 return false;
             }
 
@@ -324,13 +323,6 @@ public final class KNNSourceExcludesProcessor extends AbstractProcessor implemen
             }
             // In all other cases do not add this processor
             return false;
-        }
-
-        private boolean shouldAppendExcludes(FetchSourceContext fetchSource, StoredFieldsContext storedFieldsContext) {
-            if (SourceInspector.isExplicitFalse(fetchSource) || SourceInspector.isExplicitTrue(fetchSource)) {
-                return false;
-            }
-            return storedFieldsContext == null || storedFieldsContext.fetchFields();
         }
 
         @Override
