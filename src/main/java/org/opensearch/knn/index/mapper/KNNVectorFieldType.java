@@ -23,7 +23,7 @@ import org.opensearch.index.query.QueryShardException;
 import org.opensearch.knn.index.KNNVectorDocValueFormat;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
@@ -189,7 +189,7 @@ public class KNNVectorFieldType extends MappedFieldType {
         final int dimension = knnMappingConfig.getDimension();
         final CompressionLevel compressionLevel = knnMappingConfig.getCompressionLevel();
         final Mode mode = knnMappingConfig.getMode();
-        KNNEngine engine = null;
+        VectorSearchEngine engine = null;
         if (methodContext.isPresent()) {
             engine = methodContext.get().getKnnEngine();
         }
@@ -260,7 +260,7 @@ public class KNNVectorFieldType extends MappedFieldType {
      * @param knnEngine the engine resolved for this field (from method context or model metadata)
      * @throws UnsupportedOperationException if radial search is not supported
      */
-    public void validateSupportRadialSearch(final KNNEngine knnEngine) {
+    public void validateSupportRadialSearch(final VectorSearchEngine knnEngine) {
         if (ENGINES_SUPPORTING_RADIAL_SEARCH.contains(knnEngine) == false) {
             throw new UnsupportedOperationException(String.format(Locale.ROOT, "Engine [%s] does not support radial search", knnEngine));
         }
@@ -301,7 +301,7 @@ public class KNNVectorFieldType extends MappedFieldType {
      * Determines whether rescoring with full-precision vectors is required after radial search.
      *
      * <p>This method should only be called for knn field types that have already been validated
-     * to support radial search via {@link #validateSupportRadialSearch(KNNEngine)}.
+     * to support radial search via {@link #validateSupportRadialSearch(VectorSearchEngine)}.
      * Calling this on an unsupported configuration may return incorrect results.</p>
      *
      * <p>Currently, only 1-bit SQ (32x compression) requires rescoring, identified by the

@@ -29,6 +29,7 @@ import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -86,7 +87,7 @@ public class TrainingJobTests extends KNNTestCase {
 
     public void testGetModel() {
         SpaceType spaceType = SpaceType.INNER_PRODUCT;
-        KNNEngine knnEngine = KNNEngine.DEFAULT;
+        VectorSearchEngine knnEngine = KNNEngine.DEFAULT;
         int dimension = 10;
         String description = "test description";
         String error = "";
@@ -146,7 +147,7 @@ public class TrainingJobTests extends KNNTestCase {
         // Define the method setup for method that requires training
         int nlists = 5;
         int dimension = 16;
-        KNNEngine knnEngine = KNNEngine.FAISS;
+        VectorSearchEngine knnEngine = KNNEngine.FAISS;
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .vectorDataType(VectorDataType.FLOAT)
             .dimension(dimension)
@@ -252,7 +253,7 @@ public class TrainingJobTests extends KNNTestCase {
         // Define the method setup for method that requires training
         int nlists = 5;
         int dimension = 16;
-        KNNEngine knnEngine = KNNEngine.FAISS;
+        VectorSearchEngine knnEngine = KNNEngine.FAISS;
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .vectorDataType(VectorDataType.FLOAT)
             .dimension(dimension)
@@ -324,7 +325,7 @@ public class TrainingJobTests extends KNNTestCase {
         // Define the method setup for method that requires training
         int nlists = 5;
         int dimension = 16;
-        KNNEngine knnEngine = KNNEngine.FAISS;
+        VectorSearchEngine knnEngine = KNNEngine.FAISS;
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .vectorDataType(VectorDataType.FLOAT)
             .dimension(dimension)
@@ -402,7 +403,7 @@ public class TrainingJobTests extends KNNTestCase {
         // Define the method setup for method that requires training
         int nlists = 5;
         int dimension = 16;
-        KNNEngine knnEngine = KNNEngine.FAISS;
+        VectorSearchEngine knnEngine = KNNEngine.FAISS;
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .vectorDataType(VectorDataType.FLOAT)
             .dimension(dimension)
@@ -478,7 +479,7 @@ public class TrainingJobTests extends KNNTestCase {
         // Define the method setup for method that requires training
         int nlists = 5;
         int dimension = 16;
-        KNNEngine knnEngine = KNNEngine.FAISS;
+        VectorSearchEngine knnEngine = KNNEngine.FAISS;
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .vectorDataType(VectorDataType.FLOAT)
             .dimension(dimension)
@@ -553,7 +554,7 @@ public class TrainingJobTests extends KNNTestCase {
         // Define the method setup for method that requires training
         int nlists = 1024; // setting this to 1024 will cause training to fail when there is only 2 data points
         int dimension = 16;
-        KNNEngine knnEngine = KNNEngine.FAISS;
+        VectorSearchEngine knnEngine = KNNEngine.FAISS;
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .vectorDataType(VectorDataType.FLOAT)
             .dimension(dimension)

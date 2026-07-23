@@ -12,6 +12,7 @@ import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.lucenelib.OSKnnByteVectorQuery;
 import org.opensearch.knn.index.query.lucenelib.OSKnnFloatVectorQuery;
@@ -174,7 +175,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
         throw new IllegalStateException("QueryVector has neither float nor byte array");
     }
 
-    private static Query validateFilterQuerySupport(final Query filterQuery, final KNNEngine knnEngine) {
+    private static Query validateFilterQuerySupport(final Query filterQuery, final VectorSearchEngine knnEngine) {
         log.debug("filter query {}, knnEngine {}", filterQuery, knnEngine);
         if (filterQuery != null && KNNEngine.getEnginesThatSupportsFilters().contains(knnEngine)) {
             return filterQuery;

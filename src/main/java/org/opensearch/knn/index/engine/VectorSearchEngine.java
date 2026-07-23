@@ -25,6 +25,12 @@ import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
 @ExperimentalApi
 public interface VectorSearchEngine {
     /**
+     * The placeholder for undefined engine
+     */
+    final VectorSearchEngine UNDEFINED = new AbstractKNNEngineBase("undefined") {
+    };
+
+    /**
      * Validates that the KNN method is compatible with the KNN engine.
      * @param knnMethodContext KNN method context
      * @param knnMethodConfigContext KNN method configuration context

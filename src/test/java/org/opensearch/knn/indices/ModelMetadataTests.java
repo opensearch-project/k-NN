@@ -22,6 +22,7 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 
@@ -36,7 +37,7 @@ import java.util.Map;
 public class ModelMetadataTests extends KNNTestCase {
 
     public void testStreams() throws IOException {
-        KNNEngine knnEngine = KNNEngine.DEFAULT;
+        VectorSearchEngine knnEngine = KNNEngine.DEFAULT;
         SpaceType spaceType = SpaceType.L2;
         int dimension = 128;
 
@@ -83,7 +84,7 @@ public class ModelMetadataTests extends KNNTestCase {
     }
 
     public void testGetKnnEngine() {
-        KNNEngine knnEngine = KNNEngine.DEFAULT;
+        VectorSearchEngine knnEngine = KNNEngine.DEFAULT;
         ModelMetadata modelMetadata = new ModelMetadata(
             knnEngine,
             SpaceType.L2,
@@ -322,7 +323,7 @@ public class ModelMetadataTests extends KNNTestCase {
     }
 
     public void testToString() {
-        KNNEngine knnEngine = KNNEngine.DEFAULT;
+        VectorSearchEngine knnEngine = KNNEngine.DEFAULT;
         SpaceType spaceType = SpaceType.L2;
         int dimension = 128;
         ModelState modelState = ModelState.TRAINING;
@@ -721,7 +722,7 @@ public class ModelMetadataTests extends KNNTestCase {
     }
 
     public void testFromString() {
-        KNNEngine knnEngine = KNNEngine.DEFAULT;
+        VectorSearchEngine knnEngine = KNNEngine.DEFAULT;
         SpaceType spaceType = SpaceType.L2;
         int dimension = 128;
         ModelState modelState = ModelState.TRAINING;
@@ -882,7 +883,7 @@ public class ModelMetadataTests extends KNNTestCase {
     }
 
     public void testFromResponseMap() throws IOException {
-        KNNEngine knnEngine = KNNEngine.DEFAULT;
+        VectorSearchEngine knnEngine = KNNEngine.DEFAULT;
         SpaceType spaceType = SpaceType.L2;
         int dimension = 128;
         ModelState modelState = ModelState.TRAINING;
@@ -991,7 +992,7 @@ public class ModelMetadataTests extends KNNTestCase {
     }
 
     public void testBlockCommasInDescription() {
-        KNNEngine knnEngine = KNNEngine.DEFAULT;
+        VectorSearchEngine knnEngine = KNNEngine.DEFAULT;
         SpaceType spaceType = SpaceType.L2;
         int dimension = 128;
         ModelState modelState = ModelState.TRAINING;

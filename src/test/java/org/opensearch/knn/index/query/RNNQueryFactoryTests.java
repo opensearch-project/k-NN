@@ -29,6 +29,7 @@ import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.indices.ModelDao;
@@ -54,10 +55,10 @@ public class RNNQueryFactoryTests extends KNNTestCase {
     private final Map<String, ?> methodParameters = Map.of(METHOD_PARAMETER_EF_SEARCH, 100);
 
     public void testCreate_whenLucene_withRadiusQuery_withFloatVector() {
-        List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
+        List<VectorSearchEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
             .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
             .collect(Collectors.toList());
-        for (KNNEngine knnEngine : luceneDefaultQueryEngineList) {
+        for (VectorSearchEngine knnEngine : luceneDefaultQueryEngineList) {
             Query query = RNNQueryFactory.create(
                 knnEngine,
                 testIndexName,
@@ -71,10 +72,10 @@ public class RNNQueryFactoryTests extends KNNTestCase {
     }
 
     public void testCreate_whenLucene_withRadiusQuery_withByteVector() {
-        List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
+        List<VectorSearchEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
             .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
             .collect(Collectors.toList());
-        for (KNNEngine knnEngine : luceneDefaultQueryEngineList) {
+        for (VectorSearchEngine knnEngine : luceneDefaultQueryEngineList) {
             QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
             MappedFieldType testMapper = mock(MappedFieldType.class);
             when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
@@ -97,10 +98,10 @@ public class RNNQueryFactoryTests extends KNNTestCase {
     }
 
     public void testCreate_whenLucene_withFilter_thenSucceed() {
-        List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
+        List<VectorSearchEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
             .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
             .collect(Collectors.toList());
-        for (KNNEngine knnEngine : luceneDefaultQueryEngineList) {
+        for (VectorSearchEngine knnEngine : luceneDefaultQueryEngineList) {
             QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
             MappedFieldType testMapper = mock(MappedFieldType.class);
             when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
@@ -247,11 +248,11 @@ public class RNNQueryFactoryTests extends KNNTestCase {
     // Verify that Lucene radial search with 32x SQ wraps the inner FloatVectorSimilarityQuery
     // in RescoreRadialSearchQuery.
     public void testCreate_whenLuceneSQ32x_thenWrapsInRescoreRadialSearchQuery() {
-        List<KNNEngine> luceneEngines = Arrays.stream(KNNEngine.values())
+        List<VectorSearchEngine> luceneEngines = Arrays.stream(KNNEngine.values())
             .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
             .collect(Collectors.toList());
 
-        for (KNNEngine knnEngine : luceneEngines) {
+        for (VectorSearchEngine knnEngine : luceneEngines) {
             KNNVectorFieldType mockFieldType = mock(KNNVectorFieldType.class);
             when(mockFieldType.isRescoringRequiredForRadial()).thenReturn(true);
 
@@ -302,11 +303,11 @@ public class RNNQueryFactoryTests extends KNNTestCase {
 
     // Verify that non-quantized Lucene radial search returns bare FloatVectorSimilarityQuery (no wrapper).
     public void testCreate_whenLuceneNotQuantized_thenNoWrapper() {
-        List<KNNEngine> luceneEngines = Arrays.stream(KNNEngine.values())
+        List<VectorSearchEngine> luceneEngines = Arrays.stream(KNNEngine.values())
             .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
             .collect(Collectors.toList());
 
-        for (KNNEngine knnEngine : luceneEngines) {
+        for (VectorSearchEngine knnEngine : luceneEngines) {
             final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
                 .knnEngine(knnEngine)
                 .indexName(testIndexName)
@@ -327,11 +328,11 @@ public class RNNQueryFactoryTests extends KNNTestCase {
     // The default branch in the switch statement (line 146-152) should be hit when a BINARY vector type
     // is passed to the Lucene radial search path, since only FLOAT and BYTE are supported.
     public void testCreate_whenLuceneWithUnsupportedVectorDataType_thenThrows() {
-        List<KNNEngine> luceneEngines = Arrays.stream(KNNEngine.values())
+        List<VectorSearchEngine> luceneEngines = Arrays.stream(KNNEngine.values())
             .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
             .collect(Collectors.toList());
 
-        for (KNNEngine knnEngine : luceneEngines) {
+        for (VectorSearchEngine knnEngine : luceneEngines) {
             final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
                 .knnEngine(knnEngine)
                 .indexName(testIndexName)

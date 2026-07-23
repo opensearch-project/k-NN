@@ -16,6 +16,7 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Response;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.util.ArrayList;
@@ -372,10 +373,10 @@ public class KNNMapperSearcherIT extends KNNCompressionRestTestCase {
      */
     @SneakyThrows
     public void testStoredFields_whenFloatDataType_thenSucceed() {
-        List<KNNEngine> enginesToTest = List.of(KNNEngine.FAISS, KNNEngine.LUCENE);
+        List<VectorSearchEngine> enginesToTest = List.of(KNNEngine.FAISS, KNNEngine.LUCENE);
         float[] testVector = new float[] { -100.0f, 100.0f, 0f, 1f };
         String expectedResponse = String.format("\"fields\":{\"%s\":[[-100.0,100.0,0.0,1.0]]}}", FIELD_NAME);
-        for (KNNEngine knnEngine : enginesToTest) {
+        for (VectorSearchEngine knnEngine : enginesToTest) {
             createKnnIndex(INDEX_NAME, createVectorMapping(testVector.length, knnEngine.getName(), VectorDataType.FLOAT.getValue(), true));
             addKnnDoc(INDEX_NAME, "1", FIELD_NAME, testVector);
 
@@ -397,9 +398,9 @@ public class KNNMapperSearcherIT extends KNNCompressionRestTestCase {
 
     @SneakyThrows
     public void testPutMappings_whenIndexAlreadyCreated_thenSuccess() {
-        List<KNNEngine> enginesToTest = List.of(KNNEngine.FAISS, KNNEngine.LUCENE);
+        List<VectorSearchEngine> enginesToTest = List.of(KNNEngine.FAISS, KNNEngine.LUCENE);
         float[] testVector = new float[] { -100.0f, 100.0f, 0f, 1f };
-        for (KNNEngine knnEngine : enginesToTest) {
+        for (VectorSearchEngine knnEngine : enginesToTest) {
             String indexName = INDEX_NAME + "_" + knnEngine.getName();
             createKnnIndex(indexName, createVectorMapping(testVector.length, knnEngine.getName(), VectorDataType.FLOAT.getValue(), false));
             putMappingRequest(

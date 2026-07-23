@@ -26,6 +26,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
@@ -50,7 +51,7 @@ public class KNNVectorFieldMapperUtil {
      * @param knnEngine  KNNEngine
      * @return  DocValues FieldType of type Binary
      */
-    public static FieldType buildDocValuesFieldType(KNNEngine knnEngine) {
+    public static FieldType buildDocValuesFieldType(VectorSearchEngine knnEngine) {
         FieldType field = new FieldType();
         field.putAttribute(KNN_ENGINE, knnEngine.getName());
         field.setDocValuesType(DocValuesType.BINARY);

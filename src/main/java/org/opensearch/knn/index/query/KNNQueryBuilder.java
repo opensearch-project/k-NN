@@ -30,6 +30,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorQueryType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -439,7 +440,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         KNNMappingConfig knnMappingConfig = knnVectorFieldType.getKnnMappingConfig();
         QueryConfigFromMapping queryConfigFromMapping = getQueryConfig(knnMappingConfig, knnVectorFieldType);
 
-        KNNEngine knnEngine = queryConfigFromMapping.getKnnEngine();
+        VectorSearchEngine knnEngine = queryConfigFromMapping.getKnnEngine();
         MethodComponentContext methodComponentContext = queryConfigFromMapping.getMethodComponentContext();
         SpaceType spaceType = queryConfigFromMapping.getSpaceType();
         VectorDataType vectorDataType = queryConfigFromMapping.getVectorDataType();
@@ -649,7 +650,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
     private float[] getFloatVectorForCreatingQueryRequest(
         final float[] transformedVector,
         VectorDataType vectorDataType,
-        KNNEngine knnEngine
+        VectorSearchEngine knnEngine
     ) {
 
         if ((VectorDataType.FLOAT == vectorDataType) || (VectorDataType.BYTE == vectorDataType && FAISS == knnEngine)) {
@@ -746,7 +747,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
     @Getter
     @AllArgsConstructor
     private static class QueryConfigFromMapping {
-        private final KNNEngine knnEngine;
+        private final VectorSearchEngine knnEngine;
         private final MethodComponentContext methodComponentContext;
         private final SpaceType spaceType;
         private final VectorDataType vectorDataType;

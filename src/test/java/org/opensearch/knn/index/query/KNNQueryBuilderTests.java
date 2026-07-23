@@ -53,6 +53,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorQueryType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -70,6 +71,7 @@ import java.util.stream.Collectors;
 import static java.util.Collections.emptyMap;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
@@ -485,7 +487,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         );
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.HAMMING, methodComponentContext);
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 8));
-        doCallRealMethod().when(mockKNNVectorField).validateSupportRadialSearch(any(KNNEngine.class));
+        doCallRealMethod().when(mockKNNVectorField).validateSupportRadialSearch(any(VectorSearchEngine.class));
         Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
         assertTrue(e.getMessage().contains("Binary data type does not support radial search"));
     }
@@ -532,7 +534,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(bqMappingConfig);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         // Call real validateSupportRadialSearch() so it uses the mocked fields
-        doCallRealMethod().when(mockKNNVectorField).validateSupportRadialSearch(any(KNNEngine.class));
+        doCallRealMethod().when(mockKNNVectorField).validateSupportRadialSearch(any(VectorSearchEngine.class));
 
         // When/Then: BQ (QuantizationConfig != EMPTY) is still blocked for radial search
         Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
@@ -582,7 +584,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                     return compressionLevel;
                 }
             });
-            doCallRealMethod().when(mockKNNVectorField).validateSupportRadialSearch(any(KNNEngine.class));
+            doCallRealMethod().when(mockKNNVectorField).validateSupportRadialSearch(any(VectorSearchEngine.class));
 
             Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
             assertTrue("Expected compression level in error message for " + level, e.getMessage().contains("compression level=" + level));
@@ -628,7 +630,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockKNNVectorField.transformQueryVector(queryVector)).thenReturn(queryVector);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(flat32xConfig);
-        doCallRealMethod().when(mockKNNVectorField).validateSupportRadialSearch(any(KNNEngine.class));
+        doCallRealMethod().when(mockKNNVectorField).validateSupportRadialSearch(any(VectorSearchEngine.class));
         when(mockKNNVectorField.isRescoringRequiredForRadial()).thenReturn(true);
         when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
         when(indexSettings.getMaxResultWindow()).thenReturn(1000);
@@ -813,7 +815,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         // --- Test with minScore ---
         // minScore follows the same Lucene radial path. Internally converted to a similarity threshold
-        // via KNNEngine.LUCENE.scoreToRadialThreshold() before being passed to FloatVectorSimilarityQuery.
+        // via BuiltinKNNEngine.LUCENE.scoreToRadialThreshold() before being passed to FloatVectorSimilarityQuery.
         KNNQueryBuilder knnQueryBuilderWithScore = KNNQueryBuilder.builder()
             .fieldName(FIELD_NAME)
             .vector(queryVector)
@@ -1521,11 +1523,11 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     }
 
     public void testRadialSearch_whenUnsupportedEngine_thenThrowException() {
-        List<KNNEngine> unsupportedEngines = Arrays.stream(KNNEngine.values())
+        List<VectorSearchEngine> unsupportedEngines = Arrays.stream(KNNEngine.values())
             .filter(knnEngine -> !ENGINES_SUPPORTING_RADIAL_SEARCH.contains(knnEngine))
             .filter(knnEngine -> knnEngine != KNNEngine.UNDEFINED)
             .collect(Collectors.toList());
-        for (KNNEngine knnEngine : unsupportedEngines) {
+        for (VectorSearchEngine knnEngine : unsupportedEngines) {
             KNNMethodContext knnMethodContext = new KNNMethodContext(
                 knnEngine,
                 SpaceType.L2,
@@ -1545,7 +1547,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             when(mockQueryShardContext.index()).thenReturn(dummyIndex);
             when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
             when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-            doCallRealMethod().when(mockKNNVectorField).validateSupportRadialSearch(any(KNNEngine.class));
+            doCallRealMethod().when(mockKNNVectorField).validateSupportRadialSearch(any(VectorSearchEngine.class));
 
             expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
         }

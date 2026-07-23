@@ -32,6 +32,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.query.lucenelib.ExpandNestedDocsQuery;
 import org.opensearch.knn.index.query.lucene.LuceneEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.lucenelib.OSDiversifyingChildrenByteKnnVectorQuery;
@@ -90,7 +91,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
     }
 
     public void testCreateCustomKNNQuery() {
-        for (KNNEngine knnEngine : KNNEngine.getEnginesThatCreateCustomSegmentFiles()) {
+        for (VectorSearchEngine knnEngine : KNNEngine.getEnginesThatCreateCustomSegmentFiles()) {
             Query query = KNNQueryFactory.create(
                 BaseQueryFactory.CreateQueryRequest.builder()
                     .knnEngine(knnEngine)
@@ -127,10 +128,10 @@ public class KNNQueryFactoryTests extends KNNTestCase {
     }
 
     public void testCreateLuceneDefaultQuery() {
-        List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
+        List<VectorSearchEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
             .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
             .collect(Collectors.toList());
-        for (KNNEngine knnEngine : luceneDefaultQueryEngineList) {
+        for (VectorSearchEngine knnEngine : luceneDefaultQueryEngineList) {
             Query query = KNNQueryFactory.create(
                 BaseQueryFactory.CreateQueryRequest.builder()
                     .knnEngine(knnEngine)
@@ -272,10 +273,10 @@ public class KNNQueryFactoryTests extends KNNTestCase {
     }
 
     public void testCreateLuceneQueryWithFilter() {
-        List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
+        List<VectorSearchEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
             .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
             .collect(Collectors.toList());
-        for (KNNEngine knnEngine : luceneDefaultQueryEngineList) {
+        for (VectorSearchEngine knnEngine : luceneDefaultQueryEngineList) {
             QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
             MappedFieldType testMapper = mock(MappedFieldType.class);
             when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
@@ -296,7 +297,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
 
     public void testCreateFaissQueryWithFilter_withValidValues_thenSuccess() {
         // Given
-        final KNNEngine knnEngine = KNNEngine.FAISS;
+        final VectorSearchEngine knnEngine = KNNEngine.FAISS;
         final QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         MappedFieldType testMapper = mock(MappedFieldType.class);
         when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
@@ -333,7 +334,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
 
     public void testCreateFaissQueryWithFilter_withValidValues_nullEfSearch_thenSuccess() {
         // Given
-        final KNNEngine knnEngine = KNNEngine.FAISS;
+        final VectorSearchEngine knnEngine = KNNEngine.FAISS;
         final QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         MappedFieldType testMapper = mock(MappedFieldType.class);
         when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
@@ -429,7 +430,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
     }
 
     public void testCreate_whenFaissWithParentFilter_thenSuccess() {
-        final KNNEngine knnEngine = KNNEngine.FAISS;
+        final VectorSearchEngine knnEngine = KNNEngine.FAISS;
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         MappedFieldType testMapper = mock(MappedFieldType.class);
         when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
@@ -454,10 +455,10 @@ public class KNNQueryFactoryTests extends KNNTestCase {
     }
 
     private void validateDiversifyingQueryWithParentFilter(final VectorDataType type, final Class expectedQueryClass) {
-        List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
+        List<VectorSearchEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
             .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
             .collect(Collectors.toList());
-        for (KNNEngine knnEngine : luceneDefaultQueryEngineList) {
+        for (VectorSearchEngine knnEngine : luceneDefaultQueryEngineList) {
             QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
             MappedFieldType testMapper = mock(MappedFieldType.class);
             when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
@@ -640,7 +641,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
     }
 
     private void testExpandNestedDocsQuery(
-        KNNEngine knnEngine,
+        VectorSearchEngine knnEngine,
         Class expectedQueryClass,
         VectorDataType vectorDataType,
         boolean expandNested

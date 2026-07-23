@@ -26,6 +26,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
@@ -164,7 +165,7 @@ public class NativeIndexWriter {
             return;
         }
 
-        final KNNEngine knnEngine = extractKNNEngine(fieldInfo);
+        final VectorSearchEngine knnEngine = extractKNNEngine(fieldInfo);
         final String engineFileName = buildEngineFileName(
             state.segmentInfo.name,
             knnEngine.getVersion(),
@@ -197,7 +198,7 @@ public class NativeIndexWriter {
     private BuildIndexParams indexParams(
         FieldInfo fieldInfo,
         IndexOutputWithBuffer indexOutputWithBuffer,
-        KNNEngine knnEngine,
+        VectorSearchEngine knnEngine,
         Supplier<KNNVectorValues<?>> knnVectorValuesSupplier,
         int totalLiveDocs,
         boolean isFlush
@@ -231,7 +232,8 @@ public class NativeIndexWriter {
             .build();
     }
 
-    private Map<String, Object> getParameters(FieldInfo fieldInfo, VectorDataType vectorDataType, KNNEngine knnEngine) throws IOException {
+    private Map<String, Object> getParameters(FieldInfo fieldInfo, VectorDataType vectorDataType, VectorSearchEngine knnEngine)
+        throws IOException {
         Map<String, Object> parameters = new HashMap<>();
         Map<String, String> fieldAttributes = fieldInfo.attributes();
         String parametersString = fieldAttributes.get(KNNConstants.PARAMETERS);
@@ -275,7 +277,11 @@ public class NativeIndexWriter {
         return parameters;
     }
 
-    private void maybeAddBinaryPrefixForFaissBWC(KNNEngine knnEngine, Map<String, Object> parameters, Map<String, String> fieldAttributes) {
+    private void maybeAddBinaryPrefixForFaissBWC(
+        VectorSearchEngine knnEngine,
+        Map<String, Object> parameters,
+        Map<String, String> fieldAttributes
+    ) {
         if (KNNEngine.FAISS != knnEngine) {
             return;
         }

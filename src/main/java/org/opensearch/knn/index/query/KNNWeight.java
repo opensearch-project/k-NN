@@ -33,6 +33,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder;
@@ -469,7 +470,7 @@ public abstract class KNNWeight extends Weight {
             return EMPTY_TOPDOCS;
         }
 
-        KNNEngine knnEngine;
+        VectorSearchEngine knnEngine;
         SpaceType spaceType;
         VectorDataType vectorDataType;
 
@@ -562,7 +563,7 @@ public abstract class KNNWeight extends Weight {
         final SegmentReader reader,
         final FieldInfo fieldInfo,
         final SpaceType spaceType,
-        final KNNEngine knnEngine,
+        final VectorSearchEngine knnEngine,
         final VectorDataType vectorDataType,
         final byte[] quantizedVector,
         final float[] transformedVector,
@@ -572,7 +573,7 @@ public abstract class KNNWeight extends Weight {
         final int k
     ) throws IOException;
 
-    protected void addExplainIfRequired(final KNNQueryResult[] results, final KNNEngine knnEngine, final SpaceType spaceType) {
+    protected void addExplainIfRequired(final KNNQueryResult[] results, final VectorSearchEngine knnEngine, final SpaceType spaceType) {
         if (knnQuery.isExplain()) {
             Arrays.stream(results).forEach(result -> {
                 if (KNNEngine.FAISS.getName().equals(knnEngine.getName()) && SpaceType.INNER_PRODUCT.equals(spaceType)) {
@@ -584,7 +585,7 @@ public abstract class KNNWeight extends Weight {
         }
     }
 
-    protected void addExplainIfRequired(final TopDocs results, final KNNEngine knnEngine, final SpaceType spaceType) {
+    protected void addExplainIfRequired(final TopDocs results, final VectorSearchEngine knnEngine, final SpaceType spaceType) {
         if (knnQuery.isExplain()) {
             Arrays.stream(results.scoreDocs).forEach(result -> {
                 if (KNNEngine.FAISS.getName().equals(knnEngine.getName()) && SpaceType.INNER_PRODUCT.equals(spaceType)) {
@@ -743,7 +744,7 @@ public abstract class KNNWeight extends Weight {
         if (fieldInfo == null) {
             return false;
         }
-        final KNNEngine knnEngine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
+        final VectorSearchEngine knnEngine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
         final List<String> engineFiles = KNNCodecUtil.getEngineFiles(
             knnEngine.getExtension(),
             knnQuery.getField(),

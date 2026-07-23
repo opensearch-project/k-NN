@@ -20,6 +20,7 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 /**
  * Class to create radius nearest neighbor queries
@@ -38,7 +39,7 @@ public class RNNQueryFactory extends BaseQueryFactory {
      * @return Lucene Query
      */
     public static Query create(
-        KNNEngine knnEngine,
+        VectorSearchEngine knnEngine,
         String indexName,
         String fieldName,
         float[] vector,

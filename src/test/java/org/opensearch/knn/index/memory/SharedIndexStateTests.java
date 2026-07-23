@@ -13,12 +13,13 @@ package org.opensearch.knn.index.memory;
 
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 public class SharedIndexStateTests extends KNNTestCase {
 
     private static final String TEST_MODEL_ID = "test-model";
     private static final long TEST_SHARED_INDEX_STATE_ADDRESS = 22L;
-    private static final KNNEngine TEST_KNN_ENGINE = KNNEngine.DEFAULT;
+    private static final VectorSearchEngine TEST_KNN_ENGINE = KNNEngine.DEFAULT;
 
     public void testSharedIndexState() {
         SharedIndexState sharedIndexState = new SharedIndexState(TEST_SHARED_INDEX_STATE_ADDRESS, TEST_MODEL_ID, TEST_KNN_ENGINE);

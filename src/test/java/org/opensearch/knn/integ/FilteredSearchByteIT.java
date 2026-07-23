@@ -17,6 +17,7 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 import java.util.List;
 
@@ -74,7 +75,7 @@ public class FilteredSearchByteIT extends KNNRestTestCase {
         assertEquals(2, parseTotalSearchHits(entity));
     }
 
-    private void createKnnByteIndex(final String indexName, final String fieldName, final int dimension, final KNNEngine knnEngine)
+    private void createKnnByteIndex(final String indexName, final String fieldName, final int dimension, final VectorSearchEngine knnEngine)
         throws Exception {
         KNNJsonIndexMappingsBuilder.Method method = KNNJsonIndexMappingsBuilder.Method.builder()
             .methodName(METHOD_HNSW)

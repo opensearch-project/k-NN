@@ -20,6 +20,7 @@ import org.opensearch.knn.KNNJsonIndexMappingsBuilder;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexSettings;
@@ -66,7 +67,7 @@ public class DocValueFieldsIT extends KNNCompressionRestTestCase {
      */
     @SneakyThrows
     public void testDocValueFields_faissAndLuceneHnsw_returnsCorrectVectorsWithoutSource() {
-        for (KNNEngine engine : List.of(KNNEngine.FAISS, KNNEngine.LUCENE)) {
+        for (VectorSearchEngine engine : List.of(KNNEngine.FAISS, KNNEngine.LUCENE)) {
             String indexName = TEST_INDEX + "_" + engine.getName();
             createHnswIndex(indexName, engine);
             indexTestDocuments(indexName);
@@ -641,7 +642,7 @@ public class DocValueFieldsIT extends KNNCompressionRestTestCase {
         Byte[] byteVector1 = { 1, -2, 127, -128 };
         Byte[] byteVector2 = { 0, 50, -50, 100 };
 
-        for (KNNEngine engine : List.of(KNNEngine.FAISS, KNNEngine.LUCENE)) {
+        for (VectorSearchEngine engine : List.of(KNNEngine.FAISS, KNNEngine.LUCENE)) {
             String indexName = TEST_INDEX + "_byte_array_" + engine.getName();
             KNNJsonIndexMappingsBuilder.Method method = KNNJsonIndexMappingsBuilder.Method.builder()
                 .methodName(METHOD_HNSW)
@@ -709,7 +710,7 @@ public class DocValueFieldsIT extends KNNCompressionRestTestCase {
     public void testDocValueFields_byteVectorField_binaryFormat_returnsBase64() {
         Byte[] byteVector = { 10, -20, 127, -128 };
 
-        for (KNNEngine engine : List.of(KNNEngine.FAISS, KNNEngine.LUCENE)) {
+        for (VectorSearchEngine engine : List.of(KNNEngine.FAISS, KNNEngine.LUCENE)) {
             String indexName = TEST_INDEX + "_byte_binary_" + engine.getName();
             KNNJsonIndexMappingsBuilder.Method method = KNNJsonIndexMappingsBuilder.Method.builder()
                 .methodName(METHOD_HNSW)
@@ -774,7 +775,7 @@ public class DocValueFieldsIT extends KNNCompressionRestTestCase {
         Byte[] binaryVector1 = { -86 }; // 0xAA = 10101010
         Byte[] binaryVector2 = { 85 };  // 0x55 = 01010101
 
-        for (KNNEngine engine : List.of(KNNEngine.FAISS, KNNEngine.LUCENE)) {
+        for (VectorSearchEngine engine : List.of(KNNEngine.FAISS, KNNEngine.LUCENE)) {
             String indexName = TEST_INDEX + "_binary_array_" + engine.getName();
             KNNJsonIndexMappingsBuilder.Method method = KNNJsonIndexMappingsBuilder.Method.builder()
                 .methodName(METHOD_HNSW)
@@ -840,7 +841,7 @@ public class DocValueFieldsIT extends KNNCompressionRestTestCase {
         int binaryDimension = 8;
         Byte[] binaryVector = { 42 };
 
-        for (KNNEngine engine : List.of(KNNEngine.FAISS, KNNEngine.LUCENE)) {
+        for (VectorSearchEngine engine : List.of(KNNEngine.FAISS, KNNEngine.LUCENE)) {
             String indexName = TEST_INDEX + "_binary_b64_" + engine.getName();
             KNNJsonIndexMappingsBuilder.Method method = KNNJsonIndexMappingsBuilder.Method.builder()
                 .methodName(METHOD_HNSW)
@@ -1107,7 +1108,7 @@ public class DocValueFieldsIT extends KNNCompressionRestTestCase {
      */
     @SneakyThrows
     public void testDocValueFields_defaultFormat_returnsBinaryBase64() {
-        for (KNNEngine engine : List.of(KNNEngine.FAISS, KNNEngine.LUCENE)) {
+        for (VectorSearchEngine engine : List.of(KNNEngine.FAISS, KNNEngine.LUCENE)) {
             String indexName = TEST_INDEX + "_default_fmt_" + engine.getName();
 
             KNNJsonIndexMappingsBuilder.Method method = KNNJsonIndexMappingsBuilder.Method.builder()
@@ -1184,7 +1185,7 @@ public class DocValueFieldsIT extends KNNCompressionRestTestCase {
      */
     @SneakyThrows
     public void testDocValueFields_explicitBinaryFormat_returnsCorrectBase64ForBothEngines() {
-        for (KNNEngine engine : List.of(KNNEngine.FAISS, KNNEngine.LUCENE)) {
+        for (VectorSearchEngine engine : List.of(KNNEngine.FAISS, KNNEngine.LUCENE)) {
             String indexName = TEST_INDEX + "_binary_fmt_" + engine.getName();
 
             KNNJsonIndexMappingsBuilder.Method method = KNNJsonIndexMappingsBuilder.Method.builder()
@@ -2141,7 +2142,7 @@ public class DocValueFieldsIT extends KNNCompressionRestTestCase {
         }
     }
 
-    private void createHnswIndex(KNNEngine engine) throws Exception {
+    private void createHnswIndex(VectorSearchEngine engine) throws Exception {
         KNNJsonIndexMappingsBuilder.Method method = KNNJsonIndexMappingsBuilder.Method.builder()
             .methodName(METHOD_HNSW)
             .spaceType(SpaceType.L2.getValue())
@@ -2158,7 +2159,7 @@ public class DocValueFieldsIT extends KNNCompressionRestTestCase {
         createKnnIndex(TEST_INDEX, mapping);
     }
 
-    private void createHnswIndex(String indexName, KNNEngine engine) throws Exception {
+    private void createHnswIndex(String indexName, VectorSearchEngine engine) throws Exception {
         KNNJsonIndexMappingsBuilder.Method method = KNNJsonIndexMappingsBuilder.Method.builder()
             .methodName(METHOD_HNSW)
             .spaceType(SpaceType.L2.getValue())

@@ -22,6 +22,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
@@ -449,7 +450,7 @@ public class TestUtils {
         Directory directory,
         String fileName,
         Map<String, Object> parameters,
-        KNNEngine engine
+        VectorSearchEngine engine
     ) {
         if (engine != KNNEngine.FAISS) {
             try (IndexOutput indexOutput = directory.createOutput(fileName, IOContext.DEFAULT)) {

@@ -12,7 +12,7 @@ import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
 import org.apache.lucene.index.SegmentWriteState;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
@@ -25,7 +25,7 @@ import java.util.function.Supplier;
 @ToString
 public class BuildIndexParams {
     String field;
-    KNNEngine knnEngine;
+    VectorSearchEngine knnEngine;
     IndexOutputWithBuffer indexOutputWithBuffer;
     VectorDataType vectorDataType;
     Map<String, Object> indexParameters;

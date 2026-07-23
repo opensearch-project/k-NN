@@ -289,7 +289,7 @@ public class EngineResolverTests extends KNNTestCase {
 
     public void testResolveEngine_whenFlatMethodWithNoEngine_thenLucene() {
         KNNMethodContext flatMethodContext = new KNNMethodContext(
-            KNNEngine.UNDEFINED,
+            VectorSearchEngine.UNDEFINED,
             SpaceType.L2,
             new MethodComponentContext(METHOD_FLAT, Map.of()),
             false

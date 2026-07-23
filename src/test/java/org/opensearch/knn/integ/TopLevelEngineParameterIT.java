@@ -21,6 +21,7 @@ import org.opensearch.knn.CompressionTestConfig;
 import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 
 import java.io.IOException;
@@ -185,7 +186,7 @@ public class TopLevelEngineParameterIT extends KNNCompressionRestTestCase {
         createKnnIndex(INDEX_NAME, mapping);
     }
 
-    private void createTestIndexWithCompression(KNNEngine engine, String compressionLevel) throws IOException {
+    private void createTestIndexWithCompression(VectorSearchEngine engine, String compressionLevel) throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")

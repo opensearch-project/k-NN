@@ -22,6 +22,7 @@ import org.opensearch.index.shard.IndexShard;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
@@ -195,7 +196,7 @@ public class KNNIndexShard {
     List<EngineFileContext> getAllEngineFileContexts(final Set<String> loadedFieldNames, final LeafReaderContext leafReaderContext)
         throws IOException {
         List<EngineFileContext> engineFiles = new ArrayList<>();
-        for (KNNEngine knnEngine : KNNEngine.getEnginesThatCreateCustomSegmentFiles()) {
+        for (VectorSearchEngine knnEngine : KNNEngine.getEnginesThatCreateCustomSegmentFiles()) {
             engineFiles.addAll(getEngineFileContexts(loadedFieldNames, leafReaderContext, knnEngine));
         }
         return engineFiles;
@@ -204,7 +205,7 @@ public class KNNIndexShard {
     List<EngineFileContext> getEngineFileContexts(
         final Set<String> loadedFieldNames,
         final LeafReaderContext leafReaderContext,
-        KNNEngine knnEngine
+        VectorSearchEngine knnEngine
     ) throws IOException {
         final List<EngineFileContext> engineFiles = new ArrayList<>();
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());

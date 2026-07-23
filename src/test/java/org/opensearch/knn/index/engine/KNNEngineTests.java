@@ -108,7 +108,7 @@ public class KNNEngineTests extends KNNTestCase {
 
     public void testMmapFileExtensions() {
         final List<String> mmapExtensions = Arrays.stream(KNNEngine.values())
-            .filter(engine -> engine != KNNEngine.UNDEFINED)
+            .filter(engine -> engine != VectorSearchEngine.UNDEFINED)
             .flatMap(engine -> engine.mmapFileExtensions().stream())
             .collect(Collectors.toList());
         assertNotNull(mmapExtensions);
@@ -122,8 +122,8 @@ public class KNNEngineTests extends KNNTestCase {
      */
     @SneakyThrows
     public void testSupportsRemoteIndexBuild() {
-        KNNEngine Faiss = KNNEngine.FAISS;
-        KNNEngine Lucene = KNNEngine.LUCENE;
+        VectorSearchEngine Faiss = KNNEngine.FAISS;
+        VectorSearchEngine Lucene = KNNEngine.LUCENE;
 
         // Faiss
         // FP32, FP16

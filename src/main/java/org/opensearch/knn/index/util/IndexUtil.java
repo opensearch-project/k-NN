@@ -28,6 +28,7 @@ import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.request.MethodParameter;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
@@ -279,7 +280,7 @@ public class IndexUtil {
      */
     public static Map<String, Object> getParametersAtLoading(
         SpaceType spaceType,
-        KNNEngine knnEngine,
+        VectorSearchEngine knnEngine,
         String indexName,
         VectorDataType vectorDataType,
         SegmentLevelQuantizationInfo segmentLevelQuantizationInfo
@@ -328,7 +329,7 @@ public class IndexUtil {
      * @param indexAddr Address to check if loaded index requires shared state
      * @return true if state can be shared; false otherwise
      */
-    public static boolean isSharedIndexStateRequired(KNNEngine knnEngine, String modelId, long indexAddr) {
+    public static boolean isSharedIndexStateRequired(VectorSearchEngine knnEngine, String modelId, long indexAddr) {
         if (StringUtils.isEmpty(modelId)) {
             return false;
         }
@@ -342,7 +343,7 @@ public class IndexUtil {
      * @param parameters parameters associated with an index
      * @return true if it is binary index
      */
-    public static boolean isBinaryIndex(KNNEngine knnEngine, Map<String, Object> parameters) {
+    public static boolean isBinaryIndex(VectorSearchEngine knnEngine, Map<String, Object> parameters) {
         return KNNEngine.FAISS == knnEngine
             && parameters.get(VECTOR_DATA_TYPE_FIELD) != null
             && parameters.get(VECTOR_DATA_TYPE_FIELD).toString().equals(VectorDataType.BINARY.getValue());
@@ -354,7 +355,7 @@ public class IndexUtil {
      * @param parameters parameters associated with an index
      * @return true if ADC is enabled
      */
-    public static boolean isADCEnabled(KNNEngine knnEngine, Map<String, Object> parameters) {
+    public static boolean isADCEnabled(VectorSearchEngine knnEngine, Map<String, Object> parameters) {
         return KNNEngine.FAISS == knnEngine
             && parameters != null
             && parameters.get(ADC_ENABLED_FAISS_INDEX_INTERNAL_PARAMETER) != null

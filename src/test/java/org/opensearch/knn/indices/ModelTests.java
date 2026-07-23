@@ -18,6 +18,7 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 
@@ -127,7 +128,7 @@ public class ModelTests extends KNNTestCase {
     }
 
     public void testGetModelMetadata() {
-        KNNEngine knnEngine = KNNEngine.DEFAULT;
+        VectorSearchEngine knnEngine = KNNEngine.DEFAULT;
         ModelMetadata modelMetadata = new ModelMetadata(
             knnEngine,
             SpaceType.DEFAULT,
@@ -379,7 +380,7 @@ public class ModelTests extends KNNTestCase {
 
     public void testModelFromSourceMap() {
         String modelID = "test-modelid";
-        KNNEngine knnEngine = KNNEngine.DEFAULT;
+        VectorSearchEngine knnEngine = KNNEngine.DEFAULT;
         SpaceType spaceType = SpaceType.L2;
         int dimension = 128;
         ModelState modelState = ModelState.CREATED;

@@ -17,6 +17,7 @@ import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 import java.util.List;
 
@@ -26,7 +27,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 public class NestedSearchByteIT extends KNNRestTestCase {
     @SneakyThrows
     public void testNestedSearchWithHnswByte_whenKIsTwo_thenReturnTwoResults() {
-        for (KNNEngine engine : List.of(KNNEngine.FAISS, KNNEngine.LUCENE)) {
+        for (VectorSearchEngine engine : List.of(KNNEngine.FAISS, KNNEngine.LUCENE)) {
             String indexName = INDEX_NAME + "_" + engine.getName().toLowerCase();
             String nestedFieldName = "nested";
             createKnnByteIndexWithNestedField(indexName, nestedFieldName, FIELD_NAME, 2, engine);
@@ -163,7 +164,7 @@ public class NestedSearchByteIT extends KNNRestTestCase {
         final String nestedFieldName,
         final String fieldName,
         final int dimension,
-        final KNNEngine knnEngine
+        final VectorSearchEngine knnEngine
     ) throws Exception {
         KNNJsonIndexMappingsBuilder.Method method = KNNJsonIndexMappingsBuilder.Method.builder()
             .methodName(METHOD_HNSW)
