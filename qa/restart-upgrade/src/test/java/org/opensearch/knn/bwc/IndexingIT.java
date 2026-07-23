@@ -34,8 +34,6 @@ import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER
 import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.opensearch.knn.TestUtils.KNN_ALGO_PARAM_EF_CONSTRUCTION_MIN_VALUE;
-import static org.opensearch.knn.TestUtils.KNN_ALGO_PARAM_M_MIN_VALUE;
 import static org.opensearch.knn.TestUtils.KNN_VECTOR;
 import static org.opensearch.knn.TestUtils.NODES_BWC_CLUSTER;
 import static org.opensearch.knn.TestUtils.PROPERTIES;
@@ -292,7 +290,10 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
     }
 
     // Custom Legacy Field Mapping
-    // space_type : "innerproduct", engine : "nmslib", m : 2, ef_construction : 2
+    // space_type : "innerproduct", engine : "nmslib", m : 50, ef_construction : 1024
+    // Note: avoid the minimum m/ef_construction values here. Inner product is a non-metric space; combined with a
+    // minimal graph (m=2, ef_construction=2) and this test's collinear vectors, HNSW recall becomes nondeterministic
+    // and the exact top-k assertions in validateKNNSearch flake (see issue #2415).
     public void testKNNIndexCustomLegacyFieldMapping() throws Exception {
 
         // When the cluster is in old version, create a KNN index with custom legacy field mapping settings
@@ -300,8 +301,8 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         if (isRunningAgainstOldCluster()) {
             Settings.Builder indexMappingSettings = createKNNIndexCustomLegacyFieldMappingIndexSettingsBuilder(
                 SpaceType.INNER_PRODUCT,
-                KNN_ALGO_PARAM_M_MIN_VALUE,
-                KNN_ALGO_PARAM_EF_CONSTRUCTION_MIN_VALUE
+                M,
+                EF_CONSTRUCTION
             );
             if (isApproximateThresholdSupported(getBWCVersion())) {
                 indexMappingSettings.put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0);
