@@ -594,7 +594,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
 
     public void testFactory_shouldGenerate_nullSearchRequest_returnsFalse() {
         KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
-        ProcessorGenerationContext context = new ProcessorGenerationContext(null);
+        ProcessorGenerationContext context = new ProcessorGenerationContext(null, null);
         assertFalse(factory.shouldGenerate(context));
     }
 
@@ -604,7 +604,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         request.source(new SearchSourceBuilder());
         request.setParentTask(new TaskId("node1", 1));
 
-        ProcessorGenerationContext context = new ProcessorGenerationContext(request);
+        ProcessorGenerationContext context = new ProcessorGenerationContext(request, null);
         assertFalse(factory.shouldGenerate(context));
     }
 
@@ -613,7 +613,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         SearchRequest request = new SearchRequest("test-index");
         request.source(new SearchSourceBuilder().fetchSource(false));
 
-        ProcessorGenerationContext context = new ProcessorGenerationContext(request);
+        ProcessorGenerationContext context = new ProcessorGenerationContext(request, null);
         assertFalse(factory.shouldGenerate(context));
     }
 
@@ -622,7 +622,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         SearchRequest request = new SearchRequest("test-index");
         request.source(new SearchSourceBuilder().fetchSource(new FetchSourceContext(true, new String[0], new String[0])));
 
-        ProcessorGenerationContext context = new ProcessorGenerationContext(request);
+        ProcessorGenerationContext context = new ProcessorGenerationContext(request, null);
         assertFalse(factory.shouldGenerate(context));
     }
 
@@ -631,7 +631,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         SearchRequest request = new SearchRequest("test-index");
         request.source(new SearchSourceBuilder().storedField("_none_"));
 
-        ProcessorGenerationContext context = new ProcessorGenerationContext(request);
+        ProcessorGenerationContext context = new ProcessorGenerationContext(request, null);
         assertFalse(factory.shouldGenerate(context));
     }
 
@@ -640,7 +640,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         SearchRequest request = new SearchRequest("test-index");
         request.source(new SearchSourceBuilder());
 
-        ProcessorGenerationContext context = new ProcessorGenerationContext(request);
+        ProcessorGenerationContext context = new ProcessorGenerationContext(request, null);
         assertTrue(factory.shouldGenerate(context));
     }
 
@@ -649,7 +649,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         SearchRequest request = new SearchRequest("test-index");
         request.source(new SearchSourceBuilder().fetchSource(new FetchSourceContext(true, new String[0], new String[] { "some_field" })));
 
-        ProcessorGenerationContext context = new ProcessorGenerationContext(request);
+        ProcessorGenerationContext context = new ProcessorGenerationContext(request, null);
         assertTrue(factory.shouldGenerate(context));
     }
 
@@ -658,7 +658,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         SearchRequest request = new SearchRequest("test-index");
         request.source(new SearchSourceBuilder().fetchSource(new FetchSourceContext(true, new String[] { "title" }, new String[0])));
 
-        ProcessorGenerationContext context = new ProcessorGenerationContext(request);
+        ProcessorGenerationContext context = new ProcessorGenerationContext(request, null);
         assertTrue(factory.shouldGenerate(context));
     }
 
@@ -667,7 +667,7 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         SearchRequest request = new SearchRequest("test-index");
         request.source(new SearchSourceBuilder());
 
-        ProcessorGenerationContext context = new ProcessorGenerationContext(request);
+        ProcessorGenerationContext context = new ProcessorGenerationContext(request, null);
         factory.shouldGenerate(context);
 
         var processor = factory.create(Map.of(), "tag", "desc", false, Map.of(), null);

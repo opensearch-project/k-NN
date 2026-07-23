@@ -190,10 +190,11 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
     public void testWarmUp_whenMOSNotSupported_thenLogsWarning() {
         final FieldInfo fi = createFieldInfo("field1", KNNEngine.FAISS, 0);
 
-        // Mock flatVectorsReader to return a ScalarQuantizedFloatVectorValues
+        // Mock flatVectorsReader to return a ScalarQuantizedFloatVectorValues with non-zero size
         final FlatVectorsReader fvr = mock(FlatVectorsReader.class);
         final ScalarQuantizedFloatVectorValues mockVectorValues = mock(ScalarQuantizedFloatVectorValues.class);
-        when(mockVectorValues.size()).thenReturn(0);
+        when(mockVectorValues.size()).thenReturn(3);
+        when(mockVectorValues.vectorValue(org.mockito.ArgumentMatchers.anyInt())).thenReturn(new float[] { 1.0f, 2.0f, 3.0f });
         when(fvr.getFloatVectorValues("field1")).thenReturn(mockVectorValues);
 
         // Set up a log appender to capture log events
@@ -235,6 +236,69 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
                 // Verify the searcher warmUp was never called (no searcher available)
                 // This is implicitly verified since the searcher is null
             }
+        } finally {
+            logger.removeAppender(appender);
+            logger.setLevel(originalLevel);
+            appender.stop();
+        }
+    }
+
+    @SneakyThrows
+    public void testWarmUp_whenVectorValuesIsNull_thenReturnsEarly() {
+        final FieldInfo fi = createFieldInfo("field1", KNNEngine.FAISS, 0);
+        final FlatVectorsReader fvr = mock(FlatVectorsReader.class);
+        when(fvr.getFloatVectorValues("field1")).thenReturn(null);
+
+        final Faiss1040ScalarQuantizedKnnVectorsReader reader = createReader(
+            new FieldInfos(new FieldInfo[] { fi }),
+            Collections.emptySet(),
+            fvr
+        );
+
+        // Should not throw — returns early
+        reader.warmUp("field1");
+        verify(fvr).getFloatVectorValues("field1");
+    }
+
+    @SneakyThrows
+    public void testWarmUp_whenVectorValuesIsEmpty_thenReturnsEarly() {
+        final FieldInfo fi = createFieldInfo("field1", KNNEngine.FAISS, 0);
+        final FlatVectorsReader fvr = mock(FlatVectorsReader.class);
+        final ScalarQuantizedFloatVectorValues mockVectorValues = mock(ScalarQuantizedFloatVectorValues.class);
+        when(mockVectorValues.size()).thenReturn(0);
+        when(fvr.getFloatVectorValues("field1")).thenReturn(mockVectorValues);
+
+        final List<LogEvent> logEvents = new ArrayList<>();
+        final Logger logger = (Logger) LogManager.getLogger(Faiss1040ScalarQuantizedKnnVectorsReader.class);
+        final AbstractAppender appender = new AbstractAppender("test-appender", null, null, true, null) {
+            @Override
+            public void append(LogEvent event) {
+                logEvents.add(event.toImmutable());
+            }
+        };
+        appender.start();
+        logger.addAppender(appender);
+        final Level originalLevel = logger.getLevel();
+        logger.setLevel(Level.INFO);
+
+        try {
+            final Faiss1040ScalarQuantizedKnnVectorsReader reader = createReader(
+                new FieldInfos(new FieldInfo[] { fi }),
+                Collections.emptySet(),
+                fvr
+            );
+
+            // Should not throw — returns early with info log
+            reader.warmUp("field1");
+
+            boolean foundInfoLog = logEvents.stream()
+                .anyMatch(
+                    e -> e.getLevel() == Level.INFO && e.getMessage().getFormattedMessage().contains("No vectors present in the segment")
+                );
+            assertTrue("Expected INFO log about no vectors present", foundInfoLog);
+
+            // vectorValue should never be called since size is 0
+            verify(mockVectorValues, org.mockito.Mockito.never()).vectorValue(org.mockito.ArgumentMatchers.anyInt());
         } finally {
             logger.removeAppender(appender);
             logger.setLevel(originalLevel);

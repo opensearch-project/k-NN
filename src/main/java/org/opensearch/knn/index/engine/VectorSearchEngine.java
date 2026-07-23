@@ -10,6 +10,7 @@ import java.util.Map;
 
 import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
+import org.opensearch.common.annotation.ExperimentalApi;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
@@ -21,6 +22,7 @@ import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
  * Abstract interface to represent the SPI of the generic vector engine that is available
  * to the plugin.
  */
+@ExperimentalApi
 public interface VectorSearchEngine {
     /**
      * The placeholder for undefined engine
