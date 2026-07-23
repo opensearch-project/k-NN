@@ -892,7 +892,15 @@ public class KNNSourceExcludesProcessorIT extends KNNRestTestCase {
 
         // Two search bodies in one _msearch request, both plain match_all.
         String matchAllBody = "{\"query\":{\"match_all\":{}}}";
-        String ndjson = "{\"index\":\"" + indexName + "\"}\n" + matchAllBody + "\n" + "{\"index\":\"" + indexName + "\"}\n" + matchAllBody
+        String ndjson = "{\"index\":\""
+            + indexName
+            + "\"}\n"
+            + matchAllBody
+            + "\n"
+            + "{\"index\":\""
+            + indexName
+            + "\"}\n"
+            + matchAllBody
             + "\n";
 
         Request request = new Request("GET", "/_msearch");
