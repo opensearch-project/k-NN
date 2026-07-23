@@ -53,11 +53,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
     }
 
     public Faiss1040ScalarQuantizedKnnVectorsFormat() {
-        this(new NativeIndexBuildStrategyFactory());
-    }
-
-    public Faiss1040ScalarQuantizedKnnVectorsFormat(final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory) {
-        this(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE, nativeIndexBuildStrategyFactory);
+        this(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE, new NativeIndexBuildStrategyFactory());
     }
 
     public Faiss1040ScalarQuantizedKnnVectorsFormat(
