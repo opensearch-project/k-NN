@@ -5,6 +5,12 @@
 
 package org.opensearch.knn.index.codec.nativeindex.remote;
 
+import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.SegmentWriteState;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexOutput;
+import org.apache.lucene.util.InfoStream;
 import org.opensearch.common.SetOnce;
 import org.opensearch.common.blobstore.BlobContainer;
 import org.opensearch.common.blobstore.BlobPath;
@@ -17,6 +23,8 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.common.exception.TerminalIOException;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
+import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
 import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
 import org.opensearch.repositories.RepositoriesService;
@@ -114,6 +122,132 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
 
         assertThrows(TerminalIOException.class, () -> { objectUnderTest.buildAndWriteIndex(buildIndexParams); });
         assertFalse(fallback.get());
+    }
+
+    /**
+     * Test that when remote build fails after partially writing to IndexOutput, the fallback
+     * strategy receives a fresh IndexOutput (via recreate) so it doesn't produce a corrupt file.
+     * Simulates partial data written to a real IndexOutput, then verifies the file is clean after recreate.
+     */
+    public void testFallback_whenPartialRemoteWrite_thenRecreatesIndexOutput() throws IOException {
+        // Use a real directory so we can verify file contents
+        try (Directory directory = newDirectory()) {
+            final String fileName = "test_field.faiss";
+            IndexOutput output = directory.createOutput(fileName, IOContext.DEFAULT);
+
+            // Simulate partial remote write — write some garbage bytes as if S3 download partially completed
+            byte[] partialData = new byte[] { 0x49, 0x78, 0x4d, 0x70, 0x00, 0x04, 0x00, 0x00 }; // "IxMp" header fragment
+            output.writeBytes(partialData, partialData.length);
+            assertEquals(partialData.length, output.getFilePointer());
+
+            // Create a real IndexOutputWithBuffer wrapping this partially-written output
+            IndexOutputWithBuffer realIndexOutputWithBuffer = new IndexOutputWithBuffer(output);
+
+            // Build params with the real IndexOutputWithBuffer and this directory
+            SegmentWriteState realSegmentWriteState = new SegmentWriteState(
+                mock(InfoStream.class),
+                directory,
+                segmentInfo,
+                mock(FieldInfos.class),
+                null,
+                IOContext.DEFAULT
+            );
+            BuildIndexParams realBuildIndexParams = BuildIndexParams.builder()
+                .indexOutputWithBuffer(realIndexOutputWithBuffer)
+                .segmentWriteState(realSegmentWriteState)
+                .knnEngine(buildIndexParams.getKnnEngine())
+                .field(buildIndexParams.getField())
+                .vectorDataType(buildIndexParams.getVectorDataType())
+                .indexParameters(buildIndexParams.getIndexParameters())
+                .knnVectorValuesSupplier(buildIndexParams.getKnnVectorValuesSupplier())
+                .totalLiveDocs(buildIndexParams.getTotalLiveDocs())
+                .isFlush(buildIndexParams.isFlush())
+                .build();
+
+            // Set up remote strategy to fail (triggering fallback)
+            RepositoriesService repositoriesService = mock(RepositoriesService.class);
+            when(repositoriesService.repository(any())).thenThrow(new RepositoryMissingException("Fallback"));
+
+            final SetOnce<Boolean> fallback = new SetOnce<>();
+            RemoteIndexBuildStrategy objectUnderTest = new RemoteIndexBuildStrategy(
+                () -> repositoriesService,
+                new TestIndexBuildStrategy(fallback),
+                mock(IndexSettings.class),
+                null
+            );
+
+            objectUnderTest.buildAndWriteIndex(realBuildIndexParams);
+
+            // Verify fallback was called
+            assertTrue(fallback.get());
+
+            // Verify the IndexOutput was recreated — file pointer should be at 0 (fresh output)
+            assertEquals(0, realIndexOutputWithBuffer.getIndexOutput().getFilePointer());
+
+            // Close and verify file exists with zero length (clean slate for fallback to write)
+            realIndexOutputWithBuffer.getIndexOutput().close();
+            assertEquals(0, directory.fileLength(fileName));
+        }
+    }
+
+    /**
+     * Test that when remote build fails BEFORE any data is written to IndexOutput, the recreate
+     * still works correctly — deleting an empty file and creating a fresh one.
+     */
+    public void testFallback_whenNothingWritten_thenRecreatesIndexOutput() throws IOException {
+        try (Directory directory = newDirectory()) {
+            final String fileName = "test_field_empty.faiss";
+            IndexOutput output = directory.createOutput(fileName, IOContext.DEFAULT);
+
+            // Nothing written — file exists but is empty (file pointer at 0)
+            assertEquals(0, output.getFilePointer());
+
+            IndexOutputWithBuffer realIndexOutputWithBuffer = new IndexOutputWithBuffer(output);
+
+            SegmentWriteState realSegmentWriteState = new SegmentWriteState(
+                mock(InfoStream.class),
+                directory,
+                segmentInfo,
+                mock(FieldInfos.class),
+                null,
+                IOContext.DEFAULT
+            );
+            BuildIndexParams realBuildIndexParams = BuildIndexParams.builder()
+                .indexOutputWithBuffer(realIndexOutputWithBuffer)
+                .segmentWriteState(realSegmentWriteState)
+                .knnEngine(buildIndexParams.getKnnEngine())
+                .field(buildIndexParams.getField())
+                .vectorDataType(buildIndexParams.getVectorDataType())
+                .indexParameters(buildIndexParams.getIndexParameters())
+                .knnVectorValuesSupplier(buildIndexParams.getKnnVectorValuesSupplier())
+                .totalLiveDocs(buildIndexParams.getTotalLiveDocs())
+                .isFlush(buildIndexParams.isFlush())
+                .build();
+
+            // Remote fails before any write happens
+            RepositoriesService repositoriesService = mock(RepositoriesService.class);
+            when(repositoriesService.repository(any())).thenThrow(new RepositoryMissingException("Fallback"));
+
+            final SetOnce<Boolean> fallback = new SetOnce<>();
+            RemoteIndexBuildStrategy objectUnderTest = new RemoteIndexBuildStrategy(
+                () -> repositoriesService,
+                new TestIndexBuildStrategy(fallback),
+                mock(IndexSettings.class),
+                null
+            );
+
+            objectUnderTest.buildAndWriteIndex(realBuildIndexParams);
+
+            // Verify fallback was called
+            assertTrue(fallback.get());
+
+            // Verify the IndexOutput was recreated — file pointer should be at 0
+            assertEquals(0, realIndexOutputWithBuffer.getIndexOutput().getFilePointer());
+
+            // Close and verify file is empty (recreate deleted the empty file and created a new one)
+            realIndexOutputWithBuffer.getIndexOutput().close();
+            assertEquals(0, directory.fileLength(fileName));
+        }
     }
 
     public void testShouldBuildIndexRemotely() {

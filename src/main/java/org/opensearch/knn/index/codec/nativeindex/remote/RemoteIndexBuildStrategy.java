@@ -177,6 +177,8 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         } finally {
             metrics.endRemoteIndexBuildMetrics(success);
         }
+        // Recreate the IndexOutput before fallback to discard any partially written remote data
+        indexInfo.getIndexOutputWithBuffer().recreate(indexInfo.getSegmentWriteState().directory, indexInfo.getSegmentWriteState().context);
         fallbackStrategy.buildAndWriteIndex(indexInfo);
     }
 

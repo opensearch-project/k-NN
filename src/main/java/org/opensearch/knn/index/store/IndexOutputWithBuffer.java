@@ -5,18 +5,25 @@
 
 package org.opensearch.knn.index.store;
 
+import lombok.Getter;
+import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexOutput;
 import org.opensearch.knn.common.exception.TerminalIOException;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.NoSuchFileException;
 
 /**
  * Wrapper around {@link IndexOutput} to perform writes in a buffered manner. This class is created per flush/merge, and may be used twice if
  * {@link org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy} needs to fall back to a different build strategy.
  */
+@Log4j2
 public class IndexOutputWithBuffer {
     // Underlying `IndexOutput` obtained from Lucene's Directory.
+    @Getter
     private IndexOutput indexOutput;
     // Write buffer. Native engine will copy bytes into this buffer.
     // Allocating 64KB here since it show better performance in NMSLIB with the size. (We had slightly improvement in FAISS than having 4KB)
@@ -80,6 +87,27 @@ public class IndexOutputWithBuffer {
                 }
             }
         }
+    }
+
+    /**
+     * Closes the current {@link IndexOutput}, deletes the partially written file, and creates a fresh
+     * output with the same file name. This is used when a remote index build partially writes data
+     * and then fails — the fallback strategy needs a clean output to write to.
+     *
+     * @param directory the directory to create the new output in
+     * @param context   the IO context for creating the new output
+     * @throws IOException if closing, deleting, or creating the output fails
+     */
+    public void recreate(final Directory directory, final IOContext context) throws IOException {
+        final String fileName = indexOutput.getName();
+        indexOutput.close();
+        try {
+            directory.deleteFile(fileName);
+        } catch (NoSuchFileException e) {
+            // File may not exist if nothing was written — safe to ignore
+            log.debug("File not found: {}, while trying to delete the file", fileName);
+        }
+        this.indexOutput = directory.createOutput(fileName, context);
     }
 
     @Override
