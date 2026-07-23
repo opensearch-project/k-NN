@@ -17,8 +17,8 @@ import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.knn.CompressionTestConfig;
@@ -26,10 +26,11 @@ import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -384,12 +385,8 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
 
         Float[] vector = new Float[] { 2.0f, 4.5f, 6.5f };
 
-        String documentAsString = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(INTEGER_FIELD_NAME, 5)
-            .field(FIELD_NAME, vector)
-            .endObject()
-            .toString();
+        String documentAsString =
+            XContentFactory.jsonBuilder().startObject().field(INTEGER_FIELD_NAME, 5).field(FIELD_NAME, vector).endObject().toString();
 
         addKnnDoc(INDEX_NAME, DOC_ID, documentAsString);
 
@@ -400,32 +397,22 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         int k = 10;
 
         // use filter where nonexistent field is must, we should have no results
-        QueryBuilder filterWithRequiredNonExistentField = QueryBuilders.boolQuery()
-            .must(QueryBuilders.rangeQuery(NON_EXISTENT_INTEGER_FIELD_NAME).gte(1));
-        Response searchWithRequiredNonExistentFiledInFilterResponse = searchKNNIndex(
-            INDEX_NAME,
-            new KNNQueryBuilder(FIELD_NAME, searchVector, k, filterWithRequiredNonExistentField),
-            k
-        );
-        List<KNNResult> resultsQuery1 = parseSearchResponse(
-            EntityUtils.toString(searchWithRequiredNonExistentFiledInFilterResponse.getEntity()),
-            FIELD_NAME
-        );
+        QueryBuilder filterWithRequiredNonExistentField =
+            QueryBuilders.boolQuery().must(QueryBuilders.rangeQuery(NON_EXISTENT_INTEGER_FIELD_NAME).gte(1));
+        Response searchWithRequiredNonExistentFiledInFilterResponse =
+            searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, searchVector, k, filterWithRequiredNonExistentField), k);
+        List<KNNResult> resultsQuery1 =
+            parseSearchResponse(EntityUtils.toString(searchWithRequiredNonExistentFiledInFilterResponse.getEntity()), FIELD_NAME);
         assertTrue(resultsQuery1.isEmpty());
 
         // use filter with non existent field as optional, we should have some results
         QueryBuilder filterWithOptionalNonExistentField = QueryBuilders.boolQuery()
             .should(QueryBuilders.rangeQuery(NON_EXISTENT_INTEGER_FIELD_NAME).gte(1))
             .must(QueryBuilders.rangeQuery(INTEGER_FIELD_NAME).gte(1));
-        Response searchWithOptionalNonExistentFiledInFilterResponse = searchKNNIndex(
-            INDEX_NAME,
-            new KNNQueryBuilder(FIELD_NAME, searchVector, k, filterWithOptionalNonExistentField),
-            k
-        );
-        List<KNNResult> resultsQuery2 = parseSearchResponse(
-            EntityUtils.toString(searchWithOptionalNonExistentFiledInFilterResponse.getEntity()),
-            FIELD_NAME
-        );
+        Response searchWithOptionalNonExistentFiledInFilterResponse =
+            searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, searchVector, k, filterWithOptionalNonExistentField), k);
+        List<KNNResult> resultsQuery2 =
+            parseSearchResponse(EntityUtils.toString(searchWithOptionalNonExistentFiledInFilterResponse.getEntity()), FIELD_NAME);
         assertEquals(1, resultsQuery2.size());
     }
 
@@ -747,8 +734,6 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         validateQueryResultsWithFilters(searchVector, 5, 1, expectedDocIdsKGreaterThanFilterResult, expectedDocIdsKLimitsFilterResult);
     }
 
-    /*
-    TODO: Uncomment when we enable radial search for 32x
     @SneakyThrows
     public void testRadialSearch_withMaxDistance_onLuceneSQ1bit_thenBlocked() {
         createKnnIndexMappingWithLuceneEngineWithModeAndCompression(CompressionLevel.x32, DIMENSION, Mode.NOT_CONFIGURED);
@@ -770,12 +755,9 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         request.setJsonEntity(query.toString());
 
         ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-        assertTrue(ex.getMessage().contains("Radial search is not supported for quantized indices"));
+        assertTrue(ex.getMessage().contains("Radial search is not supported for indices which have quantization enabled"));
     }
-    */
 
-    /*
-    TODO: Uncomment when we enable radial search for 32x
     @SneakyThrows
     public void testRadialSearch_withMinScore_onLuceneSQ1bit_thenBlocked() {
         createKnnIndexMappingWithLuceneEngineWithModeAndCompression(CompressionLevel.x32, DIMENSION, Mode.NOT_CONFIGURED);
@@ -797,9 +779,8 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         request.setJsonEntity(query.toString());
 
         ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-        assertTrue(ex.getMessage().contains("Radial search is not supported for quantized indices"));
+        assertTrue(ex.getMessage().contains("Radial search is not supported for indices which have quantization enabled"));
     }
-    */
 
     private void createKnnIndexMappingWithLuceneEngineAndSQEncoder(
         int dimension,
@@ -989,8 +970,11 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
             .startObject(FIELD_NAME)
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
             .field(DIMENSION_FIELD_NAME, dimension)
-            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType)
-            .startObject(KNNConstants.KNN_METHOD)
+            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType);
+        if (vectorDataType == VectorDataType.FLOAT) {
+            addCompressionMappingFields(builder);
+        }
+        builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
@@ -1028,11 +1012,8 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
             .startObject(FIELD_NAME)
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
             .field(DIMENSION_FIELD_NAME, dimension)
-            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType);
-        if (vectorDataType == VectorDataType.FLOAT) {
-            addCompressionMappingFields(builder);
-        }
-        builder.startObject(KNNConstants.KNN_METHOD)
+            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType)
+            .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
@@ -1084,9 +1065,8 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
     }
 
     private List<float[]> queryResults(final float[] searchVector, final int k) throws Exception {
-        final String responseBody = EntityUtils.toString(
-            searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, searchVector, k), k).getEntity()
-        );
+        final String responseBody =
+            EntityUtils.toString(searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, searchVector, k), k).getEntity());
         final List<KNNResult> knnResults = parseSearchResponse(responseBody, FIELD_NAME);
         assertNotNull(knnResults);
         return knnResults.stream().map(KNNResult::getVector).collect(Collectors.toUnmodifiableList());
@@ -1109,9 +1089,10 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         final List<KNNResult> knnResults = parseSearchResponse(responseBody, FIELD_NAME);
 
         assertEquals(expectedDocIdsKGreaterThanFilterResult.size(), knnResults.size());
-        assertTrue(
-            knnResults.stream().map(KNNResult::getDocId).collect(Collectors.toList()).containsAll(expectedDocIdsKGreaterThanFilterResult)
-        );
+        assertTrue(knnResults.stream()
+                       .map(KNNResult::getDocId)
+                       .collect(Collectors.toList())
+                       .containsAll(expectedDocIdsKGreaterThanFilterResult));
 
         final Response responseKLimitsFilterResult = searchKNNIndex(
             INDEX_NAME,
@@ -1122,12 +1103,10 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         final List<KNNResult> knnResultsKLimitsFilterResult = parseSearchResponse(responseBodyKLimitsFilterResult, FIELD_NAME);
 
         assertEquals(expectedDocIdsKLimitsFilterResult.size(), knnResultsKLimitsFilterResult.size());
-        assertTrue(
-            knnResultsKLimitsFilterResult.stream()
-                .map(KNNResult::getDocId)
-                .collect(Collectors.toList())
-                .containsAll(expectedDocIdsKLimitsFilterResult)
-        );
+        assertTrue(knnResultsKLimitsFilterResult.stream()
+                       .map(KNNResult::getDocId)
+                       .collect(Collectors.toList())
+                       .containsAll(expectedDocIdsKLimitsFilterResult));
     }
 
     @SneakyThrows
@@ -1161,19 +1140,14 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
 
         float[] queryVector = new float[] { -2.0f, 2.0f };
         int k = 2;
-        final Response response = searchKNNIndex(
-            INDEX_NAME,
-            new KNNQueryBuilder(FIELD_NAME, queryVector, k, QueryBuilders.matchAllQuery()),
-            k
-        );
+        final Response response =
+            searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, queryVector, k, QueryBuilders.matchAllQuery()), k);
         final String responseBody = EntityUtils.toString(response.getEntity());
         final List<Float> knnResults = parseSearchResponseScore(responseBody, FIELD_NAME);
 
         // Check that the expected scores are returned
-        final List<Float> expectedScores = Arrays.asList(
-            VectorUtil.scaleMaxInnerProductScore(8.0f),
-            VectorUtil.scaleMaxInnerProductScore(-8.0f)
-        );
+        final List<Float> expectedScores =
+            Arrays.asList(VectorUtil.scaleMaxInnerProductScore(8.0f), VectorUtil.scaleMaxInnerProductScore(-8.0f));
         assertEquals(expectedScores.size(), knnResults.size());
         for (int i = 0; i < expectedScores.size(); i++) {
             assertEquals(expectedScores.get(i), knnResults.get(i), 0.0000001);
@@ -1191,12 +1165,21 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         final float score = 0.23f;
         final int[] expectedResults = { 2, 3, 2 };
 
-        Map<String, Object> methodParameters = new ImmutableMap.Builder<String, Object>().put(KNNConstants.METHOD_PARAMETER_EF_SEARCH, 150)
-            .build();
+        Map<String, Object> methodParameters =
+            new ImmutableMap.Builder<String, Object>().put(KNNConstants.METHOD_PARAMETER_EF_SEARCH, 150).build();
 
         expectThrows(
             ResponseException.class,
-            () -> validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.L2, expectedResults, null, null, methodParameters)
+            () -> validateRadiusSearchResults(
+                TEST_QUERY_VECTORS,
+                null,
+                score,
+                SpaceType.L2,
+                expectedResults,
+                null,
+                null,
+                methodParameters
+            )
         );
     }
 
@@ -1206,9 +1189,12 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         final Float scoreThreshold,
         final SpaceType spaceType,
         final int[] expectedResults,
-        @Nullable final String filterField,
-        @Nullable final String filterValue,
-        @Nullable final Map<String, ?> methodParameters
+        @Nullable
+        final String filterField,
+        @Nullable
+        final String filterValue,
+        @Nullable
+        final Map<String, ?> methodParameters
     ) throws Exception {
         for (int i = 0; i < searchVectors.length; i++) {
             XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("query");
