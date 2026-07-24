@@ -20,7 +20,6 @@ import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.util.Collections;
-import java.util.List;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
@@ -123,30 +122,12 @@ public class FaissFieldStrategyTests extends KNNTestCase {
         assertNull(fieldType.getAttributes().get(SQ_CONFIG));
     }
 
-    public void testCreateFloatFieldsReturnsNull() {
-        List<?> result = FaissFieldStrategy.INSTANCE.createFloatFields(
-            "test_field",
-            new float[] { 1.0f, 2.0f },
-            mock(FieldType.class),
-            null,
-            true,
-            true,
-            false
+    public void testFaissFieldStrategyDoesNotProvideFieldOverrides() {
+        EngineFieldStrategy strategy = FaissFieldStrategy.INSTANCE;
+        assertTrue(
+            strategy.getFloatFieldOverrides("test_field", new float[] { 1.0f, 2.0f, 3.0f }, null, null, false, false, false).isEmpty()
         );
-        assertNull(result);
-    }
-
-    public void testCreateByteFieldsReturnsNull() {
-        List<?> result = FaissFieldStrategy.INSTANCE.createByteFields(
-            "test_field",
-            new byte[] { 1, 2 },
-            mock(FieldType.class),
-            null,
-            true,
-            true,
-            false
-        );
-        assertNull(result);
+        assertTrue(strategy.getByteFieldOverrides("test_field", new byte[] { 1, 2, 3 }, null, null, false, false, false).isEmpty());
     }
 
     public void testBuildFieldTypeConfigForFaissWithBQEncoder() {

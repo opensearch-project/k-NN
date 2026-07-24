@@ -20,6 +20,7 @@ import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -76,7 +77,7 @@ public class LuceneFieldStrategyTests extends KNNTestCase {
         assertNull(config.getVectorFieldType());
     }
 
-    public void testCreateFloatFieldsWithDocValuesAndStored() {
+    public void testGetFloatFieldOverridesWithDocValuesAndStored() {
         int dimension = 3;
         FieldType fieldType = KnnFloatVectorField.createFieldType(dimension, VectorSimilarityFunction.EUCLIDEAN);
         FieldType vectorFieldType = new FieldType();
@@ -85,7 +86,7 @@ public class LuceneFieldStrategyTests extends KNNTestCase {
 
         float[] vector = new float[] { 1.0f, 2.0f, 3.0f };
 
-        List<Field> fields = LuceneFieldStrategy.INSTANCE.createFloatFields(
+        Optional<List<Field>> fields = LuceneFieldStrategy.INSTANCE.getFloatFieldOverrides(
             "test_field",
             vector,
             fieldType,
@@ -95,21 +96,31 @@ public class LuceneFieldStrategyTests extends KNNTestCase {
             false
         );
 
-        assertEquals(3, fields.size());
+        assertTrue(fields.isPresent());
+        assertEquals(3, fields.get().size());
     }
 
-    public void testCreateFloatFieldsWithoutDocValuesOrStored() {
+    public void testGetFloatFieldOverridesWithoutDocValuesOrStored() {
         int dimension = 3;
         FieldType fieldType = KnnFloatVectorField.createFieldType(dimension, VectorSimilarityFunction.EUCLIDEAN);
 
         float[] vector = new float[] { 1.0f, 2.0f, 3.0f };
 
-        List<Field> fields = LuceneFieldStrategy.INSTANCE.createFloatFields("test_field", vector, fieldType, null, false, false, false);
+        Optional<List<Field>> fields = LuceneFieldStrategy.INSTANCE.getFloatFieldOverrides(
+            "test_field",
+            vector,
+            fieldType,
+            null,
+            false,
+            false,
+            false
+        );
 
-        assertEquals(1, fields.size());
+        assertTrue(fields.isPresent());
+        assertEquals(1, fields.get().size());
     }
 
-    public void testCreateByteFieldsWithDocValuesAndStored() {
+    public void testGetByteFieldOverridesWithDocValuesAndStored() {
         int dimension = 3;
         FieldType fieldType = KnnByteVectorField.createFieldType(dimension, VectorSimilarityFunction.EUCLIDEAN);
         FieldType vectorFieldType = new FieldType();
@@ -118,7 +129,7 @@ public class LuceneFieldStrategyTests extends KNNTestCase {
 
         byte[] vector = new byte[] { 1, 2, 3 };
 
-        List<Field> fields = LuceneFieldStrategy.INSTANCE.createByteFields(
+        Optional<List<Field>> fields = LuceneFieldStrategy.INSTANCE.getByteFieldOverrides(
             "test_field",
             vector,
             fieldType,
@@ -128,39 +139,67 @@ public class LuceneFieldStrategyTests extends KNNTestCase {
             false
         );
 
-        assertEquals(3, fields.size());
+        assertTrue(fields.isPresent());
+        assertEquals(3, fields.get().size());
     }
 
-    public void testCreateByteFieldsWithoutDocValuesOrStored() {
+    public void testGetByteFieldOverridesWithoutDocValuesOrStored() {
         int dimension = 3;
         FieldType fieldType = KnnByteVectorField.createFieldType(dimension, VectorSimilarityFunction.EUCLIDEAN);
 
         byte[] vector = new byte[] { 1, 2, 3 };
 
-        List<Field> fields = LuceneFieldStrategy.INSTANCE.createByteFields("test_field", vector, fieldType, null, false, false, false);
+        Optional<List<Field>> fields = LuceneFieldStrategy.INSTANCE.getByteFieldOverrides(
+            "test_field",
+            vector,
+            fieldType,
+            null,
+            false,
+            false,
+            false
+        );
 
-        assertEquals(1, fields.size());
+        assertTrue(fields.isPresent());
+        assertEquals(1, fields.get().size());
     }
 
-    public void testCreateFloatFieldsWithDocValuesButNullVectorFieldType() {
+    public void testGetFloatFieldOverridesWithDocValuesButNullVectorFieldType() {
         int dimension = 3;
         FieldType fieldType = KnnFloatVectorField.createFieldType(dimension, VectorSimilarityFunction.EUCLIDEAN);
 
         float[] vector = new float[] { 1.0f, 2.0f, 3.0f };
 
-        List<Field> fields = LuceneFieldStrategy.INSTANCE.createFloatFields("test_field", vector, fieldType, null, false, true, false);
+        Optional<List<Field>> fields = LuceneFieldStrategy.INSTANCE.getFloatFieldOverrides(
+            "test_field",
+            vector,
+            fieldType,
+            null,
+            false,
+            true,
+            false
+        );
 
-        assertEquals(1, fields.size());
+        assertTrue(fields.isPresent());
+        assertEquals(1, fields.get().size());
     }
 
-    public void testCreateByteFieldsWithDocValuesButNullVectorFieldType() {
+    public void testGetByteFieldOverridesWithDocValuesButNullVectorFieldType() {
         int dimension = 3;
         FieldType fieldType = KnnByteVectorField.createFieldType(dimension, VectorSimilarityFunction.EUCLIDEAN);
 
         byte[] vector = new byte[] { 1, 2, 3 };
 
-        List<Field> fields = LuceneFieldStrategy.INSTANCE.createByteFields("test_field", vector, fieldType, null, false, true, false);
+        Optional<List<Field>> fields = LuceneFieldStrategy.INSTANCE.getByteFieldOverrides(
+            "test_field",
+            vector,
+            fieldType,
+            null,
+            false,
+            true,
+            false
+        );
 
-        assertEquals(1, fields.size());
+        assertTrue(fields.isPresent());
+        assertEquals(1, fields.get().size());
     }
 }

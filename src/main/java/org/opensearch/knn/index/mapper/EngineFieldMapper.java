@@ -163,36 +163,14 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
 
     @Override
     protected List<Field> getFieldsForFloatVector(final float[] array, boolean isDerivedSourceEnabled) {
-        List<Field> fields = fieldStrategy.createFloatFields(
-            name(),
-            array,
-            fieldType,
-            vectorFieldType,
-            stored,
-            hasDocValues,
-            isDerivedSourceEnabled
-        );
-        if (fields != null) {
-            return fields;
-        }
-        return super.getFieldsForFloatVector(array, isDerivedSourceEnabled);
+        return fieldStrategy.getFloatFieldOverrides(name(), array, fieldType, vectorFieldType, stored, hasDocValues, isDerivedSourceEnabled)
+            .orElseGet(() -> super.getFieldsForFloatVector(array, isDerivedSourceEnabled));
     }
 
     @Override
     protected List<Field> getFieldsForByteVector(final byte[] array, boolean isDerivedSourceEnabled) {
-        List<Field> fields = fieldStrategy.createByteFields(
-            name(),
-            array,
-            fieldType,
-            vectorFieldType,
-            stored,
-            hasDocValues,
-            isDerivedSourceEnabled
-        );
-        if (fields != null) {
-            return fields;
-        }
-        return super.getFieldsForByteVector(array, isDerivedSourceEnabled);
+        return fieldStrategy.getByteFieldOverrides(name(), array, fieldType, vectorFieldType, stored, hasDocValues, isDerivedSourceEnabled)
+            .orElseGet(() -> super.getFieldsForByteVector(array, isDerivedSourceEnabled));
     }
 
     @Override

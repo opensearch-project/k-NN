@@ -13,11 +13,14 @@ import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
- * Strategy interface for engine-specific field construction and vector field creation.
- * Each KNN engine provides its own implementation to handle field type building,
- * vector field creation, and attribute formatting.
+ * Strategy interface for engine-specific field type construction. Each KNN engine provides its
+ * own implementation to handle field type building and attribute formatting. Engines that require
+ * custom vector field creation override {@link #getFloatFieldOverrides} and
+ * {@link #getByteFieldOverrides}; otherwise the default field creation path owned by
+ * {@link KNNVectorFieldMapper} is used.
  */
 public interface EngineFieldStrategy {
 
@@ -42,10 +45,8 @@ public interface EngineFieldStrategy {
     );
 
     /**
-     * Creates the list of fields for indexing a float vector.
-     * <p>
-     * Returns null to signal the caller should use the parent class default field creation path.
-     * Override only when the engine requires custom field construction (e.g. Lucene doc-values fields).
+     * Returns engine-specific fields for indexing a float vector, or {@link Optional#empty()} to
+     * use the default field creation path owned by {@link KNNVectorFieldMapper}.
      *
      * @param name the field name
      * @param array the float vector
@@ -54,9 +55,9 @@ public interface EngineFieldStrategy {
      * @param stored whether the field is stored
      * @param hasDocValues whether the field has doc values
      * @param isDerivedSourceEnabled whether derived source is enabled
-     * @return list of fields to add to the document, or null to use the default field creation path
+     * @return optional list of fields to add to the document
      */
-    default List<Field> createFloatFields(
+    default Optional<List<Field>> getFloatFieldOverrides(
         String name,
         float[] array,
         FieldType fieldType,
@@ -65,14 +66,12 @@ public interface EngineFieldStrategy {
         boolean hasDocValues,
         boolean isDerivedSourceEnabled
     ) {
-        return null;
+        return Optional.empty();
     }
 
     /**
-     * Creates the list of fields for indexing a byte vector.
-     * <p>
-     * Returns null to signal the caller should use the parent class default field creation path.
-     * Override only when the engine requires custom field construction (e.g. Lucene doc-values fields).
+     * Returns engine-specific fields for indexing a byte vector, or {@link Optional#empty()} to
+     * use the default field creation path owned by {@link KNNVectorFieldMapper}.
      *
      * @param name the field name
      * @param array the byte vector
@@ -81,9 +80,9 @@ public interface EngineFieldStrategy {
      * @param stored whether the field is stored
      * @param hasDocValues whether the field has doc values
      * @param isDerivedSourceEnabled whether derived source is enabled
-     * @return list of fields to add to the document, or null to use the default field creation path
+     * @return optional list of fields to add to the document
      */
-    default List<Field> createByteFields(
+    default Optional<List<Field>> getByteFieldOverrides(
         String name,
         byte[] array,
         FieldType fieldType,
@@ -92,6 +91,6 @@ public interface EngineFieldStrategy {
         boolean hasDocValues,
         boolean isDerivedSourceEnabled
     ) {
-        return null;
+        return Optional.empty();
     }
 }
