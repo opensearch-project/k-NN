@@ -6,7 +6,10 @@
 package org.opensearch.knn.index.engine.lucene;
 
 import org.apache.lucene.codecs.KnnVectorsFormat;
+import org.opensearch.index.IndexSettings;
+import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KnnVectorsFormatContext;
 import org.opensearch.knn.index.codec.LuceneVectorsFormatType;
@@ -17,9 +20,11 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
@@ -234,5 +239,121 @@ public class LuceneCodecFormatResolverTests extends KNNTestCase {
         Object encoder = capturedContext[0].getParams().get(METHOD_ENCODER_PARAMETER);
         assertTrue(encoder instanceof MethodComponentContext);
         assertEquals(1, ((MethodComponentContext) encoder).getParameters().get(LUCENE_SQ_BITS));
+    }
+
+    public void testResolve_whenMapperServiceEmpty_thenContextGetsDefaultApproximateThreshold() {
+        KNNMethodContext hnswContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 100))
+        );
+
+        final KnnVectorsFormatContext[] captured = new KnnVectorsFormatContext[1];
+        Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
+            LuceneVectorsFormatType.HNSW,
+            ctx -> {
+                captured[0] = ctx;
+                return HNSW_FORMAT;
+            }
+        );
+
+        LuceneCodecFormatResolver resolver = new LuceneCodecFormatResolver(resolvers, Optional.empty());
+        resolver.resolve(TEST_FIELD, hnswContext, Map.of(), DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH);
+
+        assertNotNull(captured[0]);
+        assertEquals(
+            "Expected default approximate threshold when mapperService is empty",
+            (int) KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE,
+            captured[0].getApproximateThreshold()
+        );
+    }
+
+    public void testResolve_whenSettingUnset_thenContextGetsDefaultApproximateThreshold() {
+        MapperService mapperService = mock(MapperService.class);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING)).thenReturn(null);
+        when(mapperService.getIndexSettings()).thenReturn(indexSettings);
+
+        KNNMethodContext hnswContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 100))
+        );
+
+        final KnnVectorsFormatContext[] captured = new KnnVectorsFormatContext[1];
+        Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
+            LuceneVectorsFormatType.HNSW,
+            ctx -> {
+                captured[0] = ctx;
+                return HNSW_FORMAT;
+            }
+        );
+
+        LuceneCodecFormatResolver resolver = new LuceneCodecFormatResolver(resolvers, Optional.of(mapperService));
+        resolver.resolve(TEST_FIELD, hnswContext, Map.of(), DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH);
+
+        assertNotNull(captured[0]);
+        assertEquals(
+            "Expected default approximate threshold when setting is null",
+            (int) KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE,
+            captured[0].getApproximateThreshold()
+        );
+    }
+
+    public void testResolve_whenSettingHasCustomValue_thenContextGetsCustomApproximateThreshold() {
+        int customThreshold = 500;
+        MapperService mapperService = mock(MapperService.class);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING)).thenReturn(customThreshold);
+        when(mapperService.getIndexSettings()).thenReturn(indexSettings);
+
+        KNNMethodContext hnswContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 100))
+        );
+
+        final KnnVectorsFormatContext[] captured = new KnnVectorsFormatContext[1];
+        Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
+            LuceneVectorsFormatType.HNSW,
+            ctx -> {
+                captured[0] = ctx;
+                return HNSW_FORMAT;
+            }
+        );
+
+        LuceneCodecFormatResolver resolver = new LuceneCodecFormatResolver(resolvers, Optional.of(mapperService));
+        resolver.resolve(TEST_FIELD, hnswContext, Map.of(), DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH);
+
+        assertNotNull(captured[0]);
+        assertEquals(customThreshold, captured[0].getApproximateThreshold());
+    }
+
+    public void testResolve_whenSettingIsNegativeOne_thenContextGetsNegativeOne() {
+        MapperService mapperService = mock(MapperService.class);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING)).thenReturn(-1);
+        when(mapperService.getIndexSettings()).thenReturn(indexSettings);
+
+        KNNMethodContext hnswContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 100))
+        );
+
+        final KnnVectorsFormatContext[] captured = new KnnVectorsFormatContext[1];
+        Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> resolvers = Map.of(
+            LuceneVectorsFormatType.HNSW,
+            ctx -> {
+                captured[0] = ctx;
+                return HNSW_FORMAT;
+            }
+        );
+
+        LuceneCodecFormatResolver resolver = new LuceneCodecFormatResolver(resolvers, Optional.of(mapperService));
+        resolver.resolve(TEST_FIELD, hnswContext, Map.of(), DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH);
+
+        assertNotNull(captured[0]);
+        assertEquals(-1, captured[0].getApproximateThreshold());
     }
 }

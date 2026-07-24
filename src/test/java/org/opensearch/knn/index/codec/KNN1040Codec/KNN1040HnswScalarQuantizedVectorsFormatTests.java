@@ -74,4 +74,43 @@ public class KNN1040HnswScalarQuantizedVectorsFormatTests extends KNNTestCase {
             assertTrue(format.toString().contains(encoding.name()));
         }
     }
+
+    public void testConstructor_whenCustomTinySegmentsThreshold_thenSucceeds() {
+        KNN1040HnswScalarQuantizedVectorsFormat format = new KNN1040HnswScalarQuantizedVectorsFormat(
+            SINGLE_BIT_QUERY_NIBBLE,
+            16,
+            100,
+            1,
+            null,
+            500
+        );
+        assertNotNull(format);
+        assertEquals("KNN1040HnswScalarQuantizedVectorsFormat", format.getName());
+    }
+
+    public void testConstructor_whenMaxValueTinySegmentsThreshold_thenSucceeds() {
+        KNN1040HnswScalarQuantizedVectorsFormat format = new KNN1040HnswScalarQuantizedVectorsFormat(
+            SINGLE_BIT_QUERY_NIBBLE,
+            16,
+            100,
+            1,
+            null,
+            Integer.MAX_VALUE
+        );
+        assertNotNull(format);
+        assertEquals("KNN1040HnswScalarQuantizedVectorsFormat", format.getName());
+    }
+
+    public void testConstructor_whenZeroTinySegmentsThreshold_thenSucceeds() {
+        KNN1040HnswScalarQuantizedVectorsFormat format = new KNN1040HnswScalarQuantizedVectorsFormat(
+            SINGLE_BIT_QUERY_NIBBLE,
+            16,
+            100,
+            1,
+            null,
+            0
+        );
+        assertNotNull(format);
+        assertEquals("KNN1040HnswScalarQuantizedVectorsFormat", format.getName());
+    }
 }

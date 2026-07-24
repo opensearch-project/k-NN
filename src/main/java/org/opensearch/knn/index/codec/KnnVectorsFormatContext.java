@@ -43,4 +43,16 @@ public class KnnVectorsFormatContext {
      * Default beam width if not specified in params.
      */
     int defaultBeamWidth;
+
+    /**
+     * The value of {@code index.knn.advanced.approximate_threshold} for the index. Format factories
+     * should convert this to a {@code tinySegmentsThreshold} to control whether the HNSW graph is
+     * built for a given segment:
+     * <ul>
+     *   <li>{@code 0} (default): always build the graph.</li>
+     *   <li>{@code N > 0}: skip the graph when {@code docCount < N}.</li>
+     *   <li>{@code -1}: never build the graph.</li>
+     * </ul>
+     */
+    int approximateThreshold;
 }
