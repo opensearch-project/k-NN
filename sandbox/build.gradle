@@ -1,0 +1,131 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import org.opensearch.gradle.test.RestIntegTestTask
+
+/**
+ * Experimental sandbox (k-NN issue #3283): one subproject per tenant plus :sandbox:common. Opt-in only,
+ * never published. Build and test: ./gradlew -p sandbox check -Pknn.sandbox.enabled=true. See sandbox/README.md.
+ */
+
+apply plugin: 'opensearch.build'
+build.enabled = false
+test.enabled = false
+assemble.enabled = false
+dependenciesInfo.enabled = false
+// Unlike qa/, this container has zero dependencies, so the jarHell runner has no classpath to load from.
+jarHell.enabled = false
+
+// Sandbox artifacts are never published anywhere, not even to Maven local — hard-disable publishing tasks.
+def disablePublishing = { Project sandboxProject ->
+    sandboxProject.afterEvaluate {
+        sandboxProject.tasks.configureEach { task ->
+            if (task.group == 'publishing'
+                || task.name.startsWith('generatePomFileFor')
+                || task.name.startsWith('generateMetadataFileFor')
+                || (task.name.startsWith('validate') && task.name.endsWith('Pom'))) {
+                task.enabled = false
+                task.setDependsOn([])
+                task.onlyIf { false }
+            }
+        }
+    }
+}
+disablePublishing(project)
+
+configure(subprojects.findAll { it.parent.path == project.path }) {
+    group = 'org.opensearch.knn.sandbox'
+
+    base {
+        archivesName = "knn-sandbox-${project.name}"
+    }
+
+    apply plugin: 'java'
+    apply plugin: 'java-library'
+    apply plugin: 'jacoco'
+    apply plugin: 'io.freefair.lombok'
+    apply plugin: 'opensearch.build'
+    apply plugin: 'opensearch.java-agent'
+    apply plugin: 'opensearch.testclusters'
+
+    disablePublishing(it)
+
+    repositories {
+        mavenLocal()
+        maven { url = uri("https://ci.opensearch.org/maven2/") }
+        maven { url = uri("https://ci.opensearch.org/ci/dbc/snapshots/maven/") }
+        mavenCentral()
+        maven { url = uri("https://plugins.gradle.org/m2/") }
+    }
+
+    dependencyLicenses.enabled = false
+    thirdPartyAudit.enabled = false
+    loggerUsageCheck.enabled = false
+
+    compileJava {
+        options.compilerArgs = ["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor']
+    }
+    compileTestJava {
+        options.compilerArgs = ["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor']
+    }
+
+    dependencies {
+        compileOnly group: 'org.opensearch', name: 'opensearch', version: "${opensearch_version}"
+        testImplementation "org.opensearch.test:framework:${opensearch_version}"
+
+        compileOnly project(':')
+        testImplementation project(':')
+
+        // Guava is provided at runtime by OpenSearch's transport-grpc module but not on the sandbox test classpath.
+        testImplementation "com.google.guava:guava:${versions.guava}"
+
+        // REST integration tests extend KNNRestTestCase, published by the root project's test fixtures.
+        testImplementation testFixtures(project(':'))
+    }
+
+    if (project.name != 'common') {
+        dependencies {
+            implementation project(':sandbox:common')
+        }
+    }
+
+    check.dependsOn spotlessCheck
+
+    test {
+        exclude '**/*IT.class'
+    }
+
+    if (rootProject.file("jni/sandbox/${project.name}").exists()) {
+        compileJava {
+            options.headerOutputDirectory.set(layout.buildDirectory.dir('generated-jni-headers'))
+        }
+    }
+
+    // Run with: ./gradlew :sandbox:<tenant>:integTest -Pknn.sandbox.enabled=true
+    if (fileTree(dir: "${projectDir}/src/test", includes: ['**/*IT.java']).isEmpty() == false) {
+        def sandboxTenantCluster = testClusters.create('integTest') {
+            testDistribution = "ARCHIVE"
+            plugin(rootProject.tasks.bundlePlugin.archiveFile)
+            systemProperty("java.library.path", "${rootProject.projectDir}/jni/build/release")
+        }
+
+        tasks.register('integTest', RestIntegTestTask) {
+            description = "Run REST integration tests for this sandbox tenant against a sandbox-enabled cluster."
+            group = "verification"
+            dependsOn rootProject.tasks.bundlePlugin
+            useCluster sandboxTenantCluster
+            testClassesDirs = sourceSets.test.output.classesDirs
+            classpath = sourceSets.test.runtimeClasspath
+            systemProperty 'tests.security.manager', 'false'
+            systemProperty "java.library.path", "${rootProject.projectDir}/jni/build/release"
+            nonInputProperties.systemProperty('tests.rest.cluster', "${-> sandboxTenantCluster.allHttpSocketURI.join(",")}")
+            nonInputProperties.systemProperty('tests.clustername', "${-> sandboxTenantCluster.getName()}")
+            systemProperty("https", System.getProperty("https"))
+            systemProperty("user", System.getProperty("user"))
+            systemProperty("password", System.getProperty("password"))
+            mustRunAfter tasks.named('test')
+        }
+    }
+}
