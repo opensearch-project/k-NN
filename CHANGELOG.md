@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix isFaissSQfp16 to skip FP16 validation when SQ encoder uses bits=1 [#3366](https://github.com/opensearch-project/k-NN/pull/3366)
 * Fix score corruption in multi-segment FAISS indices with ADC [#3385](https://github.com/opensearch-project/k-NN/pull/3385)
 * Fix radial search max_distance threshold conversion for inner product with memory-optimized search [#3369](https://github.com/opensearch-project/k-NN/pull/3369)
+* Fix inner-hits returning mask value for top level source excludes [#3446](https://github.com/opensearch-project/k-NN/pull/3446)
 
 ### Refactoring
 * Refactor ExactSearcher to use BulkVectorScorer directly and rename factory methods [#3361](https://github.com/opensearch-project/k-NN/pull/3361)

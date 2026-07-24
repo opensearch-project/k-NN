@@ -791,7 +791,7 @@ public class KNNSourceExcludesProcessorIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testSearchResponse_innerHitExplicitTrueSource_noTopLevelExcludes() {
+    public void testSearchResponse_innerHitExplicitTrueSource_topLevelExcludedInnerHitReturnsVector() {
         String indexName = INDEX_NAME + "-inner-hit-true";
         String nestedField = "nested_obj";
         String nestedVecField = "vec";
@@ -833,7 +833,8 @@ public class KNNSourceExcludesProcessorIT extends KNNRestTestCase {
         addKnnDoc(indexName, "1", doc);
         refreshIndex(indexName);
 
-        // Inner hit with _source: true — processor should not add top-level excludes (issue #3303)
+        // Inner hit with _source: true. Post core PR #22521, the top-level vector is excluded while the
+        // inner hit still returns it — core preserves the field at the codec level for the inner hit (issue #3303).
         String query = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("query")
@@ -857,12 +858,15 @@ public class KNNSourceExcludesProcessorIT extends KNNRestTestCase {
         assertEquals(1, hits.size());
         Map<String, Object> hit = hits.get(0);
 
-        // Top-level source should contain the nested object (vector not excluded at top level)
+        // Top-level source: the nested vector is excluded, but the nested object's other content remains.
         Map<String, Object> source = getSource(hit);
         assertNotNull(source);
-        assertTrue("Nested object should be present in top-level source", source.containsKey(nestedField));
+        if (source.containsKey(nestedField)) {
+            Map<String, Object> nestedSource = (Map<String, Object>) source.get(nestedField);
+            assertFalse("Nested vector should be excluded from top-level source", nestedSource.containsKey(nestedVecField));
+        }
 
-        // Inner hit source should contain the vector
+        // Inner hit source should still contain the vector even though it is excluded at the top level.
         Map<String, Object> innerHits = (Map<String, Object>) hit.get("inner_hits");
         assertNotNull(innerHits);
         Map<String, Object> nestedInnerHit = (Map<String, Object>) innerHits.get(nestedField);
@@ -872,6 +876,53 @@ public class KNNSourceExcludesProcessorIT extends KNNRestTestCase {
         Map<String, Object> innerSource = (Map<String, Object>) innerHitsList.get(0).get("_source");
         assertNotNull("Inner hit should have _source", innerSource);
         assertTrue("Vector field should be present in inner hit _source", innerSource.containsKey(nestedVecField));
+
+        deleteIndex(indexName);
+    }
+
+    @SneakyThrows
+    public void testMultiSearch_childSearchesExcludeVectorField() {
+        // msearch fans out child SearchRequests whose parent action is indices:data/read/msearch, which is
+        // allowlisted — so the processor is still generated for them and vectors are excluded from each response.
+        String indexName = INDEX_NAME + "-msearch";
+        createIndexWithVectorAndTextField(indexName);
+        indexDocumentWithVectorAndText(indexName, "1", TEST_VECTOR, "msearch doc one");
+        indexDocumentWithVectorAndText(indexName, "2", new Float[] { 5.0f, 6.0f, 7.0f, 8.0f }, "msearch doc two");
+        refreshIndex(indexName);
+
+        // Two search bodies in one _msearch request, both plain match_all.
+        String matchAllBody = "{\"query\":{\"match_all\":{}}}";
+        String ndjson = "{\"index\":\""
+            + indexName
+            + "\"}\n"
+            + matchAllBody
+            + "\n"
+            + "{\"index\":\""
+            + indexName
+            + "\"}\n"
+            + matchAllBody
+            + "\n";
+
+        Request request = new Request("GET", "/_msearch");
+        request.setJsonEntity(ndjson);
+        Response response = client().performRequest(request);
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+        Map<String, Object> responseMap = createParser(JsonXContent.jsonXContent, responseBody).map();
+        List<Map<String, Object>> responses = (List<Map<String, Object>>) responseMap.get("responses");
+        assertEquals("msearch should return two responses", 2, responses.size());
+
+        for (Map<String, Object> singleResponse : responses) {
+            Map<String, Object> hitsOuter = (Map<String, Object>) singleResponse.get("hits");
+            List<Map<String, Object>> hits = (List<Map<String, Object>>) hitsOuter.get("hits");
+            assertFalse("Each msearch child response should have hits", hits.isEmpty());
+            for (Map<String, Object> hit : hits) {
+                Map<String, Object> source = getSource(hit);
+                assertNotNull(source);
+                assertTrue("Text field should be present in msearch child response", source.containsKey(TEXT_FIELD));
+                assertFalse("Vector field should be excluded in msearch child response", source.containsKey(VECTOR_FIELD));
+            }
+        }
 
         deleteIndex(indexName);
     }
