@@ -46,6 +46,7 @@ public final class OriginalMappingParameters {
     private final String modelId;
     private final String topLevelSpaceType;
     private final String topLevelEngine;
+    private final Boolean multiVector;
 
     /**
      * Initialize the parameters from the builder
@@ -62,6 +63,7 @@ public final class OriginalMappingParameters {
         this.modelId = builder.modelId.get();
         this.topLevelSpaceType = builder.topLevelSpaceType.get();
         this.topLevelEngine = builder.topLevelEngine.get();
+        this.multiVector = builder.multiVector.get();
     }
 
     /**
@@ -80,6 +82,7 @@ public final class OriginalMappingParameters {
             return false;
         }
 
+        // TODO: do i need a check here for multiVector?
         return Strings.isEmpty(mode) && Strings.isEmpty(compressionLevel);
     }
 }
