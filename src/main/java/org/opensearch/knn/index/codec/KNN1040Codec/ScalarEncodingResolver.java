@@ -139,7 +139,10 @@ public final class ScalarEncodingResolver {
         return bits;
     }
 
-    private static String supportedDocBitsString() {
+    /**
+     * Returns the supported document bit widths as a printable string (e.g. {@code "[1, 2, 4]"}).
+     */
+    public static String supportedDocBitsString() {
         return Arrays.toString(SUPPORTED_DOC_BITS);
     }
 }

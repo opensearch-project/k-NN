@@ -113,9 +113,13 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
         final QuantizedByteVectorValues binarizedVectorValues = indexInfo.getQuantizedByteVectorValues();
         Objects.requireNonNull(binarizedVectorValues, "QuantizedByteVectorValues was null in BuildIndexParams");
 
-        // The byte length of a single quantized vector. For 1-bit quantization of D dimensions,
-        // this is ceil(D/8) bytes, padded to 64-bit alignment: ((D + 63) / 64) * 64 / 8.
-        // TODO : This needs to be made generic for other quantization.
+        // Byte length of a single quantized vector as written to Lucene's .veq file. This is
+        // data-driven — Lucene's encoder decides the layout per ScalarEncoding, and each
+        // supported bit width produces a different length:
+        // B=1 (SINGLE_BIT_QUERY_NIBBLE): ceil(D/8) bytes, padded to 64-bit alignment
+        // B=2 (DIBIT_QUERY_NIBBLE): two bit-planes, 2 * planeBytes
+        // B=4 (PACKED_NIBBLE): two 4-bit values per byte, packedBytes
+        // We simply consume the resulting length; the strategy is generic across all three.
         final int quantizedVecBytes = binarizedVectorValues.vectorValue(0).length;
 
         // The centroid dot-product is a precomputed scalar used in the ADC scoring formula.

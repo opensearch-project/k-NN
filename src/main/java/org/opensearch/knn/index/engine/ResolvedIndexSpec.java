@@ -104,13 +104,17 @@ public final class ResolvedIndexSpec {
 
     /**
      * Whether this configuration always uses memory optimized search.
-     * SQ 1-bit indices require memory optimized search for correctness, regardless of engine
-     * (both Faiss and Lucene SQ 1-bit rely on it). The one exclusion is IVF: IVF-based SQ 1-bit
-     * models (e.g. trained with on_disk/32x) produce IVF Faiss indices that the memory optimized
-     * reader cannot load, so forcing memory optimized search for them would fail at query time.
+     * Multi-bit SQ indices (bits ∈ {1, 2, 4}) require memory optimized search for correctness,
+     * regardless of engine — document vectors are stored as integer-coded scalar-quantization
+     * codes in Lucene's flat SQ files, and only the memory-optimized reader knows how to
+     * score against those codes. The one exclusion is IVF: IVF-based SQ 1-bit models
+     * (e.g. trained with on_disk/32x) produce IVF Faiss indices that the memory optimized
+     * reader cannot load, so forcing memory optimized search for them would fail at query
+     * time. Multi-bit SQ + IVF is not a supported combination, so the same exclusion is safe
+     * for bits=2 and bits=4.
      */
     public boolean alwaysUseMemoryOptimizedSearch() {
-        return isSQOneBit() && METHOD_IVF.equals(methodName) == false;
+        return isSQMultiBit() && METHOD_IVF.equals(methodName) == false;
     }
 
     /**
@@ -306,8 +310,24 @@ public final class ResolvedIndexSpec {
         return encoderType == Encoder.EncoderType.SQ && quantizationBits == Encoder.QuantizationBits.ONE;
     }
 
+    /**
+     * True when the encoder is SQ configured for the memory-optimized multi-bit path
+     * (bits ∈ {1, 2, 4}). Document vectors are stored as integer-coded scalar-quantization
+     * codes in Lucene's flat SQ files; Faiss only builds the HNSW graph.
+     */
+    public boolean isSQMultiBit() {
+        return encoderType == Encoder.EncoderType.SQ
+            && (quantizationBits == Encoder.QuantizationBits.ONE
+                || quantizationBits == Encoder.QuantizationBits.TWO
+                || quantizationBits == Encoder.QuantizationBits.FOUR);
+    }
+
     public boolean isFaissSQOneBit() {
         return engine == KNNEngine.FAISS && isSQOneBit();
+    }
+
+    public boolean isFaissSQMultiBit() {
+        return engine == KNNEngine.FAISS && isSQMultiBit();
     }
 
     private boolean isMethodFlat() {

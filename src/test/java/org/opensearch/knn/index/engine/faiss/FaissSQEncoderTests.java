@@ -176,7 +176,8 @@ public class FaissSQEncoderTests extends KNNTestCase {
             .dimension(128)
             .build();
 
-        MethodComponentContext mcc = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 2));
+        // Valid bits are {1, 2, 4, 16}. Use 3 as an unambiguously invalid value.
+        MethodComponentContext mcc = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 3));
         assertNotNull(methodComponent.validate(mcc, context));
     }
 
@@ -359,4 +360,68 @@ public class FaissSQEncoderTests extends KNNTestCase {
             .compressionLevel(compressionLevel)
             .build();
     }
+
+    // --- bits=2 / bits=4 (multi-bit MOS quantization) ---
+
+    public void testBits2_libraryIndexingContext() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        MethodComponent methodComponent = encoder.getMethodComponent();
+        KNNMethodConfigContext context = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .build();
+
+        MethodComponentContext mcc = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 2));
+        KNNLibraryIndexingContext indexingContext = methodComponent.getKNNLibraryIndexingContext(mcc, context);
+
+        Map<String, Object> params = indexingContext.getLibraryParameters();
+        assertEquals(FAISS_FLAT_DESCRIPTION, params.get(INDEX_DESCRIPTION_PARAMETER));
+        assertEquals(ENCODER_SQ, params.get("name"));
+        assertEquals(2, params.get(SQ_BITS));
+    }
+
+    public void testBits4_libraryIndexingContext() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        MethodComponent methodComponent = encoder.getMethodComponent();
+        KNNMethodConfigContext context = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .build();
+
+        MethodComponentContext mcc = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 4));
+        KNNLibraryIndexingContext indexingContext = methodComponent.getKNNLibraryIndexingContext(mcc, context);
+
+        Map<String, Object> params = indexingContext.getLibraryParameters();
+        assertEquals(FAISS_FLAT_DESCRIPTION, params.get(INDEX_DESCRIPTION_PARAMETER));
+        assertEquals(ENCODER_SQ, params.get("name"));
+        assertEquals(4, params.get(SQ_BITS));
+    }
+
+    public void testBits2_compressionLevel() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        MethodComponentContext mcc = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 2));
+        assertEquals(CompressionLevel.x16, encoder.calculateCompressionLevel(mcc, null));
+    }
+
+    public void testBits4_compressionLevel() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        MethodComponentContext mcc = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 4));
+        assertEquals(CompressionLevel.x8, encoder.calculateCompressionLevel(mcc, null));
+    }
+
+    // --- isSQCodedBits utility ---
+
+    public void testIsSQCodedBits() {
+        assertTrue(FaissSQEncoder.isSQCodedBits(1));
+        assertTrue(FaissSQEncoder.isSQCodedBits(2));
+        assertTrue(FaissSQEncoder.isSQCodedBits(4));
+        // fp16 is SQ but stores compressed floats, not integer-coded bits
+        assertFalse(FaissSQEncoder.isSQCodedBits(16));
+        for (int bits : new int[] { 0, 3, 5, 7, 8, -1 }) {
+            assertFalse("Expected " + bits + " to not be SQ-coded bits", FaissSQEncoder.isSQCodedBits(bits));
+        }
+    }
+
 }
