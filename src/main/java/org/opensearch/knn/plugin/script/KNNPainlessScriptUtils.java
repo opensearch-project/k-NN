@@ -105,10 +105,10 @@ public class KNNPainlessScriptUtils {
             }
 
             float bestRawScore = Float.NEGATIVE_INFINITY;
-for (int i = 0; i < numValidDocVectors; i++) {
-   float score = similarityFunction.compare(qVec, convertedDocVectors[i]);
-    bestRawScore = Math.max(bestRawScore, score);
-}
+            for (int i = 0; i < numValidDocVectors; i++) {
+            float score = similarityFunction.compare(qVec, convertedDocVectors[i]);
+                bestRawScore = Math.max(bestRawScore, score);
+            }
 
             if (bestRawScore != Float.NEGATIVE_INFINITY) {
                 totalScore += bestRawScore;
