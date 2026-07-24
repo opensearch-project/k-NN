@@ -71,6 +71,8 @@ public class FaissSQEncoder implements Encoder {
     @RequiredArgsConstructor
     public enum Bits {
         ONE(1, CompressionLevel.x32),
+        TWO(2, CompressionLevel.x16),
+        FOUR(4, CompressionLevel.x8),
         SIXTEEN(16, CompressionLevel.x2);
 
         private final int value;
@@ -102,8 +104,10 @@ public class FaissSQEncoder implements Encoder {
             Map<String, Object> params = methodComponentContext.getParameters();
             Object bitsObj = params.get(SQ_BITS);
 
-            // bits=1 path: 1-bit quantization — use flat description, Faiss only builds the HNSW graph
-            if (bitsObj instanceof Integer && (Integer) bitsObj == Bits.ONE.getValue()) {
+            // Multi-bit MOS path (bits in {1,2,4}): document vectors are scalar-quantized to B bits and
+            // stored in Lucene's flat SQ files; Faiss only builds the HNSW graph. Use the flat description
+            // and carry SQ_BITS = B so the codec/build path can resolve the document bit width.
+            if (bitsObj instanceof Integer && isSQCodedBits((Integer) bitsObj)) {
                 int bits = (Integer) bitsObj;
                 return KNNLibraryIndexingContextImpl.builder().parameters(new HashMap<>() {
                     {
@@ -252,6 +256,54 @@ public class FaissSQEncoder implements Encoder {
     }
 
     /**
+     * Returns true if {@code bits} is a document bit width stored as integer-coded scalar quantization
+     * codes in Lucene's flat SQ format. These are the widths {1, 2, 4} — HNSW construction is
+     * delegated to native Faiss over the coded bytes. fp16 (16) is excluded — it is a compressed
+     * float representation (not integer-quantized codes) and takes the standard Faiss SQ description.
+     *
+     * @param bits the configured sq encoder bit width
+     * @return true for bits in {1, 2, 4}
+     */
+    public static boolean isSQCodedBits(final int bits) {
+        return bits == Bits.ONE.getValue() || bits == Bits.TWO.getValue() || bits == Bits.FOUR.getValue();
+    }
+
+    /**
+     * Extracts the configured sq encoder bit width from a method params map, or {@code null} if the
+     * encoder is not sq or has no bits set.
+     *
+     * @param params map that may contain a {@code METHOD_ENCODER_PARAMETER} entry
+     * @return the bit width, or {@code null}
+     */
+    public static Integer getSQBits(Map<String, Object> params) {
+        if (params == null) {
+            return null;
+        }
+        Object encoderObj = params.get(METHOD_ENCODER_PARAMETER);
+        if (encoderObj instanceof MethodComponentContext == false) {
+            return null;
+        }
+        MethodComponentContext encoderCtx = (MethodComponentContext) encoderObj;
+        if (ENCODER_SQ.equals(encoderCtx.getName()) == false) {
+            return null;
+        }
+        Object bits = encoderCtx.getParameters().get(SQ_BITS);
+        return bits instanceof Integer ? (Integer) bits : null;
+    }
+
+    /**
+     * Checks whether the given method parameters map contains an sq encoder configured for the
+     * memory-optimized multi-bit path (bits in {1, 2, 4}).
+     *
+     * @param params map that may contain a {@code METHOD_ENCODER_PARAMETER} entry
+     * @return true if the encoder is sq with bits in {1, 2, 4}
+     */
+    public static boolean isSQMultiBit(Map<String, Object> params) {
+        Integer bits = getSQBits(params);
+        return bits != null && isSQCodedBits(bits);
+    }
+
+    /**
      * Checks whether the given method parameters map contains an sq encoder with bits=1.
      * Works with both the method component parameters (from KNNMethodContext) and the
      * per-field params map (from codec format resolver).
@@ -260,18 +312,7 @@ public class FaissSQEncoder implements Encoder {
      * @return true if the encoder is sq with bits=1
      */
     public static boolean isSQOneBit(Map<String, Object> params) {
-        if (params == null) {
-            return false;
-        }
-        Object encoderObj = params.get(METHOD_ENCODER_PARAMETER);
-        if (encoderObj instanceof MethodComponentContext == false) {
-            return false;
-        }
-        MethodComponentContext encoderCtx = (MethodComponentContext) encoderObj;
-        if (ENCODER_SQ.equals(encoderCtx.getName()) == false) {
-            return false;
-        }
-        Object bits = encoderCtx.getParameters().get(SQ_BITS);
-        return bits instanceof Integer && (Integer) bits == Bits.ONE.getValue();
+        Integer bits = getSQBits(params);
+        return bits != null && bits == Bits.ONE.getValue();
     }
 }

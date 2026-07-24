@@ -192,11 +192,11 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
             this.fieldType.putAttribute(DIMENSION, String.valueOf(knnMappingConfig.getDimension()));
             this.fieldType.putAttribute(SPACE_TYPE, resolvedKnnMethodContext.getSpaceType().getValue());
 
-            if (isSQOneBitEncoder(resolvedKnnMethodContext)) {
-                // 1-bit quantization has its own per-field format that handles quantization internally, so we
-                // don't set qframe_config (which drives the k-NN quantization framework). Instead
-                // we store a separate sq config attribute as a quick way for readers to
-                // identify 1-bit quantized fields without parsing the full PARAMETERS JSON.
+            if (isSQMultiBitEncoder(resolvedKnnMethodContext)) {
+                // The sq (1/2/4-bit) MOS path has its own per-field format that handles quantization
+                // internally, so we don't set qframe_config (which drives the k-NN quantization
+                // framework). Instead we store a separate sq config attribute (carrying the bit width)
+                // as a quick way for readers to identify these fields without parsing the full PARAMETERS JSON.
                 this.fieldType.putAttribute(SQ_CONFIG, getSQConfigValue(resolvedKnnMethodContext));
             } else {
                 // Conditionally add quantization config
@@ -320,21 +320,23 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
     }
 
     /**
-     * Checks whether the resolved method context uses the sq encoder with bits=1.
+     * Checks whether the resolved method context uses the sq encoder with a multi-bit MOS bit width (1, 2, or 4).
      */
-    private static boolean isSQOneBitEncoder(KNNMethodContext methodContext) {
-        return FaissSQEncoder.isSQOneBit(methodContext.getMethodComponentContext().getParameters());
+    private static boolean isSQMultiBitEncoder(KNNMethodContext methodContext) {
+        return FaissSQEncoder.isSQMultiBit(methodContext.getMethodComponentContext().getParameters());
     }
 
     /**
-     * Builds the SQ config attribute value as a CSV string.
+     * Builds the SQ config attribute value as a CSV string. Callers are expected to have already
+     * confirmed via {@link #isSQMultiBitEncoder(KNNMethodContext)} that the encoder is sq with a
+     * MOS bit width, so {@code SQ_BITS} is guaranteed to be present as an Integer in {1, 2, 4}.
      */
     private static String getSQConfigValue(KNNMethodContext methodContext) {
         MethodComponentContext encoderCtx = (MethodComponentContext) methodContext.getMethodComponentContext()
             .getParameters()
             .get(METHOD_ENCODER_PARAMETER);
-        Object bits = encoderCtx.getParameters().getOrDefault(SQ_BITS, FaissSQEncoder.Bits.ONE.getValue());
-        SQConfig config = SQConfig.builder().bits((Integer) bits).build();
+        Integer bits = (Integer) encoderCtx.getParameters().get(SQ_BITS);
+        SQConfig config = SQConfig.builder().bits(bits).build();
         return SQConfigParser.toCsv(config);
     }
 }
