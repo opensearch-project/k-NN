@@ -13,13 +13,16 @@ package org.opensearch.knn.index.query.parser;
 
 import lombok.SneakyThrows;
 import org.opensearch.common.ValidationException;
+import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.common.ParsingException;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.common.KNNConstants;
 
 import java.util.Map;
+import java.util.function.Function;
 
 import static org.opensearch.knn.index.query.parser.MethodParametersParser.doXContent;
 import static org.opensearch.knn.index.query.parser.MethodParametersParser.validateMethodParameters;
@@ -93,5 +96,58 @@ public class MethodParametersParserTests extends KNNTestCase {
         builder = XContentFactory.jsonBuilder().startObject().field("nprobes", 10).endObject();
         XContentParser parser6 = createParser(builder);
         assertEquals(Map.of("nprobes", 10), MethodParametersParser.fromXContent(parser6));
+    }
+
+    @SneakyThrows
+    public void testStreamCoreParametersRideTheLegacyBlockUnchanged() {
+        // core-known parameters round-trip identically with and without the generic-appendix feature
+        final Map<String, Object> methodParameters = Map.of("ef_search", 10);
+        for (boolean appendixSupported : new boolean[] { false, true }) {
+            final Function<String, Boolean> versionCheck = name -> appendixSupported
+                || !KNNConstants.GENERIC_METHOD_PARAMETERS_FEATURE.equals(name);
+            try (BytesStreamOutput out = new BytesStreamOutput()) {
+                MethodParametersParser.streamOutput(out, methodParameters, versionCheck);
+                final Map<String, ?> read = MethodParametersParser.streamInput(out.bytes().streamInput(), versionCheck);
+                assertEquals(methodParameters, read);
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testStreamEngineParameterRoundTripsThroughAppendix() {
+        // a name unknown to the core enum rides the appendix alongside the positional block
+        final Map<String, Object> methodParameters = Map.of("ef_search", 10, "engine_only_param", 42);
+        final Function<String, Boolean> allFeatures = name -> true;
+        try (BytesStreamOutput out = new BytesStreamOutput()) {
+            MethodParametersParser.streamOutput(out, methodParameters, allFeatures);
+            final Map<String, ?> read = MethodParametersParser.streamInput(out.bytes().streamInput(), allFeatures);
+            assertEquals(methodParameters, read);
+        }
+    }
+
+    @SneakyThrows
+    public void testStreamAppendixOnlyParameterRoundTrips() {
+        // an engine-only parameter with no core-known companion still round-trips through the appendix
+        final Map<String, Object> methodParameters = Map.of("engine_only_param", 42);
+        final Function<String, Boolean> allFeatures = name -> true;
+        try (BytesStreamOutput out = new BytesStreamOutput()) {
+            MethodParametersParser.streamOutput(out, methodParameters, allFeatures);
+            final Map<String, ?> read = MethodParametersParser.streamInput(out.bytes().streamInput(), allFeatures);
+            assertEquals(methodParameters, read);
+        }
+    }
+
+    @SneakyThrows
+    public void testStreamEngineParameterFailsLoudlyWhenClusterCannotCarryIt() {
+        // serialization must fail loudly rather than silently drop the parameter on a cluster lacking the feature
+        final Map<String, Object> methodParameters = Map.of("ef_search", 10, "engine_only_param", 42);
+        final Function<String, Boolean> legacyCluster = name -> !KNNConstants.GENERIC_METHOD_PARAMETERS_FEATURE.equals(name);
+        try (BytesStreamOutput out = new BytesStreamOutput()) {
+            IllegalArgumentException e = expectThrows(
+                IllegalArgumentException.class,
+                () -> MethodParametersParser.streamOutput(out, methodParameters, legacyCluster)
+            );
+            assertTrue(e.getMessage().contains("engine_only_param"));
+        }
     }
 }
