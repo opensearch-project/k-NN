@@ -7,6 +7,9 @@ package org.opensearch.knn.index.engine.lucene;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnVectorsFormat;
+import org.opensearch.index.IndexSettings;
+import org.opensearch.index.mapper.MapperService;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KnnVectorsFormatContext;
 import org.opensearch.knn.index.codec.LuceneVectorsFormatType;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
@@ -14,6 +17,7 @@ import org.opensearch.knn.index.engine.CodecFormatResolver;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 import static org.opensearch.knn.common.KNNConstants.BEAM_WIDTH;
@@ -35,9 +39,22 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 public class LuceneCodecFormatResolver implements CodecFormatResolver {
 
     private final Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> formatResolvers;
+    private final Optional<MapperService> mapperService;
 
-    public LuceneCodecFormatResolver(Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> formatResolvers) {
+    public LuceneCodecFormatResolver(
+        Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> formatResolvers,
+        Optional<MapperService> mapperService
+    ) {
         this.formatResolvers = formatResolvers;
+        this.mapperService = mapperService;
+    }
+
+    /**
+     * Backward-compatible constructor that does not wire in the {@code approximate_threshold} setting.
+     * The resolver will fall back to the default threshold value.
+     */
+    public LuceneCodecFormatResolver(Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> formatResolvers) {
+        this(formatResolvers, Optional.empty());
     }
 
     @Override
@@ -60,7 +77,26 @@ public class LuceneCodecFormatResolver implements CodecFormatResolver {
         if (factory == null) {
             throw new IllegalStateException(String.format("No Lucene vectors format registered for type [%s]", formatType));
         }
-        return factory.apply(new KnnVectorsFormatContext(field, methodContext, params, defaultMaxConnections, defaultBeamWidth));
+        final int approximateThreshold = getApproximateThresholdValue();
+        return factory.apply(
+            new KnnVectorsFormatContext(field, methodContext, params, defaultMaxConnections, defaultBeamWidth, approximateThreshold)
+        );
+    }
+
+    /**
+     * Retrieves the approximate threshold value from index settings.
+     * Falls back to the default value when the mapper service is unavailable or the setting is not
+     * explicitly configured.
+     */
+    private int getApproximateThresholdValue() {
+        if (mapperService.isEmpty()) {
+            return KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE;
+        }
+        final IndexSettings indexSettings = mapperService.get().getIndexSettings();
+        final Integer approximateThresholdValue = indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING);
+        return approximateThresholdValue != null
+            ? approximateThresholdValue
+            : KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE;
     }
 
     /**

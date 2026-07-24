@@ -1367,4 +1367,66 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
         assertEquals(k, results.size());
     }
+
+    public void testKNNIndex_whenApproximateThresholdSetForLucene_thenBuildGraphBasedOnSetting() throws Exception {
+        final String fieldName = FIELD_NAME;
+        final int dimension = DIMENSION;
+
+        // Create index with threshold = -1 (never build graph)
+        final Settings knnIndexSettings = buildKNNIndexSettings(-1);
+
+        final XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .startObject(KNNConstants.PARAMETERS)
+            .field(KNNConstants.METHOD_PARAMETER_M, M)
+            .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, EF_CONSTRUCTION)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        createKnnIndex(INDEX_NAME, knnIndexSettings, builder.toString());
+
+        // Index one vector
+        addKnnDoc(INDEX_NAME, "1", fieldName, TEST_INDEX_VECTORS[0]);
+        refreshAllIndices();
+        assertEquals(1, getDocCount(INDEX_NAME));
+
+        // Add a duplicate vector with a different doc id
+        addKnnDoc(INDEX_NAME, "2", fieldName, TEST_INDEX_VECTORS[0]);
+        refreshAllIndices();
+        assertEquals(2, getDocCount(INDEX_NAME));
+
+        // Search: both docs should be returned with identical scores (exact search, no HNSW graph)
+        final int k = 2;
+        Response response = searchKNNIndex(
+            INDEX_NAME,
+            KNNQueryBuilder.builder().fieldName(fieldName).vector(TEST_QUERY_VECTORS[0]).k(k).build(),
+            k
+        );
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> results = parseSearchResponse(responseBody, fieldName);
+        assertEquals(k, results.size());
+        List<Float> scores = parseSearchResponseScore(responseBody, fieldName);
+        assertEquals("Both duplicate vectors should have identical scores (exact search)", scores.get(0), scores.get(1), 0.001);
+
+        // Update setting to 0 (always build graph) and force merge to trigger graph construction
+        updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0));
+        forceMergeKnnIndex(INDEX_NAME, 1);
+
+        // Search should still work (now with HNSW graph built)
+        response = searchKNNIndex(INDEX_NAME, KNNQueryBuilder.builder().fieldName(fieldName).vector(TEST_QUERY_VECTORS[0]).k(k).build(), k);
+        responseBody = EntityUtils.toString(response.getEntity());
+        results = parseSearchResponse(responseBody, fieldName);
+        assertEquals(k, results.size());
+    }
 }
