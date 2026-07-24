@@ -74,6 +74,24 @@ public class KNNPainlessScriptUtils {
             throw new IllegalArgumentException("Space type " + spaceType + " does not support vector similarity function");
         }
 
+        // Convert document vectors to primitive arrays once, outside the query-vector loop.
+        // Previously this conversion ran once per (query vector, document vector) pair, so a
+        // document with D vectors scored against Q query vectors paid Q*D float[] allocations
+        // and Q*D*dim Number unboxing calls, which dominates latency for large multi-vector
+        // fields (e.g. ~1M allocations per scored document at Q=D=1024).
+        float[][] convertedDocVectors = new float[docVectors.size()][];
+        int numValidDocVectors = 0;
+        for (List<Number> docVector : docVectors) {
+            if (docVector == null || docVector.isEmpty()) {
+                continue;
+            }
+            float[] dVec = new float[docVector.size()];
+            for (int i = 0; i < docVector.size(); i++) {
+                dVec[i] = docVector.get(i).floatValue();
+            }
+            convertedDocVectors[numValidDocVectors++] = dVec;
+        }
+
         float totalScore = 0.0f;
 
         for (List<Number> queryVector : queryVectors) {
@@ -86,19 +104,15 @@ public class KNNPainlessScriptUtils {
                 qVec[i] = queryVector.get(i).floatValue();
             }
 
-            float bestRawScore = (float) docVectors.stream()
-                .filter(docVector -> docVector != null && !docVector.isEmpty())
-                .mapToDouble(docVector -> {
-                    float[] dVec = new float[docVector.size()];
-                    for (int i = 0; i < docVector.size(); i++) {
-                        dVec[i] = docVector.get(i).floatValue();
-                    }
-                    return similarityFunction.compare(qVec, dVec);
-                })
-                .max()
-                .orElse(Double.NEGATIVE_INFINITY);
+            float bestRawScore = Float.NEGATIVE_INFINITY;
+            for (int i = 0; i < numValidDocVectors; i++) {
+                float score = similarityFunction.compare(qVec, convertedDocVectors[i]);
+                if (score > bestRawScore) {
+                    bestRawScore = score;
+                }
+            }
 
-            if (bestRawScore != Double.NEGATIVE_INFINITY) {
+            if (bestRawScore != Float.NEGATIVE_INFINITY) {
                 totalScore += bestRawScore;
             }
         }
