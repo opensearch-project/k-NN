@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.engine;
 
+import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import java.util.Locale;
@@ -121,6 +122,19 @@ public interface Encoder {
      *          return {@link CompressionLevel#NOT_CONFIGURED}
      */
     CompressionLevel calculateCompressionLevel(MethodComponentContext encoderContext, KNNMethodConfigContext knnMethodConfigContext);
+
+    /**
+     * Validates encoder configuration for the create-index path.
+     * Throws ValidationException if the configuration is invalid.
+     * Training-specific validation remains in {@link #validateEncoderConfig(TrainingConfigValidationInput)}.
+     *
+     * @param resolvedMethodContext the resolved method context
+     * @param configContext method config context
+     * @throws ValidationException if validation fails
+     */
+    default void validate(KNNMethodContext resolvedMethodContext, KNNMethodConfigContext configContext) {
+        // no-op by default — encoders without validation constraints inherit this
+    }
 
     /**
      * Validates config of encoder

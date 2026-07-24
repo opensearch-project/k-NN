@@ -16,10 +16,7 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
-import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
-import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
 import org.opensearch.knn.index.mapper.CompressionLevel;
-import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -192,27 +189,11 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             return;
         }
 
-        TrainingConfigValidationInput.TrainingConfigValidationInputBuilder inputBuilder = TrainingConfigValidationInput.builder();
-
-        TrainingConfigValidationOutput validationOutput = encoder.validateEncoderConfig(
-            inputBuilder.knnMethodContext(resolvedKnnMethodContext).knnMethodConfigContext(knnMethodConfigContext).build()
-        );
-
-        if (validationOutput.getValid() != null && !validationOutput.getValid()) {
-            ValidationException validationException = new ValidationException();
-            validationException.addValidationError(validationOutput.getErrorMessage());
-            throw validationException;
-        }
+        encoder.validate(resolvedKnnMethodContext, knnMethodConfigContext);
     }
 
     private CompressionLevel getDefaultCompressionLevel(KNNMethodConfigContext knnMethodConfigContext) {
-        if (CompressionLevel.isConfigured(knnMethodConfigContext.getCompressionLevel())) {
-            return knnMethodConfigContext.getCompressionLevel();
-        }
-        if (knnMethodConfigContext.getMode() == Mode.ON_DISK) {
-            return CompressionLevel.x32;
-        }
-        return CompressionLevel.x1;
+        return getDefaultCompressionLevel(knnMethodConfigContext, CompressionLevel.x32);
     }
 
     /**

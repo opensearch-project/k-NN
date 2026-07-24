@@ -6,10 +6,9 @@
 package org.opensearch.knn.index.engine;
 
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Strings;
 import org.opensearch.Version;
+import org.opensearch.common.logging.DeprecationLogger;
 import org.opensearch.index.mapper.MapperParsingException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
@@ -17,6 +16,7 @@ import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.Locale;
 
+import static org.opensearch.knn.common.KNNConstants.KNN_DEFAULT_COMPRESSION_FLIP_VERSION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 import static org.opensearch.knn.index.engine.KNNEngine.DEPRECATED_ENGINES;
 
@@ -25,7 +25,7 @@ import static org.opensearch.knn.index.engine.KNNEngine.DEPRECATED_ENGINES;
  */
 public final class EngineResolver {
 
-    private static Logger logger = LogManager.getLogger(EngineResolver.class);
+    private static final DeprecationLogger deprecationLogger = DeprecationLogger.getLogger(EngineResolver.class);
     public static final EngineResolver INSTANCE = new EngineResolver();
 
     private EngineResolver() {}
@@ -104,8 +104,18 @@ public final class EngineResolver {
         Mode mode = knnMethodConfigContext.getMode();
         CompressionLevel compressionLevel = knnMethodConfigContext.getCompressionLevel();
 
-        // If both mode and compression are not specified, we can just default
-        if (Mode.isConfigured(mode) == false && CompressionLevel.isConfigured(compressionLevel) == false) {
+        // Mode deprecation is tied to the default compression flip: log deprecation warning if user explicitly provided mode
+        if (version != null && version.onOrAfter(KNN_DEFAULT_COMPRESSION_FLIP_VERSION) && Mode.isConfigured(mode)) {
+            deprecationLogger.deprecate(
+                "knn_mode_parameter",
+                "The 'mode' parameter is deprecated starting with version {}. Mode is now derived from "
+                    + "'compression_level'. Explicitly setting 'mode' will be removed in a future release.",
+                KNN_DEFAULT_COMPRESSION_FLIP_VERSION
+            );
+        }
+
+        // If compression is not specified, we can default unless mode is configured (legacy path)
+        if (CompressionLevel.isConfigured(compressionLevel) == false && Mode.isConfigured(mode) == false) {
             return KNNEngine.DEFAULT;
         }
 
@@ -168,7 +178,11 @@ public final class EngineResolver {
 
     private KNNEngine logAndReturnEngine(KNNEngine knnEngine) {
         if (DEPRECATED_ENGINES.contains(knnEngine)) {
-            logger.warn("[Deprecation] {} engine is deprecated and will be removed in a future release.", knnEngine);
+            deprecationLogger.deprecate(
+                "knn_engine_deprecated",
+                "{} engine is deprecated and will be removed in a future release.",
+                knnEngine
+            );
         }
         return knnEngine;
     }
