@@ -24,6 +24,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 option(CONFIG_FAISS "Configure faiss library build when this is on")
 option(CONFIG_NMSLIB "Configure nmslib library build when this is on")
 option(CONFIG_TEST "Configure tests when this is on")
+# CONFIG_SANDBOX is deliberately NOT part of the CONFIG_ALL auto-on logic below: sandbox tenants are built
+# only when Gradle passes -DCONFIG_SANDBOX=ON (-Pknn.sandbox.enabled=true). See jni/sandbox/ and sandbox/README.md.
+option(CONFIG_SANDBOX "Configure experimental sandbox tenant JNI libraries when this is on" OFF)
 
 if (${CONFIG_FAISS} STREQUAL OFF AND ${CONFIG_NMSLIB} STREQUAL OFF AND ${CONFIG_TEST} STREQUAL OFF)
     set(CONFIG_ALL ON)
@@ -124,6 +127,13 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
     )
     opensearch_set_common_properties(${TARGET_LIB_FAISS})
     list(APPEND TARGET_LIBS ${TARGET_LIB_FAISS})
+endif ()
+
+# ---------------------------------------------------------------------------
+
+# ------------- Sandbox tenants (experimental, opt-in): see jni/sandbox/ -------------
+if (${CONFIG_SANDBOX} STREQUAL ON)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/sandbox/tenants.cmake)
 endif ()
 
 # ---------------------------------------------------------------------------

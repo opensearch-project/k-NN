@@ -6,11 +6,14 @@
 package org.opensearch.knn.jni;
 
 import lombok.extern.log4j.Log4j2;
+import org.opensearch.common.annotation.ExperimentalApi;
 import org.opensearch.knn.common.KNNConstants;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static org.opensearch.knn.index.KNNSettings.isFaissAVX2Disabled;
@@ -64,23 +67,53 @@ public class KNNLibraryLoader {
 
     /**
      * Loads the appropriate Faiss library based on system capabilities and settings.
-     *
-     * Selects the highest performance variant available:
-     * 1. AVX512 SPR if supported and not disabled
-     * 2. AVX512 if supported and not disabled
-     * 3. AVX2 if supported and not disabled
-     * 4. Default fallback library
      */
     static void loadFaissLibrary() {
-        if (!isFaissAVX512SPRDisabled() && isAVX512SPRSupportedBySystem()) {
-            loadLibrary(KNNConstants.FAISS_AVX512_SPR_JNI_LIBRARY_NAME);
-        } else if (!isFaissAVX512Disabled() && isAVX512SupportedBySystem()) {
-            loadLibrary(KNNConstants.FAISS_AVX512_JNI_LIBRARY_NAME);
-        } else if (!isFaissAVX2Disabled() && isAVX2SupportedBySystem()) {
-            loadLibrary(KNNConstants.FAISS_AVX2_JNI_LIBRARY_NAME);
-        } else {
-            loadLibrary(KNNConstants.FAISS_JNI_LIBRARY_NAME);
+        loadLibraryByVariant(KNNConstants.FAISS_JNI_LIBRARY_NAME);
+    }
+
+    /**
+     * Loads a JNI library by base name, trying the highest-performance permitted variant first
+     * ({@code _avx512_spr}, {@code _avx512}, {@code _avx2}, then the plain base name) and falling back to
+     * the next candidate when a variant is not shipped. The suffix scheme mirrors faiss's FAISS_OPT_LEVEL
+     * taxonomy, and shipping variants is optional — a single unsuffixed library is fully supported. This
+     * class is the only one permitted to call {@link System#loadLibrary}.
+     *
+     * @param baseLibraryName e.g. {@code opensearchknn_faiss}
+     */
+    @ExperimentalApi
+    public static void loadLibraryByVariant(String baseLibraryName) {
+        final List<String> candidates = variantCandidates(baseLibraryName);
+        for (int i = 0; i < candidates.size(); i++) {
+            try {
+                loadLibrary(candidates.get(i));
+                return;
+            } catch (UnsatisfiedLinkError e) {
+                if (i == candidates.size() - 1) {
+                    throw e;
+                }
+                log.info("Library variant unavailable: {}, trying next candidate", candidates.get(i));
+            }
         }
+    }
+
+    /**
+     * Returns the ordered fallback chain of library names for a base name: each SIMD variant the CPU
+     * supports and settings have not disabled (widest first), always ending with the plain base name.
+     */
+    static List<String> variantCandidates(String baseLibraryName) {
+        final List<String> candidates = new ArrayList<>();
+        if (!isFaissAVX512SPRDisabled() && isAVX512SPRSupportedBySystem()) {
+            candidates.add(baseLibraryName + "_avx512_spr");
+        }
+        if (!isFaissAVX512Disabled() && isAVX512SupportedBySystem()) {
+            candidates.add(baseLibraryName + "_avx512");
+        }
+        if (!isFaissAVX2Disabled() && isAVX2SupportedBySystem()) {
+            candidates.add(baseLibraryName + "_avx2");
+        }
+        candidates.add(baseLibraryName);
+        return candidates;
     }
 
     /**
@@ -99,22 +132,8 @@ public class KNNLibraryLoader {
 
     /**
      * Loads the appropriate SIMD computing library based on system capabilities.
-     *
-     * Follows the same selection logic as Faiss library:
-     * 1. AVX512 SPR variant if supported and not disabled
-     * 2. AVX512 variant if supported and not disabled
-     * 3. AVX2 variant if supported and not disabled
-     * 4. Default variant as fallback
      */
     static void loadSimdLibrary() {
-        if (!isFaissAVX512SPRDisabled() && isAVX512SPRSupportedBySystem()) {
-            loadLibrary(KNNConstants.SIMD_COMPUTING_AVX512_SPR_JNI_LIBRARY_NAME);
-        } else if (!isFaissAVX512Disabled() && isAVX512SupportedBySystem()) {
-            loadLibrary(KNNConstants.SIMD_COMPUTING_AVX512_JNI_LIBRARY_NAME);
-        } else if (!isFaissAVX2Disabled() && isAVX2SupportedBySystem()) {
-            loadLibrary(KNNConstants.SIMD_COMPUTING_AVX2_JNI_LIBRARY_NAME);
-        } else {
-            loadLibrary(KNNConstants.DEFAULT_SIMD_COMPUTING_JNI_LIBRARY_NAME);
-        }
+        loadLibraryByVariant(KNNConstants.DEFAULT_SIMD_COMPUTING_JNI_LIBRARY_NAME);
     }
 }

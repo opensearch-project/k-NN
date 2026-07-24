@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased 3.8](https://github.com/opensearch-project/k-NN/compare/main...HEAD)
 ### Features
+* Add sandbox infrastructure for experimental engines ([#3283](https://github.com/opensearch-project/k-NN/issues/3283)) and generic engine extension points at the KNNEngine, JNIService and Query layers [#3437](https://github.com/opensearch-project/k-NN/pull/3437)
 * Add rescoring phase after radial search on quantized index [#3347](https://github.com/opensearch-project/k-NN/pull/3347)
 * Add base64 encoded vector indexing support for knn_vector fields [#3350](https://github.com/opensearch-project/k-NN/pull/3350)
 * Introduce system-generated search pipeline processor to automatically exclude knn_vector fields from _source in search responses [#3152](https://github.com/opensearch-project/k-NN/pull/3152)

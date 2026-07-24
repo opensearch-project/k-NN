@@ -1074,7 +1074,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE)
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .endObject()

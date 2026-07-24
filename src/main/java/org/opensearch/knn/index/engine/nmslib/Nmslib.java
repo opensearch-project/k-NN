@@ -73,4 +73,9 @@ public class Nmslib extends NativeLibrary {
     ) {
         return methodResolver.resolveMethod(knnMethodContext, knnMethodConfigContext, shouldRequireTraining, spaceType);
     }
+
+    @Override
+    public boolean createsCustomSegmentFiles() {
+        return true;
+    }
 }

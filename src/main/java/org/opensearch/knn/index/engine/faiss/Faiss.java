@@ -158,6 +158,31 @@ public class Faiss extends NativeLibrary {
     }
 
     @Override
+    public boolean supportsIterativeBuild() {
+        return true;
+    }
+
+    @Override
+    public boolean createsCustomSegmentFiles() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsFilters() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsRadialSearch() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsNestedFields() {
+        return true;
+    }
+
+    @Override
     public ValidationException validateMethod(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
         // First run the standard validation from parent class
         ValidationException validationException = super.validateMethod(knnMethodContext, knnMethodConfigContext);

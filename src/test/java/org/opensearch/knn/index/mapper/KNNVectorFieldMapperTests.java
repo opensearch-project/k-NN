@@ -2254,7 +2254,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             .field(DIMENSION_FIELD_NAME, dimension)
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
-            .field(KNN_ENGINE, KNNEngine.FAISS)
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(PARAMETERS)
             .startObject(METHOD_ENCODER_PARAMETER)
             .field(NAME, QFrameBitEncoder.NAME)
@@ -2290,7 +2290,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x4.getName())
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
-            .field(KNN_ENGINE, KNNEngine.FAISS)
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(PARAMETERS)
             .startObject(METHOD_ENCODER_PARAMETER)
             .field(NAME, QFrameBitEncoder.NAME)
@@ -2337,7 +2337,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x4.getName())
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
-            .field(KNN_ENGINE, KNNEngine.FAISS)
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()
             .endObject();
 
