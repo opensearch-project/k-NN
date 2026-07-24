@@ -57,16 +57,6 @@ allprojects {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
     }
-
-    // BWC resolves the target distribution/build-tools as SNAPSHOTs. Gradle caches changing
-    // modules for 24h by default, so a run can pick up a stale snapshot that predates a core
-    // change k-NN main depends on (e.g. a newly added FieldsVisitor method), causing a
-    // runtime NoSuchMethodError on the upgraded node. Re-check snapshot metadata every run so
-    // BWC always resolves the latest 3.x snapshot. Metadata-only unless the snapshot moved, so
-    // the cost is negligible next to building the JNI libs and booting test clusters.
-    configurations.all {
-        resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
-    }
 }
 
 // Task to pull k-NN plugin from archive
