@@ -16,6 +16,8 @@ import org.opensearch.knn.index.engine.faiss.Faiss;
 import org.opensearch.knn.index.engine.faiss.FaissHNSWMethod;
 import org.opensearch.knn.index.engine.lucene.Lucene;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
+import org.opensearch.knn.index.mapper.FaissFieldStrategy;
+import org.opensearch.knn.index.mapper.LuceneFieldStrategy;
 import org.opensearch.remoteindexbuild.model.RemoteFaissHNSWIndexParameters;
 import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
 
@@ -350,6 +352,13 @@ public class KNNEngineTests extends KNNTestCase {
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
         return Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+    }
+
+    public void testGetFieldStrategy() {
+        assertEquals(LuceneFieldStrategy.INSTANCE, KNNEngine.LUCENE.getFieldStrategy());
+        assertEquals(FaissFieldStrategy.INSTANCE, KNNEngine.FAISS.getFieldStrategy());
+        assertEquals(FaissFieldStrategy.INSTANCE, KNNEngine.NMSLIB.getFieldStrategy());
+        expectThrows(UnsupportedOperationException.class, () -> KNNEngine.UNDEFINED.getFieldStrategy());
     }
 
     @SneakyThrows

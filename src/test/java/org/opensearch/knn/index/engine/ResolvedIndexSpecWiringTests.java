@@ -218,4 +218,120 @@ public class ResolvedIndexSpecWiringTests extends KNNTestCase {
         assertEquals(Encoder.EncoderType.BQ, spec.getEncoderType());
         assertEquals(Encoder.QuantizationBits.ONE, spec.getQuantizationBits());
     }
+
+    // --- Mode derivation tests ---
+
+    public void testModeDerivation_whenX32NoExplicitMode_thenOnDisk() {
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, new java.util.HashMap<>())
+        );
+        KNNMethodConfigContext configContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .versionCreated(Version.CURRENT)
+            .mode(Mode.NOT_CONFIGURED)
+            .compressionLevel(CompressionLevel.x32)
+            .build();
+
+        KNNLibraryIndexingContext ctx = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext, configContext);
+        ResolvedIndexSpec spec = ctx.getResolvedSpec();
+        assertEquals(Mode.ON_DISK, spec.getMode());
+    }
+
+    public void testModeDerivation_whenX1NoExplicitMode_thenInMemory() {
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, new java.util.HashMap<>())
+        );
+        KNNMethodConfigContext configContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .versionCreated(Version.CURRENT)
+            .mode(Mode.NOT_CONFIGURED)
+            .compressionLevel(CompressionLevel.x1)
+            .build();
+
+        KNNLibraryIndexingContext ctx = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext, configContext);
+        ResolvedIndexSpec spec = ctx.getResolvedSpec();
+        assertEquals(Mode.IN_MEMORY, spec.getMode());
+    }
+
+    public void testModeDerivation_whenExplicitOnDisk_thenUserWins() {
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, new java.util.HashMap<>())
+        );
+        KNNMethodConfigContext configContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .versionCreated(Version.CURRENT)
+            .mode(Mode.ON_DISK)
+            .compressionLevel(CompressionLevel.x32)
+            .build();
+
+        KNNLibraryIndexingContext ctx = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext, configContext);
+        ResolvedIndexSpec spec = ctx.getResolvedSpec();
+        assertEquals(Mode.ON_DISK, spec.getMode());
+    }
+
+    public void testModeDerivation_whenNoModeNoCompression_thenNotConfigured() {
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, new java.util.HashMap<>())
+        );
+        KNNMethodConfigContext configContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .versionCreated(Version.V_3_5_0)
+            .mode(Mode.NOT_CONFIGURED)
+            .compressionLevel(CompressionLevel.NOT_CONFIGURED)
+            .build();
+
+        KNNLibraryIndexingContext ctx = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext, configContext);
+        ResolvedIndexSpec spec = ctx.getResolvedSpec();
+        assertEquals(Mode.NOT_CONFIGURED, spec.getMode());
+    }
+
+    public void testModeDerivation_whenX2NoExplicitMode_thenInMemory() {
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, new java.util.HashMap<>())
+        );
+        KNNMethodConfigContext configContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .versionCreated(Version.CURRENT)
+            .mode(Mode.NOT_CONFIGURED)
+            .compressionLevel(CompressionLevel.x2)
+            .build();
+
+        KNNLibraryIndexingContext ctx = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext, configContext);
+        ResolvedIndexSpec spec = ctx.getResolvedSpec();
+        assertEquals(Mode.IN_MEMORY, spec.getMode());
+    }
+
+    public void testModeDerivation_whenX4NoExplicitMode_thenOnDisk() {
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, new java.util.HashMap<>())
+        );
+        KNNMethodConfigContext configContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .versionCreated(Version.CURRENT)
+            .mode(Mode.NOT_CONFIGURED)
+            .compressionLevel(CompressionLevel.x4)
+            .build();
+
+        KNNLibraryIndexingContext ctx = KNNEngine.LUCENE.getKNNLibraryIndexingContext(knnMethodContext, configContext);
+        ResolvedIndexSpec spec = ctx.getResolvedSpec();
+        assertEquals(Mode.ON_DISK, spec.getMode());
+    }
 }

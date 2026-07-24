@@ -6,9 +6,13 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import lombok.SneakyThrows;
+import org.opensearch.common.ValidationException;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.Encoder;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
+import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.mapper.CompressionLevel;
@@ -18,6 +22,7 @@ import java.util.Map;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
+import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 
 public class AbstractFaissPQEncoderTests extends KNNTestCase {
 
@@ -60,6 +65,50 @@ public class AbstractFaissPQEncoderTests extends KNNTestCase {
         // actual_compression = (128*32)/(128*8) = 4x
         // expected_compression = Max compression level
         assertCompressionLevel(128, 8, 128, CompressionLevel.x4, encoder);
+    }
+
+    public void testValidate_whenNullInputs_thenNoException() {
+        AbstractFaissPQEncoder encoder = buildTestEncoder();
+        encoder.validate(null, null);
+        encoder.validate(buildMethodContext(Map.of(ENCODER_PARAMETER_PQ_M, 4)), null);
+        encoder.validate(null, generateKNNMethodConfigContext(128));
+    }
+
+    public void testValidate_whenDimensionNotDivisibleByM_thenThrow() {
+        AbstractFaissPQEncoder encoder = buildTestEncoder();
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> encoder.validate(buildMethodContext(Map.of(ENCODER_PARAMETER_PQ_M, 5)), generateKNNMethodConfigContext(128))
+        );
+        assertTrue(e.getMessage().contains("not divisible"));
+    }
+
+    public void testValidate_whenDimensionDivisibleByM_thenNoException() {
+        AbstractFaissPQEncoder encoder = buildTestEncoder();
+        encoder.validate(buildMethodContext(Map.of(ENCODER_PARAMETER_PQ_M, 4)), generateKNNMethodConfigContext(128));
+    }
+
+    public void testValidate_whenPQMNotSpecified_thenNoException() {
+        AbstractFaissPQEncoder encoder = buildTestEncoder();
+        encoder.validate(buildMethodContext(Map.of()), generateKNNMethodConfigContext(128));
+    }
+
+    public void testValidate_whenDimensionIsNull_thenNoException() {
+        AbstractFaissPQEncoder encoder = buildTestEncoder();
+        encoder.validate(buildMethodContext(Map.of(ENCODER_PARAMETER_PQ_M, 5)), KNNMethodConfigContext.builder().build());
+    }
+
+    private AbstractFaissPQEncoder buildTestEncoder() {
+        return new AbstractFaissPQEncoder() {
+            @Override
+            public MethodComponent getMethodComponent() {
+                return FaissIVFPQEncoder.METHOD_COMPONENT;
+            }
+        };
+    }
+
+    private KNNMethodContext buildMethodContext(Map<String, Object> methodParams) {
+        return new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, new MethodComponentContext(METHOD_IVF, methodParams));
     }
 
     private void assertCompressionLevel(int m, int codeSize, int d, CompressionLevel expectedCompression, Encoder encoder) {

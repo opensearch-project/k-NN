@@ -938,11 +938,19 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         if (fieldType().getKnnMappingConfig().getModelId().isPresent()) {
             knnMethodConfigContext = null;
         } else {
+            // compression_level may never have been specified by the user, in which case it is null
+            String userCompressionLevelName = originalMappingParameters.getCompressionLevel();
+            CompressionLevel userConfiguredCompressionLevel = userCompressionLevelName == null
+                ? CompressionLevel.NOT_CONFIGURED
+                : CompressionLevel.fromName(userCompressionLevelName);
             knnMethodConfigContext = KNNMethodConfigContext.builder()
                 .vectorDataType(vectorDataType)
                 .versionCreated(indexCreatedVersion)
                 .dimension(fieldType().getKnnMappingConfig().getDimension())
                 .compressionLevel(fieldType().getKnnMappingConfig().getCompressionLevel())
+                // The mapping config carries the resolved compression, which may have been derived from the
+                // encoder. Preserve what the user originally configured so mode derivation stays correct on merge.
+                .userConfiguredCompressionLevel(userConfiguredCompressionLevel)
                 .mode(fieldType().getKnnMappingConfig().getMode())
                 .build();
         }

@@ -13,6 +13,9 @@ import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
 import org.opensearch.knn.index.engine.faiss.Faiss;
 import org.opensearch.knn.index.engine.lucene.Lucene;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
+import org.opensearch.knn.index.mapper.EngineFieldStrategy;
+import org.opensearch.knn.index.mapper.FaissFieldStrategy;
+import org.opensearch.knn.index.mapper.LuceneFieldStrategy;
 import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
 
 import java.util.List;
@@ -276,5 +279,23 @@ public enum KNNEngine implements KNNLibrary {
     @Override
     public VectorSearcherFactory getVectorSearcherFactory() {
         return knnLibrary.getVectorSearcherFactory();
+    }
+
+    /**
+     * Returns the field strategy for this engine, used to construct field types
+     * and create vector fields during indexing.
+     *
+     * @return the engine's field strategy
+     * @throws UnsupportedOperationException if this engine does not support field strategies
+     */
+    public EngineFieldStrategy getFieldStrategy() {
+        switch (this) {
+            case LUCENE:
+                return LuceneFieldStrategy.INSTANCE;
+            case FAISS, NMSLIB:
+                return FaissFieldStrategy.INSTANCE;
+            default:
+                throw new UnsupportedOperationException("Engine " + name + " does not support field strategies");
+        }
     }
 }
