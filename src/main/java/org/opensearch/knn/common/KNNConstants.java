@@ -186,6 +186,11 @@ public class KNNConstants {
     public static int MAX_DISTANCE_COMPUTATIONS = 2048000;
 
     public static final Float DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO = 0.95f;
+
+    // Decay factor for the adaptive graph-traversal buffer used by Lucene 10.5's decay-based radial
+    // search (VectorSimilarityCollector). Must lie in [0, 1]; higher values explore more of the graph
+    // for better recall. Mirrors the value used on the Lucene engine radial path.
+    public static final float DEFAULT_LUCENE_RADIAL_SEARCH_DECAY = 0.95f;
     public static final String MIN_SCORE = "min_score";
     public static final String MAX_DISTANCE = "max_distance";
 
