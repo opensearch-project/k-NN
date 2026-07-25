@@ -1,73 +1,62 @@
 # The k-NN Sandbox
 
-The `sandbox/` tree is an incubation environment for experimental k-NN engines, algorithms, and
-optimizations ("tenants"): a structured home for high-risk/high-reward ideas inside the repository,
+The `sandbox/` tree is where experimental k-NN engines, algorithms, and optimizations ("tenants") live,
 without touching what a default build ships.
-
-> **⚠️ Experimental**: everything under `sandbox/` and `jni/sandbox/` is experimental, is **never included
-> in release artifacts**, and may change or be removed without notice.
 
 ## How the gating works
 
 | State | What happens |
 |---|---|
-| Default build (`./gradlew build`, `scripts/build.sh`, releases) | The `sandbox/` tree is **not in the Gradle build graph at all** (see `settings.gradle`): not compiled, not tested, not bundled. `jni/sandbox/` is not configured by CMake (`CONFIG_SANDBOX` is `OFF` and never auto-enabled). The produced plugin is identical to one built from a tree with no `sandbox/` directory. |
-| `-Pknn.sandbox.enabled=true` | Sandbox subprojects join the build; each tenant jar is bundled into the plugin zip as a **runtime-only** artifact (the root project has no compile dependency on any tenant; discovery is via `ServiceLoader`); each tenant's isolated JNI library is built. Only the tenant **jar** is bundled, so vendor anything OpenSearch does not already provide. The flag currently enables **all** tenants; per-tenant selection is planned follow-up work. |
-| Release builds | There is **no release guard**: release artifacts exclude the sandbox simply because the release scripts (`scripts/build.sh`) never pass the flag, so the sandbox is not in the build graph there, exactly as in the default-build row. |
+| Default build (`./gradlew build`, `scripts/build.sh`, releases) | The `sandbox/` tree is **not in the Gradle build graph** (see `settings.gradle`): not compiled, not tested, not bundled. CMake never configures `jni/sandbox/` (`CONFIG_SANDBOX` is `OFF`). The produced plugin is identical to one built from a tree with no `sandbox/` directory. |
+| `-Pknn.sandbox.enabled=true` | Sandbox subprojects join the build. Each tenant jar is bundled into the plugin zip as a **runtime-only** artifact (core has no compile dependency on any tenant; discovery is via `ServiceLoader`), and each tenant's isolated JNI library is built. Only the tenant jar is bundled, so vendor anything OpenSearch does not already provide. The flag enables all tenants; per-tenant selection is follow-up work. |
+| Release builds | Release scripts never pass the flag, so the sandbox is not in the build graph there, same as the default-build row. |
 
-The gate is a Gradle project property (`-Pknn.sandbox.enabled=true`) rather than a JVM system property:
-it is namespaced so the OpenSearch distribution build can never trip it, and `-P` is this repo's house
-style for build knobs.
+The gate is a Gradle project property rather than a JVM system property: it is namespaced so the
+OpenSearch distribution build can never trip it, and `-P` is this repo's style for build knobs.
 
 ## The three extension points
 
-A tenant engine plugs into the core through one SPI and behaves like a built-in engine everywhere:
+A tenant engine plugs into core through one SPI and behaves like a built-in engine everywhere:
 
 1. **KNNEngine layer**: implement
    [`KNNEngineDefinition`](../src/main/java/org/opensearch/knn/index/engine/KNNEngineDefinition.java) and
    register it via `META-INF/services`. `KNNEngineRegistry` discovers it at startup and the engine becomes
    a first-class `KNNEngine`: resolvable by name in mappings, present in `KNNEngine.values()`, folded into
-   the core capability sets through the generic `KNNLibrary` flags (`supportsIterativeBuild()`,
-   `createsCustomSegmentFiles()`, `supportsFilters()`, ...). The core never names a tenant engine.
-   A misconfigured definition (a name colliding with a built-in engine or an already-registered tenant, a
-   blank name, a null library, custom segment files without a native service, or a definition that throws)
-   is **skipped with a warning** at startup, deliberately, so one bad experimental jar cannot take the
-   node down.
+   the core capability sets through the generic `KNNLibrary` flags. Core never names a tenant engine.
+   A bad definition (name collision, blank name, null library, custom segment files without a native
+   service, or a definition that throws) is **skipped with a warning**, so one bad experimental jar cannot
+   take the node down.
 2. **JNIService layer**: implement
-   [`NativeEngineService`](../src/main/java/org/opensearch/knn/index/engine/NativeEngineService.java) (the
-   8-op native index lifecycle). `JNIService` routes the 8 lifecycle/search ops (init/insert/write/
-   template/load/query/radiusQuery/free) to it with a single uniform check
-   (`knnEngine.getNativeService() != null`); binary indexes, training, and shared index state remain
-   core-only today. Adding an engine touches **zero** core dispatch code. Pure-JVM tenants skip this
-   layer entirely (`nativeService()` defaults to `null`).
+   [`NativeEngineService`](../src/main/java/org/opensearch/knn/index/engine/NativeEngineService.java), the
+   8-op native index lifecycle (init/insert/write/template/load/query/radiusQuery/free). `JNIService`
+   routes each op to it with one check (`knnEngine.getNativeService() != null`). Binary indexes, training,
+   and shared index state stay core-only today. Adding an engine touches no core dispatch code.
 3. **Query layer**: declare engine-specific query parameter names in the `KNNEngineDefinition`
    (`engineSpecificQueryParameters()`) and their value rules in a
    [`KNNLibrarySearchContext`](../src/main/java/org/opensearch/knn/index/engine/KNNLibrarySearchContext.java).
    The REST and gRPC layers defer declared names to the engine-aware validation in
-   `KNNQueryBuilder#doToQuery`; a name no registered engine declares is rejected at parse, exactly as
-   before. On the node-to-node wire, core-known parameters ride the unchanged upstream format; declared
-   engine parameters ride a version-gated appendix. If any node in the cluster is too old to carry the
-   appendix, serialization **fails loudly** at the coordinator, so an engine parameter is never silently
-   dropped on a multi-node hop.
+   `KNNQueryBuilder#doToQuery`; a name no registered engine declares is rejected at parse, as before. On
+   the node-to-node wire, core parameters keep the upstream format; engine parameters ride a version-gated
+   appendix. If any node in the cluster is too old to carry it, serialization **fails loudly** at the
+   coordinator, so an engine parameter is never silently dropped.
 
 These contracts are pinned in CI at two levels. The **fixture engine** in
 [`sandbox/common/src/test/java/org/opensearch/knn/sandbox/fixture/`](common/src/test/java/org/opensearch/knn/sandbox/fixture/),
-a complete pure-Java tenant in a handful of small classes, exercises registration, capability folding,
-JNIService dispatch, and query-parameter deferral in the sandbox test run. The node-to-node wire behavior
-(appendix serialization, version gating, loud failure) is pinned by the core
-`MethodParametersParserTests`, which run in default-build CI on every PR.
+a small pure-Java tenant, exercises registration, capability folding, JNIService dispatch, and
+query-parameter deferral in the sandbox test run. The wire behavior (appendix serialization, version
+gating, loud failure) is pinned by the core `MethodParametersParserTests`, which run in default-build CI
+on every PR.
 
 ## Anatomy of a tenant
 
 A tenant named `acme` (lowercase, no dashes: the name becomes a package name and a JNI library suffix)
-consists of the following pieces. The fixture engine is the minimal in-tree reference; the first real
-tenant PR (Intel SVS) serves as the full-size worked example, including the native pieces.
+consists of the pieces below. The fixture engine is the minimal in-tree reference.
 
 ### Module: `sandbox/acme/`
 
 `settings.gradle` discovers any `sandbox/<dir>` containing a `build.gradle` when the flag is on. The
-build file is ~10 lines because plugins, repositories, the dependency set (`compileOnly project(':')`
-etc.), and test conventions are inherited from [`sandbox/build.gradle`](build.gradle):
+build file is a few lines because plugins, repositories, dependencies, and test conventions are inherited
+from [`sandbox/build.gradle`](build.gradle):
 
 ```groovy
 /*
@@ -89,14 +78,14 @@ One `KNNEngineDefinition` implementation in main sources
 public class AcmeEngineProvider implements KNNEngineDefinition {
     public String engineName() { return "acme"; }             // "engine": "acme" in mappings
     public KNNLibrary library() { return AcmeLibrary.INSTANCE; }
-    public NativeEngineService nativeService() { return nativeService; }   // null for pure-JVM tenants
+    public NativeEngineService nativeService() { return nativeService; }
     public Set<String> engineSpecificQueryParameters() { return Set.of("acme_beam_width"); }
 }
 ```
 
 plus the service file
 `sandbox/acme/src/main/resources/META-INF/services/org.opensearch.knn.index.engine.KNNEngineDefinition`
-containing the implementation's fully qualified name. Any number of tenants can register simultaneously.
+containing the implementation's fully qualified name. Any number of tenants can register at once.
 
 ### Library
 
@@ -104,7 +93,7 @@ A `KNNLibrary` (typically extending
 [`NativeLibrary`](../src/main/java/org/opensearch/knn/index/engine/NativeLibrary.java)) declaring the
 engine's methods, segment-file extension, score translation, method resolver, and capability flags
 (reference: [`FixtureLibrary`](common/src/test/java/org/opensearch/knn/sandbox/fixture/FixtureLibrary.java)).
-The flags are how the core folds a tenant into its behavior without knowing its name:
+The flags are how core folds a tenant into its behavior without knowing its name:
 
 | Flag | What it buys |
 |---|---|
@@ -113,6 +102,10 @@ The flags are how the core folds a tenant into its behavior without knowing its 
 | `supportsFilters()` | Pre-filtered k-NN search is allowed on the engine. |
 | `supportsRadialSearch()` | Radial queries are allowed; `NativeEngineService.radiusQueryIndex` becomes reachable. |
 | `supportsNestedFields()` | k-NN on nested fields is allowed on the engine. |
+
+The method's `KNNLibraryIndexingContext` must supply the vector validators and processors the field
+mapper reads (the core defaults are `SpaceVectorValidator`, `DEFAULT_FLOAT_VALIDATOR`, `NOOP_PROCESSOR`,
+and `NOOP_VECTOR_TRANSFORMER`); a context without them fails at document parse time.
 
 Value rules for declared query parameters go in the library's `KNNLibrarySearchContext`
 (reference: [`FixtureSearchContext`](common/src/test/java/org/opensearch/knn/sandbox/fixture/FixtureSearchContext.java)):
@@ -123,17 +116,16 @@ public Map<String, Parameter<?>> supportedMethodParameters(QueryContext ctx) {
 }
 ```
 
-Engine parameters do **not** go in the core `MethodParameter` enum; that enum is only for parameters the
-core itself owns.
+Engine parameters do **not** go in the core `MethodParameter` enum; that enum is only for parameters core
+itself owns.
 
-### Native service (native tenants only)
+### Native service
 
 A `NativeEngineService` implementation, typically extending `AbstractNativeEngineService` from
-`:sandbox:common` (which supplies descriptive `UnsupportedOperationException`s for undeclared operations),
-adapts each of the 8 lifecycle ops onto a static JNI binding class. `JNIService` hands the tenant
-the raw method-parameters map: the tenant handles its own tuning parameters (e.g. thread counts), and the
-core does not pre-extract `INDEX_THREAD_QTY` for tenants. The binding class loads its library through
-the core loader:
+`:sandbox:common` (which throws a descriptive `UnsupportedOperationException` for operations the tenant
+does not implement), adapts the lifecycle ops onto a static JNI binding class. `JNIService` hands the
+tenant the raw method-parameters map: the tenant handles its own tuning parameters, and core does not
+pre-extract `INDEX_THREAD_QTY` for tenants. The binding class loads its library through the core loader:
 
 ```java
 static {
@@ -144,23 +136,22 @@ static {
 }
 ```
 
-The variant-suffix scheme (`_avx512_spr`/`_avx512`/`_avx2`/plain) mirrors faiss's opt-levels, but shipping
-variants is optional: a single unsuffixed `.so` is fully supported via the loader's fallback.
+The variant-suffix scheme (`_avx512_spr`/`_avx512`/`_avx2`/plain) mirrors faiss's opt-levels. Shipping
+variants is optional: a single unsuffixed `.so` works through the loader's fallback.
 
 Two conventions, checked in review:
 
 * All `System.loadLibrary` calls go through `KNNLibraryLoader`; tenants must not load native libraries
   directly.
 * The `NativeEngineService` must hold no static reference that class-initializes the JNI binding class:
-  registration happens at node startup, but the native library must load **lazily on first use**. The
-  first native tenant PR demonstrates this pattern end to end.
+  registration happens at node startup, but the native library must load **lazily on first use**.
 
-### Native build (native tenants only): `jni/sandbox/acme/`
+### Native build: `jni/sandbox/acme/`
 
 Configured only when `-DCONFIG_SANDBOX=ON` (passed automatically by `-Pknn.sandbox.enabled=true`). A
-`jni/sandbox/acme/tenant.cmake`, discovered automatically by `jni/sandbox/tenants.cmake`, vendors the
-tenant's own copy of its underlying library (static, PIC, pinned to an exact commit) and hands the JNI
-sources to the shared helper in [`jni/sandbox/cmake/SandboxTenant.cmake`](../jni/sandbox/cmake/SandboxTenant.cmake):
+`jni/sandbox/acme/tenant.cmake`, discovered by `jni/sandbox/tenants.cmake`, vendors the tenant's own copy
+of its underlying library (static, PIC, pinned to an exact commit) and hands the JNI sources to the
+shared helper in [`jni/sandbox/cmake/SandboxTenant.cmake`](../jni/sandbox/cmake/SandboxTenant.cmake):
 
 ```cmake
 knn_sandbox_add_jni_library(opensearchknn_acme
@@ -170,31 +161,29 @@ knn_sandbox_add_jni_library(opensearchknn_acme
     DEPENDS        acme_vendor_ep)
 ```
 
-The helper compiles tenant code with hidden visibility (JNI entry points stay exported via `JNIEXPORT`)
-and, on Linux, links with `-Wl,--exclude-libs,ALL` so symbols from statically linked archives become
-local (a guarantee that is Linux-only today; macOS/Windows are un-addressed), plus an `$ORIGIN` rpath for
-any runtime `.so` shipped alongside. This matters most when the tenant embeds a different version of a
-C++ library the plugin already ships (e.g. faiss): two exported `faiss::*` symbol sets in one JVM
-interpose and route calls into the wrong build. One thing symbol isolation cannot contain is the
-threading runtime: link OpenMP **dynamically** (`libgomp.so`) so the process shares a single runtime with
-the built-in libraries, and never statically embed an OpenMP runtime (two runtimes in one JVM is a known
-crash/oversubscription hazard). Verify that the dynamic table lists only `Java_*`/`JNI_*` entry points
-(plus linker-synthesized symbols such as `__bss_start`/`_edata`/`_end`):
+The helper compiles tenant code with hidden visibility (JNI entry points stay exported) and, on Linux,
+links with `-Wl,--exclude-libs,ALL` so symbols from statically linked archives stay local (Linux-only
+today; macOS/Windows are not addressed), plus an `$ORIGIN` rpath for any runtime `.so` shipped alongside.
+This matters when the tenant embeds a different version of a C++ library the plugin already ships (for
+example faiss): two exported symbol sets in one JVM interpose and route calls into the wrong build. One
+thing symbol isolation cannot contain is the threading runtime: link OpenMP **dynamically**
+(`libgomp.so`) so the process shares one runtime, never statically embed it. Verify the dynamic table
+lists only `Java_*`/`JNI_*` entry points (plus linker-synthesized symbols like `__bss_start`):
 
 ```bash
 nm -D --defined-only jni/build/release/libopensearchknn_acme*.so
 ```
 
-Additional native-build rules:
+More native-build rules:
 
 * **Supply chain**: anything `tenant.cmake` downloads must be checksum-pinned (`URL_HASH SHA256=...` or an
   exact git commit); a user-overridable URL requires a paired `-D..._SHA256`.
 * **JNI headers**: compiling the tenant's Java generates headers under
-  `sandbox/acme/build/generated-jni-headers/`; copy them into `jni/sandbox/acme/include/` (headers are
-  checked in so the native build never depends on a Java compile). Note that `_` in package/class names
-  mangles to `_1` in JNI symbols; the generated header gets this right.
-* **faiss-based tenants**: a shared `knn_sandbox_vendor_faiss` helper packaging the static+PIC faiss
-  recipe (SIMD-variant selection, BLAS/LAPACK/OpenMP re-supply) ships with the first faiss-based tenant.
+  `sandbox/acme/build/generated-jni-headers/`; copy them into `jni/sandbox/acme/include/` and check them
+  in, so the native build never depends on a Java compile. Note `_` in package/class names mangles to
+  `_1` in JNI symbols; the generated header gets this right.
+* **faiss-based tenants**: a shared `knn_sandbox_vendor_faiss` helper (static+PIC faiss, SIMD variants,
+  BLAS/LAPACK/OpenMP re-supply) ships with the first faiss-based tenant.
 * **Tenant-specific cmake flags** pass through `-Psandbox.cmake.args="-DYOUR_FLAG=value;..."`; a tenant
   never edits the root `build.gradle`.
 
@@ -208,22 +197,20 @@ Unit tests live in `sandbox/acme/src/test/...` and run via
 ([`FixtureEngineRegistrationTests`](common/src/test/java/org/opensearch/knn/sandbox/fixture/FixtureEngineRegistrationTests.java),
 [`FixtureJNIServiceDispatchTests`](common/src/test/java/org/opensearch/knn/sandbox/fixture/FixtureJNIServiceDispatchTests.java),
 [`FixtureQueryParamDeferralTests`](common/src/test/java/org/opensearch/knn/sandbox/fixture/FixtureQueryParamDeferralTests.java))
-are ready-made templates for registration, dispatch, and deferral/engine-aware validation.
+are templates for registration, dispatch, and deferral tests.
 
 REST integration tests are auto-wired: `*IT` classes extending `KNNRestTestCase` in the tenant's test
 sources are detected by the shared sandbox config, which creates a `:sandbox:acme:integTest` task whose
 cluster runs the sandbox-enabled plugin zip with the JNI build dir on the node's `java.library.path`.
-Nothing to copy into the tenant's build.gradle; the wiring lives once in
-[`sandbox/build.gradle`](build.gradle).
+Nothing to copy into the tenant's build file.
 
 To run a live node: `./gradlew run -Pknn.sandbox.enabled=true`, then map a field with
-`"engine": "acme"`. On a default build the same mapping is rejected as an invalid engine (verified live:
-`mapper_parsing_exception: Invalid engine: acme`), which is correct behavior: the tenant does not exist
-there.
+`"engine": "acme"`. On a default build the same mapping is rejected (`mapper_parsing_exception: Invalid
+engine: acme`), which is correct: the tenant does not exist there.
 
 ## CI
 
 The [`sandbox-check`](../.github/workflows/sandbox-check.yml) workflow runs
 `./gradlew -p sandbox check -Pknn.sandbox.enabled=true` (tests + spotless) on every PR, so tenant unit
-tests join CI with zero workflow changes. It runs on all PRs (not just sandbox ones) because a core
-refactor can break the SPI seam without touching `sandbox/**`.
+tests join CI with no workflow changes. It runs on all PRs, not just sandbox ones, because a core
+refactor can break the extension points without touching `sandbox/**`.

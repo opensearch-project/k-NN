@@ -34,7 +34,10 @@ final class KNNEngineRegistry {
 
     // Segment-file extensions owned by built-in libraries (safe to read here: the library singletons do not
     // depend on KNNEngine's class initialization).
-    private static final Set<String> BUILT_IN_ENGINE_EXTENSIONS = Set.of(Faiss.INSTANCE.getExtension(), Nmslib.INSTANCE.getExtension());
+    private static final Set<String> ENGINE_SEGMENT_FILES_EXTENSIONS = Set.of(
+        Faiss.INSTANCE.getExtension(),
+        Nmslib.INSTANCE.getExtension()
+    );
 
     /** A fully-materialized registered engine; every definition method has already been invoked successfully. */
     record RegisteredEngine(String engineName, KNNLibrary library, NativeEngineService nativeService, Set<String> queryParameterNames) {
@@ -88,7 +91,7 @@ final class KNNEngineRegistry {
         // deterministic regardless of classpath order.
         final Map<String, RegisteredEngine> byName = new LinkedHashMap<>();
         final Set<String> queryParameterNames = new HashSet<>();
-        final Set<String> reservedExtensions = new HashSet<>(BUILT_IN_ENGINE_EXTENSIONS);
+        final Set<String> reservedExtensions = new HashSet<>(ENGINE_SEGMENT_FILES_EXTENSIONS);
         for (Map.Entry<String, List<RegisteredEngine>> entry : candidatesByName.entrySet()) {
             if (entry.getValue().size() > 1) {
                 log.warn("Multiple KNNEngineDefinitions register the name [{}]; ignoring all of them", entry.getKey());
