@@ -10,7 +10,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.opensearch.Version;
 import org.opensearch.core.common.Strings;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.util.Collections;
@@ -117,7 +117,13 @@ public enum CompressionLevel {
         return getDefaultRescoreContext(mode, dimension, version, isFlatMethod, false, null);
     }
 
-    public RescoreContext getDefaultRescoreContext(Mode mode, int dimension, Version version, boolean isFlatMethod, KNNEngine engine) {
+    public RescoreContext getDefaultRescoreContext(
+        Mode mode,
+        int dimension,
+        Version version,
+        boolean isFlatMethod,
+        VectorSearchEngine engine
+    ) {
         return getDefaultRescoreContext(mode, dimension, version, isFlatMethod, false, engine);
     }
 
@@ -136,7 +142,7 @@ public enum CompressionLevel {
         Version version,
         boolean isFlatMethod,
         boolean isSQOneBit,
-        KNNEngine engine
+        VectorSearchEngine engine
     ) {
         // For sq(bits=1) encoder, use fixed oversample factor.
         if (isSQOneBit) {
@@ -151,13 +157,11 @@ public enum CompressionLevel {
             return RescoreContext.builder().oversampleFactor(FLAT_OVERSAMPLE_FACTOR).userProvided(false).build();
         }
         if (modesForRescore.contains(mode)) {
-            // Special handling for Lucene Scalar Quantizer (x32 compression)
-            // Engine check is temporary until binary scalar quantizer is finalized for FAISS as well
-            if (this == x32 && engine == KNNEngine.LUCENE && version.onOrAfter(Version.V_3_6_0)) {
-                return RescoreContext.builder()
-                    .oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_DEFAULT_FOR_LUCENE_SCALAR_QUANTIZER_AFTER_V360)
-                    .userProvided(false)
-                    .build();
+            if (engine != null) {
+                final RescoreContext rescoreContext = engine.getRescoreContext(this, mode, dimension, version, isFlatMethod, isSQOneBit);
+                if (rescoreContext != null) {
+                    return rescoreContext;
+                }
             }
 
             if (this == x4 && version.before(Version.V_3_1_0)) {

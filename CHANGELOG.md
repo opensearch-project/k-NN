@@ -10,9 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Add base64 encoded vector indexing support for knn_vector fields [#3350](https://github.com/opensearch-project/k-NN/pull/3350)
 * Introduce system-generated search pipeline processor to automatically exclude knn_vector fields from _source in search responses [#3152](https://github.com/opensearch-project/k-NN/pull/3152)
 * Parameterize integration test framework for compression level [#3416](https://github.com/opensearch-project/k-NN/pull/3416)
+* Introduce extensible VectorSearchEngine API [#3288](https://github.com/opensearch-project/k-NN/pull/3443)
 
 ### Maintenance
 * Upgrade Lucene to 10.5.0 [#3411](https://github.com/opensearch-project/k-NN/pull/3411)
+* Re-enable flaky BWC test testKNNWarmupCustomLegacyFieldMapping and restore legacy index settings in BWC test fixtures [#2415](https://github.com/opensearch-project/k-NN/issues/2415)
 
 ### Bug Fixes
 * Fix NPE in nested kNN search when index contains documents without nested object [#3368](https://github.com/opensearch-project/k-NN/pull/3368)
@@ -26,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix FAISS SQ merges when an input segment has no vectors [#3433](https://github.com/opensearch-project/k-NN/pull/3433)
 * Fix isFaissSQfp16 to skip FP16 validation when SQ encoder uses bits=1 [#3366](https://github.com/opensearch-project/k-NN/pull/3366)
 * Fix score corruption in multi-segment FAISS indices with ADC [#3385](https://github.com/opensearch-project/k-NN/pull/3385)
+* Fix corrupt index file when remote build falls back to local build [#3448](https://github.com/opensearch-project/k-NN/pull/3448)
 * Fix radial search max_distance threshold conversion for inner product with memory-optimized search [#3369](https://github.com/opensearch-project/k-NN/pull/3369)
 * Fix inner-hits returning mask value for top level source excludes [#3446](https://github.com/opensearch-project/k-NN/pull/3446)
 
@@ -33,3 +36,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Refactor ExactSearcher to use BulkVectorScorer directly and rename factory methods [#3361](https://github.com/opensearch-project/k-NN/pull/3361)
 
 ### Enhancements
+* Convert document vectors to primitive arrays once per document in lateInteractionScore, instead of once per query-vector/document-vector pair [#3453](https://github.com/opensearch-project/k-NN/pull/3453)
+* Set decay value to experimentally found value 0.95 and use decay method in MOS [#3447](https://github.com/opensearch-project/k-NN/pull/3447)

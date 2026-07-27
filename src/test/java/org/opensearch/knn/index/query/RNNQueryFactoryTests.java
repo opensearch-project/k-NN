@@ -8,6 +8,7 @@ package org.opensearch.knn.index.query;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.DEFAULT_LUCENE_RADIAL_SEARCH_DECAY;
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNConstants.MAX_RESULTS_RADIAL_RESCORING;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
@@ -93,6 +94,64 @@ public class RNNQueryFactoryTests extends KNNTestCase {
                 .build();
             Query query = RNNQueryFactory.create(createQueryRequest);
             assertEquals(ByteVectorSimilarityQuery.class, query.getClass());
+        }
+    }
+
+    // Validates that the Lucene radial search path is actually taken and that the shared decay factor
+    // (DEFAULT_LUCENE_RADIAL_SEARCH_DECAY = 0.95) is wired into the produced Lucene similarity query.
+    // A mocked KNNVectorFieldType (non-quantized: isRescoringRequiredForRadial() == false) exercises the
+    // real Lucene branch without the rescore wrapper. FloatVectorSimilarityQuery#equals compares the decay
+    // field, so equality against a query constructed with the expected decay proves the value is wired.
+    public void testCreate_whenLucene_thenDecayIsWiredIntoSimilarityQuery() {
+        final KNNVectorFieldType mockFieldType = mock(KNNVectorFieldType.class);
+        when(mockFieldType.isRescoringRequiredForRadial()).thenReturn(false);
+
+        final List<KNNEngine> luceneEngines = Arrays.stream(KNNEngine.values())
+            .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
+            .collect(Collectors.toList());
+
+        for (KNNEngine knnEngine : luceneEngines) {
+            // FLOAT -> FloatVectorSimilarityQuery
+            final RNNQueryFactory.CreateQueryRequest floatRequest = RNNQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(knnEngine)
+                .indexName(testIndexName)
+                .fieldName(testFieldName)
+                .vector(testQueryVector)
+                .radius(testRadius)
+                .vectorDataType(VectorDataType.FLOAT)
+                .vectorFieldType(mockFieldType)
+                .build();
+            final Query floatQuery = RNNQueryFactory.create(floatRequest);
+            assertTrue("Lucene radial path must produce a FloatVectorSimilarityQuery", floatQuery instanceof FloatVectorSimilarityQuery);
+            final FloatVectorSimilarityQuery expectedFloatQuery = new FloatVectorSimilarityQuery(
+                testFieldName,
+                testQueryVector,
+                testRadius,
+                DEFAULT_LUCENE_RADIAL_SEARCH_DECAY,
+                null
+            );
+            assertEquals("Decay must be wired into the Lucene FloatVectorSimilarityQuery", expectedFloatQuery, floatQuery);
+
+            // BYTE -> ByteVectorSimilarityQuery
+            final RNNQueryFactory.CreateQueryRequest byteRequest = RNNQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(knnEngine)
+                .indexName(testIndexName)
+                .fieldName(testFieldName)
+                .byteVector(testByteQueryVector)
+                .radius(testRadius)
+                .vectorDataType(VectorDataType.BYTE)
+                .vectorFieldType(mockFieldType)
+                .build();
+            final Query byteQuery = RNNQueryFactory.create(byteRequest);
+            assertTrue("Lucene radial path must produce a ByteVectorSimilarityQuery", byteQuery instanceof ByteVectorSimilarityQuery);
+            final ByteVectorSimilarityQuery expectedByteQuery = new ByteVectorSimilarityQuery(
+                testFieldName,
+                testByteQueryVector,
+                testRadius,
+                DEFAULT_LUCENE_RADIAL_SEARCH_DECAY,
+                null
+            );
+            assertEquals("Decay must be wired into the Lucene ByteVectorSimilarityQuery", expectedByteQuery, byteQuery);
         }
     }
 
