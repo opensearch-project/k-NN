@@ -227,7 +227,7 @@ public class RecallTestsIT extends KNNCompressionRestTestCase {
                     .endObject()
                     .endObject();
                 createIndexAndIngestDocs(indexName, TEST_FIELD_NAME, getSettings(), builder.toString());
-                assertRecall(indexName, spaceType, 0.4f);
+                assertRecall(indexName, spaceType, 0.6f);
             }
         }
     }
@@ -365,7 +365,7 @@ public class RecallTestsIT extends KNNCompressionRestTestCase {
                     .endObject()
                     .endObject();
                 createIndexAndIngestDocs(indexName, TEST_FIELD_NAME, getSettings(), builder.toString());
-                assertRecall(indexName, spaceType, 0.4f);
+                assertRecall(indexName, spaceType, 0.6f);
             }
         }
     }
