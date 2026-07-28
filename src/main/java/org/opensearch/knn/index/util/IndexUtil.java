@@ -478,7 +478,7 @@ public class IndexUtil {
             return false;
         }
 
-        if (mapperService.documentMapper().sourceMapper().enabled() == false) {
+        if (mapperService.documentMapper() == null || mapperService.documentMapper().sourceMapper().enabled() == false) {
             return false;
         }
 
