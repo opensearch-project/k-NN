@@ -37,7 +37,7 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 /**
  * Faiss (and NMSLIB) engine implementation of {@link EngineFieldStrategy}.
  * Handles field type construction for non-Lucene KNN engines. Vector field creation uses the
- * {@link EngineFieldStrategy} interface defaults, signaling the caller to use its default path.
+ * default path owned by {@link KNNVectorFieldMapper}.
  */
 @Log4j2
 public final class FaissFieldStrategy implements EngineFieldStrategy {
