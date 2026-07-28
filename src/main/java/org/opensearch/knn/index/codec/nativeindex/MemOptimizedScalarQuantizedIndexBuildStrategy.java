@@ -11,6 +11,7 @@ import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
 import org.apache.lucene.util.quantization.OptimizedScalarQuantizer;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.KNN1040Codec.ScalarEncodingResolver;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -125,6 +126,9 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
         // The centroid dot-product is a precomputed scalar used in the ADC scoring formula.
         // It appears as a correction term: score += additionalCorrection + indexCorrection - centroidDp
         final float centroidDp = binarizedVectorValues.getCentroidDP();
+        // Document bit width (1, 2, or 4), derived from the stored encoding. The native build path
+        // splits the quantized code into docBits bit planes for the symmetric distance computation.
+        final int docBits = ScalarEncodingResolver.docBits(binarizedVectorValues.getScalarEncoding());
         final Map<String, Object> indexParameters = new HashMap<>(indexInfo.getIndexParameters());
         // Force override vector data type as binary so that Faiss can treat it as binary index.
         indexParameters.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.BINARY.getValue());
@@ -140,6 +144,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategy implements NativeInde
                 indexParameters,
                 centroidDp,
                 quantizedVecBytes,
+                docBits,
                 indexInfo.getKnnEngine()
             )
         );
