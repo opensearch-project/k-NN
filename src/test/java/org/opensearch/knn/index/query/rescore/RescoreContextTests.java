@@ -12,107 +12,113 @@ import static org.opensearch.knn.index.query.rescore.RescoreContext.MIN_FIRST_PA
 
 public class RescoreContextTests extends KNNTestCase {
 
-    public void testGetFirstPassK() {
+    public void testGetFirstPassK_userProvidedOversample_notOverriddenByDimension() {
         float oversample = 2.6f;
         RescoreContext rescoreContext = RescoreContext.builder().oversampleFactor(oversample).userProvided(true).build();
         int finalK = 100;
-        boolean isShardLevelRescoringDisabled = false;
+
+        assertEquals(260, rescoreContext.getFirstPassK(finalK, 500));
+        assertEquals(260, rescoreContext.getFirstPassK(finalK, 1200));
+    }
+
+    public void testGetFirstPassK_boundsCheck_minAndMax() {
+        float oversample = 2.6f;
+        RescoreContext rescoreContext = RescoreContext.builder().oversampleFactor(oversample).userProvided(true).build();
+
+        assertEquals(MIN_FIRST_PASS_RESULTS, rescoreContext.getFirstPassK(1, 500));
+        assertEquals(MIN_FIRST_PASS_RESULTS, rescoreContext.getFirstPassK(0, 500));
+        assertEquals(MAX_FIRST_PASS_RESULTS, rescoreContext.getFirstPassK(MAX_FIRST_PASS_RESULTS, 500));
+    }
+
+    public void testGetFirstPassK_dimensionAbove1000_oversampleIs1x() {
+        int finalK = 100;
+        int dimension = 1024;
+        RescoreContext rescoreContext = RescoreContext.builder().oversampleFactor(3.0f).userProvided(false).build();
+
+        assertEquals(MIN_FIRST_PASS_RESULTS, rescoreContext.getFirstPassK(finalK, dimension));
+    }
+
+    public void testGetFirstPassK_dimension768to999_oversampleIs2x() {
+        int finalK = 100;
+        int dimension = 800;
+        // Regardless of initial oversampleFactor, dimension-based logic sets it to 2.0
+        RescoreContext rescoreContext = RescoreContext.builder().oversampleFactor(3.0f).userProvided(false).build();
+
+        assertEquals(200, rescoreContext.getFirstPassK(finalK, dimension));
+    }
+
+    public void testGetFirstPassK_dimensionBelow768_oversampleIs3x() {
+        int finalK = 100;
         int dimension = 500;
+        RescoreContext rescoreContext = RescoreContext.builder().oversampleFactor(1.0f).userProvided(false).build();
 
-        // Case 1: Test with standard oversample factor when shard-level rescoring is enabled
-        assertEquals(260, rescoreContext.getFirstPassK(finalK, isShardLevelRescoringDisabled, dimension));
-
-        // Case 2: Test with a very small finalK that should result in a value less than MIN_FIRST_PASS_RESULTS
-        finalK = 1;
-        assertEquals(MIN_FIRST_PASS_RESULTS, rescoreContext.getFirstPassK(finalK, isShardLevelRescoringDisabled, dimension));
-
-        // Case 3: Test with finalK = 0, should return MIN_FIRST_PASS_RESULTS
-        finalK = 0;
-        assertEquals(MIN_FIRST_PASS_RESULTS, rescoreContext.getFirstPassK(finalK, isShardLevelRescoringDisabled, dimension));
-
-        // Case 4: Test with finalK = MAX_FIRST_PASS_RESULTS, should cap at MAX_FIRST_PASS_RESULTS
-        finalK = MAX_FIRST_PASS_RESULTS;
-        assertEquals(MAX_FIRST_PASS_RESULTS, rescoreContext.getFirstPassK(finalK, isShardLevelRescoringDisabled, dimension));
+        assertEquals(300, rescoreContext.getFirstPassK(finalK, dimension));
     }
 
-    public void testGetFirstPassKWithDimensionBasedOversampling() {
+    public void testGetFirstPassK_dimensionExactly768_oversampleIs2x() {
         int finalK = 100;
-        int dimension;
+        int dimension = 768;
+        RescoreContext rescoreContext = RescoreContext.builder().userProvided(false).build();
 
-        // Case 1: Test no oversampling for dimensions >= 1000 when shard-level rescoring is disabled
-        dimension = 1000;
-        RescoreContext rescoreContext = RescoreContext.builder().userProvided(false).build();  // Ensuring dimension-based logic applies
-        assertEquals(100, rescoreContext.getFirstPassK(finalK, true, dimension));  // No oversampling
-
-        // Case 2: Test 2x oversampling for dimensions >= 768 but < 1000 when shard-level rescoring is disabled
-        dimension = 800;
-        rescoreContext = RescoreContext.builder().userProvided(false).build();  // Ensure previous values don't carry over
-        assertEquals(200, rescoreContext.getFirstPassK(finalK, true, dimension));  // 2x oversampling
-
-        // Case 3: Test 3x oversampling for dimensions < 768 when shard-level rescoring is disabled
-        dimension = 700;
-        rescoreContext = RescoreContext.builder().userProvided(false).build();  // Ensure previous values don't carry over
-        assertEquals(300, rescoreContext.getFirstPassK(finalK, true, dimension));  // 3x oversampling
-
-        // Case 4: Shard-level rescoring enabled, oversample factor should be used as provided by the user (ignore dimension)
-        rescoreContext = RescoreContext.builder().oversampleFactor(5.0f).userProvided(true).build();  // Provided by user
-        dimension = 500;
-        assertEquals(500, rescoreContext.getFirstPassK(finalK, false, dimension));  // User-defined oversample factor should be used
-
-        // Case 5: Test finalK where oversampling factor results in a value less than MIN_FIRST_PASS_RESULTS
-        finalK = 10;
-        dimension = 700;
-        rescoreContext = RescoreContext.builder().userProvided(false).build();  // Ensure dimension-based logic applies
-        assertEquals(100, rescoreContext.getFirstPassK(finalK, true, dimension));  // 3x oversampling results in 30
+        assertEquals(200, rescoreContext.getFirstPassK(finalK, dimension));
     }
 
-    public void testGetFirstPassKWithMinPassK() {
-        float oversample = 0.5f;
-        RescoreContext rescoreContext = RescoreContext.builder().oversampleFactor(oversample).userProvided(true).build();  // User provided
-        boolean isShardLevelRescoringDisabled = true;
+    public void testGetFirstPassK_dimensionExactly1000_oversampleIs1x() {
+        int finalK = 100;
+        int dimension = 1000;
+        RescoreContext rescoreContext = RescoreContext.builder().userProvided(false).build();
 
-        // Case 1: Test where finalK * oversample is smaller than MIN_FIRST_PASS_RESULTS
-        int finalK = 10;
-        int dimension = 700;
-        assertEquals(MIN_FIRST_PASS_RESULTS, rescoreContext.getFirstPassK(finalK, isShardLevelRescoringDisabled, dimension));
-
-        // Case 2: Test where finalK * oversample results in exactly MIN_FIRST_PASS_RESULTS
-        finalK = 100;
-        oversample = 1.0f;  // This will result in exactly 100 (MIN_FIRST_PASS_RESULTS)
-        rescoreContext = RescoreContext.builder().oversampleFactor(oversample).userProvided(true).build();  // User provided
-        assertEquals(MIN_FIRST_PASS_RESULTS, rescoreContext.getFirstPassK(finalK, isShardLevelRescoringDisabled, dimension));
+        assertEquals(MIN_FIRST_PASS_RESULTS, rescoreContext.getFirstPassK(finalK, dimension));
     }
 
-    public void testGetFirstPassK_whenAllowOverrideOversampleFactorIsFalse_thenDimensionBasedOverrideIsSkipped() {
-        // Simulates SQ encoder behavior: oversampleFactor is fixed and should NOT be overridden by dimension-based logic
-        float oversample = RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR; // 2.0f
+    public void testGetFirstPassK_userProvided_neverOverriddenByDimension() {
+        int finalK = 100;
+        RescoreContext rescoreContext = RescoreContext.builder().oversampleFactor(5.0f).userProvided(true).build();
+
+        assertEquals(500, rescoreContext.getFirstPassK(finalK, 500));
+        assertEquals(500, rescoreContext.getFirstPassK(finalK, 1200));
+    }
+
+    public void testGetFirstPassK_whenAllowOverrideIsFalse_thenDimensionBasedOverrideIsSkipped() {
+        float oversample = RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR;
         int finalK = 100;
 
-        // Even though shard-level rescoring is disabled and userProvided is false,
-        // allowOverrideOversampleFactor=false should prevent dimension-based override
         RescoreContext rescoreContext = RescoreContext.builder()
             .oversampleFactor(oversample)
             .userProvided(false)
             .allowOverrideOversampleFactor(false)
             .build();
 
-        // dimension < 768 would normally trigger 3x oversampling, but allowOverrideOversampleFactor=false keeps it at 2x
-        assertEquals(200, rescoreContext.getFirstPassK(finalK, true, 500));
+        // dimension < 768 would normally trigger 3x, but allowOverrideOversampleFactor=false keeps it at 2x
+        assertEquals(200, rescoreContext.getFirstPassK(finalK, 500));
 
-        // dimension >= 768 && < 1000 would normally trigger 2x, stays at 2x (same value but for different reason)
         rescoreContext = RescoreContext.builder()
             .oversampleFactor(oversample)
             .userProvided(false)
             .allowOverrideOversampleFactor(false)
             .build();
-        assertEquals(200, rescoreContext.getFirstPassK(finalK, true, 800));
+        // dimension >= 1000 would normally trigger 1x, but stays at 2x
+        assertEquals(200, rescoreContext.getFirstPassK(finalK, 1200));
+    }
 
-        // dimension >= 1000 would normally trigger 1x (no oversampling), but stays at 2x
-        rescoreContext = RescoreContext.builder()
-            .oversampleFactor(oversample)
-            .userProvided(false)
-            .allowOverrideOversampleFactor(false)
-            .build();
-        assertEquals(200, rescoreContext.getFirstPassK(finalK, true, 1200));
+    public void testGetFirstPassK_smallFinalK_clampedToMin() {
+        int finalK = 10;
+        int dimension = 700;
+        RescoreContext rescoreContext = RescoreContext.builder().userProvided(false).build();
+
+        assertEquals(MIN_FIRST_PASS_RESULTS, rescoreContext.getFirstPassK(finalK, dimension));
+    }
+
+    @SuppressWarnings("deprecation")
+    public void testGetFirstPassK_deprecatedMethodDelegatesToNewMethod() {
+        int finalK = 100;
+        int dimension = 500;
+        RescoreContext rescoreContext = RescoreContext.builder().userProvided(false).build();
+
+        // Deprecated 3-arg method should produce same result regardless of boolean value
+        assertEquals(rescoreContext.getFirstPassK(finalK, dimension), rescoreContext.getFirstPassK(finalK, false, dimension));
+
+        rescoreContext = RescoreContext.builder().userProvided(false).build();
+        assertEquals(rescoreContext.getFirstPassK(finalK, dimension), rescoreContext.getFirstPassK(finalK, true, dimension));
     }
 }

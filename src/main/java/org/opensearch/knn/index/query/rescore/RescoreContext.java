@@ -80,22 +80,19 @@ public final class RescoreContext {
 
     /**
      * Calculates the number of results to return for the first pass of rescoring (firstPassK).
-     * This method considers whether shard-level rescoring is enabled and adjusts the oversample factor
-     * based on the vector dimension if shard-level rescoring is disabled.
+     * Adjusts the oversample factor based on vector dimension when the factor was not explicitly
+     * provided by the user and the encoder allows override. Higher dimensions need less oversampling
+     * because quantization error is relatively smaller per-dimension.
      *
      * @param finalK The final number of results to return for the entire shard.
-     * @param isShardLevelRescoringDisabled A boolean flag indicating whether shard-level rescoring is disabled.
-     *                                     If false, the dimension-based oversampling logic is bypassed.
-     * @param dimension The dimension of the vector. This is used to determine the oversampling factor when
-     *                  shard-level rescoring is disabled.
+     * @param dimension The dimension of the vector. Used to determine the appropriate oversampling factor.
      * @return The number of results to return for the first pass of rescoring, adjusted by the oversample factor.
      */
-    public int getFirstPassK(int finalK, boolean isShardLevelRescoringDisabled, int dimension) {
-        // Only apply default dimension-based oversampling logic when:
-        // 1. Shard-level rescoring is disabled
-        // 2. The oversample factor was not provided by the user
-        if (isShardLevelRescoringDisabled && !userProvided && allowOverrideOversampleFactor) {
-            // Apply new dimension-based oversampling logic when shard-level rescoring is disabled
+    public int getFirstPassK(int finalK, int dimension) {
+        // Apply dimension-based oversampling when the oversample factor was not user-provided
+        // and the encoder allows override. This ensures high-dimensional vectors (which have
+        // lower relative quantization error) don't over-fetch candidates unnecessarily.
+        if (!userProvided && allowOverrideOversampleFactor) {
             if (dimension >= DIMENSION_THRESHOLD_1000) {
                 oversampleFactor = OVERSAMPLE_FACTOR_1000;  // No oversampling for dimensions >= 1000
             } else if (dimension >= DIMENSION_THRESHOLD_768) {
@@ -104,8 +101,17 @@ public final class RescoreContext {
                 oversampleFactor = OVERSAMPLE_FACTOR_BELOW_768;  // 3x oversampling for dimensions < 768
             }
         }
-        // The calculation for firstPassK remains the same, applying the oversample factor
         return Math.min(MAX_FIRST_PASS_RESULTS, Math.max(MIN_FIRST_PASS_RESULTS, (int) Math.ceil(finalK * oversampleFactor)));
+    }
+
+    /**
+     * @deprecated Use {@link #getFirstPassK(int, int)} instead. The {@code isShardLevelRescoringDisabled} parameter
+     * is no longer used — dimension-based oversampling now applies unconditionally when the oversample factor is not
+     * user-provided. This method will be removed in the next major version.
+     */
+    @Deprecated
+    public int getFirstPassK(int finalK, boolean isShardLevelRescoringDisabled, int dimension) {
+        return getFirstPassK(finalK, dimension);
     }
 
 }

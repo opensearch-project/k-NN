@@ -330,7 +330,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         Map<Integer, Float> rescoredLeaf2Results = new HashMap<>(Map.of(0, 21f));
 
         RescoreContext rescoreContext = RescoreContext.builder().oversampleFactor(1.5f).build();
-        int firstPassK = rescoreContext.getFirstPassK(k, true, 1);
+        int firstPassK = rescoreContext.getFirstPassK(k, 1);
         when(knnQuery.getRescoreContext()).thenReturn(RescoreContext.builder().oversampleFactor(1.5f).build());
         when(knnQuery.getK()).thenReturn(k);
         when(knnWeight.getQuery()).thenReturn(knnQuery);
@@ -741,7 +741,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             if (rescoreEnabled) {
                 RescoreContext rescoreContext = RescoreContext.builder().oversampleFactor(oversampleFactor).build();
                 when(knnQuery.getRescoreContext()).thenReturn(rescoreContext);
-                firstPassK = rescoreContext.getFirstPassK(k, isShardLevelRescoringDisabled, dimension);
+                firstPassK = rescoreContext.getFirstPassK(k, dimension);
             } else {
                 firstPassK = k;
             }
@@ -923,7 +923,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
                 when(knnQuery.getRescoreContext()).thenReturn(RescoreContext.getDefault());
             }
 
-            final int expectedExpandedK = RescoreContext.getDefault().getFirstPassK(k, isShardLevelRescoringDisabled, dimension);
+            final int expectedExpandedK = RescoreContext.getDefault().getFirstPassK(k, dimension);
             final MemoryOptimizedKNNWeight weight = mock(MemoryOptimizedKNNWeight.class);
             doAnswer(invocation -> {
                 // This will be invoked for reentrant search.
