@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.search.processor;
 
+import org.opensearch.action.search.MultiSearchAction;
+import org.opensearch.action.search.SearchAction;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -20,7 +22,6 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.FetchSourceContext;
 import org.opensearch.search.pipeline.ProcessorGenerationContext;
-import org.opensearch.core.tasks.TaskId;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -230,7 +231,10 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         assertArrayEquals(new String[] { "vec" }, ctx.excludes());
     }
 
-    public void testProcessRequest_innerHitExplicitTrueSource_skipsExcludes() {
+    public void testProcessRequest_innerHitExplicitTrueSource_appliesTopLevelExcludesInnerHitUnchanged() {
+        // Post-#22521: core preserves excluded fields at the codec level for inner hits, so adding
+        // top-level excludes no longer starves an inner hit that fetches full source. Top-level excludes
+        // are applied; the explicit-true inner hit is left untouched.
         mockClusterStateWithMapping(
             "test-index",
             Map.of("properties", Map.of("nested_obj", Map.of("properties", Map.of("vec", Map.of("type", "knn_vector", "dimension", 3)))))
@@ -242,9 +246,11 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         KNNSourceExcludesProcessor processor = createProcessor();
         SearchRequest result = processor.processRequest(requestWithNestedQuery("test-index", innerHit));
 
-        assertNull("Top-level excludes should not be added when inner hit has explicit true _source", result.source().fetchSource());
+        FetchSourceContext ctx = result.source().fetchSource();
+        assertNotNull("Top-level excludes should be applied", ctx);
+        assertTrue(Set.of(ctx.excludes()).contains("nested_obj.vec"));
 
-        // Inner hit source context should remain exactly as set — {true, [], []}
+        // Inner hit with explicit true _source is left exactly as set — {true, [], []}
         FetchSourceContext innerCtx = innerHit.getFetchSourceContext();
         assertNotNull(innerCtx);
         assertTrue(innerCtx.fetchSource());
@@ -252,7 +258,9 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         assertEquals(0, innerCtx.excludes().length);
     }
 
-    public void testProcessRequest_innerHitSourceIncludesVectorField_skipsExcludes() {
+    public void testProcessRequest_innerHitSourceIncludesVectorField_appliesTopLevelExcludesInnerHitKeepsIncludes() {
+        // Post-#22521: top-level excludes are applied even when an inner hit includes the vector field.
+        // The inner hit keeps its includes (the field is not added to its excludes since it is included).
         mockClusterStateWithMapping(
             "test-index",
             Map.of("properties", Map.of("nested_obj", Map.of("properties", Map.of("vec", Map.of("type", "knn_vector", "dimension", 3)))))
@@ -264,10 +272,12 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         KNNSourceExcludesProcessor processor = createProcessor();
         SearchRequest result = processor.processRequest(requestWithNestedQuery("test-index", innerHit));
 
-        // Early return — top-level source unchanged
-        assertNull(result.source().fetchSource());
+        // Top-level gets the vector excluded
+        FetchSourceContext ctx = result.source().fetchSource();
+        assertNotNull(ctx);
+        assertTrue(Set.of(ctx.excludes()).contains("nested_obj.vec"));
 
-        // Inner hit source context unchanged — includes still has the vector field
+        // Inner hit still includes the vector field and gains no excludes for it
         FetchSourceContext innerCtx = innerHit.getFetchSourceContext();
         assertNotNull(innerCtx);
         assertTrue(innerCtx.fetchSource());
@@ -275,7 +285,9 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         assertEquals(0, innerCtx.excludes().length);
     }
 
-    public void testProcessRequest_innerHitFetchFieldsIncludesVectorField_skipsExcludes() {
+    public void testProcessRequest_innerHitFetchFieldsIncludesVectorField_appliesExcludesToSource() {
+        // Post-#22521: an inner hit requesting the vector via the fields API keeps that request; the
+        // field is reconstructed from the codec even though the inner hit's _source now excludes it.
         mockClusterStateWithMapping(
             "test-index",
             Map.of("properties", Map.of("nested_obj", Map.of("properties", Map.of("vec", Map.of("type", "knn_vector", "dimension", 3)))))
@@ -287,11 +299,19 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         KNNSourceExcludesProcessor processor = createProcessor();
         SearchRequest result = processor.processRequest(requestWithNestedQuery("test-index", innerHit));
 
-        // Early return — top-level source unchanged
-        assertNull(result.source().fetchSource());
+        // Top-level gets the vector excluded
+        FetchSourceContext ctx = result.source().fetchSource();
+        assertNotNull(ctx);
+        assertTrue(Set.of(ctx.excludes()).contains("nested_obj.vec"));
 
-        // Inner hit source context was null before and remains null — only fetchFields was set
-        assertNull(innerHit.getFetchSourceContext());
+        // Inner hit source now excludes the vector (fields API request is preserved separately)
+        FetchSourceContext innerCtx = innerHit.getFetchSourceContext();
+        assertNotNull(innerCtx);
+        assertTrue(Set.of(innerCtx.excludes()).contains("nested_obj.vec"));
+
+        // The fields API request on the inner hit is untouched
+        assertEquals(1, innerHit.getFetchFields().size());
+        assertEquals("nested_obj.vec", innerHit.getFetchFields().get(0).field);
     }
 
     public void testProcessRequest_innerHitFetchFieldsWithoutVectorField_appliesExcludes() {
@@ -386,17 +406,19 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         assertEquals(0, innerCtx.excludes().length);
     }
 
-    public void testProcessRequest_multipleInnerHits_firstSkipsTriggers_noExcludes() {
+    public void testProcessRequest_multipleInnerHits_eachHandledIndependently() {
+        // Post-#22521: there is no longer a global skip triggered by one inner hit requesting the vector.
+        // Each inner hit is handled independently and top-level excludes are always applied.
         mockClusterStateWithMapping(
             "test-index",
             Map.of("properties", Map.of("nested_obj", Map.of("properties", Map.of("vec", Map.of("type", "knn_vector", "dimension", 3)))))
         );
 
-        // First inner hit explicitly requests the vector — should cause entire processor to skip
+        // First inner hit includes the vector — keeps its includes, gains no excludes for it.
         InnerHitBuilder innerHit1 = new InnerHitBuilder();
         innerHit1.setFetchSourceContext(new FetchSourceContext(true, new String[] { "nested_obj.vec" }, new String[0]));
 
-        // Second inner hit has no constraints — would otherwise get excludes applied
+        // Second inner hit has no constraints — gets the vector excluded.
         InnerHitBuilder innerHit2 = new InnerHitBuilder();
 
         NestedQueryBuilder nestedQuery1 = new NestedQueryBuilder("nested_obj", new MatchAllQueryBuilder(), ScoreMode.None);
@@ -412,10 +434,21 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         KNNSourceExcludesProcessor processor = createProcessor();
         SearchRequest result = processor.processRequest(request);
 
-        // No excludes added at top level since first inner hit requests vector
-        assertNull(result.source().fetchSource());
-        // Second inner hit also unchanged — apply loop never ran
-        assertNull(innerHit2.getFetchSourceContext());
+        // Top-level excludes are applied.
+        FetchSourceContext ctx = result.source().fetchSource();
+        assertNotNull(ctx);
+        assertTrue(Set.of(ctx.excludes()).contains("nested_obj.vec"));
+
+        // First inner hit keeps its includes and gets no exclude for the included field.
+        FetchSourceContext inner1 = innerHit1.getFetchSourceContext();
+        assertNotNull(inner1);
+        assertArrayEquals(new String[] { "nested_obj.vec" }, inner1.includes());
+        assertEquals(0, inner1.excludes().length);
+
+        // Second inner hit gets the vector excluded.
+        FetchSourceContext inner2 = innerHit2.getFetchSourceContext();
+        assertNotNull(inner2);
+        assertTrue(Set.of(inner2.excludes()).contains("nested_obj.vec"));
     }
 
     public void testProcessRequest_multiIndexOneSourceDisabled_onlyEnabledIndexVectorsExcluded() {
@@ -598,13 +631,43 @@ public class KNNSourceExcludesProcessorTests extends KNNTestCase {
         assertFalse(factory.shouldGenerate(context));
     }
 
-    public void testFactory_shouldGenerate_withParentTask_returnsFalse() {
+    public void testFactory_shouldGenerate_nullParentAction_returnsTrue() {
+        // A null parent action denotes a top-level user search with no parent task.
         KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
         SearchRequest request = new SearchRequest("test-index");
         request.source(new SearchSourceBuilder());
-        request.setParentTask(new TaskId("node1", 1));
 
         ProcessorGenerationContext context = new ProcessorGenerationContext(request, null);
+        assertTrue(factory.shouldGenerate(context));
+    }
+
+    public void testFactory_shouldGenerate_searchParentAction_returnsTrue() {
+        // indices:data/read/search — leaf search executed on a remote cluster during cross-cluster search.
+        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
+        SearchRequest request = new SearchRequest("test-index");
+        request.source(new SearchSourceBuilder());
+
+        ProcessorGenerationContext context = new ProcessorGenerationContext(request, SearchAction.NAME);
+        assertTrue(factory.shouldGenerate(context));
+    }
+
+    public void testFactory_shouldGenerate_msearchParentAction_returnsTrue() {
+        // indices:data/read/msearch — child search fanned out from a multi-search request.
+        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
+        SearchRequest request = new SearchRequest("test-index");
+        request.source(new SearchSourceBuilder());
+
+        ProcessorGenerationContext context = new ProcessorGenerationContext(request, MultiSearchAction.NAME);
+        assertTrue(factory.shouldGenerate(context));
+    }
+
+    public void testFactory_shouldGenerate_disallowedParentAction_returnsFalse() {
+        // Any parent action outside the allowlist must be skipped, even if the request is otherwise valid.
+        KNNSourceExcludesProcessor.Factory factory = new KNNSourceExcludesProcessor.Factory(clusterService, indexNameExpressionResolver);
+        SearchRequest request = new SearchRequest("test-index");
+        request.source(new SearchSourceBuilder());
+
+        ProcessorGenerationContext context = new ProcessorGenerationContext(request, "indices:data/read/some_other_action");
         assertFalse(factory.shouldGenerate(context));
     }
 
