@@ -18,6 +18,7 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.buildDocValuesFieldType;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForByteVector;
@@ -25,7 +26,8 @@ import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createSto
 
 /**
  * Lucene engine implementation of {@link EngineFieldStrategy}.
- * Handles field type construction and vector field creation for the Lucene KNN engine.
+ * Handles field type construction and custom vector field creation (doc-values based)
+ * for the Lucene KNN engine.
  */
 public final class LuceneFieldStrategy implements EngineFieldStrategy {
 
@@ -57,7 +59,7 @@ public final class LuceneFieldStrategy implements EngineFieldStrategy {
     }
 
     @Override
-    public List<Field> createFloatFields(
+    public Optional<List<Field>> getFloatFieldOverrides(
         String name,
         float[] array,
         FieldType fieldType,
@@ -74,11 +76,11 @@ public final class LuceneFieldStrategy implements EngineFieldStrategy {
         if (stored) {
             fields.add(createStoredFieldForFloatVector(name, array));
         }
-        return fields;
+        return Optional.of(fields);
     }
 
     @Override
-    public List<Field> createByteFields(
+    public Optional<List<Field>> getByteFieldOverrides(
         String name,
         byte[] array,
         FieldType fieldType,
@@ -95,6 +97,6 @@ public final class LuceneFieldStrategy implements EngineFieldStrategy {
         if (stored) {
             fields.add(createStoredFieldForByteVector(name, array));
         }
-        return fields;
+        return Optional.of(fields);
     }
 }
