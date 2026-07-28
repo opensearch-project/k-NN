@@ -480,10 +480,11 @@ public class JNIService {
         final Map<String, Object> indexParameters,
         final float centroidDp,
         final int quantizedVecBytes,
+        final int docBits,
         final KNNEngine knnEngine
     ) {
         if (KNNEngine.FAISS == knnEngine) {
-            return FaissService.initFaissSQIndex(totalLiveDocs, dimension, indexParameters, centroidDp, quantizedVecBytes);
+            return FaissService.initFaissSQIndex(totalLiveDocs, dimension, indexParameters, centroidDp, quantizedVecBytes, docBits);
         }
 
         throw new IllegalArgumentException(
