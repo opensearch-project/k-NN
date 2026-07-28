@@ -245,7 +245,7 @@ public abstract class KNNWeight extends Weight {
             isShardLevelRescoringDisabled = true;
         }
         int dimension = knnQuery.getQueryVector().length;
-        int firstPassK = knnQuery.getRescoreContext().getFirstPassK(knnQuery.getK(), isShardLevelRescoringDisabled, dimension);
+        int firstPassK = knnQuery.getRescoreContext().getFirstPassK(knnQuery.getK(), dimension);
         sb.append(" and the first pass k was ")
             .append(firstPassK)
             .append(" with vector dimension of ")

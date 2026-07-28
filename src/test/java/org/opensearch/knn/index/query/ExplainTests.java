@@ -212,7 +212,7 @@ public class ExplainTests extends KNNWeightTestCase {
             Explanation explanation = knnWeight.explain(leafReaderContext, docId, score);
             String[] expectedTopDescription = new String[] {
                 KNNConstants.DISK_BASED_SEARCH,
-                "the first pass k was " + rescoreContext.getFirstPassK(k, false, QUERY_VECTOR.length),
+                "the first pass k was " + rescoreContext.getFirstPassK(k, QUERY_VECTOR.length),
                 "over sampling factor of " + rescoreContext.getOversampleFactor(),
                 "with vector dimension of " + QUERY_VECTOR.length,
                 "shard level rescoring enabled" };
@@ -283,7 +283,7 @@ public class ExplainTests extends KNNWeightTestCase {
             Explanation explanation = knnWeight.explain(leafReaderContext, docId, score);
             String[] expectedTopDescription = new String[] {
                 KNNConstants.DISK_BASED_SEARCH,
-                "the first pass k was " + rescoreContext.getFirstPassK(0, true, queryVector.length),
+                "the first pass k was " + rescoreContext.getFirstPassK(0, queryVector.length),
                 "over sampling factor of " + rescoreContext.getOversampleFactor(),
                 "with vector dimension of " + queryVector.length,
                 "shard level rescoring disabled" };

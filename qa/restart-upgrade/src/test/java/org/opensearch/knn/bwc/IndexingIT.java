@@ -1275,10 +1275,83 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
     }
 
     /**
-     * Test segment with knn_vector field mapping but no docs containing the vector field.
-     * Creates a doc with both vector and text fields, then updates it to remove the vector field.
-     * Validates k-NN search functionality works without errors after upgrade with ON_DISK mode and compression.
+     * Test BWC for 32x compression (BQ) with dimension-based oversampling after upgrade.
+     * Indices created before 3.6.0 use BQ (binary quantization) for 32x compression.
+     * After upgrade, the dimension-based oversampling logic in getFirstPassK should apply
+     * regardless of the shard-level rescoring setting.
      */
+    public void testCompression32xDimensionBasedOversamplingRestartUpgrade() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+
+        if (isModeAndCompressionSupported(getBWCVersion()) == false) {
+            return;
+        }
+
+        int dimension = 128;
+        int k = 10;
+
+        if (isRunningAgainstOldCluster()) {
+            String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject(PROPERTIES)
+                .startObject(TEST_FIELD)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, dimension)
+                .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x32.getName())
+                .field(MODE_PARAMETER, Mode.ON_DISK.getName())
+                .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+                .startObject(KNN_METHOD)
+                .field(KNN_ENGINE, FAISS_NAME)
+                .field(NAME, METHOD_HNSW)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
+            bulkIngestRandomVectors(testIndex, TEST_FIELD, 500, dimension);
+            flush(testIndex, true);
+        } else {
+            float[] queryVector = new float[dimension];
+            java.util.Arrays.fill(queryVector, 1.0f);
+
+            // Search with explain to verify dimension-based oversampling applies
+            String query = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("query")
+                .startObject("knn")
+                .startObject(TEST_FIELD)
+                .field("vector", queryVector)
+                .field("k", k)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
+
+            Response response = performSearch(testIndex, query, "explain=true");
+            String responseBody = EntityUtils.toString(response.getEntity());
+
+            // For dim=128 (< 768), dimension-based oversampling should use 3x factor
+            // firstPassK = max(MIN_FIRST_PASS_RESULTS, ceil(k * 3.0)) = max(100, 30) = 100
+            assertTrue(
+                "Expected dimension-based oversampling to apply for 32x BQ index after upgrade",
+                responseBody.contains("the first pass k was 100")
+            );
+
+            // Verify same behavior with shard-level rescoring disabled
+            updateIndexSettings(testIndex, Settings.builder().put(KNNSettings.KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED, true));
+            response = performSearch(testIndex, query, "explain=true");
+            responseBody = EntityUtils.toString(response.getEntity());
+            assertTrue(
+                "Expected dimension-based oversampling to apply with shard-level rescoring disabled",
+                responseBody.contains("the first pass k was 100")
+            );
+
+            deleteKNNIndex(testIndex);
+        }
+    }
+
     public void testVectorFieldRemovalByUpdateCompressionRestartUpgrade() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
         if (isRunningAgainstOldCluster()) {
