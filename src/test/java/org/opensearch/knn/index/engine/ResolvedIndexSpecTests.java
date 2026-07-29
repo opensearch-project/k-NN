@@ -435,6 +435,72 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
         assertTrue(spec.supportsRemoteIndexBuild());
     }
 
+    public void testSupportsRemoteIndexBuild_FaissSQ2BitSupported() {
+        ResolvedIndexSpec spec = baseFaissSQMultiBit(Encoder.QuantizationBits.TWO, CompressionLevel.x16).build();
+        assertTrue(spec.supportsRemoteIndexBuild());
+    }
+
+    public void testSupportsRemoteIndexBuild_FaissSQ4BitSupported() {
+        ResolvedIndexSpec spec = baseFaissSQMultiBit(Encoder.QuantizationBits.FOUR, CompressionLevel.x8).build();
+        assertTrue(spec.supportsRemoteIndexBuild());
+    }
+
+    // --- Coverage: isSQMultiBit (bits ∈ {1, 2, 4}) ---
+
+    public void testIsSQMultiBit_true_forBits1() {
+        assertTrue(baseFaissSQ1Bit().build().isSQMultiBit());
+    }
+
+    public void testIsSQMultiBit_true_forBits2() {
+        assertTrue(baseFaissSQMultiBit(Encoder.QuantizationBits.TWO, CompressionLevel.x16).build().isSQMultiBit());
+    }
+
+    public void testIsSQMultiBit_true_forBits4() {
+        assertTrue(baseFaissSQMultiBit(Encoder.QuantizationBits.FOUR, CompressionLevel.x8).build().isSQMultiBit());
+    }
+
+    public void testIsSQMultiBit_false_forBits16() {
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.SIXTEEN)
+            .compressionLevel(CompressionLevel.x2)
+            .build();
+        assertFalse(spec.isSQMultiBit());
+    }
+
+    public void testIsSQMultiBit_false_forFlatEncoder() {
+        // FLAT encoder + bits=TWO (nonsense combination) still returns false — gate requires SQ encoder.
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.FLAT).quantizationBits(Encoder.QuantizationBits.TWO).build();
+        assertFalse(spec.isSQMultiBit());
+    }
+
+    // --- Coverage: isFaissSQMultiBit (Faiss engine + SQ multi-bit) ---
+
+    public void testIsFaissSQMultiBit_FaissSQ2Bit_true() {
+        assertTrue(baseFaissSQMultiBit(Encoder.QuantizationBits.TWO, CompressionLevel.x16).build().isFaissSQMultiBit());
+    }
+
+    public void testIsFaissSQMultiBit_LuceneSQ2Bit_false() {
+        // Same SQ config on Lucene engine — gate is Faiss-only, mirrors isFaissSQOneBit.
+        ResolvedIndexSpec spec = baseFaissSQMultiBit(Encoder.QuantizationBits.TWO, CompressionLevel.x16).engine(KNNEngine.LUCENE).build();
+        assertFalse(spec.isFaissSQMultiBit());
+    }
+
+    // --- Coverage: alwaysUseMemoryOptimizedSearch broadened to bits ∈ {1, 2, 4} ---
+
+    public void testAlwaysUseMemoryOptimizedSearch_forBits2() {
+        assertTrue(baseFaissSQMultiBit(Encoder.QuantizationBits.TWO, CompressionLevel.x16).build().alwaysUseMemoryOptimizedSearch());
+    }
+
+    public void testAlwaysUseMemoryOptimizedSearch_forBits4() {
+        assertTrue(baseFaissSQMultiBit(Encoder.QuantizationBits.FOUR, CompressionLevel.x8).build().alwaysUseMemoryOptimizedSearch());
+    }
+
+    public void testAlwaysUseMemoryOptimizedSearch_forBits2_IVFExcluded() {
+        // Same IVF exclusion applies to bits=2 as to bits=1 — multi-bit + IVF is not a supported combination.
+        ResolvedIndexSpec spec = baseFaissSQMultiBit(Encoder.QuantizationBits.TWO, CompressionLevel.x16).methodName(METHOD_IVF).build();
+        assertFalse(spec.alwaysUseMemoryOptimizedSearch());
+    }
+
     private ResolvedIndexSpec.ResolvedIndexSpecBuilder baseFaiss() {
         return ResolvedIndexSpec.builder()
             .engine(KNNEngine.FAISS)
@@ -449,5 +515,12 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
         return baseFaiss().encoderType(Encoder.EncoderType.SQ)
             .quantizationBits(Encoder.QuantizationBits.ONE)
             .compressionLevel(CompressionLevel.x32);
+    }
+
+    private ResolvedIndexSpec.ResolvedIndexSpecBuilder baseFaissSQMultiBit(
+        final Encoder.QuantizationBits bits,
+        final CompressionLevel compressionLevel
+    ) {
+        return baseFaiss().encoderType(Encoder.EncoderType.SQ).quantizationBits(bits).compressionLevel(compressionLevel);
     }
 }

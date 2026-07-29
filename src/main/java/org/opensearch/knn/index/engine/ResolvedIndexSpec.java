@@ -284,7 +284,7 @@ public final class ResolvedIndexSpec {
             return false;
         }
 
-        if (isSQOneBit() || isFP16QuantizedIndex()) {
+        if (isSQMultiBit() || isFP16QuantizedIndex()) {
             return true;
         }
 
@@ -292,15 +292,6 @@ public final class ResolvedIndexSpec {
             return vectorDataType == VectorDataType.FLOAT
                 || vectorDataType == VectorDataType.BINARY
                 || vectorDataType == VectorDataType.BYTE;
-        }
-
-        if (vectorDataType == VectorDataType.FLOAT
-            && encoderType == Encoder.EncoderType.SQ
-            && quantizationBits != null
-            && quantizationBits != Encoder.QuantizationBits.ONE
-            && quantizationBits != Encoder.QuantizationBits.SIXTEEN
-            && quantizationBits != Encoder.QuantizationBits.FULL_PRECISION) {
-            return true;
         }
 
         return false;
