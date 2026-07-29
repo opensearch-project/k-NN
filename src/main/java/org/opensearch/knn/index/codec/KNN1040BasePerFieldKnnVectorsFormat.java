@@ -97,7 +97,6 @@ public abstract class KNN1040BasePerFieldKnnVectorsFormat extends PerFieldKnnVec
             return luceneFormatResolver.resolve(field, knnMethodContext, params, defaultMaxConnections, defaultBeamWidth, resolvedSpec);
         }
 
-        // Native engines — pass params so the resolver can detect SQ encoder when the spec is null
         return nativeFormatResolver.resolve(field, knnMethodContext, params, defaultMaxConnections, defaultBeamWidth, resolvedSpec);
     }
 

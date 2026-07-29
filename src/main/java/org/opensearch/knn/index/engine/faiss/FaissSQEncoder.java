@@ -226,30 +226,6 @@ public class FaissSQEncoder implements Encoder {
         }
     }
 
-    /**
-     * Checks whether the given method parameters map contains an sq encoder with bits=1.
-     * Works with both the method component parameters (from KNNMethodContext) and the
-     * per-field params map (from codec format resolver).
-     *
-     * @param params map that may contain a {@code METHOD_ENCODER_PARAMETER} entry
-     * @return true if the encoder is sq with bits=1
-     */
-    public static boolean isSQOneBit(Map<String, Object> params) {
-        if (params == null) {
-            return false;
-        }
-        Object encoderObj = params.get(METHOD_ENCODER_PARAMETER);
-        if (encoderObj instanceof MethodComponentContext == false) {
-            return false;
-        }
-        MethodComponentContext encoderCtx = (MethodComponentContext) encoderObj;
-        if (ENCODER_SQ.equals(encoderCtx.getName()) == false) {
-            return false;
-        }
-        Object bits = encoderCtx.getParameters().get(SQ_BITS);
-        return bits instanceof Integer && (Integer) bits == QuantizationBits.ONE.getValue();
-    }
-
     @Override
     public EncoderType getEncoderType() {
         return EncoderType.SQ;
