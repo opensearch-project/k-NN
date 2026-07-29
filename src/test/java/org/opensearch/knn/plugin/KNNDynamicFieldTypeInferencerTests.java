@@ -75,4 +75,63 @@ public class KNNDynamicFieldTypeInferencerTests extends KNNTestCase {
     public void testNonArrayNotClaimed() throws IOException {
         assertNull(inferencer.inferFieldType(supplierOver("\"not-an-array\"")));
     }
+
+    /**
+     * Loop test: sweep a wide range of dimensions and assert the gate exactly — claimed iff the length
+     * is >= MIN_VECTOR_DIMENSION AND a multiple of 8. Covers the boundary (127/128), the multiple-of-8
+     * boundary, and large real embedding sizes.
+     */
+    public void testDimensionSweepMatchesGateExactly() throws IOException {
+        int min = KNNDynamicFieldTypeInferencer.MIN_VECTOR_DIMENSION; // 128
+        for (int dim = 1; dim <= 1024; dim++) {
+            Map<String, Object> config = inferencer.inferFieldType(numericArray(dim));
+            boolean expectedClaim = dim >= min && dim % 8 == 0;
+            if (expectedClaim) {
+                assertNotNull("dim " + dim + " (>=128 and multiple of 8) must be claimed", config);
+                assertEquals("type for dim " + dim, KNNVectorFieldMapper.CONTENT_TYPE, config.get("type"));
+                assertEquals("dimension for dim " + dim, dim, config.get("dimension"));
+            } else {
+                assertNull("dim " + dim + " must NOT be claimed (below 128 or not a multiple of 8)", config);
+            }
+        }
+    }
+
+    /** Loop test over the exact multiples of 8 at/above threshold that real models use. */
+    public void testCommonEmbeddingDimensionsClaimed() throws IOException {
+        for (int dim : new int[] { 128, 256, 384, 512, 768, 1024 }) {
+            Map<String, Object> config = inferencer.inferFieldType(numericArray(dim));
+            assertNotNull("common embedding dim " + dim + " must be claimed", config);
+            assertEquals(dim, config.get("dimension"));
+        }
+    }
+
+    /** Loop test: near-threshold non-multiples-of-8 just above 128 are all declined. */
+    public void testNearThresholdNonMultiplesDeclined() throws IOException {
+        for (int dim : new int[] { 129, 130, 131, 132, 133, 134, 135 }) {
+            assertNull("dim " + dim + " (>=128 but not a multiple of 8) must be declined", inferencer.inferFieldType(numericArray(dim)));
+        }
+    }
+
+    /** Integer-valued arrays are still numeric (VALUE_NUMBER), so they are claimed like float arrays. */
+    public void testIntegerArrayClaimed() throws IOException {
+        String json = "[" + IntStream.range(0, 128).mapToObj(i -> "1").collect(Collectors.joining(",")) + "]";
+        Map<String, Object> config = inferencer.inferFieldType(supplierOver(json));
+        assertNotNull("integer-valued array must be claimed (integers are VALUE_NUMBER)", config);
+        assertEquals(128, config.get("dimension"));
+    }
+
+    /** Empty array is not claimed (length 0 < threshold). */
+    public void testEmptyArrayNotClaimed() throws IOException {
+        assertNull(inferencer.inferFieldType(supplierOver("[]")));
+    }
+
+    /** Nested array element disqualifies (START_ARRAY is not VALUE_NUMBER). */
+    public void testNestedArrayNotClaimed() throws IOException {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < 127; i++) {
+            sb.append("0.1,");
+        }
+        sb.append("[1,2]]"); // 128th element is a nested array
+        assertNull(inferencer.inferFieldType(supplierOver(sb.toString())));
+    }
 }
