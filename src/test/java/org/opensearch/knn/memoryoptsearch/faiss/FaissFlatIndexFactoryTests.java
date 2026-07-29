@@ -34,6 +34,39 @@ public class FaissFlatIndexFactoryTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    public void testCreate_whenSQTwoBitField_thenReturnsFaissScalarQuantizedFlatIndex() {
+        FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test_field").addAttribute(SQ_CONFIG, "bits=2").build();
+        FlatVectorsReader mockReader = mock(FlatVectorsReader.class);
+
+        FaissBinaryIndex result = FaissFlatIndexFactory.createBinaryIndex(fieldInfo, mockReader);
+
+        assertNotNull(result);
+        assertTrue(result instanceof FaissScalarQuantizedFlatIndex);
+    }
+
+    @SneakyThrows
+    public void testCreate_whenSQFourBitField_thenReturnsFaissScalarQuantizedFlatIndex() {
+        FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test_field").addAttribute(SQ_CONFIG, "bits=4").build();
+        FlatVectorsReader mockReader = mock(FlatVectorsReader.class);
+
+        FaissBinaryIndex result = FaissFlatIndexFactory.createBinaryIndex(fieldInfo, mockReader);
+
+        assertNotNull(result);
+        assertTrue(result instanceof FaissScalarQuantizedFlatIndex);
+    }
+
+    @SneakyThrows
+    public void testCreate_whenSQFP16Field_thenReturnsNull() {
+        // bits=16 is fp16 (not an MOS width); the flat proxy should not be wired.
+        FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test_field").addAttribute(SQ_CONFIG, "bits=16").build();
+        FlatVectorsReader mockReader = mock(FlatVectorsReader.class);
+
+        FaissBinaryIndex result = FaissFlatIndexFactory.createBinaryIndex(fieldInfo, mockReader);
+
+        assertNull(result);
+    }
+
+    @SneakyThrows
     public void testCreate_whenNonSQField_thenReturnsNull() {
         FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test_field").build();
         FlatVectorsReader mockReader = mock(FlatVectorsReader.class);
