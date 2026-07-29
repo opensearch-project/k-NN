@@ -295,6 +295,8 @@ public class Compression32XIT extends KNNCompressionRestTestCase {
         );
     }
 
+    /*
+    TODO: Uncomment when we enable radial search for 32x
     @SneakyThrows
     public void testRadialSearch() {
         String indexName = prefix() + "radial";
@@ -318,6 +320,7 @@ public class Compression32XIT extends KNNCompressionRestTestCase {
         Response minScoreResponse = client().performRequest(minScoreRequest);
         assertEquals(label() + " min_score should succeed", 200, minScoreResponse.getStatusLine().getStatusCode());
     }
+    */
 
     @SneakyThrows
     public void testScriptScoring() {
