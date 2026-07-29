@@ -46,7 +46,7 @@ public class FaissSQRadialSearchBlockedIT extends KNNRestTestCase {
 
         // Exception should be thrown, radial search is blocked on Faiss SQ
         final ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-        assertTrue(ex.getMessage().contains("Radial search is not supported for indices which have quantization enabled"));
+        assertTrue(ex.getMessage().contains("Radial search is not supported for quantized indices"));
 
         // Delete index
         deleteKNNIndex(INDEX_NAME);
@@ -69,7 +69,7 @@ public class FaissSQRadialSearchBlockedIT extends KNNRestTestCase {
 
         // Exception should be thrown, radial search is blocked on Faiss SQ
         final ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-        assertTrue(ex.getMessage().contains("Radial search is not supported for indices which have quantization enabled"));
+        assertTrue(ex.getMessage().contains("Radial search is not supported for quantized indices"));
 
         // Delete index
         deleteKNNIndex(INDEX_NAME);

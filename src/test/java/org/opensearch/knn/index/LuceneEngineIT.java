@@ -734,6 +734,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         validateQueryResultsWithFilters(searchVector, 5, 1, expectedDocIdsKGreaterThanFilterResult, expectedDocIdsKLimitsFilterResult);
     }
 
+    // Remove or invert this test when radial search is re-enabled for quantized indices (#3452)
     @SneakyThrows
     public void testRadialSearch_withMaxDistance_onLuceneSQ1bit_thenBlocked() {
         createKnnIndexMappingWithLuceneEngineWithModeAndCompression(CompressionLevel.x32, DIMENSION, Mode.NOT_CONFIGURED);
@@ -755,9 +756,10 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         request.setJsonEntity(query.toString());
 
         ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-        assertTrue(ex.getMessage().contains("Radial search is not supported for indices which have quantization enabled"));
+        assertTrue(ex.getMessage().contains("Radial search is not supported for quantized indices"));
     }
 
+    // Remove or invert this test when radial search is re-enabled for quantized indices (#3452)
     @SneakyThrows
     public void testRadialSearch_withMinScore_onLuceneSQ1bit_thenBlocked() {
         createKnnIndexMappingWithLuceneEngineWithModeAndCompression(CompressionLevel.x32, DIMENSION, Mode.NOT_CONFIGURED);
@@ -779,7 +781,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         request.setJsonEntity(query.toString());
 
         ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-        assertTrue(ex.getMessage().contains("Radial search is not supported for indices which have quantization enabled"));
+        assertTrue(ex.getMessage().contains("Radial search is not supported for quantized indices"));
     }
 
     private void createKnnIndexMappingWithLuceneEngineAndSQEncoder(
@@ -970,11 +972,8 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
             .startObject(FIELD_NAME)
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
             .field(DIMENSION_FIELD_NAME, dimension)
-            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType);
-        if (vectorDataType == VectorDataType.FLOAT) {
-            addCompressionMappingFields(builder);
-        }
-        builder.startObject(KNNConstants.KNN_METHOD)
+            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType)
+            .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
@@ -1012,8 +1011,11 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
             .startObject(FIELD_NAME)
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
             .field(DIMENSION_FIELD_NAME, dimension)
-            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType)
-            .startObject(KNNConstants.KNN_METHOD)
+            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType);
+        if (vectorDataType == VectorDataType.FLOAT) {
+            addCompressionMappingFields(builder);
+        }
+        builder.startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
