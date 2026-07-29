@@ -196,10 +196,12 @@ public abstract class KNNCompressionRestTestCase extends KNNRestTestCase {
 
     /**
      * Returns whether radial search is supported for current compression configuration.
-     * Both FP32 and quantized support radial search.
+     * Radial search is blocked on quantized indices due to poor recall from quantization error,
+     * so only non-compressed configurations support it.
+     * See https://github.com/opensearch-project/k-NN/issues/3452.
      */
     protected boolean isRadialSearchSupported() {
-        return true;
+        return compressionConfig.isCompressed() == false;
     }
 
     /**
