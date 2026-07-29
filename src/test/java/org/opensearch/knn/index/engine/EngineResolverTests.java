@@ -300,6 +300,70 @@ public class EngineResolverTests extends KNNTestCase {
         );
     }
 
+    public void testResolveEngine_whenFlatMethodWithExplicitLuceneEngine_thenThrow() {
+        // Flat is engine-agnostic — passing engine=lucene explicitly is rejected too.
+        KNNMethodContext flatMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_FLAT, Map.of()),
+            true
+        );
+        MapperParsingException ex = expectThrows(
+            MapperParsingException.class,
+            () -> ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), flatMethodContext, null, false)
+        );
+        assertTrue(ex.getMessage().contains(METHOD_FLAT));
+        assertTrue(ex.getMessage().toLowerCase(java.util.Locale.ROOT).contains("engine"));
+    }
+
+    public void testResolveEngine_whenFlatMethodWithNonLuceneMethodEngine_thenThrow() {
+        // Flat method + engine=faiss → mapping-time error.
+        KNNMethodContext flatMethodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_FLAT, Map.of()),
+            true
+        );
+        MapperParsingException ex = expectThrows(
+            MapperParsingException.class,
+            () -> ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), flatMethodContext, null, false)
+        );
+        assertTrue(ex.getMessage().contains(METHOD_FLAT));
+        assertTrue(ex.getMessage().toLowerCase(java.util.Locale.ROOT).contains("engine"));
+    }
+
+    public void testResolveEngine_whenFlatMethodWithTopLevelEngine_thenThrow() {
+        // Flat method + any top-level engine (Lucene or not) → mapping-time error.
+        KNNMethodContext flatMethodContext = new KNNMethodContext(
+            KNNEngine.UNDEFINED,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_FLAT, Map.of()),
+            false
+        );
+        for (KNNEngine topLevel : new KNNEngine[] { KNNEngine.LUCENE, KNNEngine.FAISS }) {
+            MapperParsingException ex = expectThrows(
+                MapperParsingException.class,
+                () -> ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), flatMethodContext, topLevel.getName(), false)
+            );
+            assertTrue("topLevel=" + topLevel, ex.getMessage().contains(METHOD_FLAT));
+            assertTrue("topLevel=" + topLevel, ex.getMessage().toLowerCase(java.util.Locale.ROOT).contains("engine"));
+        }
+    }
+
+    public void testResolveEngine_whenFlatMethodWithPreGateVersion_thenLucene() {
+        // Pre-gate flat mappings that had engine=lucene persisted must still resolve without throwing.
+        KNNMethodContext flatMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_FLAT, Map.of()),
+            true
+        );
+        assertEquals(
+            KNNEngine.LUCENE,
+            ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), flatMethodContext, null, false, Version.V_3_7_0)
+        );
+    }
+
     public void testResolveEngine_whenOnDiskWith32xCompression_thenFaiss() {
         assertEquals(
             KNNEngine.FAISS,

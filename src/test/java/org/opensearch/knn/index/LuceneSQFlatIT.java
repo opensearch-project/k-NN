@@ -116,22 +116,29 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testFlatMethod_withFaissEngine_thenFail() {
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject(PROPERTIES_FIELD)
-            .startObject(FIELD_NAME)
-            .field(TYPE_FIELD, KNN_VECTOR_TYPE)
-            .field(DIMENSION_FIELD, DIMENSION)
-            .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, METHOD_FLAT)
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
-        expectThrows(ResponseException.class, () -> createKnnIndex(INDEX_NAME, builder.toString()));
+    public void testFlatMethod_withExplicitEngine_thenFail() {
+        // Flat method is engine-agnostic — any user-supplied engine (even lucene) must be rejected.
+        for (KNNEngine engine : new KNNEngine[] { KNNEngine.LUCENE, KNNEngine.FAISS }) {
+            XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject(PROPERTIES_FIELD)
+                .startObject(FIELD_NAME)
+                .field(TYPE_FIELD, KNN_VECTOR_TYPE)
+                .field(DIMENSION_FIELD, DIMENSION)
+                .startObject(KNNConstants.KNN_METHOD)
+                .field(KNNConstants.NAME, METHOD_FLAT)
+                .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+                .field(KNNConstants.KNN_ENGINE, engine.getName())
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+            expectThrows(
+                ResponseException.class,
+                String.format(Locale.ROOT, "Expected failure for engine %s with flat method", engine.getName()),
+                () -> createKnnIndex(INDEX_NAME, builder.toString())
+            );
+        }
     }
 
     @SneakyThrows
@@ -145,7 +152,6 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_FLAT)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
             .startObject(KNNConstants.PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, 16)
             .endObject()
@@ -158,7 +164,7 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testFlatMethod_withUnsupportedCompression_thenFail() {
-        String[] unsupportedCompressions = { "1x", "2x", "4x", "8x", "16x", "64x" };
+        String[] unsupportedCompressions = { "1x", "2x", "4x", "64x" };
         for (String compression : unsupportedCompressions) {
             XContentBuilder builder = XContentFactory.jsonBuilder()
                 .startObject()
@@ -170,7 +176,6 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
                 .startObject(KNNConstants.KNN_METHOD)
                 .field(KNNConstants.NAME, METHOD_FLAT)
                 .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-                .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
                 .endObject()
                 .endObject()
                 .endObject()
@@ -197,7 +202,6 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
                 .startObject(KNNConstants.KNN_METHOD)
                 .field(KNNConstants.NAME, METHOD_FLAT)
                 .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-                .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
                 .endObject()
                 .endObject()
                 .endObject()
@@ -259,7 +263,6 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_FLAT)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .startObject(COLOR_FIELD_NAME)
@@ -319,7 +322,6 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_FLAT)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -367,7 +369,6 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_FLAT)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -394,7 +395,6 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_FLAT)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
             .endObject()
             .endObject()
             .endObject()

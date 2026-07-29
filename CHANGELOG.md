@@ -15,12 +15,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Build SQ B-bit HNSW graph with multi-bit symmetric distance for SQ bits ∈ {1, 2, 4} [#3431](https://github.com/opensearch-project/k-NN/pull/3431
 * Enable remote vector index build for multi-bit SQ - bits ∈ {2, 4} [#3459](https://github.com/opensearch-project/k-NN/pull/3459)
 * Set default oversample factor to 1 for SQ 2-bit and 4-bit encoders (x16 / x8 compression) [#3463](https://github.com/opensearch-project/k-NN/pull/3463)
+* Support flat with x8 and x16 compression and make `method=flat` engine-agnostic [#3471](https://github.com/opensearch-project/k-NN/pull/3471)
 
 ### Maintenance
 * Upgrade Lucene to 10.5.0 [#3411](https://github.com/opensearch-project/k-NN/pull/3411)
 
 ### Bug Fixes
-* 
 * Fix NPE in nested kNN search when index contains documents without nested object [#3368](https://github.com/opensearch-project/k-NN/pull/3368)
 * Turn off ACORN for MOS to match default Lucene HNSW behavior [#3346](https://github.com/opensearch-project/k-NN/pull/3346)
 * Preserve mixed-case derived source vector field names and add backward-compatible field resolution for previously lowercased segment metadata [#3313](https://github.com/opensearch-project/k-NN/pull/3313)

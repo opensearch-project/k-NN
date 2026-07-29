@@ -27,6 +27,7 @@ import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
@@ -227,7 +228,11 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        builder.field(KNN_ENGINE, knnEngine.getName());
+        // Flat is engine-agnostic; do not serialize a resolved engine — the round-trip parse
+        // would otherwise be flagged as a user-supplied engine and rejected.
+        if (METHOD_FLAT.equalsIgnoreCase(methodComponentContext.getName()) == false) {
+            builder.field(KNN_ENGINE, knnEngine.getName());
+        }
         builder.field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue());
         builder = methodComponentContext.toXContent(builder, params);
         return builder;
