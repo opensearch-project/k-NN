@@ -31,9 +31,9 @@ import java.util.List;
  * Validates the distanceToRadialThreshold and scoreToRadialThreshold transformations,
  * specifically the fix for Faiss IP max_distance (DISTANCE_TRANSLATIONS: distance -> -1 * distance).
  *
- * FP32 asserts exact result counts. Under 1-bit quantization at dimension 2 the per-threshold
- * counts are not reliably exact, so the 32x runs assert the radial query succeeds with valid,
- * descending scores and a sane result count (the proven Compression32XIT radial pattern).
+ * FP32 asserts exact result counts. The 32x runs are skipped because radial search is blocked
+ * on quantized indices (https://github.com/opensearch-project/k-NN/issues/3452); the quantized
+ * assertion branch is retained for when it is re-enabled.
  */
 public class RadialSearchIT extends KNNCompressionRestTestCase {
 
@@ -457,6 +457,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
     }
 
     public void testRadialSearch_thenCorrectResults() throws Exception {
+        assumeTrue("Radial search is not supported on quantized indices", isRadialSearchSupported());
         String indexName = prefix() + testName.toLowerCase().replace(" ", "_");
 
         XContentBuilder mapping = XContentFactory.jsonBuilder()

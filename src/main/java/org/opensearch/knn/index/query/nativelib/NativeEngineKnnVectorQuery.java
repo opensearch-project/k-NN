@@ -205,7 +205,7 @@ public class NativeEngineKnnVectorQuery extends Query {
         if (rescoreContext != null && rescoreContext.isRescoreEnabled()) {
             // We need 2-phase search where using expanded `k` for the first stage search.
             final int dimension = knnQuery.getQueryVector().length;
-            return rescoreContext.getFirstPassK(knnQuery.getK(), isShardLevelRescoringDisabled, dimension);
+            return rescoreContext.getFirstPassK(knnQuery.getK(), dimension);
         }
 
         // We don't need 2-phase, hence there's no first pass k.

@@ -42,6 +42,9 @@ import static org.opensearch.knn.common.KNNConstants.MAX_RESULTS_RADIAL_RESCORIN
 // Tests for RescoreRadialSearchQuery — the pass-through skeleton.
 // At this stage the wrapper delegates entirely to the inner query without rescoring.
 // These tests verify the wrapper structure and delegation, not rescoring correctness.
+// The quantized radial feature is disabled (#3452), so no production query path constructs this
+// query today; these unit tests keep the retained implementation from silently rotting until
+// the feature is re-enabled.
 public class RescoreRadialSearchQueryTests extends KNNTestCase {
     private static final String FIELD_NAME = "test-field";
     private static final float[] QUERY_VECTOR = { 1.0f, 2.0f, 3.0f };
@@ -56,8 +59,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
 
     // Note: the full rescoring flow (inner scorer → collectTopDocs → ExactSearcher → KNNScorer)
     // requires a real SegmentReader and cannot be unit-tested with mocks alone.
-    // The rescoring correctness is validated by integration tests in FaissSQRadialSearchIT
-    // and LuceneSQRadialSearchIT.
+    // The rescoring-correctness integration tests (FaissSQRadialSearchIT, LuceneSQRadialSearchIT)
+    // are @AwaitsFix'd while quantized radial search is disabled (#3452).
 
     // Given: ExactSearcher singleton is not initialized (null)
     // When: RescoreRadialSearchQuery is constructed

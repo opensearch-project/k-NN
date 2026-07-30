@@ -317,6 +317,9 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
         assertTrue(e.getMessage().contains("compression level=x8"));
     }
 
+    // Quantized radial search (including flat-method 32x SQ) is now blocked unconditionally.
+    // See CHANGELOG / disable-quantized-radial work.
+    @AwaitsFix(bugUrl = "https://github.com/opensearch-project/k-NN/issues/3452")
     public void testValidateRadialSearch_whenFlatMethod32x_thenPasses() {
         // Given: a flat method field type with 32x compression
         KNNMethodContext methodContext = new KNNMethodContext(
@@ -396,13 +399,13 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
         };
         KNNVectorFieldType fieldType = new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.FLOAT, config);
 
-        // When/Then: throws — x32 with HNSW and non-SQ encoder is not allowed
+        // When/Then: throws — radial search is blocked on quantized (x32) indices
         UnsupportedOperationException e = expectThrows(
             UnsupportedOperationException.class,
             () -> fieldType.validateSupportRadialSearch(KNNEngine.FAISS)
         );
-        assertTrue(e.getMessage().contains("1-bit SQ"));
-        assertTrue(e.getMessage().contains("x32"));
+        assertTrue(e.getMessage().contains("Radial search is not supported for quantized indices"));
+        assertTrue(e.getMessage().contains("compression level=x32"));
     }
 
     public void testValidateRadialSearch_whenFp16Compression_thenPasses() {
@@ -445,6 +448,9 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
 
     // --- isRescoringRequiredForRadial tests ---
 
+    // SQ 1-bit rescoring is no longer required since radial search is blocked for all quantized
+    // indices. See CHANGELOG / disable-quantized-radial work.
+    @AwaitsFix(bugUrl = "https://github.com/opensearch-project/k-NN/issues/3452")
     public void testIsRescoringRequired_whenSQOneBit_thenTrue() {
         // Given: a field type with SQ 1-bit encoder
         KNNVectorFieldType fieldType = buildSQOneBitFieldType();

@@ -298,6 +298,7 @@ public class NestedSearchIT extends KNNCompressionRestTestCase {
     @SneakyThrows
     @ExpectRemoteBuildValidation
     public void testNestedWithFaiss_whenFilter_whenDoRadialSearch_thenReturnCorrectResults() {
+        assumeTrue("Radial search is not supported on quantized indices", isRadialSearchSupported());
         createKnnIndex(3, KNNEngine.FAISS.getName());
 
         for (int i = 1; i < 4; i++) {

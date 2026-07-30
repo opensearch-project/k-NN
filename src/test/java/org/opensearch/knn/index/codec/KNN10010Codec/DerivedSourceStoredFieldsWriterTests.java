@@ -6,10 +6,14 @@
 package org.opensearch.knn.index.codec.KNN10010Codec;
 
 import lombok.SneakyThrows;
+import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.StoredFieldsWriter;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.InfoStream;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -29,7 +33,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -66,6 +72,38 @@ public class DerivedSourceStoredFieldsWriterTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    public void testWriteFieldPreservesNonXContentSource() {
+        StoredFieldsWriter delegate = mock(StoredFieldsWriter.class);
+        SegmentInfo segmentInfo = mock(SegmentInfo.class);
+        MapperService mapperService = mock(MapperService.class);
+        DocumentMapper documentMapper = mock(DocumentMapper.class);
+        MappingLookup mappingLookup = mock(MappingLookup.class);
+        KNNVectorFieldType vectorFieldType = mock(KNNVectorFieldType.class);
+
+        String fieldName = "vector";
+        when(vectorFieldType.name()).thenReturn(fieldName);
+        when(mapperService.fieldTypes()).thenReturn(List.of(vectorFieldType));
+        when(mapperService.documentMapper()).thenReturn(documentMapper);
+        when(documentMapper.metadataMapper(SourceFieldMapper.class)).thenReturn(null);
+        when(documentMapper.mappers()).thenReturn(mappingLookup);
+        when(mappingLookup.getMapper(fieldName)).thenReturn(null);
+        when(mappingLookup.getNestedScope(fieldName)).thenReturn(null);
+
+        FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder(SourceFieldMapper.NAME).build();
+        BytesRef rawSource = new BytesRef("filling gaps");
+        KNN10010DerivedSourceStoredFieldsWriter derivedSourceStoredFieldsWriter = new KNN10010DerivedSourceStoredFieldsWriter(
+            "mock-codec",
+            delegate,
+            segmentInfo,
+            mapperService
+        );
+
+        derivedSourceStoredFieldsWriter.writeField(fieldInfo, rawSource);
+
+        verify(delegate).writeField(same(fieldInfo), same(rawSource));
+    }
+
+    @SneakyThrows
     public void testFinishPreservesMixedCaseVectorFieldNamesInSegmentAttributes() {
         StoredFieldsWriter delegate = mock(StoredFieldsWriter.class);
         SegmentInfo segmentInfo = mock(SegmentInfo.class);
@@ -99,5 +137,71 @@ public class DerivedSourceStoredFieldsWriterTests extends KNNTestCase {
 
         assertEquals(List.of(fieldName), DerivedSourceSegmentAttributeParser.parseDerivedVectorFields(segmentInfo, false));
         verify(delegate).finish(1);
+    }
+
+    @SneakyThrows
+    public void testMerge_whenNonKnnReaderPresent_thenFallsBackToGenericMerge() {
+        // When a source reader is not our own reader (e.g. the recovery wrapper introduced by
+        // _source.exclude), merge() must NOT take the optimized delegate.merge() block-copy path -
+        // it falls back to the generic super.merge(), which re-applies the vector mask per document.
+        StoredFieldsWriter delegate = mock(StoredFieldsWriter.class);
+        SegmentInfo segmentInfo = mock(SegmentInfo.class);
+        MapperService mapperService = mock(MapperService.class);
+        when(mapperService.fieldTypes()).thenReturn(Collections.emptyList());
+
+        KNN10010DerivedSourceStoredFieldsWriter writer = new KNN10010DerivedSourceStoredFieldsWriter(
+            "mock-codec",
+            delegate,
+            segmentInfo,
+            mapperService
+        );
+
+        // A single non-k-NN reader with no documents (maxDoc = 0), so super.merge() has no work to do.
+        StoredFieldsReader nonKnnReader = mock(StoredFieldsReader.class);
+        MergeState mergeState = mergeStateWithReaders(nonKnnReader);
+
+        int docCount = writer.merge(mergeState);
+
+        assertEquals(0, docCount);
+        // Fallback path: the delegate's optimized merge must never be invoked.
+        verify(delegate, never()).merge(any());
+        // The reader is left in place (not wrapped) because it is not our k-NN reader.
+        assertSame(nonKnnReader, mergeState.storedFieldsReaders[0]);
+    }
+
+    /**
+     * Builds a minimal {@link MergeState} that only populates the fields merge() and the generic
+     * super.merge() touch for empty (maxDoc = 0) segments: the readers, per-reader field infos, doc
+     * maps, and maxDocs. Everything else is left null.
+     */
+    private static MergeState mergeStateWithReaders(StoredFieldsReader... readers) {
+        int n = readers.length;
+        MergeState.DocMap[] docMaps = new MergeState.DocMap[n];
+        FieldInfos[] fieldInfos = new FieldInfos[n];
+        int[] maxDocs = new int[n];
+        for (int i = 0; i < n; i++) {
+            docMaps[i] = docId -> docId;
+            fieldInfos[i] = new FieldInfos(new FieldInfo[0]);
+            maxDocs[i] = 0;
+        }
+        return new MergeState(
+            docMaps,
+            null,
+            new FieldInfos(new FieldInfo[0]),
+            readers,
+            null,
+            null,
+            null,
+            fieldInfos,
+            null,
+            null,
+            null,
+            null,
+            maxDocs,
+            InfoStream.NO_OUTPUT,
+            Runnable::run,
+            false,
+            null
+        );
     }
 }

@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Re-enable flaky BWC test testKNNWarmupCustomLegacyFieldMapping and restore legacy index settings in BWC test fixtures [#2415](https://github.com/opensearch-project/k-NN/issues/2415)
 
 ### Bug Fixes
+* Preserve raw non-XContent `_source` fields when derived source is enabled [#3402](https://github.com/opensearch-project/k-NN/pull/3402)
+* Fix dimension-based oversampling not applying for 32x compression [#3455](https://github.com/opensearch-project/k-NN/pull/3455)
 * Fix NPE in nested kNN search when index contains documents without nested object [#3368](https://github.com/opensearch-project/k-NN/pull/3368)
 * Turn off ACORN for MOS to match default Lucene HNSW behavior [#3346](https://github.com/opensearch-project/k-NN/pull/3346)
 * Preserve mixed-case derived source vector field names and add backward-compatible field resolution for previously lowercased segment metadata [#3313](https://github.com/opensearch-project/k-NN/pull/3313)
@@ -30,6 +32,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix score corruption in multi-segment FAISS indices with ADC [#3385](https://github.com/opensearch-project/k-NN/pull/3385)
 * Fix corrupt index file when remote build falls back to local build [#3448](https://github.com/opensearch-project/k-NN/pull/3448)
 * Fix radial search max_distance threshold conversion for inner product with memory-optimized search [#3369](https://github.com/opensearch-project/k-NN/pull/3369)
+* Fix inner-hits returning mask value for top level source excludes [#3446](https://github.com/opensearch-project/k-NN/pull/3446)
+* Fix _source bloat on merge for derived source indices with _source.exclude [#3465](https://github.com/opensearch-project/k-NN/pull/3465)
+* Disable radial search on quantized indices due to poor recall from quantization error [#3448](https://github.com/opensearch-project/k-NN/pull/3448)
 
 ### Refactoring
 * Refactor ExactSearcher to use BulkVectorScorer directly and rename factory methods [#3361](https://github.com/opensearch-project/k-NN/pull/3361)
