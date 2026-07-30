@@ -5,3 +5,12 @@ org.opensearch.knn.sandbox.fixture.NoSuchFixtureEngineProvider
 org.opensearch.knn.sandbox.fixture.FixtureEngineProvider
 org.opensearch.knn.sandbox.fixture.BadFixtureEngineProvider
 org.opensearch.knn.sandbox.fixture.SecondaryFixtureEngineProvider
+org.opensearch.knn.sandbox.fixture.InitThrowsFixtureEngineProvider
+org.opensearch.knn.sandbox.fixture.DuplicateNameFixtureEngineProviderOne
+org.opensearch.knn.sandbox.fixture.DuplicateNameFixtureEngineProviderTwo
+org.opensearch.knn.sandbox.fixture.ReentrantInitFixtureEngineProvider
+org.opensearch.knn.sandbox.fixture.FlakyLibraryFixtureEngineProvider
+org.opensearch.knn.sandbox.fixture.SharedExtensionInitThrowsFixtureEngineProvider
+org.opensearch.knn.sandbox.fixture.SharedExtensionFixtureEngineProvider
+org.opensearch.knn.sandbox.fixture.CompoundCollisionFixtureEngineProvider
+org.opensearch.knn.sandbox.fixture.ConcurrentLookupFixtureEngineProvider

@@ -26,6 +26,77 @@ import static org.opensearch.knn.sandbox.fixture.FixtureConstants.METHOD_PARAMET
  */
 public class FixtureEngineRegistrationTests extends OpenSearchTestCase {
 
+    public void testInitializeIsCalledWithAContext() {
+        KNNEngine.getEngine(FIXTURE_ENGINE_NAME); // ensure discovery ran
+        assertTrue(FixtureEngineProvider.initialized);
+        // Outside a node the context object is EMPTY, never null.
+        assertFalse(FixtureEngineProvider.contextWasNull);
+    }
+
+    public void testInitializeFailureIsSkipped() {
+        // InitThrowsFixtureEngineProvider is well formed but throws from initialize.
+        assertTrue(Arrays.stream(KNNEngine.values()).noneMatch(engine -> "init-throws".equals(engine.getName())));
+    }
+
+    public void testDuplicateNameClaimantsAreAllDroppedWithoutInitialize() {
+        KNNEngine.getEngine(FIXTURE_ENGINE_NAME); // ensure discovery ran
+        assertTrue(Arrays.stream(KNNEngine.values()).noneMatch(engine -> "duplicate-name".equals(engine.getName())));
+        assertFalse(DuplicateNameFixtureEngineProviderOne.initialized);
+        assertFalse(DuplicateNameFixtureEngineProviderTwo.initialized);
+    }
+
+    public void testReentrantInitializeSeesBuiltInsAndStillRegisters() {
+        // The definition calls KNNEngine.getEngine from its initialize. Discovery must not recurse.
+        assertNotNull(KNNEngine.getEngine("reentrant-init"));
+        assertTrue(ReentrantInitFixtureEngineProvider.sawFaissDuringInitialize);
+    }
+
+    public void testCapabilitiesAreReadOnceAndCached() {
+        // The flaky library throws on a second call to any capability flag. The engine registers and
+        // answers every flag from the values cached at discovery, asked twice to prove it.
+        final KNNEngine flaky = KNNEngine.getEngine("flaky-library");
+        for (int i = 0; i < 2; i++) {
+            assertTrue(flaky.supportsIterativeBuild());
+            assertTrue(flaky.createsCustomSegmentFiles());
+            assertFalse(flaky.supportsFilters());
+            assertTrue(flaky.supportsRadialSearch());
+            assertFalse(flaky.supportsNestedFields());
+        }
+    }
+
+    public void testFailedInitializeReleasesItsExtensionClaim() {
+        // The loser is listed first, claims the shared extension and fails initialize. The winner with the
+        // same extension must still register.
+        assertTrue(Arrays.stream(KNNEngine.values()).noneMatch(engine -> "shared-extension-loser".equals(engine.getName())));
+        assertNotNull(KNNEngine.getEngine("shared-extension-winner"));
+    }
+
+    public void testExtensionsAreReadOnceAndCached() {
+        // The flaky library throws on a second call to either extension accessor. Path routing answers
+        // from the values cached at discovery, asked twice to prove it.
+        final KNNEngine flaky = KNNEngine.getEngine("flaky-library");
+        for (int i = 0; i < 2; i++) {
+            assertEquals(".flakybin", flaky.getExtension());
+            assertEquals(".flakybinc", flaky.getCompoundExtension());
+        }
+        assertSame(flaky, KNNEngine.getEngineNameFromPath("_0_165_field.flakybin"));
+    }
+
+    public void testLookupsDoNotWaitOnDiscovery() {
+        // The concurrent-lookup fixture probes KNNEngine from another thread inside its own initialize.
+        KNNEngine.getEngine(FIXTURE_ENGINE_NAME); // ensure discovery ran
+        assertNotNull(KNNEngine.getEngine("concurrent-lookup"));
+        assertTrue(ConcurrentLookupFixtureEngineProvider.probeReturnedDuringInitialize);
+    }
+
+    public void testCompoundExtensionCollisionIsRejected() {
+        // The fixture declares faiss's compound extension. It must be dropped at the claim, before
+        // initialize, and faiss must keep resolving its own compound files.
+        assertTrue(Arrays.stream(KNNEngine.values()).noneMatch(engine -> "compound-collision".equals(engine.getName())));
+        assertFalse(CompoundCollisionFixtureEngineProvider.initialized);
+        assertSame(KNNEngine.FAISS, KNNEngine.getEngineNameFromPath("_0_165_field" + KNNEngine.FAISS.getCompoundExtension()));
+    }
+
     public void testProviderLoadFailuresAreSkipped() {
         // The services file starts with a provider whose constructor throws and a provider class that does
         // not exist. Everything after them registering proves discovery survived both failure modes.
@@ -80,10 +151,8 @@ public class FixtureEngineRegistrationTests extends OpenSearchTestCase {
         assertFalse(fixture.supportsFilters());
         assertFalse(fixture.supportsRadialSearch());
         assertFalse(fixture.supportsNestedFields());
-        assertFalse(KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH.contains(fixture));
-        assertFalse(KNNEngine.ENGINES_SUPPORTING_NESTED_FIELDS.contains(fixture));
-        assertTrue(KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH.contains(KNNEngine.FAISS));
-        assertTrue(KNNEngine.ENGINES_SUPPORTING_NESTED_FIELDS.contains(KNNEngine.LUCENE));
+        assertTrue(KNNEngine.FAISS.supportsRadialSearch());
+        assertTrue(KNNEngine.LUCENE.supportsNestedFields());
     }
 
     public void testEngineResolvedFromCustomSegmentFilePath() {

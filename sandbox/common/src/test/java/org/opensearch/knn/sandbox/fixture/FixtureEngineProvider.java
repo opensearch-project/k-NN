@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.sandbox.fixture;
 
+import org.opensearch.knn.index.engine.KNNEngineContext;
 import org.opensearch.knn.index.engine.KNNEngineDefinition;
 import org.opensearch.knn.index.engine.KNNLibrary;
 import org.opensearch.knn.index.engine.NativeEngineService;
@@ -19,6 +20,16 @@ import java.util.Set;
  * <p>A real tenant's provider looks like this, in the tenant's main sources.
  */
 public final class FixtureEngineProvider implements KNNEngineDefinition {
+
+    /** Set when discovery hands this definition its context; the registration tests assert on it. */
+    static volatile boolean initialized = false;
+    static volatile boolean contextWasNull = true;
+
+    @Override
+    public void initialize(KNNEngineContext context) {
+        initialized = true;
+        contextWasNull = context == null;
+    }
 
     @Override
     public String engineName() {

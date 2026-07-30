@@ -67,7 +67,7 @@ public class RNNQueryFactory extends BaseQueryFactory {
         final float[] vector = createQueryRequest.getVector();
 
         final Query innerQuery;
-        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
+        if (createQueryRequest.getKnnEngine().createsCustomSegmentFiles()) {
             innerQuery = createNativeEngineRadialQuery(createQueryRequest);
         } else {
             innerQuery = createLuceneRadialQuery(createQueryRequest);

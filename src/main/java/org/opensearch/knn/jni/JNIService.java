@@ -483,6 +483,11 @@ public class JNIService {
         int[] parentIds
     ) {
         if (knnEngine.getNativeService() != null) {
+            if (knnEngine.supportsRadialSearch() == false) {
+                throw new IllegalStateException(
+                    String.format(Locale.ROOT, "Engine [%s] does not support radial search", knnEngine.getName())
+                );
+            }
             return knnEngine.getNativeService()
                 .radiusQueryIndex(
                     indexPointer,

@@ -544,9 +544,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 spaceType.validateVector(vector);
         }
 
-        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine)
-            && filter != null
-            && !KNNEngine.getEnginesThatSupportsFilters().contains(knnEngine)) {
+        if (knnEngine.createsCustomSegmentFiles() && filter != null && !knnEngine.supportsFilters()) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Engine [%s] does not support filters", knnEngine));
         }
 

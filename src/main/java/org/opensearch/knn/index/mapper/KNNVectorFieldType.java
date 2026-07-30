@@ -44,7 +44,6 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
-import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.deserializeStoredVector;
 
 /**
@@ -261,7 +260,7 @@ public class KNNVectorFieldType extends MappedFieldType {
      * @throws UnsupportedOperationException if radial search is not supported
      */
     public void validateSupportRadialSearch(final KNNEngine knnEngine) {
-        if (ENGINES_SUPPORTING_RADIAL_SEARCH.contains(knnEngine) == false) {
+        if (knnEngine.supportsRadialSearch() == false) {
             throw new UnsupportedOperationException(String.format(Locale.ROOT, "Engine [%s] does not support radial search", knnEngine));
         }
         if (getVectorDataType() == VectorDataType.BINARY) {

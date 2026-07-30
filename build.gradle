@@ -357,8 +357,12 @@ opensearchplugin {
     noticeFile = rootProject.file('NOTICE.txt')
 }
 
-// Sandbox jars are bundled runtime-only when -Pknn.sandbox.enabled=true; release scripts never pass the flag.
+// Sandbox jars are bundled runtime-only when -Pknn.sandbox.enabled=true. Snapshot builds only, the
+// same rule core enforces in OpenSearch's sandbox/build.gradle, so a release can never include them.
 def knnSandboxEnabled = providers.gradleProperty('knn.sandbox.enabled').getOrElse('false') == 'true'
+if (knnSandboxEnabled && !isSnapshot) {
+    throw new GradleException("knn.sandbox.enabled requires a snapshot build (build.snapshot=true)")
+}
 if (knnSandboxEnabled) {
     def sandboxSubprojects = rootProject.subprojects.findAll { it.path.startsWith(':sandbox:') }
     sandboxSubprojects.each { evaluationDependsOn(it.path) }

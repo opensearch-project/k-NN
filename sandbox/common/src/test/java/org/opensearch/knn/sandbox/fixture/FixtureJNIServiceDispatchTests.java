@@ -115,11 +115,23 @@ public class FixtureJNIServiceDispatchTests extends OpenSearchTestCase {
                 )
             );
         }
+        // Radial is the one exception: the engine's own capability flag already says no, so JNIService
+        // refuses before dispatch and the service never sees the call.
         expectThrows(
-            UnsupportedOperationException.class,
+            IllegalStateException.class,
             () -> JNIService.radiusQueryIndex(42L, new float[] { 1f }, 1.0f, Map.of(), fixtureEngine, 10, null, 0, null)
         );
-        assertEquals(List.of("createIndexFromTemplate", "radiusQueryIndex"), fixtureService.opLog());
+        assertEquals(List.of("createIndexFromTemplate"), fixtureService.opLog());
+    }
+
+    public void testRadialDispatchReachesAnEngineThatClaimsIt() {
+        // flaky-library claims supportsRadialSearch, so the call passes the JNIService guard and reaches
+        // its service, whose default declines it.
+        final KNNEngine flaky = KNNEngine.getEngine("flaky-library");
+        expectThrows(
+            UnsupportedOperationException.class,
+            () -> JNIService.radiusQueryIndex(42L, new float[] { 1f }, 1.0f, Map.of(), flaky, 10, null, 0, null)
+        );
     }
 
     public void testBuiltInRoutingIsUntouched() {

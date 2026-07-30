@@ -3,11 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import org.gradle.api.publish.plugins.PublishingPlugin
 import org.opensearch.gradle.test.RestIntegTestTask
 
 /**
- * Experimental sandbox (k-NN issue #3283): one subproject per tenant plus :sandbox:common. Opt-in only,
- * never published. Build and test: ./gradlew -p sandbox check -Pknn.sandbox.enabled=true. See sandbox/README.md.
+ * Experimental sandbox (k-NN issue #3283): one subproject per tenant plus :sandbox:common. The rules
+ * mirror core's sandbox/build.gradle. Opt-in only via -Pknn.sandbox.enabled=true, snapshot builds only
+ * (enforced in the root build), and nothing is ever published, not even to Maven local. Build and test:
+ * ./gradlew -p sandbox check -Pknn.sandbox.enabled=true. See sandbox/README.md.
  */
 
 apply plugin: 'opensearch.build'
@@ -18,11 +21,12 @@ dependenciesInfo.enabled = false
 // Unlike qa/, this container has zero dependencies, so the jarHell runner has no classpath to load from.
 jarHell.enabled = false
 
-// Sandbox artifacts are never published anywhere, not even to Maven local — hard-disable publishing tasks.
+// Sandbox artifacts are never published anywhere, not even to Maven local. Same task matching as core's
+// sandbox/build.gradle, applied unconditionally.
 def disablePublishing = { Project sandboxProject ->
     sandboxProject.afterEvaluate {
         sandboxProject.tasks.configureEach { task ->
-            if (task.group == 'publishing'
+            if (task.group == PublishingPlugin.PUBLISH_TASK_GROUP
                 || task.name.startsWith('generatePomFileFor')
                 || task.name.startsWith('generateMetadataFileFor')
                 || (task.name.startsWith('validate') && task.name.endsWith('Pom'))) {
@@ -59,10 +63,6 @@ configure(subprojects.findAll { it.parent.path == project.path }) {
         mavenCentral()
         maven { url = uri("https://plugins.gradle.org/m2/") }
     }
-
-    dependencyLicenses.enabled = false
-    thirdPartyAudit.enabled = false
-    loggerUsageCheck.enabled = false
 
     compileJava {
         options.compilerArgs = ["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor']

@@ -72,4 +72,11 @@ public interface KNNEngineDefinition {
     default Set<String> engineSpecificQueryParameters() {
         return Set.of();
     }
+
+    /**
+     * Called once as the last step of discovery. A throw skips the engine with a warning. Both context
+     * fields are null outside a node. Implementations must not block, node startup waits on this, and
+     * engine lookups here see only the built-ins.
+     */
+    default void initialize(KNNEngineContext context) {}
 }

@@ -34,6 +34,7 @@ import java.util.Optional;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.index.engine.validation.ParameterValidator.validateParameters;
 import static org.opensearch.knn.sandbox.fixture.FixtureConstants.FIXTURE_ENGINE_NAME;
 import static org.opensearch.knn.sandbox.fixture.FixtureConstants.METHOD_FIXTURE;
@@ -81,6 +82,15 @@ public class FixtureQueryParamDeferralTests extends OpenSearchTestCase {
         try (XContentParser parser = createParser(undeclared)) {
             expectThrows(ParsingException.class, () -> MethodParametersParser.fromXContent(parser));
         }
+    }
+
+    public void testEngineParameterIsRejectedOnAnotherEnginesQuery() {
+        // fixture_window passes parse because the fixture engine declared it, but a query against a faiss
+        // field validates against faiss's search context at doToQuery and must be rejected there. Pins
+        // that the parse-time union is name deferral only, never cross-engine acceptance.
+        final Map<String, Parameter<?>> faissSupported = KNNEngine.FAISS.getKNNLibrarySearchContext(METHOD_HNSW)
+            .supportedMethodParameters(new QueryContext(VectorQueryType.K));
+        assertNotNull(validateParameters(faissSupported, Map.of(METHOD_PARAMETER_FIXTURE_WINDOW, 32), KNNMethodConfigContext.EMPTY));
     }
 
     public void testEngineAwareValidationIsTheAuthority() {
