@@ -33,6 +33,7 @@ import org.opensearch.knn.index.util.IndexUtil;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
@@ -169,7 +170,16 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
      */
     @Override
     public int merge(MergeState mergeState) throws IOException {
+        // Legacy segments are merged by the legacy codec, so fall through to the generic merge.
         if (KNN9120DerivedSourceStoredFieldsReader.doesMergeContainLegacySegments(mergeState)) {
+            return super.merge(mergeState);
+        }
+
+        // If any source reader is not our own reader (e.g. wrapped by RecoverySourcePruneMergePolicy
+        // when _source.exclude is set), we cannot guarantee its stored _source is masked, so use the
+        // generic super.merge() which re-applies the mask via writeField() instead of block-copying.
+        if (requiresFallbackMerge(mergeState.storedFieldsReaders)) {
+            maybeWrapReadersForMerge(mergeState);
             return super.merge(mergeState);
         }
 
@@ -190,9 +200,7 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
             }
         }
 
-        for (int i = 0; i < mergeState.storedFieldsReaders.length; i++) {
-            mergeState.storedFieldsReaders[i] = KNN10010DerivedSourceStoredFieldsReader.wrapForMerge(mergeState.storedFieldsReaders[i]);
-        }
+        maybeWrapReadersForMerge(mergeState);
 
         int result = delegate.merge(mergeState);
 
@@ -207,6 +215,39 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
         mergeState.segmentInfo.putAttribute(KNN10010DerivedSourceStoredFieldsFormat.KNN_DELEGATE_CODEC_NAME, name);
 
         return result;
+    }
+
+    /**
+     * Determines whether the merge must take the full, field-by-field {@code super.merge()} path
+     * instead of the optimized {@code delegate.merge()} block copy.
+     * <p>
+     * The optimized path only preserves the vector mask when every source segment's stored fields
+     * reader is our own {@link KNN10010DerivedSourceStoredFieldsReader} (so its stored _source is
+     * already masked and the reader can be made non-injecting via {@code wrapForMerge()}). If any
+     * reader is something else - most notably OpenSearch's
+     * {@code RecoverySourcePruningStoredFieldsReader}, which wraps our reader when a
+     * {@code _source.exclude} is configured - we cannot see through it to guarantee the _source is
+     * masked, so we fall back to the full merge.
+     *
+     * @param storedFieldsReaders the source segment stored-fields readers for the merge
+     * @return true if any source reader is not a bare {@link KNN10010DerivedSourceStoredFieldsReader}
+     */
+    private static boolean requiresFallbackMerge(StoredFieldsReader[] storedFieldsReaders) {
+        return Arrays.stream(storedFieldsReaders).anyMatch(reader -> !KNN10010DerivedSourceStoredFieldsReader.optimizedForMerge(reader));
+    }
+
+    /**
+     * Replaces each source reader with a non-injecting clone via
+     * {@link KNN10010DerivedSourceStoredFieldsReader#wrapForMerge(StoredFieldsReader)} so the merge
+     * does not re-inject vectors into the stored _source. Readers that are not our own k-NN reader
+     * (e.g. a recovery wrapper) are passed through unchanged.
+     *
+     * @param mergeState state for the merge in progress
+     */
+    private static void maybeWrapReadersForMerge(MergeState mergeState) {
+        for (int i = 0; i < mergeState.storedFieldsReaders.length; i++) {
+            mergeState.storedFieldsReaders[i] = KNN10010DerivedSourceStoredFieldsReader.wrapForMerge(mergeState.storedFieldsReaders[i]);
+        }
     }
 
     @Override
