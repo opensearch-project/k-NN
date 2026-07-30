@@ -17,8 +17,8 @@ import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.knn.CompressionTestConfig;
@@ -26,10 +26,11 @@ import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -747,8 +748,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         validateQueryResultsWithFilters(searchVector, 5, 1, expectedDocIdsKGreaterThanFilterResult, expectedDocIdsKLimitsFilterResult);
     }
 
-    /*
-    TODO: Uncomment when we enable radial search for 32x
+    // Remove or invert this test when radial search is re-enabled for quantized indices (#3452)
     @SneakyThrows
     public void testRadialSearch_withMaxDistance_onLuceneSQ1bit_thenBlocked() {
         createKnnIndexMappingWithLuceneEngineWithModeAndCompression(CompressionLevel.x32, DIMENSION, Mode.NOT_CONFIGURED);
@@ -772,10 +772,8 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
         assertTrue(ex.getMessage().contains("Radial search is not supported for quantized indices"));
     }
-    */
 
-    /*
-    TODO: Uncomment when we enable radial search for 32x
+    // Remove or invert this test when radial search is re-enabled for quantized indices (#3452)
     @SneakyThrows
     public void testRadialSearch_withMinScore_onLuceneSQ1bit_thenBlocked() {
         createKnnIndexMappingWithLuceneEngineWithModeAndCompression(CompressionLevel.x32, DIMENSION, Mode.NOT_CONFIGURED);
@@ -799,7 +797,6 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
         assertTrue(ex.getMessage().contains("Radial search is not supported for quantized indices"));
     }
-    */
 
     private void createKnnIndexMappingWithLuceneEngineAndSQEncoder(
         int dimension,

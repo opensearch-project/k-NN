@@ -11,7 +11,6 @@ import org.apache.lucene.search.ByteVectorSimilarityQuery;
 import org.apache.lucene.search.FloatVectorSimilarityQuery;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.tests.util.LuceneTestCase.AwaitsFix;
 import org.apache.lucene.util.VectorUtil;
 import org.junit.Before;
 import org.mockito.MockedStatic;
@@ -491,9 +490,6 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertTrue(e.getMessage().contains("Binary data type does not support radial search"));
     }
 
-    // Quantized radial search is now blocked unconditionally, and its error message no longer
-    // includes "binary quantization". See CHANGELOG / disable-quantized-radial work.
-    @AwaitsFix(bugUrl = "https://github.com/opensearch-project/k-NN/issues/3452")
     public void testDoToQuery_whenRadialSearchOnDiskMode_thenException() {
         // Given: a radial search query on a BQ quantized index (QuantizationConfig != EMPTY)
         float[] queryVector = { 1.0f };
