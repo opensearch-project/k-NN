@@ -5,12 +5,22 @@
 
 package org.opensearch.knn.index.codec.KNN10010Codec;
 
+import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.StoredFieldVisitor;
 import org.opensearch.index.fieldvisitor.FieldsVisitor;
 import org.opensearch.knn.KNNTestCase;
 
+import static org.mockito.Mockito.mock;
+
 public class KNN10010DerivedSourceStoredFieldsReaderTests extends KNNTestCase {
+
+    public void testOptimizedForMerge() {
+        // Only our own reader is recognized as already-masked and mergeable via the optimized path;
+        // any other reader (e.g. a recovery wrapper) forces the generic merge fallback.
+        assertTrue(KNN10010DerivedSourceStoredFieldsReader.optimizedForMerge(mock(KNN10010DerivedSourceStoredFieldsReader.class)));
+        assertFalse(KNN10010DerivedSourceStoredFieldsReader.optimizedForMerge(mock(StoredFieldsReader.class)));
+    }
 
     public void testResolveExcludes_usesCodecExcludesNotResponseExcludes() {
         // Response-level excludes strip the vector from the top-level _source, but codec excludes omit it

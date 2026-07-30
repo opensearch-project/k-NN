@@ -160,10 +160,26 @@ public class KNN10010DerivedSourceStoredFieldsReader extends StoredFieldsReader 
      * @return wrapped stored fields reader
      */
     public static StoredFieldsReader wrapForMerge(StoredFieldsReader storedFieldsReader) {
-        if (storedFieldsReader instanceof KNN10010DerivedSourceStoredFieldsReader) {
+        if (optimizedForMerge(storedFieldsReader)) {
             return ((KNN10010DerivedSourceStoredFieldsReader) storedFieldsReader).cloneForMerge();
         }
         return storedFieldsReader;
+    }
+
+    /**
+     * Whether the given reader can take the optimized (block-copy) merge path. This is the single
+     * source of truth for recognizing a reader whose stored _source is already masked: only a bare
+     * {@link KNN10010DerivedSourceStoredFieldsReader} qualifies. Any other reader - for example the
+     * {@code RecoverySourcePruningStoredFieldsReader} that OpenSearch wraps ours in when a
+     * {@code _source.exclude} is configured - hides our reader, so the merge must fall back to the
+     * generic path. Both {@link #wrapForMerge(StoredFieldsReader)} and the writer's merge-path
+     * decision use this check so they stay in sync.
+     *
+     * @param storedFieldsReader reader for a source segment being merged
+     * @return true if the reader is a bare {@link KNN10010DerivedSourceStoredFieldsReader}
+     */
+    static boolean optimizedForMerge(StoredFieldsReader storedFieldsReader) {
+        return storedFieldsReader instanceof KNN10010DerivedSourceStoredFieldsReader;
     }
 
     /**
