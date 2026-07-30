@@ -75,7 +75,7 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
                 DEFAULT_BEAM_WIDTH,
                 () -> DEFAULT_FORMAT,
                 new LuceneCodecFormatResolver(resolvers, mapperService.orElse(null)),
-                new FaissCodecFormatResolver(mapperService, new NativeIndexBuildStrategyFactory()),
+                new FaissCodecFormatResolver(mapperService.orElse(null), new NativeIndexBuildStrategyFactory()),
                 new NativeIndexBuildStrategyFactory()
             );
         }

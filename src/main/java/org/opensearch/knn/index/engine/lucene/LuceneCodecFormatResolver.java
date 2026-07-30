@@ -8,7 +8,6 @@ package org.opensearch.knn.index.engine.lucene;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.opensearch.common.Nullable;
-import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KnnVectorsFormatContext;
@@ -70,25 +69,10 @@ public class LuceneCodecFormatResolver implements CodecFormatResolver {
         if (factory == null) {
             throw new IllegalStateException(String.format("No Lucene vectors format registered for type [%s]", formatType));
         }
-        final int approximateThreshold = getApproximateThresholdValue();
+        final int approximateThreshold = KNNSettings.getApproximateThresholdValue(mapperService);
         return factory.apply(
             new KnnVectorsFormatContext(field, methodContext, params, defaultMaxConnections, defaultBeamWidth, approximateThreshold)
         );
-    }
-
-    /**
-     * Retrieves the approximate threshold value from index settings.
-     * Falls back to the default value when the mapper service is null or the setting is not explicitly configured.
-     */
-    private int getApproximateThresholdValue() {
-        if (mapperService == null) {
-            return KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE;
-        }
-        final IndexSettings indexSettings = mapperService.getIndexSettings();
-        final Integer approximateThresholdValue = indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING);
-        return approximateThresholdValue != null
-            ? approximateThresholdValue
-            : KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE;
     }
 
     /**

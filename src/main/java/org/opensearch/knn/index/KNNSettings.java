@@ -16,6 +16,7 @@ import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRespons
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Booleans;
+import org.opensearch.common.Nullable;
 import org.opensearch.common.settings.SecureSetting;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -25,6 +26,8 @@ import org.opensearch.core.common.settings.SecureString;
 import org.opensearch.core.common.unit.ByteSizeUnit;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.index.IndexModule;
+import org.opensearch.index.IndexSettings;
+import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManagerDto;
@@ -1118,6 +1121,23 @@ public class KNNSettings {
      */
     public static int getIndexThreadQty() {
         return KNNSettings.state().getSettingValue(KNN_ALGO_PARAM_INDEX_THREAD_QTY);
+    }
+
+    /**
+     * Retrieves the {@code index.knn.advanced.approximate_threshold} value from the given
+     * {@link org.opensearch.index.mapper.MapperService}'s index settings, or returns the default
+     * value when {@code mapperService} is null or the setting is not explicitly configured.
+     *
+     * @param mapperService the mapper service (nullable)
+     * @return the configured threshold or default
+     */
+    public static int getApproximateThresholdValue(@Nullable MapperService mapperService) {
+        if (mapperService == null) {
+            return INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE;
+        }
+        final IndexSettings indexSettings = mapperService.getIndexSettings();
+        final Integer approximateThresholdValue = indexSettings.getValue(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING);
+        return approximateThresholdValue != null ? approximateThresholdValue : INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE;
     }
 
     private static String percentageAsString(Integer percentage) {

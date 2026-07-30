@@ -58,7 +58,7 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
             Lucene99HnswVectorsFormat.DEFAULT_BEAM_WIDTH,
             Lucene99HnswVectorsFormat::new,
             new LuceneCodecFormatResolver(buildLuceneFormatResolvers(), mapperService.orElse(null)),
-            new FaissCodecFormatResolver(mapperService, nativeIndexBuildStrategyFactory),
+            new FaissCodecFormatResolver(mapperService.orElse(null), nativeIndexBuildStrategyFactory),
             nativeIndexBuildStrategyFactory
         );
     }
