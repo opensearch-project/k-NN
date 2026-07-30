@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.index.mapper;
 
-import org.apache.lucene.tests.util.LuceneTestCase.AwaitsFix;
 import org.opensearch.Version;
 import org.opensearch.index.mapper.ArraySourceValueFetcher;
 import org.opensearch.index.mapper.ValueFetcher;
@@ -372,9 +371,6 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
         fieldType.validateSupportRadialSearch(KNNEngine.FAISS);
     }
 
-    // Error message assertions no longer match the unconditional quantized-radial block.
-    // See CHANGELOG / disable-quantized-radial work.
-    @AwaitsFix(bugUrl = "https://github.com/opensearch-project/k-NN/issues/3452")
     public void testValidateRadialSearch_whenX32HnswNonSQEncoder_thenThrows() {
         // Given: x32 compression with HNSW method and flat encoder (NOT SQ 1-bit, NOT flat method)
         KNNMethodContext methodContext = new KNNMethodContext(
@@ -403,13 +399,13 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
         };
         KNNVectorFieldType fieldType = new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.FLOAT, config);
 
-        // When/Then: throws — x32 with HNSW and non-SQ encoder is not allowed
+        // When/Then: throws — radial search is blocked on quantized (x32) indices
         UnsupportedOperationException e = expectThrows(
             UnsupportedOperationException.class,
             () -> fieldType.validateSupportRadialSearch(KNNEngine.FAISS)
         );
-        assertTrue(e.getMessage().contains("1-bit SQ"));
-        assertTrue(e.getMessage().contains("x32"));
+        assertTrue(e.getMessage().contains("Radial search is not supported for quantized indices"));
+        assertTrue(e.getMessage().contains("compression level=x32"));
     }
 
     public void testValidateRadialSearch_whenFp16Compression_thenPasses() {
