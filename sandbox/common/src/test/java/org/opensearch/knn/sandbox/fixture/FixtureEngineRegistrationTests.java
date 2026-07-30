@@ -26,6 +26,13 @@ import static org.opensearch.knn.sandbox.fixture.FixtureConstants.METHOD_PARAMET
  */
 public class FixtureEngineRegistrationTests extends OpenSearchTestCase {
 
+    public void testProviderLoadFailuresAreSkipped() {
+        // The services file starts with a provider whose constructor throws and a provider class that does
+        // not exist. Everything after them registering proves discovery survived both failure modes.
+        assertNotNull(KNNEngine.getEngine(FIXTURE_ENGINE_NAME));
+        assertTrue(Arrays.stream(KNNEngine.values()).noneMatch(engine -> "constructor-throws".equals(engine.getName())));
+    }
+
     public void testFixtureEngineIsRegisteredByName() {
         final KNNEngine fixture = KNNEngine.getEngine(FIXTURE_ENGINE_NAME);
         assertNotNull(fixture);

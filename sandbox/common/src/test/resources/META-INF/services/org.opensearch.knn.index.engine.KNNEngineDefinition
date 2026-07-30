@@ -1,3 +1,7 @@
+# The first two entries are deliberately broken: a provider whose constructor throws, and a provider class
+# that does not exist. Every definition after them registering proves discovery survives both failure modes.
+org.opensearch.knn.sandbox.fixture.ConstructorThrowsFixtureEngineProvider
+org.opensearch.knn.sandbox.fixture.NoSuchFixtureEngineProvider
 org.opensearch.knn.sandbox.fixture.FixtureEngineProvider
 org.opensearch.knn.sandbox.fixture.BadFixtureEngineProvider
 org.opensearch.knn.sandbox.fixture.SecondaryFixtureEngineProvider

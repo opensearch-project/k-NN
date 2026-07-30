@@ -7,9 +7,15 @@ package org.opensearch.knn.index.engine;
 
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.knn.index.engine.faiss.Faiss;
+import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
+import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
+import static org.opensearch.knn.common.KNNConstants.UNDEFINED_ENGINE_NAME;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
 
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.ServiceConfigurationError;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -28,9 +34,9 @@ import java.util.Set;
 @Log4j2
 final class KNNEngineRegistry {
 
-    // Built-in engine names, spelled out here (not read off KNNEngine) because this registry loads during
-    // KNNEngine's class initialization. KNNEngine asserts its built-ins against this set when seeding.
-    static final Set<String> BUILT_IN_ENGINE_NAMES = Set.of("faiss", "lucene", "nmslib", "undefined");
+    // Shared KNNConstants names, not KNNEngine fields: this registry loads during KNNEngine's class
+    // initialization, so reading KNNEngine here would create an initialization cycle.
+    static final Set<String> BUILT_IN_ENGINE_NAMES = Set.of(FAISS_NAME, LUCENE_NAME, NMSLIB_NAME, UNDEFINED_ENGINE_NAME);
 
     // Segment-file extensions owned by built-in libraries (safe to read here: the library singletons do not
     // depend on KNNEngine's class initialization).
@@ -48,7 +54,22 @@ final class KNNEngineRegistry {
 
     static {
         final Map<String, List<RegisteredEngine>> candidatesByName = new LinkedHashMap<>();
-        for (KNNEngineDefinition definition : ServiceLoader.load(KNNEngineDefinition.class, KNNEngineRegistry.class.getClassLoader())) {
+        final Iterator<KNNEngineDefinition> definitions = ServiceLoader.load(
+            KNNEngineDefinition.class,
+            KNNEngineRegistry.class.getClassLoader()
+        ).iterator();
+        while (true) {
+            final KNNEngineDefinition definition;
+            try {
+                if (definitions.hasNext() == false) {
+                    break;
+                }
+                definition = definitions.next();
+            } catch (ServiceConfigurationError | LinkageError e) {
+                // A provider class that fails to load or construct must not take the node down.
+                log.warn("Skipping a KNNEngineDefinition provider that failed to load", e);
+                continue;
+            }
             try {
                 final String name = definition.engineName();
                 if (name == null || name.isBlank()) {

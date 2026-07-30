@@ -29,6 +29,7 @@ import java.util.function.Predicate;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
+import static org.opensearch.knn.common.KNNConstants.UNDEFINED_ENGINE_NAME;
 
 /**
  * KNNEngine provides the functionality to validate and transform user defined indices into information that can be
@@ -45,10 +46,10 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
     // Built-ins pass a null native service: their JNI lifecycle is the core FaissService/NmslibService.
     // A runtime-registered engine carries its own NativeEngineService from its KNNEngineDefinition.
     @Deprecated(since = "2.19.0", forRemoval = true)
-    public static final KNNEngine NMSLIB = new KNNEngine("NMSLIB", NMSLIB_NAME, Nmslib.INSTANCE, Version.V_3_0_0, null);
-    public static final KNNEngine FAISS = new KNNEngine("FAISS", FAISS_NAME, Faiss.INSTANCE, null, null);
-    public static final KNNEngine LUCENE = new KNNEngine("LUCENE", LUCENE_NAME, Lucene.INSTANCE, null, null);
-    public static final KNNEngine UNDEFINED = new KNNEngine("UNDEFINED", "undefined", null, null, null);
+    public static final KNNEngine NMSLIB = new KNNEngine("NMSLIB", NMSLIB_NAME, Nmslib.INSTANCE, Version.V_3_0_0);
+    public static final KNNEngine FAISS = new KNNEngine("FAISS", FAISS_NAME, Faiss.INSTANCE);
+    public static final KNNEngine LUCENE = new KNNEngine("LUCENE", LUCENE_NAME, Lucene.INSTANCE);
+    public static final KNNEngine UNDEFINED = new KNNEngine("UNDEFINED", UNDEFINED_ENGINE_NAME, null);
 
     public static final KNNEngine DEFAULT = FAISS;
 
@@ -63,11 +64,6 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
         final Map<String, KNNEngine> byName = new LinkedHashMap<>();
         for (KNNEngine engine : BUILT_INS) {
             final String key = engine.name.toLowerCase(Locale.ROOT);
-            // KNNEngineRegistry keeps its own copy of the built-in names (it loads during this class's
-            // initialization, so it cannot read BUILT_INS); this assert catches drift between the two.
-            assert KNNEngineRegistry.BUILT_IN_ENGINE_NAMES.contains(key) : "Built-in engine ["
-                + key
-                + "] missing from KNNEngineRegistry.BUILT_IN_ENGINE_NAMES";
             byName.put(key, engine);
         }
         // Registered engines are fully materialized (and collision/failure-filtered) by KNNEngineRegistry.
@@ -126,6 +122,14 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
     private final KNNLibrary knnLibrary;
     private final Version restrictedFromVersion; // Nullable field
     private final NativeEngineService nativeService; // null for built-ins; set for runtime-registered engines
+
+    private KNNEngine(String enumName, String name, KNNLibrary knnLibrary) {
+        this(enumName, name, knnLibrary, null, null);
+    }
+
+    private KNNEngine(String enumName, String name, KNNLibrary knnLibrary, Version restrictedFromVersion) {
+        this(enumName, name, knnLibrary, restrictedFromVersion, null);
+    }
 
     private KNNEngine(
         String enumName,
