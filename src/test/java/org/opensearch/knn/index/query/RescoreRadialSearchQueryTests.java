@@ -26,7 +26,6 @@ import org.apache.lucene.search.ScorerSupplier;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.tests.util.LuceneTestCase.AwaitsFix;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.indices.ModelDao;
@@ -43,9 +42,9 @@ import static org.opensearch.knn.common.KNNConstants.MAX_RESULTS_RADIAL_RESCORIN
 // Tests for RescoreRadialSearchQuery — the pass-through skeleton.
 // At this stage the wrapper delegates entirely to the inner query without rescoring.
 // These tests verify the wrapper structure and delegation, not rescoring correctness.
-// The quantized radial feature is disabled. Retain the tests with the implementation for future
-// reconsideration, but do not run them while the public query path is blocked.
-@AwaitsFix(bugUrl = "https://github.com/opensearch-project/k-NN/issues/3452")
+// The quantized radial feature is disabled (#3452), so no production query path constructs this
+// query today; these unit tests keep the retained implementation from silently rotting until
+// the feature is re-enabled.
 public class RescoreRadialSearchQueryTests extends KNNTestCase {
     private static final String FIELD_NAME = "test-field";
     private static final float[] QUERY_VECTOR = { 1.0f, 2.0f, 3.0f };
@@ -60,8 +59,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
 
     // Note: the full rescoring flow (inner scorer → collectTopDocs → ExactSearcher → KNNScorer)
     // requires a real SegmentReader and cannot be unit-tested with mocks alone.
-    // The rescoring correctness is validated by integration tests in FaissSQRadialSearchIT
-    // and LuceneSQRadialSearchIT.
+    // The rescoring-correctness integration tests (FaissSQRadialSearchIT, LuceneSQRadialSearchIT)
+    // are @AwaitsFix'd while quantized radial search is disabled (#3452).
 
     // Given: ExactSearcher singleton is not initialized (null)
     // When: RescoreRadialSearchQuery is constructed
