@@ -217,6 +217,44 @@ public class CompressionLevelTests extends KNNTestCase {
         assertEquals(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD, rescoreContext.getOversampleFactor(), 0.0f);
     }
 
+    public void testGetDefaultRescoreContext_whenSQMultiBitAtX16_thenOversampleOne() {
+        // sq(bits=2) at x16 on indices created at/after the flip version should return oversample=1
+        // (2-bit codes recover most recall on their own), with override disallowed.
+        // TODO: bump the gate to Version.V_3_9_0 once it is defined in OpenSearch core.
+        for (int dimension : new int[] { 500, 1500 }) {
+            RescoreContext rescoreContext = CompressionLevel.x16.getDefaultRescoreContext(
+                Mode.ON_DISK,
+                dimension,
+                Version.V_3_8_0,
+                false,
+                true
+            );
+            assertNotNull("dim=" + dimension, rescoreContext);
+            assertEquals("dim=" + dimension, 1.0f, rescoreContext.getOversampleFactor(), 0.0f);
+            assertFalse("dim=" + dimension, rescoreContext.isUserProvided());
+            assertFalse("dim=" + dimension, rescoreContext.isAllowOverrideOversampleFactor());
+        }
+    }
+
+    public void testGetDefaultRescoreContext_whenSQMultiBitAtX8_thenOversampleOne() {
+        // sq(bits=4) at x8 on indices created at/after the flip version should return oversample=1
+        // (4-bit codes are near-lossless), with override disallowed.
+        // TODO: bump the gate to Version.V_3_9_0 once it is defined in OpenSearch core.
+        for (int dimension : new int[] { 500, 1500 }) {
+            RescoreContext rescoreContext = CompressionLevel.x8.getDefaultRescoreContext(
+                Mode.ON_DISK,
+                dimension,
+                Version.V_3_8_0,
+                false,
+                true
+            );
+            assertNotNull("dim=" + dimension, rescoreContext);
+            assertEquals("dim=" + dimension, 1.0f, rescoreContext.getOversampleFactor(), 0.0f);
+            assertFalse("dim=" + dimension, rescoreContext.isUserProvided());
+            assertFalse("dim=" + dimension, rescoreContext.isAllowOverrideOversampleFactor());
+        }
+    }
+
     public void testX32MapsToOneBitQuantization() {
         assertEquals(1, CompressionLevel.x32.numBitsForFloat32());
 

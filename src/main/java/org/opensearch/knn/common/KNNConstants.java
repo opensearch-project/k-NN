@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.common;
 
+import org.opensearch.Version;
 import org.opensearch.knn.index.VectorDataType;
 
 import java.util.List;
@@ -220,4 +221,10 @@ public class KNNConstants {
     public static final int BYTE_ALIGNMENT_MASK = 7; // Used for rounding up to nearest byte (Byte.SIZE - 1)
     // Define here: https://github.com/opensearch-project/remote-vector-index-builder/blob/main/API.md#index-parameters
     public static final int MIN_DOCS_FOR_REMOTE_INDEX_BUILD = 4;
+
+    // Version gate for flipping the default oversample factor to 1.0 for SQ 2-bit / SQ 4-bit
+    // indices at x16 / x8 compression. Indices created before this version keep the legacy
+    // dimension-based oversample defaults.
+    // TODO: bump this to Version.V_3_9_0 once it is defined in OpenSearch core.
+    public static final Version SQ_MULTI_BIT_X16_X8_DEFAULTS_FLIP_VERSION = Version.V_3_8_0;
 }
