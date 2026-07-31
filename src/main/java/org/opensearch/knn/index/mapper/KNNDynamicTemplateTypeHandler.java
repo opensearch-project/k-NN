@@ -44,13 +44,11 @@ public class KNNDynamicTemplateTypeHandler implements DynamicTemplateTypeHandler
      */
     @Override
     public void adjustMappingConfig(Map<String, Object> mappingConfig, FieldValueParserSupplier fieldValueParser) throws IOException {
-        // The type is implied by match_mapping_type: "knn_vector", so a template may omit it from the
-        // mapping block (or omit the block entirely). Inject it here so the TypeParser always receives a
-        // complete config — the plugin owns its own type, core stays type-agnostic.
+        // A complete config only means the dimension is known, not that "type" is present: users omit
+        // it since it is implied by match_mapping_type: "knn_vector". Always inject it first.
+        // Example: mapping { "dimension": 128 } -> { "type": "knn_vector", "dimension": 128 }.
         mappingConfig.putIfAbsent("type", KNNVectorFieldMapper.CONTENT_TYPE);
-        // A complete config needs no data-derived parameter, so we must not open the parser: doing so
-        // would defer index-creation-time validation, and injecting a data-derived dimension alongside
-        // a model_id is rejected by the TypeParser.
+        // Only the dimension is data-derived, so a complete config must not open the parser.
         if (isConfigComplete(mappingConfig)) {
             return;
         }
