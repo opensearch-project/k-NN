@@ -181,7 +181,10 @@ public final class ResolvedIndexSpec {
      *
      * <p>Resolution order:</p>
      * <ol>
-     *   <li>SQ 1-bit: fixed 2x oversample (quantized distances need full-precision rescoring)</li>
+     *   <li>SQ multi-bit (bits ∈ {1, 2, 4}): fixed oversample, overrides disallowed.
+     *       bits=1 (x32) uses the Faiss scalar-quantized factor; bits=2 (x16) and bits=4 (x8) use
+     *       {@link RescoreContext#SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR} — the higher-bit codes
+     *       recover most recall on their own.</li>
      *   <li>x32 compression with the flat method: 2x oversample</li>
      *   <li>Otherwise, only when the compression level requires rescoring for the resolved mode
      *       ({@link CompressionLevel#isModeValidForRescore}):
@@ -202,9 +205,12 @@ public final class ResolvedIndexSpec {
         if (rescoreDefaultOverride != null) {
             return rescoreDefaultOverride;
         }
-        if (isSQOneBit()) {
+        if (isSQMultiBit()) {
+            final float oversampleFactor = quantizationBits == Encoder.QuantizationBits.ONE
+                ? RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR
+                : RescoreContext.SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR;
             return RescoreContext.builder()
-                .oversampleFactor(RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR)
+                .oversampleFactor(oversampleFactor)
                 .allowOverrideOversampleFactor(false)
                 .userProvided(false)
                 .build();

@@ -408,12 +408,22 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
     public void testBuildRequestSQTwoBit() throws IOException {
         // Same wire contract as SQ 1-bit: fp32 vectors uploaded, RVIB builds the HNSW graph over
         // fp32 neighbors, data node stitches with locally-quantized .veq (2-bit) at search time.
+        ResolvedIndexSpec resolvedSpec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName("hnsw")
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.TWO)
+            .compressionLevel(CompressionLevel.x16)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(2)
+            .build();
         RemoteBuildRequest request = RemoteIndexBuildStrategy.buildRemoteBuildRequest(
             createTestIndexSettings(),
             buildIndexParams,
             createTestRepositoryMetadata(),
             MOCK_FULL_PATH,
-            getMockSQParameterMap(2)
+            getMockSQParameterMap(2),
+            resolvedSpec
         );
         assertEquals(VectorDataType.FLOAT.getValue(), request.getVectorDataType());
         assertTrue(request.isSkipStoredVectors());
@@ -422,12 +432,22 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
     public void testBuildRequestSQFourBit() throws IOException {
         // Same wire contract as SQ 1-bit/2-bit — the data node quantizes to 4-bit codes locally
         // and uploads fp32 to RVIB, which produces an HNSW graph over the fp32 neighbors.
+        ResolvedIndexSpec resolvedSpec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName("hnsw")
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.FOUR)
+            .compressionLevel(CompressionLevel.x8)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(2)
+            .build();
         RemoteBuildRequest request = RemoteIndexBuildStrategy.buildRemoteBuildRequest(
             createTestIndexSettings(),
             buildIndexParams,
             createTestRepositoryMetadata(),
             MOCK_FULL_PATH,
-            getMockSQParameterMap(4)
+            getMockSQParameterMap(4),
+            resolvedSpec
         );
         assertEquals(VectorDataType.FLOAT.getValue(), request.getVectorDataType());
         assertTrue(request.isSkipStoredVectors());
@@ -436,12 +456,22 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
     public void testBuildRequestSQFP16_thenNoSkipStoredVectors() throws IOException {
         // Sanity: fp16 is not the MOS path, so skipStoredVectors must remain false — RVIB writes
         // its own flat storage in this case.
+        ResolvedIndexSpec resolvedSpec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName("hnsw")
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.SIXTEEN)
+            .compressionLevel(CompressionLevel.x2)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(2)
+            .build();
         RemoteBuildRequest request = RemoteIndexBuildStrategy.buildRemoteBuildRequest(
             createTestIndexSettings(),
             buildIndexParams,
             createTestRepositoryMetadata(),
             MOCK_FULL_PATH,
-            getMockSQParameterMap(16)
+            getMockSQParameterMap(16),
+            resolvedSpec
         );
         assertFalse(request.isSkipStoredVectors());
     }

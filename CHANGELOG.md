@@ -9,8 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Enable the approximate graph threshold for Faiss SQ x32 (sq bits=1) indices [#3434](https://github.com/opensearch-project/k-NN/pull/3434)
 * Accept SQ 2-bit and 4-bit quantization at the mapping and codec layers [#3429](https://github.com/opensearch-project/k-NN/pull/3429)
 * Build SQ B-bit HNSW graph with multi-bit symmetric distance for SQ bits ∈ {1, 2, 4} [#3431](https://github.com/opensearch-project/k-NN/pull/3431
-* Wire multi-bit SQ search through Lucene scorer for bits ∈ {2, 4} [#3432](https://github.com/opensearch-project/k-NN/pull/3432)
 * Enable remote vector index build for multi-bit SQ - bits ∈ {2, 4} [#3459](https://github.com/opensearch-project/k-NN/pull/3459)
+* Set default oversample factor to 1 for SQ 2-bit and 4-bit encoders (x16 / x8 compression) [#3463](https://github.com/opensearch-project/k-NN/pull/3463)
 
 ### Maintenance
 * Fixed multiple forbidden api warnings from the code []()
