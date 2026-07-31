@@ -84,7 +84,7 @@ git submodule update --init -- jni/external/faiss
 if [ "$PLATFORM" = "windows" ]; then
     openBlasVersion="0.3.21"
     openBlasFile="openblas_${openBlasVersion}"
-    curl -SL https://github.com/xianyi/OpenBLAS/releases/download/v${openBlasVersion}/OpenBLAS-${openBlasVersion}-x64.zip -o ${openBlasFile}.zip
+    curl -SL https://ci.opensearch.org/ci/dbc/tools/openblas/OpenBLAS-${openBlasVersion}-x64.zip -o ${openBlasFile}.zip
     unzip -j -o ${openBlasFile}.zip bin/libopenblas.dll -d ./src/main/resources/windowsDependencies
     rm -rf ${openBlasFile}.zip
 fi
