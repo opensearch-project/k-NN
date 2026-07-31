@@ -537,6 +537,7 @@ tasks.register('cmakeJniLib', Exec) {
     args.add("-DCOMMIT_LIB_PATCHES=${commit_lib_patches}")
     args.add("-DAPPLY_LIB_PATCHES=${apply_lib_patches}")
     args.add("-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+    args.add("-DBLA_VENDOR=OpenBLAS") // 0.3.29 openblas requires clear vendor definition, no-op older versions
     def javaHome = Jvm.current().getJavaHome()
     logger.lifecycle("Java home directory used by gradle: $javaHome")
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
