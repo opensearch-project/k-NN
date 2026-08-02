@@ -78,22 +78,21 @@ public class Faiss1040ScalarQuantizedKnnVectorsReader extends AbstractNativeEngi
     /**
      * Warms up the on-disk data for the given scalar-quantized field.
      * <p>
-     * This warms up both the HNSW graph (via the memory-optimized searcher), quantized vectors and the
-     * full-precision vectors. The full-precision vectors cannot be warmed up through
-     * {@link WarmupUtil} because the {@link FloatVectorValues}
-     * returned by the flat vectors reader is backed by quantized data. Instead, each vector
-     * is read explicitly through the underlying
-     * {@link ScalarQuantizedFloatVectorValues}.
+     * Warms three files: the quantized codes in {@code .veq}, the full-precision floats in
+     * {@code .vec}, and the FAISS HNSW graph in {@code .faiss}.
+     * <p>
+     * The {@code .veq} slice is warmed here via the quantized delegate — it's the one file
+     * {@link VectorSearcher#warmUp()} never touches. The {@code .faiss} graph and the
+     * {@code .vec} floats are warmed by {@link VectorSearcher#warmUp()} itself: it bulk-reads
+     * the {@code .faiss} file directly, then iterates the fp32 float values (which end up
+     * routed through this wrapper's {@link ScalarQuantizedFloatVectorValues#getFloatVectorValues() fp32 delegate}),
+     * so we don't duplicate that work here.
      *
      * @param fieldName the name of the vector field to warm up
      * @throws IOException if an I/O error occurs while reading the underlying data
      */
     @Override
     public void warmUp(final String fieldName) throws IOException {
-        // Warm up full-precision vectors
-        // We cannot rely on WarmupUtil, which extracts the IndexInput from vector values and reads through it.
-        // Because, the IndexInput returned by vector values is backed by quantized vectors.
-        // Therefore, to warm up full-precision vectors, we need to load them explicitly as below.
         final ScalarQuantizedFloatVectorValues vectorValues = (ScalarQuantizedFloatVectorValues) flatVectorsReader.getFloatVectorValues(
             fieldName
         );
@@ -103,13 +102,15 @@ public class Faiss1040ScalarQuantizedKnnVectorsReader extends AbstractNativeEngi
             return;
         }
 
-        for (int i = 0; i < vectorValues.size(); ++i) {
-            vectorValues.vectorValue(i);
+        // Warm up the .veq slice (quantized codes). This is the only file MOS's
+        // warmUp() does not cover — it handles .faiss (graph) and .vec (fp32).
+        if (vectorValues.getQuantizedVectorValues() != null) {
+            WarmupUtil.readAll(vectorValues.getQuantizedVectorValues());
         }
 
         final VectorSearcher memoryOptimizedSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfos.fieldInfo(fieldName));
         if (memoryOptimizedSearcher != null) {
-            // MOS is supported, warm up search parts
+            // Warms the .faiss graph and the .vec fp32 floats.
             memoryOptimizedSearcher.warmUp();
         } else {
             log.warn("Memory optimized search is not supported for {}", fieldName);

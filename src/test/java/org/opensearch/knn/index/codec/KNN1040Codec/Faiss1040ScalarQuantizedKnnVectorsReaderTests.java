@@ -193,7 +193,6 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
         final FlatVectorsReader fvr = mock(FlatVectorsReader.class);
         final ScalarQuantizedFloatVectorValues mockVectorValues = mock(ScalarQuantizedFloatVectorValues.class);
         when(mockVectorValues.size()).thenReturn(3);
-        when(mockVectorValues.vectorValue(org.mockito.ArgumentMatchers.anyInt())).thenReturn(new float[] { 1.0f, 2.0f, 3.0f });
         when(fvr.getFloatVectorValues("field1")).thenReturn(mockVectorValues);
 
         // Set up a log appender to capture log events
@@ -215,7 +214,12 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
             KNNEngine mockFaiss = spy(KNNEngine.FAISS);
             when(mockFaiss.getVectorSearcherFactory()).thenReturn(null);
 
-            try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
+            try (
+                MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class);
+                MockedStatic<org.opensearch.knn.index.util.WarmupUtil> mockedWarmup = mockStatic(
+                    org.opensearch.knn.index.util.WarmupUtil.class
+                )
+            ) {
                 ms.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
                 ms.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
 

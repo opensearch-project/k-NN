@@ -13,7 +13,6 @@ import org.apache.lucene.codecs.hnsw.FlatFieldVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
-import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.DocValuesSkipIndexType;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.FieldInfo;
@@ -498,8 +497,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
                 assertNotNull(emptyValues);
                 assertTrue(emptyValues instanceof ScalarQuantizedFloatVectorValues);
                 assertEquals(0, emptyValues.size());
-                assertTrue(emptyValues instanceof HasIndexSlice);
-                assertNull(((HasIndexSlice) emptyValues).getSlice());
+                assertNull(((ScalarQuantizedFloatVectorValues) emptyValues).getQuantizedVectorValues());
                 ((Faiss1040ScalarQuantizedKnnVectorsReader) emptySegmentReader).warmUp(FIELD_NAME);
             }
 
