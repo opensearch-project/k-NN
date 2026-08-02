@@ -93,6 +93,10 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
         final QuantizedByteVectorValues quantizedByteVectorValues;
         if (vectorValues instanceof QuantizedByteVectorValues) {
             quantizedByteVectorValues = (QuantizedByteVectorValues) vectorValues;
+        } else if (vectorValues instanceof ScalarQuantizedFloatVectorValues) {
+            // Our wrapper exposes the quantized delegate via a public getter, so we don't
+            // need to fall back to the reflection path used for Lucene's private inner class.
+            quantizedByteVectorValues = ((ScalarQuantizedFloatVectorValues) vectorValues).getQuantizedVectorValues();
         } else {
             // Extract QuantizedByteVectorValues from `vectorValues`.
             // This should not be null, otherwise it can't get entroid + correction factors.

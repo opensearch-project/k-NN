@@ -106,6 +106,36 @@ public class WarmupUtilTests extends KNNTestCase {
         verify(mockSlice, times((int) sliceLength)).readByte();
     }
 
+    // When FloatVectorValues implements HasIndexSlice but getSlice() returns null (e.g. a
+    // two-slice wrapper like ScalarQuantizedFloatVectorValues fronted by SparseFloatVectorValuesImpl),
+    // readAll should fall through to iterating each vector.
+    public void testReadAllFloatVectorValues_whenHasIndexSliceButSliceIsNull_readsAllValues() throws IOException {
+        int size = 2;
+        FloatVectorValuesWithSlice mockValues = mock(FloatVectorValuesWithSlice.class);
+        when(mockValues.getSlice()).thenReturn(null);
+        when(mockValues.size()).thenReturn(size);
+
+        WarmupUtil.readAll((FloatVectorValues) mockValues);
+
+        for (int i = 0; i < size; i++) {
+            verify(mockValues).vectorValue(i);
+        }
+    }
+
+    // Same for the ByteVectorValues overload.
+    public void testReadAllByteVectorValues_whenHasIndexSliceButSliceIsNull_readsAllValues() throws IOException {
+        int size = 2;
+        ByteVectorValuesWithSlice mockValues = mock(ByteVectorValuesWithSlice.class);
+        when(mockValues.getSlice()).thenReturn(null);
+        when(mockValues.size()).thenReturn(size);
+
+        WarmupUtil.readAll((ByteVectorValues) mockValues);
+
+        for (int i = 0; i < size; i++) {
+            verify(mockValues).vectorValue(i);
+        }
+    }
+
     // Abstract helper types that combine VectorValues with HasIndexSlice so
     // Mockito can produce mocks matching the instanceof check in WarmupUtil.
     abstract static class FloatVectorValuesWithSlice extends FloatVectorValues implements HasIndexSlice {}
