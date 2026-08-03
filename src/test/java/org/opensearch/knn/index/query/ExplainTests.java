@@ -37,6 +37,7 @@ import org.opensearch.knn.jni.JNIService;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -374,6 +375,54 @@ public class ExplainTests extends KNNWeightTestCase {
         }
         assertEquals(docIdSetIterator.cost(), actualDocIds.size());
         assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
+    }
+
+    @SneakyThrows
+    public void testExplain_whenDocIsNotANearestNeighbor_thenNoMatch() {
+        // Given
+        int k = 3;
+        jniServiceMockedStatic.when(
+            () -> JNIService.queryIndex(anyLong(), eq(QUERY_VECTOR), eq(k), eq(HNSW_METHOD_PARAMETERS), any(), eq(null), anyInt(), any())
+        ).thenReturn(getFilteredKNNQueryResults());
+
+        final int[] filterDocIds = new int[] { 0, 1, 2, 3, 4, 5 };
+        final Map<String, String> attributesMap = ImmutableMap.of(
+            KNN_ENGINE,
+            KNNEngine.FAISS.getName(),
+            SPACE_TYPE,
+            SpaceType.L2.getValue()
+        );
+
+        setupTest(filterDocIds, attributesMap);
+
+        final KNNQuery query = KNNQuery.builder()
+            .field(FIELD_NAME)
+            .queryVector(QUERY_VECTOR)
+            .k(k)
+            .indexName(INDEX_NAME)
+            .filterQuery(FILTER_QUERY)
+            .methodParameters(HNSW_METHOD_PARAMETERS)
+            .vectorDataType(VectorDataType.FLOAT)
+            .explain(true)
+            .build();
+        query.setExplain(true);
+
+        final KNNWeight knnWeight = new DefaultKNNWeight(query, 1f, filterQueryWeight);
+        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+        assertNotNull(knnScorer);
+        knnWeight.getKnnExplanation().addKnnScorer(leafReaderContext, knnScorer);
+
+        // The query returns FILTERED_DOC_ID_TO_SCORES, so this document is not one of the nearest neighbors. Advancing
+        // the scorer to it lands on the next matching document instead.
+        final int docIdWithoutMatch = Collections.min(FILTERED_DOC_ID_TO_SCORES.keySet()) - 1;
+
+        // When
+        final Explanation explanation = knnWeight.explain(leafReaderContext, docIdWithoutMatch);
+
+        // Then
+        assertNotNull(explanation);
+        assertFalse(explanation.isMatch());
+        assertTrue(explanation.getDescription().contains(FIELD_NAME));
     }
 
     @SneakyThrows
