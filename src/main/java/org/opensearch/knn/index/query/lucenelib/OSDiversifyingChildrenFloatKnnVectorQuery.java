@@ -7,6 +7,7 @@ package org.opensearch.knn.index.query.lucenelib;
 
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.AcceptDocs;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.join.BitSetProducer;
@@ -72,12 +73,28 @@ public final class OSDiversifyingChildrenFloatKnnVectorQuery extends Diversifyin
         return super.approximateSearch(context, acceptDocs, visitedLimit, knnCollectorManager);
     }
 
+    /**
+     * Performs a diversified, full-precision exact search over the accepted child documents, returning the
+     * best-scoring child per parent. Reads raw float vectors, so it is full precision even for quantized
+     * (e.g. 4x / on_disk) indexes. Used by {@link ExpandNestedDocsQuery} to rescore the oversampled parent
+     * candidates before expanding their nested documents.
+     *
+     * @param context the leaf reader context
+     * @param acceptIterator iterator over the candidate child documents
+     * @return diversified top docs (best child per parent)
+     * @throws IOException on read error
+     */
+    public TopDocs diversifyingExactSearch(final LeafReaderContext context, final DocIdSetIterator acceptIterator) throws IOException {
+        return super.exactSearch(context, acceptIterator, null);
+    }
+
     @Override
     protected TopDocs mergeLeafResults(TopDocs[] perLeafResults) {
-        // TODO: Fix this if condition after adding rescoring logic inside ExpandNestedDocsQuery when rescoring is enabled
-        if (rescoreK != RescoreContext.NO_RESCORE_NEEDED && !expandNestedDocs) {
-            // When rescoring is enabled, merge to oversampled k (rescore budget) rather than the
-            // full luceneK which may have been expanded by ef_search.
+        if (rescoreK != RescoreContext.NO_RESCORE_NEEDED) {
+            // When rescoring is enabled, merge to the oversampled k (rescore budget) rather than the full
+            // luceneK which may have been expanded by ef_search. For the expandNested path this preserves the
+            // oversampled parent candidates so ExpandNestedDocsQuery can rescore them at full precision and
+            // reduce to the top k parents before expanding their child documents.
             return TopDocs.merge(rescoreK, perLeafResults);
         }
         // Merge all segment level results and take top k from it
