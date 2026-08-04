@@ -7,6 +7,9 @@ package org.opensearch.knn.index.engine.lucene;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnVectorsFormat;
+import org.opensearch.common.Nullable;
+import org.opensearch.index.mapper.MapperService;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KnnVectorsFormatContext;
 import org.opensearch.knn.index.codec.LuceneVectorsFormatType;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
@@ -35,9 +38,15 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 public class LuceneCodecFormatResolver implements CodecFormatResolver {
 
     private final Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> formatResolvers;
+    @Nullable
+    private final MapperService mapperService;
 
-    public LuceneCodecFormatResolver(Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> formatResolvers) {
+    public LuceneCodecFormatResolver(
+        Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> formatResolvers,
+        @Nullable MapperService mapperService
+    ) {
         this.formatResolvers = formatResolvers;
+        this.mapperService = mapperService;
     }
 
     @Override
@@ -60,7 +69,10 @@ public class LuceneCodecFormatResolver implements CodecFormatResolver {
         if (factory == null) {
             throw new IllegalStateException(String.format("No Lucene vectors format registered for type [%s]", formatType));
         }
-        return factory.apply(new KnnVectorsFormatContext(field, methodContext, params, defaultMaxConnections, defaultBeamWidth));
+        final int approximateThreshold = KNNSettings.getApproximateThresholdValue(mapperService);
+        return factory.apply(
+            new KnnVectorsFormatContext(field, methodContext, params, defaultMaxConnections, defaultBeamWidth, approximateThreshold)
+        );
     }
 
     /**
