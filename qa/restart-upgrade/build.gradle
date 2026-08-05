@@ -190,6 +190,15 @@ task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
         }
     }
 
+    // The _source-bloat-on-merge fix (#3465, issue #3316) shipped in 3.8; the regression only reproduces
+    // when the old cluster predates it, so skip that test when the old cluster already has the fix.
+    boolean derivedSourceMergeFixAlreadyPresent = Version.fromString(knn_bwc_version_no_qualifier).onOrAfter("3.8.0")
+    if (derivedSourceMergeFixAlreadyPresent) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.DerivedSourceBWCRestartIT.testDerivedSourceExcludeMergeBloatBefore3_8_0"
+        }
+    }
+
     if (versionOnOrAfter2_17.any {knn_bwc_version.startsWith(it) }) {
         filter {
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testBlockModeAndCompressionBefore2_17_0"
@@ -232,7 +241,7 @@ task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
     systemProperty 'tests.security.manager', 'false'
-    
+
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
 }
@@ -381,6 +390,15 @@ task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
             knn_bwc_version.startsWith("2.19.")) {
         filter {
             excludeTestsMatching "org.opensearch.knn.bwc.DerivedSourceBWCRestartIT"
+        }
+    }
+
+    // The _source-bloat-on-merge fix (#3465, issue #3316) shipped in 3.8; the regression only reproduces
+    // when the old cluster predates it, so skip that test when the old cluster already has the fix.
+    boolean derivedSourceMergeFixAlreadyPresent = Version.fromString(knn_bwc_version_no_qualifier).onOrAfter("3.8.0")
+    if (derivedSourceMergeFixAlreadyPresent) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.DerivedSourceBWCRestartIT.testDerivedSourceExcludeMergeBloatBefore3_8_0"
         }
     }
 
