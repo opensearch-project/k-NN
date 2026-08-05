@@ -20,6 +20,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -186,7 +187,7 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
             // MethodFieldMapper attributes
             this.vectorFieldType = null;
             this.useLuceneBasedVectorField = KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(indexCreatedVersion);
-            KNNEngine knnEngine = resolvedKnnMethodContext.getKnnEngine();
+            VectorSearchEngine knnEngine = resolvedKnnMethodContext.getKnnEngine();
             QuantizationConfig quantizationConfig = knnLibraryIndexingContext.getQuantizationConfig();
             this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
             this.fieldType.putAttribute(DIMENSION, String.valueOf(knnMappingConfig.getDimension()));

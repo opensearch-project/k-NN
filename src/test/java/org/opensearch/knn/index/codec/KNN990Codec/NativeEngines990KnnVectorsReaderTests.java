@@ -28,6 +28,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.codec.nativeindex.AbstractNativeEnginesKnnVectorsReader;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
@@ -129,7 +130,7 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
 
     @SneakyThrows
     public void testWhenMemoryOptimizedSearchIsEnabled_mixedCase() {
-        KNNEngine mockFaiss = spy(KNNEngine.FAISS);
+        VectorSearchEngine mockFaiss = spy(KNNEngine.FAISS);
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
         when(mockFactory.createVectorSearcher(any(), any(), any(), any(), any())).thenReturn(mock(VectorSearcher.class));
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
@@ -185,7 +186,7 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
         }
     }
 
-    private static FieldInfo createFieldInfo(final String fieldName, final KNNEngine engine, final int fieldNo) {
+    private static FieldInfo createFieldInfo(final String fieldName, final VectorSearchEngine engine, final int fieldNo) {
         final KNNCodecTestUtil.FieldInfoBuilder builder = KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName);
         builder.fieldNumber(fieldNo);
         if (engine != null) {

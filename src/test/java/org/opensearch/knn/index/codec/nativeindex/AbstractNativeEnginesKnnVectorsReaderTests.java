@@ -25,6 +25,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
@@ -93,7 +94,7 @@ public class AbstractNativeEnginesKnnVectorsReaderTests extends KNNTestCase {
     @SneakyThrows
     public void testGetVectorSearcherSupplier_whenNoSearcherFactory_thenReturnsNull() {
         final FieldInfo fi = createKnnFieldInfo("field1", KNNEngine.FAISS, 0);
-        KNNEngine mockFaiss = spy(KNNEngine.FAISS);
+        VectorSearchEngine mockFaiss = spy(KNNEngine.FAISS);
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(null);
 
         try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
@@ -111,7 +112,7 @@ public class AbstractNativeEnginesKnnVectorsReaderTests extends KNNTestCase {
     @SneakyThrows
     public void testGetVectorSearcherSupplier_whenNoSegmentFile_thenReturnsNull() {
         final FieldInfo fi = createKnnFieldInfo("field1", KNNEngine.FAISS, 0);
-        KNNEngine mockFaiss = spy(KNNEngine.FAISS);
+        VectorSearchEngine mockFaiss = spy(KNNEngine.FAISS);
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mock(VectorSearcherFactory.class));
 
         try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
@@ -130,7 +131,7 @@ public class AbstractNativeEnginesKnnVectorsReaderTests extends KNNTestCase {
     @SneakyThrows
     public void testGetVectorSearcherSupplier_whenAllConditionsMet_thenReturnsSupplier() {
         final FieldInfo fi = createKnnFieldInfo("field1", KNNEngine.FAISS, 0);
-        KNNEngine mockFaiss = spy(KNNEngine.FAISS);
+        VectorSearchEngine mockFaiss = spy(KNNEngine.FAISS);
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
         when(mockFactory.createVectorSearcher(any(), anyString(), any(), any(), any())).thenReturn(mock(VectorSearcher.class));
@@ -154,7 +155,7 @@ public class AbstractNativeEnginesKnnVectorsReaderTests extends KNNTestCase {
     @SneakyThrows
     public void testLoadMemoryOptimizedSearcher_whenCalledTwice_thenSearcherCreatedOnce() {
         final FieldInfo fi = createKnnFieldInfo("field1", KNNEngine.FAISS, 0);
-        KNNEngine mockFaiss = spy(KNNEngine.FAISS);
+        VectorSearchEngine mockFaiss = spy(KNNEngine.FAISS);
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
         VectorSearcher mockSearcher = mock(VectorSearcher.class);
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
@@ -179,7 +180,7 @@ public class AbstractNativeEnginesKnnVectorsReaderTests extends KNNTestCase {
     @SneakyThrows
     public void testLoadMemoryOptimizedSearcher_whenSupplierThrows_thenWrapsInRuntimeException() {
         final FieldInfo fi = createKnnFieldInfo("field1", KNNEngine.FAISS, 0);
-        KNNEngine mockFaiss = spy(KNNEngine.FAISS);
+        VectorSearchEngine mockFaiss = spy(KNNEngine.FAISS);
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
         when(mockFactory.createVectorSearcher(any(), anyString(), any(), any(), any())).thenThrow(new IOException("disk error"));
@@ -221,7 +222,7 @@ public class AbstractNativeEnginesKnnVectorsReaderTests extends KNNTestCase {
 
     // --- helpers ---
 
-    private static FieldInfo createKnnFieldInfo(String name, KNNEngine engine, int fieldNo) {
+    private static FieldInfo createKnnFieldInfo(String name, VectorSearchEngine engine, int fieldNo) {
         return KNNCodecTestUtil.FieldInfoBuilder.builder(name)
             .fieldNumber(fieldNo)
             .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")

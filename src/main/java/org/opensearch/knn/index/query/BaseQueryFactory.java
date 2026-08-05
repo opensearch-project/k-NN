@@ -21,7 +21,7 @@ import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.search.NestedHelper;
 import org.opensearch.index.search.OpenSearchToParentBlockJoinQuery;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
@@ -44,7 +44,7 @@ public abstract class BaseQueryFactory {
     @Getter
     public static class CreateQueryRequest {
         @NonNull
-        private KNNEngine knnEngine;
+        private VectorSearchEngine knnEngine;
         @NonNull
         private String indexName;
         private String fieldName;

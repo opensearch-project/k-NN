@@ -38,6 +38,7 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
@@ -521,7 +522,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         // Model exists
         byte[] modelBlob = "hello".getBytes();
 
-        KNNEngine knnEngine = KNNEngine.FAISS;
+        VectorSearchEngine knnEngine = KNNEngine.FAISS;
         SpaceType spaceType = SpaceType.INNER_PRODUCT;
         int dimension = 2;
         ModelMetadata modelMetadata = new ModelMetadata(

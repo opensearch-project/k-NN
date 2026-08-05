@@ -27,6 +27,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.codec.nativeindex.AbstractNativeEnginesKnnVectorsReader;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
@@ -75,7 +76,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
     @SneakyThrows
     public void testSearchFloat_whenSearcherAvailable_thenDelegates() {
         final FieldInfo fi = createFieldInfo("field1", KNNEngine.FAISS, 0);
-        KNNEngine mockFaiss = spy(KNNEngine.FAISS);
+        VectorSearchEngine mockFaiss = spy(KNNEngine.FAISS);
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
         VectorSearcher mockSearcher = mock(VectorSearcher.class);
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
@@ -105,7 +106,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
     @SneakyThrows
     public void testSearchFloat_whenNoSearcher_thenThrowsIllegalState() {
         final FieldInfo fi = createFieldInfo("field1", KNNEngine.FAISS, 0);
-        KNNEngine mockFaiss = spy(KNNEngine.FAISS);
+        VectorSearchEngine mockFaiss = spy(KNNEngine.FAISS);
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(null);
 
         try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
@@ -136,7 +137,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
     @SneakyThrows
     public void testClose_thenClosesFlatReaderAndSearcher() {
         final FieldInfo fi = createFieldInfo("field1", KNNEngine.FAISS, 0);
-        KNNEngine mockFaiss = spy(KNNEngine.FAISS);
+        VectorSearchEngine mockFaiss = spy(KNNEngine.FAISS);
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
         VectorSearcher mockSearcher = mock(VectorSearcher.class);
         when(mockFaiss.getVectorSearcherFactory()).thenReturn(mockFactory);
@@ -212,7 +213,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
 
         try {
             // Make KNNEngine return null factory so loadMemoryOptimizedSearcherIfRequired returns null
-            KNNEngine mockFaiss = spy(KNNEngine.FAISS);
+            VectorSearchEngine mockFaiss = spy(KNNEngine.FAISS);
             when(mockFaiss.getVectorSearcherFactory()).thenReturn(null);
 
             try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
@@ -307,7 +308,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
 
     // --- helpers ---
 
-    private static FieldInfo createFieldInfo(String name, KNNEngine engine, int fieldNo) {
+    private static FieldInfo createFieldInfo(String name, VectorSearchEngine engine, int fieldNo) {
         KNNCodecTestUtil.FieldInfoBuilder b = KNNCodecTestUtil.FieldInfoBuilder.builder(name).fieldNumber(fieldNo);
         if (engine != null) {
             b.addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true").addAttribute(KNNConstants.KNN_ENGINE, engine.getName());

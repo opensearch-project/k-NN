@@ -23,6 +23,7 @@ import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
 
 import java.util.Collection;
@@ -792,7 +793,7 @@ public class RecallTestsIT extends KNNCompressionRestTestCase {
         assertEquals(PERFECT_RECALL, recallValue, acceptableRecallFromPerfect);
     }
 
-    private String createIndexName(KNNEngine knnEngine, SpaceType spaceType) {
+    private String createIndexName(VectorSearchEngine knnEngine, SpaceType spaceType) {
         return String.format("%s_%s_%s", TEST_INDEX_PREFIX_NAME, knnEngine.getName(), spaceType.getValue());
     }
 

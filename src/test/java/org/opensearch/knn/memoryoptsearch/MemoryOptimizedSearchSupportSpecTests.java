@@ -13,6 +13,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -442,7 +443,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
     }
 
     private static class TestingSpec {
-        final KNNEngine knnEngine;
+        final VectorSearchEngine knnEngine;
         final SpaceType spaceType;
         final VectorDataType vectorDataType;
         final Optional<KNNMethodContext> methodComponentContext;
@@ -451,7 +452,7 @@ public class MemoryOptimizedSearchSupportSpecTests extends KNNTestCase {
         final Version version;
 
         private TestingSpec(
-            final KNNEngine knnEngine,
+            final VectorSearchEngine knnEngine,
             final SpaceType spaceType,
             final VectorDataType vectorDataType,
             final MethodComponentContext methodComponentContext,

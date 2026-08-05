@@ -45,13 +45,14 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.DerivedKnnByteVectorField;
 import org.opensearch.knn.index.DerivedKnnFloatVectorField;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.EngineResolver;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
 import org.opensearch.knn.index.engine.SpaceTypeResolver;
 import org.opensearch.knn.index.util.IndexUtil;
@@ -204,7 +205,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             KNNConstants.TOP_LEVEL_PARAMETER_ENGINE,
             false,
             m -> toType(m).originalMappingParameters.getTopLevelEngine(),
-            KNNEngine.UNDEFINED.getName()
+            VectorSearchEngine.UNDEFINED.getName()
         ).setValidator(KNNEngine::getEngine);
 
         protected final Parameter<Map<String, String>> meta = Parameter.metaParam();
@@ -491,7 +492,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
          */
         private void validateBlockedKNNEngine(KNNMethodContext knnMethodContext, Version indexVersionCreated) {
             if (knnMethodContext == null) return;
-            KNNEngine engine = knnMethodContext.getKnnEngine();
+            VectorSearchEngine engine = knnMethodContext.getKnnEngine();
             if (engine.isRestricted(indexVersionCreated)) {
                 throw new IllegalArgumentException(
                     engine.getName()
@@ -584,7 +585,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
 
             // Based on config context, if the user does not set the engine, resolve and set it
-            KNNEngine resolvedKNNEngine = EngineResolver.INSTANCE.resolveEngine(
+            VectorSearchEngine resolvedKNNEngine = EngineResolver.INSTANCE.resolveEngine(
                 builder.knnMethodConfigContext,
                 builder.originalParameters.getResolvedKnnMethodContext(),
                 builder.topLevelEngine.get(),
@@ -618,7 +619,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             knnMethodContext.setSpaceType(spaceType);
         }
 
-        private void setEngine(final KNNMethodContext knnMethodContext, KNNEngine knnEngine) {
+        private void setEngine(final KNNMethodContext knnMethodContext, VectorSearchEngine knnEngine) {
             if (knnMethodContext == null || knnMethodContext.isEngineConfigured()) {
                 return;
             }

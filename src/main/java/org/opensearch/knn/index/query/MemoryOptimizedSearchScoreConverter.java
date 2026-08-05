@@ -8,6 +8,7 @@ package org.opensearch.knn.index.query;
 import org.apache.lucene.search.ScoreDoc;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 /**
  * Utility class for converting between Faiss and Lucene score representations
@@ -19,7 +20,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
  * With the same query, results are expected to be identical regardless of
  * whether memory optimization is enabled.
  *
- * <p>However, unlike {@link KNNEngine},
+ * <p>However, unlike {@link VectorSearchEngine},
  * the input here is a Faiss score, which must be converted to Lucene’s
  * scoring range.</p>
  *

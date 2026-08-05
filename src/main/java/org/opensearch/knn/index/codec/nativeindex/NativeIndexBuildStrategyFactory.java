@@ -11,6 +11,7 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -57,7 +58,7 @@ public final class NativeIndexBuildStrategyFactory {
         final int totalLiveDocs,
         final KNNVectorValues<?> knnVectorValues
     ) throws IOException {
-        final KNNEngine knnEngine = extractKNNEngine(fieldInfo);
+        final VectorSearchEngine knnEngine = extractKNNEngine(fieldInfo);
         final boolean isTemplate = fieldInfo.attributes().containsKey(MODEL_ID);
         final boolean iterative = !isTemplate && KNNEngine.FAISS == knnEngine;
         final boolean isFaissSQOneBitField = FieldInfoExtractor.isSQField(fieldInfo)

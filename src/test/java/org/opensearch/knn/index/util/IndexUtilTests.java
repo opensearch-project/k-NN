@@ -23,6 +23,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.indices.ModelDao;
@@ -70,7 +71,7 @@ public class IndexUtilTests extends KNNTestCase {
     public void testGetLoadParameters() {
         // Test faiss to ensure that space type gets set properly
         SpaceType spaceType1 = SpaceType.COSINESIMIL;
-        KNNEngine knnEngine1 = KNNEngine.FAISS;
+        VectorSearchEngine knnEngine1 = KNNEngine.FAISS;
         String indexName = "my-test-index";
         VectorDataType vectorDataType1 = VectorDataType.FLOAT;
 
@@ -81,7 +82,7 @@ public class IndexUtilTests extends KNNTestCase {
 
         // Test nmslib to ensure both space type and ef search are properly set
         SpaceType spaceType2 = SpaceType.L1;
-        KNNEngine knnEngine2 = KNNEngine.NMSLIB;
+        VectorSearchEngine knnEngine2 = KNNEngine.NMSLIB;
         VectorDataType vectorDataType2 = VectorDataType.BINARY;
         int efSearchValue = 413;
 
@@ -243,21 +244,21 @@ public class IndexUtilTests extends KNNTestCase {
 
     public void testIsShareableStateContainedInIndex_whenIndexNotModelBased_thenReturnFalse() {
         String modelId = null;
-        KNNEngine knnEngine = KNNEngine.FAISS;
+        VectorSearchEngine knnEngine = KNNEngine.FAISS;
         assertFalse(IndexUtil.isSharedIndexStateRequired(knnEngine, modelId, TEST_INDEX_ADDRESS));
     }
 
     public void testIsShareableStateContainedInIndex_whenFaissHNSWIsUsed_thenReturnFalse() {
         jniServiceMockedStatic.when(() -> JNIService.isSharedIndexStateRequired(anyLong(), any())).thenReturn(false);
         String modelId = "test-model";
-        KNNEngine knnEngine = KNNEngine.FAISS;
+        VectorSearchEngine knnEngine = KNNEngine.FAISS;
         assertFalse(IndexUtil.isSharedIndexStateRequired(knnEngine, modelId, TEST_INDEX_ADDRESS));
     }
 
     public void testIsShareableStateContainedInIndex_whenJNIIsSharedIndexStateRequiredIsTrue_thenReturnTrue() {
         jniServiceMockedStatic.when(() -> JNIService.isSharedIndexStateRequired(anyLong(), any())).thenReturn(true);
         String modelId = "test-model";
-        KNNEngine knnEngine = KNNEngine.FAISS;
+        VectorSearchEngine knnEngine = KNNEngine.FAISS;
         assertTrue(IndexUtil.isSharedIndexStateRequired(knnEngine, modelId, TEST_INDEX_ADDRESS));
     }
 

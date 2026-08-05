@@ -41,6 +41,7 @@ import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
@@ -470,7 +471,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
             () -> JNIService.queryBinaryIndex(anyLong(), eq(quantizedVector), eq(k), any(), any(), any(), anyInt(), any())
         ).thenReturn(knnQueryResults);
 
-        KNNEngine knnEngine = mock(KNNEngine.class);
+        VectorSearchEngine knnEngine = mock(VectorSearchEngine.class);
         when(knnEngine.score(anyFloat(), eq(SpaceType.HAMMING))).thenAnswer(invocation -> {
             Float score = invocation.getArgument(0);
             return 1 / (1 + score);
@@ -1724,7 +1725,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         when(fieldInfo.attributes()).thenReturn(fileAttributes);
 
         String engineName = fieldInfo.attributes().getOrDefault(KNN_ENGINE, KNNEngine.NMSLIB.getName());
-        KNNEngine knnEngine = KNNEngine.getEngine(engineName);
+        VectorSearchEngine knnEngine = KNNEngine.getEngine(engineName);
         List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), query.getField(), reader.getSegmentInfo().info);
         String expectIndexPath = String.format("%s_%s_%s%s%s", SEGMENT_NAME, 2011, FIELD_NAME, knnEngine.getExtension(), "c");
         assertEquals(engineFiles.get(0), expectIndexPath);

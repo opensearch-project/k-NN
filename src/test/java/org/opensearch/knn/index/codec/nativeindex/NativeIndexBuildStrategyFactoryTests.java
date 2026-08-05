@@ -16,6 +16,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.repositories.RepositoriesService;
@@ -134,7 +135,7 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
             int totalLiveDocs = 10;
             long vectorBlobLength = 32L * totalLiveDocs;
 
-            KNNEngine faissEngine = KNNEngine.FAISS;
+            VectorSearchEngine faissEngine = KNNEngine.FAISS;
             mockedRemote.when(() -> RemoteIndexBuildStrategy.shouldBuildIndexRemotely(any(IndexSettings.class), anyLong()))
                 .thenReturn(true);
 
@@ -144,7 +145,7 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
             // Mock supportsRemoteIndexBuild - KNNEngine is an enum so we need to use a real engine
             // FAISS supports remote index build when knnLibraryIndexingContext is provided
             // We need to mock the static method on RemoteIndexBuildStrategy
-            // Since KNNEngine.FAISS.supportsRemoteIndexBuild calls through to the library, we mock it indirectly
+            // Since BuiltinKNNEngine.FAISS.supportsRemoteIndexBuild calls through to the library, we mock it indirectly
             // by ensuring the condition is met through the RemoteIndexBuildStrategy static mock
 
             // Actually, KNNEngine is an enum and supportsRemoteIndexBuild is not static - we can't mock it directly.

@@ -8,6 +8,7 @@ package org.opensearch.knn.index.query;
 import org.apache.lucene.search.TopDocs;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.test.OpenSearchTestCase;
 
 import java.util.Arrays;
@@ -17,7 +18,7 @@ public class TopApproxKnnCollectorTests extends OpenSearchTestCase {
 
     public void testCollect_thenSuccess() {
         float similarity = randomFloat();
-        KNNEngine knnEngine = randomFrom(KNNEngine.FAISS, KNNEngine.LUCENE);
+        VectorSearchEngine knnEngine = randomFrom(KNNEngine.FAISS, KNNEngine.LUCENE);
         SpaceType spaceType = randomFrom(
             Arrays.stream(SpaceType.values()).filter(space -> space != SpaceType.UNDEFINED).collect(Collectors.toList())
         );

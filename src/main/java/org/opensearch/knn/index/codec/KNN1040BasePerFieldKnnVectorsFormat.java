@@ -10,8 +10,9 @@ import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
-import org.opensearch.knn.index.engine.CodecFormatResolver;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.CodecFormatResolver;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
@@ -88,7 +89,7 @@ public abstract class KNN1040BasePerFieldKnnVectorsFormat extends PerFieldKnnVec
         final KNNMethodContext knnMethodContext = knnMappingConfig.getKnnMethodContext()
             .orElseThrow(() -> new IllegalArgumentException("KNN method context cannot be empty"));
         nativeIndexBuildStrategyFactory.setKnnLibraryIndexingContext(knnMappingConfig.getKnnLibraryIndexingContext());
-        final KNNEngine engine = knnMethodContext.getKnnEngine();
+        final VectorSearchEngine engine = knnMethodContext.getKnnEngine();
         final Map<String, Object> params = knnMethodContext.getMethodComponentContext().getParameters();
 
         if (engine == KNNEngine.LUCENE) {
