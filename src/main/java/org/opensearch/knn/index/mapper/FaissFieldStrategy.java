@@ -66,7 +66,7 @@ public final class FaissFieldStrategy implements EngineFieldStrategy {
         ResolvedIndexSpec spec = knnLibraryIndexingContext.getResolvedSpec();
         // 1-bit quantization has its own per-field format that handles quantization internally,
         // so we set sq_config instead of qframe_config
-        if (spec != null && spec.isSQOneBit()) {
+        if (spec.isSQOneBit()) {
             SQConfig sqConfig = SQConfig.builder().bits(spec.getQuantizationBits().getValue()).build();
             fieldType.putAttribute(SQ_CONFIG, SQConfigParser.toCsv(sqConfig));
         } else {

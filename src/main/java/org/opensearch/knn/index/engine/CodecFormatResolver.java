@@ -6,7 +6,6 @@
 package org.opensearch.knn.index.engine;
 
 import org.apache.lucene.codecs.KnnVectorsFormat;
-import org.opensearch.common.Nullable;
 
 import java.util.Map;
 
@@ -18,14 +17,13 @@ public interface CodecFormatResolver {
 
     /**
      * Resolves the appropriate {@link KnnVectorsFormat} for a given field.
-     * Implementations should prefer the resolved index spec when non-null and fall back to parameter inspection otherwise.
      *
      * @param field                 the field name
      * @param methodContext         the KNN method context (engine, space type, method component); may be null for model-based fields
      * @param params                the method component parameters; may be null
      * @param defaultMaxConnections default max connections for HNSW
      * @param defaultBeamWidth      default beam width for HNSW
-     * @param resolvedSpec          the resolved index spec; may be null
+     * @param resolvedSpec          the resolved index spec
      * @return the resolved {@link KnnVectorsFormat}
      */
     KnnVectorsFormat resolve(
@@ -34,7 +32,7 @@ public interface CodecFormatResolver {
         Map<String, Object> params,
         int defaultMaxConnections,
         int defaultBeamWidth,
-        @Nullable ResolvedIndexSpec resolvedSpec
+        ResolvedIndexSpec resolvedSpec
     );
 
     KnnVectorsFormat resolve();

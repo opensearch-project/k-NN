@@ -35,7 +35,7 @@ public class DeleteModelTransportAction extends HandledTransportAction<DeleteMod
     protected void doExecute(Task task, DeleteModelRequest request, ActionListener<DeleteModelResponse> listener) {
         String modelID = request.getModelID();
         modelDao.delete(modelID, ActionListener.wrap(listener::onResponse, e -> {
-            log.error(e);
+            log.error("Failed to delete model [{}]", modelID, e);
             listener.onFailure(e);
         }));
     }
