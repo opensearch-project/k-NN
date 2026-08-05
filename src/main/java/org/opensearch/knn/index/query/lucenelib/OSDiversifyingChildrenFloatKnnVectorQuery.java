@@ -27,6 +27,7 @@ import java.io.IOException;
 public final class OSDiversifyingChildrenFloatKnnVectorQuery extends DiversifyingChildrenFloatKnnVectorQuery {
 
     private final int k;
+    private final int luceneK;
     private final int rescoreK;
     private final boolean expandNestedDocs;
     private final BitSetProducer parentFilter;
@@ -55,6 +56,7 @@ public final class OSDiversifyingChildrenFloatKnnVectorQuery extends Diversifyin
     ) {
         super(fieldName, vector, filterQuery, luceneK, parentFilter);
         this.k = k;
+        this.luceneK = luceneK;
         this.rescoreK = rescoreK;
         this.expandNestedDocs = expandNestedDocs;
         this.parentFilter = parentFilter;
@@ -95,6 +97,9 @@ public final class OSDiversifyingChildrenFloatKnnVectorQuery extends Diversifyin
             // luceneK which may have been expanded by ef_search. For the expandNested path this preserves the
             // oversampled parent candidates so ExpandNestedDocsQuery can rescore them at full precision and
             // reduce to the top k parents before expanding their child documents.
+            // Invariant: luceneK >= rescoreK (KNNQueryFactory defines luceneK as max(rescoreK, efSearch)), so
+            // merging to rescoreK here never returns more candidates than the exact rescore pass can collect.
+            assert luceneK >= rescoreK : "luceneK (" + luceneK + ") must be >= rescoreK (" + rescoreK + ")";
             return TopDocs.merge(rescoreK, perLeafResults);
         }
         // Merge all segment level results and take top k from it

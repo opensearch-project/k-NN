@@ -58,12 +58,14 @@ public class ExpandNestedDocsQuery extends Query {
         List<LeafReaderContext> leafReaderContexts = reader.leaves();
         List<Map<Integer, Float>> perLeafResults;
         perLeafResults = queryUtils.doSearch(searcher, leafReaderContexts, weight);
+        // Built once and shared by both the rescore and the expansion passes to avoid rewriting the filter twice.
+        final Weight filterWeight = getFilterWeight(searcher);
         if (rescoreK != RescoreContext.NO_RESCORE_NEEDED) {
             // Rescore the oversampled parent candidates at full precision and reduce to the top k parents
             // before expanding all of their child documents below.
-            perLeafResults = rescore(searcher, leafReaderContexts, perLeafResults);
+            perLeafResults = rescore(searcher, leafReaderContexts, perLeafResults, filterWeight);
         }
-        TopDocs[] topDocs = retrieveAll(searcher, leafReaderContexts, perLeafResults);
+        TopDocs[] topDocs = retrieveAll(searcher, leafReaderContexts, perLeafResults, filterWeight);
         int sum = 0;
         for (TopDocs topDoc : topDocs) {
             sum += topDoc.scoreDocs.length;
@@ -84,18 +86,27 @@ public class ExpandNestedDocsQuery extends Query {
      * The surviving parents are then redistributed back into per-leaf, segment-local maps for the subsequent
      * {@link #retrieveAll} expansion, which returns every child document of these top k parents.
      *
+     * <p>Per-leaf correctness relies on the invariant {@code luceneK >= rescoreK} established in
+     * {@link org.opensearch.knn.index.query.KNNQueryFactory} (luceneK is defined as {@code max(rescoreK, efSearch)}).
+     * The approximate pass merges leaves down to {@code rescoreK} candidates total (see
+     * {@link OSDiversifyingChildrenFloatKnnVectorQuery#mergeLeafResults}), so each leaf holds at most
+     * {@code rescoreK <= luceneK} candidate parents. The diversified exact search here collects up to
+     * {@code luceneK} best-per-parent results, so it can never drop a candidate parent before the global
+     * top-k merge below. If that invariant is ever broken this becomes a silent per-leaf truncation.
+     *
      * @param indexSearcher the index searcher
      * @param leafReaderContexts the leaf reader contexts
      * @param perLeafResults per-leaf maps of the oversampled parent candidate child doc ids to their scores
+     * @param filterWeight the pre-built filter weight, or null when the query has no filter
      * @return per-leaf maps containing only the surviving top k parents' child doc ids and rescored scores
      * @throws IOException on read error
      */
     private List<Map<Integer, Float>> rescore(
         final IndexSearcher indexSearcher,
         final List<LeafReaderContext> leafReaderContexts,
-        final List<Map<Integer, Float>> perLeafResults
+        final List<Map<Integer, Float>> perLeafResults,
+        final Weight filterWeight
     ) throws IOException {
-        final Weight filterWeight = getFilterWeight(indexSearcher);
         final List<Callable<TopDocs>> rescoreTasks = new ArrayList<>(leafReaderContexts.size());
         for (int i = 0; i < perLeafResults.size(); i++) {
             final LeafReaderContext leafReaderContext = leafReaderContexts.get(i);
@@ -139,11 +150,11 @@ public class ExpandNestedDocsQuery extends Query {
     private TopDocs[] retrieveAll(
         final IndexSearcher indexSearcher,
         final List<LeafReaderContext> leafReaderContexts,
-        final List<Map<Integer, Float>> perLeafResults
+        final List<Map<Integer, Float>> perLeafResults,
+        final Weight filterWeight
     ) throws IOException {
         // Construct query
         List<Callable<TopDocs>> nestedQueryTasks = new ArrayList<>(leafReaderContexts.size());
-        Weight filterWeight = getFilterWeight(indexSearcher);
         for (int i = 0; i < perLeafResults.size(); i++) {
             LeafReaderContext leafReaderContext = leafReaderContexts.get(i);
             int finalI = i;
