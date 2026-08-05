@@ -278,10 +278,18 @@ public class DerivedSourceBWCRestartIT extends DerivedSourceTestCase {
                 derivedExcludeIds
             );
 
-            if (isExhaustive()) {
+            if (true) {
                 int derivedExcludeSize = indexSizeInBytes(derivedExclude);
                 int nonDerivedExcludeSize = indexSizeInBytes(nonDerivedExclude);
                 int derivedNoExcludeSize = indexSizeInBytes(derivedNoExclude);
+
+                // TEMPORARY: print sizes and flip the assertion so we can see the values and a failure in CI.
+                logger.info(
+                    "[BWC SIZES] derivedExclude={} bytes, nonDerivedExclude={} bytes, derivedNoExclude={} bytes",
+                    derivedExcludeSize,
+                    nonDerivedExcludeSize,
+                    derivedNoExcludeSize
+                );
 
                 // The bug's signature: after the force-merge on the upgraded node the vector must not be
                 // re-injected, so derived+exclude stays well below the non-derived index.
@@ -293,7 +301,7 @@ public class DerivedSourceBWCRestartIT extends DerivedSourceTestCase {
                         derivedExcludeSize,
                         nonDerivedExcludeSize
                     ),
-                    derivedExcludeSize < nonDerivedExcludeSize
+                    derivedExcludeSize > nonDerivedExcludeSize
                 );
 
                 // ...and it should have shrunk back essentially to the no-exclude baseline rather than
