@@ -23,6 +23,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.common.exception.TerminalIOException;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.nativeindex.IndexBuildAbortedException;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
@@ -35,6 +36,7 @@ import java.io.IOException;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -122,6 +124,40 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
 
         assertThrows(TerminalIOException.class, () -> { objectUnderTest.buildAndWriteIndex(buildIndexParams); });
         assertFalse(fallback.get());
+        // A terminal termination is benign and must not be counted as a build failure.
+        assertEquals(0L, (long) KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT.getValue());
+        assertEquals(1L, (long) KNNRemoteIndexBuildValue.INDEX_BUILD_TERMINAL_EXCEPTION.getValue());
+    }
+
+    /**
+     * Test that we do not fall back to the fallback BuildStrategy when an IndexBuildAbortedException is thrown.
+     * This simulates a merge abort during remote index build - the exception should propagate up
+     * rather than falling back to local build.
+     */
+    public void testRemoteIndexBuildStrategyAbortDoesNotFallback() throws IOException {
+        final SetOnce<Boolean> fallback = new SetOnce<>(Boolean.FALSE);
+
+        RemoteIndexBuildStrategy objectUnderTest = spy(
+            new RemoteIndexBuildStrategy(
+                () -> mock(RepositoriesService.class),
+                new TestIndexBuildStrategy(fallback),
+                mock(IndexSettings.class),
+                null
+            )
+        );
+
+        // Use doAnswer rather than doThrow: IndexBuildAbortedException is not assignable to the
+        // TerminalIOException declared by getRepositoryContext, so doThrow's checked-exception validation
+        // would reject it. The JVM does not enforce checked exceptions at runtime, and buildAndWriteIndex
+        // declares throws IOException, so the abort propagates just as it would from the polling phase.
+        doAnswer(invocation -> { throw new IndexBuildAbortedException("Merge aborted during remote index build"); }).when(objectUnderTest)
+            .getRepositoryContext(any());
+
+        assertThrows(IndexBuildAbortedException.class, () -> { objectUnderTest.buildAndWriteIndex(buildIndexParams); });
+        assertFalse(fallback.get());
+        // A merge abort is a benign cancellation and must not be counted as a build failure.
+        assertEquals(0L, (long) KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT.getValue());
+        assertEquals(1L, (long) KNNRemoteIndexBuildValue.INDEX_BUILD_MERGE_ABORT_EXCEPTION.getValue());
     }
 
     /**
