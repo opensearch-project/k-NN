@@ -10,7 +10,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_LUCENE_RADIAL_SEARCH_DECAY;
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
-import static org.opensearch.knn.common.KNNConstants.MAX_RESULTS_RADIAL_RESCORING;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 
 import java.util.Arrays;
@@ -37,6 +36,7 @@ import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.search.approximate.ApproximateScoreQuery;
 
 public class RNNQueryFactoryTests extends KNNTestCase {
     private static final String FILTER_FILED_NAME = "foo";
@@ -279,10 +279,36 @@ public class RNNQueryFactoryTests extends KNNTestCase {
         assertEquals(maxResultWindow, rescoreQuery.getMaxResultsSize());
     }
 
-    // Given: rescoring is required but no QueryShardContext is present
+    // Verify that memory-optimized Faiss radial search with quantization uses the request-size-aware wrapper.
+    public void testCreate_whenMemoryOptimizedFaissSQ32x_thenWrapsInApproximateScoreQuery() {
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        KNNVectorFieldType mockFieldType = mock(KNNVectorFieldType.class);
+        when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
+        when(indexSettings.getMaxResultWindow()).thenReturn(maxResultWindow);
+        when(mockFieldType.getResolvedSpec()).thenReturn(sqOneBitSpec());
+
+        final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.FAISS)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .radius(testRadius)
+            .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+            .context(mockQueryShardContext)
+            .vectorFieldType(mockFieldType)
+            .memoryOptimizedSearchEnabled(true)
+            .build();
+
+        Query query = RNNQueryFactory.create(createQueryRequest);
+
+        assertTrue(query instanceof ApproximateScoreQuery);
+    }
+
+    // Given: quantized Lucene radial search without a QueryShardContext
     // When: RNNQueryFactory creates the query
-    // Then: maxResultsSize falls back to MAX_RESULTS_RADIAL_RESCORING
-    public void testCreate_whenRescoringRequired_andNoContext_thenUsesDefaultMaxResultsSize() {
+    // Then: the request-size-aware approximation wrapper is used, with the existing radial rescore query as fallback
+    public void testCreate_whenRescoringRequiredAndNoContext_thenUsesRequestSizeAwareWrapper() {
         KNNVectorFieldType mockFieldType = mock(KNNVectorFieldType.class);
         when(mockFieldType.getResolvedSpec()).thenReturn(sqOneBitSpec());
 
@@ -298,23 +324,20 @@ public class RNNQueryFactoryTests extends KNNTestCase {
 
         Query query = RNNQueryFactory.create(createQueryRequest);
 
-        assertTrue(query instanceof RescoreRadialSearchQuery);
-        RescoreRadialSearchQuery rescoreQuery = (RescoreRadialSearchQuery) query;
-        assertEquals(MAX_RESULTS_RADIAL_RESCORING, rescoreQuery.getMaxResultsSize());
+        assertTrue(query instanceof ApproximateScoreQuery);
     }
 
-    // Given: rescoring is required and IndexSettings has a custom maxResultWindow (e.g. 500)
+    // Given: quantized Lucene radial search
     // When: RNNQueryFactory creates the query
-    // Then: maxResultsSize is set to that custom value
-    public void testCreate_whenRescoringRequired_andCustomMaxResultWindow_thenUsesCustomValue() {
-        int customMaxResultWindow = 500;
+    // Then: the request-size-aware approximation wrapper is returned.
+    public void testCreate_whenRescoringRequiredAndCustomMaxResultWindow_thenUsesRequestSizeAwareWrapper() {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         IndexSettings indexSettings = mock(IndexSettings.class);
         MappedFieldType testMapper = mock(MappedFieldType.class);
         KNNVectorFieldType mockFieldType = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
         when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
-        when(indexSettings.getMaxResultWindow()).thenReturn(customMaxResultWindow);
+        when(indexSettings.getMaxResultWindow()).thenReturn(500);
         when(mockFieldType.getResolvedSpec()).thenReturn(sqOneBitSpec());
 
         final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
@@ -330,14 +353,11 @@ public class RNNQueryFactoryTests extends KNNTestCase {
 
         Query query = RNNQueryFactory.create(createQueryRequest);
 
-        assertTrue(query instanceof RescoreRadialSearchQuery);
-        RescoreRadialSearchQuery rescoreQuery = (RescoreRadialSearchQuery) query;
-        assertEquals(customMaxResultWindow, rescoreQuery.getMaxResultsSize());
+        assertTrue(query instanceof ApproximateScoreQuery);
     }
 
-    // Verify that Lucene radial search with 32x SQ wraps the inner FloatVectorSimilarityQuery
-    // in RescoreRadialSearchQuery.
-    public void testCreate_whenLuceneSQ32x_thenWrapsInRescoreRadialSearchQuery() {
+    // Verify that quantized Lucene radial search uses the request-size-aware approximation wrapper.
+    public void testCreate_whenLuceneSQ32x_thenWrapsInApproximateScoreQuery() {
         List<KNNEngine> luceneEngines = Arrays.stream(KNNEngine.values())
             .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
             .collect(Collectors.toList());
@@ -358,11 +378,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
 
             Query query = RNNQueryFactory.create(createQueryRequest);
 
-            assertTrue(query instanceof RescoreRadialSearchQuery);
-            RescoreRadialSearchQuery rescoreQuery = (RescoreRadialSearchQuery) query;
-            assertTrue(rescoreQuery.getInnerQuery() instanceof FloatVectorSimilarityQuery);
-            assertEquals(testFieldName, rescoreQuery.getField());
-            assertEquals(testRadius, rescoreQuery.getRadius(), 0.0f);
+            assertTrue(query instanceof ApproximateScoreQuery);
         }
     }
 
