@@ -84,6 +84,7 @@ public class KNNConstants {
     public static final String MINIMAL_MODE_AND_COMPRESSION_FEATURE = "mode_and_compression_feature";
     public static final String TOP_LEVEL_SPACE_TYPE_FEATURE = "top_level_space_type_feature";
     public static final String TOP_LEVEL_ENGINE_FEATURE = "top_level_engine_feature";
+    public static final String GENERIC_METHOD_PARAMETERS_FEATURE = "generic_method_parameters_feature";
 
     public static final String RADIAL_SEARCH_KEY = "radial_search";
     public static final int MAX_RESULTS_RADIAL_RESCORING = 10000;
@@ -122,6 +123,7 @@ public class KNNConstants {
 
     // Faiss specific constants
     public static final String FAISS_NAME = "faiss";
+    public static final String UNDEFINED_ENGINE_NAME = "undefined";
     public final static String FAISS_EXTENSION = ".faiss";
     public static final String INDEX_DESCRIPTION_PARAMETER = "index_description";
     public static final String METHOD_ENCODER_PARAMETER = "encoder";

@@ -6,6 +6,7 @@
 package org.opensearch.knn.jni;
 
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.common.KNNConstants;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -19,23 +20,38 @@ import java.lang.reflect.Modifier;
 public class KNNLibraryLoaderBT extends KNNTestCase {
 
     /**
-     * Tests all non-private methods in KNNLibraryLoader by invoking them.
-     *
-     * Verifies that library loading methods can be called without exceptions.
-     * Uses reflection to discover and test all accessible methods, ensuring
-     * comprehensive coverage of the library loading functionality.
+     * Invokes every no-arg non-private loader method; parameterized loaders are covered by their
+     * callers and the direct test below.
      */
     public void testAnnotatedLibraryMethods_whenInvoked_thenLogsResults() {
         Method[] methods = KNNLibraryLoader.class.getDeclaredMethods();
 
         for (Method method : methods) {
-            if (!Modifier.isPrivate(method.getModifiers())) {
+            // Skip parameterized loaders (e.g. the generic loadLibraryByVariant(baseName)); they cannot be
+            // invoked blindly and are covered through their no-arg callers (loadFaissLibrary, loadSimdLibrary).
+            if (!Modifier.isPrivate(method.getModifiers()) && method.getParameterCount() == 0) {
                 try {
                     method.invoke(null);
                 } catch (Exception e) {
                     fail("Library load failed for method " + method.getName() + ": " + e.getMessage());
                 }
             }
+        }
+    }
+
+    /**
+     * Loads a library by base name through the public variant-selecting entry point.
+     */
+    public void testLoadLibraryByVariant_whenGivenBaseName_thenLoadsSupportedVariant() {
+        try {
+            KNNLibraryLoader.loadLibraryByVariant(KNNConstants.FAISS_JNI_LIBRARY_NAME);
+        } catch (UnsatisfiedLinkError e) {
+            fail(
+                "loadLibraryByVariant failed to resolve and load a variant of "
+                    + KNNConstants.FAISS_JNI_LIBRARY_NAME
+                    + ": "
+                    + e.getMessage()
+            );
         }
     }
 }

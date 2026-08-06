@@ -36,6 +36,8 @@ import org.opensearch.index.mapper.Mapper;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.shard.IndexSettingProvider;
 import org.opensearch.indices.SystemIndexDescriptor;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngineContext;
 import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNVectorDocValueFormat;
 import org.opensearch.knn.index.KNNSettings;
@@ -272,6 +274,9 @@ public class KNNPlugin extends Plugin
         KNNWeight.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         RescoreRadialSearchQuery.initialize(new ExactSearcher(ModelDao.OpenSearchKNNModelDao.getInstance()));
         TrainingModelRequest.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
+
+        // Engine discovery runs after the k-NN singletons above are wired so definitions can use them.
+        KNNEngine.initialize(new KNNEngineContext(client, clusterService));
 
         clusterService.addListener(TrainingJobClusterStateListener.getInstance());
 
