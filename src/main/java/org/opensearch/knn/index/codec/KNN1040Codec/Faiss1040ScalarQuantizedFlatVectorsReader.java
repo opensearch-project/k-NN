@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
+import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
@@ -44,7 +45,7 @@ public class Faiss1040ScalarQuantizedFlatVectorsReader extends FlatVectorsReader
      *                                              will be wrapped to implement {@code HasIndexSlice}
      */
     protected Faiss1040ScalarQuantizedFlatVectorsReader(final FlatVectorsReader lucene104ScalarQuantizedVectorsReader) {
-        super(lucene104ScalarQuantizedVectorsReader.getFlatVectorScorer());
+        super();
         this.delegateFlatVectorsReader = lucene104ScalarQuantizedVectorsReader;
     }
 
@@ -66,10 +67,19 @@ public class Faiss1040ScalarQuantizedFlatVectorsReader extends FlatVectorsReader
     /**
      * Returns {@link FloatVectorValues} wrapped with {@link ScalarQuantizedFloatVectorValues}
      * so that the result implements {@link org.apache.lucene.codecs.lucene95.HasIndexSlice}.
+     * Empty values are wrapped with no quantized backing because Lucene does not expose one.
      */
     @Override
     public FloatVectorValues getFloatVectorValues(String field) throws IOException {
         final FloatVectorValues floatVectorValues = delegateFlatVectorsReader.getFloatVectorValues(field);
+        if (floatVectorValues == null) {
+            return null;
+        }
+
+        if (floatVectorValues.size() == 0) {
+            return new ScalarQuantizedFloatVectorValues(floatVectorValues, null);
+        }
+
         return new ScalarQuantizedFloatVectorValues(
             floatVectorValues,
             KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(floatVectorValues)
@@ -90,4 +100,10 @@ public class Faiss1040ScalarQuantizedFlatVectorsReader extends FlatVectorsReader
     public long ramBytesUsed() {
         return delegateFlatVectorsReader.ramBytesUsed();
     }
+
+    @Override
+    public FlatVectorsScorer getFlatVectorScorer(String field) throws IOException {
+        return delegateFlatVectorsReader.getFlatVectorScorer(field);
+    }
+
 }

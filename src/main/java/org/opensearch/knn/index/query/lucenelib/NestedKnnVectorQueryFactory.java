@@ -58,7 +58,7 @@ public class NestedKnnVectorQueryFactory {
      * @param parentFilter has mapping data between parent doc and child doc
      * @param expandNestedDocs tells if this query is for expanding nested docs
      * @param k k nearest neighbor for search
-     * @param needsRescore tells if this query needs rescore
+     * @param rescoreK the number of candidates to retain for rescoring (0 means no rescore)
      * @return Query for k-NN nested field
      */
     public static Query createNestedKnnVectorQuery(
@@ -69,13 +69,13 @@ public class NestedKnnVectorQueryFactory {
         final BitSetProducer parentFilter,
         final boolean expandNestedDocs,
         final int k,
-        final boolean needsRescore
+        final int rescoreK
     ) {
         if (expandNestedDocs) {
             return new ExpandNestedDocsQuery.ExpandNestedDocsQueryBuilder().internalNestedKnnVectorQuery(
-                new InternalNestedKnnFloatVectorQuery(fieldName, vector, filterQuery, luceneK, parentFilter, k, needsRescore)
+                new InternalNestedKnnFloatVectorQuery(fieldName, vector, filterQuery, luceneK, parentFilter, k, rescoreK)
             ).queryUtils(QueryUtils.getInstance()).build();
         }
-        return new OSDiversifyingChildrenFloatKnnVectorQuery(fieldName, vector, filterQuery, luceneK, parentFilter, k, needsRescore);
+        return new OSDiversifyingChildrenFloatKnnVectorQuery(fieldName, vector, filterQuery, luceneK, parentFilter, k, rescoreK);
     }
 }

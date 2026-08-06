@@ -5,10 +5,15 @@
 
 package org.opensearch.knn.index.query.lucenelib;
 
+import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
+import org.apache.lucene.search.knn.KnnCollectorManager;
+
+import java.io.IOException;
 
 /**
  * OpenSearch wrapper around Lucene's DiversifyingChildrenByteKnnVectorQuery that customizes
@@ -18,7 +23,9 @@ import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
  * documents are returned, maintaining consistency with OpenSearch's k-NN query behavior.
  */
 public final class OSDiversifyingChildrenByteKnnVectorQuery extends DiversifyingChildrenByteKnnVectorQuery {
+
     private final int k;
+    private final BitSetProducer parentFilter;
 
     public OSDiversifyingChildrenByteKnnVectorQuery(
         final String fieldName,
@@ -30,6 +37,20 @@ public final class OSDiversifyingChildrenByteKnnVectorQuery extends Diversifying
     ) {
         super(fieldName, vector, filterQuery, luceneK, parentFilter);
         this.k = k;
+        this.parentFilter = parentFilter;
+    }
+
+    @Override
+    protected TopDocs approximateSearch(
+        LeafReaderContext context,
+        AcceptDocs acceptDocs,
+        int visitedLimit,
+        KnnCollectorManager knnCollectorManager
+    ) throws IOException {
+        if (NestedKnnUtil.hasNoParentDocs(parentFilter, context)) {
+            return NestedKnnUtil.EMPTY_TOP_DOCS;
+        }
+        return super.approximateSearch(context, acceptDocs, visitedLimit, knnCollectorManager);
     }
 
     @Override

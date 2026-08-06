@@ -17,6 +17,7 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.indices.replication.common.ReplicationType;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil;
@@ -408,6 +409,9 @@ public class DerivedSourceUtils {
             builder.field("type", "knn_vector");
             builder.field("dimension", dimension);
             builder.field("data_type", vectorDataType.getValue());
+            if (vectorDataType == VectorDataType.FLOAT) {
+                builder.field(KNNConstants.COMPRESSION_LEVEL_PARAMETER, "1x");
+            }
             builder.endObject();
             return builder;
         }

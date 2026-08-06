@@ -20,6 +20,10 @@
 #include "faiss/IndexHNSW.h"
 #include "faiss/IndexBinaryHNSW.h"
 #include "faiss/IndexIVFPQ.h"
+#include "faiss/IndexIVFFlat.h"
+#include "faiss/IndexBinaryIVF.h"
+#include "faiss/index_factory.h"
+#include "faiss/invlists/BlockInvertedLists.h"
 #include "mocks/faiss_index_service_mock.h"
 #include "native_stream_support_util.h"
 
@@ -147,7 +151,7 @@ TEST(FaissCreateIndexTest, BasicAssertions) {
         .Times(1);
     EXPECT_CALL(mockIndexService, insertToIndex(dim, numIds / insertions, 0, _, _, _))
         .Times(insertions);
-    EXPECT_CALL(mockIndexService, writeIndex(_, _))
+    EXPECT_CALL(mockIndexService, writeIndex(_, _, _))
         .Times(1);
 
     createIndexIteratively(&mockJNIUtil,
@@ -199,7 +203,7 @@ TEST(FaissCreateBinaryIndexTest, BasicAssertions) {
         .Times(1);
     EXPECT_CALL(mockIndexService, insertToIndex(dim, numIds / insertions, 0, _, _, _))
         .Times(insertions);
-    EXPECT_CALL(mockIndexService, writeIndex(_, _))
+    EXPECT_CALL(mockIndexService, writeIndex(_, _, _))
         .Times(1);
 
     // This method calls delete vectors at the end
@@ -220,7 +224,7 @@ TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
         faiss::idx_t numIds = 100;
         std::vector<faiss::idx_t> ids;
         auto *vectors = new std::vector<float>();
-        int dim = 2;
+        int dim = 8;
         vectors->reserve(dim * numIds);
         for (int64_t i = 0; i < numIds; ++i) {
           ids.push_back(i);
@@ -231,10 +235,15 @@ TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
 
         std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
         faiss::MetricType metricType = faiss::METRIC_L2;
-        std::string method = "HNSW32,Flat";
 
+        // Train an IVF index to use as template
         std::unique_ptr<faiss::Index> createdIndex(
-            test_util::FaissCreateIndex(dim, method, metricType));
+            faiss::index_factory(dim, "IVF4,Flat", metricType));
+        std::vector<float> trainingData(256 * dim);
+        for (auto& v : trainingData) {
+            v = test_util::RandomFloat(-500.0, 500.0);
+        }
+        createdIndex->train(256, trainingData.data());
         auto vectorIoWriter = test_util::FaissGetSerializedIndex(createdIndex.get());
 
         // Setup jni
@@ -286,10 +295,15 @@ TEST(FaissCreateByteIndexFromTemplateTest, BasicAssertions) {
 
         std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
         faiss::MetricType metricType = faiss::METRIC_L2;
-        std::string method = "HNSW32,SQ8_direct_signed";
 
+        // Train an IVF index to use as template
         std::unique_ptr<faiss::Index> createdIndex(
-            test_util::FaissCreateIndex(dim, method, metricType));
+            faiss::index_factory(dim, "IVF4,Flat", metricType));
+        std::vector<float> trainingData(256 * dim);
+        for (auto& v : trainingData) {
+            v = test_util::RandomFloat(-500.0, 500.0);
+        }
+        createdIndex->train(256, trainingData.data());
         auto vectorIoWriter = test_util::FaissGetSerializedIndex(createdIndex.get());
 
         // Setup jni
@@ -325,6 +339,307 @@ TEST(FaissCreateByteIndexFromTemplateTest, BasicAssertions) {
         // Clean up
         std::remove(indexPath.c_str());
     }  // End for
+}
+
+TEST(FaissCreateIndexFromTemplateTest, RejectsNonArrayInvertedLists) {
+    // Create and train an IVF index
+    int dim = 8;
+    int numTrainingVectors = 256;
+
+    std::unique_ptr<faiss::Index> index(
+        faiss::index_factory(dim, "IVF4,Flat", faiss::METRIC_L2));
+
+    std::vector<float> trainingData(numTrainingVectors * dim);
+    for (auto& v : trainingData) {
+        v = test_util::RandomFloat(-500.0, 500.0);
+    }
+    index->train(numTrainingVectors, trainingData.data());
+
+    // Replace ArrayInvertedLists with BlockInvertedLists to simulate tampering
+    auto* ivf = dynamic_cast<faiss::IndexIVF*>(index.get());
+    auto* block = new faiss::BlockInvertedLists(ivf->nlist, ivf->code_size, ivf->code_size);
+    ivf->replace_invlists(block, true);
+
+    // Serialize the tampered index
+    auto vectorIoWriter = test_util::FaissGetSerializedIndex(index.get());
+
+    // Setup test vectors
+    faiss::idx_t numIds = 10;
+    std::vector<faiss::idx_t> ids = test_util::Range(numIds);
+    auto* vectors = new std::vector<float>(
+        test_util::RandomVectors(dim, numIds, randomDataMin, randomDataMax));
+
+    // Setup jni
+    std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+    NiceMock<JNIEnv> jniEnv;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    JavaFileIndexOutputMock javaFileIndexOutputMock{indexPath};
+    setUpJavaFileOutputMocking(javaFileIndexOutputMock, mockJNIUtil, false);
+
+    std::string spaceType = knn_jni::L2;
+    std::unordered_map<std::string, jobject> parametersMap;
+    parametersMap[knn_jni::SPACE_TYPE] = (jobject)&spaceType;
+
+    EXPECT_THROW(
+        knn_jni::faiss_wrapper::CreateIndexFromTemplate(
+            &mockJNIUtil, &jniEnv, reinterpret_cast<jintArray>(&ids),
+            (jlong)vectors, dim, (jobject)(&javaFileIndexOutputMock),
+            reinterpret_cast<jbyteArray>(&(vectorIoWriter.data)),
+            (jobject)&parametersMap),
+        std::runtime_error);
+
+    std::remove(indexPath.c_str());
+}
+
+TEST(FaissCreateIndexFromTemplateTest, RejectsWrappedIndex) {
+    // Create and train an IVF index, then wrap it in IndexIDMap to simulate
+    // an attacker hiding the IVF inside a wrapper
+    int dim = 8;
+    int numTrainingVectors = 256;
+
+    std::unique_ptr<faiss::Index> index(
+        faiss::index_factory(dim, "IVF4,Flat", faiss::METRIC_L2));
+
+    std::vector<float> trainingData(numTrainingVectors * dim);
+    for (auto& v : trainingData) {
+        v = test_util::RandomFloat(-500.0, 500.0);
+    }
+    index->train(numTrainingVectors, trainingData.data());
+
+    // Wrap in IndexIDMap — this is not a legitimate template structure
+    faiss::IndexIDMap wrappedIndex(index.get());
+    faiss::VectorIOWriter vectorIoWriter;
+    faiss::write_index(&wrappedIndex, &vectorIoWriter);
+
+    // Setup test vectors
+    faiss::idx_t numIds = 10;
+    std::vector<faiss::idx_t> ids = test_util::Range(numIds);
+    auto* vectors = new std::vector<float>(
+        test_util::RandomVectors(dim, numIds, randomDataMin, randomDataMax));
+
+    // Setup jni
+    std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+    NiceMock<JNIEnv> jniEnv;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    JavaFileIndexOutputMock javaFileIndexOutputMock{indexPath};
+    setUpJavaFileOutputMocking(javaFileIndexOutputMock, mockJNIUtil, false);
+
+    std::string spaceType = knn_jni::L2;
+    std::unordered_map<std::string, jobject> parametersMap;
+    parametersMap[knn_jni::SPACE_TYPE] = (jobject)&spaceType;
+
+    EXPECT_THROW(
+        knn_jni::faiss_wrapper::CreateIndexFromTemplate(
+            &mockJNIUtil, &jniEnv, reinterpret_cast<jintArray>(&ids),
+            (jlong)vectors, dim, (jobject)(&javaFileIndexOutputMock),
+            reinterpret_cast<jbyteArray>(&(vectorIoWriter.data)),
+            (jobject)&parametersMap),
+        std::runtime_error);
+
+    std::remove(indexPath.c_str());
+}
+
+TEST(FaissCreateIndexFromTemplateTest, AcceptsValidIVFTemplate) {
+    // Create and train a legitimate IVF index with ArrayInvertedLists
+    int dim = 8;
+    int numTrainingVectors = 256;
+
+    std::unique_ptr<faiss::Index> index(
+        faiss::index_factory(dim, "IVF4,Flat", faiss::METRIC_L2));
+
+    std::vector<float> trainingData(numTrainingVectors * dim);
+    for (auto& v : trainingData) {
+        v = test_util::RandomFloat(-500.0, 500.0);
+    }
+    index->train(numTrainingVectors, trainingData.data());
+
+    // Serialize without tampering — should have ArrayInvertedLists
+    auto vectorIoWriter = test_util::FaissGetSerializedIndex(index.get());
+
+    // Setup test vectors
+    faiss::idx_t numIds = 10;
+    std::vector<faiss::idx_t> ids = test_util::Range(numIds);
+    auto* vectors = new std::vector<float>(
+        test_util::RandomVectors(dim, numIds, randomDataMin, randomDataMax));
+
+    // Setup jni
+    std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+    NiceMock<JNIEnv> jniEnv;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    JavaFileIndexOutputMock javaFileIndexOutputMock{indexPath};
+    setUpJavaFileOutputMocking(javaFileIndexOutputMock, mockJNIUtil, false);
+
+    std::string spaceType = knn_jni::L2;
+    std::unordered_map<std::string, jobject> parametersMap;
+    parametersMap[knn_jni::SPACE_TYPE] = (jobject)&spaceType;
+
+    EXPECT_NO_THROW(
+        knn_jni::faiss_wrapper::CreateIndexFromTemplate(
+            &mockJNIUtil, &jniEnv, reinterpret_cast<jintArray>(&ids),
+            (jlong)vectors, dim, (jobject)(&javaFileIndexOutputMock),
+            reinterpret_cast<jbyteArray>(&(vectorIoWriter.data)),
+            (jobject)&parametersMap));
+
+    javaFileIndexOutputMock.file_writer.close();
+
+    // Verify index can be loaded
+    std::unique_ptr<faiss::Index> loadedIndex(test_util::FaissLoadIndex(indexPath));
+    EXPECT_NE(loadedIndex, nullptr);
+
+    std::remove(indexPath.c_str());
+}
+
+TEST(FaissCreateIndexFromTemplateTest, AcceptsValidHNSWPQTemplate) {
+    // Create and train an HNSWPQ index — a legitimate non-IVF template
+    int dim = 8;
+    int numTrainingVectors = 256;
+
+    std::unique_ptr<faiss::Index> index(
+        faiss::index_factory(dim, "HNSW32,PQ4", faiss::METRIC_L2));
+
+    std::vector<float> trainingData(numTrainingVectors * dim);
+    for (auto& v : trainingData) {
+        v = test_util::RandomFloat(-500.0, 500.0);
+    }
+    index->train(numTrainingVectors, trainingData.data());
+
+    auto vectorIoWriter = test_util::FaissGetSerializedIndex(index.get());
+
+    // Setup test vectors
+    faiss::idx_t numIds = 10;
+    std::vector<faiss::idx_t> ids = test_util::Range(numIds);
+    auto* vectors = new std::vector<float>(
+        test_util::RandomVectors(dim, numIds, randomDataMin, randomDataMax));
+
+    // Setup jni
+    std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+    NiceMock<JNIEnv> jniEnv;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    JavaFileIndexOutputMock javaFileIndexOutputMock{indexPath};
+    setUpJavaFileOutputMocking(javaFileIndexOutputMock, mockJNIUtil, false);
+
+    std::string spaceType = knn_jni::L2;
+    std::unordered_map<std::string, jobject> parametersMap;
+    parametersMap[knn_jni::SPACE_TYPE] = (jobject)&spaceType;
+
+    EXPECT_NO_THROW(
+        knn_jni::faiss_wrapper::CreateIndexFromTemplate(
+            &mockJNIUtil, &jniEnv, reinterpret_cast<jintArray>(&ids),
+            (jlong)vectors, dim, (jobject)(&javaFileIndexOutputMock),
+            reinterpret_cast<jbyteArray>(&(vectorIoWriter.data)),
+            (jobject)&parametersMap));
+
+    javaFileIndexOutputMock.file_writer.close();
+
+    std::unique_ptr<faiss::Index> loadedIndex(test_util::FaissLoadIndex(indexPath));
+    EXPECT_NE(loadedIndex, nullptr);
+
+    std::remove(indexPath.c_str());
+}
+
+TEST(FaissCreateByteIndexFromTemplateTest, RejectsNonArrayInvertedLists) {
+    // Create and train an IVF index
+    int dim = 8;
+    int numTrainingVectors = 256;
+
+    std::unique_ptr<faiss::Index> index(
+        faiss::index_factory(dim, "IVF4,Flat", faiss::METRIC_L2));
+
+    std::vector<float> trainingData(numTrainingVectors * dim);
+    for (auto& v : trainingData) {
+        v = test_util::RandomFloat(-500.0, 500.0);
+    }
+    index->train(numTrainingVectors, trainingData.data());
+
+    // Replace ArrayInvertedLists with BlockInvertedLists
+    auto* ivf = dynamic_cast<faiss::IndexIVF*>(index.get());
+    auto* block = new faiss::BlockInvertedLists(ivf->nlist, ivf->code_size, ivf->code_size);
+    ivf->replace_invlists(block, true);
+
+    // Serialize the tampered index
+    auto vectorIoWriter = test_util::FaissGetSerializedIndex(index.get());
+
+    // Setup test vectors (byte type)
+    faiss::idx_t numIds = 10;
+    std::vector<faiss::idx_t> ids = test_util::Range(numIds);
+    auto* vectors = new std::vector<int8_t>(numIds * dim);
+    for (auto& v : *vectors) {
+        v = static_cast<int8_t>(test_util::RandomInt(-128, 127));
+    }
+
+    // Setup jni
+    std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+    NiceMock<JNIEnv> jniEnv;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    JavaFileIndexOutputMock javaFileIndexOutputMock{indexPath};
+    setUpJavaFileOutputMocking(javaFileIndexOutputMock, mockJNIUtil, false);
+
+    std::string spaceType = knn_jni::L2;
+    std::unordered_map<std::string, jobject> parametersMap;
+    parametersMap[knn_jni::SPACE_TYPE] = (jobject)&spaceType;
+
+    EXPECT_THROW(
+        knn_jni::faiss_wrapper::CreateByteIndexFromTemplate(
+            &mockJNIUtil, &jniEnv, reinterpret_cast<jintArray>(&ids),
+            (jlong)vectors, dim, (jobject)(&javaFileIndexOutputMock),
+            reinterpret_cast<jbyteArray>(&(vectorIoWriter.data)),
+            (jobject)&parametersMap),
+        std::runtime_error);
+
+    std::remove(indexPath.c_str());
+}
+
+TEST(FaissCreateBinaryIndexFromTemplateTest, RejectsNonArrayInvertedLists) {
+    // Create and train a binary IVF index
+    int dim = 128;
+    int numTrainingVectors = 256;
+
+    std::unique_ptr<faiss::IndexBinary> index(
+        faiss::index_binary_factory(dim, "BIVF4"));
+
+    std::vector<uint8_t> trainingData(numTrainingVectors * (dim / 8));
+    for (auto& v : trainingData) {
+        v = static_cast<uint8_t>(test_util::RandomInt(0, 255));
+    }
+    index->train(numTrainingVectors, trainingData.data());
+
+    // Replace ArrayInvertedLists with BlockInvertedLists by direct assignment
+    // (replace_invlists has a strict code_size check that BlockInvertedLists can't satisfy)
+    auto* ivf = dynamic_cast<faiss::IndexBinaryIVF*>(index.get());
+    delete ivf->invlists;
+    ivf->invlists = new faiss::BlockInvertedLists(ivf->nlist, 1, ivf->code_size);
+    ivf->own_invlists = true;
+
+    // Serialize the tampered index
+    auto vectorIoWriter = test_util::FaissGetSerializedBinaryIndex(index.get());
+
+    // Setup test vectors
+    faiss::idx_t numIds = 10;
+    std::vector<faiss::idx_t> ids = test_util::Range(numIds);
+    auto* vectors = new std::vector<uint8_t>(numIds * (dim / 8));
+    for (auto& v : *vectors) {
+        v = static_cast<uint8_t>(test_util::RandomInt(0, 255));
+    }
+
+    // Setup jni
+    std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+    NiceMock<JNIEnv> jniEnv;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    JavaFileIndexOutputMock javaFileIndexOutputMock{indexPath};
+    setUpJavaFileOutputMocking(javaFileIndexOutputMock, mockJNIUtil, false);
+
+    std::string spaceType = knn_jni::HAMMING;
+    std::unordered_map<std::string, jobject> parametersMap;
+    parametersMap[knn_jni::SPACE_TYPE] = (jobject)&spaceType;
+
+    EXPECT_ANY_THROW(
+        knn_jni::faiss_wrapper::CreateBinaryIndexFromTemplate(
+            &mockJNIUtil, &jniEnv, reinterpret_cast<jintArray>(&ids),
+            (jlong)vectors, dim, (jobject)(&javaFileIndexOutputMock),
+            reinterpret_cast<jbyteArray>(&(vectorIoWriter.data)),
+            (jobject)&parametersMap));
+
+    std::remove(indexPath.c_str());
 }
 
 TEST(FaissLoadIndexTest, BasicAssertions) {

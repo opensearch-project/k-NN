@@ -5,13 +5,13 @@
 
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
-import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding;
+import org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.concurrent.Executors;
 
-import static org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE;
+import static org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE;
 
 public class KNN1040HnswScalarQuantizedVectorsFormatTests extends KNNTestCase {
 
@@ -73,5 +73,44 @@ public class KNN1040HnswScalarQuantizedVectorsFormatTests extends KNNTestCase {
             assertNotNull(format);
             assertTrue(format.toString().contains(encoding.name()));
         }
+    }
+
+    public void testConstructor_whenCustomTinySegmentsThreshold_thenSucceeds() {
+        KNN1040HnswScalarQuantizedVectorsFormat format = new KNN1040HnswScalarQuantizedVectorsFormat(
+            SINGLE_BIT_QUERY_NIBBLE,
+            16,
+            100,
+            1,
+            null,
+            500
+        );
+        assertNotNull(format);
+        assertEquals("KNN1040HnswScalarQuantizedVectorsFormat", format.getName());
+    }
+
+    public void testConstructor_whenMaxValueTinySegmentsThreshold_thenSucceeds() {
+        KNN1040HnswScalarQuantizedVectorsFormat format = new KNN1040HnswScalarQuantizedVectorsFormat(
+            SINGLE_BIT_QUERY_NIBBLE,
+            16,
+            100,
+            1,
+            null,
+            Integer.MAX_VALUE
+        );
+        assertNotNull(format);
+        assertEquals("KNN1040HnswScalarQuantizedVectorsFormat", format.getName());
+    }
+
+    public void testConstructor_whenZeroTinySegmentsThreshold_thenSucceeds() {
+        KNN1040HnswScalarQuantizedVectorsFormat format = new KNN1040HnswScalarQuantizedVectorsFormat(
+            SINGLE_BIT_QUERY_NIBBLE,
+            16,
+            100,
+            1,
+            null,
+            0
+        );
+        assertNotNull(format);
+        assertEquals("KNN1040HnswScalarQuantizedVectorsFormat", format.getName());
     }
 }

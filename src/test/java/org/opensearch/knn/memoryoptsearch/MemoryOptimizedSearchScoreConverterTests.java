@@ -56,15 +56,16 @@ public class MemoryOptimizedSearchScoreConverterTests {
         final float luceneL2Radius = MemoryOptimizedSearchScoreConverter.distanceToRadialThreshold(faissL2Distance, SpaceType.L2);
         assertEquals(1 / (1 + faissL2Distance), luceneL2Radius, 1e-6);
 
-        // For IP, the input distance is actually `inner product value`
-        // We're expecting converted maximum inner product.
+        // For IP, the input is Faiss distance (d = -dot). We negate before passing to Lucene's conversion.
+        // distanceToRadialThreshold(-0.5, IP) -> negate to 0.5 -> Lucene: 0.5 > 0 -> 0.5 + 1 = 1.5
         final float faissIpDistance1 = -0.5F;
         final float luceneIpRadius1 = MemoryOptimizedSearchScoreConverter.distanceToRadialThreshold(
             faissIpDistance1,
             SpaceType.INNER_PRODUCT
         );
-        assertEquals(1 / (1 - faissIpDistance1), luceneIpRadius1, 1e-6);
+        assertEquals(1 + (-1 * faissIpDistance1), luceneIpRadius1, 1e-6);
 
+        // distanceToRadialThreshold(0, IP) -> negate to 0 -> Lucene: 0 <= 0 -> 1/(1-0) = 1.0
         final float faissIpDistance2 = 0;
         final float luceneIpRadius2 = MemoryOptimizedSearchScoreConverter.distanceToRadialThreshold(
             faissIpDistance2,
@@ -72,12 +73,13 @@ public class MemoryOptimizedSearchScoreConverterTests {
         );
         assertEquals(1, luceneIpRadius2, 1e-6);
 
+        // distanceToRadialThreshold(5.5, IP) -> negate to -5.5 -> Lucene: -5.5 <= 0 -> 1/(1-(-5.5)) = 1/6.5
         final float faissIpDistance3 = 5.5F;
         final float luceneIpRadius3 = MemoryOptimizedSearchScoreConverter.distanceToRadialThreshold(
             faissIpDistance3,
             SpaceType.INNER_PRODUCT
         );
-        assertEquals(1 + faissIpDistance3, luceneIpRadius3, 1e-6);
+        assertEquals(1 / (1 + faissIpDistance3), luceneIpRadius3, 1e-6);
 
         // For cosine, the input distance is actually `1 - inner product value (whose range is in [-1, 1])`
         final float faissCosineDistance1 = 0;

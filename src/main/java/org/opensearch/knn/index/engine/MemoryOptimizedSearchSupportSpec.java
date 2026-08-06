@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine;
 
 import org.opensearch.Version;
+import org.opensearch.knn.common.exception.MemoryOptimizedSearchOldIndicesNotSupportedException;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
@@ -61,7 +62,7 @@ public class MemoryOptimizedSearchSupportSpec {
                     // Memory-optimized search is enabled, but some existing indices were created before
                     // the minimum version that supports this feature. Throw an exception to clearly
                     // notify the user of the incompatibility.
-                    throw new IllegalStateException(
+                    throw new MemoryOptimizedSearchOldIndicesNotSupportedException(
                         "Memory optimized search does not support old indices created before "
                             + MIN_VERSION_SUPPORTS_MEM_OPT_SEARCH.toString()
                             + ". Index ["

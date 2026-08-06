@@ -12,7 +12,8 @@ import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -28,7 +29,7 @@ import static org.opensearch.knn.index.KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_M
  * Integration tests for min_score filtering with different KNN engines.
  * Tests the score-to-distance transformations for various space types.
  */
-public class MinScoreIT extends KNNRestTestCase {
+public class MinScoreIT extends KNNCompressionRestTestCase {
 
     private final boolean memoryOptimized;
     private final KNNEngine knnEngine;
@@ -39,6 +40,7 @@ public class MinScoreIT extends KNNRestTestCase {
     private final int[] expectedCounts;
 
     public MinScoreIT(
+        CompressionTestConfig compressionConfig,
         boolean memoryOptimized,
         KNNEngine knnEngine,
         SpaceType spaceType,
@@ -47,6 +49,7 @@ public class MinScoreIT extends KNNRestTestCase {
         float[] minScores,
         int[] expectedCounts
     ) {
+        super(compressionConfig);
         this.memoryOptimized = memoryOptimized;
         this.knnEngine = knnEngine;
         this.spaceType = spaceType;
@@ -152,6 +155,7 @@ public class MinScoreIT extends KNNRestTestCase {
         for (TestScenario scenario : scenarios) {
             params.add(
                 new Object[] {
+                    CompressionTestConfig.X1,
                     memoryOptimized,
                     KNNEngine.FAISS,
                     scenario.spaceType,
@@ -172,6 +176,7 @@ public class MinScoreIT extends KNNRestTestCase {
         for (TestScenario scenario : scenarios) {
             params.add(
                 new Object[] {
+                    CompressionTestConfig.X1,
                     false, // memory optimization not applicable for Lucene
                     KNNEngine.LUCENE,
                     scenario.spaceType,
@@ -184,8 +189,8 @@ public class MinScoreIT extends KNNRestTestCase {
         return params;
     }
 
-    @ParametersFactory
-    public static Collection<Object[]> parameters() {
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
         List<TestScenario> scenarios = Arrays.asList(
             innerProductScenario(),
             cosineScenario(),
@@ -211,23 +216,21 @@ public class MinScoreIT extends KNNRestTestCase {
             + "_minscore_"
             + (memoryOptimized ? "optimized" : "standard");
 
-        // Create index with specified space type and engine
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
             .field("dimension", DIMENSION);
+        addCompressionMappingFields(builder);
 
         if (knnEngine == KNNEngine.LUCENE) {
-            // Lucene engine configuration
             builder.field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
                 .startObject(KNNConstants.KNN_METHOD)
                 .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
                 .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
                 .endObject();
         } else {
-            // Faiss engine configuration
             builder.field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
                 .startObject(KNNConstants.KNN_METHOD)
                 .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)

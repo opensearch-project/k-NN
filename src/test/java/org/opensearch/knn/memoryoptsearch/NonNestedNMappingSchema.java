@@ -26,14 +26,14 @@ class NonNestedNMappingSchema {
     private CompressionLevel compressionLevel;
 
     static String createModeCompressionLevelPartInMapping(final Mode mode, final CompressionLevel compressionLevel) {
-        if (mode == Mode.NOT_CONFIGURED && compressionLevel == CompressionLevel.NOT_CONFIGURED) {
-            return "";
+        final StringBuilder builder = new StringBuilder();
+        if (mode != Mode.NOT_CONFIGURED) {
+            builder.append("\"mode\": \"").append(mode.getName()).append("\",\n");
         }
-
-        return """
-              "mode": "%s",
-              "compression_level": "%s",
-            """.formatted(mode == Mode.NOT_CONFIGURED ? "null" : mode.getName(), compressionLevel.getName());
+        if (compressionLevel != CompressionLevel.NOT_CONFIGURED) {
+            builder.append("\"compression_level\": \"").append(compressionLevel.getName()).append("\",\n");
+        }
+        return builder.toString();
     }
 
     public String createString() {

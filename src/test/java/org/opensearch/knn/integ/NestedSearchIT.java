@@ -13,13 +13,13 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
-import org.opensearch.knn.index.mapper.Mode;
 
 import java.io.IOException;
 import java.util.List;
@@ -37,7 +37,6 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRU
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
-import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.PATH;
@@ -49,7 +48,7 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR;
 import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_OVERSAMPLE_PARAMETER;
 import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_PARAMETER;
 
-public class NestedSearchIT extends KNNRestTestCase {
+public class NestedSearchIT extends KNNCompressionRestTestCase {
     private static final String INDEX_NAME = "test-index-nested-search";
     private static final String FIELD_NAME_NESTED = "test_nested";
     private static final String FIELD_NAME_VECTOR = "test_vector";
@@ -60,6 +59,10 @@ public class NestedSearchIT extends KNNRestTestCase {
     private static final int EF_CONSTRUCTION = 128;
     private static final int M = 16;
     private static final SpaceType SPACE_TYPE = SpaceType.L2;
+
+    public NestedSearchIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
 
     @SneakyThrows
     public void testNestedSearchWithLucene_whenKIsTwo_thenReturnTwoResults() {
@@ -111,14 +114,74 @@ public class NestedSearchIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testNestedSearchWithFaiss_whenKIsTwo_SomeNestedDocsHasNoVectors_thenReturnTwoResults() {
-        createKnnIndex(2, KNNEngine.FAISS.getName());
-        indexAndTestKNNIndexWithVectorAndNonVectorField();
+    public void testNestedSearchWithLucene_whenDocWithoutNestedObjectInSeparateSegment_thenSucceed() {
+        createKnnIndex(2, KNNEngine.LUCENE.getName());
+
+        String doc = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
+            .addVectors(FIELD_NAME_VECTOR, new Float[] { 1f, 1f }, new Float[] { 2f, 2f })
+            .build();
+        addKnnDoc(INDEX_NAME, "1", doc);
+        flushIndex(INDEX_NAME);
+
+        addKnnDoc(INDEX_NAME, "2", "{}");
+        flushIndex(INDEX_NAME);
+
+        refreshIndex(INDEX_NAME);
+
+        Float[] queryVector = { 1f, 1f };
+        Response response = queryNestedField(INDEX_NAME, 1, queryVector);
+        String entity = EntityUtils.toString(response.getEntity());
+        assertEquals(1, parseHits(entity));
+        assertEquals("1", parseIds(entity).get(0));
     }
 
     @SneakyThrows
-    public void testNestedSearchWithOnDisk_whenKIsTwo_SomeNestedDocsHasNoVectors_thenReturnTwoResults() {
-        createKnnIndex(2, KNNEngine.FAISS.getName(), Mode.ON_DISK);
+    public void testNestedSearchWithFaiss_whenDocWithoutNestedObjectInSeparateSegment_thenSucceed() {
+        createKnnIndex(2, KNNEngine.FAISS.getName());
+
+        String doc = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
+            .addVectors(FIELD_NAME_VECTOR, new Float[] { 1f, 1f }, new Float[] { 2f, 2f })
+            .build();
+        addKnnDoc(INDEX_NAME, "1", doc);
+        flushIndex(INDEX_NAME);
+
+        addKnnDoc(INDEX_NAME, "2", "{}");
+        flushIndex(INDEX_NAME);
+
+        refreshIndex(INDEX_NAME);
+
+        Float[] queryVector = { 1f, 1f };
+        Response response = queryNestedField(INDEX_NAME, 1, queryVector);
+        String entity = EntityUtils.toString(response.getEntity());
+        assertEquals(1, parseHits(entity));
+        assertEquals("1", parseIds(entity).get(0));
+    }
+
+    @SneakyThrows
+    public void testNestedSearchWithFaissMOS_whenDocWithoutNestedObjectInSeparateSegment_thenSucceed() {
+        createKnnIndex(2, KNNEngine.FAISS.getName(), true);
+
+        String doc = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
+            .addVectors(FIELD_NAME_VECTOR, new Float[] { 1f, 1f }, new Float[] { 2f, 2f })
+            .build();
+        addKnnDoc(INDEX_NAME, "1", doc);
+        flushIndex(INDEX_NAME);
+
+        addKnnDoc(INDEX_NAME, "2", "{}");
+        flushIndex(INDEX_NAME);
+
+        refreshIndex(INDEX_NAME);
+
+        Float[] queryVector = { 1f, 1f };
+        Response response = queryNestedField(INDEX_NAME, 1, queryVector);
+        String entity = EntityUtils.toString(response.getEntity());
+        assertEquals(1, parseHits(entity));
+        assertEquals("1", parseIds(entity).get(0));
+    }
+
+    @SneakyThrows
+    public void testNestedSearchWithFaiss_whenKIsTwo_SomeNestedDocsHasNoVectors_thenReturnTwoResults() {
+        createKnnIndex(2, KNNEngine.FAISS.getName());
         indexAndTestKNNIndexWithVectorAndNonVectorField();
     }
 
@@ -235,6 +298,7 @@ public class NestedSearchIT extends KNNRestTestCase {
     @SneakyThrows
     @ExpectRemoteBuildValidation
     public void testNestedWithFaiss_whenFilter_whenDoRadialSearch_thenReturnCorrectResults() {
+        assumeTrue("Radial search is not supported on quantized indices", isRadialSearchSupported());
         createKnnIndex(3, KNNEngine.FAISS.getName());
 
         for (int i = 1; i < 4; i++) {
@@ -319,11 +383,10 @@ public class NestedSearchIT extends KNNRestTestCase {
      *  }
      */
     private void createKnnIndex(final int dimension, final String engine) throws Exception {
-        // Using default mode of IN_MEMORY
-        createKnnIndex(dimension, engine, Mode.IN_MEMORY);
+        createKnnIndex(dimension, engine, false);
     }
 
-    private void createKnnIndex(final int dimension, final String engine, Mode mode) throws Exception {
+    private void createKnnIndex(final int dimension, final String engine, boolean memoryOptimizedSearch) throws Exception {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject(PROPERTIES_FIELD)
@@ -335,9 +398,9 @@ public class NestedSearchIT extends KNNRestTestCase {
             .endObject()
             .startObject(FIELD_NAME_VECTOR)
             .field(TYPE, TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .field(MODE_PARAMETER, mode.getName())
-            .startObject(KNN_METHOD)
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(builder);
+        builder.startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SPACE_TYPE)
             .field(KNN_ENGINE, engine)
@@ -353,7 +416,15 @@ public class NestedSearchIT extends KNNRestTestCase {
             .endObject();
 
         String mapping = builder.toString();
-        createKnnIndex(INDEX_NAME, mapping);
+        if (memoryOptimizedSearch) {
+            Settings settings = Settings.builder()
+                .put(getKNNDefaultIndexSettings())
+                .put(KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_MODE, true)
+                .build();
+            createKnnIndex(INDEX_NAME, settings, mapping);
+        } else {
+            createKnnIndex(INDEX_NAME, mapping);
+        }
     }
 
     private Response queryNestedField(final String index, final int k, final Object[] vector) throws IOException {

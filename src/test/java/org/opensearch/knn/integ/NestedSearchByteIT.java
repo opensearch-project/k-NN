@@ -125,6 +125,39 @@ public class NestedSearchByteIT extends KNNRestTestCase {
         assertEquals(2, parseTotalSearchHits(entity));
     }
 
+    @SneakyThrows
+    public void testNestedSearchWithLuceneByte_whenDocWithoutNestedObjectInSeparateSegment_thenSucceed() {
+        String indexName = INDEX_NAME + "_lucene_byte_npe";
+        String nestedFieldName = "nested";
+        createKnnByteIndexWithNestedField(indexName, nestedFieldName, FIELD_NAME, 4, KNNEngine.LUCENE);
+
+        String doc = NestedKnnDocBuilder.create(nestedFieldName)
+            .addVectors(FIELD_NAME, new Byte[] { 1, 2, 3, 4 }, new Byte[] { 5, 6, 7, 8 })
+            .build();
+        addKnnDoc(indexName, "1", doc);
+        flushIndex(indexName);
+
+        addKnnDoc(indexName, "2", "{}");
+        flushIndex(indexName);
+
+        refreshIndex(indexName);
+
+        Byte[] queryVector = { 1, 2, 3, 4 };
+        String query = KNNJsonQueryBuilder.builder()
+            .nestedFieldName(nestedFieldName)
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(1)
+            .build()
+            .getQueryString();
+        Response response = searchKNNIndex(indexName, query, 1);
+        String entity = EntityUtils.toString(response.getEntity());
+        assertEquals(1, parseHits(entity));
+        assertEquals("1", parseIds(entity).get(0));
+
+        deleteKNNIndex(indexName);
+    }
+
     private void createKnnByteIndexWithNestedField(
         final String indexName,
         final String nestedFieldName,

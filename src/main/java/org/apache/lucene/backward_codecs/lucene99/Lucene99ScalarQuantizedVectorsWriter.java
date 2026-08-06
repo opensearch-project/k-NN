@@ -54,12 +54,15 @@ import org.apache.lucene.search.VectorScorer;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.util.IOUtils;
+import org.apache.lucene.util.IORunnable;
 import org.apache.lucene.util.InfoStream;
 import org.apache.lucene.util.RamUsageEstimator;
 import org.apache.lucene.util.VectorUtil;
 import org.apache.lucene.util.hnsw.CloseableRandomVectorScorerSupplier;
 import org.apache.lucene.util.hnsw.RandomVectorScorerSupplier;
 import org.apache.lucene.util.hnsw.UpdateableRandomVectorScorer;
+import org.apache.lucene.util.quantization.BaseQuantizedByteVectorValues;
+import org.apache.lucene.util.quantization.LegacyQuantizedByteVectorValues;
 import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
 import org.apache.lucene.util.quantization.QuantizedVectorsReader;
 import org.apache.lucene.util.quantization.ScalarQuantizer;
@@ -214,8 +217,9 @@ public final class Lucene99ScalarQuantizedVectorsWriter extends FlatVectorsWrite
     }
 
     @Override
-    public void mergeOneField(FieldInfo fieldInfo, MergeState mergeState) throws IOException {
-        rawVectorDelegate.mergeOneField(fieldInfo, mergeState);
+    public void mergeOneFlatVectorField(FieldInfo fieldInfo, MergeState mergeState) throws IOException {
+        IORunnable rawMerge = rawVectorDelegate.mergeOneField(fieldInfo, mergeState);
+        if (rawMerge != null) rawMerge.run();
         // Since we know we will not be searching for additional indexing, we can just write the
         // the vectors directly to the new segment.
         // No need to use temporary file as we don't have to re-open for reading
@@ -244,18 +248,19 @@ public final class Lucene99ScalarQuantizedVectorsWriter extends FlatVectorsWrite
         }
     }
 
-    @Override
     public CloseableRandomVectorScorerSupplier mergeOneFieldToIndex(FieldInfo fieldInfo, MergeState mergeState) throws IOException {
         if (fieldInfo.getVectorEncoding().equals(VectorEncoding.FLOAT32)) {
             // Simply merge the underlying delegate, which just copies the raw vector data to a new
             // segment file
-            rawVectorDelegate.mergeOneField(fieldInfo, mergeState);
+            IORunnable rawMerge = rawVectorDelegate.mergeOneField(fieldInfo, mergeState);
+            if (rawMerge != null) rawMerge.run();
             ScalarQuantizer mergedQuantizationState = mergeAndRecalculateQuantiles(mergeState, fieldInfo, confidenceInterval, bits);
             return mergeOneFieldToIndex(segmentWriteState, fieldInfo, mergeState, mergedQuantizationState);
         }
         // We only merge the delegate, since the field type isn't float32, quantization wasn't
         // supported, so bypass it.
-        return rawVectorDelegate.mergeOneFieldToIndex(fieldInfo, mergeState);
+        // In Lucene 10.5, mergeOneFieldToIndex is removed. Just return null for non-float32.
+        return null;
     }
 
     @Override
@@ -696,7 +701,7 @@ public final class Lucene99ScalarQuantizedVectorsWriter extends FlatVectorsWrite
      */
     public static DocsWithFieldSet writeQuantizedVectorData(
         IndexOutput output,
-        QuantizedByteVectorValues quantizedByteVectorValues,
+        LegacyQuantizedByteVectorValues quantizedByteVectorValues,
         byte bits,
         boolean compress
     ) throws IOException {
@@ -867,10 +872,10 @@ public final class Lucene99ScalarQuantizedVectorsWriter extends FlatVectorsWrite
     }
 
     static class QuantizedByteVectorValueSub extends DocIDMerger.Sub {
-        private final QuantizedByteVectorValues values;
+        private final LegacyQuantizedByteVectorValues values;
         private final KnnVectorValues.DocIndexIterator iterator;
 
-        QuantizedByteVectorValueSub(MergeState.DocMap docMap, QuantizedByteVectorValues values) {
+        QuantizedByteVectorValueSub(MergeState.DocMap docMap, LegacyQuantizedByteVectorValues values) {
             super(docMap);
             this.values = values;
             iterator = values.iterator();
@@ -888,7 +893,7 @@ public final class Lucene99ScalarQuantizedVectorsWriter extends FlatVectorsWrite
     }
 
     /** Returns a merged view over all the segment's {@link QuantizedByteVectorValues}. */
-    static class MergedQuantizedVectorValues extends QuantizedByteVectorValues {
+    static class MergedQuantizedVectorValues extends LegacyQuantizedByteVectorValues {
         public static MergedQuantizedVectorValues mergeQuantizedByteVectorValues(
             FieldInfo fieldInfo,
             MergeState mergeState,
@@ -1020,7 +1025,7 @@ public final class Lucene99ScalarQuantizedVectorsWriter extends FlatVectorsWrite
         }
     }
 
-    static class QuantizedFloatVectorValues extends QuantizedByteVectorValues {
+    static class QuantizedFloatVectorValues extends LegacyQuantizedByteVectorValues {
         private final FloatVectorValues values;
         private final ScalarQuantizer quantizer;
         private final byte[] quantizedVector;
@@ -1122,14 +1127,14 @@ public final class Lucene99ScalarQuantizedVectorsWriter extends FlatVectorsWrite
         }
     }
 
-    static final class OffsetCorrectedQuantizedByteVectorValues extends QuantizedByteVectorValues {
+    static final class OffsetCorrectedQuantizedByteVectorValues extends LegacyQuantizedByteVectorValues {
 
-        private final QuantizedByteVectorValues in;
+        private final BaseQuantizedByteVectorValues in;
         private final VectorSimilarityFunction vectorSimilarityFunction;
         private final ScalarQuantizer scalarQuantizer, oldScalarQuantizer;
 
         OffsetCorrectedQuantizedByteVectorValues(
-            QuantizedByteVectorValues in,
+            BaseQuantizedByteVectorValues in,
             VectorSimilarityFunction vectorSimilarityFunction,
             ScalarQuantizer scalarQuantizer,
             ScalarQuantizer oldScalarQuantizer

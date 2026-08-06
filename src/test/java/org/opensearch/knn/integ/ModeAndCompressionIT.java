@@ -530,6 +530,114 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
     }
 
     /**
+     * Regression test for merging a persisted empty FAISS 1-bit scalar-quantized segment with a
+     * segment containing vectors.
+     */
+    @SneakyThrows
+    public void testForceMergeWithVectorlessSegment_whenFaissSQ_thenSucceed() {
+        final int vectorDocCount = 10;
+        final int k = 5;
+        final String indexName = INDEX_NAME + "_sq_empty_merge";
+        final float[][] vectors = new float[vectorDocCount][DIMENSION];
+        for (int docId = 0; docId < vectorDocCount; docId++) {
+            Arrays.fill(vectors[docId], (float) docId);
+        }
+
+        try (
+            XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(FIELD_NAME)
+                .field("type", "knn_vector")
+                .field("dimension", DIMENSION)
+                .startObject(KNN_METHOD)
+                .field(NAME, "hnsw")
+                .field(KNN_ENGINE, FAISS_NAME)
+                .startObject(PARAMETERS)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, "sq")
+                .startObject(PARAMETERS)
+                .field("bits", 1)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .startObject(FIELD_NAME_NON_KNN)
+                .field("type", "text")
+                .endObject()
+                .endObject()
+                .endObject()
+        ) {
+            final Settings indexSettings = Settings.builder()
+                .put(buildKNNIndexSettings(-1))
+                .put("index.soft_deletes.retention_lease.period", "0ms")
+                .build();
+            createKnnIndex(indexName, indexSettings, builder.toString());
+
+            // Keep a live non-vector document in the original vector-bearing segment. This prevents
+            // Lucene from dropping the segment when every vector document is replaced below.
+            final Request initialBulk = new Request("POST", "/_bulk");
+            initialBulk.addParameter("refresh", "true");
+            final StringBuilder initialBody = new StringBuilder();
+            for (int docId = 0; docId < vectorDocCount; docId++) {
+                initialBody.append("{\"index\":{\"_index\":\"")
+                    .append(indexName)
+                    .append("\",\"_id\":\"")
+                    .append(docId)
+                    .append("\"}}\n{\"")
+                    .append(FIELD_NAME)
+                    .append("\":")
+                    .append(Arrays.toString(vectors[docId]))
+                    .append("}\n");
+            }
+            initialBody.append("{\"index\":{\"_index\":\"")
+                .append(indexName)
+                .append("\",\"_id\":\"anchor\"}}\n{\"")
+                .append(FIELD_NAME_NON_KNN)
+                .append("\":\"anchor\"}\n");
+            initialBulk.setJsonEntity(initialBody.toString());
+            assertEquals(RestStatus.OK.getStatus(), client().performRequest(initialBulk).getStatusLine().getStatusCode());
+            assertEquals(1, getTotalSegmentCount(indexName));
+
+            final Request replacementBulk = new Request("POST", "/_bulk");
+            replacementBulk.addParameter("refresh", "true");
+            final StringBuilder replacementBody = new StringBuilder();
+            for (int docId = 0; docId < vectorDocCount; docId++) {
+                replacementBody.append("{\"index\":{\"_index\":\"")
+                    .append(indexName)
+                    .append("\",\"_id\":\"")
+                    .append(docId)
+                    .append("\"}}\n{\"")
+                    .append(FIELD_NAME_NON_KNN)
+                    .append("\":\"replacement\"}\n");
+            }
+            replacementBulk.setJsonEntity(replacementBody.toString());
+            assertEquals(RestStatus.OK.getStatus(), client().performRequest(replacementBulk).getStatusLine().getStatusCode());
+            assertEquals(2, getTotalSegmentCount(indexName));
+
+            // Reopen with zero lease retention so the next merge can drop the soft-deleted vector
+            // documents and persist SQ metadata with zero vectors.
+            flushIndex(indexName);
+            closeKNNIndex(indexName);
+            openIndex(indexName);
+            validateGreenIndex(indexName);
+            forceMergeKnnIndex(indexName, 1);
+            assertEquals(vectorDocCount + 1, getDocCount(indexName));
+            assertEquals(1, getTotalSegmentCount(indexName));
+
+            bulkAddKnnDocs(indexName, FIELD_NAME, vectors, vectorDocCount);
+
+            // This merge reads the persisted empty SQ segment. Without the reader-side empty-values
+            // guard it fails with NoSuchFieldException for Lucene's quantizedVectorValues field.
+            forceMergeKnnIndex(indexName, 1);
+            assertEquals(vectorDocCount + 1, getDocCount(indexName));
+            assertEquals(1, getTotalSegmentCount(indexName));
+            validateKNNSearch(indexName, FIELD_NAME, DIMENSION, vectorDocCount, k);
+        }
+    }
+
+    /**
      * Test segment with knn_vector field mapping but no docs containing the vector field.
      * Creates separate segments: one with vector docs, one with only non-vector doc.
      * Validates k-NN search functionality works without errors for ON_DISK mode with compression.

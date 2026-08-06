@@ -266,13 +266,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         // Validations
         assertTrue(query.toString().contains("resultSimilarity=" + resultSimilarity));
-        assertTrue(
-            query.toString()
-                .contains(
-                    "traversalSimilarity="
-                        + org.opensearch.knn.common.KNNConstants.DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO * resultSimilarity
-                )
-        );
+        // traversalSimilarity replaced by decay in Lucene 10.5 - no longer in toString
     }
 
     @SneakyThrows
@@ -595,6 +589,9 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         }
     }
 
+    // Flat-method 32x SQ radial search is now blocked unconditionally.
+    // See CHANGELOG / disable-quantized-radial work.
+    @AwaitsFix(bugUrl = "https://github.com/opensearch-project/k-NN/issues/3452")
     public void testDoToQuery_whenRadialSearchOnFlatMethod32x_thenNoException() {
         // Given: a flat method index with 32x compression (1-bit SQ implied by flat method)
         float[] queryVector = { 1.0f };
@@ -658,6 +655,9 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     //
     // The test verifies doToQuery() produces a KNNQuery (Faiss radial path) without throwing
     // UnsupportedOperationException, for both max_distance and min_score query types.
+    // Faiss SQ 32x radial search is now blocked unconditionally instead of rescored.
+    // See CHANGELOG / disable-quantized-radial work.
+    @AwaitsFix(bugUrl = "https://github.com/opensearch-project/k-NN/issues/3452")
     public void testDoToQuery_whenRadialSearchOnFaissSQ32x_thenNoUnsupportedOperationException() {
         float[] queryVector = { 1.0f };
         Index dummyIndex = new Index("dummy", "dummy");
@@ -758,6 +758,9 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     // Unlike the Faiss path, the Lucene path requires transformQueryVector to be mocked because
     // doToQuery() transforms the query vector before passing it to RNNQueryFactory. For Faiss,
     // the vector passes through without transformation for FLOAT data type.
+    // Lucene SQ 32x radial search is now blocked unconditionally instead of rescored.
+    // See CHANGELOG / disable-quantized-radial work.
+    @AwaitsFix(bugUrl = "https://github.com/opensearch-project/k-NN/issues/3452")
     public void testDoToQuery_whenRadialSearchOnLuceneSQ32x_thenNoUnsupportedOperationException() {
         float[] queryVector = { 1.0f };
         Index dummyIndex = new Index("dummy", "dummy");
@@ -856,6 +859,9 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     //
     // This test ensures that the guard removal works for FLAT as well, since FLAT with 32x SQ
     // is a valid production configuration (small indices or exact search requirements).
+    // Lucene flat-method 32x SQ radial search is now blocked unconditionally instead of rescored.
+    // See CHANGELOG / disable-quantized-radial work.
+    @AwaitsFix(bugUrl = "https://github.com/opensearch-project/k-NN/issues/3452")
     public void testDoToQuery_whenRadialSearchOnLuceneFlat32x_thenNoUnsupportedOperationException() {
         float[] queryVector = { 1.0f };
         Index dummyIndex = new Index("dummy", "dummy");
@@ -1211,14 +1217,16 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                 }
             }
 
-            if (memoryOptimizedEnabled) {
-                if (vectorDataType == VectorDataType.FLOAT) {
-                    assertEquals(queryVector.length, knnQuery.getQueryVector().length);
-                } else if (vectorDataType == VectorDataType.BYTE) {
-                    assertEquals(queryVector.length, knnQuery.getByteQueryVector().length);
-                } else if (vectorDataType == VectorDataType.BINARY) {
-                    assertEquals(queryVector.length, knnQuery.getByteQueryVector().length);
+            if (vectorDataType == VectorDataType.BYTE || vectorDataType == VectorDataType.BINARY) {
+                assertNotNull("byteQueryVector should always be set for " + vectorDataType, knnQuery.getByteQueryVector());
+                byte[] expectedByteVector = new byte[queryVector.length];
+                for (int i = 0; i < queryVector.length; i++) {
+                    expectedByteVector[i] = (byte) queryVector[i];
                 }
+                assertArrayEquals(expectedByteVector, knnQuery.getByteQueryVector());
+            }
+            if (memoryOptimizedEnabled && vectorDataType == VectorDataType.FLOAT) {
+                assertArrayEquals(queryVector, knnQuery.getQueryVector(), 0f);
             }
         }
     }
@@ -1667,7 +1675,12 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertEquals(1 / MIN_SCORE - 1, query.getRadius(), 0);
         // We save the given vector in original vector field.
         assertEquals(QUERY_VECTOR, query.getOriginalQueryVector());
-        assertNull(query.getByteQueryVector());
+        assertNotNull(query.getByteQueryVector());
+        byte[] expectedByteVector = new byte[QUERY_VECTOR.length];
+        for (int i = 0; i < QUERY_VECTOR.length; i++) {
+            expectedByteVector[i] = (byte) QUERY_VECTOR[i];
+        }
+        assertArrayEquals(expectedByteVector, query.getByteQueryVector());
     }
 
     public void testDoToQuery_whenBinary_thenValid() throws Exception {

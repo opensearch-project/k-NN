@@ -36,7 +36,7 @@ public class InternalNestedKnnFloatVectorQuery extends KnnFloatVectorQuery imple
         final int luceneK,
         final BitSetProducer parentFilter,
         final int k,
-        final boolean needsRescore
+        final int rescoreK
     ) {
         super(field, target, Integer.MAX_VALUE, filter);
         this.field = field;
@@ -52,7 +52,7 @@ public class InternalNestedKnnFloatVectorQuery extends KnnFloatVectorQuery imple
             luceneK,
             parentFilter,
             k,
-            needsRescore,
+            rescoreK,
             true
         );
     }

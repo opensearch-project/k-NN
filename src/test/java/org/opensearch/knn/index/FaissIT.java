@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.index;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import com.carrotsearch.randomizedtesting.annotations.TimeoutSuite;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -30,7 +31,8 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
@@ -44,6 +46,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -86,7 +89,17 @@ import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 @TimeoutSuite(millis = 40 * TimeUnits.MINUTE)
-public class FaissIT extends KNNRestTestCase {
+public class FaissIT extends KNNCompressionRestTestCase {
+
+    public FaissIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
+
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 });
+    }
+
     private static final String DOC_ID_1 = "doc1";
     private static final String DOC_ID_2 = "doc2";
     private static final String DOC_ID_3 = "doc3";
@@ -864,7 +877,6 @@ public class FaissIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testIVFSQFP16_whenIndexedAndQueried_thenSucceed() {
-
         String modelId = "test-model-ivf-sqfp16";
         int dimension = 128;
         int numDocs = 100;
@@ -2415,14 +2427,14 @@ public class FaissIT extends KNNRestTestCase {
         SpaceType spaceType = SpaceType.COSINESIMIL;
         Integer dimension = testData.indexData.vectors[0].length;
 
-        // Create an index
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(fieldName)
             .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field("dimension", dimension);
+        addCompressionMappingFields(builder);
+        builder.field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
@@ -2635,14 +2647,14 @@ public class FaissIT extends KNNRestTestCase {
 
     private void indexTestData(int approximateThreshold, String indexName, SpaceType spaceType, String fieldName) throws Exception {
         Integer dimension = testData.indexData.vectors[0].length;
-        // Create an index
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(fieldName)
             .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field("dimension", dimension);
+        addCompressionMappingFields(builder);
+        builder.field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())

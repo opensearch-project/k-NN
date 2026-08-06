@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.integ;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
@@ -16,13 +17,15 @@ import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexSettings;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
@@ -31,11 +34,20 @@ import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 
-public class TopLevelEngineParameterIT extends KNNRestTestCase {
+public class TopLevelEngineParameterIT extends KNNCompressionRestTestCase {
     private final static float[] TEST_VECTOR = new float[] { 1.0f, 2.0f };
     private final static int DIMENSION = 2;
     private final static int K = 1;
     private static final String INDEX_NAME = "top-level-engine-index";
+
+    public TopLevelEngineParameterIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
+
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 }, new Object[] { CompressionTestConfig.X32 });
+    }
 
     @SneakyThrows
     public void testBaseCase() {
@@ -93,10 +105,9 @@ public class TopLevelEngineParameterIT extends KNNRestTestCase {
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
             .field("dimension", DIMENSION)
-            .field(TOP_LEVEL_PARAMETER_ENGINE, KNNEngine.LUCENE.getName())
-            .endObject()
-            .endObject()
-            .endObject();
+            .field(TOP_LEVEL_PARAMETER_ENGINE, KNNEngine.LUCENE.getName());
+        addCompressionMappingFields(builder);
+        builder.endObject().endObject().endObject();
 
         String mapping = builder.toString();
         createKnnIndex(INDEX_NAME, mapping);
@@ -113,10 +124,9 @@ public class TopLevelEngineParameterIT extends KNNRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
-            .endObject()
-            .endObject()
-            .endObject()
             .endObject();
+        addCompressionMappingFields(builder);
+        builder.endObject().endObject().endObject();
 
         String mapping = builder.toString();
         createKnnIndex(INDEX_NAME, mapping);
@@ -133,10 +143,9 @@ public class TopLevelEngineParameterIT extends KNNRestTestCase {
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
-            .endObject()
-            .endObject()
-            .endObject()
             .endObject();
+        addCompressionMappingFields(builder);
+        builder.endObject().endObject().endObject();
 
         String mapping = builder.toString();
         createKnnIndex(INDEX_NAME, mapping);
@@ -148,10 +157,9 @@ public class TopLevelEngineParameterIT extends KNNRestTestCase {
             .startObject("properties")
             .startObject(FIELD_NAME)
             .field("type", "knn_vector")
-            .field("dimension", DIMENSION)
-            .endObject()
-            .endObject()
-            .endObject();
+            .field("dimension", DIMENSION);
+        addCompressionMappingFields(builder);
+        builder.endObject().endObject().endObject();
 
         String mapping = builder.toString();
         createKnnIndex(INDEX_NAME, mapping);

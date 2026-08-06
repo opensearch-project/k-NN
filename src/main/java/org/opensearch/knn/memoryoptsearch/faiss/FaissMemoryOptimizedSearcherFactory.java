@@ -43,7 +43,7 @@ public class FaissMemoryOptimizedSearcherFactory implements VectorSearcherFactor
             final FlatVectorsScorer vectorScorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
                 fieldInfo,
                 faissIndex.getVectorSimilarityFunction(),
-                flatVectorsReader.getFlatVectorScorer()
+                flatVectorsReader.getFlatVectorScorer(fieldInfo.name)
             );
             return new FaissMemoryOptimizedSearcher(indexInput, faissIndex, fieldInfo, vectorScorer);
         } catch (UnsupportedFaissIndexException e) {

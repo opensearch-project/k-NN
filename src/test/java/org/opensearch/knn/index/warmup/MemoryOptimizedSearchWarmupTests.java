@@ -16,6 +16,7 @@ import org.mockito.MockedStatic;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.common.exception.MemoryOptimizedSearchOldIndicesNotSupportedException;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
@@ -284,6 +285,35 @@ public class MemoryOptimizedSearchWarmupTests extends KNNTestCase {
 
         try (MockedStatic<Lucene> luceneMock = mockStatic(Lucene.class)) {
             luceneMock.when(() -> Lucene.segmentReader(leafReader)).thenReturn(segmentReader);
+
+            MemoryOptimizedSearchWarmup warmup = new MemoryOptimizedSearchWarmup();
+            List<String> result = warmup.warmUp(leafReader, mapperService, INDEX_NAME);
+
+            assertTrue(result.isEmpty());
+        }
+    }
+
+    public void testWarmUp_oldIndexField_exceptionSkipped() {
+        Map<String, String> attrs = new HashMap<>();
+        attrs.put(KNNVectorFieldMapper.KNN_FIELD, "true");
+        FieldInfo oldField = createFieldInfo(FIELD_MEM_OPT, attrs);
+        FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { oldField });
+
+        LeafReader leafReader = mock(LeafReader.class);
+        when(leafReader.getFieldInfos()).thenReturn(fieldInfos);
+
+        SegmentReader segmentReader = mock(SegmentReader.class);
+        MapperService mapperService = mock(MapperService.class);
+        KNNVectorFieldType fieldType = mock(KNNVectorFieldType.class);
+        when(mapperService.fieldType(FIELD_MEM_OPT)).thenReturn(fieldType);
+
+        try (
+            MockedStatic<Lucene> luceneMock = mockStatic(Lucene.class);
+            MockedStatic<MemoryOptimizedSearchSupportSpec> specMock = mockStatic(MemoryOptimizedSearchSupportSpec.class)
+        ) {
+            luceneMock.when(() -> Lucene.segmentReader(leafReader)).thenReturn(segmentReader);
+            specMock.when(() -> MemoryOptimizedSearchSupportSpec.isSupportedFieldType(fieldType, INDEX_NAME))
+                .thenThrow(new MemoryOptimizedSearchOldIndicesNotSupportedException("old index"));
 
             MemoryOptimizedSearchWarmup warmup = new MemoryOptimizedSearchWarmup();
             List<String> result = warmup.warmUp(leafReader, mapperService, INDEX_NAME);

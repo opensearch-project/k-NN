@@ -79,7 +79,7 @@ public class FaissMemoryOptimizedSearcherFactoryTests extends KNNTestCase {
 
         // Set flat vector scorer
         final FlatVectorsReader flatVectorsReader = mock(FlatVectorsReader.class);
-        when(flatVectorsReader.getFlatVectorScorer()).thenReturn(SQ_SCORER);
+        when(flatVectorsReader.getFlatVectorScorer(any())).thenReturn(SQ_SCORER);
 
         try (Directory directory = newFSDirectory(tempDir)) {
             try (IndexOutput output = directory.createOutput(fileName, IOContext.DEFAULT)) {
@@ -123,7 +123,7 @@ public class FaissMemoryOptimizedSearcherFactoryTests extends KNNTestCase {
             when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
 
             FlatVectorsReader flatVectorsReader = mock(FlatVectorsReader.class);
-            when(flatVectorsReader.getFlatVectorScorer()).thenReturn(SCORER);
+            when(flatVectorsReader.getFlatVectorScorer(any())).thenReturn(SCORER);
 
             VectorSearcher searcher = factory.createVectorSearcher(directory, fileName, fieldInfo, IOContext.DEFAULT, flatVectorsReader);
             assertNotNull(searcher);
@@ -154,7 +154,7 @@ public class FaissMemoryOptimizedSearcherFactoryTests extends KNNTestCase {
             when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
 
             FlatVectorsReader flatVectorsReader = mock(FlatVectorsReader.class);
-            when(flatVectorsReader.getFlatVectorScorer()).thenReturn(SCORER);
+            when(flatVectorsReader.getFlatVectorScorer(any())).thenReturn(SCORER);
 
             expectThrows(
                 UnsupportedFaissIndexException.class,
@@ -171,7 +171,7 @@ public class FaissMemoryOptimizedSearcherFactoryTests extends KNNTestCase {
         try (Directory directory = newFSDirectory(tempDir)) {
             FieldInfo fieldInfo = mock(FieldInfo.class);
             FlatVectorsReader flatVectorsReader = mock(FlatVectorsReader.class);
-            when(flatVectorsReader.getFlatVectorScorer()).thenReturn(SCORER);
+            when(flatVectorsReader.getFlatVectorScorer(any())).thenReturn(SCORER);
 
             // File doesn't exist, should throw IOException
             expectThrows(
@@ -199,7 +199,7 @@ public class FaissMemoryOptimizedSearcherFactoryTests extends KNNTestCase {
             when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
 
             FlatVectorsReader flatVectorsReader = mock(FlatVectorsReader.class);
-            when(flatVectorsReader.getFlatVectorScorer()).thenReturn(SCORER);
+            when(flatVectorsReader.getFlatVectorScorer(any())).thenReturn(SCORER);
 
             // Verify that after the exception, the IndexInput was properly closed
             // by confirming we can open the file again (no resource leak)

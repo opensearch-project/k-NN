@@ -7,6 +7,7 @@ package org.opensearch.knn.index.codec.KNN1040Codec;
 
 import org.apache.lucene.backward_codecs.lucene99.Lucene99RWHnswScalarQuantizedVectorsFormat;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
+import org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
 
@@ -56,10 +57,25 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
             Lucene99HnswVectorsFormat.DEFAULT_MAX_CONN,
             Lucene99HnswVectorsFormat.DEFAULT_BEAM_WIDTH,
             Lucene99HnswVectorsFormat::new,
-            new LuceneCodecFormatResolver(buildLuceneFormatResolvers()),
-            new FaissCodecFormatResolver(mapperService, nativeIndexBuildStrategyFactory),
+            new LuceneCodecFormatResolver(buildLuceneFormatResolvers(), mapperService.orElse(null)),
+            new FaissCodecFormatResolver(mapperService.orElse(null), nativeIndexBuildStrategyFactory),
             nativeIndexBuildStrategyFactory
         );
+    }
+
+    /**
+     * Maps the {@code index.knn.advanced.approximate_threshold} setting value to the
+     * {@code tinySegmentsThreshold} used by Lucene HNSW writers.
+     * <ul>
+     *   <li>{@code approximateThreshold < 0} (e.g. {@code -1}) → {@link Integer#MAX_VALUE} (never build the graph)</li>
+     *   <li>{@code approximateThreshold >= 0} → returned as-is (0 = always build, N = skip when docCount &lt; N)</li>
+     * </ul>
+     */
+    static int toTinySegmentsThreshold(int approximateThreshold) {
+        if (approximateThreshold < 0) {
+            return Integer.MAX_VALUE;
+        }
+        return approximateThreshold;
     }
 
     private static Map<LuceneVectorsFormatType, Function<KnnVectorsFormatContext, KnnVectorsFormat>> buildLuceneFormatResolvers() {
@@ -71,10 +87,11 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
                 ctx.getMethodContext().getSpaceType()
             );
             final Tuple<Integer, ExecutorService> merge = getMergeThreadCountAndExecutorService();
+            final int threshold = toTinySegmentsThreshold(ctx.getApproximateThreshold());
             if (p.getSpaceType() == SpaceType.HAMMING) {
-                return new KNN9120HnswBinaryVectorsFormat(p.getMaxConnections(), p.getBeamWidth(), merge.v1(), merge.v2());
+                return new KNN9120HnswBinaryVectorsFormat(p.getMaxConnections(), p.getBeamWidth(), merge.v1(), merge.v2(), threshold);
             }
-            return new Lucene99HnswVectorsFormat(p.getMaxConnections(), p.getBeamWidth(), merge.v1(), merge.v2());
+            return new Lucene99HnswVectorsFormat(p.getMaxConnections(), p.getBeamWidth(), merge.v1(), merge.v2(), threshold);
         }, LuceneVectorsFormatType.SCALAR_QUANTIZED, ctx -> {
             final KNNScalarQuantizedVectorsFormatParams p = new KNNScalarQuantizedVectorsFormatParams(
                 ctx.getParams(),
@@ -82,13 +99,15 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
                 ctx.getDefaultBeamWidth()
             );
             final Tuple<Integer, ExecutorService> merge = getMergeThreadCountAndExecutorService();
+            final int threshold = toTinySegmentsThreshold(ctx.getApproximateThreshold());
             if (p.getBits() == LuceneSQEncoder.Bits.ONE.getValue()) {
                 return new KNN1040HnswScalarQuantizedVectorsFormat(
                     p.getBitEncoding(),
                     p.getMaxConnections(),
                     p.getBeamWidth(),
                     merge.v1(),
-                    merge.v2()
+                    merge.v2(),
+                    threshold
                 );
             }
             return new Lucene99RWHnswScalarQuantizedVectorsFormat(
@@ -98,12 +117,10 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
                 p.getBits(),
                 p.isCompressFlag(),
                 p.getConfidenceInterval(),
-                merge.v2()
+                merge.v2(),
+                threshold
             );
-        },
-            LuceneVectorsFormatType.FLAT,
-            ctx -> new KNN1040ScalarQuantizedVectorsFormat(Lucene104ScalarQuantizedVectorsFormat.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE)
-        );
+        }, LuceneVectorsFormatType.FLAT, ctx -> new KNN1040ScalarQuantizedVectorsFormat(ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE));
     }
 
     @Override

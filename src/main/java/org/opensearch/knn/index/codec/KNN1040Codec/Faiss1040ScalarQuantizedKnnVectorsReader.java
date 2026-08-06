@@ -97,6 +97,12 @@ public class Faiss1040ScalarQuantizedKnnVectorsReader extends AbstractNativeEngi
         final ScalarQuantizedFloatVectorValues vectorValues = (ScalarQuantizedFloatVectorValues) flatVectorsReader.getFloatVectorValues(
             fieldName
         );
+        // This would mean that vectors are not present for this segment hence we should not proceed in warmup setup.
+        if (vectorValues == null || vectorValues.size() == 0) {
+            log.info("No vectors present in the segment {} for field {}", this.segmentReadState.segmentInfo.name, fieldName);
+            return;
+        }
+
         for (int i = 0; i < vectorValues.size(); ++i) {
             vectorValues.vectorValue(i);
         }
