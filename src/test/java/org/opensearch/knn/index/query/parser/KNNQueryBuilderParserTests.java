@@ -88,6 +88,52 @@ public class KNNQueryBuilderParserTests extends KNNTestCase {
         assertEquals(knnQueryBuilder, actualBuilder);
     }
 
+    /**
+     * {@code oversample_factor} is the primary recall/latency control for size-bounded radial search on a
+     * quantized index, so it must be settable alongside a radial threshold. The parser previously declared
+     * {@code rescore} mutually exclusive with both {@code max_distance} and {@code min_score}, which left
+     * radial users no way to tune it even though top-k users could.
+     */
+    public void testFromXContent_whenRadialWithRescore_thenSucceed() throws Exception {
+        final float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        final RescoreContext rescoreContext = RescoreContext.builder().oversampleFactor(3.5f).userProvided(true).build();
+
+        for (boolean useMaxDistance : new boolean[] { true, false }) {
+            final KNNQueryBuilder.Builder expectedBuilder = KNNQueryBuilder.builder()
+                .fieldName(FIELD_NAME)
+                .vector(queryVector)
+                .rescoreContext(rescoreContext);
+            if (useMaxDistance) {
+                expectedBuilder.maxDistance(MAX_DISTANCE);
+            } else {
+                expectedBuilder.minScore(MIN_SCORE);
+            }
+            final KNNQueryBuilder expected = expectedBuilder.build();
+
+            final XContentBuilder builder = XContentFactory.jsonBuilder();
+            builder.startObject();
+            builder.startObject(expected.fieldName());
+            builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), expected.vector());
+            if (useMaxDistance) {
+                builder.field(KNNQueryBuilder.MAX_DISTANCE_FIELD.getPreferredName(), MAX_DISTANCE);
+            } else {
+                builder.field(KNNQueryBuilder.MIN_SCORE_FIELD.getPreferredName(), MIN_SCORE);
+            }
+            builder.startObject(KNNQueryBuilder.RESCORE_FIELD.getPreferredName());
+            builder.field(RescoreParser.RESCORE_OVERSAMPLE_PARAMETER, 3.5f);
+            builder.endObject();
+            builder.endObject();
+            builder.endObject();
+
+            final XContentParser contentParser = createParser(builder);
+            contentParser.nextToken();
+            final KNNQueryBuilder actual = KNNQueryBuilderParser.fromXContent(contentParser);
+
+            assertEquals(expected, actual);
+            assertEquals(3.5f, actual.getRescoreContext().getOversampleFactor(), 0.0f);
+        }
+    }
+
     public void testFromXContent_whenDoRadiusSearch_whenDistanceThreshold_whenMethodParameter_thenSucceed() throws Exception {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
