@@ -255,6 +255,44 @@ public class OSDiversifyingChildrenFloatKnnVectorQueryTests extends TestCase {
         assertEquals(rescoreK, result.scoreDocs.length);
     }
 
+    public void testMergeLeafResults_whenLuceneKLessThanRescoreK_thenAssertionFails() {
+        String fieldName = "test_field";
+        float[] queryVector = { 1.0f, 2.0f, 3.0f };
+        // Violate the invariant luceneK >= rescoreK. KNNQueryFactory guarantees luceneK = max(rescoreK, efSearch),
+        // so this state should never occur in production; the assertion exists to catch it if that ever breaks.
+        int luceneK = 3;
+        int k = 2;
+        int rescoreK = 5;
+        boolean expandNestedDocs = true;
+        Query filterQuery = mock(Query.class);
+        BitSetProducer parentFilter = mock(BitSetProducer.class);
+
+        OSDiversifyingChildrenFloatKnnVectorQuery query = new OSDiversifyingChildrenFloatKnnVectorQuery(
+            fieldName,
+            queryVector,
+            filterQuery,
+            luceneK,
+            parentFilter,
+            k,
+            rescoreK,
+            expandNestedDocs
+        );
+
+        ScoreDoc[] scoreDocs1 = { new ScoreDoc(1, 0.9f), new ScoreDoc(2, 0.8f) };
+        ScoreDoc[] scoreDocs2 = { new ScoreDoc(3, 0.7f), new ScoreDoc(4, 0.6f) };
+        TopDocs topDocs1 = new TopDocs(new TotalHits(2, TotalHits.Relation.EQUAL_TO), scoreDocs1);
+        TopDocs topDocs2 = new TopDocs(new TotalHits(2, TotalHits.Relation.EQUAL_TO), scoreDocs2);
+        TopDocs[] perLeafResults = { topDocs1, topDocs2 };
+
+        // Assertions are enabled in the test JVM (-ea), so the broken invariant must surface as an AssertionError.
+        try {
+            query.mergeLeafResults(perLeafResults);
+            fail("Expected AssertionError because luceneK < rescoreK violates the rescore invariant");
+        } catch (AssertionError e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("must be >= rescoreK"));
+        }
+    }
+
     public void testApproximateSearch_whenParentBitSetNull_thenReturnEmptyResults() throws IOException {
         String fieldName = "test_field";
         float[] queryVector = { 1.0f, 2.0f, 3.0f };

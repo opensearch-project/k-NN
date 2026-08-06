@@ -269,4 +269,40 @@ public class ExpandNestedEDocsQueryTests extends TestCase {
         verify(queryUtils).createDocAndScoreQuery(eq(reader), topDocsCaptor.capture());
         assertEquals(4, topDocsCaptor.getValue().scoreDocs.length);
     }
+
+    /**
+     * equals/hashCode must account for rescoreK so that two otherwise-identical queries with different
+     * rescore budgets are not treated as equal (and are not incorrectly served from a shared query cache).
+     */
+    @SneakyThrows
+    public void testEqualsAndHashCode_whenRescoreKDiffers_thenNotEqual() {
+        InternalNestedKnnVectorQuery internalQuery = mock(InternalNestedKnnVectorQuery.class);
+        QueryUtils queryUtils = mock(QueryUtils.class);
+
+        ExpandNestedDocsQuery noRescore = ExpandNestedDocsQuery.builder()
+            .internalNestedKnnVectorQuery(internalQuery)
+            .queryUtils(queryUtils)
+            .build();
+        ExpandNestedDocsQuery noRescoreCopy = ExpandNestedDocsQuery.builder()
+            .internalNestedKnnVectorQuery(internalQuery)
+            .queryUtils(queryUtils)
+            .build();
+        ExpandNestedDocsQuery withRescore = ExpandNestedDocsQuery.builder()
+            .internalNestedKnnVectorQuery(internalQuery)
+            .queryUtils(queryUtils)
+            .rescoreK(4)
+            .build();
+
+        // Same internal query and default (no) rescore budget -> equal and same hashCode.
+        assertEquals(noRescore, noRescoreCopy);
+        assertEquals(noRescore.hashCode(), noRescoreCopy.hashCode());
+
+        // Differing rescore budget -> not equal.
+        assertFalse(noRescore.equals(withRescore));
+        assertFalse(withRescore.equals(noRescore));
+
+        // A query is equal to itself and not equal to an unrelated type.
+        assertEquals(withRescore, withRescore);
+        assertFalse(withRescore.equals("not a query"));
+    }
 }
