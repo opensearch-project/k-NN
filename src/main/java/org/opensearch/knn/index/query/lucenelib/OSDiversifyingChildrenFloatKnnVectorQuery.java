@@ -99,8 +99,12 @@ public final class OSDiversifyingChildrenFloatKnnVectorQuery extends Diversifyin
             // reduce to the top k parents before expanding their child documents.
             // Invariant: luceneK >= rescoreK (KNNQueryFactory defines luceneK as max(rescoreK, efSearch)), so
             // merging to rescoreK here never returns more candidates than the exact rescore pass can collect.
+            // The assert catches a broken invariant in tests. The Math.min is a production safety net for when
+            // assertions are disabled: it keeps this merge budget consistent with the exact rescore budget
+            // (luceneK) so a future caller that violates the invariant cannot make this step retain more
+            // candidates than the rescore pass can score, which would otherwise be a silent per-leaf truncation.
             assert luceneK >= rescoreK : "luceneK (" + luceneK + ") must be >= rescoreK (" + rescoreK + ")";
-            return TopDocs.merge(rescoreK, perLeafResults);
+            return TopDocs.merge(Math.min(rescoreK, luceneK), perLeafResults);
         }
         // Merge all segment level results and take top k from it
         return TopDocs.merge(k, perLeafResults);

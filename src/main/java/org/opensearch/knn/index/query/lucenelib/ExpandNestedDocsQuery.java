@@ -86,6 +86,14 @@ public class ExpandNestedDocsQuery extends Query {
      * The surviving parents are then redistributed back into per-leaf, segment-local maps for the subsequent
      * {@link #retrieveAll} expansion, which returns every child document of these top k parents.
      *
+     * <p>Only the parent <em>selection</em> carries over from this step; the rescored scores stored in the
+     * returned maps are not the scores that reach the final result. {@link #retrieveAll} re-runs
+     * {@code knnExactSearch} over every child of the surviving parents, which recomputes scores. Both this
+     * rescore pass and that expansion pass read raw float vectors (full precision even on quantized indexes),
+     * so a given child is scored identically in both — the recompute is redundant, not inconsistent, and the
+     * final child scores are full precision. This mirrors the native engine, which likewise re-runs exact
+     * search during expansion rather than propagating the rescored scores.
+     *
      * <p>Per-leaf correctness relies on the invariant {@code luceneK >= rescoreK} established in
      * {@link org.opensearch.knn.index.query.KNNQueryFactory} (luceneK is defined as {@code max(rescoreK, efSearch)}).
      * The approximate pass merges leaves down to {@code rescoreK} candidates total (see
