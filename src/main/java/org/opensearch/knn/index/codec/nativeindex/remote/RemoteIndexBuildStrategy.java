@@ -7,6 +7,7 @@ package org.opensearch.knn.index.codec.nativeindex.remote;
 
 import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.index.MergeAbortChecker;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.common.UUIDs;
@@ -17,6 +18,7 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.exception.TerminalIOException;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.nativeindex.IndexBuildAbortedException;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategy;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
@@ -138,6 +140,22 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     }
 
     /**
+     * The outcome of a remote index build attempt. Used to centralize metric emission in
+     * {@link RemoteIndexBuildMetrics#endRemoteIndexBuildMetrics(BuildResult)} so that benign terminations are not
+     * counted as build failures.
+     */
+    public enum BuildResult {
+        /** The build completed successfully. */
+        SUCCESS,
+        /** The build failed due to a genuine error and will fall back to a local CPU build. */
+        FAILURE,
+        /** The build was terminated because the merge was aborted (benign cancellation). */
+        MERGE_ABORT,
+        /** The build was terminated due to a terminal IO exception (index output closed). */
+        TERMINAL_IO
+    }
+
+    /**
      * Entry point for flush/merge operations. This method orchestrates the following:
      *      1. Writes required data to repository
      *      2. Triggers index build
@@ -152,7 +170,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     @Override
     public void buildAndWriteIndex(BuildIndexParams indexInfo) throws IOException {
         metrics.startRemoteIndexBuildMetrics(indexInfo);
-        boolean success = false;
+        BuildResult buildResult = BuildResult.FAILURE;
         try {
             RepositoryContext repositoryContext = getRepositoryContext(indexInfo);
 
@@ -168,17 +186,29 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
 
             // 4. Download index file and write to indexOutput
             readFromRepository(indexInfo, repositoryContext, remoteBuildStatusResponse);
-            success = true;
+            buildResult = BuildResult.SUCCESS;
             return;
         } catch (TerminalIOException e) {
+            log.warn("Remote index build terminated for field [{}], not falling back to CPU build", indexInfo.getField(), e);
+            buildResult = BuildResult.TERMINAL_IO;
+            throw e;
+        } catch (IndexBuildAbortedException e) {
+            log.warn(
+                "Remote index build aborted due to merge cancellation for field [{}], not falling back to CPU build",
+                indexInfo.getField(),
+                e
+            );
+            buildResult = BuildResult.MERGE_ABORT;
             throw e;
         } catch (Exception e) {
             log.error("Failed to build index remotely: " + indexInfo, e);
         } finally {
-            metrics.endRemoteIndexBuildMetrics(success);
+            // Metric emission is centralized here so that benign terminations (merge aborts, terminal IO) are not
+            // counted as build failures. The exact counter incremented is determined by buildResult.
+            metrics.endRemoteIndexBuildMetrics(buildResult);
         }
         // Recreate the IndexOutput before fallback to discard any partially written remote data
-        assert !success : "Should not reach fallback path when remote build succeeded";
+        assert buildResult == BuildResult.FAILURE : "Should only reach fallback path when remote build failed";
         if (indexInfo.getIndexOutputWithBuffer().getBytesWritten() > 0) {
             log.info(
                 "Clearing the indexOutput buffer since some data has been written in file: {} : {} bytes, before falling back to local index build",
@@ -256,16 +286,19 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         RemoteBuildResponse remoteBuildResponse,
         BuildIndexParams indexInfo,
         RemoteIndexClient client
-    ) {
+    ) throws IndexBuildAbortedException {
         RemoteBuildStatusResponse remoteBuildStatusResponse;
         metrics.startWaitingMetrics();
         try {
             final RemoteBuildStatusRequest remoteBuildStatusRequest = RemoteBuildStatusRequest.builder()
                 .jobId(remoteBuildResponse.getJobId())
                 .build();
-            RemoteIndexWaiter waiter = RemoteIndexWaiterFactory.getRemoteIndexWaiter(client);
+            RemoteIndexWaiter waiter = RemoteIndexWaiterFactory.getRemoteIndexWaiter(client, MergeAbortChecker::isMergeAborted);
             remoteBuildStatusResponse = waiter.awaitVectorBuild(remoteBuildStatusRequest);
             return remoteBuildStatusResponse;
+        } catch (IndexBuildAbortedException e) {
+            // Propagate merge aborts so buildAndWriteIndex can terminate without falling back to a local CPU build.
+            throw e;
         } catch (InterruptedException | IOException e) {
             throw new RuntimeException(String.format("Await index build failed for vector field [%s]", indexInfo.getField()), e);
         } finally {

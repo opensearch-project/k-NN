@@ -242,6 +242,14 @@ public class KNNStats {
             KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT.getName(),
             KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT.getValue()
         );
+        clientStatsMap.put(
+            KNNRemoteIndexBuildValue.INDEX_BUILD_MERGE_ABORT_EXCEPTION.getName(),
+            KNNRemoteIndexBuildValue.INDEX_BUILD_MERGE_ABORT_EXCEPTION.getValue()
+        );
+        clientStatsMap.put(
+            KNNRemoteIndexBuildValue.INDEX_BUILD_TERMINAL_EXCEPTION.getName(),
+            KNNRemoteIndexBuildValue.INDEX_BUILD_TERMINAL_EXCEPTION.getValue()
+        );
         clientStatsMap.put(KNNRemoteIndexBuildValue.WAITING_TIME.getName(), KNNRemoteIndexBuildValue.WAITING_TIME.getValue());
 
         Map<String, Object> repoStatsMap = new HashMap<>();
