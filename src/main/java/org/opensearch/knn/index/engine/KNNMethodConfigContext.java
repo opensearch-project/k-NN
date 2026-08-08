@@ -33,6 +33,8 @@ public final class KNNMethodConfigContext {
     private Mode mode = Mode.NOT_CONFIGURED;
     @Builder.Default
     private CompressionLevel compressionLevel = CompressionLevel.NOT_CONFIGURED;
+    @Builder.Default
+    private Boolean multiVector = false;
 
     public static final KNNMethodConfigContext EMPTY = KNNMethodConfigContext.builder().build();
 }
