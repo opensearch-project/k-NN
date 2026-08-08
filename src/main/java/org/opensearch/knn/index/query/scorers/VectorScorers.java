@@ -195,7 +195,7 @@ public final class VectorScorers {
         final VectorScorer scorer,
         @Nullable final DocIdSetIterator acceptedChildrenIterator,
         @Nullable final BitSet parentBitSet
-    ) {
+    ) throws IOException {
         if (parentBitSet == null) {
             return scorer;
         }
