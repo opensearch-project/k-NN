@@ -71,6 +71,42 @@ struct FaissScoreToLuceneScoreTransform final {
         }
     }
 
+    // Convert inner product value to cosine score for L2-normalized vectors.
+    // Theoretically dot product is in [-1, 1], but SQ quantization noise can push it slightly
+    // outside this range, so we clamp the output to [0, 1] to match Lucene's behavior.
+    static float cosineTransform(const float dotProduct) noexcept {
+        const float raw = (1.0f + dotProduct) * 0.5f;
+        return raw < 0.0f ? 0.0f : (raw > 1.0f ? 1.0f : raw);
+    }
+
+    // Bulk version of cosineTransform.
+    static void cosineTransformBulk(float* scores, const int32_t numScores) noexcept {
+        int32_t i = 0;
+        for (; (i + 8) <= numScores ; i += 8, scores += 8) {
+            scores[0] = cosineTransform(scores[0]);
+            scores[1] = cosineTransform(scores[1]);
+            scores[2] = cosineTransform(scores[2]);
+            scores[3] = cosineTransform(scores[3]);
+            scores[4] = cosineTransform(scores[4]);
+            scores[5] = cosineTransform(scores[5]);
+            scores[6] = cosineTransform(scores[6]);
+            scores[7] = cosineTransform(scores[7]);
+        }
+
+        for (; (i + 4) <= numScores ; i += 4, scores += 4) {
+            scores[0] = cosineTransform(scores[0]);
+            scores[1] = cosineTransform(scores[1]);
+            scores[2] = cosineTransform(scores[2]);
+            scores[3] = cosineTransform(scores[3]);
+        }
+
+        while (i < numScores) {
+            *scores = cosineTransform(*scores);
+            ++i;
+            ++scores;
+        }
+    }
+
 private:
     FaissScoreToLuceneScoreTransform() = delete;
 };

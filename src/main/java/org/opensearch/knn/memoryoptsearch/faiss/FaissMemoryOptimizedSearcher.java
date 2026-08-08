@@ -25,6 +25,7 @@ import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.RobustUniqueRandomIterator;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.WarmupUtil;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.faiss.cagra.FaissCagraHNSW;
@@ -32,6 +33,7 @@ import org.opensearch.knn.memoryoptsearch.faiss.cagra.FaissCagraHNSW;
 import java.io.IOException;
 
 import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsReader.EXHAUSTIVE_BULK_SCORE_ORDS;
+import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 
 /**
  * This searcher directly reads FAISS index file via the provided {@link IndexInput} then perform vector search on it.
@@ -56,7 +58,13 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     ) {
         this.indexInput = indexInput;
         this.faissIndex = faissIndex;
-        final KNNVectorSimilarityFunction knnVectorSimilarityFunction = faissIndex.getVectorSimilarityFunction();
+        // Faiss's on-disk format only stores METRIC_INNER_PRODUCT or METRIC_L2; there is no
+        // cosine metric. Cosinesimil indices are written as IP on L2-normalized vectors, so
+        // faissIndex.getVectorSimilarityFunction() reports MAXIMUM_INNER_PRODUCT for them.
+        // Recover the user-declared space type from FieldInfo so cosine routes to the
+        // dedicated FP16_COSINE / SQ_COSINE SIMD kernels in NativeEngines990KnnVectorsScorer
+        // and KNN1040ScalarQuantizedVectorScorer, which emit (1 + dot) / 2 directly.
+        final KNNVectorSimilarityFunction knnVectorSimilarityFunction = resolveKnnVectorSimilarityFunction(fieldInfo, faissIndex);
 
         if (knnVectorSimilarityFunction != KNNVectorSimilarityFunction.HAMMING) {
             vectorSimilarityFunction = knnVectorSimilarityFunction.getVectorSimilarityFunction();
@@ -67,6 +75,28 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         this.isAdc = FieldInfoExtractor.isAdc(fieldInfo);
         this.flatVectorsScorer = flatVectorsScorer;
         this.hnsw = extractFaissHnsw(faissIndex);
+    }
+
+    /**
+     * Resolve the similarity function for this field, preferring the user-declared space type
+     * recorded in FieldInfo over the metric derived from the Faiss header.
+     *
+     * <p>This matters for {@code cosinesimil} (and any future space whose vectors are stored
+     * with a different underlying Faiss metric than the user-facing similarity). Faiss only
+     * knows {@code METRIC_INNER_PRODUCT} and {@code METRIC_L2}; cosine indices are written as
+     * IP on normalized vectors, so reading back from the header collapses cosine to IP and
+     * the FP16_COSINE / SQ_COSINE kernel arms in the downstream scorers never fire.
+     */
+    private static KNNVectorSimilarityFunction resolveKnnVectorSimilarityFunction(final FieldInfo fieldInfo, final FaissIndex faissIndex) {
+        final String spaceTypeString = fieldInfo.getAttribute(SPACE_TYPE);
+        if (spaceTypeString != null && spaceTypeString.isEmpty() == false) {
+            final SpaceType declared = SpaceType.getSpace(spaceTypeString);
+            final KNNVectorSimilarityFunction declaredFn = declared.getKnnVectorSimilarityFunction();
+            if (declaredFn != null) {
+                return declaredFn;
+            }
+        }
+        return faissIndex.getVectorSimilarityFunction();
     }
 
     private static FaissHNSW extractFaissHnsw(final FaissIndex faissIndex) {

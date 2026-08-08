@@ -29,7 +29,6 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
-import org.opensearch.knn.index.query.MemoryOptimizedSearchScoreConverter;
 import org.opensearch.lucene.OptimisticKnnCollectorManager;
 import org.opensearch.lucene.ReentrantKnnCollectorManager;
 
@@ -214,9 +213,9 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
             log.debug("[KNN] Query yielded 0 results");
             return EMPTY_TOPDOCS;
         }
-        if (spaceType == SpaceType.COSINESIMIL) {
-            MemoryOptimizedSearchScoreConverter.convertToCosineScore(topDocs.scoreDocs);
-        }
+        // Cosine scores are now produced directly by the scorer via VectorSimilarityFunction.COSINE
+        // (FaissMemoryOptimizedSearcher overrides MAXIMUM_INNER_PRODUCT -> COSINE for cosinesimil fields),
+        // so the MaxIP -> cosine post-conversion is no longer needed.
         addExplainIfRequired(topDocs, knnEngine, spaceType);
         return topDocs;
     }

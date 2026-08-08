@@ -234,8 +234,34 @@ SimdVectorSearchContext* SimilarityFunction::saveSearchContext(
         // Assign query to Faiss function
         THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction->set_query(
             reinterpret_cast<float*>(THREAD_LOCAL_SIMD_VEC_SRCH_CTX.queryVectorSimdAligned));
+    } else if (nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::FP16_COSINE)) {
+        // FP16_COSINE shares the on-disk FP16 layout with FP16_MAX_INNER_PRODUCT. Vectors are
+        // L2-normalized at index time, so cosine equals the inner product, and the kernel emits
+        // a (1 + dot) / 2 Lucene score directly via cosineTransform. On platforms with native
+        // AVX-512-FP16 support FP16_COSINE binds to AVX512NativeFP16IP (true FP16 FMA, 32
+        // elements per 512-bit register); elsewhere it falls back to the FP32-converted IP
+        // kernel used by FP16_MAX_INNER_PRODUCT. The single-vector calculateSimilarity path
+        // goes through BaseSimilarityFunction, which calls the Faiss IP distance computer
+        // below and applies cosineTransform on top of the raw IP result.
+        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.similarityFunction = selectSimilarityFunction(
+            NativeSimilarityFunctionType::FP16_COSINE);
+
+        // FP16 vector bytes = 2 bytes * dimension
+        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.oneVectorByteSize = 2 * dimension;
+
+        // Faiss FP16 IP distance computer for the single-vector path; cosineTransform is
+        // applied on top of the raw IP result by BaseSimilarityFunction.
+        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction.reset(
+            faiss::ScalarQuantizer {static_cast<size_t>(dimension), faiss::ScalarQuantizer::QuantizerType::QT_fp16}
+                                   .get_distance_computer(faiss::MetricType::METRIC_INNER_PRODUCT));
+
+        // Assign query to Faiss function
+        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction->set_query(
+            reinterpret_cast<float*>(THREAD_LOCAL_SIMD_VEC_SRCH_CTX.queryVectorSimdAligned));
     } else if (nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ_IP)
-               || nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ_L2)) {
+               || nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ_L2)
+               || nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ_COSINE)) {
+         // SQ_COSINE shares on-disk layout and IP math with SQ_IP; only the score-transform kernel differs.
          // Set similarity function to offload similarity calculation
          THREAD_LOCAL_SIMD_VEC_SRCH_CTX.similarityFunction =
              selectSimilarityFunction(static_cast<NativeSimilarityFunctionType>(nativeFunctionTypeOrd));
@@ -286,6 +312,14 @@ SimdVectorSearchContext* SimilarityFunction::getSearchContext() {
 //
 using BulkScoreTransform = void (*)(float*/*scores*/, int32_t/*num scores to transform*/);
 using ScoreTransform = float (*)(float/*score*/);
+
+// Metric mode for SQ (Scalar Quantized) similarity functions.
+// Controls both intermediate score computation and final score transformation.
+enum class SQMetricMode {
+    MAX_IP,   // Inner product: score += correction; ipToMaxIpTransform
+    L2,       // L2 distance: score = max(0, correction - 2*score); l2Transform
+    COSINE    // Cosine (normalized IP): score += correction; cosineTransform
+};
 
 template <BulkScoreTransform BulkScoreTransformFunc, ScoreTransform ScoreTransformFunc>
 struct BaseSimilarityFunction : SimilarityFunction {
