@@ -32,6 +32,8 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.index.TieredMergePolicyProvider;
 import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
+import org.opensearch.index.mapper.DynamicFieldTypeInferencer;
+import org.opensearch.index.mapper.DynamicTemplateTypeHandler;
 import org.opensearch.index.mapper.Mapper;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.shard.IndexSettingProvider;
@@ -42,6 +44,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNNCodecService;
 import org.opensearch.knn.index.codec.derivedsource.DerivedSourceIndexOperationListener;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
+import org.opensearch.knn.index.mapper.KNNDynamicTemplateTypeHandler;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
@@ -230,6 +233,16 @@ public class KNNPlugin extends Plugin
             KNNVectorFieldMapper.CONTENT_TYPE,
             new KNNVectorFieldMapper.TypeParser(ModelDao.OpenSearchKNNModelDao::getInstance)
         );
+    }
+
+    @Override
+    public List<DynamicFieldTypeInferencer> getDynamicFieldTypeInferencers() {
+        return Collections.singletonList(new KNNDynamicFieldTypeInferencer());
+    }
+
+    @Override
+    public Map<String, DynamicTemplateTypeHandler> getDynamicTemplateTypes() {
+        return Map.of(KNNVectorFieldMapper.CONTENT_TYPE, new KNNDynamicTemplateTypeHandler());
     }
 
     @Override
