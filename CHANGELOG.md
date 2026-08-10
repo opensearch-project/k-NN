@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Introduce system-generated search pipeline processor to automatically exclude knn_vector fields from _source in search responses [#3152](https://github.com/opensearch-project/k-NN/pull/3152)
 * Parameterize integration test framework for compression level [#3416](https://github.com/opensearch-project/k-NN/pull/3416)
 * Introduce extensible VectorSearchEngine API [#3288](https://github.com/opensearch-project/k-NN/pull/3443)
+* Enable the approximate graph threshold for Faiss SQ x32 (sq bits=1) indices [#3434](https://github.com/opensearch-project/k-NN/pull/3434)
 
 ### Maintenance
 * Upgrade Lucene to 10.5.0 [#3411](https://github.com/opensearch-project/k-NN/pull/3411)
@@ -35,10 +36,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix inner-hits returning mask value for top level source excludes [#3446](https://github.com/opensearch-project/k-NN/pull/3446)
 * Fix _source bloat on merge for derived source indices with _source.exclude [#3465](https://github.com/opensearch-project/k-NN/pull/3465)
 * Disable radial search on quantized indices due to poor recall from quantization error [#3448](https://github.com/opensearch-project/k-NN/pull/3448)
+* Fix knn query against a field alias returning zero hits silently [#3485](https://github.com/opensearch-project/k-NN/pull/3485)
 
 ### Refactoring
 * Refactor ExactSearcher to use BulkVectorScorer directly and rename factory methods [#3361](https://github.com/opensearch-project/k-NN/pull/3361)
 
 ### Enhancements
-* Convert document vectors to primitive arrays once per document in lateInteractionScore, instead of once per query-vector/document-vector pair [#3453](https://github.com/opensearch-project/k-NN/pull/3453)
 * Set decay value to experimentally found value 0.95 and use decay method in MOS [#3447](https://github.com/opensearch-project/k-NN/pull/3447)
+* Support `index.knn.advanced.approximate_threshold` for the Lucene engine [#3451](https://github.com/opensearch-project/k-NN/pull/3451)
+* Convert document vectors to primitive arrays once per document in lateInteractionScore, instead of once per query-vector/document-vector pair [#3453](https://github.com/opensearch-project/k-NN/pull/3453)

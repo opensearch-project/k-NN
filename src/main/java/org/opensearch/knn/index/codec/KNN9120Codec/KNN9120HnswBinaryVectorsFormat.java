@@ -23,6 +23,7 @@ import java.util.concurrent.ExecutorService;
 import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.DEFAULT_BEAM_WIDTH;
 import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.DEFAULT_MAX_CONN;
 import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.DEFAULT_NUM_MERGE_WORKER;
+import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.HNSW_GRAPH_THRESHOLD;
 import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.MAXIMUM_BEAM_WIDTH;
 import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.MAXIMUM_MAX_CONN;
 import static org.opensearch.knn.index.engine.KNNEngine.getMaxDimensionByEngine;
@@ -36,6 +37,7 @@ public final class KNN9120HnswBinaryVectorsFormat extends KnnVectorsFormat {
 
     private final int maxConn;
     private final int beamWidth;
+    private final int tinySegmentsThreshold;
     private static final FlatVectorsFormat flatVectorsFormat = new Lucene99FlatVectorsFormat(new KNN9120BinaryVectorScorer());
     private final int numMergeWorkers;
     private final TaskExecutor mergeExec;
@@ -60,6 +62,21 @@ public final class KNN9120HnswBinaryVectorsFormat extends KnnVectorsFormat {
      * Constructor logic is identical to {@link org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat#Lucene99HnswVectorsFormat(int, int, int, java.util.concurrent.ExecutorService)}
      */
     public KNN9120HnswBinaryVectorsFormat(int maxConn, int beamWidth, int numMergeWorkers, ExecutorService mergeExec) {
+        this(maxConn, beamWidth, numMergeWorkers, mergeExec, HNSW_GRAPH_THRESHOLD);
+    }
+
+    /**
+     * Constructor that mirrors {@link org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat#Lucene99HnswVectorsFormat(int, int, int, java.util.concurrent.ExecutorService, int)}
+     * and accepts an explicit {@code tinySegmentsThreshold} used by the underlying
+     * {@link Lucene99HnswVectorsWriter} to decide whether to build an HNSW graph for a segment.
+     */
+    public KNN9120HnswBinaryVectorsFormat(
+        int maxConn,
+        int beamWidth,
+        int numMergeWorkers,
+        ExecutorService mergeExec,
+        int tinySegmentsThreshold
+    ) {
         super(NAME);
         if (maxConn <= 0 || maxConn > MAXIMUM_MAX_CONN) {
             throw new IllegalArgumentException(
@@ -73,6 +90,7 @@ public final class KNN9120HnswBinaryVectorsFormat extends KnnVectorsFormat {
         }
         this.maxConn = maxConn;
         this.beamWidth = beamWidth;
+        this.tinySegmentsThreshold = tinySegmentsThreshold;
         if (numMergeWorkers == 1 && mergeExec != null) {
             throw new IllegalArgumentException("No executor service is needed as we'll use single thread to merge");
         }
@@ -93,7 +111,8 @@ public final class KNN9120HnswBinaryVectorsFormat extends KnnVectorsFormat {
             flatVectorsFormat,
             flatVectorsFormat.fieldsWriter(state),
             this.numMergeWorkers,
-            this.mergeExec
+            this.mergeExec,
+            this.tinySegmentsThreshold
         );
     }
 

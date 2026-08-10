@@ -68,17 +68,20 @@ public abstract class AbstractNativeEnginesKnnVectorsWriter extends KnnVectorsWr
 
         QuantizationState quantizationState = null;
         if (quantizationStateSupplier != null) {
-            // should skip graph building only for non quantization use case and if threshold is met
             quantizationState = quantizationStateSupplier.apply(fieldInfo, knnVectorValuesSupplier, totalLiveDocs);
-            if (quantizationState == null && shouldSkipBuildingVectorDataStructure(totalLiveDocs, approximateThreshold)) {
-                log.debug(
-                    "Skip building vector data structure for field: {}, as liveDoc: {} is less than the threshold {} during flush",
-                    fieldInfo.name,
-                    totalLiveDocs,
-                    approximateThreshold
-                );
-                return;
-            }
+        }
+        // Skip the graph build when there is no native quantization state and the segment is below the
+        // approximate threshold. This fires for x1/x2 (train() returns null) and for Faiss SQ x32
+        // (supplier is null, so quantizationState stays null). x8/x16/binary produce a non-null quantization
+        // state, so this clause keeps them building the graph until their graph-less exact-search path exists.
+        if (quantizationState == null && shouldSkipBuildingVectorDataStructure(totalLiveDocs, approximateThreshold)) {
+            log.debug(
+                "Skip building vector data structure for field: {}, as liveDoc: {} is less than the threshold {} during flush",
+                fieldInfo.name,
+                totalLiveDocs,
+                approximateThreshold
+            );
+            return;
         }
 
         final NativeIndexWriter writer = NativeIndexWriter.getWriter(
@@ -120,16 +123,19 @@ public abstract class AbstractNativeEnginesKnnVectorsWriter extends KnnVectorsWr
         QuantizationState quantizationState = null;
         if (quantizationStateSupplier != null) {
             quantizationState = quantizationStateSupplier.apply(fieldInfo, knnVectorValuesSupplier, totalLiveDocs);
-            // should skip graph building only for non quantization use case and if threshold is met
-            if (quantizationState == null && shouldSkipBuildingVectorDataStructure(totalLiveDocs, approximateThreshold)) {
-                log.debug(
-                    "Skip building vector data structure for field: {}, as liveDoc: {} is less than the threshold {} during merge",
-                    fieldInfo.name,
-                    totalLiveDocs,
-                    approximateThreshold
-                );
-                return;
-            }
+        }
+        // Skip the graph build when there is no native quantization state and the segment is below the
+        // approximate threshold. This fires for x1/x2 (train() returns null) and for Faiss SQ x32
+        // (supplier is null, so quantizationState stays null). x8/x16/binary produce a non-null quantization
+        // state, so this clause keeps them building the graph until their graph-less exact-search path exists.
+        if (quantizationState == null && shouldSkipBuildingVectorDataStructure(totalLiveDocs, approximateThreshold)) {
+            log.debug(
+                "Skip building vector data structure for field: {}, as liveDoc: {} is less than the threshold {} during merge",
+                fieldInfo.name,
+                totalLiveDocs,
+                approximateThreshold
+            );
+            return;
         }
 
         final NativeIndexWriter writer = NativeIndexWriter.getWriter(
