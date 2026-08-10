@@ -76,6 +76,29 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializerTests extends KNNTestCas
         assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(new byte[2], output, 1, 1));
     }
 
+    public void testByteToFloatArray_negativeDimension_throwsException() {
+        KNNVectorAsCollectionOfHalfFloatsSerializer serializer = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
+        assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(new byte[4], new float[2], -1, 0));
+    }
+
+    public void testByteToFloatArray_outputTooSmall_throwsException() {
+        KNNVectorAsCollectionOfHalfFloatsSerializer serializer = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
+        byte[] encoded = new byte[4];
+        float[] tooSmallOutput = new float[1];
+        assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(encoded, tooSmallOutput, 2, 0));
+    }
+
+    public void testFloatToByteArray_invalidInput_throwsException() {
+        KNNVectorAsCollectionOfHalfFloatsSerializer serializer = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
+        float[] input = new float[2];
+
+        assertThrows(IllegalArgumentException.class, () -> serializer.floatToByteArray(null, new byte[4], 2));
+        assertThrows(IllegalArgumentException.class, () -> serializer.floatToByteArray(input, null, 2));
+        assertThrows(IllegalArgumentException.class, () -> serializer.floatToByteArray(input, new byte[4], -1));
+        assertThrows(IllegalArgumentException.class, () -> serializer.floatToByteArray(input, new byte[4], 3));
+        assertThrows(IllegalArgumentException.class, () -> serializer.floatToByteArray(input, new byte[2], 2));
+    }
+
     public void testBytesRefOverload_roundTrip() {
         float[] original = getArrayOfRandomFloats(20);
         KNNVectorAsCollectionOfHalfFloatsSerializer serializer = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
@@ -97,6 +120,13 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializerTests extends KNNTestCas
 
         assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray((BytesRef) null));
         assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(new BytesRef(new byte[3])));
+
+        // Mutate the public offset field after construction so this reaches our own bounds check
+        // instead of BytesRef's own constructor-time isValid() assertion (which throws
+        // IllegalStateException before our code ever runs, under -ea).
+        BytesRef outOfBounds = new BytesRef(new byte[4]);
+        outOfBounds.offset = 2;
+        assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(outOfBounds));
     }
 
     public void testSpecialFloatValues() {

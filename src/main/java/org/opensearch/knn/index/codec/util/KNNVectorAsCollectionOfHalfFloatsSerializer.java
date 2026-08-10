@@ -28,8 +28,8 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
         if (input == null || output == null) {
             throw new IllegalArgumentException("Input/output buffers cannot be null.");
         }
-        if (dimension > input.length) {
-            throw new IllegalArgumentException("Count exceeds input float array length.");
+        if (dimension < 0 || dimension > input.length) {
+            throw new IllegalArgumentException("Dimension must be non-negative and not exceed input float array length.");
         }
         if (output.length != dimension * BYTES_IN_HALF_FLOAT) {
             throw new IllegalArgumentException("Output buffer size mismatch. Must be 2x dimension.");
@@ -43,6 +43,18 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
         }
 
         floatToByteArrayJava(input, output, dimension);
+    }
+
+    /**
+     * Java implementation of float[] to FP16 byte[] conversion.
+     * Only reached via {@link #floatToByteArray}, which validates its arguments first.
+     */
+    private void floatToByteArrayJava(float[] input, byte[] output, int dimension) {
+        for (int i = 0; i < dimension; ++i) {
+            short fp16 = Float.floatToFloat16(input[i]);
+            output[2 * i] = (byte) (fp16 & 0xFF);
+            output[2 * i + 1] = (byte) ((fp16 >> 8) & 0xFF);
+        }
     }
 
     /**
@@ -63,7 +75,7 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
         }
         int dimension = bytesRef.length / BYTES_IN_HALF_FLOAT;
         float[] output = new float[dimension];
-        byteToFloatArrayJava(bytesRef.bytes, output, dimension, bytesRef.offset);
+        decodeFp16ToFloat(bytesRef.bytes, output, dimension, bytesRef.offset);
         return output;
     }
 
@@ -80,26 +92,24 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
         if (input == null || output == null) {
             throw new IllegalArgumentException("Input/output buffers cannot be null.");
         }
+        if (dimension < 0) {
+            throw new IllegalArgumentException("Dimension cannot be negative.");
+        }
         if (offset < 0 || offset + dimension * BYTES_IN_HALF_FLOAT > input.length) {
             throw new IllegalArgumentException("Offset and dimension exceed input length.");
         }
-
-        byteToFloatArrayJava(input, output, dimension, offset);
-    }
-
-    public void floatToByteArrayJava(float[] input, byte[] output, int dimension) {
-        for (int i = 0; i < dimension; ++i) {
-            short fp16 = Float.floatToFloat16(input[i]);
-            output[2 * i] = (byte) (fp16 & 0xFF);
-            output[2 * i + 1] = (byte) ((fp16 >> 8) & 0xFF);
+        if (output.length < dimension) {
+            throw new IllegalArgumentException("Output buffer too small for dimension.");
         }
+
+        decodeFp16ToFloat(input, output, dimension, offset);
     }
 
     /**
-     * Java implementation of byte[] FP16 to float[] conversion.
-     * Assumes fixed little-endian format matching the encode path.
+     * Shared FP16-bytes-to-float decode loop. Both public overloads above validate their own
+     * arguments before calling this; neither delegates to the other.
      */
-    private void byteToFloatArrayJava(byte[] input, float[] output, int dimension, int offset) {
+    private void decodeFp16ToFloat(byte[] input, float[] output, int dimension, int offset) {
         for (int i = offset, j = 0; j < dimension; i += BYTES_IN_HALF_FLOAT, ++j) {
             short fp16 = (short) ((input[i] & 0xFF) | ((input[i + 1] & 0xFF) << 8));
             output[j] = Float.float16ToFloat(fp16);

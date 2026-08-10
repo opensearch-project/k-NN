@@ -41,15 +41,15 @@ jboolean encodeFp32ToFp16(knn_jni::JNIUtilInterface *jniUtil, JNIEnv* env,
     const float* src = reinterpret_cast<const float*>(src_f32);
     uint16_t* dst = reinterpret_cast<uint16_t*>(dst_bytes);
 
-    int i = 0;
+    size_t i = 0;
 
     // process 16 elements per iteration (2x unrolled)
     // Combines each pair of 4-lane conversion results into a single 8-lane register
     // so the loop does 2 stores of 8 lanes each.
-    for (; i + 16 <= count; i += 16) {
+    for (; i + 16 <= static_cast<size_t>(count); i += 16) {
         // __builtin_prefetch: software prefetch hint to bring future memory
         // into cache. First arg is the address, 0 = read, 3 = high locality.
-        if (i + 128 < count) {
+        if (i + 128 < static_cast<size_t>(count)) {
             __builtin_prefetch(&src[i + 128], 0, 3);
         }
         // vld1q_f32: load 4 float32 values into a NEON 128-bit register.
@@ -68,17 +68,19 @@ jboolean encodeFp32ToFp16(knn_jni::JNIUtilInterface *jniUtil, JNIEnv* env,
         vst1q_f16(reinterpret_cast<__fp16*>(&dst[i + 8]), h23);
     }
 
-    // NEON tail: process 8 elements
-    for (; i + 8 <= count; i += 8) {
+    // NEON tail: process 8 elements (at most once, since the 16-lane loop above
+    // already consumed every multiple of 16)
+    if (i + 8 <= static_cast<size_t>(count)) {
         // Tail: load two 4-lane vectors, convert to float16 and store 8 lanes.
         float32x4_t v0 = vld1q_f32(&src[i]);
         float32x4_t v1 = vld1q_f32(&src[i + 4]);
         float16x8_t h = vcombine_f16(vcvt_f16_f32(v0), vcvt_f16_f32(v1));
         vst1q_f16(reinterpret_cast<__fp16*>(&dst[i]), h);
+        i += 8;
     }
 
     // NEON tail: process 4 elements
-    if (i + 4 <= count) {
+    if (i + 4 <= static_cast<size_t>(count)) {
         // 4-lane tail: load 4 floats, convert to 4 float16 lanes, store.
         float32x4_t v0 = vld1q_f32(&src[i]);
         float16x4_t h0 = vcvt_f16_f32(v0);
@@ -88,7 +90,7 @@ jboolean encodeFp32ToFp16(knn_jni::JNIUtilInterface *jniUtil, JNIEnv* env,
     }
 
     // Scalar fallback for remaining elements
-    for (; i < count; ++i) {
+    for (; i < static_cast<size_t>(count); ++i) {
         // Scalar fallback: convert single float to __fp16 and write to dst.
         reinterpret_cast<__fp16*>(dst)[i] = static_cast<__fp16>(src[i]);
     }
