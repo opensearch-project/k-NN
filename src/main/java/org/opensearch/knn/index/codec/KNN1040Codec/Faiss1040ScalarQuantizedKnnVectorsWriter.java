@@ -54,17 +54,20 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
     private boolean finished;
     private final IOFunction<SegmentReadState, FlatVectorsReader> quantizedFlatVectorsReaderSupplier;
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
+    private final Integer approximateThreshold;
 
     Faiss1040ScalarQuantizedKnnVectorsWriter(
         @NonNull SegmentWriteState segmentWriteState,
         @NonNull FlatVectorsWriter flatVectorsWriter,
         @NonNull IOFunction<SegmentReadState, FlatVectorsReader> quantizedFlatVectorsReaderSupplier,
-        @NonNull NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
+        @NonNull NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory,
+        Integer approximateThreshold
     ) {
         this.segmentWriteState = segmentWriteState;
         this.flatVectorsWriter = flatVectorsWriter;
         this.quantizedFlatVectorsReaderSupplier = quantizedFlatVectorsReaderSupplier;
         this.nativeIndexBuildStrategyFactory = nativeIndexBuildStrategyFactory;
+        this.approximateThreshold = approximateThreshold;
     }
 
     /**
@@ -120,7 +123,7 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
                 fieldWriter,
                 fieldWriter.getVectors(),
                 null,
-                null,
+                approximateThreshold,
                 segmentWriteState,
                 nativeIndexBuildStrategyFactory,
                 quantizedValues
@@ -157,7 +160,15 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
             final QuantizedByteVectorValues quantizedValues = KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(
                 floatVectorValues
             );
-            doMergeOneField(fieldInfo, mergeState, null, null, segmentWriteState, nativeIndexBuildStrategyFactory, quantizedValues);
+            doMergeOneField(
+                fieldInfo,
+                mergeState,
+                null,
+                approximateThreshold,
+                segmentWriteState,
+                nativeIndexBuildStrategyFactory,
+                quantizedValues
+            );
         } finally {
             IOUtils.close(flatVectorsReader);
         }

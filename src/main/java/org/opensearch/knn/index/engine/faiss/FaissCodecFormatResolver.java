@@ -52,7 +52,10 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
         int defaultBeamWidth
     ) {
         if (isSQOneBitEncoder(params)) {
-            return new Faiss1040ScalarQuantizedKnnVectorsFormat(nativeIndexBuildStrategyFactory);
+            return new Faiss1040ScalarQuantizedKnnVectorsFormat(
+                KNNSettings.getApproximateThresholdValue(mapperService),
+                nativeIndexBuildStrategyFactory
+            );
         }
         return resolve();
     }
