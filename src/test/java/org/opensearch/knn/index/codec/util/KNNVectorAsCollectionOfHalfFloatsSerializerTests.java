@@ -121,12 +121,13 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializerTests extends KNNTestCas
         assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray((BytesRef) null));
         assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(new BytesRef(new byte[3])));
 
-        // Mutate the public offset field after construction so this reaches our own bounds check
-        // instead of BytesRef's own constructor-time isValid() assertion (which throws
-        // IllegalStateException before our code ever runs, under -ea).
         BytesRef outOfBounds = new BytesRef(new byte[4]);
         outOfBounds.offset = 2;
         assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(outOfBounds));
+
+        BytesRef negativeLength = new BytesRef(new byte[4]);
+        negativeLength.length = -2;
+        assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(negativeLength));
     }
 
     public void testSpecialFloatValues() {

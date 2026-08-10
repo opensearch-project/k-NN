@@ -67,8 +67,8 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
         if (bytesRef == null || bytesRef.bytes == null) {
             throw new IllegalArgumentException("BytesRef and its backing array cannot be null.");
         }
-        if (bytesRef.length % BYTES_IN_HALF_FLOAT != 0) {
-            throw new IllegalArgumentException("BytesRef length must be a multiple of " + BYTES_IN_HALF_FLOAT + ".");
+        if (bytesRef.length < 0 || bytesRef.length % BYTES_IN_HALF_FLOAT != 0) {
+            throw new IllegalArgumentException("BytesRef length must be non-negative and a multiple of " + BYTES_IN_HALF_FLOAT + ".");
         }
         if (bytesRef.offset < 0 || bytesRef.offset + bytesRef.length > bytesRef.bytes.length) {
             throw new IllegalArgumentException("BytesRef offset and length exceed backing array length.");
