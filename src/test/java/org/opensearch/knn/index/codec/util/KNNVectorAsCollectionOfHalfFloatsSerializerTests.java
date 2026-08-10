@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec.util;
 
+import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.KNNTestCase;
 
 import java.util.Random;
@@ -73,6 +74,29 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializerTests extends KNNTestCas
         assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(null, output, 1, 0));
         assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(new byte[1], output, 1, 0));
         assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(new byte[2], output, 1, 1));
+    }
+
+    public void testBytesRefOverload_roundTrip() {
+        float[] original = getArrayOfRandomFloats(20);
+        KNNVectorAsCollectionOfHalfFloatsSerializer serializer = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
+
+        byte[] encoded = new byte[original.length * 2];
+        serializer.floatToByteArray(original, encoded, original.length);
+
+        float[] decoded = serializer.byteToFloatArray(new BytesRef(encoded));
+
+        assertEquals(original.length, decoded.length);
+        for (int i = 0; i < original.length; i++) {
+            float expected = Float.float16ToFloat(Float.floatToFloat16(original[i]));
+            assertEquals(expected, decoded[i], FP16_TOLERANCE);
+        }
+    }
+
+    public void testBytesRefOverload_invalidInput_throwsException() {
+        KNNVectorAsCollectionOfHalfFloatsSerializer serializer = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
+
+        assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray((BytesRef) null));
+        assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(new BytesRef(new byte[3])));
     }
 
     public void testSpecialFloatValues() {
@@ -171,13 +195,29 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializerTests extends KNNTestCas
             IllegalArgumentException.class,
             () -> { serializer.floatToByteArray(input, undersized, dim); }
         );
-        assertEquals("Output buffer size mismatch. Must be 2x input length.", e1.getMessage());
+        assertEquals("Output buffer size mismatch. Must be 2x dimension.", e1.getMessage());
 
         IllegalArgumentException e2 = expectThrows(
             IllegalArgumentException.class,
             () -> { serializer.floatToByteArray(input, oversized, dim); }
         );
-        assertEquals("Output buffer size mismatch. Must be 2x input length.", e2.getMessage());
+        assertEquals("Output buffer size mismatch. Must be 2x dimension.", e2.getMessage());
+    }
+
+    public void testFloatToByteArray_dimensionSmallerThanInput_allowsOutputSizedToDimension() {
+        float[] input = getArrayOfRandomFloats(20);
+        int dimension = 8;
+        byte[] output = new byte[dimension * 2];
+
+        KNNVectorAsCollectionOfHalfFloatsSerializer serializer = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
+        serializer.floatToByteArray(input, output, dimension);
+
+        float[] decoded = new float[dimension];
+        serializer.byteToFloatArray(output, decoded, dimension, 0);
+        for (int i = 0; i < dimension; i++) {
+            float expected = Float.float16ToFloat(Float.floatToFloat16(input[i]));
+            assertEquals(expected, decoded[i], FP16_TOLERANCE);
+        }
     }
 
     public void testLargeVector() {

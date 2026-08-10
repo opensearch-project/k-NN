@@ -31,8 +31,8 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
         if (dimension > input.length) {
             throw new IllegalArgumentException("Count exceeds input float array length.");
         }
-        if (output.length != input.length * BYTES_IN_HALF_FLOAT) {
-            throw new IllegalArgumentException("Output buffer size mismatch. Must be 2x input length.");
+        if (output.length != dimension * BYTES_IN_HALF_FLOAT) {
+            throw new IllegalArgumentException("Output buffer size mismatch. Must be 2x dimension.");
         }
 
         if (SimdFp16.isSIMDSupported()) {
@@ -46,6 +46,28 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
     }
 
     /**
+     * Converts a {@link BytesRef} containing FP16 values to float[].
+     * Uses a Java implementation since decode does not have a native SIMD path.
+     *
+     * @param bytesRef the BytesRef containing half-precision encoded data
+     */
+    public float[] byteToFloatArray(BytesRef bytesRef) {
+        if (bytesRef == null) {
+            throw new IllegalArgumentException("BytesRef cannot be null.");
+        }
+        if (bytesRef.length % BYTES_IN_HALF_FLOAT != 0) {
+            throw new IllegalArgumentException("BytesRef length must be a multiple of " + BYTES_IN_HALF_FLOAT + ".");
+        }
+        if (bytesRef.offset < 0 || bytesRef.offset + bytesRef.length > bytesRef.bytes.length) {
+            throw new IllegalArgumentException("BytesRef offset and length exceed backing array length.");
+        }
+        int dimension = bytesRef.length / BYTES_IN_HALF_FLOAT;
+        float[] output = new float[dimension];
+        byteToFloatArrayJava(bytesRef.bytes, output, dimension, bytesRef.offset);
+        return output;
+    }
+
+    /**
      * Converts byte[] containing FP16 values to float[].
      * Uses a Java implementation since decode does not have a native SIMD path.
      *
@@ -54,13 +76,6 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
      * @param dimension number of floats to deserialize
      * @param offset    byte offset into the input array where decoding should start
      */
-    public float[] byteToFloatArray(BytesRef bytesRef) {
-        int dimension = bytesRef.length / BYTES_IN_HALF_FLOAT;
-        float[] output = new float[dimension];
-        byteToFloatArrayJava(bytesRef.bytes, output, dimension, bytesRef.offset);
-        return output;
-    }
-
     public void byteToFloatArray(byte[] input, float[] output, int dimension, int offset) {
         if (input == null || output == null) {
             throw new IllegalArgumentException("Input/output buffers cannot be null.");

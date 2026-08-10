@@ -115,7 +115,7 @@ JNIEXPORT jfloat JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_sc
   (JNIEnv *env, jclass clazz, jfloatArray query, jbyteArray fp16Vectors, const jint dimension,
    const jint nativeFunctionTypeOrd, const jint numVectors, jfloatArray jscores) {
     if (numVectors <= 0) {
-      return std::numeric_limits<float>::min();
+      return -std::numeric_limits<float>::infinity();
     }
 
     try {
