@@ -123,7 +123,7 @@ JNIEXPORT jfloat JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_sc
       const jsize queryVecSize = JNI_UTIL.GetJavaFloatArrayLength(env, query);
       jfloat* queryVecPtr = static_cast<jfloat*>(JNI_UTIL.GetPrimitiveArrayCritical(env, query, nullptr));
       knn_jni::JNIReleaseElements releaseQuery {[=]{
-        JNI_UTIL.ReleasePrimitiveArrayCritical(env, query, queryVecPtr, 0);
+        JNI_UTIL.ReleasePrimitiveArrayCritical(env, query, queryVecPtr, JNI_ABORT);
       }};
 
       // Get raw pointer of `numVectors` FP16-encoded vectors packed contiguously in a plain Java
@@ -131,7 +131,7 @@ JNIEXPORT jfloat JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_sc
       // this single pinned array works as a one-chunk region holding all `numVectors` vectors.
       jbyte* vectorsPtr = static_cast<jbyte*>(JNI_UTIL.GetPrimitiveArrayCritical(env, fp16Vectors, nullptr));
       knn_jni::JNIReleaseElements releaseVectors {[=]{
-        JNI_UTIL.ReleasePrimitiveArrayCritical(env, fp16Vectors, vectorsPtr, 0);
+        JNI_UTIL.ReleasePrimitiveArrayCritical(env, fp16Vectors, vectorsPtr, JNI_ABORT);
       }};
       const jsize vectorsByteSize = JNI_UTIL.GetJavaBytesArrayLength(env, fp16Vectors);
 

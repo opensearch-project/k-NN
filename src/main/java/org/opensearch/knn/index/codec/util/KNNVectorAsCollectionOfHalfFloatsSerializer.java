@@ -64,8 +64,8 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
      * @param bytesRef the BytesRef containing half-precision encoded data
      */
     public float[] byteToFloatArray(BytesRef bytesRef) {
-        if (bytesRef == null) {
-            throw new IllegalArgumentException("BytesRef cannot be null.");
+        if (bytesRef == null || bytesRef.bytes == null) {
+            throw new IllegalArgumentException("BytesRef and its backing array cannot be null.");
         }
         if (bytesRef.length % BYTES_IN_HALF_FLOAT != 0) {
             throw new IllegalArgumentException("BytesRef length must be a multiple of " + BYTES_IN_HALF_FLOAT + ".");

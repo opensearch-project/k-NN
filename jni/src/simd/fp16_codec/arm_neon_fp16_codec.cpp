@@ -27,11 +27,13 @@ jboolean encodeFp32ToFp16(knn_jni::JNIUtilInterface *jniUtil, JNIEnv* env,
     if (count <= 0) return JNI_TRUE;
 
     jfloat* src_f32 = reinterpret_cast<jfloat*>(jniUtil->GetPrimitiveArrayCritical(env, fp32Array, nullptr));
-    jbyte* dst_bytes = reinterpret_cast<jbyte*>(jniUtil->GetPrimitiveArrayCritical(env, fp16Array, nullptr));
-
-    knn_jni::JNIReleaseElements release_arrays{[=]() {
-        jniUtil->ReleasePrimitiveArrayCritical(env, fp16Array, dst_bytes, 0);
+    knn_jni::JNIReleaseElements release_src{[=]() {
         jniUtil->ReleasePrimitiveArrayCritical(env, fp32Array, src_f32, JNI_ABORT);
+    }};
+
+    jbyte* dst_bytes = reinterpret_cast<jbyte*>(jniUtil->GetPrimitiveArrayCritical(env, fp16Array, nullptr));
+    knn_jni::JNIReleaseElements release_dst{[=]() {
+        jniUtil->ReleasePrimitiveArrayCritical(env, fp16Array, dst_bytes, 0);
     }};
 
     if ((reinterpret_cast<uintptr_t>(dst_bytes) % alignof(uint16_t)) != 0) {
