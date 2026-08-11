@@ -570,7 +570,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         // When/Then: BQ (QuantizationConfig != EMPTY) is still blocked for radial search
         Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
-        assertTrue(e.getMessage(), e.getMessage().startsWith("Radial search is not supported for this configuration"));
+        assertTrue(e.getMessage(), e.getMessage().contains("Radial search is not supported for this configuration"));
     }
 
     // Given: a Faiss index with unsupported SQ compression level (x4, x8, x16)
@@ -633,7 +633,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             when(mockKNNVectorField.getResolvedSpec()).thenReturn(spec);
 
             Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
-            assertTrue(e.getMessage(), e.getMessage().startsWith("Radial search is not supported for this configuration"));
+            assertTrue(e.getMessage(), e.getMessage().contains("Radial search is not supported for this configuration"));
         }
     }
 
@@ -748,7 +748,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(faissSQ32xMappingConfig);
         when(mockKNNVectorField.getResolvedSpec()).thenReturn(spec);
         Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithDistance.doToQuery(mockQueryShardContext));
-        assertTrue(e.getMessage(), e.getMessage().startsWith("Radial search is not supported for this configuration"));
+        assertTrue(e.getMessage(), e.getMessage().contains("Radial search is not supported for this configuration"));
 
         // Test with minScore
         KNNQueryBuilder knnQueryBuilderWithScore = KNNQueryBuilder.builder()
@@ -764,7 +764,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockKNNVectorField2.getKnnMappingConfig()).thenReturn(faissSQ32xMappingConfig);
         when(mockKNNVectorField2.getResolvedSpec()).thenReturn(spec);
         Exception e2 = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithScore.doToQuery(mockQueryShardContext2));
-        assertTrue(e2.getMessage(), e2.getMessage().startsWith("Radial search is not supported for this configuration"));
+        assertTrue(e2.getMessage(), e2.getMessage().contains("Radial search is not supported for this configuration"));
     }
 
     public void testDoToQuery_whenRadialSearchOnLuceneSQ32x_thenException() {
@@ -815,7 +815,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(luceneSQ32xMappingConfig);
         when(mockKNNVectorField.getResolvedSpec()).thenReturn(spec);
         Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithDistance.doToQuery(mockQueryShardContext));
-        assertTrue(e.getMessage(), e.getMessage().startsWith("Radial search is not supported for this configuration"));
+        assertTrue(e.getMessage(), e.getMessage().contains("Radial search is not supported for this configuration"));
 
         // Test with minScore
         KNNQueryBuilder knnQueryBuilderWithScore = KNNQueryBuilder.builder()
@@ -831,7 +831,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockKNNVectorField2.getKnnMappingConfig()).thenReturn(luceneSQ32xMappingConfig);
         when(mockKNNVectorField2.getResolvedSpec()).thenReturn(spec);
         Exception e2 = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithScore.doToQuery(mockQueryShardContext2));
-        assertTrue(e2.getMessage(), e2.getMessage().startsWith("Radial search is not supported for this configuration"));
+        assertTrue(e2.getMessage(), e2.getMessage().contains("Radial search is not supported for this configuration"));
     }
 
     public void testDoToQuery_whenRadialSearchOnLuceneFlat32x_thenException() {
@@ -881,7 +881,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(luceneFlat32xMappingConfig);
         when(mockKNNVectorField.getResolvedSpec()).thenReturn(spec);
         Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithDistance.doToQuery(mockQueryShardContext));
-        assertTrue(e.getMessage(), e.getMessage().startsWith("Radial search is not supported for this configuration"));
+        assertTrue(e.getMessage(), e.getMessage().contains("Radial search is not supported for this configuration"));
 
         // Test with minScore
         KNNQueryBuilder knnQueryBuilderWithScore = KNNQueryBuilder.builder()
@@ -897,7 +897,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockKNNVectorField2.getKnnMappingConfig()).thenReturn(luceneFlat32xMappingConfig);
         when(mockKNNVectorField2.getResolvedSpec()).thenReturn(spec);
         Exception e2 = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithScore.doToQuery(mockQueryShardContext2));
-        assertTrue(e2.getMessage(), e2.getMessage().startsWith("Radial search is not supported for this configuration"));
+        assertTrue(e2.getMessage(), e2.getMessage().contains("Radial search is not supported for this configuration"));
     }
 
     public void testDoToQuery_KnnQueryWithFilter_Lucene() {

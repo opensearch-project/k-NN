@@ -53,8 +53,7 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
         int defaultBeamWidth,
         ResolvedIndexSpec resolvedSpec
     ) {
-        final boolean isSQOneBit = resolvedSpec != null ? resolvedSpec.isFaissSQOneBit() : isSQOneBitEncoder(params);
-        if (isSQOneBit) {
+        if (resolvedSpec.isFaissSQOneBit()) {
             return new Faiss1040ScalarQuantizedKnnVectorsFormat(
                 KNNSettings.getApproximateThresholdValue(mapperService),
                 nativeIndexBuildStrategyFactory
@@ -67,9 +66,5 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
     public KnnVectorsFormat resolve() {
         final int approximateThreshold = KNNSettings.getApproximateThresholdValue(mapperService);
         return new NativeEngines990KnnVectorsFormat(approximateThreshold, nativeIndexBuildStrategyFactory);
-    }
-
-    private static boolean isSQOneBitEncoder(Map<String, Object> params) {
-        return FaissSQEncoder.isSQOneBit(params);
     }
 }

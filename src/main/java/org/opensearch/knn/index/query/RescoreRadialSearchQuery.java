@@ -30,11 +30,10 @@ import java.util.Objects;
  * A wrapper {@link Query} that adds full-precision rescoring to radial search on quantized indices
  * and exclude vectors if 'true distance' > radius.
  *
- * <p><b>Currently unreachable:</b> radial search on quantized indices is blocked unconditionally by
- * {@link org.opensearch.knn.index.mapper.KNNVectorFieldType#validateSupportRadialSearch}, so no
- * supported request path constructs this query today (see
- * {@link org.opensearch.knn.index.mapper.KNNVectorFieldType#isRescoringRequiredForRadial}, which
- * always returns {@code false}). The implementation is retained, rather than deleted, for when
+ * <p><b>Currently unreachable:</b> radial search on quantized indices is blocked by
+ * {@link org.opensearch.knn.index.engine.ResolvedIndexSpec#supportsRadialSearch()} (returns
+ * {@code false} for all quantized configurations), so no supported request path constructs
+ * this query today. The implementation is retained, rather than deleted, for when
  * radial search on quantized indices is re-enabled behind a more robust scoring approach — see
  * <a href="https://github.com/opensearch-project/k-NN/issues/3452">#3452</a>.</p>
  *

@@ -72,6 +72,18 @@ public class RNNQueryFactoryTests extends KNNTestCase {
             .build();
     }
 
+    // Non-quantized spec — isSQOneBit() == false, so no rescoring is required after radial search
+    private ResolvedIndexSpec nonQuantizedSpec() {
+        return ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName("hnsw")
+            .encoderType(Encoder.EncoderType.FLAT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(testQueryDimension)
+            .indexVersionCreated(Version.CURRENT)
+            .build();
+    }
+
     public void testCreate_whenLucene_withRadiusQuery_withFloatVector() {
         List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
             .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
@@ -122,7 +134,9 @@ public class RNNQueryFactoryTests extends KNNTestCase {
     // field, so equality against a query constructed with the expected decay proves the value is wired.
     public void testCreate_whenLucene_thenDecayIsWiredIntoSimilarityQuery() {
         final KNNVectorFieldType mockFieldType = mock(KNNVectorFieldType.class);
-        when(mockFieldType.isRescoringRequiredForRadial()).thenReturn(false);
+        // Non-quantized spec: isSQOneBit() == false, so the rescore wrapper is not added and the
+        // real Lucene similarity query is produced.
+        when(mockFieldType.getResolvedSpec()).thenReturn(nonQuantizedSpec());
 
         final List<KNNEngine> luceneEngines = Arrays.stream(KNNEngine.values())
             .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))

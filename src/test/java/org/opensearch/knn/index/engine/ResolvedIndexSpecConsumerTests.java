@@ -130,9 +130,10 @@ public class ResolvedIndexSpecConsumerTests extends KNNTestCase {
         assertNull(spec.getRescoreContext());
     }
 
-    public void testRadialSearch_specMatchesOldBehavior_SQ1BitSupported() {
+    public void testRadialSearch_SQ1BitNotSupported() {
+        // Radial search is now blocked for all quantized indices, including 1-bit SQ (#3464).
         ResolvedIndexSpec spec = buildSQ1BitSpec();
-        assertTrue(spec.supportsRadialSearch());
+        assertFalse(spec.supportsRadialSearch());
     }
 
     public void testRadialSearch_specMatchesOldBehavior_x32HNSWNotSupported() {

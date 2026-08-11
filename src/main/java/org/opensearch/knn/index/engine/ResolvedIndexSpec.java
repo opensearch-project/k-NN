@@ -121,8 +121,10 @@ public final class ResolvedIndexSpec {
      *   <li>Engines that do not support radial search (NMSLIB)</li>
      *   <li>Binary vector data type</li>
      *   <li>BQ (binary quantization) encoder</li>
-     *   <li>Quantized indices that are not 1-bit SQ — among quantized indices, only the
-     *       flat method or SQ encoder with bits=1 support radial search via rescoring</li>
+     *   <li>All quantized indices (compression level other than {@code x1}/{@code x2}), regardless of
+     *       encoder or method. Radial search was disabled for quantized indices due to low recall
+     *       (see <a href="https://github.com/opensearch-project/k-NN/pull/3464">#3464</a>); there are
+     *       no longer any exceptions for flat method or 1-bit SQ.</li>
      * </ul>
      *
      * <p>Model-derived specs skip the compression-level restriction: the legacy model-path
@@ -139,8 +141,9 @@ public final class ResolvedIndexSpec {
         if (encoderType == Encoder.EncoderType.BQ) {
             return false;
         }
+        // All quantized indices block radial search — no flat-method or 1-bit SQ exception (#3464).
         if (modelBased == false && isQuantizedIndex()) {
-            return isMethodFlat() || isSQOneBit();
+            return false;
         }
         return true;
     }

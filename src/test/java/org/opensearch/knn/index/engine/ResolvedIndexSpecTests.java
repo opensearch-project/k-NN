@@ -110,18 +110,20 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
         assertFalse(spec.supportsRadialSearch());
     }
 
-    public void testRadialSearch_SQ1BitSupported() {
+    public void testRadialSearch_SQ1BitNotSupported() {
+        // Radial search is now blocked for all quantized indices, including 1-bit SQ (#3464).
         ResolvedIndexSpec spec = baseFaissSQ1Bit().build();
-        assertTrue(spec.supportsRadialSearch());
+        assertFalse(spec.supportsRadialSearch());
     }
 
-    public void testRadialSearch_FlatMethodWithX32Supported() {
+    public void testRadialSearch_FlatMethodWithX32NotSupported() {
+        // The former flat-method exception is gone: x32 is quantized, so radial search is blocked (#3464).
         ResolvedIndexSpec spec = baseFaiss().methodName(METHOD_FLAT)
             .encoderType(Encoder.EncoderType.FLAT)
             .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
             .compressionLevel(CompressionLevel.x32)
             .build();
-        assertTrue(spec.supportsRadialSearch());
+        assertFalse(spec.supportsRadialSearch());
     }
 
     public void testRadialSearch_NonQuantizedAlwaysSupported() {

@@ -487,7 +487,7 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
         request.setJsonEntity(query.toString());
 
         ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-        assertTrue(ex.getMessage().contains("Radial search is not supported for quantized indices"));
+        assertTrue(ex.getMessage().contains("Radial search is not supported for this configuration"));
     }
 
     @SneakyThrows
@@ -510,7 +510,7 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
         request.setJsonEntity(query.toString());
 
         ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-        assertTrue(ex.getMessage().contains("Radial search is not supported for quantized indices"));
+        assertTrue(ex.getMessage().contains("Radial search is not supported for this configuration"));
     }
 
     private void indexTestDocs() throws Exception {
