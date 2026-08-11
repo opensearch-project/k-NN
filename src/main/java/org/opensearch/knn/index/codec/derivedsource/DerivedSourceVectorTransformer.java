@@ -12,6 +12,7 @@ import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.support.XContentMapValues;
 import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.core.compress.NotXContentException;
 import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -140,11 +141,23 @@ public class DerivedSourceVectorTransformer {
         // Reference:
         // https://github.com/opensearch-project/OpenSearch/blob/2.18.0/server/src/main/java/org/opensearch/index/mapper/SourceFieldMapper.java#L322
         // Deserialize the source into a modifiable map
-        Tuple<? extends MediaType, Map<String, Object>> mapTuple = XContentHelper.convertToMap(
-            BytesReference.fromByteBuffer(ByteBuffer.wrap(sourceAsBytes)),
-            true,
-            MediaTypeRegistry.getDefaultMediaType()
-        );
+        Tuple<? extends MediaType, Map<String, Object>> mapTuple;
+        try {
+            mapTuple = XContentHelper.convertToMap(
+                BytesReference.fromByteBuffer(ByteBuffer.wrap(sourceAsBytes)),
+                true,
+                MediaTypeRegistry.getDefaultMediaType()
+            );
+        } catch (NotXContentException e) {
+            // Some OpenSearch internal documents, such as no-op tombstones, store _source as raw bytes rather than XContent.
+            // Derived source can only inject vector fields after parsing XContent, so preserve non-XContent _source unchanged.
+            log.warn(
+                "Encountered NotXContent while deserializing _source field. Instead found String: [{}]",
+                new String(sourceAsBytes, 0, Math.min(sourceAsBytes.length, 512)),
+                e
+            );
+            return sourceAsBytes;
+        }
         // Have to create a copy of the map here to ensure that is mutable
         Map<String, Object> sourceAsMap = mapTuple.v2();
 

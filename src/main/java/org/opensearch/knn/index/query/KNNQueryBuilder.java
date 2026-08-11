@@ -437,6 +437,12 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Field '%s' is not knn_vector type.", this.fieldName));
         }
         KNNVectorFieldType knnVectorFieldType = (KNNVectorFieldType) mappedFieldType;
+        // A field alias is mapping-only metadata and never appears in Lucene's FieldInfos, which is what the
+        // segment-level lookup in KNNWeight consults. MappedFieldType#name() is the concrete field name after alias
+        // resolution, so use it for everything that reaches the segment; a query built on the alias name would
+        // otherwise find no field info and return no hits at all. Error messages deliberately keep this.fieldName so
+        // they still name the field the user actually typed. The null fallback mirrors core's CommonTermsQueryBuilder.
+        final String resolvedFieldName = mappedFieldType.name() != null ? mappedFieldType.name() : this.fieldName;
         KNNMappingConfig knnMappingConfig = knnVectorFieldType.getKnnMappingConfig();
         QueryConfigFromMapping queryConfigFromMapping = getQueryConfig(knnMappingConfig, knnVectorFieldType);
 
@@ -546,7 +552,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
                 .knnEngine(knnEngine)
                 .indexName(indexName)
-                .fieldName(this.fieldName)
+                .fieldName(resolvedFieldName)
                 .vector(getFloatVectorForCreatingQueryRequest(transformedQueryVector, vectorDataType, knnEngine))
                 .originalVector(vector)
                 .byteVector(getByteVectorForCreatingQueryRequest(vectorDataType, byteVector))
@@ -565,7 +571,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
                 .knnEngine(knnEngine)
                 .indexName(indexName)
-                .fieldName(this.fieldName)
+                .fieldName(resolvedFieldName)
                 .vector(getFloatVectorForCreatingQueryRequest(transformedQueryVector, vectorDataType, knnEngine))
                 .originalVector(vector)
                 .byteVector(getByteVectorForCreatingQueryRequest(vectorDataType, byteVector))

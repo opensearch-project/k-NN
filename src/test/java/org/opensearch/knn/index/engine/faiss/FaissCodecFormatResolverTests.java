@@ -16,7 +16,6 @@ import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactor
 import org.opensearch.knn.index.engine.MethodComponentContext;
 
 import java.util.Map;
-import java.util.Optional;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
@@ -46,7 +45,7 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
 
         NativeIndexBuildStrategyFactory factory = mock(NativeIndexBuildStrategyFactory.class);
 
-        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(Optional.of(mapperService), factory);
+        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(mapperService, factory);
         KnnVectorsFormat result = resolver.resolve();
 
         assertTrue(
@@ -67,7 +66,7 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
 
         NativeIndexBuildStrategyFactory factory = mock(NativeIndexBuildStrategyFactory.class);
 
-        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(Optional.of(mapperService), factory);
+        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(mapperService, factory);
         KnnVectorsFormat result = resolver.resolve();
 
         assertTrue(
@@ -89,7 +88,7 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
 
         NativeIndexBuildStrategyFactory factory = new NativeIndexBuildStrategyFactory();
 
-        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(Optional.of(mapperService), factory);
+        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(mapperService, factory);
         KnnVectorsFormat result = resolver.resolve();
 
         assertTrue(
@@ -104,10 +103,7 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
         when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING)).thenReturn(null);
         when(mapperService.getIndexSettings()).thenReturn(indexSettings);
 
-        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(
-            Optional.of(mapperService),
-            mock(NativeIndexBuildStrategyFactory.class)
-        );
+        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(mapperService, mock(NativeIndexBuildStrategyFactory.class));
 
         MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 1));
         Map<String, Object> params = Map.of(METHOD_ENCODER_PARAMETER, encoderContext);
@@ -125,10 +121,7 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
         when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING)).thenReturn(null);
         when(mapperService.getIndexSettings()).thenReturn(indexSettings);
 
-        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(
-            Optional.of(mapperService),
-            mock(NativeIndexBuildStrategyFactory.class)
-        );
+        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(mapperService, mock(NativeIndexBuildStrategyFactory.class));
 
         KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, Map.of(), DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH);
         assertTrue(
@@ -143,10 +136,7 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
         when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING)).thenReturn(null);
         when(mapperService.getIndexSettings()).thenReturn(indexSettings);
 
-        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(
-            Optional.of(mapperService),
-            mock(NativeIndexBuildStrategyFactory.class)
-        );
+        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(mapperService, mock(NativeIndexBuildStrategyFactory.class));
 
         MethodComponentContext encoderContext = new MethodComponentContext("sq", Map.of());
         Map<String, Object> params = Map.of(METHOD_ENCODER_PARAMETER, encoderContext);
@@ -164,10 +154,7 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
         when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING)).thenReturn(null);
         when(mapperService.getIndexSettings()).thenReturn(indexSettings);
 
-        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(
-            Optional.of(mapperService),
-            mock(NativeIndexBuildStrategyFactory.class)
-        );
+        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(mapperService, mock(NativeIndexBuildStrategyFactory.class));
         // Null params should fall back to default native format
         KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, null, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH);
         assertTrue(
@@ -182,10 +169,7 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
         when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING)).thenReturn(null);
         when(mapperService.getIndexSettings()).thenReturn(indexSettings);
 
-        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(
-            Optional.of(mapperService),
-            mock(NativeIndexBuildStrategyFactory.class)
-        );
+        FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(mapperService, mock(NativeIndexBuildStrategyFactory.class));
 
         MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 16));
         Map<String, Object> params = Map.of(METHOD_ENCODER_PARAMETER, encoderContext);
