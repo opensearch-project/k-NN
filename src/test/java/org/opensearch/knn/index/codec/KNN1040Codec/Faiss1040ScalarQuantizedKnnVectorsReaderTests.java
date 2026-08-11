@@ -186,19 +186,25 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testWarmUp_whenMOSNotSupported_thenLogsWarning() {
+    public void testWarmUp_whenGraphSkippedByThreshold_thenWarmsVeqWithoutError() {
+        // No native engine (.faiss) file (the approximate threshold skipped the graph). Search is served by
+        // exact search over the quantized .veq codes, so warmUp should warm those codes via the flat reader's
+        // index slice and NOT attempt to load a memory-optimized searcher, so no error/warn is logged.
         final FieldInfo fi = createFieldInfo("field1", KNNEngine.FAISS, 0);
 
-        // Mock flatVectorsReader to return a ScalarQuantizedFloatVectorValues with non-zero size
         final FlatVectorsReader fvr = mock(FlatVectorsReader.class);
         final ScalarQuantizedFloatVectorValues mockVectorValues = mock(ScalarQuantizedFloatVectorValues.class);
         when(mockVectorValues.size()).thenReturn(3);
         when(mockVectorValues.vectorValue(org.mockito.ArgumentMatchers.anyInt())).thenReturn(new float[] { 1.0f, 2.0f, 3.0f });
+        // The .veq codes are exposed through the index slice; warmUp should read through it.
+        final IndexInput veqSlice = mock(IndexInput.class);
+        when(veqSlice.length()).thenReturn(0L);
+        when(mockVectorValues.getSlice()).thenReturn(veqSlice);
         when(fvr.getFloatVectorValues("field1")).thenReturn(mockVectorValues);
 
-        // Set up a log appender to capture log events
         final List<LogEvent> logEvents = new ArrayList<>();
         final Logger logger = (Logger) LogManager.getLogger(Faiss1040ScalarQuantizedKnnVectorsReader.class);
+        final Logger baseLogger = (Logger) LogManager.getLogger(AbstractNativeEnginesKnnVectorsReader.class);
         final AbstractAppender appender = new AbstractAppender("test-appender", null, null, true, null) {
             @Override
             public void append(LogEvent event) {
@@ -207,37 +213,31 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
         };
         appender.start();
         logger.addAppender(appender);
+        baseLogger.addAppender(appender);
         final Level originalLevel = logger.getLevel();
-        logger.setLevel(Level.WARN);
+        final Level baseOriginalLevel = baseLogger.getLevel();
+        logger.setLevel(Level.INFO);
+        baseLogger.setLevel(Level.INFO);
 
         try {
-            // Make KNNEngine return null factory so loadMemoryOptimizedSearcherIfRequired returns null
-            KNNEngine mockFaiss = spy(KNNEngine.FAISS);
-            when(mockFaiss.getVectorSearcherFactory()).thenReturn(null);
+            final Faiss1040ScalarQuantizedKnnVectorsReader reader = createReader(
+                new FieldInfos(new FieldInfo[] { fi }),
+                Collections.emptySet(),
+                fvr
+            );
 
-            try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
-                ms.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
-                ms.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
+            reader.warmUp("field1");
 
-                final Faiss1040ScalarQuantizedKnnVectorsReader reader = createReader(
-                    new FieldInfos(new FieldInfo[] { fi }),
-                    Collections.emptySet(),
-                    fvr
-                );
-
-                reader.warmUp("field1");
-
-                // Verify warning was logged
-                boolean foundWarning = logEvents.stream()
-                    .anyMatch(e -> e.getLevel() == Level.WARN && e.getMessage().getFormattedMessage().contains("field1"));
-                assertTrue("Expected a WARN log about MOS not supported for field1", foundWarning);
-
-                // Verify the searcher warmUp was never called (no searcher available)
-                // This is implicitly verified since the searcher is null
-            }
+            // The .veq slice must be warmed (read through).
+            verify(veqSlice).seek(0);
+            // No misleading error/warn should be logged for a legitimately graph-less segment.
+            final boolean sawErrorOrWarn = logEvents.stream().anyMatch(e -> e.getLevel() == Level.ERROR || e.getLevel() == Level.WARN);
+            assertFalse("Graph-less warmup must not log error/warn: " + logEvents, sawErrorOrWarn);
         } finally {
             logger.removeAppender(appender);
+            baseLogger.removeAppender(appender);
             logger.setLevel(originalLevel);
+            baseLogger.setLevel(baseOriginalLevel);
             appender.stop();
         }
     }

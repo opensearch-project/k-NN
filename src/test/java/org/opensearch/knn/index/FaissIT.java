@@ -12,14 +12,12 @@
 package org.opensearch.knn.index;
 
 import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
-import com.carrotsearch.randomizedtesting.annotations.TimeoutSuite;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Floats;
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
-import org.apache.lucene.tests.util.TimeUnits;
 import org.apache.lucene.util.VectorUtil;
 import org.junit.BeforeClass;
 import org.opensearch.client.Response;
@@ -88,7 +86,6 @@ import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
-@TimeoutSuite(millis = 40 * TimeUnits.MINUTE)
 public class FaissIT extends KNNCompressionRestTestCase {
 
     public FaissIT(CompressionTestConfig compressionConfig) {

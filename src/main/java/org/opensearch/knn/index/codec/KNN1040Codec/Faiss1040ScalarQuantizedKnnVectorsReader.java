@@ -9,12 +9,15 @@ import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.search.KnnCollector;
+import org.apache.lucene.store.IndexInput;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsReader;
 import org.opensearch.knn.index.codec.nativeindex.AbstractNativeEnginesKnnVectorsReader;
+import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.util.WarmupUtil;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 
@@ -78,12 +81,14 @@ public class Faiss1040ScalarQuantizedKnnVectorsReader extends AbstractNativeEngi
     /**
      * Warms up the on-disk data for the given scalar-quantized field.
      * <p>
-     * This warms up both the HNSW graph (via the memory-optimized searcher), quantized vectors and the
-     * full-precision vectors. The full-precision vectors cannot be warmed up through
-     * {@link WarmupUtil} because the {@link FloatVectorValues}
-     * returned by the flat vectors reader is backed by quantized data. Instead, each vector
-     * is read explicitly through the underlying
-     * {@link ScalarQuantizedFloatVectorValues}.
+     * The full-precision vectors are always warmed by reading each vector explicitly through the underlying
+     * {@link ScalarQuantizedFloatVectorValues} (they cannot be warmed through {@link WarmupUtil}, whose slice
+     * is backed by the quantized data).
+     * <p>
+     * When a native engine (.faiss) graph file is present, the HNSW graph and the quantized vectors are warmed
+     * via the memory-optimized searcher. When the graph was skipped by the approximate threshold there is no
+     * .faiss file - search is served by exact search over the quantized {@code .veq} codes, so those are warmed
+     * directly through the flat reader's index slice instead of loading a (non-existent) searcher.
      *
      * @param fieldName the name of the vector field to warm up
      * @throws IOException if an I/O error occurs while reading the underlying data
@@ -107,7 +112,24 @@ public class Faiss1040ScalarQuantizedKnnVectorsReader extends AbstractNativeEngi
             vectorValues.vectorValue(i);
         }
 
-        final VectorSearcher memoryOptimizedSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfos.fieldInfo(fieldName));
+        // When the graph was skipped by the approximate threshold there is no native engine (.faiss) file, so
+        // there is no memory-optimized searcher to load. In that case search is served by exact search over the
+        // quantized .veq codes, so warm those directly through the flat reader's index slice. Only attempt the
+        // memory-optimized searcher when a graph file is actually present; that path keeps warming the .veq codes
+        // and the graph, and still surfaces the error/warn logs for a genuine load failure.
+        final FieldInfo fieldInfo = fieldInfos.fieldInfo(fieldName);
+        final boolean hasGraphFile = KNNCodecUtil.getNativeEngineFileFromFieldInfo(fieldInfo, segmentReadState.segmentInfo) != null;
+        if (hasGraphFile == false) {
+            // Warm the quantized .veq codes directly through the flat reader's index slice
+            // (ScalarQuantizedFloatVectorValues exposes them via HasIndexSlice#getSlice).
+            final IndexInput veqSlice = vectorValues.getSlice();
+            if (veqSlice != null) {
+                WarmupUtil.readAll(veqSlice);
+            }
+            return;
+        }
+
+        final VectorSearcher memoryOptimizedSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfo);
         if (memoryOptimizedSearcher != null) {
             // MOS is supported, warm up search parts
             memoryOptimizedSearcher.warmUp();
