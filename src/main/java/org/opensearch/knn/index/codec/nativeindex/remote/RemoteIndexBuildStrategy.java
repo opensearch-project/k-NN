@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.codec.nativeindex.remote;
 
 import com.google.common.annotations.VisibleForTesting;
+import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.metadata.RepositoryMetadata;
@@ -327,11 +328,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         return new RepositoryContext(repository, blobPath, vectorRepositoryAccessor, blobName);
     }
 
-    private static String determineVectorDataType(
-        final VectorDataType dataType,
-        final Map<String, Object> parameters,
-        final ResolvedIndexSpec resolvedSpec
-    ) {
+    private static String determineVectorDataType(final VectorDataType dataType, @NonNull final ResolvedIndexSpec resolvedSpec) {
         if (dataType == VectorDataType.FLOAT) {
             // SQ 1-bit sends fp32 vectors. Once support is added for building 1 bit SQ graphs
             // in the Remote Vector Index Builder, then this can be modified to send 1 bit SQ vectors.
@@ -351,11 +348,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
      * When true, the RVIB writes only the HNSW graph, and the data node stitches it with locally-stored
      * flat vectors at search time via {@link org.opensearch.knn.memoryoptsearch.faiss.FaissFlatIndexFactory}.
      */
-    private static boolean shouldSkipStoredVectors(
-        final VectorDataType vectorDataType,
-        final Map<String, Object> parameters,
-        final ResolvedIndexSpec resolvedSpec
-    ) {
+    private static boolean shouldSkipStoredVectors(final VectorDataType vectorDataType, @NonNull final ResolvedIndexSpec resolvedSpec) {
         return resolvedSpec.isFaissSQOneBit();
     }
 
@@ -367,7 +360,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
      * @param repositoryMetadata RepositoryMetadata object
      * @param fullPath           Full blob path + file name representing location of the vectors/doc IDs (excludes repository-specific prefix)
      * @param parameters         Map of parameters to be parsed and passed to the remote build service
-     * @param resolvedSpec       ResolvedIndexSpec for spec-based decisions, non-null (guaranteed by AbstractKNNMethod.buildResolvedIndexSpec)
+     * @param resolvedSpec       ResolvedIndexSpec for spec-based decisions
      * @throws IOException if an I/O error occurs
      */
     static RemoteBuildRequest buildRemoteBuildRequest(
@@ -376,9 +369,8 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         RepositoryMetadata repositoryMetadata,
         String fullPath,
         Map<String, Object> parameters,
-        ResolvedIndexSpec resolvedSpec
+        @NonNull ResolvedIndexSpec resolvedSpec
     ) throws IOException {
-        java.util.Objects.requireNonNull(resolvedSpec, "resolvedSpec must not be null in remote build path");
         final String repositoryType = repositoryMetadata.type();
         final String containerName;
         switch (repositoryType) {
@@ -388,7 +380,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             );
         }
 
-        final String vectorDataType = determineVectorDataType(indexInfo.getVectorDataType(), parameters, resolvedSpec);
+        final String vectorDataType = determineVectorDataType(indexInfo.getVectorDataType(), resolvedSpec);
 
         KNNVectorValues<?> vectorValues = decorateVectorValuesSupplier(indexInfo).get();
         initializeVectorValues(vectorValues);
@@ -405,7 +397,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             .vectorDataType(vectorDataType)
             .engine(indexInfo.getKnnEngine().getName())
             .indexParameters(indexInfo.getKnnEngine().createRemoteIndexingParameters(parameters))
-            .skipStoredVectors(shouldSkipStoredVectors(indexInfo.getVectorDataType(), parameters, resolvedSpec))
+            .skipStoredVectors(shouldSkipStoredVectors(indexInfo.getVectorDataType(), resolvedSpec))
             .build();
     }
 }
