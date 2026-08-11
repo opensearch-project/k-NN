@@ -164,13 +164,12 @@ public class ResolvedIndexSpecConsumerTests extends KNNTestCase {
         assertFalse(spec.supportsRadialSearch());
     }
 
-    public void testNullSpec_fallsBackToOldPath() {
+    public void testNoSpecProvided_defaultsToNoAnnSpec() {
         KNNVectorFieldType fieldType = buildFieldTypeWithoutSpec(buildSQ1BitMethodContext(), 128);
-        assertNull(fieldType.getResolvedSpec());
-        // Fallback computes MOS flags from mapping config: SQ 1-bit always uses MOS
-        assertTrue(fieldType.isAlwaysUseMemoryOptimizedSearch());
-        // isSupportedFieldType requires Faiss HNSW with FLAT/SQ/BQ + no model, which this satisfies
-        assertTrue(fieldType.isMemoryOptimizedSearchAvailable());
+        // When no spec is supplied, the field type defaults to a no-ANN spec: all behavior off
+        assertNotNull(fieldType.getResolvedSpec());
+        assertFalse(fieldType.isAlwaysUseMemoryOptimizedSearch());
+        assertFalse(fieldType.isMemoryOptimizedSearchAvailable());
     }
 
     public void testSQ1BitCodecFormat_viaSPec() {

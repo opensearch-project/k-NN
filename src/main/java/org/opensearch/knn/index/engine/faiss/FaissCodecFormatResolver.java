@@ -42,8 +42,7 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
 
     /**
      * Resolves the format for a specific field. Returns {@link Faiss1040ScalarQuantizedKnnVectorsFormat} when
-     * the encoder is sq with bits=1, otherwise falls back to the default native format. Prefers the resolved
-     * index spec when non-null; otherwise inspects the method component parameters.
+     * the encoder is sq with bits=1, otherwise falls back to the default native format.
      */
     @Override
     public KnnVectorsFormat resolve(
@@ -52,7 +51,7 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
         Map<String, Object> params,
         int defaultMaxConnections,
         int defaultBeamWidth,
-        @Nullable ResolvedIndexSpec resolvedSpec
+        ResolvedIndexSpec resolvedSpec
     ) {
         final boolean isSQOneBit = resolvedSpec != null ? resolvedSpec.isFaissSQOneBit() : isSQOneBitEncoder(params);
         if (isSQOneBit) {

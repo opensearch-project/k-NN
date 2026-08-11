@@ -235,38 +235,6 @@ public class FaissSQEncoderTests extends KNNTestCase {
         assertNotEquals(FAISS_FLAT_DESCRIPTION, params.get(INDEX_DESCRIPTION_PARAMETER));
     }
 
-    // --- isSQOneBit utility ---
-
-    public void testIsSQOneBit_whenSQWithBits1_thenTrue() {
-        MethodComponentContext encoderCtx = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 1));
-        Map<String, Object> params = Map.of(METHOD_ENCODER_PARAMETER, encoderCtx);
-        assertTrue(FaissSQEncoder.isSQOneBit(params));
-    }
-
-    public void testIsSQOneBit_whenSQWithBits16_thenFalse() {
-        MethodComponentContext encoderCtx = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 16));
-        Map<String, Object> params = Map.of(METHOD_ENCODER_PARAMETER, encoderCtx);
-        assertFalse(FaissSQEncoder.isSQOneBit(params));
-    }
-
-    public void testIsSQOneBit_whenNonSQEncoder_thenFalse() {
-        MethodComponentContext encoderCtx = new MethodComponentContext("flat", Map.of());
-        Map<String, Object> params = Map.of(METHOD_ENCODER_PARAMETER, encoderCtx);
-        assertFalse(FaissSQEncoder.isSQOneBit(params));
-    }
-
-    public void testIsSQOneBit_whenNullParams_thenFalse() {
-        assertFalse(FaissSQEncoder.isSQOneBit(null));
-    }
-
-    public void testIsSQOneBit_whenNoEncoder_thenFalse() {
-        assertFalse(FaissSQEncoder.isSQOneBit(Map.of()));
-    }
-
-    public void testIsSQOneBit_whenEncoderNotMethodComponentContext_thenFalse() {
-        assertFalse(FaissSQEncoder.isSQOneBit(Map.of(METHOD_ENCODER_PARAMETER, "not_a_context")));
-    }
-
     // --- validate() direct tests ---
 
     public void testValidateDirectly_whenInvalidBits_thenThrows() {

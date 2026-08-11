@@ -18,6 +18,7 @@ import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 import org.opensearch.knn.indices.ModelDao;
@@ -70,7 +71,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
                 .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
                 .getQuantizationConfig();
 
-        final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(fullname, metaValue, vectorDataType, new KNNMappingConfig() {
+        final KNNMappingConfig knnMappingConfig = new KNNMappingConfig() {
             private Integer dimension = null;
             private Mode mode = null;
             private CompressionLevel compressionLevel = null;
@@ -123,7 +124,18 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
                 mode = modelMetadata.getMode();
                 compressionLevel = modelMetadata.getCompressionLevel();
             }
-        });
+        };
+
+        final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
+            fullname,
+            metaValue,
+            vectorDataType,
+            knnMappingConfig,
+            indexCreatedVersion,
+            // ModelMetadata relies on cluster state which may not be available during field mapper creation,
+            // so the spec is resolved lazily on first access (memoized by KNNVectorFieldType).
+            () -> resolveSpecFromModelMetadata(modelDao, originalMappingParameters.getModelId(), vectorDataType, indexCreatedVersion)
+        );
         return new ModelFieldMapper(
             simpleName,
             mappedFieldType,
@@ -331,6 +343,39 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         parseCreateField(context, modelMetadata.getDimension(), modelMetadata.getVectorDataType());
     }
 
+    /**
+     * Resolves the {@link ResolvedIndexSpec} for a model-based field from model metadata. Called lazily
+     * (and memoized by {@link KNNVectorFieldType}) because model metadata lives in cluster state, which
+     * may not be available during field mapper creation. Throws {@link IllegalStateException} when the
+     * model has not been created yet, surfacing a clear message at first use (e.g. query time).
+     *
+     * <p>Models created before method serialization ({@link MethodComponentContext#EMPTY}) carry no
+     * method context, so no spec can be derived from metadata; they get a no-ANN spec that retains the
+     * engine and vector data type so engine-level behavioral checks still apply.</p>
+     */
+    private static ResolvedIndexSpec resolveSpecFromModelMetadata(
+        ModelDao modelDao,
+        String modelId,
+        VectorDataType vectorDataType,
+        Version indexCreatedVersion
+    ) {
+        ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
+        KNNMethodContext knnMethodContext = getKNNMethodContextFromModelMetadata(modelMetadata);
+        KNNMethodConfigContext knnMethodConfigContext = getKNNMethodConfigContextFromModelMetadata(modelMetadata);
+        if (knnMethodContext == null || knnMethodConfigContext == null) {
+            return ResolvedIndexSpec.noAnnFromModel(
+                modelMetadata.getKnnEngine(),
+                modelMetadata.getVectorDataType(),
+                modelMetadata.getDimension(),
+                indexCreatedVersion
+            );
+        }
+        ResolvedIndexSpec resolvedSpec = knnMethodContext.getKnnEngine()
+            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .getResolvedSpec();
+        return resolvedSpec.asModelBased();
+    }
+
     private static KNNMethodContext getKNNMethodContextFromModelMetadata(ModelMetadata modelMetadata) {
         MethodComponentContext methodComponentContext = modelMetadata.getMethodComponentContext();
         if (methodComponentContext == MethodComponentContext.EMPTY) {
@@ -351,6 +396,9 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
             .versionCreated(modelMetadata.getModelVersion())
             .mode(modelMetadata.getMode())
             .compressionLevel(modelMetadata.getCompressionLevel())
+            // Model metadata stores the compression resolved at training time (e.g. PQ-derived x32), not a
+            // user-configured value, so it must not derive an on_disk mode; the metadata mode is authoritative.
+            .userConfiguredCompressionLevel(CompressionLevel.NOT_CONFIGURED)
             .build();
     }
 

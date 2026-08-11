@@ -34,6 +34,17 @@ public class FaissFieldStrategyTests extends KNNTestCase {
 
     private static final int TEST_DIMENSION = 128;
 
+    // A spec whose isSQOneBit() is false — the field strategy then falls through to the qframe_config path
+    private static ResolvedIndexSpec nonSQOneBitSpec() {
+        return ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .encoderType(Encoder.EncoderType.FLAT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(TEST_DIMENSION)
+            .indexVersionCreated(Version.CURRENT)
+            .build();
+    }
+
     public void testBuildFieldTypeConfigForFaissWithSQ1Bit() {
         KNNMappingConfig mappingConfig = mock(KNNMappingConfig.class);
         when(mappingConfig.getDimension()).thenReturn(TEST_DIMENSION);
@@ -184,7 +195,7 @@ public class FaissFieldStrategyTests extends KNNTestCase {
         KNNLibraryIndexingContext libraryContext = mock(KNNLibraryIndexingContext.class);
         when(libraryContext.getQuantizationConfig()).thenReturn(quantizationConfig);
         when(libraryContext.getLibraryParameters()).thenReturn(Collections.emptyMap());
-        when(libraryContext.getResolvedSpec()).thenReturn(null);
+        when(libraryContext.getResolvedSpec()).thenReturn(nonSQOneBitSpec());
         when(libraryContext.getVectorTransformer()).thenReturn(null);
 
         FieldTypeConfig config = FaissFieldStrategy.INSTANCE.buildFieldTypeConfig(
@@ -212,7 +223,7 @@ public class FaissFieldStrategyTests extends KNNTestCase {
         KNNLibraryIndexingContext libraryContext = mock(KNNLibraryIndexingContext.class);
         when(libraryContext.getQuantizationConfig()).thenReturn(QuantizationConfig.EMPTY);
         when(libraryContext.getLibraryParameters()).thenReturn(Collections.emptyMap());
-        when(libraryContext.getResolvedSpec()).thenReturn(null);
+        when(libraryContext.getResolvedSpec()).thenReturn(nonSQOneBitSpec());
         when(libraryContext.getVectorTransformer()).thenReturn(null);
 
         FieldTypeConfig config = FaissFieldStrategy.INSTANCE.buildFieldTypeConfig(
@@ -239,7 +250,7 @@ public class FaissFieldStrategyTests extends KNNTestCase {
         KNNLibraryIndexingContext libraryContext = mock(KNNLibraryIndexingContext.class);
         when(libraryContext.getQuantizationConfig()).thenReturn(QuantizationConfig.EMPTY);
         when(libraryContext.getLibraryParameters()).thenReturn(Collections.emptyMap());
-        when(libraryContext.getResolvedSpec()).thenReturn(null);
+        when(libraryContext.getResolvedSpec()).thenReturn(nonSQOneBitSpec());
         when(libraryContext.getVectorTransformer()).thenReturn(null);
 
         // HAMMING has no direct Lucene VectorSimilarityFunction, so the fallback to DEFAULT is exercised
@@ -268,7 +279,7 @@ public class FaissFieldStrategyTests extends KNNTestCase {
         KNNLibraryIndexingContext libraryContext = mock(KNNLibraryIndexingContext.class);
         when(libraryContext.getQuantizationConfig()).thenReturn(QuantizationConfig.EMPTY);
         when(libraryContext.getLibraryParameters()).thenReturn(Collections.emptyMap());
-        when(libraryContext.getResolvedSpec()).thenReturn(null);
+        when(libraryContext.getResolvedSpec()).thenReturn(nonSQOneBitSpec());
         when(libraryContext.getVectorTransformer()).thenReturn(null);
 
         // Pre-3.0 versions always use the DEFAULT space type's similarity function
@@ -288,7 +299,7 @@ public class FaissFieldStrategyTests extends KNNTestCase {
         );
     }
 
-    public void testBuildFieldTypeConfigForFaissWithNullResolvedSpec() {
+    public void testBuildFieldTypeConfigForFaissWithNonSQOneBitSpec() {
         KNNMappingConfig mappingConfig = mock(KNNMappingConfig.class);
         when(mappingConfig.getDimension()).thenReturn(TEST_DIMENSION);
 
@@ -299,7 +310,7 @@ public class FaissFieldStrategyTests extends KNNTestCase {
         KNNLibraryIndexingContext libraryContext = mock(KNNLibraryIndexingContext.class);
         when(libraryContext.getQuantizationConfig()).thenReturn(QuantizationConfig.EMPTY);
         when(libraryContext.getLibraryParameters()).thenReturn(Collections.emptyMap());
-        when(libraryContext.getResolvedSpec()).thenReturn(null);
+        when(libraryContext.getResolvedSpec()).thenReturn(nonSQOneBitSpec());
         when(libraryContext.getVectorTransformer()).thenReturn(null);
 
         FieldTypeConfig config = FaissFieldStrategy.INSTANCE.buildFieldTypeConfig(

@@ -40,7 +40,7 @@ public final class RescoreContext {
     public static final int MIN_FIRST_PASS_RESULTS = 100;
 
     @Builder.Default
-    private float oversampleFactor = DEFAULT_OVERSAMPLE_FACTOR;
+    private final float oversampleFactor = DEFAULT_OVERSAMPLE_FACTOR;
 
     /**
      * Flag to track whether the oversample factor is user-provided or default. The Reason to introduce
@@ -48,13 +48,13 @@ public final class RescoreContext {
      * else we end up overriding user provided value in NativeEngineKnnVectorQuery
      */
     @Builder.Default
-    private boolean userProvided = true;
+    private final boolean userProvided = true;
 
     /**
      * Flag to track whether rescoring has been disabled by the query parameters.
      */
     @Builder.Default
-    private boolean rescoreEnabled = true;
+    private final boolean rescoreEnabled = true;
 
     /**
      * Flag to control whether the dimension-based oversampling logic in {@link #getFirstPassK(int, boolean, int)}
@@ -63,7 +63,7 @@ public final class RescoreContext {
      * factor should not be adjusted based on dimension.
      */
     @Builder.Default
-    private boolean allowOverrideOversampleFactor = true;
+    private final boolean allowOverrideOversampleFactor = true;
 
     public static final RescoreContext EXPLICITLY_DISABLED_RESCORE_CONTEXT = RescoreContext.builder()
         .oversampleFactor(DEFAULT_OVERSAMPLE_FACTOR)
@@ -89,19 +89,20 @@ public final class RescoreContext {
      * @return The number of results to return for the first pass of rescoring, adjusted by the oversample factor.
      */
     public int getFirstPassK(int finalK, int dimension) {
+        float effectiveOversampleFactor = oversampleFactor;
         // Apply dimension-based oversampling when the oversample factor was not user-provided
         // and the encoder allows override. This ensures high-dimensional vectors (which have
         // lower relative quantization error) don't over-fetch candidates unnecessarily.
         if (!userProvided && allowOverrideOversampleFactor) {
             if (dimension >= DIMENSION_THRESHOLD_1000) {
-                oversampleFactor = OVERSAMPLE_FACTOR_1000;  // No oversampling for dimensions >= 1000
+                effectiveOversampleFactor = OVERSAMPLE_FACTOR_1000;
             } else if (dimension >= DIMENSION_THRESHOLD_768) {
-                oversampleFactor = OVERSAMPLE_FACTOR_768;   // 2x oversampling for dimensions >= 768 and < 1000
+                effectiveOversampleFactor = OVERSAMPLE_FACTOR_768;
             } else {
-                oversampleFactor = OVERSAMPLE_FACTOR_BELOW_768;  // 3x oversampling for dimensions < 768
+                effectiveOversampleFactor = OVERSAMPLE_FACTOR_BELOW_768;
             }
         }
-        return Math.min(MAX_FIRST_PASS_RESULTS, Math.max(MIN_FIRST_PASS_RESULTS, (int) Math.ceil(finalK * oversampleFactor)));
+        return Math.min(MAX_FIRST_PASS_RESULTS, Math.max(MIN_FIRST_PASS_RESULTS, (int) Math.ceil(finalK * effectiveOversampleFactor)));
     }
 
     /**

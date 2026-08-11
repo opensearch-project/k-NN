@@ -64,7 +64,7 @@ public class LuceneCodecFormatResolver implements CodecFormatResolver {
         Map<String, Object> params,
         int defaultMaxConnections,
         int defaultBeamWidth,
-        @Nullable ResolvedIndexSpec resolvedSpec
+        ResolvedIndexSpec resolvedSpec
     ) {
         LuceneVectorsFormatType formatType = determineFormatType(field, methodContext, params, defaultMaxConnections, defaultBeamWidth);
         Function<KnnVectorsFormatContext, KnnVectorsFormat> factory = formatResolvers.get(formatType);

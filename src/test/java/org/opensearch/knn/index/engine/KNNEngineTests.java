@@ -14,6 +14,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.faiss.Faiss;
 import org.opensearch.knn.index.engine.faiss.FaissHNSWMethod;
+import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
 import org.opensearch.knn.index.engine.lucene.Lucene;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
 import org.opensearch.knn.index.mapper.FaissFieldStrategy;
@@ -26,8 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.COMPOUND_EXTENSION;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
@@ -43,7 +42,6 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.SpaceType.COSINESIMIL;
 import static org.opensearch.knn.index.SpaceType.INNER_PRODUCT;
 import static org.opensearch.knn.index.SpaceType.L2;
@@ -138,8 +136,11 @@ public class KNNEngineTests extends KNNTestCase {
         // Pure Binary
         assertTrue(Faiss.supportsRemoteIndexBuild(createMockKnnLibraryIndexingContextParamsBinary(METHOD_HNSW)));
 
-        // Quantized case
-        assertTrue(Faiss.supportsRemoteIndexBuild(createMockKnnLibraryIndexingContextParamsQuantized()));
+        // Quantized (QFrame binary encoder) case — the resolved spec classifies this as BQ,
+        // which is not eligible for remote index build (spec-based behavior since the
+        // ResolvedIndexSpec wiring; the old param-sniffing fallback that returned true was
+        // only reachable through spec-less contexts, which no longer exist)
+        assertFalse(Faiss.supportsRemoteIndexBuild(createKnnLibraryIndexingContextParamsQuantized()));
 
         // SQ 1-bit
         assertTrue(Faiss.supportsRemoteIndexBuild(createMockKnnLibraryIndexingContextParamsSQOneBit()));
@@ -210,6 +211,7 @@ public class KNNEngineTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        knnMethodContext.setKnnEngine(KNNEngine.FAISS);
         return Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
     }
 
@@ -235,6 +237,7 @@ public class KNNEngineTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        knnMethodContext.setKnnEngine(KNNEngine.FAISS);
         return Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
     }
 
@@ -259,6 +262,7 @@ public class KNNEngineTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        knnMethodContext.setKnnEngine(KNNEngine.FAISS);
         return Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
     }
 
@@ -283,6 +287,7 @@ public class KNNEngineTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        knnMethodContext.setKnnEngine(KNNEngine.FAISS);
         return Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
     }
 
@@ -307,27 +312,33 @@ public class KNNEngineTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        knnMethodContext.setKnnEngine(KNNEngine.FAISS);
         return Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
     }
 
     @SneakyThrows
-    private KNNLibraryIndexingContext createMockKnnLibraryIndexingContextParamsQuantized() {
+    private KNNLibraryIndexingContext createKnnLibraryIndexingContextParamsQuantized() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, INNER_PRODUCT.getValue())
-            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue())
             .startObject(PARAMETERS)
             .field(METHOD_PARAMETER_EF_SEARCH, 24)
             .field(METHOD_PARAMETER_EF_CONSTRUCTION, 28)
             .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, QFrameBitEncoder.NAME)
             .endObject()
             .endObject()
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
-        KNNLibraryIndexingContext mockContext = mock(KNNLibraryIndexingContext.class);
-        when(mockContext.getLibraryParameters()).thenReturn(in);
-        return mockContext;
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        knnMethodContext.setKnnEngine(KNNEngine.FAISS);
+        return Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
     }
 
     @SneakyThrows
@@ -351,6 +362,7 @@ public class KNNEngineTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        knnMethodContext.setKnnEngine(KNNEngine.FAISS);
         return Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
     }
 
@@ -385,6 +397,7 @@ public class KNNEngineTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        knnMethodContext.setKnnEngine(KNNEngine.FAISS);
         return Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
     }
 }

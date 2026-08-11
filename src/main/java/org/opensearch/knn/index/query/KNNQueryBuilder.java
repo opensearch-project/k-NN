@@ -486,13 +486,17 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
 
         if (this.maxDistance != null || this.minScore != null) {
             ResolvedIndexSpec spec = knnVectorFieldType.getResolvedSpec();
-            if (spec != null) {
-                if (!spec.supportsRadialSearch()) {
-                    throw new UnsupportedOperationException("Radial search is not supported for this quantization configuration");
-                }
-            } else {
-                // TODO: Remove fallback once all field mapper paths supply a ResolvedIndexSpec
-                knnVectorFieldType.validateSupportRadialSearch(knnEngine);
+            if (!spec.supportsRadialSearch()) {
+                throw new UnsupportedOperationException(
+                    String.format(
+                        Locale.ROOT,
+                        "Radial search is not supported for this configuration: engine=%s, data_type=%s, method=%s, compression=%s",
+                        spec.getEngine(),
+                        spec.getVectorDataType(),
+                        spec.getMethodName(),
+                        spec.getCompressionLevel().getName()
+                    )
+                );
             }
         }
 
