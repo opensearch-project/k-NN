@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Bug Fixes
 * Fix knn query against a field alias returning zero hits silently [#3485](https://github.com/opensearch-project/k-NN/pull/3485)
+* Return all nested child documents when rescoring is enabled with expand_nested_docs on the Lucene engine [#3483](https://github.com/opensearch-project/k-NN/pull/3483)
 
 ### Refactoring
 
