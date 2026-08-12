@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Re-enable flaky BWC test testKNNWarmupCustomLegacyFieldMapping and restore legacy index settings in BWC test fixtures [#2415](https://github.com/opensearch-project/k-NN/issues/2415)
 
 ### Bug Fixes
+* Return a non-matching explanation from `KNNWeight.explain()` for documents that are not nearest neighbors [#3480](https://github.com/opensearch-project/k-NN/pull/3480)
 * Preserve raw non-XContent `_source` fields when derived source is enabled [#3402](https://github.com/opensearch-project/k-NN/pull/3402)
 * Fix dimension-based oversampling not applying for 32x compression [#3455](https://github.com/opensearch-project/k-NN/pull/3455)
 * Fix NPE in nested kNN search when index contains documents without nested object [#3368](https://github.com/opensearch-project/k-NN/pull/3368)

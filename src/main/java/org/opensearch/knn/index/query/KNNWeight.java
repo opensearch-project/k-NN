@@ -133,7 +133,13 @@ public abstract class KNNWeight extends Weight {
             // calculate score only when its 0 as for disk-based search,
             // score will be passed from the caller and there is no need to re-compute the score
             if (score == 0) {
-                score = getKnnScore(knnScorer, doc);
+                // explain() can be called for a document this query does not match, for instance when the knn clause is
+                // one of several should clauses. Reporting a match for such a document breaks the contract that
+                // Weight.explain() and the scorer of the same Weight have to agree on which documents match.
+                if (knnScorer.iterator().advance(doc) != doc) {
+                    return Explanation.noMatch("the document is not a nearest neighbor result for the field [" + knnQuery.getField() + "]");
+                }
+                score = knnScorer.score();
             }
         } catch (IOException e) {
             throw new RuntimeException(String.format("Error while explaining KNN score for doc [%d], score [%f]", doc, score), e);
@@ -271,10 +277,6 @@ public abstract class KNNWeight extends Weight {
         }
 
         return scorer;
-    }
-
-    private float getKnnScore(Scorer knnScorer, int doc) throws IOException {
-        return (knnScorer.iterator().advance(doc) == doc) ? knnScorer.score() : 0;
     }
 
     @Override
