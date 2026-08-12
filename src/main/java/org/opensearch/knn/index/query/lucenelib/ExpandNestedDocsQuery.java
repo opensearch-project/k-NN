@@ -49,6 +49,9 @@ public class ExpandNestedDocsQuery extends Query {
     // Number of parent candidates to retain for rescoring, or RescoreContext.NO_RESCORE_NEEDED when rescore is off.
     @Builder.Default
     final private int rescoreK = RescoreContext.NO_RESCORE_NEEDED;
+    // Placeholder value for the surviving-parent maps produced by rescore(): only the doc-id keys are used
+    // downstream (retrieveAll re-scores every child), so the map value is never read.
+    private static final float NO_SCORE = 0f;
 
     @Override
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
@@ -65,6 +68,10 @@ public class ExpandNestedDocsQuery extends Query {
             // before expanding all of their child documents below.
             perLeafResults = rescore(searcher, leafReaderContexts, perLeafResults, filterWeight);
         }
+        // When rescoring is on, exact search runs in two distinct passes: rescore() diversifies (best child per
+        // parent) to pick the top k parents, then retrieveAll() expands to score every child of those parents.
+        // Both read raw float vectors, so scores are consistent; the passes serve different purposes (parent
+        // selection vs. full child expansion) and mirror the native engine. Without rescore, only retrieveAll runs.
         TopDocs[] topDocs = retrieveAll(searcher, leafReaderContexts, perLeafResults, filterWeight);
         int sum = 0;
         for (TopDocs topDoc : topDocs) {
@@ -106,7 +113,8 @@ public class ExpandNestedDocsQuery extends Query {
      * @param leafReaderContexts the leaf reader contexts
      * @param perLeafResults per-leaf maps of the oversampled parent candidate child doc ids to their scores
      * @param filterWeight the pre-built filter weight, or null when the query has no filter
-     * @return per-leaf maps containing only the surviving top k parents' child doc ids and rescored scores
+     * @return per-leaf maps keyed by the surviving top k parents' child doc ids; the map values are unused
+     *         placeholders (retrieveAll re-scores every child, so the rescored score is not propagated)
      * @throws IOException on read error
      */
     private List<Map<Integer, Float>> rescore(
@@ -143,6 +151,9 @@ public class ExpandNestedDocsQuery extends Query {
         final TopDocs topKParents = TopDocs.merge(k, rescored);
 
         // Redistribute the surviving parents back to per-leaf, segment-local doc ids for the expansion step.
+        // Only the doc ids (the map keys) carry over: retrieveAll consumes just keySet() to compute the sibling
+        // set and re-scores every child via knnExactSearch, so the rescored score is not propagated. We keep the
+        // Map<Integer, Float> shape to match the type retrieveAll already expects and store a placeholder value.
         final List<Map<Integer, Float>> survivingPerLeaf = new ArrayList<>(leafReaderContexts.size());
         for (int i = 0; i < leafReaderContexts.size(); i++) {
             survivingPerLeaf.add(new HashMap<>());
@@ -150,7 +161,7 @@ public class ExpandNestedDocsQuery extends Query {
         for (ScoreDoc scoreDoc : topKParents.scoreDocs) {
             final int leafIndex = ReaderUtil.subIndex(scoreDoc.doc, leafReaderContexts);
             final LeafReaderContext leafReaderContext = leafReaderContexts.get(leafIndex);
-            survivingPerLeaf.get(leafIndex).put(scoreDoc.doc - leafReaderContext.docBase, scoreDoc.score);
+            survivingPerLeaf.get(leafIndex).put(scoreDoc.doc - leafReaderContext.docBase, NO_SCORE);
         }
         return survivingPerLeaf;
     }
