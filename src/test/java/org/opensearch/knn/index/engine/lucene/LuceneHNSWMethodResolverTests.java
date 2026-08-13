@@ -434,6 +434,32 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
         );
     }
 
+    public void testResolveMethod_whenUnknownEncoderSpecified_thenSkipsEncoderValidation() {
+        // An encoder name that is not in SUPPORTED_ENCODERS should be skipped by validation rather than throw
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.INNER_PRODUCT,
+            new MethodComponentContext(
+                METHOD_HNSW,
+                Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext("unknown-encoder", Map.of()))
+            )
+        );
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            knnMethodContext,
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build(),
+            false,
+            SpaceType.INNER_PRODUCT
+        );
+        assertEquals(
+            "unknown-encoder",
+            ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER)).getName()
+        );
+        assertEquals(CompressionLevel.NOT_CONFIGURED, resolvedMethodContext.getCompressionLevel());
+    }
+
     public void testResolveMethod_whenExplicitCompression32x_thenResolvesToSQOneBit() {
         ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             null,
@@ -519,7 +545,7 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
     }
 
     public void testResolveMethod_whenNoCompressionSpecified_thenResolvesToX1() {
-        // TODO: [DEFAULT_FLIP] After Step 4, assert CompressionLevel.x32 for V_3_7_0+, keep x1 for older versions
+        // TODO: [DEFAULT_FLIP] After Step 4, assert CompressionLevel.x32 for V_3_8_0+, keep x1 for older versions
         ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             null,
             KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build(),
@@ -576,8 +602,8 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
     }
 
     public void testResolveMethod_whenNoCompressionAcrossVersions_thenAlwaysResolvesToX1() {
-        // TODO: [DEFAULT_FLIP] After Step 4, split into: indexVersionCreated < V_3_7_0 → assert x1,
-        // indexVersionCreated >= V_3_7_0 → assert x32
+        // TODO: [DEFAULT_FLIP] After Step 4, split into: indexVersionCreated < V_3_8_0 → assert x1,
+        // indexVersionCreated >= V_3_8_0 → assert x32
         Version[] versions = new Version[] { Version.V_3_5_0, Version.V_3_6_0, Version.V_3_7_0, Version.CURRENT };
 
         for (Version version : versions) {

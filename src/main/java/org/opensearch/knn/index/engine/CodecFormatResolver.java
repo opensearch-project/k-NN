@@ -23,6 +23,7 @@ public interface CodecFormatResolver {
      * @param params                the method component parameters; may be null
      * @param defaultMaxConnections default max connections for HNSW
      * @param defaultBeamWidth      default beam width for HNSW
+     * @param resolvedSpec          the resolved index spec
      * @return the resolved {@link KnnVectorsFormat}
      */
     KnnVectorsFormat resolve(
@@ -30,7 +31,8 @@ public interface CodecFormatResolver {
         KNNMethodContext methodContext,
         Map<String, Object> params,
         int defaultMaxConnections,
-        int defaultBeamWidth
+        int defaultBeamWidth,
+        ResolvedIndexSpec resolvedSpec
     );
 
     KnnVectorsFormat resolve();
