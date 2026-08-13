@@ -35,6 +35,19 @@ namespace knn_jni::simd::fp16_codec {
     jboolean encodeFp32ToFp16(knn_jni::JNIUtilInterface *jniUtil, JNIEnv* env,
                                jfloatArray fp32Array, jbyteArray fp16Array, jint count);
 
+    /**
+     * Converts an array of FP16 values (packed as bytes) to FP32 values.
+     * @param jniUtil JNI utility interface.
+     * @param env JNI environment pointer.
+     * @param fp16Array The input array of FP16 values, packed 2 bytes per element.
+     * @param offset Byte offset into fp16Array where the encoded values start.
+     * @param fp32Array The output array of FP32 values.
+     * @param count The number of elements to convert.
+     * @return JNI_TRUE on success, JNI_FALSE on failure.
+     */
+    jboolean decodeFp16ToFp32(knn_jni::JNIUtilInterface *jniUtil, JNIEnv* env,
+                               jbyteArray fp16Array, jint offset, jfloatArray fp32Array, jint count);
+
 }
 
 #endif  // OPENSEARCH_KNN_SIMD_FP16_CODEC_H

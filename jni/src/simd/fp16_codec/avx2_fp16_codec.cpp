@@ -105,4 +105,81 @@ jboolean encodeFp32ToFp16(knn_jni::JNIUtilInterface *jniUtil, JNIEnv* env,
     return JNI_TRUE;
 }
 
+jboolean decodeFp16ToFp32(knn_jni::JNIUtilInterface *jniUtil, JNIEnv* env,
+                           jbyteArray fp16Array, jint offset, jfloatArray fp32Array, jint count) {
+    if (count <= 0) return JNI_TRUE;
+
+    jbyte* src_bytes = reinterpret_cast<jbyte*>(jniUtil->GetPrimitiveArrayCritical(env, fp16Array, nullptr));
+    knn_jni::JNIReleaseElements release_src{[=]() {
+        jniUtil->ReleasePrimitiveArrayCritical(env, fp16Array, src_bytes, JNI_ABORT);
+    }};
+
+    jfloat* dst_f32 = reinterpret_cast<jfloat*>(jniUtil->GetPrimitiveArrayCritical(env, fp32Array, nullptr));
+    knn_jni::JNIReleaseElements release_dst{[=]() {
+        jniUtil->ReleasePrimitiveArrayCritical(env, fp32Array, dst_f32, 0);
+    }};
+
+    jbyte* src_bytes_off = src_bytes + offset;
+    if ((reinterpret_cast<uintptr_t>(src_bytes_off) % alignof(uint16_t)) != 0) {
+        return JNI_FALSE;
+    }
+
+    const uint16_t* src = reinterpret_cast<const uint16_t*>(src_bytes_off);
+    float* dst = reinterpret_cast<float*>(dst_f32);
+
+    size_t i = 0;
+
+    // process 64 elements per iteration (8x unrolled), mirrors encodeFp32ToFp16 above.
+    for (; i + 64 <= static_cast<size_t>(count); i += 64) {
+        if (i + 64 < static_cast<size_t>(count)) {
+            _mm_prefetch(reinterpret_cast<const char*>(&src[i + 64]), _MM_HINT_T0);
+        }
+        // _mm_loadu_si128: load 8 packed float16 (as raw 16-bit lanes), unaligned.
+        __m128i h0 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&src[i]));
+        __m128i h1 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&src[i + 8]));
+        __m128i h2 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&src[i + 16]));
+        __m128i h3 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&src[i + 24]));
+        __m128i h4 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&src[i + 32]));
+        __m128i h5 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&src[i + 40]));
+        __m128i h6 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&src[i + 48]));
+        __m128i h7 = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&src[i + 56]));
+        // _mm256_cvtph_ps: convert 8 packed float16 lanes to 8 packed float32 lanes.
+        __m256 v0 = _mm256_cvtph_ps(h0);
+        __m256 v1 = _mm256_cvtph_ps(h1);
+        __m256 v2 = _mm256_cvtph_ps(h2);
+        __m256 v3 = _mm256_cvtph_ps(h3);
+        __m256 v4 = _mm256_cvtph_ps(h4);
+        __m256 v5 = _mm256_cvtph_ps(h5);
+        __m256 v6 = _mm256_cvtph_ps(h6);
+        __m256 v7 = _mm256_cvtph_ps(h7);
+        // _mm256_storeu_ps: store 8 float32 values to memory (unaligned).
+        _mm256_storeu_ps(&dst[i], v0);
+        _mm256_storeu_ps(&dst[i + 8], v1);
+        _mm256_storeu_ps(&dst[i + 16], v2);
+        _mm256_storeu_ps(&dst[i + 24], v3);
+        _mm256_storeu_ps(&dst[i + 32], v4);
+        _mm256_storeu_ps(&dst[i + 40], v5);
+        _mm256_storeu_ps(&dst[i + 48], v6);
+        _mm256_storeu_ps(&dst[i + 56], v7);
+    }
+
+    // F16C tail: process 8 elements
+    for (; i + 8 <= static_cast<size_t>(count); i += 8) {
+        __m128i h = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&src[i]));
+        __m256 v = _mm256_cvtph_ps(h);
+        _mm256_storeu_ps(&dst[i], v);
+    }
+
+    // Scalar fallback for remaining elements
+    for (; i < static_cast<size_t>(count); ++i) {
+        // Scalar fallback: move single half into low lane of __m128i,
+        // convert to a __m128 of float32 lanes, extract lane 0.
+        __m128i hv = _mm_cvtsi32_si128(static_cast<int>(src[i]));
+        __m128 sv = _mm_cvtph_ps(hv);
+        dst[i] = _mm_cvtss_f32(sv);
+    }
+
+    return JNI_TRUE;
+}
+
 }  // namespace knn_jni::simd::fp16_codec

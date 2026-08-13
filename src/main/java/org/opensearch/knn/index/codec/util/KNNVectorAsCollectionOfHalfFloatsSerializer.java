@@ -66,7 +66,6 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
 
     /**
      * Converts a {@link BytesRef} containing FP16 values to float[].
-     * Uses a Java implementation since decode does not have a native SIMD path.
      *
      * @param bytesRef the BytesRef containing half-precision encoded data
      */
@@ -91,13 +90,13 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
         }
         int dimension = bytesRef.length / BYTES_IN_HALF_FLOAT;
         float[] output = new float[dimension];
-        decodeFp16ToFloat(bytesRef.bytes, output, dimension, bytesRef.offset);
+        byteToFloatArray(bytesRef.bytes, output, dimension, bytesRef.offset);
         return output;
     }
 
     /**
-     * Converts byte[] containing FP16 values to float[].
-     * Uses a Java implementation since decode does not have a native SIMD path.
+     * Converts byte[] containing FP16 values to float[] using SIMD optimization if supported,
+     * otherwise falls back to Java.
      *
      * @param input     the byte[] containing half-precision encoded data
      * @param output    float[] to fill with the decoded FP32 values
@@ -122,14 +121,21 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
             );
         }
 
-        decodeFp16ToFloat(input, output, dimension, offset);
+        if (SimdFp16.isSIMDSupported()) {
+            if (!SimdFp16.decodeFp16ToFp32(input, offset, output, dimension)) {
+                throw new IllegalStateException("[KNN] SIMD is supported but native decoding failed unexpectedly.");
+            }
+            return;
+        }
+
+        byteToFloatArrayJava(input, output, dimension, offset);
     }
 
     /**
-     * Shared FP16-bytes-to-float decode loop. Both public overloads above validate their own
-     * arguments before calling this; neither delegates to the other.
+     * Java implementation of FP16 byte[] to float[] conversion.
+     * Only reached via {@link #byteToFloatArray}, which validates its arguments first.
      */
-    private void decodeFp16ToFloat(byte[] input, float[] output, int dimension, int offset) {
+    private void byteToFloatArrayJava(byte[] input, float[] output, int dimension, int offset) {
         for (int i = offset, j = 0; j < dimension; i += BYTES_IN_HALF_FLOAT, ++j) {
             short fp16 = (short) ((input[i] & 0xFF) | ((input[i + 1] & 0xFF) << 8));
             output[j] = Float.float16ToFloat(fp16);

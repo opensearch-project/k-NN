@@ -29,3 +29,13 @@ JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_SimdFp16_encodeFp32ToFp16
         return JNI_FALSE;
     }
 }
+
+JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_SimdFp16_decodeFp16ToFp32
+  (JNIEnv *env, jclass clazz, jbyteArray fp16Array, jint offset, jfloatArray fp32Array, jint count) {
+    try {
+        return knn_jni::simd::fp16_codec::decodeFp16ToFp32(&JNI_UTIL, env, fp16Array, offset, fp32Array, count);
+    } catch (...) {
+        JNI_UTIL.CatchCppExceptionAndThrowJava(env);
+        return JNI_FALSE;
+    }
+}

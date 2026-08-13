@@ -100,4 +100,84 @@ jboolean encodeFp32ToFp16(knn_jni::JNIUtilInterface *jniUtil, JNIEnv* env,
     return JNI_TRUE;
 }
 
+jboolean decodeFp16ToFp32(knn_jni::JNIUtilInterface *jniUtil, JNIEnv* env,
+                           jbyteArray fp16Array, jint offset, jfloatArray fp32Array, jint count) {
+    if (count <= 0) return JNI_TRUE;
+
+    jbyte* src_bytes = reinterpret_cast<jbyte*>(jniUtil->GetPrimitiveArrayCritical(env, fp16Array, nullptr));
+    knn_jni::JNIReleaseElements release_src{[=]() {
+        jniUtil->ReleasePrimitiveArrayCritical(env, fp16Array, src_bytes, JNI_ABORT);
+    }};
+
+    jfloat* dst_f32 = reinterpret_cast<jfloat*>(jniUtil->GetPrimitiveArrayCritical(env, fp32Array, nullptr));
+    knn_jni::JNIReleaseElements release_dst{[=]() {
+        jniUtil->ReleasePrimitiveArrayCritical(env, fp32Array, dst_f32, 0);
+    }};
+
+    jbyte* src_bytes_off = src_bytes + offset;
+    if ((reinterpret_cast<uintptr_t>(src_bytes_off) % alignof(uint16_t)) != 0) {
+        return JNI_FALSE;
+    }
+
+    const uint16_t* src = reinterpret_cast<const uint16_t*>(src_bytes_off);
+    float* dst = reinterpret_cast<float*>(dst_f32);
+
+    size_t i = 0;
+
+    // process 32 elements per iteration (4x unrolled), prefetch 64 ahead
+    for (; i + 32 <= static_cast<size_t>(count); i += 32) {
+        if (i + 64 < static_cast<size_t>(count)) {
+            __builtin_prefetch(&src[i + 64], 0, 3);
+        }
+        // vld1q_f16: load 8 float16 lanes into a NEON 128-bit register.
+        float16x8_t h01 = vld1q_f16(reinterpret_cast<const __fp16*>(&src[i]));
+        float16x8_t h23 = vld1q_f16(reinterpret_cast<const __fp16*>(&src[i + 8]));
+        float16x8_t h45 = vld1q_f16(reinterpret_cast<const __fp16*>(&src[i + 16]));
+        float16x8_t h67 = vld1q_f16(reinterpret_cast<const __fp16*>(&src[i + 24]));
+        // vget_low_f16/vget_high_f16: split an 8-lane float16 vector into its
+        // low and high 4-lane halves. vcvt_f32_f16: convert 4 float16 lanes
+        // to 4 float32 lanes.
+        float32x4_t v0 = vcvt_f32_f16(vget_low_f16(h01));
+        float32x4_t v1 = vcvt_f32_f16(vget_high_f16(h01));
+        float32x4_t v2 = vcvt_f32_f16(vget_low_f16(h23));
+        float32x4_t v3 = vcvt_f32_f16(vget_high_f16(h23));
+        float32x4_t v4 = vcvt_f32_f16(vget_low_f16(h45));
+        float32x4_t v5 = vcvt_f32_f16(vget_high_f16(h45));
+        float32x4_t v6 = vcvt_f32_f16(vget_low_f16(h67));
+        float32x4_t v7 = vcvt_f32_f16(vget_high_f16(h67));
+        // vst1q_f32: store 4 float32 lanes to memory.
+        vst1q_f32(&dst[i], v0);
+        vst1q_f32(&dst[i + 4], v1);
+        vst1q_f32(&dst[i + 8], v2);
+        vst1q_f32(&dst[i + 12], v3);
+        vst1q_f32(&dst[i + 16], v4);
+        vst1q_f32(&dst[i + 20], v5);
+        vst1q_f32(&dst[i + 24], v6);
+        vst1q_f32(&dst[i + 28], v7);
+    }
+
+    // NEON tail: up to three 8-lane steps, then a 4-lane step, then scalar.
+    for (; i + 8 <= static_cast<size_t>(count); i += 8) {
+        float16x8_t h = vld1q_f16(reinterpret_cast<const __fp16*>(&src[i]));
+        vst1q_f32(&dst[i], vcvt_f32_f16(vget_low_f16(h)));
+        vst1q_f32(&dst[i + 4], vcvt_f32_f16(vget_high_f16(h)));
+    }
+
+    // NEON tail: process 4 elements
+    if (i + 4 <= static_cast<size_t>(count)) {
+        float16x4_t h0 = vld1_f16(reinterpret_cast<const __fp16*>(&src[i]));
+        float32x4_t v0 = vcvt_f32_f16(h0);
+        vst1q_f32(&dst[i], v0);
+        i += 4;
+    }
+
+    // Scalar fallback for remaining elements
+    for (; i < static_cast<size_t>(count); ++i) {
+        // Scalar fallback: convert single __fp16 lane to float32.
+        dst[i] = static_cast<float>(reinterpret_cast<const __fp16*>(src)[i]);
+    }
+
+    return JNI_TRUE;
+}
+
 }  // namespace knn_jni::simd::fp16_codec

@@ -26,4 +26,9 @@ jboolean encodeFp32ToFp16(knn_jni::JNIUtilInterface *jniUtil, JNIEnv* env,
     return JNI_FALSE;
 }
 
+jboolean decodeFp16ToFp32(knn_jni::JNIUtilInterface *jniUtil, JNIEnv* env,
+                           jbyteArray fp16Array, jint offset, jfloatArray fp32Array, jint count) {
+    return JNI_FALSE;
+}
+
 }  // namespace knn_jni::simd::fp16_codec

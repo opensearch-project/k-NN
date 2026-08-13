@@ -23,6 +23,14 @@ JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_SimdFp16_isSIMDSupportedN
 JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_SimdFp16_encodeFp32ToFp16
   (JNIEnv *, jclass, jfloatArray, jbyteArray, jint);
 
+/*
+ * Class:     org_opensearch_knn_jni_SimdFp16
+ * Method:    decodeFp16ToFp32
+ * Signature: ([BI[FI)Z
+ */
+JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_SimdFp16_decodeFp16ToFp32
+  (JNIEnv *, jclass, jbyteArray, jint, jfloatArray, jint);
+
 
 #ifdef __cplusplus
 }
