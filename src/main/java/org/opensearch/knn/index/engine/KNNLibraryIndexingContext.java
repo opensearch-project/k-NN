@@ -63,4 +63,11 @@ public interface KNNLibraryIndexingContext {
      * @return VectorTransformer
      */
     VectorTransformer getVectorTransformer();
+
+    /**
+     * Get the resolved index spec containing pre-computed behavioral decisions.
+     *
+     * @return ResolvedIndexSpec
+     */
+    ResolvedIndexSpec getResolvedSpec();
 }
