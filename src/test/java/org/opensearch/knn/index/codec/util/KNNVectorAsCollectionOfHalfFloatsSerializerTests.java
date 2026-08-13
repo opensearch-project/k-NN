@@ -226,13 +226,17 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializerTests extends KNNTestCas
             IllegalArgumentException.class,
             () -> { serializer.floatToByteArray(input, undersized, dim); }
         );
-        assertEquals("Output buffer size mismatch. Must be 2x dimension.", e1.getMessage());
+        assertTrue(e1.getMessage().contains("Output buffer size mismatch"));
+        assertTrue(e1.getMessage().contains("output.length=63"));
+        assertTrue(e1.getMessage().contains("dimension=32"));
 
         IllegalArgumentException e2 = expectThrows(
             IllegalArgumentException.class,
             () -> { serializer.floatToByteArray(input, oversized, dim); }
         );
-        assertEquals("Output buffer size mismatch. Must be 2x dimension.", e2.getMessage());
+        assertTrue(e2.getMessage().contains("Output buffer size mismatch"));
+        assertTrue(e2.getMessage().contains("output.length=65"));
+        assertTrue(e2.getMessage().contains("dimension=32"));
     }
 
     public void testFloatToByteArray_dimensionSmallerThanInput_allowsOutputSizedToDimension() {

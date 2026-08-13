@@ -29,14 +29,21 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
             throw new IllegalArgumentException("Input/output buffers cannot be null.");
         }
         if (dimension < 0 || dimension > input.length) {
-            throw new IllegalArgumentException("Dimension must be non-negative and not exceed input float array length.");
+            throw new IllegalArgumentException(
+                "Dimension must be non-negative and not exceed input float array length. dimension="
+                    + dimension
+                    + ", input.length="
+                    + input.length
+            );
         }
         if (output.length != dimension * BYTES_IN_HALF_FLOAT) {
-            throw new IllegalArgumentException("Output buffer size mismatch. Must be 2x dimension.");
+            throw new IllegalArgumentException(
+                "Output buffer size mismatch. Must be 2x dimension. output.length=" + output.length + ", dimension=" + dimension
+            );
         }
 
         if (SimdFp16.isSIMDSupported()) {
-            if (!SimdFp16.encodeFp32ToFp16(input, output, dimension)) {
+            if (SimdFp16.encodeFp32ToFp16(input, output, dimension) == false) {
                 throw new IllegalStateException("[KNN] SIMD is supported but native encoding failed unexpectedly.");
             }
             return;
@@ -68,10 +75,19 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
             throw new IllegalArgumentException("BytesRef and its backing array cannot be null.");
         }
         if (bytesRef.length < 0 || bytesRef.length % BYTES_IN_HALF_FLOAT != 0) {
-            throw new IllegalArgumentException("BytesRef length must be non-negative and a multiple of " + BYTES_IN_HALF_FLOAT + ".");
+            throw new IllegalArgumentException(
+                "BytesRef length must be non-negative and a multiple of " + BYTES_IN_HALF_FLOAT + ". bytesRef.length=" + bytesRef.length
+            );
         }
         if (bytesRef.offset < 0 || bytesRef.offset + bytesRef.length > bytesRef.bytes.length) {
-            throw new IllegalArgumentException("BytesRef offset and length exceed backing array length.");
+            throw new IllegalArgumentException(
+                "BytesRef offset and length exceed backing array length. bytesRef.offset="
+                    + bytesRef.offset
+                    + ", bytesRef.length="
+                    + bytesRef.length
+                    + ", bytesRef.bytes.length="
+                    + bytesRef.bytes.length
+            );
         }
         int dimension = bytesRef.length / BYTES_IN_HALF_FLOAT;
         float[] output = new float[dimension];
@@ -93,13 +109,17 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializer {
             throw new IllegalArgumentException("Input/output buffers cannot be null.");
         }
         if (dimension < 0) {
-            throw new IllegalArgumentException("Dimension cannot be negative.");
+            throw new IllegalArgumentException("Dimension cannot be negative. dimension=" + dimension);
         }
         if (offset < 0 || offset + dimension * BYTES_IN_HALF_FLOAT > input.length) {
-            throw new IllegalArgumentException("Offset and dimension exceed input length.");
+            throw new IllegalArgumentException(
+                "Offset and dimension exceed input length. offset=" + offset + ", dimension=" + dimension + ", input.length=" + input.length
+            );
         }
         if (output.length < dimension) {
-            throw new IllegalArgumentException("Output buffer too small for dimension.");
+            throw new IllegalArgumentException(
+                "Output buffer too small for dimension. output.length=" + output.length + ", dimension=" + dimension
+            );
         }
 
         decodeFp16ToFloat(input, output, dimension, offset);
