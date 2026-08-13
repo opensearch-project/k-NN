@@ -1,7 +1,6 @@
 #include <cstring>
 #include <limits>
 #include <algorithm>
-#include <vector>
 #include "org_opensearch_knn_jni_SimdVectorComputeService.h"
 #include "jni_util.h"
 #include "simd/similarity_function/similarity_function.h"
@@ -112,19 +111,19 @@ JNIEXPORT jfloat JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_sc
 }
 
 JNIEXPORT jfloat JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_scoreSimilarityInBulkFromBytes
-  (JNIEnv *env, jclass clazz, jfloatArray query, jbyteArray fp16Vectors, const jint dimension,
-   const jint nativeFunctionTypeOrd, const jint numVectors, jfloatArray jscores) {
+  (JNIEnv *env, jclass clazz, jbyteArray fp16Vectors, const jint numVectors, jintArray internalVectorIds, jfloatArray jscores) {
     if (numVectors <= 0) {
       return -std::numeric_limits<float>::infinity();
     }
 
     try {
-      // Get raw pointer of query vector + size
-      const jsize queryVecSize = JNI_UTIL.GetJavaFloatArrayLength(env, query);
-      jfloat* queryVecPtr = static_cast<jfloat*>(JNI_UTIL.GetPrimitiveArrayCritical(env, query, nullptr));
-      knn_jni::JNIReleaseElements releaseQuery {[=]{
-        JNI_UTIL.ReleasePrimitiveArrayCritical(env, query, queryVecPtr, JNI_ABORT);
-      }};
+      // The query buffer and similarity function were already set up once by saveSearchContext,
+      // called from the scorer's constructor. Only the vector chunk location needs to be refreshed
+      // here, since (unlike a long-lived mmap region) this Java byte[] is only pinned for this call.
+      SimdVectorSearchContext* srchContext = SimilarityFunction::getSearchContext();
+      if (srchContext == nullptr || srchContext->similarityFunction == nullptr) {
+          throw std::runtime_error("No search context has been initialized, SimdVectorSearchContext* was empty.");
+      }
 
       // Get raw pointer of `numVectors` FP16-encoded vectors packed contiguously in a plain Java
       // byte[]. SimdVectorSearchContext addresses vectors purely by (base pointer, byte size), so
@@ -135,31 +134,21 @@ JNIEXPORT jfloat JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_sc
       }};
       const jsize vectorsByteSize = JNI_UTIL.GetJavaBytesArrayLength(env, fp16Vectors);
 
-      int64_t addressAndSize[2] = {
-          reinterpret_cast<int64_t>(vectorsPtr),
-          static_cast<int64_t>(vectorsByteSize)
-      };
-
-      // Save the search context once for this whole batch, not once per vector.
-      SimdVectorSearchContext* srchContext = SimilarityFunction::saveSearchContext(
-          (uint8_t*) queryVecPtr, sizeof(jfloat) * queryVecSize,
-          dimension,
-          addressAndSize, 2,
-          nativeFunctionTypeOrd);
+      SimilarityFunction::updateVectorChunk(reinterpret_cast<uint8_t*>(vectorsPtr), vectorsByteSize);
 
       jfloat* scores = static_cast<jfloat*>(JNI_UTIL.GetPrimitiveArrayCritical(env, jscores, nullptr));
       knn_jni::JNIReleaseElements releaseScores {[=]{
         JNI_UTIL.ReleasePrimitiveArrayCritical(env, jscores, scores, 0);
       }};
 
-      std::vector<int32_t> internalVectorIds(numVectors);
-      for (int32_t i = 0 ; i < numVectors ; ++i) {
-        internalVectorIds[i] = i;
-      }
+      jint* vectorIds = static_cast<jint*>(JNI_UTIL.GetPrimitiveArrayCritical(env, internalVectorIds, nullptr));
+      knn_jni::JNIReleaseElements releaseVectorIds {[=]{
+        JNI_UTIL.ReleasePrimitiveArrayCritical(env, internalVectorIds, vectorIds, 0);
+      }};
 
       srchContext->similarityFunction->calculateSimilarityInBulk(
           srchContext,
-          internalVectorIds.data(),
+          reinterpret_cast<int32_t*>(vectorIds),
           reinterpret_cast<float*>(scores),
           numVectors);
 

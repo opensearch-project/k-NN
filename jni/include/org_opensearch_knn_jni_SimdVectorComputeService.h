@@ -42,10 +42,10 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_save
 /*
  * Class:     org_opensearch_knn_jni_SimdVectorComputeService
  * Method:    scoreSimilarityInBulkFromBytes
- * Signature: ([F[BIII[F)F
+ * Signature: ([BI[I[F)F
  */
 JNIEXPORT jfloat JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_scoreSimilarityInBulkFromBytes
-  (JNIEnv *, jclass, jfloatArray, jbyteArray, jint, jint, jint, jfloatArray);
+  (JNIEnv *, jclass, jbyteArray, jint, jintArray, jfloatArray);
 
 #ifdef __cplusplus
 }

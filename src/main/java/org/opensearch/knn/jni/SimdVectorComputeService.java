@@ -76,24 +76,15 @@ public class SimdVectorComputeService {
      * Computes similarity between a query vector and one or more FP16-encoded vectors held
      * directly in a Java byte[] (as opposed to a memory-mapped native chunk). This allows non-mmap
      * scoring paths to still benefit from native SIMD FP16 distance computation when the CPU
-     * supports it. This single native call is used for both single-vector scoring (numVectors=1)
-     * and bulk scoring, saving the search context only once per call regardless of numVectors.
+     * supports it.
      *
-     * @param query                  Query vector
      * @param fp16Vectors            FP16-encoded vector bytes, `numVectors` vectors packed contiguously
      *                               (2 * dimension bytes per vector, little-endian)
-     * @param dimension              Vector dimension
-     * @param nativeFunctionTypeOrd  Similarity function type index (FP16_MAXIMUM_INNER_PRODUCT or FP16_L2)
      * @param numVectors             Number of vectors packed in `fp16Vectors`
+     * @param internalVectorIds      Positional ids of the packed vectors. Callers build this once and 
+     *                               reuse/grow it across calls to avoid reallocating it on every native call.
      * @param scores                 Output array to fill with `numVectors` similarity scores
      * @return The maximum of the computed scores.
      */
-    public native static float scoreSimilarityInBulkFromBytes(
-        float[] query,
-        byte[] fp16Vectors,
-        int dimension,
-        int nativeFunctionTypeOrd,
-        int numVectors,
-        float[] scores
-    );
+    public native static float scoreSimilarityInBulkFromBytes(byte[] fp16Vectors, int numVectors, int[] internalVectorIds, float[] scores);
 }
