@@ -10,8 +10,8 @@ import org.apache.lucene.index.FieldInfo;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
+import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.repositories.RepositoriesService;
@@ -61,7 +61,7 @@ public final class NativeIndexBuildStrategyFactory {
         final boolean isTemplate = fieldInfo.attributes().containsKey(MODEL_ID);
         final boolean iterative = !isTemplate && KNNEngine.FAISS == knnEngine;
         final boolean isFaissSQOneBitField = FieldInfoExtractor.isSQField(fieldInfo)
-            && FieldInfoExtractor.extractSQConfig(fieldInfo).getBits() == FaissSQEncoder.Bits.ONE.getValue();
+            && FieldInfoExtractor.extractSQConfig(fieldInfo).getBits() == Encoder.QuantizationBits.ONE.getValue();
 
         // Determine build strategy
         final NativeIndexBuildStrategy strategy;

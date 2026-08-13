@@ -10,7 +10,7 @@ import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.FieldInfo;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
+import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissBinaryHnswIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissBinaryIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.cagra.FaissHNSWCagraIndex;
@@ -34,7 +34,7 @@ public class FaissFlatIndexFactory {
      */
     static FaissIndex createFlatIndex(final FieldInfo fieldInfo, final FlatVectorsReader flatVectorsReader) {
         if (FieldInfoExtractor.isSQField(fieldInfo)
-            && FieldInfoExtractor.extractSQConfig(fieldInfo).getBits() == FaissSQEncoder.Bits.ONE.getValue()) {
+            && FieldInfoExtractor.extractSQConfig(fieldInfo).getBits() == Encoder.QuantizationBits.ONE.getValue()) {
             return new FaissScalarQuantizedFlatIndex(flatVectorsReader, fieldInfo.getName());
         }
         return null;

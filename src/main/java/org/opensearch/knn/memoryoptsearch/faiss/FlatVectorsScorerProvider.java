@@ -19,7 +19,7 @@ import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNN1040Codec.KNN1040ScalarQuantizedVectorScorer;
 import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer;
-import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
+import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
 import java.io.IOException;
@@ -86,7 +86,7 @@ public class FlatVectorsScorerProvider {
             // Since Lucene doesn't provide hamming distance scorer, we return our own hamming distance scorer
             return HAMMING_VECTOR_SCORER;
         } else if (FieldInfoExtractor.isSQField(fieldInfo)
-            && FieldInfoExtractor.extractSQConfig(fieldInfo).getBits() == FaissSQEncoder.Bits.ONE.getValue()) {
+            && FieldInfoExtractor.extractSQConfig(fieldInfo).getBits() == Encoder.QuantizationBits.ONE.getValue()) {
                 return getKNN1040ScalarQuantizedVectorScorer(delegateScorer);
             } else if (delegateScorer != null) {
                 // For all other cases, return the delegate scorer

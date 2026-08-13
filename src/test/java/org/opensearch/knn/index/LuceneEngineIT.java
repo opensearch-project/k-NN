@@ -770,7 +770,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         request.setJsonEntity(query.toString());
 
         ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-        assertTrue(ex.getMessage().contains("Radial search is not supported for quantized indices"));
+        assertTrue(ex.getMessage().contains("Radial search is not supported for this configuration"));
     }
 
     // Remove or invert this test when radial search is re-enabled for quantized indices (#3452)
@@ -795,7 +795,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         request.setJsonEntity(query.toString());
 
         ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-        assertTrue(ex.getMessage().contains("Radial search is not supported for quantized indices"));
+        assertTrue(ex.getMessage().contains("Radial search is not supported for this configuration"));
     }
 
     private void createKnnIndexMappingWithLuceneEngineAndSQEncoder(
