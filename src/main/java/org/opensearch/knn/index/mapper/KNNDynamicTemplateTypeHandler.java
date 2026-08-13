@@ -47,7 +47,7 @@ public class KNNDynamicTemplateTypeHandler implements DynamicTemplateTypeHandler
         // A complete config only means the dimension is known, not that "type" is present: users omit
         // it since it is implied by match_mapping_type: "knn_vector". Always inject it first.
         // Example: mapping { "dimension": 128 } -> { "type": "knn_vector", "dimension": 128 }.
-        mappingConfig.putIfAbsent("type", KNNVectorFieldMapper.CONTENT_TYPE);
+        mappingConfig.putIfAbsent(KNNConstants.TYPE, KNNVectorFieldMapper.CONTENT_TYPE);
         // Only the dimension is data-derived, so a complete config must not open the parser.
         if (isConfigComplete(mappingConfig)) {
             return;

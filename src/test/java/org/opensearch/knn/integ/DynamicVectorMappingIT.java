@@ -10,10 +10,13 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.knn.KNNRestTestCase;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -60,6 +63,29 @@ public class DynamicVectorMappingIT extends KNNRestTestCase {
         Request request = new Request("POST", "/" + index + "/_doc?refresh=true");
         request.setJsonEntity("{\"" + field + "\": " + jsonValue + "}");
         client().performRequest(request);
+    }
+
+    /** Runs a k-NN query against {@code field} and returns the number of hits. */
+    @SuppressWarnings("unchecked")
+    private int knnSearchHitCount(String index, String field, int k, String queryVector) throws IOException, ParseException {
+        String body = "{\"size\": "
+            + k
+            + ", \"query\": {\"knn\": {\""
+            + field
+            + "\": {\"vector\": "
+            + queryVector
+            + ", \"k\": "
+            + k
+            + "}}}}";
+        Request request = new Request("POST", "/" + index + "/_search");
+        request.setJsonEntity(body);
+        Response response = client().performRequest(request);
+        Map<String, Object> responseMap = createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            EntityUtils.toString(response.getEntity())
+        ).map();
+        Map<String, Object> hits = (Map<String, Object>) responseMap.get("hits");
+        return ((List<Object>) hits.get("hits")).size();
     }
 
     // ---- Index-creation validation: COMPLETE config → eager TypeParser validation → FAIL ----
@@ -149,5 +175,38 @@ public class DynamicVectorMappingIT extends KNNRestTestCase {
             }
         }
         deleteKNNIndex("dv_sweep");
+    }
+
+    // ---- Full end-to-end: infer/validate mapping -> ingest -> search ----
+
+    public void testAutoInferenceEndToEndInferIngestSearch() throws IOException, ParseException {
+        // No template: the inferencer must map the field, then the field must be searchable via knn.
+        createIndex("dv_e2e_infer", getKNNDefaultIndexSettings());
+        int dim = 128;
+        indexDoc("dv_e2e_infer", "emb", numericArray(dim));
+
+        // 1) Inference produced a knn_vector mapping.
+        assertEquals("knn_vector", fieldType("dv_e2e_infer", "emb"));
+
+        // 2) The auto-mapped field is searchable via a knn query.
+        int hits = knnSearchHitCount("dv_e2e_infer", "emb", 1, numericArray(dim));
+        assertEquals("auto-mapped knn_vector field must be searchable", 1, hits);
+
+        deleteKNNIndex("dv_e2e_infer");
+    }
+
+    public void testTemplateEndToEndValidateIngestSearch() throws IOException, ParseException {
+        // Template path with an explicit dimension: mapping is validated at index creation, then the
+        // field is ingested and searched end to end.
+        int dim = 128;
+        putIndexWithKnnTemplate("dv_e2e_tmpl", "{\"type\": \"knn_vector\", \"dimension\": " + dim + "}");
+        indexDoc("dv_e2e_tmpl", "emb", numericArray(dim));
+
+        assertEquals("knn_vector", fieldType("dv_e2e_tmpl", "emb"));
+
+        int hits = knnSearchHitCount("dv_e2e_tmpl", "emb", 1, numericArray(dim));
+        assertEquals("templated knn_vector field must be searchable", 1, hits);
+
+        deleteKNNIndex("dv_e2e_tmpl");
     }
 }

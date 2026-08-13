@@ -8,6 +8,7 @@ package org.opensearch.knn.plugin;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.mapper.DynamicFieldTypeInferencer;
 import org.opensearch.index.mapper.FieldValueParserSupplier;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 
 import java.io.IOException;
@@ -64,8 +65,8 @@ public class KNNDynamicFieldTypeInferencer implements DynamicFieldTypeInferencer
             return null;
         }
         Map<String, Object> config = new HashMap<>();
-        config.put("type", KNNVectorFieldMapper.CONTENT_TYPE);
-        config.put("dimension", count);
+        config.put(KNNConstants.TYPE, KNNVectorFieldMapper.CONTENT_TYPE);
+        config.put(KNNConstants.DIMENSION, count);
         return config;
     }
 }
