@@ -190,8 +190,8 @@ task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
         }
     }
 
-    // The _source-bloat-on-merge fix (#3465, issue #3316) shipped in 3.8; the regression only reproduces
-    // when the old cluster predates it, so skip that test when the old cluster already has the fix.
+    // The _source-bloat-on-merge fix (#3465, issue #3316) shipped in 3.8; the pre-fix bloat this test compares
+    // against only exists when the old cluster predates it, so skip the test when the old cluster has the fix.
     boolean derivedSourceMergeFixAlreadyPresent = Version.fromString(knn_bwc_version_no_qualifier).onOrAfter("3.8.0")
     if (derivedSourceMergeFixAlreadyPresent) {
         filter {
@@ -393,8 +393,8 @@ task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
         }
     }
 
-    // The _source-bloat-on-merge fix (#3465, issue #3316) shipped in 3.8; the regression only reproduces
-    // when the old cluster predates it, so skip that test when the old cluster already has the fix.
+    // The _source-bloat-on-merge fix (#3465, issue #3316) shipped in 3.8; the pre-fix bloat this test compares
+    // against only exists when the old cluster predates it, so skip the test when the old cluster has the fix.
     boolean derivedSourceMergeFixAlreadyPresent = Version.fromString(knn_bwc_version_no_qualifier).onOrAfter("3.8.0")
     if (derivedSourceMergeFixAlreadyPresent) {
         filter {

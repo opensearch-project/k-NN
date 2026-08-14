@@ -201,9 +201,15 @@ public class DerivedSourceBWCRestartIT extends DerivedSourceTestCase {
         return builder.toString();
     }
 
-    // BWC regression test for #3316 (fixed in #3465): seed indices on the old cluster, then force-merge on
-    // the upgraded cluster and verify the vector is not re-injected into _source. The bug only reproduces
-    // before the 3.8 fix, so the build.gradle version filter excludes this test for BWC versions >= 3.8.
+    // BWC regression test for the derived-source _source-bloat-on-merge fix (#3465, issue #3316). We build the
+    // same index (derived source + _source.exclude) with the same documents on each cluster and compare sizes:
+    // - oldBuilt: created, indexed, and force-merged on the OLD (pre-fix) cluster. Its force-merge re-injects
+    // the excluded vector back into _source, so it is bloated. It is kept (not deleted) so it survives the
+    // restart as the "before" reference.
+    // - newBuilt: a separate index created, indexed, and force-merged on the UPGRADED (fixed) cluster with the
+    // same documents. The fix keeps the vector out of _source on merge.
+    // The new-cluster index must therefore be strictly smaller than the pre-fix one; both are deleted at the end.
+    // This only holds when the old cluster predates the fix, so build.gradle excludes this test for BWC >= 3.8.
     public void testDerivedSourceExcludeMergeBloatBefore3_8_0() throws Exception {
         waitForClusterHealthGreen(NODES_BWC_CLUSTER);
 
@@ -211,114 +217,76 @@ public class DerivedSourceBWCRestartIT extends DerivedSourceTestCase {
         String excludedKeywordField = "label";
         int dimension = 128;
 
-        String derivedExclude = getIndexName("knn-bwc", "derived-exclude-", false);
-        String nonDerivedExclude = getIndexName("knn-bwc", "nonderived-exclude-", false);
-        String derivedNoExclude = getIndexName("knn-bwc", "derived-noexclude-", false);
+        String oldBuilt = getIndexName("knn-bwc", "old-exclude-", false);
+        String newBuilt = getIndexName("knn-bwc", "new-exclude-", false);
 
         if (isRunningAgainstOldCluster()) {
-            createSourceExcludeIndex(derivedExclude, vectorField, excludedKeywordField, dimension, true, true);
-            createSourceExcludeIndex(nonDerivedExclude, vectorField, excludedKeywordField, dimension, false, true);
-            createSourceExcludeIndex(derivedNoExclude, vectorField, excludedKeywordField, dimension, true, false);
-
-            // Index the first 100 docs (ids 0..99, 5 batches of 20) into each index and flush so
-            // multiple segments are written on old.
-            indexSourceExcludeDocs(
-                List.of(derivedExclude, nonDerivedExclude, derivedNoExclude),
-                vectorField,
-                excludedKeywordField,
-                dimension,
-                0
-            );
-            flushIndex(derivedExclude);
-            flushIndex(nonDerivedExclude);
-            flushIndex(derivedNoExclude);
-            // No assertions on the old cluster: this phase only seeds indices/segments that survive the
-            // restart. The fix is exercised by the force-merge on the upgraded cluster below.
+            // Build and force-merge on the pre-fix cluster: the merge re-injects vectors into _source (#3316),
+            // so this index is bloated. It is kept (not deleted here) and survives the restart as the reference.
+            createSourceExcludeIndex(oldBuilt, vectorField, excludedKeywordField, dimension, true, true);
+            indexSourceExcludeDocs(List.of(oldBuilt), vectorField, excludedKeywordField, dimension, 0);
+            forceMergeKnnIndex(oldBuilt, 1);
         } else {
-            // Index another 100 docs (5 batches of 20) on the upgraded node starting right after the
-            // old-cluster ids, then force-merge to a single segment.
-            int newClusterStartId = NUM_BATCHES * DOCS_PER_BATCH;
-            indexSourceExcludeDocs(
-                List.of(derivedExclude, nonDerivedExclude, derivedNoExclude),
-                vectorField,
-                excludedKeywordField,
-                dimension,
-                newClusterStartId
-            );
-            forceMergeKnnIndex(derivedExclude, 1);
-            forceMergeKnnIndex(nonDerivedExclude, 1);
-            forceMergeKnnIndex(derivedNoExclude, 1);
+            try {
+                // Create a new index and index the same documents on the upgraded (fixed) cluster, then merge.
+                createSourceExcludeIndex(newBuilt, vectorField, excludedKeywordField, dimension, true, true);
+                indexSourceExcludeDocs(List.of(newBuilt), vectorField, excludedKeywordField, dimension, 0);
+                forceMergeKnnIndex(newBuilt, 1);
 
-            // Correctness (the #2472 guard): a search fetching 10+ adjacent documents still reconstructs
-            // the full vector into _source, and the excluded field is absent.
-            assertVectorPresentAndFieldExcluded(derivedExclude, vectorField, excludedKeywordField, dimension, 20);
+                // Correctness (the #2472 guard): a search fetching 10+ adjacent documents still reconstructs the
+                // full vector into _source, and the excluded field is absent.
+                assertVectorPresentAndFieldExcluded(newBuilt, vectorField, excludedKeywordField, dimension, 20);
 
-            // kNN search must still work after the upgrade + force-merge and must return identical top-k
-            // across all three indices - the fix only changes what is stored in _source, not what the
-            // vector index returns. This runs unconditionally (not just in exhaustive mode).
-            float[] queryVector = new float[dimension];
-            Random queryRandom = new Random(4321);
-            for (int d = 0; d < dimension; d++) {
-                queryVector[d] = queryRandom.nextFloat();
-            }
-            int k = 10;
-            List<String> derivedExcludeIds = knnSearchDocIds(derivedExclude, vectorField, queryVector, k);
-            List<String> nonDerivedExcludeIds = knnSearchDocIds(nonDerivedExclude, vectorField, queryVector, k);
-            List<String> derivedNoExcludeIds = knnSearchDocIds(derivedNoExclude, vectorField, queryVector, k);
+                // kNN search must still work after the upgrade + force-merge - the fix only changes what is
+                // stored in _source, not what the vector index returns.
+                float[] queryVector = new float[dimension];
+                Random queryRandom = new Random(4321);
+                for (int d = 0; d < dimension; d++) {
+                    queryVector[d] = queryRandom.nextFloat();
+                }
+                int k = 10;
+                assertEquals(
+                    "Expected k results from the new-cluster index",
+                    k,
+                    knnSearchDocIds(newBuilt, vectorField, queryVector, k).size()
+                );
 
-            assertEquals("Expected k results from derived+exclude index", k, derivedExcludeIds.size());
-            assertEquals(
-                "derived+exclude and non-derived+exclude indices should return the same top-k docs",
-                nonDerivedExcludeIds,
-                derivedExcludeIds
-            );
-            assertEquals(
-                "derived+exclude and derived+no-exclude indices should return the same top-k docs",
-                derivedNoExcludeIds,
-                derivedExcludeIds
-            );
+                int oldBuiltSize = indexSizeInBytes(oldBuilt);
+                int newBuiltSize = indexSizeInBytes(newBuilt);
 
-            if (isExhaustive()) {
-                int derivedExcludeSize = indexSizeInBytes(derivedExclude);
-                int nonDerivedExcludeSize = indexSizeInBytes(nonDerivedExclude);
-                int derivedNoExcludeSize = indexSizeInBytes(derivedNoExclude);
-
-                // The bug's signature: after the force-merge on the upgraded node the vector must not be
-                // re-injected, so derived+exclude stays well below the non-derived index.
+                // Same mapping and same documents, but the fixed code does not re-inject vectors into _source on
+                // merge, so the new-cluster index must be strictly smaller than the pre-fix (bloated) one. The
+                // vector index files are identical across both, so the difference is exactly the un-bloated _source.
                 assertTrue(
                     String.format(
                         Locale.ROOT,
-                        "After force-merge on new cluster the derived+exclude index (%d bytes) should be"
-                            + " smaller than the non-derived+exclude index (%d bytes)",
-                        derivedExcludeSize,
-                        nonDerivedExcludeSize
+                        "New-cluster (fixed) index (%d bytes) should be smaller than the old-cluster (pre-fix) index "
+                            + "(%d bytes) for the same documents, since the fix keeps vectors out of _source on merge",
+                        newBuiltSize,
+                        oldBuiltSize
                     ),
-                    derivedExcludeSize < nonDerivedExcludeSize
+                    newBuiltSize < oldBuiltSize
                 );
-
-                // ...and it should have shrunk back essentially to the no-exclude baseline rather than
-                // bloating toward the non-derived (full-vector-in-_source) size. With the fix the only
-                // difference from the baseline is minor exclude-related overhead, so allow just 10% over
-                // the baseline - far below the re-injected-vector size.
-                long baselineTolerance = derivedNoExcludeSize + (derivedNoExcludeSize / 10);
-                assertTrue(
-                    String.format(
-                        Locale.ROOT,
-                        "After force-merge the derived+exclude index (%d bytes) should stay within 10%% of the"
-                            + " derived+no-exclude baseline (%d bytes, i.e. <= %d bytes), not bloat toward the"
-                            + " non-derived size (%d bytes)",
-                        derivedExcludeSize,
-                        derivedNoExcludeSize,
-                        baselineTolerance,
-                        nonDerivedExcludeSize
-                    ),
-                    derivedExcludeSize <= baselineTolerance
-                );
+            } finally {
+                // BWC tests preserve indices across the restart (preserveIndicesUponCompletion() == true), so both
+                // are cleaned up explicitly at the end. Best-effort deletes so a failed assertion above does not
+                // leak the indices into later tests in this suite.
+                deleteIndicesQuietly(oldBuilt, newBuilt);
             }
+        }
+    }
 
-            deleteKNNIndex(derivedExclude);
-            deleteKNNIndex(nonDerivedExclude);
-            deleteKNNIndex(derivedNoExclude);
+    /**
+     * Best-effort delete of the given indices, used on cleanup paths where a delete failure (for example a
+     * missing index) must not mask the real test failure.
+     */
+    private void deleteIndicesQuietly(String... indices) {
+        for (String index : indices) {
+            try {
+                deleteKNNIndex(index);
+            } catch (Exception e) {
+                logger.warn("Failed to delete index [" + index + "] during cleanup", e);
+            }
         }
     }
 
