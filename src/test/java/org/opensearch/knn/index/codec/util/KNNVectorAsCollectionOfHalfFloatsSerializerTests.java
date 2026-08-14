@@ -8,11 +8,8 @@ package org.opensearch.knn.index.codec.util;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.KNNTestCase;
 
-import java.util.Random;
-
 public class KNNVectorAsCollectionOfHalfFloatsSerializerTests extends KNNTestCase {
 
-    Random random = new Random();
     private static final float FP16_TOLERANCE = 1e-3f;
 
     public void testVectorAsCollectionOfHalfFloatsSerializer() {
@@ -274,7 +271,7 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializerTests extends KNNTestCas
     private float[] getArrayOfRandomFloats(int length) {
         float[] vector = new float[length];
         for (int i = 0; i < length; i++) {
-            vector[i] = random.nextFloat() * 200 - 100; // Range: [-100, 100]
+            vector[i] = random().nextFloat() * 200 - 100; // Range: [-100, 100]
         }
         return vector;
     }

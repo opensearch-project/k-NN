@@ -110,7 +110,7 @@ JNIEXPORT jfloat JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_sc
     return 0;
 }
 
-JNIEXPORT jfloat JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_scoreSimilarityInBulkFromBytes
+JNIEXPORT jfloat JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_scoreSimilarityInBulkFromFp16Bytes
   (JNIEnv *env, jclass clazz, jbyteArray fp16Vectors, const jint numVectors, jintArray internalVectorIds, jfloatArray jscores) {
     if (numVectors <= 0) {
       return -std::numeric_limits<float>::infinity();
