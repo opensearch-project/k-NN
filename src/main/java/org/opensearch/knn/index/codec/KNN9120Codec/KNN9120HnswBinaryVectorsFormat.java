@@ -15,6 +15,7 @@ import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsWriter;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.search.TaskExecutor;
+import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
@@ -38,7 +39,9 @@ public final class KNN9120HnswBinaryVectorsFormat extends KnnVectorsFormat {
     private final int maxConn;
     private final int beamWidth;
     private final int tinySegmentsThreshold;
-    private static final FlatVectorsFormat flatVectorsFormat = new Lucene99FlatVectorsFormat(new KNN9120BinaryVectorScorer());
+    private static final FlatVectorsFormat flatVectorsFormat = new Lucene99FlatVectorsFormat(
+        new PrefetchableFlatVectorScorer(new KNN9120BinaryVectorScorer())
+    );
     private final int numMergeWorkers;
     private final TaskExecutor mergeExec;
 

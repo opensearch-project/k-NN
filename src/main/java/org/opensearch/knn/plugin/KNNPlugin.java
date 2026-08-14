@@ -106,6 +106,7 @@ import org.opensearch.knn.training.TrainingJobClusterStateListener;
 import org.opensearch.knn.training.TrainingJobRunner;
 import org.opensearch.knn.training.VectorReader;
 import org.opensearch.knn.grpc.proto.request.search.query.KNNQueryBuilderProtoConverter;
+import org.opensearch.lucene.Lucene99ScorerPatcher;
 import org.opensearch.plugins.ClusterPlugin;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.EnginePlugin;
@@ -254,6 +255,7 @@ public class KNNPlugin extends Plugin
         this.clusterService = clusterService;
         this.indexNameExpressionResolver = indexNameExpressionResolver;
         this.repositoriesServiceSupplier = repositoriesServiceSupplier;
+        Lucene99ScorerPatcher.installOnce();
 
         // Initialize Native Memory loading strategies
         VectorReader vectorReader = new VectorReader(client);
