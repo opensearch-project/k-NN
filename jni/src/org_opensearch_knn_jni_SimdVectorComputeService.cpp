@@ -125,26 +125,26 @@ JNIEXPORT jfloat JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_sc
           throw std::runtime_error("No search context has been initialized, SimdVectorSearchContext* was empty.");
       }
 
+      jint* vectorIds = JNI_UTIL.GetIntArrayElements(env, internalVectorIds, nullptr);
+      knn_jni::JNIReleaseElements releaseVectorIds {[=]{
+        JNI_UTIL.ReleaseIntArrayElements(env, internalVectorIds, vectorIds, 0);
+      }};
+
+      jfloat* scores = JNI_UTIL.GetFloatArrayElements(env, jscores, nullptr);
+      knn_jni::JNIReleaseElements releaseScores {[=]{
+        JNI_UTIL.ReleaseFloatArrayElements(env, jscores, scores, 0);
+      }};
+
       // Get raw pointer of `numVectors` FP16-encoded vectors packed contiguously in a plain Java
       // byte[]. SimdVectorSearchContext addresses vectors purely by (base pointer, byte size), so
       // this single pinned array works as a one-chunk region holding all `numVectors` vectors.
+      const jsize vectorsByteSize = JNI_UTIL.GetJavaBytesArrayLength(env, fp16Vectors);
       jbyte* vectorsPtr = static_cast<jbyte*>(JNI_UTIL.GetPrimitiveArrayCritical(env, fp16Vectors, nullptr));
       knn_jni::JNIReleaseElements releaseVectors {[=]{
         JNI_UTIL.ReleasePrimitiveArrayCritical(env, fp16Vectors, vectorsPtr, JNI_ABORT);
       }};
-      const jsize vectorsByteSize = JNI_UTIL.GetJavaBytesArrayLength(env, fp16Vectors);
 
       SimilarityFunction::updateVectorChunk(reinterpret_cast<uint8_t*>(vectorsPtr), vectorsByteSize);
-
-      jfloat* scores = static_cast<jfloat*>(JNI_UTIL.GetPrimitiveArrayCritical(env, jscores, nullptr));
-      knn_jni::JNIReleaseElements releaseScores {[=]{
-        JNI_UTIL.ReleasePrimitiveArrayCritical(env, jscores, scores, 0);
-      }};
-
-      jint* vectorIds = static_cast<jint*>(JNI_UTIL.GetPrimitiveArrayCritical(env, internalVectorIds, nullptr));
-      knn_jni::JNIReleaseElements releaseVectorIds {[=]{
-        JNI_UTIL.ReleasePrimitiveArrayCritical(env, internalVectorIds, vectorIds, 0);
-      }};
 
       srchContext->similarityFunction->calculateSimilarityInBulk(
           srchContext,
