@@ -17,6 +17,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import static org.opensearch.knn.common.KNNConstants.KNN_DEFAULT_COMPRESSION_FLIP_VERSION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 
 /**
@@ -110,7 +111,10 @@ public abstract class AbstractMethodResolver implements MethodResolver {
         // The encoder should not be resolved if:
         // 1. The encoder is specified
         // 2. The compression is x1
-        // 3. The compression is not specified and the mode is not disk-based
+        // 3. The compression is not specified, the mode is not disk-based, and the index was created before
+        // the x32-default flip (KNN_DEFAULT_COMPRESSION_FLIP_VERSION). Starting with that version, x32 is
+        // the default for every new HNSW index, so the encoder must be resolved even when neither
+        // compression nor an on-disk mode was requested.
         if (isEncoderSpecified(knnMethodContext)) {
             return false;
         }
@@ -119,8 +123,11 @@ public abstract class AbstractMethodResolver implements MethodResolver {
             return false;
         }
 
+        Version version = knnMethodConfigContext.getVersionCreated();
+        boolean is32xDefaultVersion = version != null && version.onOrAfter(KNN_DEFAULT_COMPRESSION_FLIP_VERSION);
         if (CompressionLevel.isConfigured(knnMethodConfigContext.getCompressionLevel()) == false
-            && Mode.ON_DISK != knnMethodConfigContext.getMode()) {
+            && Mode.ON_DISK != knnMethodConfigContext.getMode()
+            && is32xDefaultVersion == false) {
             return false;
         }
 
@@ -185,9 +192,16 @@ public abstract class AbstractMethodResolver implements MethodResolver {
     }
 
     /**
-     * Resolves the default compression level from the config context. If the compression level is explicitly
-     * configured, returns it directly. Otherwise, for ON_DISK mode on V_3_6_0+, returns x32; for ON_DISK mode
-     * on earlier versions, returns the provided fallback; otherwise returns x1.
+     * Resolves the default compression level from the config context. The resolution order is:
+     * <ol>
+     *   <li>If the compression level is explicitly configured, return it directly.</li>
+     *   <li>If the index was created on or after {@code KNN_DEFAULT_COMPRESSION_FLIP_VERSION} (V_3_9_0), return
+     *       x32 regardless of mode. This is the default-compression flip: every new HNSW index gets x32
+     *       compression unless the user explicitly asked for something else.</li>
+     *   <li>Otherwise, for ON_DISK mode on V_3_6_0+, return x32; for ON_DISK mode on earlier versions, return
+     *       the provided fallback.</li>
+     *   <li>Otherwise (older versions, non-ON_DISK mode), return x1.</li>
+     * </ol>
      *
      * @param knnMethodConfigContext the config context
      * @param priorVersionOnDiskDefault the default compression for ON_DISK mode before V_3_6_0
@@ -200,10 +214,14 @@ public abstract class AbstractMethodResolver implements MethodResolver {
         if (CompressionLevel.isConfigured(knnMethodConfigContext.getCompressionLevel())) {
             return knnMethodConfigContext.getCompressionLevel();
         }
+        Version version = knnMethodConfigContext.getVersionCreated();
+        // The x32-default flip: on V_3_9_0+, x32 is the default for all new HNSW indices, regardless of mode.
+        if (version != null && version.onOrAfter(KNN_DEFAULT_COMPRESSION_FLIP_VERSION)) {
+            return CompressionLevel.x32;
+        }
         if (knnMethodConfigContext.getMode() != Mode.ON_DISK) {
             return CompressionLevel.x1;
         }
-        Version version = knnMethodConfigContext.getVersionCreated();
         if (version != null && version.onOrAfter(Version.V_3_6_0)) {
             return CompressionLevel.x32;
         }

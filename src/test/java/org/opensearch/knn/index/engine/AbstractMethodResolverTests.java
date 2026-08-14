@@ -145,6 +145,88 @@ public class AbstractMethodResolverTests extends KNNTestCase {
         assertEquals(CompressionLevel.x1, TEST_RESOLVER.getDefaultCompressionLevel(ctx, CompressionLevel.x4));
     }
 
+    public void testGetDefaultCompressionLevel_whenV390OrLaterAndNoMode_thenReturnX32() {
+        KNNMethodConfigContext ctx = KNNMethodConfigContext.builder().versionCreated(Version.V_3_9_0).build();
+        assertEquals(CompressionLevel.x32, TEST_RESOLVER.getDefaultCompressionLevel(ctx, CompressionLevel.x4));
+    }
+
+    public void testGetDefaultCompressionLevel_whenV390OrLaterAndInMemory_thenReturnX32() {
+        // The flip overrides mode: an unspecified compression on V_3_9_0+ resolves to x32 even for IN_MEMORY.
+        KNNMethodConfigContext ctx = KNNMethodConfigContext.builder().mode(Mode.IN_MEMORY).versionCreated(Version.V_3_9_0).build();
+        assertEquals(CompressionLevel.x32, TEST_RESOLVER.getDefaultCompressionLevel(ctx, CompressionLevel.x4));
+    }
+
+    public void testGetDefaultCompressionLevel_whenV390OrLaterAndExplicitX1_thenReturnX1() {
+        // An explicit compression_level is always honored, even after the flip.
+        KNNMethodConfigContext ctx = KNNMethodConfigContext.builder()
+            .compressionLevel(CompressionLevel.x1)
+            .versionCreated(Version.V_3_9_0)
+            .build();
+        assertEquals(CompressionLevel.x1, TEST_RESOLVER.getDefaultCompressionLevel(ctx, CompressionLevel.x4));
+    }
+
+    public void testGetDefaultCompressionLevel_whenV380AndNoMode_thenReturnX1() {
+        // Before the flip version, an unspecified compression with no on-disk mode stays x1.
+        KNNMethodConfigContext ctx = KNNMethodConfigContext.builder().versionCreated(Version.V_3_8_0).build();
+        assertEquals(CompressionLevel.x1, TEST_RESOLVER.getDefaultCompressionLevel(ctx, CompressionLevel.x4));
+    }
+
+    public void testGetDefaultCompressionLevel_whenV380AndOnDisk_thenReturnX32() {
+        // Existing ON_DISK behavior for versions between V_3_6_0 and the flip is unchanged.
+        KNNMethodConfigContext ctx = KNNMethodConfigContext.builder().mode(Mode.ON_DISK).versionCreated(Version.V_3_8_0).build();
+        assertEquals(CompressionLevel.x32, TEST_RESOLVER.getDefaultCompressionLevel(ctx, CompressionLevel.x4));
+    }
+
+    public void testGetDefaultCompressionLevel_whenV350AndOnDisk_thenReturnFallback() {
+        KNNMethodConfigContext ctx = KNNMethodConfigContext.builder().mode(Mode.ON_DISK).versionCreated(Version.V_3_5_0).build();
+        assertEquals(CompressionLevel.x4, TEST_RESOLVER.getDefaultCompressionLevel(ctx, CompressionLevel.x4));
+    }
+
+    public void testShouldEncoderBeResolved_whenV390OrLaterAndDefaultInMemory_thenResolve() {
+        // Before the flip, an unspecified compression + non-ON_DISK mode short-circuits encoder resolution.
+        // On V_3_9_0+, the encoder must be resolved so the x32 default takes effect.
+        assertFalse(
+            TEST_RESOLVER.shouldEncoderBeResolved(
+                null,
+                KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.V_3_8_0).build()
+            )
+        );
+        assertTrue(
+            TEST_RESOLVER.shouldEncoderBeResolved(
+                null,
+                KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.V_3_9_0).build()
+            )
+        );
+        assertTrue(
+            TEST_RESOLVER.shouldEncoderBeResolved(
+                null,
+                KNNMethodConfigContext.builder()
+                    .vectorDataType(VectorDataType.FLOAT)
+                    .mode(Mode.IN_MEMORY)
+                    .versionCreated(Version.V_3_9_0)
+                    .build()
+            )
+        );
+        // An explicit x1 still short-circuits, even on V_3_9_0+.
+        assertFalse(
+            TEST_RESOLVER.shouldEncoderBeResolved(
+                null,
+                KNNMethodConfigContext.builder()
+                    .vectorDataType(VectorDataType.FLOAT)
+                    .compressionLevel(CompressionLevel.x1)
+                    .versionCreated(Version.V_3_9_0)
+                    .build()
+            )
+        );
+        // Non-FLOAT vectors are never auto-encoded, even on V_3_9_0+.
+        assertFalse(
+            TEST_RESOLVER.shouldEncoderBeResolved(
+                null,
+                KNNMethodConfigContext.builder().vectorDataType(VectorDataType.BINARY).versionCreated(Version.V_3_9_0).build()
+            )
+        );
+    }
+
     public void testShouldEncoderBeResolved() {
         assertFalse(
             TEST_RESOLVER.shouldEncoderBeResolved(

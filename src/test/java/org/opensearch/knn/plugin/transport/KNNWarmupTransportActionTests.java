@@ -15,6 +15,7 @@ import org.opensearch.cluster.routing.ShardRouting;
 import org.opensearch.cluster.routing.ShardsIterator;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.index.IndexService;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.core.rest.RestStatus;
 
@@ -38,7 +39,7 @@ public class KNNWarmupTransportActionTests extends KNNSingleNodeTestCase {
         assertEquals(0, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().size());
 
         indexService = createIndex(testIndexName, getKNNDefaultIndexSettingsBuildsGraphAlways());
-        createKnnIndexMapping(testIndexName, testFieldName, dimensions);
+        createKnnIndexMapping(testIndexName, testFieldName, dimensions, CompressionLevel.x1.getName());
         shardRouting = indexService.iterator().next().routingEntry();
 
         knnWarmupTransportAction.shardOperation(knnWarmupRequest, shardRouting);

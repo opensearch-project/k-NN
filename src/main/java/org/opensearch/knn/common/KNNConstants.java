@@ -197,8 +197,10 @@ public class KNNConstants {
 
     public static final String MODE_PARAMETER = "mode";
     public static final String COMPRESSION_LEVEL_PARAMETER = "compression_level";
-    // Version at which the default compression level flips to x32 and the 'mode' parameter is deprecated.
-    public static final Version KNN_DEFAULT_COMPRESSION_FLIP_VERSION = Version.V_3_8_0;
+    // Version at which x32 (SQ 1-bit) becomes the default compression for ALL new HNSW indices (regardless
+    // of mode, unless the user explicitly configures a different compression_level) and the 'mode' parameter
+    // is deprecated.
+    public static final Version KNN_DEFAULT_COMPRESSION_FLIP_VERSION = Version.V_3_9_0;
 
     // Repository filepath constants
     public static final String VECTOR_BLOB_FILE_EXTENSION = ".knnvec";
