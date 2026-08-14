@@ -125,6 +125,10 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializerTests extends KNNTestCas
         BytesRef negativeLength = new BytesRef(new byte[4]);
         negativeLength.length = -2;
         assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(negativeLength));
+
+        BytesRef oddNegativeLength = new BytesRef(new byte[4]);
+        oddNegativeLength.length = -1;
+        assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(oddNegativeLength));
     }
 
     public void testSpecialFloatValues() {

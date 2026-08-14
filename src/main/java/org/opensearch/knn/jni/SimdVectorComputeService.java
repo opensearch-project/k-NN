@@ -86,5 +86,10 @@ public class SimdVectorComputeService {
      * @param scores                 Output array to fill with `numVectors` similarity scores
      * @return The maximum of the computed scores.
      */
-    public native static float scoreSimilarityInBulkFromFp16Bytes(byte[] fp16Vectors, int numVectors, int[] internalVectorIds, float[] scores);
+    public native static float scoreSimilarityInBulkFromFp16Bytes(
+        byte[] fp16Vectors,
+        int numVectors,
+        int[] internalVectorIds,
+        float[] scores
+    );
 }

@@ -75,7 +75,12 @@ public class SimdVectorComputeServiceScoreFromBytesTests extends KNNTestCase {
         SimdVectorComputeService.saveSearchContext(query, new long[0], functionType.ordinal());
 
         float[] scores = new float[numVectors];
-        final float maxScore = SimdVectorComputeService.scoreSimilarityInBulkFromFp16Bytes(fp16Vectors, numVectors, internalVectorIds, scores);
+        final float maxScore = SimdVectorComputeService.scoreSimilarityInBulkFromFp16Bytes(
+            fp16Vectors,
+            numVectors,
+            internalVectorIds,
+            scores
+        );
 
         float expectedMaxScore = Float.NEGATIVE_INFINITY;
         for (int i = 0; i < numVectors; ++i) {
