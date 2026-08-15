@@ -14,6 +14,7 @@ import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * k-NN implementation of {@link DynamicFieldTypeInferencer}.
@@ -36,6 +37,16 @@ import java.util.Map;
 public class KNNDynamicFieldTypeInferencer implements DynamicFieldTypeInferencer {
 
     static final int MIN_VECTOR_DIMENSION = 128;
+
+    /**
+     * The only type this inferencer produces: {@code knn_vector}, which the k-NN plugin registers via
+     * {@code getMappers()}. Core validates this at startup and enforces at parse time that a claim's
+     * {@code "type"} is in this set.
+     */
+    @Override
+    public Set<String> supportedTypes() {
+        return Set.of(KNNVectorFieldMapper.CONTENT_TYPE);
+    }
 
     /**
      * Streams the buffered field value and returns a knn_vector mapping config if it is a flat
