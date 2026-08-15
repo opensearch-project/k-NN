@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.memoryoptsearch.faiss;
 
+import java.util.Locale;
+
 import lombok.experimental.UtilityClass;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.FieldInfo;
@@ -70,6 +72,7 @@ public class FaissFlatIndexFactory {
             if (flatBinaryIndex == null) {
                 throw new IllegalStateException(
                     String.format(
+                        Locale.ROOT,
                         "%s found for field [%s] but %s returned null — cannot wire binary flat storage.",
                         FaissEmptyIndex.class.getName(),
                         fieldInfo.getName(),
@@ -100,6 +103,7 @@ public class FaissFlatIndexFactory {
             if (flatIndex == null) {
                 throw new IllegalStateException(
                     String.format(
+                        Locale.ROOT,
                         "%s found for field [%s] but %s returned null — cannot wire flat storage for CAGRA index.",
                         FaissEmptyIndex.class.getName(),
                         fieldInfo.getName(),

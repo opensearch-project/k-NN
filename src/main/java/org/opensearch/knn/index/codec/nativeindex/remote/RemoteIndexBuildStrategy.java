@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec.nativeindex.remote;
 
+import java.util.Locale;
+
 import com.google.common.annotations.VisibleForTesting;
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
@@ -238,7 +240,10 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             );
             success = true;
         } catch (InterruptedException | IOException e) {
-            throw new RuntimeException(String.format("Repository write failed for vector field [%s]", indexInfo.getField()), e);
+            throw new RuntimeException(
+                String.format(Locale.ROOT, "Repository write failed for vector field [%s]", indexInfo.getField()),
+                e
+            );
         } finally {
             metrics.endRepositoryWriteMetrics(success);
         }
@@ -273,7 +278,10 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             success = true;
             return remoteBuildResponse;
         } catch (IOException e) {
-            throw new RuntimeException(String.format("Submit vector build failed for vector field [%s]", indexInfo.getField()), e);
+            throw new RuntimeException(
+                String.format(Locale.ROOT, "Submit vector build failed for vector field [%s]", indexInfo.getField()),
+                e
+            );
         } finally {
             metrics.endBuildRequestMetrics(success);
         }
@@ -302,7 +310,10 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             // Propagate merge aborts so buildAndWriteIndex can terminate without falling back to a local CPU build.
             throw e;
         } catch (InterruptedException | IOException e) {
-            throw new RuntimeException(String.format("Await index build failed for vector field [%s]", indexInfo.getField()), e);
+            throw new RuntimeException(
+                String.format(Locale.ROOT, "Await index build failed for vector field [%s]", indexInfo.getField()),
+                e
+            );
         } finally {
             metrics.endWaitingMetrics();
         }
@@ -327,7 +338,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         } catch (TerminalIOException e) {
             throw e;
         } catch (Exception e) {
-            throw new RuntimeException(String.format("Repository read failed for vector field [%s]", indexInfo.getField()), e);
+            throw new RuntimeException(String.format(Locale.ROOT, "Repository read failed for vector field [%s]", indexInfo.getField()), e);
         } finally {
             metrics.endRepositoryReadMetrics(success);
         }

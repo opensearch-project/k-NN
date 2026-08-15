@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
+import org.opensearch.common.Randomness;
+
 import lombok.SneakyThrows;
 import org.opensearch.client.Request;
 import org.opensearch.client.ResponseException;
@@ -13,8 +15,6 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.SpaceType;
-
-import java.util.concurrent.ThreadLocalRandom;
 
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
 
@@ -107,7 +107,7 @@ public class FaissSQRadialSearchBlockedIT extends KNNRestTestCase {
         for (int i = 0; i < NUM_DOCS; i++) {
             final float[] vector = new float[DIMENSION];
             for (int j = 0; j < DIMENSION; j++) {
-                vector[j] = ThreadLocalRandom.current().nextFloat() * 4 - 2;
+                vector[j] = Randomness.get().nextFloat() * 4 - 2;
             }
             addKnnDoc(INDEX_NAME, Integer.toString(i), FIELD_NAME, vector);
         }
@@ -116,7 +116,7 @@ public class FaissSQRadialSearchBlockedIT extends KNNRestTestCase {
     private float[] generateRandomVector() {
         final float[] vector = new float[DIMENSION];
         for (int i = 0; i < DIMENSION; i++) {
-            vector[i] = ThreadLocalRandom.current().nextFloat() * 4 - 2;
+            vector[i] = Randomness.get().nextFloat() * 4 - 2;
         }
         return vector;
     }

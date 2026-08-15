@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.memoryoptsearch.faiss;
 
+import org.opensearch.common.Randomness;
+
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.hnsw.FlatFieldVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
@@ -45,7 +47,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Tests that the native SIMD SQ scorer ({@link KNN1040ScalarQuantizedVectorScorer}) produces scores
@@ -222,7 +223,7 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
                     int[] ords = new int[batchSize];
                     float[] bulkScores = new float[batchSize];
                     for (int j = 0; j < batchSize; j++) {
-                        ords[j] = ThreadLocalRandom.current().nextInt(NUM_VECTORS);
+                        ords[j] = Randomness.get().nextInt(NUM_VECTORS);
                     }
                     testScorer.bulkScore(ords, bulkScores, batchSize);
                     for (int j = 0; j < batchSize; j++) {
@@ -259,7 +260,7 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
     private static float[] randomVector(int dimension) {
         float[] v = new float[dimension];
         for (int i = 0; i < dimension; i++) {
-            v[i] = ThreadLocalRandom.current().nextFloat() * 2 - 1;
+            v[i] = Randomness.get().nextFloat() * 2 - 1;
         }
         return v;
     }
@@ -271,12 +272,12 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
     private static float[] randomCosineVector(int dimension) {
         float[] v = new float[dimension];
         for (int i = 0; i < dimension; i++) {
-            v[i] = ThreadLocalRandom.current().nextFloat() * 2 - 1;
+            v[i] = Randomness.get().nextFloat() * 2 - 1;
         }
         // Ensure the vector has meaningful magnitude by setting a component based on index
-        v[0] = ThreadLocalRandom.current().nextFloat() * 0.5f + 0.5f;
+        v[0] = Randomness.get().nextFloat() * 0.5f + 0.5f;
         if (dimension > 1) {
-            v[dimension - 1] = -(ThreadLocalRandom.current().nextFloat() * 0.5f + 0.5f);
+            v[dimension - 1] = -(Randomness.get().nextFloat() * 0.5f + 0.5f);
         }
         return v;
     }

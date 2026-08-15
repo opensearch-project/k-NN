@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec.KNN990Codec;
 
+import java.util.Locale;
+
 import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.CodecUtil;
@@ -75,7 +77,7 @@ public final class KNN990QuantizationStateReader {
             }
 
             if (position == -1 || length == 0) {
-                throw new IllegalArgumentException(String.format("Field %s not found", field));
+                throw new IllegalArgumentException(String.format(Locale.ROOT, "Field %s not found", field));
             }
 
             byte[] stateBytes = readStateBytes(input, position, length);
@@ -89,7 +91,9 @@ public final class KNN990QuantizationStateReader {
                 case FOUR_BIT:
                     return MultiBitScalarQuantizationState.fromByteArray(stateBytes);
                 default:
-                    throw new IllegalArgumentException(String.format("Unexpected scalar quantization type: %s", scalarQuantizationType));
+                    throw new IllegalArgumentException(
+                        String.format(Locale.ROOT, "Unexpected scalar quantization type: %s", scalarQuantizationType)
+                    );
             }
         }
     }

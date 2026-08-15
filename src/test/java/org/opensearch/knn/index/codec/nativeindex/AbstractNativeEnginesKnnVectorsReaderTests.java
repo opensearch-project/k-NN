@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec.nativeindex;
 
+import java.nio.charset.StandardCharsets;
+
 import com.google.common.collect.ImmutableSet;
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
@@ -235,7 +237,7 @@ public class AbstractNativeEnginesKnnVectorsReaderTests extends KNNTestCase {
         when(dir.openInput(any(), any())).thenReturn(mock(IndexInput.class));
         final SegmentInfo si = mock(SegmentInfo.class);
         when(si.files()).thenReturn(files);
-        when(si.getId()).thenReturn((si.hashCode() + "").getBytes());
+        when(si.getId()).thenReturn((si.hashCode() + "").getBytes(StandardCharsets.UTF_8));
         return new TestReader(new SegmentReadState(dir, si, fieldInfos, IOContext.DEFAULT), fvr);
     }
 

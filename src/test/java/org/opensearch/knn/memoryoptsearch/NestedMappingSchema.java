@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
+import java.util.Locale;
+
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.opensearch.knn.index.SpaceType;
@@ -29,38 +31,40 @@ public class NestedMappingSchema {
     private CompressionLevel compressionLevel;
 
     public String createString() {
-        final String mapping = """
-            {
-              "properties": {
-                "%s": {
-                  "type": "nested",
+        final String mapping = String.format(
+            Locale.ROOT,
+            """
+                {
                   "properties": {
                     "%s": {
-                      "type": "knn_vector",
-                      "dimension": %s,
-                      "data_type": "%s",
-                      %s
-                      "space_type": "%s",
-                      "method": {
-                        "engine": "faiss",
-                        "name": "hnsw",
-                        "parameters": %s
+                      "type": "nested",
+                      "properties": {
+                        "%s": {
+                          "type": "knn_vector",
+                          "dimension": %s,
+                          "data_type": "%s",
+                          %s
+                          "space_type": "%s",
+                          "method": {
+                            "engine": "faiss",
+                            "name": "hnsw",
+                            "parameters": %s
+                          }
+                        }
                       }
+                    },
+                    "%s": {
+                      "type": "keyword",
+                      "index": true
+                    },
+                    "%s": {
+                      "type": "keyword",
+                      "index": true
                     }
-                  }
-                },
-                "%s": {
-                  "type": "keyword",
-                  "index": true
-                },
-                "%s": {
-                  "type": "keyword",
-                  "index": true
+                  },
+                  "dynamic": false
                 }
-              },
-              "dynamic": false
-            }
-            """.formatted(
+                """,
             nestedFieldName,
             knnFieldName,
             Integer.toString(dimension),
