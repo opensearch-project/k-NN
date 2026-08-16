@@ -15,11 +15,15 @@ import org.apache.lucene.util.VectorUtil;
 import org.opensearch.knn.index.KNNVectorScriptDocValues;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import jdk.incubator.vector.ByteVector;
+import jdk.incubator.vector.FloatVector;
+import jdk.incubator.vector.VectorSpecies;
 
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
 
 public class KNNScoringUtil {
     private static Logger logger = LogManager.getLogger(KNNScoringUtil.class);
+    private static final VectorSpecies<Float> SPECIES = FloatVector.SPECIES_PREFERRED;
 
     /**
      * checks both query vector and input vector has equal dimension
@@ -126,22 +130,44 @@ public class KNNScoringUtil {
      * @throws IllegalArgumentException if queryVector length is not compatible with inputVector length (queryVector.length != inputVector.length * 8)
      */
     public static float l2SquaredADC(float[] queryVector, byte[] inputVector) {
-        // we cannot defer to VectorUtil as it does not support ADC.
-        // TODO: add batching logic similar to C++ to improve performance.
         float score = 0;
+        int i = 0;
 
-        for (int i = 0; i < queryVector.length; ++i) {
+        int upperBound = SPECIES.loopBound(queryVector.length);
+
+        FloatVector acc = FloatVector.zero(SPECIES);
+
+        float[] bitBuffer = new float[SPECIES.length()];
+
+        for (; i < upperBound; i += SPECIES.length()) {
+
+            for (int j = 0; j < SPECIES.length(); j++) {
+                int globalBitIndex = i + j;
+                int byteIndex = globalBitIndex / 8;
+                int bitOffset = 7 - (globalBitIndex % 8);
+                bitBuffer[j] = (inputVector[byteIndex] >> bitOffset) & 1;
+            }
+
+            FloatVector qVec = FloatVector.fromArray(SPECIES, queryVector, i);
+            FloatVector bVec = FloatVector.fromArray(SPECIES, bitBuffer, 0);
+
+            FloatVector diff = bVec.sub(qVec);
+            acc = acc.add(diff.mul(diff));
+        }
+
+        score += acc.reduceLanes(jdk.incubator.vector.VectorOperators.ADD);
+
+        for (; i < queryVector.length; ++i) {
             int byteIndex = i / 8;
             int bitOffset = 7 - (i % 8);
             int bitValue = (inputVector[byteIndex] >> bitOffset) & 1;
 
-            // Calculate squared difference
             float diff = bitValue - queryVector[i];
             score += diff * diff;
         }
+
         return score;
     }
-
     /**
      * Calculates the inner product similarity between a float query vector and a binary document vector using ADC
      * (Asymmetric Distance Computation). This method is useful for similarity searches where one vector is compressed
@@ -161,15 +187,37 @@ public class KNNScoringUtil {
      */
     public static float innerProductADC(float[] queryVector, byte[] inputVector) {
         float score = 0;
+        int i = 0;
 
-        for (int i = 0; i < queryVector.length; ++i) {
-            // Extract the bit for this dimension
+        int upperBound = SPECIES.loopBound(queryVector.length);
+
+        FloatVector acc = FloatVector.zero(SPECIES);
+
+        float[] bitBuffer = new float[SPECIES.length()];
+
+        for (; i < upperBound; i += SPECIES.length()) {
+
+            for (int j = 0; j < SPECIES.length(); j++) {
+                int globalBitIndex = i + j;
+                int byteIndex = globalBitIndex / 8;
+                int bitOffset = 7 - (globalBitIndex % 8);
+                bitBuffer[j] = (inputVector[byteIndex] >> bitOffset) & 1;
+            }
+
+            FloatVector qVec = FloatVector.fromArray(SPECIES, queryVector, i);
+            FloatVector bVec = FloatVector.fromArray(SPECIES, bitBuffer, 0);
+
+            acc = acc.add(qVec.mul(bVec));
+        }
+
+        score += acc.reduceLanes(jdk.incubator.vector.VectorOperators.ADD);
+
+        for (; i < queryVector.length; ++i) {
             int byteIndex = i / 8;
             int bitOffset = 7 - (i % 8);
             int bitValue = (inputVector[byteIndex] >> bitOffset) & 1;
-
-            // Calculate product and accumulate
             score += bitValue * queryVector[i];
+
         }
         return score;
     }

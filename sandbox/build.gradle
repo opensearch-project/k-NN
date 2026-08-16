@@ -1,0 +1,37 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+plugins {
+    id 'java'
+    id 'java-library'
+    id 'jacoco'
+    id "io.freefair.lombok" version "8.14"
+    id 'com.diffplug.spotless' version '6.25.0'
+    id 'opensearch.build'
+    id 'opensearch.java-agent'
+}
+
+repositories {
+    mavenLocal()
+    maven { url = uri("https://ci.opensearch.org/ci/dbc/snapshots/maven/") }
+    mavenCentral()
+    maven { url = uri("https://plugins.gradle.org/m2/") }
+}
+
+description = "Sandbox module for experimental k-NN algorithms and optimizations"
+
+compileJava {
+    options.compilerArgs = ["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor']
+}
+compileTestJava {
+    options.compilerArgs = ["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor']
+}
+
+dependencies {
+    compileOnly group: 'org.opensearch', name: 'opensearch', version: "${opensearch_version}"
+    testImplementation "org.opensearch.test:framework:${opensearch_version}"
+}
+
+check.dependsOn spotlessCheck
