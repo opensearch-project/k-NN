@@ -7,7 +7,6 @@ package org.opensearch.knn.index.mapper;
 
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.mapper.FieldValueParserSupplier;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
@@ -37,7 +36,6 @@ public class KNNDynamicTemplateTypeHandlerTests extends KNNTestCase {
     private FieldValueParserSupplier supplierOver(String json) {
         return new FieldValueParserSupplier(
             MediaTypeRegistry.JSON,
-            NamedXContentRegistry.EMPTY,
             LoggingDeprecationHandler.INSTANCE,
             json.getBytes(java.nio.charset.StandardCharsets.UTF_8)
         );
