@@ -11,6 +11,9 @@ import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 
+import java.util.EnumSet;
+import java.util.Set;
+
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
@@ -96,6 +99,22 @@ public abstract class AbstractFaissPQEncoder implements Encoder {
     }
 
     @Override
+    public void validate(KNNMethodContext resolvedMethodContext, KNNMethodConfigContext configContext) {
+        if (resolvedMethodContext == null || configContext == null) {
+            return;
+        }
+        if (resolvedMethodContext.getMethodComponentContext().getParameters().containsKey(ENCODER_PARAMETER_PQ_M)
+            && configContext.getDimension() != null
+            && configContext.getDimension() % (Integer) resolvedMethodContext.getMethodComponentContext()
+                .getParameters()
+                .get(ENCODER_PARAMETER_PQ_M) != 0) {
+            ValidationException validationException = new ValidationException();
+            validationException.addValidationError("Training request ENCODER_PARAMETER_PQ_M is not divisible by vector dimensions");
+            throw validationException;
+        }
+    }
+
+    @Override
     public TrainingConfigValidationOutput validateEncoderConfig(TrainingConfigValidationInput trainingConfigValidationInput) {
         KNNMethodContext knnMethodContext = trainingConfigValidationInput.getKnnMethodContext();
         KNNMethodConfigContext knnMethodConfigContext = trainingConfigValidationInput.getKnnMethodConfigContext();
@@ -142,4 +161,15 @@ public abstract class AbstractFaissPQEncoder implements Encoder {
 
         return builder.build();
     }
+
+    @Override
+    public EncoderType getEncoderType() {
+        return EncoderType.PQ;
+    }
+
+    @Override
+    public Set<QuantizationBits> getSupportedBits() {
+        return EnumSet.noneOf(QuantizationBits.class);
+    }
+
 }
