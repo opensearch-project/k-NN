@@ -9,15 +9,18 @@ import lombok.SneakyThrows;
 import org.apache.lucene.index.FieldInfo;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.opensearch.Version;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
+import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.repositories.RepositoriesService;
 
@@ -29,6 +32,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
 public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
 
@@ -46,6 +50,17 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
         repositoriesServiceSupplier = mock(Supplier.class);
         indexSettings = mock(IndexSettings.class);
         knnLibraryIndexingContext = mock(KNNLibraryIndexingContext.class);
+        // Contexts produced by AbstractKNNMethod always carry a non-null spec; mirror that in the mock
+        when(knnLibraryIndexingContext.getResolvedSpec()).thenReturn(
+            ResolvedIndexSpec.builder()
+                .engine(KNNEngine.FAISS)
+                .methodName(METHOD_HNSW)
+                .encoderType(Encoder.EncoderType.FLAT)
+                .vectorDataType(VectorDataType.FLOAT)
+                .dimension(128)
+                .indexVersionCreated(Version.CURRENT)
+                .build()
+        );
     }
 
     @SneakyThrows
@@ -133,35 +148,26 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
 
             // totalLiveDocs = 10 > MIN_DOCS_FOR_REMOTE_INDEX_BUILD (4)
             int totalLiveDocs = 10;
-            long vectorBlobLength = 32L * totalLiveDocs;
 
-            VectorSearchEngine faissEngine = KNNEngine.FAISS;
             mockedRemote.when(() -> RemoteIndexBuildStrategy.shouldBuildIndexRemotely(any(IndexSettings.class), anyLong()))
                 .thenReturn(true);
 
             NativeIndexBuildStrategyFactory factory = new NativeIndexBuildStrategyFactory(repositoriesServiceSupplier, indexSettings);
+            // FAISS supports remote index build when the context carries a spec that supports it
+            ResolvedIndexSpec remoteBuildSpec = ResolvedIndexSpec.builder()
+                .engine(KNNEngine.FAISS)
+                .methodName(METHOD_HNSW)
+                .encoderType(Encoder.EncoderType.FLAT)
+                .vectorDataType(VectorDataType.FLOAT)
+                .dimension(128)
+                .indexVersionCreated(Version.CURRENT)
+                .build();
+            when(knnLibraryIndexingContext.getResolvedSpec()).thenReturn(remoteBuildSpec);
             factory.setKnnLibraryIndexingContext(knnLibraryIndexingContext);
-
-            // Mock supportsRemoteIndexBuild - KNNEngine is an enum so we need to use a real engine
-            // FAISS supports remote index build when knnLibraryIndexingContext is provided
-            // We need to mock the static method on RemoteIndexBuildStrategy
-            // Since BuiltinKNNEngine.FAISS.supportsRemoteIndexBuild calls through to the library, we mock it indirectly
-            // by ensuring the condition is met through the RemoteIndexBuildStrategy static mock
-
-            // Actually, KNNEngine is an enum and supportsRemoteIndexBuild is not static - we can't mock it directly.
-            // Let's use a knnLibraryIndexingContext that makes supportsRemoteIndexBuild return true.
-            // For FAISS, supportsRemoteIndexBuild delegates to the library. We need to check what it returns.
 
             NativeIndexBuildStrategy strategy = factory.getBuildStrategy(fieldInfo, totalLiveDocs, knnVectorValues);
 
-            // If FAISS.supportsRemoteIndexBuild returns true, we get RemoteIndexBuildStrategy
-            // If it returns false, we get MemOptimizedNativeIndexBuildStrategy
-            // The result depends on the actual FAISS library implementation
-            if (strategy instanceof RemoteIndexBuildStrategy) {
-                assertTrue(strategy instanceof RemoteIndexBuildStrategy);
-            } else {
-                assertSame(MemOptimizedNativeIndexBuildStrategy.getInstance(), strategy);
-            }
+            assertTrue(strategy instanceof RemoteIndexBuildStrategy);
         }
     }
 
@@ -228,6 +234,8 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
             mockedCodecUtil.when(() -> KNNCodecUtil.initializeVectorValues(any())).thenAnswer(i -> null);
             mockedSettings.when(KNNSettings::isKNNRemoteVectorBuildEnabled).thenReturn(true);
             when(knnVectorValues.bytesPerVector()).thenReturn(32);
+            when(indexSettings.getValue(KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING)).thenReturn(false);
+            when(indexSettings.getIndex()).thenReturn(new org.opensearch.core.index.Index("test-index", "uuid"));
 
             // null repositoriesServiceSupplier
             NativeIndexBuildStrategyFactory factory = new NativeIndexBuildStrategyFactory(null, indexSettings);

@@ -29,7 +29,6 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
-import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 public class FaissHNSWMethodTests extends KNNTestCase {
 
@@ -63,50 +62,6 @@ public class FaissHNSWMethodTests extends KNNTestCase {
         Encoder sqEncoder = FaissHNSWMethod.SUPPORTED_ENCODERS.get(ENCODER_SQ);
         MethodComponentContext mcc = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 16));
         assertEquals(CompressionLevel.x2, sqEncoder.calculateCompressionLevel(mcc, null));
-    }
-
-    public void testIsSQOneBitIndex_whenSQWithBits1Float_thenTrue() {
-        assertSQOneBitIndex(VectorDataType.FLOAT, ENCODER_SQ, Map.of(SQ_BITS, 1), true);
-    }
-
-    public void testIsSQOneBitIndex_whenSQWithBits16Float_thenFalse() {
-        assertSQOneBitIndex(VectorDataType.FLOAT, ENCODER_SQ, Map.of(SQ_BITS, 16), false);
-    }
-
-    public void testIsSQOneBitIndex_whenFlatEncoderFloat_thenFalse() {
-        assertSQOneBitIndex(VectorDataType.FLOAT, ENCODER_FLAT, Map.of(), false);
-    }
-
-    public void testIsSQOneBitIndex_whenSQWithBits1Binary_thenFalse() {
-        assertSQOneBitIndex(VectorDataType.BINARY, ENCODER_SQ, Map.of(SQ_BITS, 1), false);
-    }
-
-    public void testIsSQOneBitIndex_whenSQWithBits1Byte_thenFalse() {
-        assertSQOneBitIndex(VectorDataType.BYTE, ENCODER_SQ, Map.of(SQ_BITS, 1), false);
-    }
-
-    public void testIsSQOneBitIndex_whenNoBitsParam_thenFalse() {
-        assertSQOneBitIndex(VectorDataType.FLOAT, ENCODER_SQ, Map.of(), false);
-    }
-
-    public void testIsFloat16Index_whenSQWithBits16Float_thenTrue() {
-        assertIsFloat16Index(VectorDataType.FLOAT, ENCODER_SQ, Map.of(SQ_BITS, 16), true);
-    }
-
-    public void testIsFloat16Index_whenSQLegacyNoBitsFloat_thenTrue() {
-        assertIsFloat16Index(VectorDataType.FLOAT, ENCODER_SQ, Map.of(), true);
-    }
-
-    public void testIsFloat16Index_whenSQWithBits1Float_thenFalse() {
-        assertIsFloat16Index(VectorDataType.FLOAT, ENCODER_SQ, Map.of(SQ_BITS, 1), false);
-    }
-
-    public void testIsFloat16Index_whenFlatEncoder_thenFalse() {
-        assertIsFloat16Index(VectorDataType.FLOAT, ENCODER_FLAT, Map.of(), false);
-    }
-
-    public void testIsFloat16Index_whenBinaryDataType_thenFalse() {
-        assertIsFloat16Index(VectorDataType.BINARY, ENCODER_SQ, Map.of(SQ_BITS, 16), false);
     }
 
     public void testTrainingConfigValidation_whenHNSWWithSQBits1_thenValid() {
@@ -213,30 +168,4 @@ public class FaissHNSWMethodTests extends KNNTestCase {
         assertEquals(ENCODER_FLAT, encoderParams.get(NAME));
     }
 
-    private void assertSQOneBitIndex(VectorDataType dataType, String encoderName, Map<String, Object> encoderParams, boolean expected) {
-        Map<String, Object> params = buildLibraryParametersMap(dataType, encoderName, encoderParams);
-        assertEquals(expected, FaissHNSWMethod.isSQOneBitIndex(dataType, params));
-    }
-
-    private void assertIsFloat16Index(VectorDataType dataType, String encoderName, Map<String, Object> encoderParams, boolean expected) {
-        Map<String, Object> params = buildLibraryParametersMap(dataType, encoderName, encoderParams);
-        assertEquals(expected, FaissHNSWMethod.isFloat16Index(dataType, params));
-    }
-
-    private Map<String, Object> buildLibraryParametersMap(
-        VectorDataType vectorDataType,
-        String encoderName,
-        Map<String, Object> encoderParams
-    ) {
-        Map<String, Object> encoder = new java.util.HashMap<>(encoderParams);
-        encoder.put(NAME, encoderName);
-        return Map.of(
-            NAME,
-            METHOD_HNSW,
-            VECTOR_DATA_TYPE_FIELD,
-            vectorDataType.getValue(),
-            PARAMETERS,
-            Map.of(METHOD_ENCODER_PARAMETER, encoder)
-        );
-    }
 }

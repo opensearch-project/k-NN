@@ -16,10 +16,7 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
-import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
-import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
 import org.opensearch.knn.index.mapper.CompressionLevel;
-import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -119,7 +116,7 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             // On 3.6.0+, also set bits for consistency with the new bits-based validation
             if (knnMethodConfigContext.getVersionCreated() != null
                 && knnMethodConfigContext.getVersionCreated().onOrAfter(Version.V_3_6_0)) {
-                encoderComponentContext.getParameters().put(SQ_BITS, FaissSQEncoder.Bits.SIXTEEN.getValue());
+                encoderComponentContext.getParameters().put(SQ_BITS, Encoder.QuantizationBits.SIXTEEN.getValue());
             }
         }
 
@@ -139,7 +136,7 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             if (shouldUseSQOneBitForX32(knnMethodConfigContext, encoderMap)) {
                 encoderComponentContext = new MethodComponentContext(ENCODER_SQ, new HashMap<>());
                 encoder = encoderMap.get(ENCODER_SQ);
-                encoderComponentContext.getParameters().put(SQ_BITS, FaissSQEncoder.Bits.ONE.getValue());
+                encoderComponentContext.getParameters().put(SQ_BITS, Encoder.QuantizationBits.ONE.getValue());
             } else {
                 encoderComponentContext = new MethodComponentContext(QFrameBitEncoder.NAME, new HashMap<>());
                 encoder = encoderMap.get(QFrameBitEncoder.NAME);
@@ -157,7 +154,7 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         // When auto-resolved to bits=1, remove the type and clip defaults that were injected —
         // the 1-bit quantization path doesn't use them, and validateEncoderConfig would reject them.
         if (encoderComponentContext.getParameters().get(SQ_BITS) instanceof Integer bitsVal
-            && bitsVal == FaissSQEncoder.Bits.ONE.getValue()) {
+            && bitsVal == Encoder.QuantizationBits.ONE.getValue()) {
             encoderComponentContext.getParameters().remove(FAISS_SQ_TYPE);
             encoderComponentContext.getParameters().remove(FAISS_SQ_CLIP);
         }
@@ -192,27 +189,11 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             return;
         }
 
-        TrainingConfigValidationInput.TrainingConfigValidationInputBuilder inputBuilder = TrainingConfigValidationInput.builder();
-
-        TrainingConfigValidationOutput validationOutput = encoder.validateEncoderConfig(
-            inputBuilder.knnMethodContext(resolvedKnnMethodContext).knnMethodConfigContext(knnMethodConfigContext).build()
-        );
-
-        if (validationOutput.getValid() != null && !validationOutput.getValid()) {
-            ValidationException validationException = new ValidationException();
-            validationException.addValidationError(validationOutput.getErrorMessage());
-            throw validationException;
-        }
+        encoder.validate(resolvedKnnMethodContext, knnMethodConfigContext);
     }
 
     private CompressionLevel getDefaultCompressionLevel(KNNMethodConfigContext knnMethodConfigContext) {
-        if (CompressionLevel.isConfigured(knnMethodConfigContext.getCompressionLevel())) {
-            return knnMethodConfigContext.getCompressionLevel();
-        }
-        if (knnMethodConfigContext.getMode() == Mode.ON_DISK) {
-            return CompressionLevel.x32;
-        }
-        return CompressionLevel.x1;
+        return getDefaultCompressionLevel(knnMethodConfigContext, CompressionLevel.x32);
     }
 
     /**

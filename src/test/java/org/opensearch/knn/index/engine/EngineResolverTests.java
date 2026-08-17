@@ -17,6 +17,7 @@ import org.opensearch.knn.index.mapper.Mode;
 import java.io.IOException;
 import java.util.Map;
 
+import static org.opensearch.knn.common.KNNConstants.KNN_DEFAULT_COMPRESSION_FLIP_VERSION;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
@@ -324,6 +325,86 @@ public class EngineResolverTests extends KNNTestCase {
         );
     }
 
+    public void testResolveEngine_whenModeProvidedOnV380_thenStillResolvesCorrectly() {
+        // On KNN_DEFAULT_COMPRESSION_FLIP_VERSION (V_3_8_0)+ mode is deprecated but still honored — verify correct resolution
+        assertEquals(
+            KNNEngine.FAISS,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().mode(Mode.ON_DISK).compressionLevel(CompressionLevel.x32).build(),
+                null,
+                null,
+                false,
+                KNN_DEFAULT_COMPRESSION_FLIP_VERSION
+            )
+        );
+        assertEquals(
+            KNNEngine.FAISS,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().mode(Mode.IN_MEMORY).compressionLevel(CompressionLevel.x1).build(),
+                null,
+                null,
+                false,
+                KNN_DEFAULT_COMPRESSION_FLIP_VERSION
+            )
+        );
+    }
+
+    public void testResolveEngine_whenModeProvidedWithNullVersion_thenNoDeprecationAndResolves() {
+        // Null version skips the deprecation check and falls through to legacy resolution
+        assertEquals(
+            KNNEngine.FAISS,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().mode(Mode.ON_DISK).compressionLevel(CompressionLevel.x32).build(),
+                null,
+                null,
+                false,
+                null
+            )
+        );
+    }
+
+    public void testResolveEngine_whenModeProvidedBeforeFlipVersion_thenNoDeprecationAndResolves() {
+        // Versions before KNN_DEFAULT_COMPRESSION_FLIP_VERSION do not log deprecation for mode
+        assertEquals(
+            KNNEngine.FAISS,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().mode(Mode.ON_DISK).compressionLevel(CompressionLevel.x32).build(),
+                null,
+                null,
+                false,
+                Version.V_3_6_0
+            )
+        );
+    }
+
+    public void testResolveEngine_whenDeprecatedEngineResolved_thenStillReturnsEngine() {
+        // NMSLIB is deprecated; logAndReturnEngine should log via deprecation logger and return it unchanged
+        assertEquals(
+            KNNEngine.NMSLIB,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().build(),
+                new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
+                null,
+                false,
+                Version.V_2_18_0
+            )
+        );
+    }
+
+    public void testResolveEngine_whenOnlyModeProvidedOnV380_thenResolvesLegacyPath() {
+        // Mode-only (no compression) still resolves via legacy path
+        assertEquals(
+            KNNEngine.FAISS,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder().mode(Mode.ON_DISK).build(),
+                null,
+                null,
+                false,
+                KNN_DEFAULT_COMPRESSION_FLIP_VERSION
+            )
+        );
+    }
+
     public void testValidateTopLevelEngine() throws IOException {
         // only top-level defined; set to faiss with compression 4x
         expectThrows(
@@ -351,8 +432,8 @@ public class EngineResolverTests extends KNNTestCase {
     }
 
     public void testResolveEngine_whenNoModeNoCompressionAcrossVersions_thenDefault() {
-        // TODO: [DEFAULT_FLIP] After Step 4, split into: indexVersionCreated < V_3_7_0 → assert DEFAULT,
-        // indexVersionCreated >= V_3_7_0 → assert x32 default triggers engine resolution
+        // TODO: [DEFAULT_FLIP] After Step 4, split into: indexVersionCreated < KNN_DEFAULT_COMPRESSION_FLIP_VERSION → assert DEFAULT,
+        // indexVersionCreated >= KNN_DEFAULT_COMPRESSION_FLIP_VERSION → assert x32 default triggers engine resolution
         Version[] versions = new Version[] { Version.V_2_18_0, Version.V_3_0_0, Version.V_3_5_0, Version.V_3_6_0, Version.CURRENT };
 
         for (Version version : versions) {

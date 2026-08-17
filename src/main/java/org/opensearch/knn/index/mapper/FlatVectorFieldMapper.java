@@ -11,6 +11,7 @@ import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 
 import java.util.Map;
 
@@ -38,7 +39,13 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
             fullname,
             metaValue,
             knnMethodConfigContext.getVectorDataType(),
-            knnMethodConfigContext::getDimension
+            knnMethodConfigContext::getDimension,
+            knnMethodConfigContext.getVersionCreated(),
+            ResolvedIndexSpec.noAnn(
+                knnMethodConfigContext.getVectorDataType(),
+                knnMethodConfigContext.getDimension(),
+                knnMethodConfigContext.getVersionCreated()
+            )
         );
         return new FlatVectorFieldMapper(
             simpleName,

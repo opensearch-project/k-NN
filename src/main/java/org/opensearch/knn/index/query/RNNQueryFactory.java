@@ -75,7 +75,8 @@ public class RNNQueryFactory extends BaseQueryFactory {
             innerQuery = createLuceneRadialQuery(createQueryRequest);
         }
 
-        if (createQueryRequest.getVectorFieldType() != null && createQueryRequest.getVectorFieldType().isRescoringRequiredForRadial()) {
+        // Only 1-bit SQ (32x compression) requires rescoring after radial search to eliminate false positives.
+        if (createQueryRequest.getVectorFieldType() != null && createQueryRequest.getVectorFieldType().getResolvedSpec().isSQOneBit()) {
             // Honor the index-level max_result_window setting to cap the number of results retained
             // after rescoring. Falls back to MAX_RESULTS_RADIAL_RESCORING if context is unavailable.
             final int maxResultsSize;

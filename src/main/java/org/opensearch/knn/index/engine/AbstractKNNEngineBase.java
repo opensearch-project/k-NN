@@ -12,6 +12,7 @@ import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.EngineFieldStrategy;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
@@ -149,6 +150,11 @@ public abstract class AbstractKNNEngineBase implements VectorSearchEngine {
         boolean isFlatMethod,
         boolean isSQOneBit
     ) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public EngineFieldStrategy getFieldStrategy() {
         throw new UnsupportedOperationException();
     }
 }

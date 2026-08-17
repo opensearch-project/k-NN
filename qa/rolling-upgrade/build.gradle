@@ -4,6 +4,7 @@
  */
 
 import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
+import org.opensearch.gradle.Version
 import org.apache.tools.ant.taskdefs.condition.Os
 
 apply from : "$rootDir/qa/build.gradle"
@@ -18,6 +19,38 @@ String knn_bwc_version = System.getProperty("tests.bwc.version", default_bwc_ver
 boolean isSnapshot = knn_bwc_version.contains("-SNAPSHOT")
 String knn_bwc_version_no_qualifier = isSnapshot ? knn_bwc_version - "-SNAPSHOT" : knn_bwc_version
 String baseName = "knnBwcCluster-rolling"
+
+// Tests whose old-node phase depends on behaviour that changed within the 3.x line. Every task in the
+// rolling upgrade runs the same test classes across the old, mixed and upgraded rounds, so an excluded
+// test has to be excluded from all of them for the rounds to stay consistent.
+List<String> excludedBwcTests = []
+// nmslib index creation is blocked from 3.0.0, so an nmslib index can only be seeded on the old node
+// when the old cluster predates 3.0.0.
+if (Version.fromString(knn_bwc_version_no_qualifier).onOrAfter("3.0.0")) {
+    excludedBwcTests += "org.opensearch.knn.bwc.IndexingIT.testBlockNMSLIBIndexCreationPost3_0_0_RollingUpgrade"
+}
+// The sq encoder requires the bits parameter from 3.6.0, so a legacy no-bits sq mapping can no longer be
+// created on the old node.
+if (Version.fromString(knn_bwc_version_no_qualifier).onOrAfter("3.6.0")) {
+    excludedBwcTests += [
+        "org.opensearch.knn.bwc.FaissSQIT.testHNSWSQFP16_rollingUpgrade_thenSucceed",
+        "org.opensearch.knn.bwc.FaissSQIT.testLegacySQFP16WithClip_rollingUpgrade_thenSucceed",
+        "org.opensearch.knn.bwc.FaissSQIT.testLegacySQFP16WithOnDisk_rollingUpgrade_thenSucceed"
+    ]
+}
+// The plugin only relaxed the merge policy in 3.6.0 (#3128). On 3.0.0 - 3.5.0 core's more aggressive
+// defaults (floor_segment 16MB, max_merge_at_once 30) merge the two small flushed segments back into
+// one, so these tests cannot establish the >= 2 segment precondition they need on the old node. This is
+// a no-op for the current 3.8.0 matrix entry, but keeps parity with the restart-upgrade suite in case
+// 3.0.0 - 3.5.0 are added here later.
+if (Version.fromString(knn_bwc_version_no_qualifier).onOrAfter("3.0.0")
+        && Version.fromString(knn_bwc_version_no_qualifier).before("3.6.0")) {
+    excludedBwcTests += [
+        "org.opensearch.knn.bwc.IndexingIT.testMixedSegmentsWithFaissRollingUpgrade",
+        "org.opensearch.knn.bwc.IndexingIT.testMixedSegmentsWithLuceneRollingUpgrade",
+        "org.opensearch.knn.bwc.IndexingIT.testMixedSegmentsWithCompressionRollingUpgrade"
+    ]
+}
 
 // Creates a test cluster of previous version and loads k-NN plugin of bwcVersion
 testClusters {
@@ -51,6 +84,12 @@ task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
     systemProperty 'tests.security.manager', 'false'
 
+    excludedBwcTests.each { excludedTest ->
+        filter {
+            excludeTestsMatching excludedTest
+        }
+    }
+
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
 }
@@ -76,6 +115,12 @@ task testAgainstOneThirdUpgradedCluster(type: StandaloneRestIntegTestTask) {
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
     systemProperty 'tests.security.manager', 'false'
 
+    excludedBwcTests.each { excludedTest ->
+        filter {
+            excludeTestsMatching excludedTest
+        }
+    }
+
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
 }
@@ -98,6 +143,12 @@ task testAgainstTwoThirdsUpgradedCluster(type: StandaloneRestIntegTestTask) {
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
     systemProperty 'tests.security.manager', 'false'
 
+    excludedBwcTests.each { excludedTest ->
+        filter {
+            excludeTestsMatching excludedTest
+        }
+    }
+
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
 }
@@ -119,6 +170,12 @@ task testRollingUpgrade(type: StandaloneRestIntegTestTask) {
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
     systemProperty 'tests.security.manager', 'false'
+
+    excludedBwcTests.each { excludedTest ->
+        filter {
+            excludeTestsMatching excludedTest
+        }
+    }
 
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath

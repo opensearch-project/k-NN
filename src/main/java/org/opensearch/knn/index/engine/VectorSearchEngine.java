@@ -13,6 +13,7 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.common.annotation.ExperimentalApi;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.EngineFieldStrategy;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
@@ -230,4 +231,13 @@ public interface VectorSearchEngine {
         boolean isFlatMethod,
         boolean isSQOneBit
     );
+
+    /**
+     * Returns the field strategy for this engine, used to construct field types
+     * and create vector fields during indexing.
+     *
+     * @return the engine's field strategy
+     * @throws UnsupportedOperationException if this engine does not support field strategies
+     */
+    EngineFieldStrategy getFieldStrategy();
 }

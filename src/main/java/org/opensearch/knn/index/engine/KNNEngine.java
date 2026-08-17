@@ -14,6 +14,9 @@ import org.opensearch.knn.index.engine.faiss.Faiss;
 import org.opensearch.knn.index.engine.lucene.Lucene;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
 import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.EngineFieldStrategy;
+import org.opensearch.knn.index.mapper.FaissFieldStrategy;
+import org.opensearch.knn.index.mapper.LuceneFieldStrategy;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
@@ -299,6 +302,18 @@ public enum KNNEngine implements KNNLibrary, VectorSearchEngine {
                 .build();
         } else {
             return null;
+        }
+    }
+
+    @Override
+    public EngineFieldStrategy getFieldStrategy() {
+        switch (this) {
+            case LUCENE:
+                return LuceneFieldStrategy.INSTANCE;
+            case FAISS, NMSLIB:
+                return FaissFieldStrategy.INSTANCE;
+            default:
+                throw new UnsupportedOperationException("Engine " + name + " does not support field strategies");
         }
     }
 }

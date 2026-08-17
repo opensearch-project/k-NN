@@ -36,6 +36,7 @@ import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.engine.model.QueryContext;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
@@ -450,7 +451,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         MethodComponentContext methodComponentContext = queryConfigFromMapping.getMethodComponentContext();
         SpaceType spaceType = queryConfigFromMapping.getSpaceType();
         VectorDataType vectorDataType = queryConfigFromMapping.getVectorDataType();
-        RescoreContext processedRescoreContext = knnVectorFieldType.resolveRescoreContext(rescoreContext);
+        RescoreContext processedRescoreContext = resolveRescore(knnVectorFieldType, rescoreContext);
         // Transform the query vector if it's required. It will return `vector` itself if transform is not needed.
         // Otherwise, it will return a new transformed vector.
         final float[] transformedQueryVector = knnVectorFieldType.transformQueryVector(vector);
@@ -485,7 +486,19 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         }
 
         if (this.maxDistance != null || this.minScore != null) {
-            knnVectorFieldType.validateSupportRadialSearch(knnEngine);
+            ResolvedIndexSpec spec = knnVectorFieldType.getResolvedSpec();
+            if (!spec.supportsRadialSearch()) {
+                throw new UnsupportedOperationException(
+                    String.format(
+                        Locale.ROOT,
+                        "Radial search is not supported for this configuration: engine=%s, data_type=%s, method=%s, compression=%s",
+                        spec.getEngine(),
+                        spec.getVectorDataType(),
+                        spec.getMethodName(),
+                        spec.getCompressionLevel().getName()
+                    )
+                );
+            }
         }
 
         // Currently, k-NN supports distance and score types radial search
@@ -748,6 +761,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             }
         }
         return super.doRewrite(queryShardContext);
+    }
+
+    private static RescoreContext resolveRescore(KNNVectorFieldType fieldType, RescoreContext userContext) {
+        return fieldType.resolveRescoreContext(userContext);
     }
 
     @Getter
