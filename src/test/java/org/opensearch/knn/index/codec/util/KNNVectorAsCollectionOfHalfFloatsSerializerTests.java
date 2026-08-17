@@ -6,7 +6,10 @@
 package org.opensearch.knn.index.codec.util;
 
 import org.apache.lucene.util.BytesRef;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.jni.SimdFp16;
 
 public class KNNVectorAsCollectionOfHalfFloatsSerializerTests extends KNNTestCase {
 
@@ -270,6 +273,52 @@ public class KNNVectorAsCollectionOfHalfFloatsSerializerTests extends KNNTestCas
             float expected = Float.float16ToFloat(Float.floatToFloat16(large[i]));
             assertEquals(expected, decoded[i], FP16_TOLERANCE);
         }
+    }
+
+    public void testRoundTrip_whenSimdNotSupported_usesJavaFallback() {
+        float[] original = getArrayOfRandomFloats(20);
+        KNNVectorAsCollectionOfHalfFloatsSerializer serializer = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
+
+        byte[] encoded = new byte[original.length * 2];
+        float[] decoded = new float[original.length];
+
+        try (MockedStatic<SimdFp16> simdFp16Mock = Mockito.mockStatic(SimdFp16.class)) {
+            simdFp16Mock.when(SimdFp16::isSIMDSupported).thenReturn(false);
+
+            serializer.floatToByteArray(original, encoded, original.length);
+            serializer.byteToFloatArray(encoded, decoded, original.length, 0);
+        }
+
+        for (int i = 0; i < original.length; i++) {
+            float expected = Float.float16ToFloat(Float.floatToFloat16(original[i]));
+            assertEquals(expected, decoded[i], FP16_TOLERANCE);
+        }
+    }
+
+    public void testByteToFloatArray_oddOffsetBreaksNativeAlignment_throwsIllegalStateException() {
+        assumeTrue("Requires native SIMD to be active on this platform", SimdFp16.isSIMDSupported());
+
+        KNNVectorAsCollectionOfHalfFloatsSerializer serializer = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
+        byte[] input = new byte[5];
+        float[] output = new float[1];
+
+        assertThrows(IllegalStateException.class, () -> serializer.byteToFloatArray(input, output, 1, 1));
+    }
+
+    public void testBytesRefOverload_nullBackingArray_throwsException() {
+        KNNVectorAsCollectionOfHalfFloatsSerializer serializer = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
+
+        BytesRef nullBackingArray = new BytesRef();
+        nullBackingArray.bytes = null;
+        assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(nullBackingArray));
+    }
+
+    public void testBytesRefOverload_negativeOffset_throwsException() {
+        KNNVectorAsCollectionOfHalfFloatsSerializer serializer = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
+
+        BytesRef negativeOffset = new BytesRef(new byte[4]);
+        negativeOffset.offset = -1;
+        assertThrows(IllegalArgumentException.class, () -> serializer.byteToFloatArray(negativeOffset));
     }
 
     private float[] getArrayOfRandomFloats(int length) {
