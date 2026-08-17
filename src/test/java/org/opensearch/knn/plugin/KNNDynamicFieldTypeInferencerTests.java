@@ -7,7 +7,6 @@ package org.opensearch.knn.plugin;
 
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.mapper.FieldValueParserSupplier;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -15,6 +14,7 @@ import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -31,10 +31,18 @@ public class KNNDynamicFieldTypeInferencerTests extends KNNTestCase {
     private FieldValueParserSupplier supplierOver(String json) {
         return new FieldValueParserSupplier(
             MediaTypeRegistry.JSON,
-            NamedXContentRegistry.EMPTY,
             LoggingDeprecationHandler.INSTANCE,
             json.getBytes(StandardCharsets.UTF_8)
         );
+    }
+
+    /**
+     * The inferencer must declare exactly knn_vector as its supported type. Core validates at startup
+     * that this set is non-empty and that every type is registered by the plugin via getMappers(), and
+     * enforces at parse time that a claim's type is in this set — so this contract is load-bearing.
+     */
+    public void testSupportedTypesIsKnnVector() {
+        assertEquals(Set.of(KNNVectorFieldMapper.CONTENT_TYPE), inferencer.supportedTypes());
     }
 
     public void testClaimsArrayAtThreshold() throws IOException {
@@ -42,6 +50,23 @@ public class KNNDynamicFieldTypeInferencerTests extends KNNTestCase {
         assertNotNull(config);
         assertEquals(KNNVectorFieldMapper.CONTENT_TYPE, config.get("type"));
         assertEquals(128, config.get("dimension"));
+    }
+
+    /**
+     * Every type the inferencer actually produces must be within its declared supportedTypes(): this is
+     * exactly the invariant core enforces at parse time, so a claim outside the declared set would be
+     * silently dropped. Sweep the claiming range and assert consistency.
+     */
+    public void testEveryClaimedTypeIsWithinSupportedTypes() throws IOException {
+        Set<String> supported = inferencer.supportedTypes();
+        for (int dim : new int[] { 128, 256, 384, 512, 768, 1024 }) {
+            Map<String, Object> config = inferencer.inferFieldType(numericArray(dim));
+            assertNotNull("dim " + dim + " should be claimed", config);
+            assertTrue(
+                "claimed type [" + config.get("type") + "] must be within supportedTypes() " + supported,
+                supported.contains(config.get("type"))
+            );
+        }
     }
 
     public void testClaimsMultipleOfEightAboveThreshold() throws IOException {
