@@ -76,6 +76,22 @@ public class KNNDynamicFieldTypeInferencerTests extends KNNTestCase {
         assertEquals(256, config.get("dimension"));
     }
 
+    /** An array at the default engine's max dimension is still claimed (inclusive upper bound). */
+    public void testClaimsAtMaxDimension() throws IOException {
+        int max = KNNDynamicFieldTypeInferencer.MAX_VECTOR_DIMENSION;
+        assumeTrue("max must be a multiple of 8 for this exact-boundary check", max % 8 == 0);
+        Map<String, Object> config = inferencer.inferFieldType(numericArray(max));
+        assertNotNull("array at max dimension must be claimed", config);
+        assertEquals(max, config.get("dimension"));
+    }
+
+    /** An array beyond the default engine's max dimension is NOT claimed — it cannot be a valid vector. */
+    public void testAboveMaxDimensionNotClaimed() throws IOException {
+        // Next multiple of 8 above the max (so only the max-cap gate, not the %8 gate, can reject it).
+        int aboveMax = KNNDynamicFieldTypeInferencer.MAX_VECTOR_DIMENSION + 8;
+        assertNull("array beyond max dimension must not be claimed", inferencer.inferFieldType(numericArray(aboveMax)));
+    }
+
     public void testNonMultipleOfEightNotClaimed() throws IOException {
         // 130 and 300 are >= 128 but not multiples of 8 — must NOT be claimed (%8 gate).
         assertNull("130-dim array is not a multiple of 8", inferencer.inferFieldType(numericArray(130)));
