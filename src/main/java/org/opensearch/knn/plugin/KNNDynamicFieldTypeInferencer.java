@@ -33,6 +33,17 @@ import java.util.Set;
  *
  * <p>Returns {@code null} for any field that doesn't meet all conditions, allowing subsequent
  * inferencers or the default float fallback to handle it.
+ *
+ * <p><b>Heuristic trade-off.</b> This is a shape-based heuristic, not a semantic one: a non-vector
+ * numeric array that happens to be flat, {@code >= 128} elements, and a multiple of 8 (e.g. a large
+ * list of IDs, timestamps, or measurements) will be claimed as {@code knn_vector}. Once claimed, the
+ * field is mapped as {@code knn_vector} for the lifetime of the index and its dimension is locked to
+ * the first document's length, so later documents whose array has a different length are rejected. The
+ * {@code >= 128} threshold and multiple-of-8 gate are chosen to make this collision unlikely for
+ * non-embedding data while matching real embedding dimensions, but they cannot eliminate it. Auto
+ * inference is opt-in per index (it only runs where the k-NN dynamic-mapping SPI is active); a user who
+ * does not want a numeric field auto-typed as a vector should declare an explicit mapping for it, which
+ * always takes precedence over inference.
  */
 public class KNNDynamicFieldTypeInferencer implements DynamicFieldTypeInferencer {
 
