@@ -9,6 +9,7 @@ import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.mapper.DynamicFieldTypeInferencer;
 import org.opensearch.index.mapper.FieldValueParserSupplier;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 
 import java.io.IOException;
@@ -19,10 +20,12 @@ import java.util.Set;
 /**
  * k-NN implementation of {@link DynamicFieldTypeInferencer}.
  *
- * <p>Claims unmapped fields whose value is a flat numeric array with at least
- * {@link #MIN_VECTOR_DIMENSION} elements whose count is a multiple of 8, and maps them as
+ * <p>Claims unmapped fields whose value is a flat numeric array whose element count is a multiple of 8
+ * and lies within {@code [MIN_VECTOR_DIMENSION, MAX_VECTOR_DIMENSION]}, and maps them as
  * {@code knn_vector}. The dimension is inferred from the array length of the first document —
- * subsequent documents with a different dimension are rejected by the mapper.
+ * subsequent documents with a different dimension are rejected by the mapper. The upper bound is the
+ * default engine's maximum supported dimension: a longer array cannot be built as a knn_vector anyway,
+ * so it is left to the normal float path.
  *
  * <p>Core hands a factory that produces a fresh parser over the buffered field bytes. We stream
  * the tokens directly rather than materializing a {@code List}: the value must be an array whose
@@ -49,6 +52,11 @@ public class KNNDynamicFieldTypeInferencer implements DynamicFieldTypeInferencer
 
     static final int MIN_VECTOR_DIMENSION = 128;
 
+    // Upper bound: an array longer than the default engine's max supported dimension cannot be a
+    // knn_vector the engine can build, so it is far more likely to be non-vector numeric data. Bail
+    // in that case rather than claiming a field that would later fail mapper validation.
+    static final int MAX_VECTOR_DIMENSION = KNNEngine.getMaxDimensionByEngine(KNNEngine.DEFAULT);
+
     /**
      * The only type this inferencer produces: {@code knn_vector}, which the k-NN plugin registers via
      * {@code getMappers()}. Core validates this at startup and enforces at parse time that a claim's
@@ -60,8 +68,9 @@ public class KNNDynamicFieldTypeInferencer implements DynamicFieldTypeInferencer
     }
 
     /**
-     * Streams the buffered field value and returns a knn_vector mapping config if it is a flat
-     * numeric array with at least {@link #MIN_VECTOR_DIMENSION} elements whose count is a multiple of 8.
+     * Streams the buffered field value and returns a knn_vector mapping config if it is a flat numeric
+     * array whose element count is a multiple of 8 and within
+     * {@code [MIN_VECTOR_DIMENSION, MAX_VECTOR_DIMENSION]}.
      *
      * @param fieldValueParser produces a fresh parser positioned at the field value's first token
      * @return mutable config map {@code {type: knn_vector, dimension: N}} if claimed, or {@code null} to pass
@@ -83,7 +92,7 @@ public class KNNDynamicFieldTypeInferencer implements DynamicFieldTypeInferencer
                 count++;
             }
         }
-        if (count < MIN_VECTOR_DIMENSION || count % 8 != 0) {
+        if (count < MIN_VECTOR_DIMENSION || count > MAX_VECTOR_DIMENSION || count % 8 != 0) {
             return null;
         }
         Map<String, Object> config = new HashMap<>();
