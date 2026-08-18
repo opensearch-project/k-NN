@@ -47,16 +47,22 @@ public class DynamicVectorMappingIT extends KNNRestTestCase {
         return client().performRequest(request);
     }
 
+    @SuppressWarnings("unchecked")
     private String fieldType(String index, String field) throws IOException, ParseException {
         Request request = new Request("GET", "/" + index + "/_mapping");
-        String resp = EntityUtils.toString(client().performRequest(request).getEntity());
-        // crude but sufficient: look for "field":{"type":"..."} without pulling in a JSON dep here
-        int f = resp.indexOf("\"" + field + "\"");
-        if (f < 0) return null;
-        int t = resp.indexOf("\"type\":\"", f);
-        if (t < 0) return null;
-        t += "\"type\":\"".length();
-        return resp.substring(t, resp.indexOf("\"", t));
+        Response response = client().performRequest(request);
+        Map<String, Object> body = createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            EntityUtils.toString(response.getEntity())
+        ).map();
+        Map<String, Object> indexEntry = (Map<String, Object>) body.get(index);
+        if (indexEntry == null) return null;
+        Map<String, Object> mappings = (Map<String, Object>) indexEntry.get("mappings");
+        if (mappings == null) return null;
+        Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+        if (properties == null) return null;
+        Map<String, Object> fieldMapping = (Map<String, Object>) properties.get(field);
+        return fieldMapping == null ? null : (String) fieldMapping.get("type");
     }
 
     private void indexDoc(String index, String field, String jsonValue) throws IOException {
