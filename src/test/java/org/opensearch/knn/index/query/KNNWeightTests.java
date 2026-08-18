@@ -12,6 +12,7 @@ import lombok.SneakyThrows;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentCommitInfo;
 import org.apache.lucene.index.SegmentInfo;
@@ -1783,6 +1784,12 @@ public class KNNWeightTests extends KNNWeightTestCase {
             when(reader.getFieldInfos()).thenReturn(fieldInfos);
             when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
             when(fieldInfo.attributes()).thenReturn(attributesMap);
+            // The segment carries the quantized vector field with live vectors, so SegmentLevelQuantizationInfo.build
+            // proceeds past its field-is-vector / non-empty-segment guards to load the quantization state.
+            when(fieldInfo.hasVectorValues()).thenReturn(true);
+            final FloatVectorValues floatVectorValues = mock(FloatVectorValues.class);
+            when(floatVectorValues.size()).thenReturn(1);
+            when(reader.getFloatVectorValues(FIELD_NAME)).thenReturn(floatVectorValues);
             // fieldName, new float[0], tempCollector, null)
             doNothing().when(reader).searchNearestVectors(any(), eq(new float[0]), any(), any());
 
