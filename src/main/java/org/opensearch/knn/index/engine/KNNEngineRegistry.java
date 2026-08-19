@@ -12,6 +12,7 @@ import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.common.KNNConstants.UNDEFINED_ENGINE_NAME;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
+import org.opensearch.knn.index.mapper.EngineFieldStrategy;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -55,19 +56,23 @@ final class KNNEngineRegistry {
 
     /**
      * A fully-materialized registered engine; every definition method has already been invoked successfully.
-     * The capabilities and extension are read once during validation and cached here, so no later step has
-     * to call back into plugin code.
+     * The capabilities, extension and field strategy are read once during validation and cached here, so no
+     * later step has to call back into plugin code.
      */
     record RegisteredEngine(String engineName, KNNLibrary library, NativeEngineService nativeService, Set<String> queryParameterNames,
-        EngineCapabilities capabilities, String extension, String compoundExtension) {
+        EngineCapabilities capabilities, String extension, String compoundExtension, EngineFieldStrategy fieldStrategy) {
     }
 
     /** A validated candidate plus its definition, so initialize runs only for engines that register. */
     private record Candidate(KNNEngineDefinition definition, RegisteredEngine engine) {
     }
 
-    /** The outcome of one discovery pass over the classpath. */
-    record DiscoveryResult(Collection<RegisteredEngine> engines, Set<String> queryParameterNames) {
+    /**
+     * The outcome of one discovery pass over the classpath. {@code initialized} holds the definitions whose
+     * {@code initialize} completed, in registration order, so {@code KNNEngine} can run their {@code close}
+     * hooks in reverse at node shutdown.
+     */
+    record DiscoveryResult(Collection<RegisteredEngine> engines, Set<String> queryParameterNames, List<KNNEngineDefinition> initialized) {
     }
 
     /**
@@ -127,7 +132,8 @@ final class KNNEngineRegistry {
                     Set.copyOf(definition.engineSpecificQueryParameters()),
                     capabilities,
                     capabilities.customSegmentFiles() ? library.getExtension() : null,
-                    capabilities.customSegmentFiles() ? library.getCompoundExtension() : null
+                    capabilities.customSegmentFiles() ? library.getCompoundExtension() : null,
+                    definition.fieldStrategy()
                 );
                 if (engine.capabilities().customSegmentFiles() && engine.nativeService() == null) {
                     log.warn(
@@ -145,6 +151,7 @@ final class KNNEngineRegistry {
         // A duplicate name is always a misconfiguration; dropping every claimant keeps the outcome
         // deterministic regardless of classpath order.
         final Map<String, RegisteredEngine> byName = new LinkedHashMap<>();
+        final List<KNNEngineDefinition> initialized = new ArrayList<>();
         final Set<String> queryParameterNames = new HashSet<>();
         final Set<String> reservedExtensions = new HashSet<>(ENGINE_SEGMENT_FILES_EXTENSIONS);
         for (Map.Entry<String, List<Candidate>> entry : candidatesByName.entrySet()) {
@@ -171,9 +178,14 @@ final class KNNEngineRegistry {
                 continue;
             }
             byName.put(entry.getKey(), engine);
+            initialized.add(candidate.definition());
             queryParameterNames.addAll(engine.queryParameterNames());
         }
-        return new DiscoveryResult(Collections.unmodifiableCollection(byName.values()), Collections.unmodifiableSet(queryParameterNames));
+        return new DiscoveryResult(
+            Collections.unmodifiableCollection(byName.values()),
+            Collections.unmodifiableSet(queryParameterNames),
+            Collections.unmodifiableList(initialized)
+        );
     }
 
     /**

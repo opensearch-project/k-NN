@@ -5,11 +5,20 @@
 
 package org.opensearch.knn.sandbox.fixture;
 
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+
 /**
  * Names used by the test-only fixture engine, which exercises the generic engine extension points in CI
  * without native code.
  */
 public final class FixtureConstants {
+
+    /**
+     * Engine names appended by each fixture definition's {@code close()}, in call order. The lifecycle
+     * tests assert reverse-registration ordering and that a throwing close does not stop the rest.
+     */
+    public static final List<String> CLOSE_ORDER = new CopyOnWriteArrayList<>();
 
     /** Engine name in mappings and {@code KNNEngine.getEngine(name)}. */
     public static final String FIXTURE_ENGINE_NAME = "sandbox_fixture";

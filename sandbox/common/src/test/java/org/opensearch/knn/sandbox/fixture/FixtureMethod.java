@@ -9,6 +9,7 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContextImpl;
+import org.opensearch.knn.sandbox.SandboxIndexSpecs;
 import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
 import org.opensearch.knn.index.engine.KNNMethod;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
@@ -51,7 +52,10 @@ public final class FixtureMethod implements KNNMethod {
         KNNMethodContext knnMethodContext,
         KNNMethodConfigContext knnMethodConfigContext
     ) {
-        return KNNLibraryIndexingContextImpl.builder().parameters(Map.of(NAME, METHOD_FIXTURE)).build();
+        return KNNLibraryIndexingContextImpl.builder()
+            .parameters(Map.of(NAME, METHOD_FIXTURE))
+            .resolvedSpec(SandboxIndexSpecs.minimalSpec(METHOD_FIXTURE, knnMethodContext, knnMethodConfigContext))
+            .build();
     }
 
     @Override

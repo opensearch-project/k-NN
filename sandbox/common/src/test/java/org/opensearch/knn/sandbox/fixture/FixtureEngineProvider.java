@@ -9,6 +9,8 @@ import org.opensearch.knn.index.engine.KNNEngineContext;
 import org.opensearch.knn.index.engine.KNNEngineDefinition;
 import org.opensearch.knn.index.engine.KNNLibrary;
 import org.opensearch.knn.index.engine.NativeEngineService;
+import org.opensearch.knn.index.mapper.EngineFieldStrategy;
+import org.opensearch.knn.index.mapper.FaissFieldStrategy;
 
 import java.util.Set;
 
@@ -49,5 +51,17 @@ public final class FixtureEngineProvider implements KNNEngineDefinition {
     @Override
     public Set<String> engineSpecificQueryParameters() {
         return Set.of(FixtureConstants.METHOD_PARAMETER_FIXTURE_WINDOW);
+    }
+
+    @Override
+    public EngineFieldStrategy fieldStrategy() {
+        // A native-style tenant can reuse the faiss strategy; the registration tests assert the same
+        // instance comes back from KNNEngine#getFieldStrategy.
+        return FaissFieldStrategy.INSTANCE;
+    }
+
+    @Override
+    public void close() {
+        FixtureConstants.CLOSE_ORDER.add(engineName());
     }
 }

@@ -6,71 +6,53 @@
 package org.opensearch.knn.index.engine;
 
 import org.opensearch.common.annotation.ExperimentalApi;
+import org.opensearch.knn.index.mapper.EngineFieldStrategy;
 
 import java.util.Set;
 
 /**
  * Service-provider interface contributing a complete engine to the core k-NN module at runtime, discovered via
  * {@link java.util.ServiceLoader} (see {@link KNNEngineRegistry}) and wired in as a first-class
- * {@link KNNEngine}, resolved by name, with no compile-time reference to the contributing module.
+ * {@link KNNEngine}, resolved by name, with no compile-time reference to the contributing module. When no
+ * definition is on the classpath (the default build) the registry is empty and the plugin is byte-for-byte
+ * upstream.
  *
- * <p>An implementation supplies:
- * <ul>
- *   <li>{@link #engineName()} — the engine name users type in their mapping.</li>
- *   <li>{@link #library()} — the {@link KNNLibrary} driving method resolution, file extension, validation and
- *       scoring.</li>
- *   <li>{@link #nativeService()} — the native index lifecycle: {@code JNIService} routes the eight
- *       lifecycle/search operations (init/insert/write/template/load/query/radiusQuery/free) here; binary
- *       indexes, training and shared index state remain core-only today.</li>
- * </ul>
- *
- * <p>Registered engines currently inherit core defaults they cannot override: the default engine's maximum
- * dimension (16,000) and no version restriction.
- *
- * <p>When no definition is on the classpath (the default build) the registry is empty and the plugin is
- * byte-for-byte upstream.
+ * <p>Every method is read exactly once at discovery and its result cached. Definitions may be consulted
+ * during {@code KNNEngine} class initialization, so no method may touch {@code KNNEngine} statics.
  */
 @ExperimentalApi
 public interface KNNEngineDefinition {
 
-    /**
-     * The engine name users type in their mapping; matched case-insensitively. Must be non-null and non-empty;
-     * a name colliding with a built-in engine or an already-registered definition is skipped with a warning.
-     */
+    /** The engine name users type in their mapping; matched case-insensitively, must be non-blank and unique. */
     String engineName();
 
+    /** The {@link KNNLibrary} driving method resolution, validation, scoring and file extensions. */
     KNNLibrary library();
 
     /**
-     * The engine's native index lifecycle, or {@code null} for a pure-JVM engine whose library does not
-     * create custom segment files (such an engine never reaches {@code JNIService}).
-     *
-     * <p>Implementations must not touch {@code KNNEngine} statics during construction or from this method:
-     * definitions are consulted during {@code KNNEngine}'s own class initialization, so doing so creates an init cycle.
-     *
-     * @return the engine's {@link NativeEngineService}, or {@code null} for a pure-JVM engine
+     * The engine's native index lifecycle, routed from {@code JNIService}, or {@code null} (the default) for
+     * a pure-JVM engine whose library creates no custom segment files.
      */
     default NativeEngineService nativeService() {
         return null;
     }
 
     /**
-     * Query-time {@code method_parameters} names this engine contributes (for example {@code search_window_size}),
-     * beyond the core-known names in {@code org.opensearch.knn.index.query.request.MethodParameter}. This is a
-     * parse-time allowlist only: it tells the REST/gRPC layers not to reject the name, so the engine-aware
-     * validation in {@code KNNQueryBuilder#doToQuery} (against the engine's {@link KNNLibrarySearchContext})
-     * can judge the value. Names, not semantics — the search context remains the validation authority, so a
-     * name declared here but absent from the search context is accepted at parse and then rejected there,
-     * never silently honored.
-     *
-     * <p>The same class-initialization rule as {@link #nativeService()} applies: do not touch
-     * {@code KNNEngine} statics from this method.
-     *
-     * @return the engine-specific query parameter names; empty (the default) if the engine's query-time
-     *         parameters are all core-known
+     * Query-time {@code method_parameters} names this engine contributes beyond the core-known ones. A
+     * parse-time allowlist only: values are still validated against the engine's
+     * {@link KNNLibrarySearchContext}, never silently honored.
      */
     default Set<String> engineSpecificQueryParameters() {
         return Set.of();
+    }
+
+    /**
+     * The engine's field-type construction strategy (see {@code KNNEngine#getFieldStrategy}), or
+     * {@code null} (the default), in which case mapping a field with this engine fails with
+     * {@code UnsupportedOperationException}.
+     */
+    default EngineFieldStrategy fieldStrategy() {
+        return null;
     }
 
     /**
@@ -79,4 +61,11 @@ public interface KNNEngineDefinition {
      * engine lookups here see only the built-ins.
      */
     default void initialize(KNNEngineContext context) {}
+
+    /**
+     * Called at node shutdown in reverse registration order, only for definitions whose {@link #initialize}
+     * completed; release here whatever it acquired. Best effort: a throw is logged and the remaining
+     * definitions still close.
+     */
+    default void close() {}
 }

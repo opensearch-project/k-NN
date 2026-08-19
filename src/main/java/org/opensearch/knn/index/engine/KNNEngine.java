@@ -47,12 +47,20 @@ import static org.opensearch.knn.common.KNNConstants.UNDEFINED_ENGINE_NAME;
 public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
 
     // Built-ins pass a null native service because their JNI lifecycle is the core FaissService and
-    // NmslibService. A runtime registered engine carries its own NativeEngineService.
+    // NmslibService. A runtime registered engine carries its own NativeEngineService. The field
+    // strategies are safe to reference here: neither strategy touches KNNEngine statics during its
+    // class initialization.
     @Deprecated(since = "2.19.0", forRemoval = true)
-    public static final KNNEngine NMSLIB = new KNNEngine("NMSLIB", NMSLIB_NAME, Nmslib.INSTANCE, Version.V_3_0_0);
-    public static final KNNEngine FAISS = new KNNEngine("FAISS", FAISS_NAME, Faiss.INSTANCE);
-    public static final KNNEngine LUCENE = new KNNEngine("LUCENE", LUCENE_NAME, Lucene.INSTANCE);
-    public static final KNNEngine UNDEFINED = new KNNEngine("UNDEFINED", UNDEFINED_ENGINE_NAME, null);
+    public static final KNNEngine NMSLIB = new KNNEngine(
+        "NMSLIB",
+        NMSLIB_NAME,
+        Nmslib.INSTANCE,
+        Version.V_3_0_0,
+        FaissFieldStrategy.INSTANCE
+    );
+    public static final KNNEngine FAISS = new KNNEngine("FAISS", FAISS_NAME, Faiss.INSTANCE, null, FaissFieldStrategy.INSTANCE);
+    public static final KNNEngine LUCENE = new KNNEngine("LUCENE", LUCENE_NAME, Lucene.INSTANCE, null, LuceneFieldStrategy.INSTANCE);
+    public static final KNNEngine UNDEFINED = new KNNEngine("UNDEFINED", UNDEFINED_ENGINE_NAME, null, null, null);
 
     public static final KNNEngine DEFAULT = FAISS;
 
@@ -83,6 +91,8 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
     // services. Tests and tools that never construct the plugin discover lazily on first use.
     private static volatile EngineTable TABLE = EngineTable.of(builtInsByName(), Set.of());
     private static volatile boolean DISCOVERY_ATTEMPTED = false;
+    // Definitions whose initialize completed, in registration order; drained by closeEngineDefinitions.
+    private static volatile List<KNNEngineDefinition> INITIALIZED_DEFINITIONS = List.of();
     // True only while a discovery pass runs. Volatile so a lookup during the pass serves the built-ins
     // snapshot instead of waiting on the lock, and so a definition that calls back into KNNEngine from
     // its initialize returns without recursing.
@@ -114,23 +124,41 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
                 final KNNEngineRegistry.DiscoveryResult discovery = KNNEngineRegistry.discover(context);
                 final Map<String, KNNEngine> byName = builtInsByName();
                 for (KNNEngineRegistry.RegisteredEngine registered : discovery.engines()) {
-                    byName.put(
-                        registered.engineName().toLowerCase(Locale.ROOT),
-                        new KNNEngine(
-                            registered.engineName().toUpperCase(Locale.ROOT),
-                            registered.engineName(),
-                            registered.library(),
-                            registered.nativeService(),
-                            registered.capabilities(),
-                            registered.extension(),
-                            registered.compoundExtension()
-                        )
-                    );
+                    byName.put(registered.engineName().toLowerCase(Locale.ROOT), new KNNEngine(registered));
                 }
                 TABLE = EngineTable.of(byName, discovery.queryParameterNames());
+                INITIALIZED_DEFINITIONS = discovery.initialized();
             } finally {
                 DISCOVERING = false;
                 DISCOVERY_ATTEMPTED = true;
+            }
+        }
+    }
+
+    /**
+     * Runs the {@code close} hook of every definition whose {@code initialize} completed, in reverse
+     * registration order; called by {@code KNNPlugin#close} when the node shuts down. Best effort: a throw
+     * is logged and the remaining definitions still close. Idempotent, the definitions are drained on the
+     * first call. The engines themselves stay registered, lookups keep working during shutdown.
+     *
+     * <p>Like discovery, this state is per JVM, which matches production (one node per JVM). In an
+     * embedded multi-node JVM the first plugin instance to close would close the definitions for all.
+     */
+    public static void closeEngineDefinitions() {
+        final List<KNNEngineDefinition> definitions;
+        synchronized (KNNEngine.class) {
+            definitions = INITIALIZED_DEFINITIONS;
+            INITIALIZED_DEFINITIONS = List.of();
+        }
+        for (int i = definitions.size() - 1; i >= 0; i--) {
+            final KNNEngineDefinition definition = definitions.get(i);
+            try {
+                definition.close();
+            } catch (Throwable t) {
+                // Shutdown cleanup must not abort the loop: the list is already drained, so a definition
+                // skipped here would never get another chance to release what initialize acquired. Even
+                // an Error from one definition (assertion, stack overflow) only costs its own cleanup.
+                log.warn("Engine definition [{}] threw from close; continuing with the rest", definition.getClass().getName(), t);
             }
         }
     }
@@ -174,26 +202,35 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
     private final KNNEngineRegistry.EngineCapabilities capabilities;
     private final String extension;
     private final String compoundExtension;
+    // The engine's field strategy: set at construction for built-ins, read once at discovery for
+    // registered engines. Null only when the engine has none (UNDEFINED, or a definition that
+    // declared none), in which case getFieldStrategy throws.
+    private final EngineFieldStrategy fieldStrategy;
 
-    private KNNEngine(String enumName, String name, KNNLibrary knnLibrary) {
-        this(enumName, name, knnLibrary, null, null, null, null, null);
-    }
-
-    private KNNEngine(String enumName, String name, KNNLibrary knnLibrary, Version restrictedFromVersion) {
-        this(enumName, name, knnLibrary, restrictedFromVersion, null, null, null, null);
-    }
-
-    // Runtime-registered engines only.
+    // Built-in engines only.
     private KNNEngine(
         String enumName,
         String name,
         KNNLibrary knnLibrary,
-        NativeEngineService nativeService,
-        KNNEngineRegistry.EngineCapabilities capabilities,
-        String extension,
-        String compoundExtension
+        Version restrictedFromVersion,
+        EngineFieldStrategy fieldStrategy
     ) {
-        this(enumName, name, knnLibrary, null, nativeService, capabilities, extension, compoundExtension);
+        this(enumName, name, knnLibrary, restrictedFromVersion, null, null, null, null, fieldStrategy);
+    }
+
+    // Runtime-registered engines only.
+    private KNNEngine(KNNEngineRegistry.RegisteredEngine registered) {
+        this(
+            registered.engineName().toUpperCase(Locale.ROOT),
+            registered.engineName(),
+            registered.library(),
+            null,
+            registered.nativeService(),
+            registered.capabilities(),
+            registered.extension(),
+            registered.compoundExtension(),
+            registered.fieldStrategy()
+        );
     }
 
     private KNNEngine(
@@ -204,7 +241,8 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
         NativeEngineService nativeService,
         KNNEngineRegistry.EngineCapabilities capabilities,
         String extension,
-        String compoundExtension
+        String compoundExtension,
+        EngineFieldStrategy fieldStrategy
     ) {
         this.enumName = enumName;
         this.name = name;
@@ -212,6 +250,7 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
         this.restrictedFromVersion = restrictedFromVersion;
         this.nativeService = nativeService;
         this.capabilities = capabilities;
+        this.fieldStrategy = fieldStrategy;
         this.extension = extension;
         this.compoundExtension = compoundExtension;
     }
@@ -520,21 +559,18 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
 
     /**
      * Returns the field strategy for this engine, used to construct field types
-     * and create vector fields during indexing.
-     *
-     * <p>Only the built-in engines resolve a strategy here. Discovered (runtime-registered)
-     * engines receive their strategies via {@link KNNEngineDefinition} in a follow-up commit.</p>
+     * and create vector fields during indexing. Built-ins carry theirs from construction;
+     * discovered engines carry the one their {@link KNNEngineDefinition} provided at discovery.
      *
      * @return the engine's field strategy
      * @throws UnsupportedOperationException if this engine does not support field strategies
      */
     public EngineFieldStrategy getFieldStrategy() {
-        if (this == LUCENE) {
-            return LuceneFieldStrategy.INSTANCE;
+        if (fieldStrategy != null) {
+            return fieldStrategy;
         }
-        if (this == FAISS || this == NMSLIB) {
-            return FaissFieldStrategy.INSTANCE;
-        }
-        throw new UnsupportedOperationException("Engine " + name() + " does not support field strategies");
+        throw new UnsupportedOperationException(
+            "Engine " + name() + " does not support field strategies; its KNNEngineDefinition did not provide a fieldStrategy"
+        );
     }
 }

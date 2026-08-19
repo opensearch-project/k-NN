@@ -81,4 +81,9 @@ public final class SecondaryFixtureEngineProvider implements KNNEngineDefinition
     public NativeEngineService nativeService() {
         return SERVICE;
     }
+
+    @Override
+    public void close() {
+        FixtureConstants.CLOSE_ORDER.add(engineName());
+    }
 }

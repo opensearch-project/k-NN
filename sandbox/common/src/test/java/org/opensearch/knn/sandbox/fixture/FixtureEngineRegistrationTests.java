@@ -8,9 +8,12 @@ package org.opensearch.knn.sandbox.fixture;
 import org.opensearch.knn.index.VectorQueryType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.model.QueryContext;
+import org.opensearch.knn.index.mapper.FaissFieldStrategy;
+import org.opensearch.knn.index.mapper.LuceneFieldStrategy;
 import org.opensearch.test.OpenSearchTestCase;
 
 import java.util.Arrays;
+import java.util.List;
 
 import static org.opensearch.knn.sandbox.fixture.FixtureConstants.BAD_FIXTURE_ENGINE_NAME;
 import static org.opensearch.knn.sandbox.fixture.FixtureConstants.FIXTURE_ENGINE_NAME;
@@ -172,6 +175,52 @@ public class FixtureEngineRegistrationTests extends OpenSearchTestCase {
         assertSame(KNNEngine.LUCENE, KNNEngine.getEngine("lucene"));
         assertSame(KNNEngine.NMSLIB, KNNEngine.getEngine("nmslib"));
         assertSame(KNNEngine.UNDEFINED, KNNEngine.getEngine("undefined"));
+    }
+
+    public void testFieldStrategyComesFromTheDefinition() {
+        final KNNEngine fixture = KNNEngine.getEngine(FIXTURE_ENGINE_NAME);
+        assertSame(FaissFieldStrategy.INSTANCE, fixture.getFieldStrategy());
+    }
+
+    public void testFieldStrategyAbsentThrowsWithTheMissingHookNamed() {
+        // The secondary fixture declares no field strategy: mapping through it must fail loud, never fall
+        // back silently to another engine's strategy.
+        final KNNEngine secondary = KNNEngine.getEngine(SecondaryFixtureEngineProvider.SECONDARY_FIXTURE_ENGINE_NAME);
+        final UnsupportedOperationException e = expectThrows(UnsupportedOperationException.class, secondary::getFieldStrategy);
+        assertTrue(e.getMessage(), e.getMessage().contains("did not provide a fieldStrategy"));
+    }
+
+    public void testBuiltInFieldStrategiesAreUnchanged() {
+        assertSame(LuceneFieldStrategy.INSTANCE, KNNEngine.LUCENE.getFieldStrategy());
+        assertSame(FaissFieldStrategy.INSTANCE, KNNEngine.FAISS.getFieldStrategy());
+        assertSame(FaissFieldStrategy.INSTANCE, KNNEngine.NMSLIB.getFieldStrategy());
+        expectThrows(UnsupportedOperationException.class, KNNEngine.UNDEFINED::getFieldStrategy);
+    }
+
+    /** Guards the close test: the definitions drain on the first close and never repopulate (discovery
+     * is once per JVM), so only the first execution in a JVM can observe the full order. */
+    private static final java.util.concurrent.atomic.AtomicBoolean CLOSE_TEST_RAN = new java.util.concurrent.atomic.AtomicBoolean();
+
+    public void testCloseRunsInReverseRegistrationOrderAndSurvivesAThrow() {
+        assumeTrue("close order is observable only on the first run in a JVM", CLOSE_TEST_RAN.compareAndSet(false, true));
+        KNNEngine.getEngine(FIXTURE_ENGINE_NAME); // ensure discovery ran
+        FixtureConstants.CLOSE_ORDER.clear();
+        KNNEngine.closeEngineDefinitions();
+        // Reverse registration order, and the close-throws fixture (which closes first) does not stop the
+        // definitions after it.
+        assertEquals(
+            List.of(
+                CloseThrowsFixtureEngineProvider.CLOSE_THROWS_ENGINE_NAME,
+                SecondaryFixtureEngineProvider.SECONDARY_FIXTURE_ENGINE_NAME,
+                FIXTURE_ENGINE_NAME
+            ),
+            FixtureConstants.CLOSE_ORDER
+        );
+        // Idempotent: the definitions are drained on the first call.
+        KNNEngine.closeEngineDefinitions();
+        assertEquals(3, FixtureConstants.CLOSE_ORDER.size());
+        // The engines stay registered, lookups keep working during shutdown.
+        assertNotNull(KNNEngine.getEngine(FIXTURE_ENGINE_NAME));
     }
 
     public void testEngineExposesItsSearchContext() {

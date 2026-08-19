@@ -138,6 +138,7 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.client.Client;
 import org.opensearch.watcher.ResourceWatcherService;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -276,7 +277,7 @@ public class KNNPlugin extends Plugin
         TrainingModelRequest.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
 
         // Engine discovery runs after the k-NN singletons above are wired so definitions can use them.
-        KNNEngine.initialize(new KNNEngineContext(client, clusterService));
+        KNNEngine.initialize(KNNEngineContext.builder().client(client).clusterService(clusterService).build());
 
         clusterService.addListener(TrainingJobClusterStateListener.getInstance());
 
@@ -533,5 +534,13 @@ public class KNNPlugin extends Plugin
         Parameters parameters
     ) {
         return Map.of(MMRRerankProcessor.MMRRerankProcessorFactory.TYPE, new MMRRerankProcessor.MMRRerankProcessorFactory());
+    }
+
+    @Override
+    public void close() throws IOException {
+        // Registered engine definitions release whatever their initialize acquired; best effort, see
+        // KNNEngine#closeEngineDefinitions.
+        KNNEngine.closeEngineDefinitions();
+        super.close();
     }
 }
