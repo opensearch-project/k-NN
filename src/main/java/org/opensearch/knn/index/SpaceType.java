@@ -308,6 +308,8 @@ public enum SpaceType {
      * @return translated distance
      */
     public float scoreToDistanceTranslation(float score) {
-        throw new UnsupportedOperationException(String.format("Space [%s] does not have a score to distance translation", getValue()));
+        throw new UnsupportedOperationException(
+            String.format(Locale.ROOT, "Space [%s] does not have a score to distance translation", getValue())
+        );
     }
 }

@@ -80,7 +80,7 @@ public class RestSearchModelHandler extends BaseRestHandler {
             return;
         }
         throw new IllegalArgumentException(
-            String.format("%s must be between %d and %d inclusive", PARAM_SIZE, SEARCH_MODEL_MIN_SIZE, SEARCH_MODEL_MAX_SIZE)
+            String.format(Locale.ROOT, "%s must be between %d and %d inclusive", PARAM_SIZE, SEARCH_MODEL_MIN_SIZE, SEARCH_MODEL_MAX_SIZE)
         );
     }
 

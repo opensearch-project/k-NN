@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
+import java.nio.charset.StandardCharsets;
+
 import com.google.common.collect.ImmutableSet;
 import lombok.SneakyThrows;
 import org.apache.logging.log4j.Level;
@@ -321,7 +323,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
         when(dir.openInput(any(), any())).thenReturn(mock(IndexInput.class));
         SegmentInfo si = mock(SegmentInfo.class);
         when(si.files()).thenReturn(files);
-        when(si.getId()).thenReturn((si.hashCode() + "").getBytes());
+        when(si.getId()).thenReturn((si.hashCode() + "").getBytes(StandardCharsets.UTF_8));
         return new Faiss1040ScalarQuantizedKnnVectorsReader(new SegmentReadState(dir, si, fieldInfos, IOContext.DEFAULT), fvr);
     }
 }

@@ -5,6 +5,10 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import java.nio.charset.StandardCharsets;
+
+import java.util.Locale;
+
 import org.opensearch.Version;
 import org.opensearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -199,7 +203,7 @@ public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestC
             .getInstance(UpdateModelGraveyardTransportAction.class);
 
         String modelId = "test-model-id";
-        byte[] modelBlob = "testModel".getBytes();
+        byte[] modelBlob = "testModel".getBytes(StandardCharsets.UTF_8);
         int dimension = 2;
 
         createIndex(MODEL_INDEX_NAME);
@@ -380,6 +384,7 @@ public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestC
                     assertTrue(e instanceof DeleteModelException);
                     assertEquals(
                         String.format(
+                            Locale.ROOT,
                             "Cannot delete model [%s].  Model is in use by the following indices %s, which must be deleted first.",
                             updateModelGraveyardRequest.getModelId(),
                             indicesPresentInException

@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
+import java.nio.charset.StandardCharsets;
+
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
@@ -143,7 +145,7 @@ public class FaissMemoryOptimizedSearcherFactoryTests extends KNNTestCase {
                 // Write an invalid FAISS index type header to trigger UnsupportedFaissIndexException
                 // FAISS index format: first 4 bytes are a uint32 representing the index type string length,
                 // followed by the index type string. We write a valid-looking but unsupported type.
-                byte[] unsupportedType = "IxUNSUPPORTED".getBytes();
+                byte[] unsupportedType = "IxUNSUPPORTED".getBytes(StandardCharsets.UTF_8);
                 output.writeInt(unsupportedType.length);
                 output.writeBytes(unsupportedType, unsupportedType.length);
                 // Pad with zeros to avoid EOF
@@ -189,7 +191,7 @@ public class FaissMemoryOptimizedSearcherFactoryTests extends KNNTestCase {
 
         try (Directory directory = newFSDirectory(tempDir)) {
             try (IndexOutput output = directory.createOutput(fileName, IOContext.DEFAULT)) {
-                byte[] unsupportedType = "IxUNSUPPORTED".getBytes();
+                byte[] unsupportedType = "IxUNSUPPORTED".getBytes(StandardCharsets.UTF_8);
                 output.writeInt(unsupportedType.length);
                 output.writeBytes(unsupportedType, unsupportedType.length);
                 output.writeBytes(new byte[1024], 1024);

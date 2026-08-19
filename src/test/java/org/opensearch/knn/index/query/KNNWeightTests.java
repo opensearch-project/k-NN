@@ -12,6 +12,7 @@ import lombok.SneakyThrows;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentCommitInfo;
 import org.apache.lucene.index.SegmentInfo;
@@ -254,7 +255,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         when(fieldInfo.getAttribute(eq(MODEL_ID))).thenReturn(modelId);
 
         RuntimeException ex = expectThrows(RuntimeException.class, () -> knnWeight.scorer(leafReaderContext));
-        assertEquals(String.format("Model \"%s\" is not created.", modelId), ex.getMessage());
+        assertEquals(String.format(Locale.ROOT, "Model \"%s\" is not created.", modelId), ex.getMessage());
     }
 
     @SneakyThrows
@@ -1726,7 +1727,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         String engineName = fieldInfo.attributes().getOrDefault(KNN_ENGINE, KNNEngine.NMSLIB.getName());
         KNNEngine knnEngine = KNNEngine.getEngine(engineName);
         List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), query.getField(), reader.getSegmentInfo().info);
-        String expectIndexPath = String.format("%s_%s_%s%s%s", SEGMENT_NAME, 2011, FIELD_NAME, knnEngine.getExtension(), "c");
+        String expectIndexPath = String.format(Locale.ROOT, "%s_%s_%s%s%s", SEGMENT_NAME, 2011, FIELD_NAME, knnEngine.getExtension(), "c");
         assertEquals(engineFiles.get(0), expectIndexPath);
 
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
@@ -1783,6 +1784,12 @@ public class KNNWeightTests extends KNNWeightTestCase {
             when(reader.getFieldInfos()).thenReturn(fieldInfos);
             when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
             when(fieldInfo.attributes()).thenReturn(attributesMap);
+            // The segment carries the quantized vector field with live vectors, so SegmentLevelQuantizationInfo.build
+            // proceeds past its field-is-vector / non-empty-segment guards to load the quantization state.
+            when(fieldInfo.hasVectorValues()).thenReturn(true);
+            final FloatVectorValues floatVectorValues = mock(FloatVectorValues.class);
+            when(floatVectorValues.size()).thenReturn(1);
+            when(reader.getFloatVectorValues(FIELD_NAME)).thenReturn(floatVectorValues);
             // fieldName, new float[0], tempCollector, null)
             doNothing().when(reader).searchNearestVectors(any(), eq(new float[0]), any(), any());
 

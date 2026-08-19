@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index;
 
+import java.util.Locale;
+
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Response;
@@ -154,7 +156,7 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
             ResponseException.class,
             () -> updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.KNN_INDEX, false))
         );
-        assertThat(ex.getMessage(), containsString(String.format("final %s setting [index.knn], not updateable", INDEX_NAME)));
+        assertThat(ex.getMessage(), containsString(String.format(Locale.ROOT, "final %s setting [index.knn], not updateable", INDEX_NAME)));
 
     }
 

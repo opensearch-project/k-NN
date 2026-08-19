@@ -16,7 +16,7 @@ import org.junit.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import org.opensearch.common.io.PathUtils;
 
 @LuceneTestCase.SuppressSysoutChecks(bugUrl = "N/A")
 public class MemorySegmentAddressExtractorTests extends LuceneTestCase {
@@ -48,7 +48,7 @@ public class MemorySegmentAddressExtractorTests extends LuceneTestCase {
 
         // Create a dummy file
         final int tmpFileSize = 1333;
-        final Path tempFile = Paths.get(tempDirPath.toFile().getAbsolutePath(), "test.bin");
+        final Path tempFile = PathUtils.get(tempDirPath.toFile().getAbsolutePath(), "test.bin");
         Files.write(tempFile, new byte[tmpFileSize]);
 
         // Create directory
@@ -73,7 +73,7 @@ public class MemorySegmentAddressExtractorTests extends LuceneTestCase {
         final Path tempDirPath = createTempDir();
 
         // Create a dummy file
-        final Path tempFile = Paths.get(tempDirPath.toFile().getAbsolutePath(), "test.bin");
+        final Path tempFile = PathUtils.get(tempDirPath.toFile().getAbsolutePath(), "test.bin");
         Files.write(tempFile, new byte[fileSizeBytes]);
 
         // Create directory

@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
+import org.opensearch.common.Randomness;
+
 import lombok.SneakyThrows;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
@@ -20,11 +22,10 @@ import java.nio.ShortBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import org.opensearch.common.io.PathUtils;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 public class NativeRandomVectorScorerTests extends KNNTestCase {
     @Test
@@ -66,7 +67,7 @@ public class NativeRandomVectorScorerTests extends KNNTestCase {
         // Write 10 vectors
         final int dimension = 123;
         final int numVectors = 100;
-        final Path tempFile = Paths.get(tempDirPath.toFile().getAbsolutePath(), "test.bin");
+        final Path tempFile = PathUtils.get(tempDirPath.toFile().getAbsolutePath(), "test.bin");
         final long flatVectorStartOffset = 1555;
         final List<float[]> vectors = new ArrayList<>();
         try (
@@ -90,7 +91,7 @@ public class NativeRandomVectorScorerTests extends KNNTestCase {
             for (int i = 0; i < numVectors; ++i) {
                 float[] vector = new float[dimension];
                 for (int j = 0; j < dimension; ++j) {
-                    final float floatValue = ThreadLocalRandom.current().nextFloat();
+                    final float floatValue = Randomness.get().nextFloat();
                     final short fp16Value = Float.floatToFloat16(floatValue);
                     shortBuffer.put(fp16Value);
                     vector[j] = Float.float16ToFloat(fp16Value);
@@ -103,7 +104,7 @@ public class NativeRandomVectorScorerTests extends KNNTestCase {
         // Make a query vector
         float[] queryVec = new float[dimension];
         for (int j = 0; j < dimension; ++j) {
-            queryVec[j] = Float.float16ToFloat(Float.floatToFloat16(ThreadLocalRandom.current().nextFloat()));
+            queryVec[j] = Float.float16ToFloat(Float.floatToFloat16(Randomness.get().nextFloat()));
         }
 
         // Test vector scoring
