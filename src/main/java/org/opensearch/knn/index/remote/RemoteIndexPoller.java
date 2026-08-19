@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.remote;
 
+import java.util.Locale;
+
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
 import org.opensearch.knn.index.codec.nativeindex.IndexBuildAbortedException;
@@ -91,12 +93,14 @@ public class RemoteIndexPoller implements RemoteIndexWaiter {
             STATUS_REQUEST_SUCCESS_COUNT.increment();
             String taskStatus = remoteBuildStatusResponse.getTaskStatus();
             if (StringUtils.isBlank(taskStatus)) {
-                throw new IOException(String.format("Invalid response format, missing %s", TASK_STATUS));
+                throw new IOException(String.format(Locale.ROOT, "Invalid response format, missing %s", TASK_STATUS));
             }
             switch (taskStatus) {
                 case COMPLETED_INDEX_BUILD -> {
                     if (StringUtils.isBlank(remoteBuildStatusResponse.getFileName())) {
-                        throw new IOException(String.format("Invalid response format, missing %s for %s status", FILE_NAME, taskStatus));
+                        throw new IOException(
+                            String.format(Locale.ROOT, "Invalid response format, missing %s for %s status", FILE_NAME, taskStatus)
+                        );
                     }
                     return remoteBuildStatusResponse;
                 }
@@ -104,17 +108,18 @@ public class RemoteIndexPoller implements RemoteIndexWaiter {
                     String errorMessage = remoteBuildStatusResponse.getErrorMessage();
                     Duration d = Duration.ofNanos(System.nanoTime() - startTime);
                     throw new InterruptedException(
-                        String.format("Remote index build failed after %d minutes. %s", d.toMinutesPart(), errorMessage)
+                        String.format(Locale.ROOT, "Remote index build failed after %d minutes. %s", d.toMinutesPart(), errorMessage)
                     );
                 }
                 case RUNNING_INDEX_BUILD -> sleepWithJitter(pollInterval);
-                default -> throw new IOException(String.format("Server returned invalid task status %s", taskStatus));
+                default -> throw new IOException(String.format(Locale.ROOT, "Server returned invalid task status %s", taskStatus));
             }
         }
         Duration waitedDuration = Duration.ofNanos(System.nanoTime() - startTime);
         Duration timeoutDuration = Duration.ofNanos(timeout);
         throw new InterruptedException(
             String.format(
+                Locale.ROOT,
                 "Remote index build timed out after %d minutes, timeout is set to %d minutes. Falling back to CPU build",
                 waitedDuration.toMinutesPart(),
                 timeoutDuration.toMinutesPart()

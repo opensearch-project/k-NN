@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index;
 
+import java.util.Locale;
+
 import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import lombok.SneakyThrows;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -312,7 +314,7 @@ public class KNNMapperSearcherIT extends KNNCompressionRestTestCase {
     public void testStoredFields_whenByteDataType_thenSucceed() {
         // Create index with stored field and confirm that we can properly retrieve it
         int[] testVector = new int[] { -128, 0, 1, 127 };
-        String expectedResponse = String.format("\"fields\":{\"%s\":[[-128,0,1,127]]}}", FIELD_NAME);
+        String expectedResponse = String.format(Locale.ROOT, "\"fields\":{\"%s\":[[-128,0,1,127]]}}", FIELD_NAME);
         createKnnIndex(
             INDEX_NAME,
             createVectorMapping(testVector.length, KNNEngine.LUCENE.getName(), VectorDataType.BYTE.getValue(), true)
@@ -374,7 +376,7 @@ public class KNNMapperSearcherIT extends KNNCompressionRestTestCase {
     public void testStoredFields_whenFloatDataType_thenSucceed() {
         List<KNNEngine> enginesToTest = List.of(KNNEngine.FAISS, KNNEngine.LUCENE);
         float[] testVector = new float[] { -100.0f, 100.0f, 0f, 1f };
-        String expectedResponse = String.format("\"fields\":{\"%s\":[[-100.0,100.0,0.0,1.0]]}}", FIELD_NAME);
+        String expectedResponse = String.format(Locale.ROOT, "\"fields\":{\"%s\":[[-100.0,100.0,0.0,1.0]]}}", FIELD_NAME);
         for (KNNEngine knnEngine : enginesToTest) {
             createKnnIndex(INDEX_NAME, createVectorMapping(testVector.length, knnEngine.getName(), VectorDataType.FLOAT.getValue(), true));
             addKnnDoc(INDEX_NAME, "1", FIELD_NAME, testVector);

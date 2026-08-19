@@ -10,6 +10,8 @@
  */
 package org.opensearch.knn.training;
 
+import org.opensearch.common.Randomness;
+
 import lombok.Getter;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.search.SearchResponse;
@@ -43,7 +45,7 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
         createKnnIndexMapping(DEFAULT_INDEX_NAME, DEFAULT_FIELD_NAME, DEFAULT_DIMENSION);
 
         // Create list of random vectors and ingest
-        Random random = new Random();
+        Random random = Randomness.get();
         List<Float[]> vectors = new ArrayList<>();
         for (int i = 0; i < DEFAULT_NUM_VECTORS; i++) {
             Float[] vector = random.doubles(DEFAULT_DIMENSION).boxed().map(Double::floatValue).toArray(Float[]::new);
@@ -83,7 +85,7 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
         createKnnIndexMapping(DEFAULT_INDEX_NAME, DEFAULT_FIELD_NAME, DEFAULT_DIMENSION);
 
         // Create list of random vectors and ingest
-        Random random = new Random();
+        Random random = Randomness.get();
         List<Integer[]> vectors = new ArrayList<>();
         for (int i = 0; i < DEFAULT_NUM_VECTORS; i++) {
             Integer[] vector = random.ints(DEFAULT_DIMENSION).boxed().toArray(Integer[]::new);
@@ -127,7 +129,7 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
         createKnnIndexMapping(DEFAULT_INDEX_NAME, DEFAULT_FIELD_NAME, DEFAULT_DIMENSION);
 
         // Create list of random vectors and ingest
-        Random random = new Random();
+        Random random = Randomness.get();
         List<Float[]> vectors = new ArrayList<>();
         for (int i = 0; i < DEFAULT_NUM_VECTORS; i++) {
             Float[] vector = random.doubles(DEFAULT_DIMENSION).boxed().map(Double::floatValue).toArray(Float[]::new);
@@ -180,7 +182,7 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
         createKnnIndexMapping(DEFAULT_INDEX_NAME, DEFAULT_FIELD_NAME, DEFAULT_DIMENSION);
 
         // Create list of random vectors and ingest
-        Random random = new Random();
+        Random random = Randomness.get();
         for (int i = 0; i < DEFAULT_NUM_VECTORS; i++) {
             Float[] vector = random.doubles(DEFAULT_DIMENSION).boxed().map(Double::floatValue).toArray(Float[]::new);
             addKnnDoc(DEFAULT_INDEX_NAME, Integer.toString(i), DEFAULT_FIELD_NAME, vector);
@@ -350,7 +352,7 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
         createKnnNestedIndexMapping(DEFAULT_INDEX_NAME, DEFAULT_NESTED_FIELD_PATH, DEFAULT_DIMENSION);
 
         // Create list of random vectors and ingest
-        Random random = new Random();
+        Random random = Randomness.get();
         List<Float[]> vectors = new ArrayList<>();
         for (int i = 0; i < DEFAULT_NUM_VECTORS; i++) {
             Float[] vector = random.doubles(DEFAULT_DIMENSION).boxed().map(Double::floatValue).toArray(Float[]::new);

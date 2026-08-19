@@ -160,7 +160,6 @@ public class KnnVectorValuesInputStreamTests extends KNNTestCase {
         // 1. Create NUM_PARTS input streams
         final List<VectorValuesInputStream> streamList = new ArrayList<>(NUM_PARTS);
         for (int partNumber = 0; partNumber < NUM_PARTS; partNumber++) {
-            System.out.println(partNumber);
             streamList.add(
                 new VectorValuesInputStream(knnVectorValuesSupplier.get(), VectorDataType.FLOAT, (long) partNumber * PART_SIZE, PART_SIZE)
             );

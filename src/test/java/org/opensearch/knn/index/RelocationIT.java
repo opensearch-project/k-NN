@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index;
 
+import java.nio.charset.StandardCharsets;
+
 import lombok.extern.log4j.Log4j2;
 import org.junit.BeforeClass;
 import org.opensearch.client.Request;
@@ -46,7 +48,7 @@ public class RelocationIT extends KNNRestTestCase {
         Response response = client().performRequest(nodesNamesRequest);
         assertOK(response);
 
-        String[] nodeNamesStr = new String(response.getEntity().getContent().readAllBytes()).split("\n");
+        String[] nodeNamesStr = new String(response.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8).split("\n");
         assertEquals(numNodes, nodeNamesStr.length);
 
         Settings indexSettings = Settings.builder()
@@ -100,7 +102,7 @@ public class RelocationIT extends KNNRestTestCase {
             Request request = new Request("GET", "_cat/recovery?active_only=true");
 
             Response resp = client().performRequest(request);
-            String respStr = new String(resp.getEntity().getContent().readAllBytes());
+            String respStr = new String(resp.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8);
             if (respStr.isEmpty()) {
                 break;
             } else {

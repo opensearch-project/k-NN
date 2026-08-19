@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec.util;
 
+import java.util.Locale;
+
 import lombok.NonNull;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
@@ -48,15 +50,21 @@ public class KNNCodecUtil {
     }
 
     public static String buildEngineFileName(String segmentName, String latestBuildVersion, String fieldName, String extension) {
-        return String.format("%s%s%s", buildEngineFilePrefix(segmentName), latestBuildVersion, buildEngineFileSuffix(fieldName, extension));
+        return String.format(
+            Locale.ROOT,
+            "%s%s%s",
+            buildEngineFilePrefix(segmentName),
+            latestBuildVersion,
+            buildEngineFileSuffix(fieldName, extension)
+        );
     }
 
     public static String buildEngineFilePrefix(String segmentName) {
-        return String.format("%s_", segmentName);
+        return String.format(Locale.ROOT, "%s_", segmentName);
     }
 
     public static String buildEngineFileSuffix(String fieldName, String extension) {
-        return String.format("_%s%s", fieldName, extension);
+        return String.format(Locale.ROOT, "_%s%s", fieldName, extension);
     }
 
     public static long getTotalLiveDocsCount(final BinaryDocValues binaryDocValues) {

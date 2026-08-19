@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
+import java.nio.charset.StandardCharsets;
+
 import lombok.SneakyThrows;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
@@ -125,7 +127,7 @@ public class FaissIndexFloatFlatTests extends KNNTestCase {
         final String relativePath = "data/memoryoptsearch/faiss_flat_float_50_vectors_128_dim.bin";
         final URL floatFloatVectors = FaissHNSWTests.class.getClassLoader().getResource(relativePath);
         final byte[] bytes = Files.readAllBytes(Path.of(floatFloatVectors.toURI()));
-        final byte[] indexTypeFourBytes = indexType.getBytes();
+        final byte[] indexTypeFourBytes = indexType.getBytes(StandardCharsets.UTF_8);
         final byte[] combinedBytes = ByteBuffer.allocate(bytes.length + indexTypeFourBytes.length)
             .put(indexTypeFourBytes)
             .put(bytes)

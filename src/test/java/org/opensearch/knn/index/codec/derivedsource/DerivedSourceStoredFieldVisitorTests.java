@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec.derivedsource;
 
+import java.nio.charset.StandardCharsets;
+
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.StoredFieldVisitor;
 import org.opensearch.index.mapper.SourceFieldMapper;
@@ -33,8 +35,8 @@ public class DerivedSourceStoredFieldVisitorTests extends OpenSearchTestCase {
         DerivedSourceVectorTransformer transformer = mock(DerivedSourceVectorTransformer.class);
         FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder(SourceFieldMapper.NAME).build();
 
-        byte[] originalValue = TEST_ORIGINAL_VALUE.getBytes();
-        byte[] transformedValue = TEST_TRANSFORMED_VALUE.getBytes();
+        byte[] originalValue = TEST_ORIGINAL_VALUE.getBytes(StandardCharsets.UTF_8);
+        byte[] transformedValue = TEST_TRANSFORMED_VALUE.getBytes(StandardCharsets.UTF_8);
         int documentId = TEST_DOC_ID;
 
         when(transformer.injectVectors(documentId, originalValue)).thenReturn(transformedValue);
@@ -52,7 +54,7 @@ public class DerivedSourceStoredFieldVisitorTests extends OpenSearchTestCase {
         DerivedSourceVectorTransformer transformer = mock(DerivedSourceVectorTransformer.class);
         FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("other-field").build();
 
-        byte[] value = TEST_VALUE.getBytes();
+        byte[] value = TEST_VALUE.getBytes(StandardCharsets.UTF_8);
         int documentId = TEST_DOC_ID;
 
         DerivedSourceStoredFieldVisitor visitor = new DerivedSourceStoredFieldVisitor(delegate, documentId, transformer);

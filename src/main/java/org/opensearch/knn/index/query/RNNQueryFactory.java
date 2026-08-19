@@ -151,7 +151,13 @@ public class RNNQueryFactory extends BaseQueryFactory {
         final Query filterQuery = getFilterQuery(request);
 
         log.debug(
-            String.format("Creating Lucene r-NN query for index: %s \"\", field: %s \"\", k: %f", request.getIndexName(), fieldName, radius)
+            String.format(
+                Locale.ROOT,
+                "Creating Lucene r-NN query for index: %s \"\", field: %s \"\", k: %f",
+                request.getIndexName(),
+                fieldName,
+                radius
+            )
         );
 
         switch (request.getVectorDataType()) {

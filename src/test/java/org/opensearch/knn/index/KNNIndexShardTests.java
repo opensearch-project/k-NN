@@ -26,6 +26,7 @@ import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -125,15 +126,15 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         VectorDataType vectorDataType = VectorDataType.FLOAT;
 
         Set<String> includedFileNames = ImmutableSet.of(
-            String.format("%s_111_%s%s", segmentName, fieldName, fileExt),
-            String.format("%s_7_%s%s", segmentName, fieldName, fileExt),
-            String.format("%s_53_%s%s", segmentName, fieldName, fileExt)
+            String.format(Locale.ROOT, "%s_111_%s%s", segmentName, fieldName, fileExt),
+            String.format(Locale.ROOT, "%s_7_%s%s", segmentName, fieldName, fileExt),
+            String.format(Locale.ROOT, "%s_53_%s%s", segmentName, fieldName, fileExt)
         );
 
         List<String> excludedFileNames = ImmutableList.of(
-            String.format("_111_%s%s", fieldName, fileExt), // missing segment name
-            String.format("%s_111_%s", segmentName, fileExt), // missing field name
-            String.format("%s_111_%s.invalid", segmentName, fieldName) // missing extension
+            String.format(Locale.ROOT, "_111_%s%s", fieldName, fileExt), // missing segment name
+            String.format(Locale.ROOT, "%s_111_%s", segmentName, fileExt), // missing field name
+            String.format(Locale.ROOT, "%s_111_%s.invalid", segmentName, fieldName) // missing extension
         );
 
         List<String> files = Stream.concat(includedFileNames.stream(), excludedFileNames.stream()).collect(Collectors.toList());
