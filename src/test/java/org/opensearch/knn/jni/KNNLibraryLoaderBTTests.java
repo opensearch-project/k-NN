@@ -17,7 +17,7 @@ import java.lang.reflect.Modifier;
  * Tests all non-private methods in KNNLibraryLoader to ensure they can be invoked
  * without throwing exceptions during library loading operations.
  */
-public class KNNLibraryLoaderBT extends KNNTestCase {
+public class KNNLibraryLoaderBTTests extends KNNTestCase {
 
     /**
      * Invokes every no-arg non-private loader method; parameterized loaders are covered by their

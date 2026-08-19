@@ -19,6 +19,7 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -30,6 +31,7 @@ import org.opensearch.knn.plugin.script.KNNScoringUtil;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Locale;
 import java.util.Random;
 import java.util.Set;
 import java.util.PriorityQueue;
@@ -214,7 +216,7 @@ public class TestUtils {
     }
 
     public static String createFakeNativeMamoryCacheKey(final String fileName) {
-        return fileName + "@" + Base64.getEncoder().encodeToString(fileName.getBytes());
+        return fileName + "@" + Base64.getEncoder().encodeToString(fileName.getBytes(StandardCharsets.UTF_8));
     }
 
     /*
@@ -261,7 +263,7 @@ public class TestUtils {
         float dist;
         if (spaceType != null) {
             dist = KNN_SCORING_SPACE_TYPE.getOrDefault(spaceType, (defaultQueryVector, defaultIndexVector) -> {
-                throw new IllegalArgumentException(String.format("Invalid SpaceType function: \"%s\"", spaceType));
+                throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid SpaceType function: \"%s\"", spaceType));
             }).apply(queryVector, indexVector);
         } else {
             throw new NullPointerException("SpaceType is null. Provide a valid SpaceType.");
@@ -309,7 +311,7 @@ public class TestUtils {
             List<Integer> idsList = new ArrayList<>();
             List<Float[]> vectorsList = new ArrayList<>();
 
-            BufferedReader reader = new BufferedReader(new FileReader(path));
+            BufferedReader reader = new BufferedReader(new FileReader(path, StandardCharsets.UTF_8));
             String line = reader.readLine();
             while (line != null) {
                 Map<String, Object> doc = XContentHelper.createParser(
@@ -345,7 +347,7 @@ public class TestUtils {
         }
 
         private float[][] readQueries(String path) throws IOException {
-            BufferedReader reader = new BufferedReader(new FileReader(path));
+            BufferedReader reader = new BufferedReader(new FileReader(path, StandardCharsets.UTF_8));
             String line = reader.readLine();
 
             List<Float[]> floatsList = new ArrayList<>();
@@ -374,7 +376,7 @@ public class TestUtils {
         }
 
         private String[][] readGroundTruthValues(String path) throws IOException {
-            BufferedReader reader = new BufferedReader(new FileReader(path));
+            BufferedReader reader = new BufferedReader(new FileReader(path, StandardCharsets.UTF_8));
             String line = reader.readLine();
 
             List<String[]> stringList = new ArrayList<>();

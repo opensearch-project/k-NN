@@ -299,6 +299,7 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
         }
         throw new IllegalArgumentException(
             String.format(
+                Locale.ROOT,
                 "Invalid engine type: %s. If an engine definition for this name exists, it may have failed to load; check startup warnings.",
                 name
             )

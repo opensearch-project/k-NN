@@ -10,11 +10,13 @@ import org.apache.lucene.index.SegmentReadState;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
+import org.opensearch.common.SuppressForbidden;
 import org.opensearch.test.OpenSearchTestCase;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -136,6 +138,7 @@ public class DerivedSourceVectorTransformerTests extends OpenSearchTestCase {
         for (String field : expectedPresent) {
             assertTrue(
                 String.format(
+                    Locale.ROOT,
                     "Field '%s' should be present (includes=%s, excludes=%s)",
                     field,
                     Arrays.toString(includes),
@@ -148,6 +151,7 @@ public class DerivedSourceVectorTransformerTests extends OpenSearchTestCase {
         for (String field : expectedAbsent) {
             assertFalse(
                 String.format(
+                    Locale.ROOT,
                     "Field '%s' should be absent (includes=%s, excludes=%s)",
                     field,
                     Arrays.toString(includes),
@@ -158,7 +162,12 @@ public class DerivedSourceVectorTransformerTests extends OpenSearchTestCase {
         }
 
         assertEquals(
-            String.format("Field count mismatch (includes=%s, excludes=%s)", Arrays.toString(includes), Arrays.toString(excludes)),
+            String.format(
+                Locale.ROOT,
+                "Field count mismatch (includes=%s, excludes=%s)",
+                Arrays.toString(includes),
+                Arrays.toString(excludes)
+            ),
             expectedPresent.length,
             remainingFields.size()
         );
@@ -193,6 +202,7 @@ public class DerivedSourceVectorTransformerTests extends OpenSearchTestCase {
         return mockFieldInfo;
     }
 
+    @SuppressForbidden(reason = "test intentionally uses reflection to read a private field for verification")
     private Set<String> getRemainingFields(DerivedSourceVectorTransformer transformer) {
         try {
             java.lang.reflect.Field field = DerivedSourceVectorTransformer.class.getDeclaredField("perFieldDerivedVectorTransformers");

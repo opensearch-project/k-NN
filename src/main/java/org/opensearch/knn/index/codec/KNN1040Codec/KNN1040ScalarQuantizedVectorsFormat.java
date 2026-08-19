@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
+import java.util.Locale;
+
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
@@ -59,6 +61,7 @@ public class KNN1040ScalarQuantizedVectorsFormat extends Lucene104ScalarQuantize
     @Override
     public String toString() {
         return String.format(
+            Locale.ROOT,
             "%s(encoding=%s, scorer=%s, rawVectorFormat=%s)",
             getClass().getSimpleName(),
             encoding,

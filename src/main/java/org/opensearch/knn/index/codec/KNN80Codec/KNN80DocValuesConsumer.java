@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec.KNN80Codec;
 
+import java.util.Locale;
+
 import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -60,7 +62,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer {
 
     private boolean isKNNBinaryFieldRequired(FieldInfo field) {
         final KNNEngine knnEngine = extractKNNEngine(field);
-        log.debug(String.format("Read engine [%s] for field [%s]", knnEngine.getName(), field.getName()));
+        log.debug(String.format(Locale.ROOT, "Read engine [%s] for field [%s]", knnEngine.getName(), field.getName()));
         return field.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD) && knnEngine.createsCustomSegmentFiles();
     }
 

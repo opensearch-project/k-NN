@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec.KNN80Codec;
 
+import java.util.Locale;
+
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.codecs.CompoundFormat;
@@ -59,12 +61,12 @@ public class KNN80CompoundFormatTests extends KNNTestCase {
         String segmentName = "_test";
 
         Set<String> segmentFiles = Sets.newHashSet(
-            String.format("%s_nmslib1%s", segmentName, KNNEngine.NMSLIB.getExtension()),
-            String.format("%s_nmslib2%s", segmentName, KNNEngine.NMSLIB.getExtension()),
-            String.format("%s_nmslib3%s", segmentName, KNNEngine.NMSLIB.getExtension()),
-            String.format("%s_faiss1%s", segmentName, KNNEngine.FAISS.getExtension()),
-            String.format("%s_faiss2%s", segmentName, KNNEngine.FAISS.getExtension()),
-            String.format("%s_faiss3%s", segmentName, KNNEngine.FAISS.getExtension())
+            String.format(Locale.ROOT, "%s_nmslib1%s", segmentName, KNNEngine.NMSLIB.getExtension()),
+            String.format(Locale.ROOT, "%s_nmslib2%s", segmentName, KNNEngine.NMSLIB.getExtension()),
+            String.format(Locale.ROOT, "%s_nmslib3%s", segmentName, KNNEngine.NMSLIB.getExtension()),
+            String.format(Locale.ROOT, "%s_faiss1%s", segmentName, KNNEngine.FAISS.getExtension()),
+            String.format(Locale.ROOT, "%s_faiss2%s", segmentName, KNNEngine.FAISS.getExtension()),
+            String.format(Locale.ROOT, "%s_faiss3%s", segmentName, KNNEngine.FAISS.getExtension())
         );
 
         SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
@@ -92,7 +94,7 @@ public class KNN80CompoundFormatTests extends KNNTestCase {
             try {
                 directory.deleteFile(filename);
             } catch (IOException e) {
-                fail(String.format("Failed to delete: %s", filename));
+                fail(String.format(Locale.ROOT, "Failed to delete: %s", filename));
             }
         });
     }

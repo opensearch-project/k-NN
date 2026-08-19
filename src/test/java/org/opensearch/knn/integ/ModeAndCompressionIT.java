@@ -5,6 +5,10 @@
 
 package org.opensearch.knn.integ;
 
+import java.nio.charset.StandardCharsets;
+
+import java.util.Locale;
+
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.Assert;
@@ -14,9 +18,12 @@ import org.opensearch.client.ResponseException;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
@@ -27,6 +34,8 @@ import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
@@ -638,6 +647,160 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
     }
 
     /**
+     * Regression test for the missing {@code .osknnqstate} quantization-state failure on the k-NN
+     * <b>search</b> read path (see {@code repro_osknnqstate_missing.sh}).
+     * <p>
+     * A FAISS binary (1-bit) quantized field can end up in a segment's FieldInfos while that segment
+     * holds zero live vector documents (all vector docs deleted then physically expunged by a merge).
+     * The writer skips {@code train()} for such a segment, so no {@code .osknnqstate} file is written.
+     * The reader {@link org.opensearch.knn.index.query.SegmentLevelQuantizationInfo#build} must detect
+     * the empty segment (via {@code FloatVectorValues}) and return {@code null} instead of
+     * unconditionally opening the absent state file, which previously threw
+     * {@code NoSuchFileException}/{@code FileNotFoundException} before the graceful exact-search fallback.
+     * <p>
+     * Unlike {@link #testForceMergeWithVectorlessSegment_whenFaissSQ_thenSucceed}, the vectorless segment
+     * is left un-merged alongside a healthy vector-bearing segment so that a live k-NN query touches it.
+     */
+    @SneakyThrows
+    public void testKnnSearchWithVectorlessSegment_whenFaissBinary_thenSucceed() {
+        final int vectorDocCount = 10;
+        final int k = 5;
+        final String indexName = INDEX_NAME + "_bq_empty_search";
+        final float[][] vectors = new float[vectorDocCount][DIMENSION];
+        for (int docId = 0; docId < vectorDocCount; docId++) {
+            Arrays.fill(vectors[docId], (float) docId);
+        }
+
+        try (
+            XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(FIELD_NAME)
+                .field("type", "knn_vector")
+                .field("dimension", DIMENSION)
+                .startObject(KNN_METHOD)
+                .field(NAME, "hnsw")
+                .field(KNN_ENGINE, FAISS_NAME)
+                .startObject(PARAMETERS)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, "binary")
+                .startObject(PARAMETERS)
+                .field("bits", 1)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .startObject(FIELD_NAME_NON_KNN)
+                .field("type", "text")
+                .endObject()
+                .endObject()
+                .endObject()
+        ) {
+            createKnnIndex(indexName, buildKNNIndexSettings(-1), builder.toString());
+
+            // Segment A: vector docs plus one live non-vector "anchor" doc. The anchor keeps the segment
+            // alive after every vector doc below is replaced, so the field survives in FieldInfos.
+            final Request initialBulk = new Request("POST", "/_bulk");
+            initialBulk.addParameter("refresh", "true");
+            final StringBuilder initialBody = new StringBuilder();
+            for (int docId = 0; docId < vectorDocCount; docId++) {
+                initialBody.append("{\"index\":{\"_index\":\"")
+                    .append(indexName)
+                    .append("\",\"_id\":\"")
+                    .append(docId)
+                    .append("\"}}\n{\"")
+                    .append(FIELD_NAME)
+                    .append("\":")
+                    .append(Arrays.toString(vectors[docId]))
+                    .append("}\n");
+            }
+            initialBody.append("{\"index\":{\"_index\":\"")
+                .append(indexName)
+                .append("\",\"_id\":\"anchor\"}}\n{\"")
+                .append(FIELD_NAME_NON_KNN)
+                .append("\":\"anchor\"}\n");
+            initialBulk.setJsonEntity(initialBody.toString());
+            assertEquals(RestStatus.OK.getStatus(), client().performRequest(initialBulk).getStatusLine().getStatusCode());
+            assertEquals(1, getTotalSegmentCount(indexName));
+
+            // Replace every vector doc with a non-vector doc (soft-deletes the original vectors).
+            final Request replacementBulk = new Request("POST", "/_bulk");
+            replacementBulk.addParameter("refresh", "true");
+            final StringBuilder replacementBody = new StringBuilder();
+            for (int docId = 0; docId < vectorDocCount; docId++) {
+                replacementBody.append("{\"index\":{\"_index\":\"")
+                    .append(indexName)
+                    .append("\",\"_id\":\"")
+                    .append(docId)
+                    .append("\"}}\n{\"")
+                    .append(FIELD_NAME_NON_KNN)
+                    .append("\":\"replacement\"}\n");
+            }
+            replacementBulk.setJsonEntity(replacementBody.toString());
+            assertEquals(RestStatus.OK.getStatus(), client().performRequest(replacementBulk).getStatusLine().getStatusCode());
+            assertEquals(2, getTotalSegmentCount(indexName));
+
+            // Physically expunge the soft-deleted vector docs so the surviving segment keeps the field
+            // in FieldInfos with zero live vectors (hence no .osknnqstate is written). Soft-delete
+            // retention leases advance in the background, so poll -- flush + expunge-only merge -- until
+            // docs.deleted reaches 0 instead of forcing it with a retention-lease override setting.
+            assertBusy(() -> {
+                flushIndex(indexName);
+                final Request expunge = new Request("POST", "/" + indexName + "/_forcemerge");
+                expunge.addParameter("only_expunge_deletes", "true");
+                expunge.addParameter("flush", "true");
+                assertEquals(RestStatus.OK.getStatus(), client().performRequest(expunge).getStatusLine().getStatusCode());
+                refreshIndex(indexName);
+                assertEquals("soft-deleted vector docs were not physically expunged", 0, getDeletedDocCount(indexName));
+            }, 120, TimeUnit.SECONDS);
+            assertEquals(vectorDocCount + 1, getDocCount(indexName));
+
+            // Add a fresh, healthy vector-bearing segment. Do NOT merge -- the vectorless segment must
+            // remain a separate leaf so the k-NN query below actually reads it and exercises the
+            // SegmentLevelQuantizationInfo.build guard.
+            bulkAddKnnDocs(indexName, FIELD_NAME, vectors, vectorDocCount);
+            // At least two leaves must remain: the vectorless segment plus the fresh vector segment(s).
+            // A count of exactly 1 would mean everything was merged into a single healthy segment and the
+            // guard would never be exercised.
+            assertTrue(getTotalSegmentCount(indexName) >= 2);
+
+            // Before the fix this throws NoSuchFileException on the missing .osknnqstate of the
+            // vectorless segment. After the fix the empty segment degrades gracefully and the query
+            // returns the healthy segment's neighbors. We assert the full result set is returned (a
+            // shard failure would drop hits) rather than a strict neighbor order, since 1-bit binary
+            // quantization does not preserve exact ranking.
+            final float[] queryVector = new float[DIMENSION];
+            Arrays.fill(queryVector, (float) vectorDocCount);
+            final Response searchResponse = searchKNNIndex(
+                indexName,
+                KNNQueryBuilder.builder().k(k).fieldName(FIELD_NAME).vector(queryVector).build(),
+                k
+            );
+            final List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), FIELD_NAME);
+            assertEquals(k, results.size());
+        }
+    }
+
+    /**
+     * Number of soft-deleted (but not yet physically purged) docs in the primaries of an index,
+     * read from the {@code _stats/docs} API.
+     */
+    private int getDeletedDocCount(final String indexName) throws Exception {
+        final Request request = new Request("GET", "/" + indexName + "/_stats/docs");
+        final Response response = client().performRequest(request);
+        assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        final Map<String, Object> responseMap = createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            EntityUtils.toString(response.getEntity())
+        ).map();
+        final Map<String, Object> all = (Map<String, Object>) responseMap.get("_all");
+        final Map<String, Object> primaries = (Map<String, Object>) all.get("primaries");
+        final Map<String, Object> docs = (Map<String, Object>) primaries.get("docs");
+        return (Integer) docs.get("deleted");
+    }
+
+    /**
      * Test segment with knn_vector field mapping but no docs containing the vector field.
      * Creates separate segments: one with vector docs, one with only non-vector doc.
      * Validates k-NN search functionality works without errors for ON_DISK mode with compression.
@@ -841,7 +1004,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
             if (mode == null) {
                 continue;
             }
-            mode = mode.toLowerCase();
+            mode = mode.toLowerCase(Locale.ROOT);
             String indexName = INDEX_NAME + mode;
             String modelId = indexName;
             builder = XContentFactory.jsonBuilder()
@@ -1010,7 +1173,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         assertEquals(
             "The status of index " + indexName + " is not green",
             "green",
-            new String(response.getEntity().getContent().readAllBytes()).split("\n")[0].split(" ")[0]
+            new String(response.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8).split("\n")[0].split(" ")[0]
         );
 
     }

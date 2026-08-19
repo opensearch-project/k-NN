@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.query;
 
+import java.util.Locale;
+
 import com.google.common.annotations.VisibleForTesting;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
@@ -136,7 +138,10 @@ public abstract class KNNWeight extends Weight {
                 score = getKnnScore(knnScorer, doc);
             }
         } catch (IOException e) {
-            throw new RuntimeException(String.format("Error while explaining KNN score for doc [%d], score [%f]", doc, score), e);
+            throw new RuntimeException(
+                String.format(Locale.ROOT, "Error while explaining KNN score for doc [%d], score [%f]", doc, score),
+                e
+            );
         }
         final String highLevelExplanation = getHighLevelExplanation();
         final StringBuilder leafLevelExplanation = getLeafLevelExplanation(context);
