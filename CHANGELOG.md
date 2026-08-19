@@ -23,3 +23,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Support `index.knn.advanced.approximate_threshold` for the Lucene engine [#3451](https://github.com/opensearch-project/k-NN/pull/3451)
 * Convert document vectors to primitive arrays once per document in lateInteractionScore, instead of once per query-vector/document-vector pair [#3453](https://github.com/opensearch-project/k-NN/pull/3453)
 * Terminate remote index build early when the merge has been aborted [#3488](https://github.com/opensearch-project/k-NN/pull/3488)
+* Add native SIMD cosine scoring for FP16 and SQ formats in memory-optimized search, emitting Lucene-native scores directly and removing post-hoc score conversion [#3386](https://github.com/opensearch-project/k-NN/pull/3386)

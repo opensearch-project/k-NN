@@ -43,20 +43,23 @@ public final class MemoryOptimizedSearchScoreConverter {
      * @return Converted value to be used during Lucene search algorithm.
      */
     public static float distanceToRadialThreshold(final float distance, final SpaceType spaceType) {
-        switch (spaceType) {
-            case INNER_PRODUCT:
-                // Faiss distance for IP is -dot. Negate to get raw dot product for Lucene.
-                return KNNEngine.LUCENE.distanceToRadialThreshold(-distance, spaceType);
-            case COSINESIMIL:
-                // For cosine similarity, `distance = 1 - inner_product_value`.
-                // therefore, we should extract it then convert it to max_inner_product_value
-                final float innerProductValue = KNNEngine.FAISS.distanceToRadialThreshold(distance, SpaceType.COSINESIMIL);
-
-                // Convert inner product value to max inner product value.
-                return SpaceType.INNER_PRODUCT.scoreTranslation(-innerProductValue);
-            default:
-                return KNNEngine.LUCENE.distanceToRadialThreshold(distance, spaceType);
+        if (spaceType == SpaceType.INNER_PRODUCT) {
+            // Faiss distance for IP is -dot. Negate to recover the raw dot product before Lucene's conversion.
+            return KNNEngine.LUCENE.distanceToRadialThreshold(-distance, spaceType);
         }
+        // The memory-optimized scorer emits Lucene-native scores for cosine and L2, including
+        // cosine (FP16_COSINE / SQ_COSINE apply the (1 + dot) / 2 transform in-kernel). Therefore the
+        // radial threshold is expressed in Lucene score space, so we can delegate to the Lucene engine
+        // directly. For COSINESIMIL this yields (2 - distance) / 2, matching the scorer output.
+        //
+        // The ADC (binary-quantized) path is the one exception: it scores a float query against 1-bit
+        // vectors and emits MaxIP-format scores that MemoryOptimizedKNNWeight post-converts to cosine.
+        // Those scores are NOT Lucene-native, so this converter would be wrong for them. That mismatch is
+        // unreachable, however, because ADC requires the BQ encoder and ResolvedIndexSpec#supportsRadialSearch()
+        // rejects radial search for BQ (and every quantized index) up front in KNNQueryBuilder. If radial
+        // search is ever enabled for BQ/ADC, this method (and scoreToRadialThreshold below) must convert the
+        // threshold from cosine to MaxIP space for the ADC case first.
+        return KNNEngine.LUCENE.distanceToRadialThreshold(distance, spaceType);
     }
 
     /**
@@ -67,16 +70,17 @@ public final class MemoryOptimizedSearchScoreConverter {
      * @return Converted radial threshold for Lucene
      */
     public static float scoreToRadialThreshold(final float score, final SpaceType spaceType) {
-        if (spaceType != SpaceType.COSINESIMIL) {
-            return KNNEngine.LUCENE.scoreToRadialThreshold(score, spaceType);
-        }
-
-        // Since `score = (2 - (1 - inner_product_value)) / 2 = (1 + inner_product_value) / 2`,
-        // we should extract it then convert it to max inner product value.
-        final float innerProductValue = KNNEngine.FAISS.scoreToRadialThreshold(score, SpaceType.COSINESIMIL);
-
-        // Convert inner product value to max inner product value.
-        return SpaceType.INNER_PRODUCT.scoreTranslation(-innerProductValue);
+        // The memory-optimized scorer emits Lucene-native scores for every space type reachable here,
+        // including cosine (FP16_COSINE / SQ_COSINE apply the (1 + dot) / 2 transform in-kernel). The
+        // user-supplied min_score is already in that same Lucene score space, so we can delegate to the
+        // Lucene engine uniformly, which returns the score unchanged.
+        //
+        // The ADC (binary-quantized) cosine path emits MaxIP-format scores (post-converted to cosine in
+        // MemoryOptimizedKNNWeight) rather than Lucene-native scores, so it would need the threshold
+        // converted from cosine to MaxIP space. It never reaches this method: ADC requires the BQ encoder,
+        // and ResolvedIndexSpec#supportsRadialSearch() rejects radial search for BQ up front. If that gate
+        // is ever relaxed for BQ/ADC, add the ADC threshold conversion here (see distanceToRadialThreshold).
+        return KNNEngine.LUCENE.scoreToRadialThreshold(score, spaceType);
     }
 
     /**
