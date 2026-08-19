@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.codec;
 
 import org.apache.lucene.codecs.KnnVectorsFormat;
+import org.opensearch.Version;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
@@ -18,9 +19,11 @@ import org.opensearch.knn.index.codec.backward_codecs.BasePerFieldKnnVectorsForm
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
+import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.engine.faiss.FaissCodecFormatResolver;
 import org.opensearch.knn.index.engine.lucene.LuceneCodecFormatResolver;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
@@ -74,8 +77,8 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
                 DEFAULT_MAX_CONN,
                 DEFAULT_BEAM_WIDTH,
                 () -> DEFAULT_FORMAT,
-                new LuceneCodecFormatResolver(resolvers),
-                new FaissCodecFormatResolver(mapperService, new NativeIndexBuildStrategyFactory()),
+                new LuceneCodecFormatResolver(resolvers, mapperService.orElse(null)),
+                new FaissCodecFormatResolver(mapperService.orElse(null), new NativeIndexBuildStrategyFactory()),
                 new NativeIndexBuildStrategyFactory()
             );
         }
@@ -538,13 +541,26 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
      * with the given method context.
      */
     private MapperService mockMapperService(String fieldName, KNNMethodContext knnMethodContext) {
+        return mockMapperService(fieldName, knnMethodContext, null);
+    }
+
+    private MapperService mockMapperService(String fieldName, KNNMethodContext knnMethodContext, ResolvedIndexSpec resolvedSpec) {
         MapperService mapperService = mock(MapperService.class);
-        KNNVectorFieldType fieldType = new KNNVectorFieldType(
-            fieldName,
-            Collections.emptyMap(),
-            org.opensearch.knn.index.VectorDataType.FLOAT,
-            getMappingConfigForMethodMapping(knnMethodContext, 3)
-        );
+        KNNVectorFieldType fieldType = resolvedSpec == null
+            ? new KNNVectorFieldType(
+                fieldName,
+                Collections.emptyMap(),
+                org.opensearch.knn.index.VectorDataType.FLOAT,
+                getMappingConfigForMethodMapping(knnMethodContext, 3)
+            )
+            : new KNNVectorFieldType(
+                fieldName,
+                Collections.emptyMap(),
+                org.opensearch.knn.index.VectorDataType.FLOAT,
+                getMappingConfigForMethodMapping(knnMethodContext, 3),
+                Version.CURRENT,
+                resolvedSpec
+            );
         when(mapperService.fieldType(eq(fieldName))).thenReturn(fieldType);
 
         // Mock IndexSettings for the approximate threshold
@@ -632,7 +648,12 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
         when(methodContext.getKnnEngine()).thenReturn(KNNEngine.FAISS);
         when(methodContext.getMethodComponentContext()).thenReturn(hnswContext);
 
-        MapperService mapperService = mockMapperService(TEST_FIELD, methodContext);
+        ResolvedIndexSpec sqOneBitSpec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.ONE)
+            .build();
+        MapperService mapperService = mockMapperService(TEST_FIELD, methodContext, sqOneBitSpec);
         KNN1040PerFieldKnnVectorsFormat perFieldFormat = new KNN1040PerFieldKnnVectorsFormat(Optional.of(mapperService));
         KnnVectorsFormat format = perFieldFormat.getKnnVectorsFormatForField(TEST_FIELD);
         assertTrue(format instanceof Faiss1040ScalarQuantizedKnnVectorsFormat);

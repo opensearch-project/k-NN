@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.query;
 
+import static org.opensearch.knn.common.KNNConstants.DEFAULT_LUCENE_RADIAL_SEARCH_DECAY;
 import static org.opensearch.knn.common.KNNConstants.MAX_RESULTS_RADIAL_RESCORING;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPES;
@@ -73,7 +74,8 @@ public class RNNQueryFactory extends BaseQueryFactory {
             innerQuery = createLuceneRadialQuery(createQueryRequest);
         }
 
-        if (createQueryRequest.getVectorFieldType() != null && createQueryRequest.getVectorFieldType().isRescoringRequiredForRadial()) {
+        // Only 1-bit SQ (32x compression) requires rescoring after radial search to eliminate false positives.
+        if (createQueryRequest.getVectorFieldType() != null && createQueryRequest.getVectorFieldType().getResolvedSpec().isSQOneBit()) {
             // Honor the index-level max_result_window setting to cap the number of results retained
             // after rescoring. Falls back to MAX_RESULTS_RADIAL_RESCORING if context is unavailable.
             final int maxResultsSize;
@@ -135,8 +137,9 @@ public class RNNQueryFactory extends BaseQueryFactory {
      * {@link ByteVectorSimilarityQuery}) for engines that do not use custom segment files.
      *
      * <p>These queries use Lucene's built-in HNSW graph traversal with a similarity threshold.
-     * The traversal similarity is set to {@code 0.95 * resultSimilarity} to allow the graph
-     * to be explored slightly beyond the threshold for better recall.</p>
+     * The graph-traversal buffer decays with {@code DEFAULT_LUCENE_RADIAL_SEARCH_DECAY}
+     * so the graph is explored slightly beyond the threshold for better recall, matching the
+     * decay-based behavior used on the memory-optimized search (MOS) path.</p>
      *
      * @param request the query creation request containing all parameters
      * @return a Lucene similarity query configured for radius-based search
@@ -179,7 +182,7 @@ public class RNNQueryFactory extends BaseQueryFactory {
         final float resultSimilarity,
         final Query filterQuery
     ) {
-        return new FloatVectorSimilarityQuery(fieldName, floatVector, resultSimilarity, 1.0f, filterQuery);
+        return new FloatVectorSimilarityQuery(fieldName, floatVector, resultSimilarity, DEFAULT_LUCENE_RADIAL_SEARCH_DECAY, filterQuery);
     }
 
     /**
@@ -192,6 +195,6 @@ public class RNNQueryFactory extends BaseQueryFactory {
         final float resultSimilarity,
         final Query filterQuery
     ) {
-        return new ByteVectorSimilarityQuery(fieldName, byteVector, resultSimilarity, 1.0f, filterQuery);
+        return new ByteVectorSimilarityQuery(fieldName, byteVector, resultSimilarity, DEFAULT_LUCENE_RADIAL_SEARCH_DECAY, filterQuery);
     }
 }

@@ -4,6 +4,7 @@
  */
 
 import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
+import org.opensearch.gradle.Version
 import org.apache.tools.ant.taskdefs.condition.Os
 
 apply from : "$rootDir/qa/build.gradle"
@@ -41,6 +42,18 @@ testClusters {
 
 def versionsBelow2_3 = ["1.", "2.0.", "2.1.", "2.2."]
 def versionOnOrAfter2_17 = ["2.17", "2.18", "2.19", "2.20", "3."]
+
+// nmslib index creation is blocked from 3.0.0, the legacy index-level knn settings
+// (index.knn.algo_param.*, index.knn.space_type) were removed in the same release, and derived source
+// became enabled by default for every k-NN index. Tests that depend on the pre-3.0 behaviour of any of
+// these on the old cluster can only run when the old cluster predates 3.0.0.
+boolean bwcVersionOnOrAfter3_0_0 = Version.fromString(knn_bwc_version_no_qualifier).onOrAfter("3.0.0")
+// The sq encoder requires the bits parameter from 3.6.0, so a legacy no-bits sq mapping can no longer be
+// created on the old cluster.
+boolean bwcVersionOnOrAfter3_6_0 = Version.fromString(knn_bwc_version_no_qualifier).onOrAfter("3.6.0")
+// The plugin relaxed its merge policy in 3.6.0 (#3128), so this marks the versions still on the more
+// aggressive pre-fix behaviour.
+boolean bwcVersionBefore3_6_0 = Version.fromString(knn_bwc_version_no_qualifier).before("3.6.0")
 // Task to run BWC tests against the old cluster
 task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
     dependsOn "zipBwcPlugin"
@@ -180,6 +193,39 @@ task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
     if (versionOnOrAfter2_17.any {knn_bwc_version.startsWith(it) }) {
         filter {
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testBlockModeAndCompressionBefore2_17_0"
+        }
+    }
+
+    if (bwcVersionOnOrAfter3_0_0) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testBlockNMSLIBIndexCreationPost3_0_0"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexCustomLegacyFieldMapping"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testEmptyParametersOnUpgrade"
+            excludeTestsMatching "org.opensearch.knn.bwc.MemoryOptimizedSearchIT.testMemoryOptimizedSearchWithNmslib"
+            excludeTestsMatching "org.opensearch.knn.bwc.QueryANNIT.testQueryOnNmslibIndex"
+            excludeTestsMatching "org.opensearch.knn.bwc.WarmupIT.testKNNWarmupCustomLegacyFieldMapping"
+            // Parameterized class, so the reported test name carries a {compression:...} suffix
+            excludeTestsMatching "org.opensearch.knn.bwc.DerivedSourceBWCRestartIT.testOldSettingPreservedOnUpgrade*"
+        }
+    }
+
+    if (bwcVersionOnOrAfter3_6_0) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.FaissSQIT.testLegacySQFP16_onOldClusterThenUpgraded_thenSucceed"
+            excludeTestsMatching "org.opensearch.knn.bwc.FaissSQIT.testLegacySQFP16WithClip_onOldClusterThenUpgraded_thenSucceed"
+            excludeTestsMatching "org.opensearch.knn.bwc.FaissSQIT.testLegacySQFP16WithOnDisk_onOldClusterThenUpgraded_thenSucceed"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneQuantization"
+        }
+    }
+
+    // The plugin only relaxed the merge policy in 3.6.0 (#3128). On 3.0.0 - 3.5.0 core's more aggressive
+    // defaults (floor_segment 16MB, max_merge_at_once 30) merge the two small flushed segments back into
+    // one, so these tests cannot establish the >= 2 segment precondition they need on the old cluster.
+    if (bwcVersionOnOrAfter3_0_0 && bwcVersionBefore3_6_0) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testMixedSegmentsWithFaissRestartUpgrade"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testMixedSegmentsWithLuceneRestartUpgrade"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testMixedSegmentsWithCompressionRestartUpgrade"
         }
     }
 
@@ -348,6 +394,39 @@ task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
     if (invalidPrefixesFor1bitScalarQuantizerChecks.any { knn_bwc_version.startsWith(it) }) {
         filter {
             excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndex1bitScalarQuantizer"
+        }
+    }
+
+    if (bwcVersionOnOrAfter3_0_0) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testBlockNMSLIBIndexCreationPost3_0_0"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexCustomLegacyFieldMapping"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testEmptyParametersOnUpgrade"
+            excludeTestsMatching "org.opensearch.knn.bwc.MemoryOptimizedSearchIT.testMemoryOptimizedSearchWithNmslib"
+            excludeTestsMatching "org.opensearch.knn.bwc.QueryANNIT.testQueryOnNmslibIndex"
+            excludeTestsMatching "org.opensearch.knn.bwc.WarmupIT.testKNNWarmupCustomLegacyFieldMapping"
+            // Parameterized class, so the reported test name carries a {compression:...} suffix
+            excludeTestsMatching "org.opensearch.knn.bwc.DerivedSourceBWCRestartIT.testOldSettingPreservedOnUpgrade*"
+        }
+    }
+
+    if (bwcVersionOnOrAfter3_6_0) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.FaissSQIT.testLegacySQFP16_onOldClusterThenUpgraded_thenSucceed"
+            excludeTestsMatching "org.opensearch.knn.bwc.FaissSQIT.testLegacySQFP16WithClip_onOldClusterThenUpgraded_thenSucceed"
+            excludeTestsMatching "org.opensearch.knn.bwc.FaissSQIT.testLegacySQFP16WithOnDisk_onOldClusterThenUpgraded_thenSucceed"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testKNNIndexLuceneQuantization"
+        }
+    }
+
+    // The plugin only relaxed the merge policy in 3.6.0 (#3128). On 3.0.0 - 3.5.0 core's more aggressive
+    // defaults (floor_segment 16MB, max_merge_at_once 30) merge the two small flushed segments back into
+    // one, so these tests cannot establish the >= 2 segment precondition they need on the old cluster.
+    if (bwcVersionOnOrAfter3_0_0 && bwcVersionBefore3_6_0) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testMixedSegmentsWithFaissRestartUpgrade"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testMixedSegmentsWithLuceneRestartUpgrade"
+            excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testMixedSegmentsWithCompressionRestartUpgrade"
         }
     }
 

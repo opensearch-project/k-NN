@@ -8,6 +8,7 @@ package org.opensearch.knn.index.query;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.DEFAULT_LUCENE_RADIAL_SEARCH_DECAY;
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNConstants.MAX_RESULTS_RADIAL_RESCORING;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
@@ -27,8 +28,12 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.Version;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.indices.ModelDao;
@@ -52,6 +57,32 @@ public class RNNQueryFactoryTests extends KNNTestCase {
     private final Float testRadius = 0.5f;
     private final int maxResultWindow = 20000;
     private final Map<String, ?> methodParameters = Map.of(METHOD_PARAMETER_EF_SEARCH, 100);
+
+    // SQ 1-bit spec — the configuration that requires rescoring after radial search
+    private ResolvedIndexSpec sqOneBitSpec() {
+        return ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName("hnsw")
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.ONE)
+            .compressionLevel(CompressionLevel.x32)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(testQueryDimension)
+            .indexVersionCreated(Version.CURRENT)
+            .build();
+    }
+
+    // Non-quantized spec — isSQOneBit() == false, so no rescoring is required after radial search
+    private ResolvedIndexSpec nonQuantizedSpec() {
+        return ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName("hnsw")
+            .encoderType(Encoder.EncoderType.FLAT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(testQueryDimension)
+            .indexVersionCreated(Version.CURRENT)
+            .build();
+    }
 
     public void testCreate_whenLucene_withRadiusQuery_withFloatVector() {
         List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
@@ -93,6 +124,66 @@ public class RNNQueryFactoryTests extends KNNTestCase {
                 .build();
             Query query = RNNQueryFactory.create(createQueryRequest);
             assertEquals(ByteVectorSimilarityQuery.class, query.getClass());
+        }
+    }
+
+    // Validates that the Lucene radial search path is actually taken and that the shared decay factor
+    // (DEFAULT_LUCENE_RADIAL_SEARCH_DECAY = 0.95) is wired into the produced Lucene similarity query.
+    // A mocked KNNVectorFieldType (non-quantized: isRescoringRequiredForRadial() == false) exercises the
+    // real Lucene branch without the rescore wrapper. FloatVectorSimilarityQuery#equals compares the decay
+    // field, so equality against a query constructed with the expected decay proves the value is wired.
+    public void testCreate_whenLucene_thenDecayIsWiredIntoSimilarityQuery() {
+        final KNNVectorFieldType mockFieldType = mock(KNNVectorFieldType.class);
+        // Non-quantized spec: isSQOneBit() == false, so the rescore wrapper is not added and the
+        // real Lucene similarity query is produced.
+        when(mockFieldType.getResolvedSpec()).thenReturn(nonQuantizedSpec());
+
+        final List<KNNEngine> luceneEngines = Arrays.stream(KNNEngine.values())
+            .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
+            .collect(Collectors.toList());
+
+        for (KNNEngine knnEngine : luceneEngines) {
+            // FLOAT -> FloatVectorSimilarityQuery
+            final RNNQueryFactory.CreateQueryRequest floatRequest = RNNQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(knnEngine)
+                .indexName(testIndexName)
+                .fieldName(testFieldName)
+                .vector(testQueryVector)
+                .radius(testRadius)
+                .vectorDataType(VectorDataType.FLOAT)
+                .vectorFieldType(mockFieldType)
+                .build();
+            final Query floatQuery = RNNQueryFactory.create(floatRequest);
+            assertTrue("Lucene radial path must produce a FloatVectorSimilarityQuery", floatQuery instanceof FloatVectorSimilarityQuery);
+            final FloatVectorSimilarityQuery expectedFloatQuery = new FloatVectorSimilarityQuery(
+                testFieldName,
+                testQueryVector,
+                testRadius,
+                DEFAULT_LUCENE_RADIAL_SEARCH_DECAY,
+                null
+            );
+            assertEquals("Decay must be wired into the Lucene FloatVectorSimilarityQuery", expectedFloatQuery, floatQuery);
+
+            // BYTE -> ByteVectorSimilarityQuery
+            final RNNQueryFactory.CreateQueryRequest byteRequest = RNNQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(knnEngine)
+                .indexName(testIndexName)
+                .fieldName(testFieldName)
+                .byteVector(testByteQueryVector)
+                .radius(testRadius)
+                .vectorDataType(VectorDataType.BYTE)
+                .vectorFieldType(mockFieldType)
+                .build();
+            final Query byteQuery = RNNQueryFactory.create(byteRequest);
+            assertTrue("Lucene radial path must produce a ByteVectorSimilarityQuery", byteQuery instanceof ByteVectorSimilarityQuery);
+            final ByteVectorSimilarityQuery expectedByteQuery = new ByteVectorSimilarityQuery(
+                testFieldName,
+                testByteQueryVector,
+                testRadius,
+                DEFAULT_LUCENE_RADIAL_SEARCH_DECAY,
+                null
+            );
+            assertEquals("Decay must be wired into the Lucene ByteVectorSimilarityQuery", expectedByteQuery, byteQuery);
         }
     }
 
@@ -164,7 +255,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
         when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
         when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
         when(indexSettings.getMaxResultWindow()).thenReturn(maxResultWindow);
-        when(mockFieldType.isRescoringRequiredForRadial()).thenReturn(true);
+        when(mockFieldType.getResolvedSpec()).thenReturn(sqOneBitSpec());
 
         final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
             .knnEngine(KNNEngine.FAISS)
@@ -193,7 +284,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
     // Then: maxResultsSize falls back to MAX_RESULTS_RADIAL_RESCORING
     public void testCreate_whenRescoringRequired_andNoContext_thenUsesDefaultMaxResultsSize() {
         KNNVectorFieldType mockFieldType = mock(KNNVectorFieldType.class);
-        when(mockFieldType.isRescoringRequiredForRadial()).thenReturn(true);
+        when(mockFieldType.getResolvedSpec()).thenReturn(sqOneBitSpec());
 
         final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
             .knnEngine(KNNEngine.LUCENE)
@@ -224,7 +315,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
         when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
         when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
         when(indexSettings.getMaxResultWindow()).thenReturn(customMaxResultWindow);
-        when(mockFieldType.isRescoringRequiredForRadial()).thenReturn(true);
+        when(mockFieldType.getResolvedSpec()).thenReturn(sqOneBitSpec());
 
         final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
             .knnEngine(KNNEngine.LUCENE)
@@ -253,7 +344,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
 
         for (KNNEngine knnEngine : luceneEngines) {
             KNNVectorFieldType mockFieldType = mock(KNNVectorFieldType.class);
-            when(mockFieldType.isRescoringRequiredForRadial()).thenReturn(true);
+            when(mockFieldType.getResolvedSpec()).thenReturn(sqOneBitSpec());
 
             final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
                 .knnEngine(knnEngine)

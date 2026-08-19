@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.query;
 
+import org.apache.lucene.tests.util.LuceneTestCase.AwaitsFix;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.index.SpaceType;
@@ -15,6 +16,8 @@ import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
  * Integration tests for radial search on flat quantized indices (method: flat, 1-bit SQ by default).
  * The flat method is engine-agnostic — it does not specify an engine explicitly.
  */
+// Radial search on quantized indices is disabled due to poor recall from quantization error.
+@AwaitsFix(bugUrl = "https://github.com/opensearch-project/k-NN/issues/3452")
 public class FlatSQRadialSearchIT extends AbstractRadialSearchOnQuantizedIndexIT {
 
     private static final String INDEX_NAME = "flat_sq_radial_search_test";

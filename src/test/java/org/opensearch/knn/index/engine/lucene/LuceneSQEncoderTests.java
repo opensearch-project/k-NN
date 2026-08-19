@@ -11,6 +11,7 @@ import java.util.Map;
 import org.opensearch.Version;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -162,6 +163,67 @@ public class LuceneSQEncoderTests extends KNNTestCase {
         callValidateEncoderParams(Version.CURRENT, CompressionLevel.x32, Map.of(LUCENE_SQ_BITS, 1));
     }
 
+    public void testValidateDirectly_whenNullInputs_thenNoException() {
+        new LuceneSQEncoder().validate(null, null);
+    }
+
+    public void testValidateDirectly_whenNullConfigContext_thenNoException() {
+        MethodComponentContext encoderCtx = new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 7));
+        KNNMethodContext methodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            org.opensearch.knn.index.SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_ENCODER_PARAMETER, encoderCtx))
+        );
+        new LuceneSQEncoder().validate(methodContext, null);
+    }
+
+    public void testValidateDirectly_whenEncoderContextMissing_thenNoException() {
+        KNNMethodContext methodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            org.opensearch.knn.index.SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, Map.of())
+        );
+        KNNMethodConfigContext configContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .build();
+        new LuceneSQEncoder().validate(methodContext, configContext);
+    }
+
+    public void testValidate_whenNullVersionWithBits_thenOk() {
+        callValidateEncoderParams(null, CompressionLevel.NOT_CONFIGURED, Map.of(LUCENE_SQ_BITS, 7));
+    }
+
+    public void testValidate_whenBits7NoCompressionConfigured_thenOk() {
+        callValidateEncoderParams(Version.CURRENT, CompressionLevel.NOT_CONFIGURED, Map.of(LUCENE_SQ_BITS, 7));
+    }
+
+    public void testDefaultValidate_noOp() {
+        Encoder encoder = new Encoder() {
+            @Override
+            public MethodComponent getMethodComponent() {
+                return null;
+            }
+
+            @Override
+            public CompressionLevel calculateCompressionLevel(MethodComponentContext ctx, KNNMethodConfigContext configCtx) {
+                return CompressionLevel.NOT_CONFIGURED;
+            }
+
+            @Override
+            public EncoderType getEncoderType() {
+                return EncoderType.FLAT;
+            }
+
+            @Override
+            public java.util.Set<QuantizationBits> getSupportedBits() {
+                return java.util.EnumSet.of(QuantizationBits.FULL_PRECISION);
+            }
+        };
+        encoder.validate(null, null);
+    }
+
     private void callValidateEncoderParams(Version version, CompressionLevel compressionLevel, Map<String, Object> encoderParams) {
         KNNMethodConfigContext configContext = KNNMethodConfigContext.builder()
             .versionCreated(version)
@@ -177,6 +239,6 @@ public class LuceneSQEncoderTests extends KNNTestCase {
             new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_ENCODER_PARAMETER, encoderCtx))
         );
 
-        LuceneHNSWMethodResolver.validateEncoderParams(methodContext, configContext);
+        new LuceneSQEncoder().validate(methodContext, configContext);
     }
 }

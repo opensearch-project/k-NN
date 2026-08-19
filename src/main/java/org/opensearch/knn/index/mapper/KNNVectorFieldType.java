@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.mapper;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.LogManager;
@@ -23,11 +24,8 @@ import org.opensearch.index.query.QueryShardException;
 import org.opensearch.knn.index.KNNVectorDocValueFormat;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
-import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
-import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
-import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -40,10 +38,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.deserializeStoredVector;
 
 /**
@@ -55,28 +53,20 @@ public class KNNVectorFieldType extends MappedFieldType {
     private static final Logger logger = LogManager.getLogger(KNNVectorFieldType.class);
     KNNMappingConfig knnMappingConfig;
     VectorDataType vectorDataType;
-    /**
-     * When {@code true}, memory-optimized search is always applied for this field regardless of the
-     * cluster-level setting. This is determined at mapping time based on the encoder type
-     * (e.g., FAISS SQ encoder always requires memory-optimized search).
-     *
-     * @see MemoryOptimizedSearchSupportSpec#isAlwaysUseMemoryOptimizedSearch(java.util.Optional)
-     */
-    boolean alwaysUseMemoryOptimizedSearch;
-    /**
-     * Whether this field type can benefit from memory-optimized search. This is determined at mapping time
-     * based on the engine, method, encoder, and quantization configuration. A field may be eligible for
-     * memory-optimized search but still require the cluster-level setting to be enabled, unless
-     * {@link #alwaysUseMemoryOptimizedSearch} is {@code true}.
-     *
-     * @see MemoryOptimizedSearchSupportSpec#isSupportedFieldType(java.util.Optional,
-     *      org.opensearch.knn.index.engine.qframe.QuantizationConfig, java.util.Optional)
-     */
-    boolean memoryOptimizedSearchAvailable;
     Version indexCreatedVersion;
+    /**
+     * Supplier of the resolved index spec, never null. Engine fields supply an eagerly computed spec;
+     * model fields supply a lazy resolver because model metadata lives in cluster state, which may not
+     * be available during field mapper creation. The resolved value is memoized in {@link #resolvedSpec}.
+     */
+    @Getter(AccessLevel.NONE)
+    Supplier<ResolvedIndexSpec> resolvedSpecSupplier;
+    @Getter(AccessLevel.NONE)
+    volatile ResolvedIndexSpec resolvedSpec;
 
     /**
-     * Constructor for KNNVectorFieldType with index created version.
+     * Constructor for KNNVectorFieldType with index created version. The resolved index spec defaults
+     * to a lazily constructed no-ANN spec.
      *
      * @param name name of the field
      * @param metadata metadata of the field
@@ -91,20 +81,64 @@ public class KNNVectorFieldType extends MappedFieldType {
         KNNMappingConfig annConfig,
         Version indexCreatedVersion
     ) {
-        this(name, metadata, vectorDataType, annConfig);
-        this.alwaysUseMemoryOptimizedSearch = MemoryOptimizedSearchSupportSpec.isAlwaysUseMemoryOptimizedSearch(
-            knnMappingConfig.getKnnMethodContext()
+        this(
+            name,
+            metadata,
+            vectorDataType,
+            annConfig,
+            indexCreatedVersion,
+            () -> ResolvedIndexSpec.noAnn(vectorDataType, annConfig.getDimension(), indexCreatedVersion)
         );
-        this.memoryOptimizedSearchAvailable = MemoryOptimizedSearchSupportSpec.isSupportedFieldType(
-            knnMappingConfig.getKnnMethodContext(),
-            annConfig.getQuantizationConfig(),
-            annConfig.getModelId()
-        );
-        this.indexCreatedVersion = indexCreatedVersion;
     }
 
     /**
-     * Constructor for KNNVectorFieldType.
+     * Constructor for KNNVectorFieldType with index created version and resolved index spec.
+     *
+     * @param name name of the field
+     * @param metadata metadata of the field
+     * @param vectorDataType data type of the vector
+     * @param annConfig configuration context for the ANN index
+     * @param indexCreatedVersion Index created version.
+     * @param resolvedSpec resolved index spec, must not be null
+     */
+    public KNNVectorFieldType(
+        String name,
+        Map<String, String> metadata,
+        VectorDataType vectorDataType,
+        KNNMappingConfig annConfig,
+        Version indexCreatedVersion,
+        ResolvedIndexSpec resolvedSpec
+    ) {
+        this(name, metadata, vectorDataType, annConfig, indexCreatedVersion, () -> resolvedSpec);
+        Objects.requireNonNull(resolvedSpec, "resolvedSpec must not be null");
+    }
+
+    /**
+     * Constructor for KNNVectorFieldType with a lazy resolved index spec supplier.
+     *
+     * @param name name of the field
+     * @param metadata metadata of the field
+     * @param vectorDataType data type of the vector
+     * @param annConfig configuration context for the ANN index
+     * @param indexCreatedVersion Index created version.
+     * @param resolvedSpecSupplier supplier of the resolved index spec, must not be null and must not supply null
+     */
+    public KNNVectorFieldType(
+        String name,
+        Map<String, String> metadata,
+        VectorDataType vectorDataType,
+        KNNMappingConfig annConfig,
+        Version indexCreatedVersion,
+        Supplier<ResolvedIndexSpec> resolvedSpecSupplier
+    ) {
+        this(name, metadata, vectorDataType, annConfig);
+        this.indexCreatedVersion = indexCreatedVersion;
+        this.resolvedSpecSupplier = Objects.requireNonNull(resolvedSpecSupplier, "resolvedSpecSupplier must not be null");
+    }
+
+    /**
+     * Constructor for KNNVectorFieldType. The resolved index spec defaults to a lazily constructed
+     * no-ANN spec.
      *
      * @param name name of the field
      * @param metadata metadata of the field
@@ -115,6 +149,44 @@ public class KNNVectorFieldType extends MappedFieldType {
         super(name, false, false, true, TextSearchInfo.NONE, metadata);
         this.vectorDataType = vectorDataType;
         this.knnMappingConfig = annConfig;
+        this.resolvedSpecSupplier = () -> ResolvedIndexSpec.noAnn(vectorDataType, annConfig.getDimension(), null);
+    }
+
+    /**
+     * Returns the resolved index spec for this field, never null. Resolved lazily on first access and
+     * memoized; recomputation on a concurrent first access is benign since suppliers are idempotent
+     * (same pattern as the lazy model-backed {@link KNNMappingConfig}).
+     *
+     * @return the resolved index spec
+     */
+    public ResolvedIndexSpec getResolvedSpec() {
+        ResolvedIndexSpec spec = resolvedSpec;
+        if (spec == null) {
+            spec = Objects.requireNonNull(resolvedSpecSupplier.get(), "resolvedSpecSupplier must not supply a null spec");
+            resolvedSpec = spec;
+        }
+        return spec;
+    }
+
+    /**
+     * When {@code true}, memory-optimized search is always applied for this field regardless of the
+     * cluster-level setting (e.g., FAISS SQ 1-bit always requires memory-optimized search).
+     *
+     * @see ResolvedIndexSpec#alwaysUseMemoryOptimizedSearch()
+     */
+    public boolean isAlwaysUseMemoryOptimizedSearch() {
+        return getResolvedSpec().alwaysUseMemoryOptimizedSearch();
+    }
+
+    /**
+     * Whether this field type can benefit from memory-optimized search. A field may be eligible for
+     * memory-optimized search but still require the cluster-level setting to be enabled, unless
+     * {@link #isAlwaysUseMemoryOptimizedSearch()} is {@code true}.
+     *
+     * @see ResolvedIndexSpec#isMemoryOptimizedEligible()
+     */
+    public boolean isMemoryOptimizedSearchAvailable() {
+        return getResolvedSpec().isMemoryOptimizedEligible();
     }
 
     @Override
@@ -179,27 +251,7 @@ public class KNNVectorFieldType extends MappedFieldType {
         if (userProvidedContext != null) {
             return userProvidedContext;
         }
-        final KNNMappingConfig knnMappingConfig = getKnnMappingConfig();
-        final Optional<KNNMethodContext> methodContext = knnMappingConfig.getKnnMethodContext();
-        final boolean isFlatMethod = methodContext.isPresent()
-            && METHOD_FLAT.equals(methodContext.get().getMethodComponentContext().getName());
-        final boolean isSQOneBit = methodContext.map(mc -> FaissSQEncoder.isSQOneBit(mc.getMethodComponentContext().getParameters()))
-            .orElse(false);
-        final int dimension = knnMappingConfig.getDimension();
-        final CompressionLevel compressionLevel = knnMappingConfig.getCompressionLevel();
-        final Mode mode = knnMappingConfig.getMode();
-        KNNEngine engine = null;
-        if (methodContext.isPresent()) {
-            engine = methodContext.get().getKnnEngine();
-        }
-        return compressionLevel.getDefaultRescoreContext(
-            mode,
-            dimension,
-            knnMappingConfig.getIndexCreatedVersion(),
-            isFlatMethod,
-            isSQOneBit,
-            engine
-        );
+        return getResolvedSpec().getRescoreContext();
     }
 
     /**
@@ -236,87 +288,5 @@ public class KNNVectorFieldType extends MappedFieldType {
                 .transform(vector, false);
         }
         throw new IllegalStateException("Either KNN method context or Model Id should be configured");
-    }
-
-    /**
-     * Validates that the given index configuration supports radial search.
-     * Throws {@link UnsupportedOperationException} if radial search is not supported.
-     *
-     * <p>Radial search is blocked for:</p>
-     * <ul>
-     *   <li>Engines that do not support radial search (e.g., NMSLIB)</li>
-     *   <li>Binary vector data type</li>
-     *   <li>BQ (binary quantization) — identified by {@code QuantizationConfig != EMPTY}</li>
-     *   <li>Quantized indices that are not 1-bit SQ — among quantized indices, only the
-     *       {@code flat} method or the SQ encoder with {@code bits=1} support radial search
-     *       via rescoring</li>
-     * </ul>
-     *
-     * <p>Uses the field's own {@code vectorDataType} and {@code knnMappingConfig} for validation.
-     * The engine must be passed explicitly because model-based fields resolve their engine via
-     * {@code ModelDao}, which is not available on this class.</p>
-     *
-     * @param knnEngine the engine resolved for this field (from method context or model metadata)
-     * @throws UnsupportedOperationException if radial search is not supported
-     */
-    public void validateSupportRadialSearch(final KNNEngine knnEngine) {
-        if (knnEngine.supportsRadialSearch() == false) {
-            throw new UnsupportedOperationException(String.format(Locale.ROOT, "Engine [%s] does not support radial search", knnEngine));
-        }
-        if (getVectorDataType() == VectorDataType.BINARY) {
-            throw new UnsupportedOperationException(String.format(Locale.ROOT, "Binary data type does not support radial search"));
-        }
-        final KNNMappingConfig mappingConfig = getKnnMappingConfig();
-        // BQ (binary quantization) does not support radial search
-        if (mappingConfig.getQuantizationConfig() != QuantizationConfig.EMPTY) {
-            throw new UnsupportedOperationException("Radial search is not supported for quantized indices using binary quantization.");
-        }
-        // Among quantized indices, only flat method (32x) or SQ encoder with bits=1
-        // support radial search (via rescoring). Non-quantized indices are always allowed.
-        final Optional<KNNMethodContext> methodContext = mappingConfig.getKnnMethodContext();
-        if (methodContext.isPresent()) {
-            // Check compression level first (cheap) before SQ encoder lookup (hash map access)
-            final boolean isQuantizedIndex = CompressionLevel.isConfigured(mappingConfig.getCompressionLevel())
-                && mappingConfig.getCompressionLevel() != CompressionLevel.x1
-                && mappingConfig.getCompressionLevel() != CompressionLevel.x2;
-            if (isQuantizedIndex) {
-                final boolean isFlatMethod = METHOD_FLAT.equals(methodContext.get().getMethodComponentContext().getName());
-                final boolean isSQOneBit = FaissSQEncoder.isSQOneBit(methodContext.get().getMethodComponentContext().getParameters());
-                final boolean radialSupported = isFlatMethod || isSQOneBit;
-                if (radialSupported == false) {
-                    throw new UnsupportedOperationException(
-                        "Among quantized indices, radial search is only supported for 1-bit SQ. "
-                            + "Current compression level="
-                            + mappingConfig.getCompressionLevel()
-                            + ", method="
-                            + methodContext.get().getMethodComponentContext().getName()
-                    );
-                }
-            }
-        }
-    }
-
-    /**
-     * Determines whether rescoring with full-precision vectors is required after radial search.
-     *
-     * <p>This method should only be called for knn field types that have already been validated
-     * to support radial search via {@link #validateSupportRadialSearch(KNNEngine)}.
-     * Calling this on an unsupported configuration may return incorrect results.</p>
-     *
-     * <p>Currently, only 1-bit SQ (32x compression) requires rescoring, identified by the
-     * SQ encoder with {@code bits=1}. Other quantization types may be added in the future.</p>
-     *
-     * @return {@code true} if rescoring is required after radial search
-     */
-    public boolean isRescoringRequiredForRadial() {
-        final KNNMappingConfig mappingConfig = getKnnMappingConfig();
-        final Optional<KNNMethodContext> methodContext = mappingConfig.getKnnMethodContext();
-        // Method context is absent for model-based indices, where the field is configured via
-        // modelId instead of an explicit method/encoder. Model-based indices do not need rescoring.
-        if (methodContext.isPresent() == false) {
-            return false;
-        }
-        // Only 1-bit SQ requires rescoring for radial search to eliminate false positives.
-        return FaissSQEncoder.isSQOneBit(methodContext.get().getMethodComponentContext().getParameters());
     }
 }

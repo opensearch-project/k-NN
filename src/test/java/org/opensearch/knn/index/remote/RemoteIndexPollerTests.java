@@ -16,6 +16,7 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.codec.nativeindex.IndexBuildAbortedException;
 import org.opensearch.remoteindexbuild.client.RemoteIndexClient;
 import org.opensearch.remoteindexbuild.model.RemoteBuildStatusRequest;
 import org.opensearch.remoteindexbuild.model.RemoteBuildStatusResponse;
@@ -24,8 +25,11 @@ import org.opensearch.test.OpenSearchSingleNodeTestCase;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import static org.opensearch.knn.index.remote.RemoteIndexPoller.COMPLETED_INDEX_BUILD;
@@ -75,7 +79,7 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
                 .build();
             when(mockClient.getBuildStatus(mockStatusRequest)).thenReturn(runningResponse);
 
-            RemoteIndexPoller poller = new RemoteIndexPoller(mockClient);
+            RemoteIndexPoller poller = new RemoteIndexPoller(mockClient, () -> false);
 
             assertThrows(InterruptedException.class, () -> poller.awaitVectorBuild(mockStatusRequest));
         } catch (Exception e) {
@@ -97,7 +101,7 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
                 .build();
             when(mockClient.getBuildStatus(mockStatusRequest)).thenReturn(completedResponse);
 
-            RemoteIndexPoller poller = new RemoteIndexPoller(mockClient);
+            RemoteIndexPoller poller = new RemoteIndexPoller(mockClient, () -> false);
 
             RemoteBuildStatusResponse response = poller.awaitVectorBuild(mockStatusRequest);
             assertEquals(COMPLETED_INDEX_BUILD, response.getTaskStatus());
@@ -124,7 +128,7 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
                 .build();
             when(mockClient.getBuildStatus(mockStatusRequest)).thenReturn(failedResponse);
 
-            RemoteIndexPoller poller = new RemoteIndexPoller(mockClient);
+            RemoteIndexPoller poller = new RemoteIndexPoller(mockClient, () -> false);
 
             InterruptedException exception = assertThrows(InterruptedException.class, () -> poller.awaitVectorBuild(mockStatusRequest));
             assertTrue(exception.getMessage().contains(errorMessage));
@@ -158,7 +162,7 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
                 .fileName(null)
                 .errorMessage(null)
                 .build();
-            RemoteIndexPoller poller = new RemoteIndexPoller(mockClient);
+            RemoteIndexPoller poller = new RemoteIndexPoller(mockClient, () -> false);
 
             when(mockClient.getBuildStatus(mockStatusRequest)).thenReturn(invalidResponse);
             IOException exception = assertThrows(IOException.class, () -> poller.awaitVectorBuild(mockStatusRequest));
@@ -183,11 +187,61 @@ public class RemoteIndexPollerTests extends OpenSearchSingleNodeTestCase {
                 .fileName(null)
                 .errorMessage(null)
                 .build();
-            RemoteIndexPoller poller = new RemoteIndexPoller(mockClient);
+            RemoteIndexPoller poller = new RemoteIndexPoller(mockClient, () -> false);
 
             when(mockClient.getBuildStatus(mockStatusRequest)).thenReturn(invalidResponse);
             IOException exception = assertThrows(IOException.class, () -> poller.awaitVectorBuild(mockStatusRequest));
             assertEquals("Invalid response format, missing " + TASK_STATUS, exception.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Test that when the merge is already aborted before polling begins, the poller throws
+     * IndexBuildAbortedException immediately without making any status requests to the remote service.
+     */
+    public void testAwaitVectorBuildMergeAborted() {
+        try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
+            knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
+
+            when(KNNSettings.getRemoteBuildClientTimeout()).thenReturn(TimeValue.timeValueMinutes(1));
+            when(KNNSettings.getRemoteBuildClientPollInterval()).thenReturn(TimeValue.timeValueMillis(10));
+
+            RemoteIndexPoller poller = new RemoteIndexPoller(mockClient, () -> true);
+
+            assertThrows(IndexBuildAbortedException.class, () -> poller.awaitVectorBuild(mockStatusRequest));
+            verify(mockClient, never()).getBuildStatus(mockStatusRequest);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Test that when a merge is aborted mid-polling, the poller throws IndexBuildAbortedException
+     * after successfully polling twice. Simulates a real scenario where the merge is cancelled
+     * while the remote build is still in progress.
+     */
+    public void testAwaitVectorBuildMergeAbortedAfterPolling() {
+        try (MockedStatic<KNNSettings> knnSettingsStaticMock = Mockito.mockStatic(KNNSettings.class)) {
+            knnSettingsStaticMock.when(KNNSettings::state).thenReturn(knnSettingsMock);
+
+            when(KNNSettings.getRemoteBuildClientTimeout()).thenReturn(TimeValue.timeValueMinutes(1));
+            when(KNNSettings.getRemoteBuildClientPollInterval()).thenReturn(TimeValue.timeValueMillis(10));
+
+            AtomicInteger pollCount = new AtomicInteger(0);
+
+            RemoteBuildStatusResponse runningResponse = RemoteBuildStatusResponse.builder()
+                .taskStatus(RUNNING_INDEX_BUILD)
+                .fileName(null)
+                .errorMessage(null)
+                .build();
+            when(mockClient.getBuildStatus(mockStatusRequest)).thenReturn(runningResponse);
+
+            // Abort after 2 poll iterations
+            RemoteIndexPoller poller = new RemoteIndexPoller(mockClient, () -> pollCount.incrementAndGet() > 2);
+
+            assertThrows(IndexBuildAbortedException.class, () -> poller.awaitVectorBuild(mockStatusRequest));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

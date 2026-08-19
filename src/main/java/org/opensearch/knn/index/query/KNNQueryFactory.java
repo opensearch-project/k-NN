@@ -131,7 +131,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
         boolean needsRescore = shouldRescore(rescoreContext);
         if (needsRescore) {
             // Will always do shard level rescoring whenever rescore is required.
-            overSampledK = rescoreContext.getFirstPassK(k, false, getDimension(vector, byteVector));
+            overSampledK = rescoreContext.getFirstPassK(k, getDimension(vector, byteVector));
         }
 
         int luceneK = Math.max(overSampledK, IndexHyperParametersUtil.getHNSWEFSearchValue(methodParameters, indexName));

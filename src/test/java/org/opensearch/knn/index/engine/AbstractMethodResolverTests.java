@@ -5,13 +5,16 @@
 
 package org.opensearch.knn.index.engine;
 
+import org.opensearch.Version;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 
+import java.util.EnumSet;
 import java.util.Map;
+import java.util.Set;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -46,6 +49,16 @@ public class AbstractMethodResolverTests extends KNNTestCase {
             KNNMethodConfigContext knnMethodConfigContext
         ) {
             return DEFAULT_COMPRESSION;
+        }
+
+        @Override
+        public EncoderType getEncoderType() {
+            return EncoderType.FLAT;
+        }
+
+        @Override
+        public Set<QuantizationBits> getSupportedBits() {
+            return EnumSet.of(QuantizationBits.FULL_PRECISION);
         }
     };
 
@@ -96,6 +109,40 @@ public class AbstractMethodResolverTests extends KNNTestCase {
                 )
             )
         );
+    }
+
+    public void testGetDefaultCompressionLevel_whenCompressionConfigured_thenReturnConfigured() {
+        KNNMethodConfigContext ctx = KNNMethodConfigContext.builder()
+            .compressionLevel(CompressionLevel.x16)
+            .mode(Mode.ON_DISK)
+            .versionCreated(Version.V_3_6_0)
+            .build();
+        assertEquals(CompressionLevel.x16, TEST_RESOLVER.getDefaultCompressionLevel(ctx, CompressionLevel.x4));
+    }
+
+    public void testGetDefaultCompressionLevel_whenOnDiskAndV360OrLater_thenReturnX32() {
+        KNNMethodConfigContext ctx = KNNMethodConfigContext.builder().mode(Mode.ON_DISK).versionCreated(Version.V_3_6_0).build();
+        assertEquals(CompressionLevel.x32, TEST_RESOLVER.getDefaultCompressionLevel(ctx, CompressionLevel.x4));
+    }
+
+    public void testGetDefaultCompressionLevel_whenOnDiskAndBeforeV360_thenReturnFallback() {
+        KNNMethodConfigContext ctx = KNNMethodConfigContext.builder().mode(Mode.ON_DISK).versionCreated(Version.V_2_17_0).build();
+        assertEquals(CompressionLevel.x4, TEST_RESOLVER.getDefaultCompressionLevel(ctx, CompressionLevel.x4));
+    }
+
+    public void testGetDefaultCompressionLevel_whenOnDiskAndNullVersion_thenReturnFallback() {
+        KNNMethodConfigContext ctx = KNNMethodConfigContext.builder().mode(Mode.ON_DISK).build();
+        assertEquals(CompressionLevel.x4, TEST_RESOLVER.getDefaultCompressionLevel(ctx, CompressionLevel.x4));
+    }
+
+    public void testGetDefaultCompressionLevel_whenNotOnDisk_thenReturnX1() {
+        KNNMethodConfigContext ctx = KNNMethodConfigContext.builder().mode(Mode.IN_MEMORY).versionCreated(Version.V_3_6_0).build();
+        assertEquals(CompressionLevel.x1, TEST_RESOLVER.getDefaultCompressionLevel(ctx, CompressionLevel.x4));
+    }
+
+    public void testGetDefaultCompressionLevel_whenNotConfigured_thenReturnX1() {
+        KNNMethodConfigContext ctx = KNNMethodConfigContext.builder().versionCreated(Version.V_3_6_0).build();
+        assertEquals(CompressionLevel.x1, TEST_RESOLVER.getDefaultCompressionLevel(ctx, CompressionLevel.x4));
     }
 
     public void testShouldEncoderBeResolved() {

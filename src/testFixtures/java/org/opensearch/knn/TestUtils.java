@@ -99,6 +99,11 @@ public class TestUtils {
     public static final String NUMBER_OF_SHARDS = "number_of_shards";
     public static final String NUMBER_OF_REPLICAS = "number_of_replicas";
     public static final String INDEX_KNN = "index.knn";
+    // Legacy index settings for configuring the k-NN field. They were removed from KNNSettings in 3.0, but 2.x
+    // clusters still support them, so BWC tests use them to create indices on old clusters.
+    public static final String LEGACY_KNN_SPACE_TYPE = "index.knn.space_type";
+    public static final String LEGACY_KNN_ALGO_PARAM_M = "index.knn.algo_param.m";
+    public static final String LEGACY_KNN_ALGO_PARAM_EF_CONSTRUCTION = "index.knn.algo_param.ef_construction";
     public static final String OLD_CLUSTER = "old_cluster";
     public static final String PROPERTIES = "properties";
     public static final String VECTOR_TYPE = "type";

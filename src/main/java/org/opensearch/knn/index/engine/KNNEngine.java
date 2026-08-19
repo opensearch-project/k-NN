@@ -16,6 +16,9 @@ import org.opensearch.knn.index.engine.faiss.Faiss;
 import org.opensearch.knn.index.engine.lucene.Lucene;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
 import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.EngineFieldStrategy;
+import org.opensearch.knn.index.mapper.FaissFieldStrategy;
+import org.opensearch.knn.index.mapper.LuceneFieldStrategy;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
@@ -513,5 +516,25 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
         } else {
             return null;
         }
+    }
+
+    /**
+     * Returns the field strategy for this engine, used to construct field types
+     * and create vector fields during indexing.
+     *
+     * <p>Only the built-in engines resolve a strategy here. Discovered (runtime-registered)
+     * engines receive their strategies via {@link KNNEngineDefinition} in a follow-up commit.</p>
+     *
+     * @return the engine's field strategy
+     * @throws UnsupportedOperationException if this engine does not support field strategies
+     */
+    public EngineFieldStrategy getFieldStrategy() {
+        if (this == LUCENE) {
+            return LuceneFieldStrategy.INSTANCE;
+        }
+        if (this == FAISS || this == NMSLIB) {
+            return FaissFieldStrategy.INSTANCE;
+        }
+        throw new UnsupportedOperationException("Engine " + name() + " does not support field strategies");
     }
 }

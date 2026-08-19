@@ -35,6 +35,7 @@ import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.engine.model.QueryContext;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
@@ -437,6 +438,12 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Field '%s' is not knn_vector type.", this.fieldName));
         }
         KNNVectorFieldType knnVectorFieldType = (KNNVectorFieldType) mappedFieldType;
+        // A field alias is mapping-only metadata and never appears in Lucene's FieldInfos, which is what the
+        // segment-level lookup in KNNWeight consults. MappedFieldType#name() is the concrete field name after alias
+        // resolution, so use it for everything that reaches the segment; a query built on the alias name would
+        // otherwise find no field info and return no hits at all. Error messages deliberately keep this.fieldName so
+        // they still name the field the user actually typed. The null fallback mirrors core's CommonTermsQueryBuilder.
+        final String resolvedFieldName = mappedFieldType.name() != null ? mappedFieldType.name() : this.fieldName;
         KNNMappingConfig knnMappingConfig = knnVectorFieldType.getKnnMappingConfig();
         QueryConfigFromMapping queryConfigFromMapping = getQueryConfig(knnMappingConfig, knnVectorFieldType);
 
@@ -444,7 +451,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         MethodComponentContext methodComponentContext = queryConfigFromMapping.getMethodComponentContext();
         SpaceType spaceType = queryConfigFromMapping.getSpaceType();
         VectorDataType vectorDataType = queryConfigFromMapping.getVectorDataType();
-        RescoreContext processedRescoreContext = knnVectorFieldType.resolveRescoreContext(rescoreContext);
+        RescoreContext processedRescoreContext = resolveRescore(knnVectorFieldType, rescoreContext);
         // Transform the query vector if it's required. It will return `vector` itself if transform is not needed.
         // Otherwise, it will return a new transformed vector.
         final float[] transformedQueryVector = knnVectorFieldType.transformQueryVector(vector);
@@ -487,7 +494,19 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         }
 
         if (this.maxDistance != null || this.minScore != null) {
-            knnVectorFieldType.validateSupportRadialSearch(knnEngine);
+            ResolvedIndexSpec spec = knnVectorFieldType.getResolvedSpec();
+            if (!spec.supportsRadialSearch()) {
+                throw new UnsupportedOperationException(
+                    String.format(
+                        Locale.ROOT,
+                        "Radial search is not supported for this configuration: engine=%s, data_type=%s, method=%s, compression=%s",
+                        spec.getEngine(),
+                        spec.getVectorDataType(),
+                        spec.getMethodName(),
+                        spec.getCompressionLevel().getName()
+                    )
+                );
+            }
         }
 
         // Currently, k-NN supports distance and score types radial search
@@ -552,7 +571,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
                 .knnEngine(knnEngine)
                 .indexName(indexName)
-                .fieldName(this.fieldName)
+                .fieldName(resolvedFieldName)
                 .vector(getFloatVectorForCreatingQueryRequest(transformedQueryVector, vectorDataType, knnEngine))
                 .originalVector(vector)
                 .byteVector(getByteVectorForCreatingQueryRequest(vectorDataType, byteVector))
@@ -571,7 +590,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
                 .knnEngine(knnEngine)
                 .indexName(indexName)
-                .fieldName(this.fieldName)
+                .fieldName(resolvedFieldName)
                 .vector(getFloatVectorForCreatingQueryRequest(transformedQueryVector, vectorDataType, knnEngine))
                 .originalVector(vector)
                 .byteVector(getByteVectorForCreatingQueryRequest(vectorDataType, byteVector))
@@ -748,6 +767,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             }
         }
         return super.doRewrite(queryShardContext);
+    }
+
+    private static RescoreContext resolveRescore(KNNVectorFieldType fieldType, RescoreContext userContext) {
+        return fieldType.resolveRescoreContext(userContext);
     }
 
     @Getter

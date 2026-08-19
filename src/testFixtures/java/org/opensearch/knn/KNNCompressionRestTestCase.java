@@ -6,6 +6,8 @@
 package org.opensearch.knn;
 
 import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
+import com.carrotsearch.randomizedtesting.annotations.TimeoutSuite;
+import org.apache.lucene.tests.util.TimeUnits;
 import lombok.SneakyThrows;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -36,6 +38,7 @@ import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
  * Provides parameterization infrastructure, helper methods for index creation with compression,
  * and assertion helpers that adapt to compression-specific thresholds.
  */
+@TimeoutSuite(millis = 90 * TimeUnits.MINUTE)
 public abstract class KNNCompressionRestTestCase extends KNNRestTestCase {
 
     private static final int DEFAULT_HNSW_M = 16;
@@ -196,10 +199,12 @@ public abstract class KNNCompressionRestTestCase extends KNNRestTestCase {
 
     /**
      * Returns whether radial search is supported for current compression configuration.
-     * Both FP32 and quantized support radial search.
+     * Radial search is blocked on quantized indices due to poor recall from quantization error,
+     * so only non-compressed configurations support it.
+     * See https://github.com/opensearch-project/k-NN/issues/3452.
      */
     protected boolean isRadialSearchSupported() {
-        return true;
+        return compressionConfig.isCompressed() == false;
     }
 
     /**

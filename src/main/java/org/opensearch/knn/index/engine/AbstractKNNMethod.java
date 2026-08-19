@@ -10,6 +10,7 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.mapper.PerDimensionProcessor;
 import org.opensearch.knn.index.mapper.PerDimensionValidator;
 import org.opensearch.knn.index.mapper.SpaceVectorValidator;
@@ -23,6 +24,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 
 /**
  * Abstract class for KNN methods. This class provides the common functionality for all KNN methods.
@@ -140,12 +143,58 @@ public abstract class AbstractKNNMethod implements KNNMethod {
             .perDimensionProcessor(doGetPerDimensionProcessor(knnMethodContext, knnMethodConfigContext))
             .vectorTransformer(getVectorTransformer(knnMethodContext.getSpaceType()))
             .trainingConfigValidationSetup(doGetTrainingConfigValidationSetup())
+            .resolvedSpec(buildResolvedIndexSpec(knnMethodContext, knnMethodConfigContext))
+            .build();
+    }
+
+    private ResolvedIndexSpec buildResolvedIndexSpec(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
+        Encoder.EncoderType encoderType = Encoder.EncoderType.FLAT;
+        Encoder.QuantizationBits quantizationBits = Encoder.QuantizationBits.FULL_PRECISION;
+
+        Map<String, Object> methodParams = knnMethodContext.getMethodComponentContext().getParameters();
+        if (methodParams != null && methodParams.containsKey(METHOD_ENCODER_PARAMETER)) {
+            Object encoderObj = methodParams.get(METHOD_ENCODER_PARAMETER);
+            if (encoderObj instanceof MethodComponentContext encoderCtx) {
+                encoderType = Encoder.EncoderType.fromName(encoderCtx.getName());
+                Object bitsObj = encoderCtx.getParameters().get(KNNConstants.SQ_BITS);
+                if (bitsObj instanceof Integer bitsInt) {
+                    quantizationBits = Encoder.QuantizationBits.fromValue(bitsInt);
+                } else if (encoderType == Encoder.EncoderType.FLAT) {
+                    quantizationBits = Encoder.QuantizationBits.FULL_PRECISION;
+                } else if (encoderType == Encoder.EncoderType.BQ) {
+                    quantizationBits = Encoder.QuantizationBits.ONE;
+                }
+            }
+        }
+
+        // Dimension is null during model training flows (resolved from training data, not mapping params)
+        Integer dimension = knnMethodConfigContext.getDimension();
+        return ResolvedIndexSpec.builder()
+            .engine(knnMethodContext.getKnnEngine())
+            .methodName(knnMethodContext.getMethodComponentContext().getName())
+            .encoderType(encoderType)
+            .quantizationBits(quantizationBits)
+            .compressionLevel(knnMethodConfigContext.getCompressionLevel())
+            .mode(resolveEffectiveMode(knnMethodConfigContext))
+            .vectorDataType(knnMethodConfigContext.getVectorDataType())
+            .dimension(dimension != null ? dimension : 0)
+            .indexVersionCreated(knnMethodConfigContext.getVersionCreated())
             .build();
     }
 
     @Override
     public KNNLibrarySearchContext getKNNLibrarySearchContext() {
         return knnLibrarySearchContext;
+    }
+
+    private static Mode resolveEffectiveMode(KNNMethodConfigContext ctx) {
+        if (Mode.isConfigured(ctx.getMode())) {
+            return ctx.getMode();
+        }
+        // Only user-configured compression implies a mode. Compression derived from the encoder during
+        // resolution (e.g. binary encoder bits=1 -> x32) must not silently opt the index into on_disk
+        // behavior such as fp32 rescoring.
+        return KNNMethodConfigContext.deriveMode(ctx.getUserConfiguredCompressionLevel());
     }
 
     /**
