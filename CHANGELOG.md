@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Replace KNNEngine usage with VectorSearchEngine [#3288](https://github.com/opensearch-project/k-NN/pull/3288)
 
 ### Maintenance
+* Fixed multiple forbidden api warnings from the code []()
 
 ### Bug Fixes
 * Fix knn query against a field alias returning zero hits silently [#3485](https://github.com/opensearch-project/k-NN/pull/3485)

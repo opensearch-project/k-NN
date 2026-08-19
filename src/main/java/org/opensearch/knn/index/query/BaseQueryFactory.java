@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.query;
 
+import java.util.Locale;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -92,6 +94,7 @@ public abstract class BaseQueryFactory {
             .orElseThrow(() -> new RuntimeException("Shard context cannot be null"));
         log.debug(
             String.format(
+                Locale.ROOT,
                 "Creating query with filter for index [%s], field [%s]",
                 createQueryRequest.getIndexName(),
                 createQueryRequest.getFieldName()

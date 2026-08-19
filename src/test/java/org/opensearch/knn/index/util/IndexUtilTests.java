@@ -221,9 +221,6 @@ public class IndexUtilTests extends KNNTestCase {
         when(modelDao.getMetadata(anyString())).thenReturn(trainingFieldModelMetadata);
 
         ValidationException e = IndexUtil.validateKnnField(indexMetadata, field, dimension, modelDao, null, null);
-
-        System.out.println(Objects.requireNonNull(e).getMessage());
-
         assert (Objects.requireNonNull(e).getMessage().matches("Validation Failed: 1: Field path is empty.;"));
     }
 
@@ -288,7 +285,6 @@ public class IndexUtilTests extends KNNTestCase {
         ModelDao modelDao = mock(ModelDao.class);
 
         ValidationException e = IndexUtil.validateKnnField(indexMetadata, field, dimension, modelDao, VectorDataType.BINARY, null);
-        System.out.println(Objects.requireNonNull(e).getMessage());
 
         assert Objects.requireNonNull(e)
             .getMessage()

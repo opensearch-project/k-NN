@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
+import java.util.Locale;
+
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorScorer;
@@ -152,7 +154,7 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
 
         // We only support 32x quantization with 4 bit query quantization for search.
         if (scalarEncoding != SINGLE_BIT_QUERY_NIBBLE) {
-            throw new IllegalStateException(String.format("SQ only supports %s encoding.", SINGLE_BIT_QUERY_NIBBLE));
+            throw new IllegalStateException(String.format(Locale.ROOT, "SQ only supports %s encoding.", SINGLE_BIT_QUERY_NIBBLE));
         }
 
         // Validate dimensionality

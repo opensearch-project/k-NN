@@ -26,6 +26,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Collection;
@@ -55,7 +56,7 @@ public class BinaryIndexIT extends KNNRestTestCase {
     }
 
     @BeforeClass
-    public static void setUpClass() throws IOException {
+    public static void setUpClass() throws IOException, URISyntaxException {
         if (BinaryIndexIT.class.getClassLoader() == null) {
             throw new IllegalStateException("ClassLoader of BinaryIndexIT Class is null");
         }
@@ -65,7 +66,11 @@ public class BinaryIndexIT extends KNNRestTestCase {
         assert testIndexVectors != null;
         assert testQueries != null;
         assert groundTruthValues != null;
-        testData = new TestUtils.TestData(testIndexVectors.getPath(), testQueries.getPath(), groundTruthValues.getPath());
+        testData = new TestUtils.TestData(
+            testIndexVectors.toURI().getPath(),
+            testQueries.toURI().getPath(),
+            groundTruthValues.toURI().getPath()
+        );
     }
 
     @SneakyThrows

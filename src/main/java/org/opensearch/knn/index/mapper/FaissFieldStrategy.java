@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.mapper;
 
+import java.util.Locale;
+
 import lombok.extern.log4j.Log4j2;
 
 import org.apache.lucene.document.FieldType;
@@ -83,7 +85,7 @@ public final class FaissFieldStrategy implements EngineFieldStrategy {
                 XContentFactory.jsonBuilder().map(knnLibraryIndexingContext.getLibraryParameters()).toString()
             );
         } catch (IOException ioe) {
-            throw new RuntimeException(String.format("Unable to create KNNVectorFieldMapper: %s", ioe), ioe);
+            throw new RuntimeException(String.format(Locale.ROOT, "Unable to create KNNVectorFieldMapper: %s", ioe), ioe);
         }
 
         if (useLuceneBasedVectorField) {

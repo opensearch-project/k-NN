@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.engine;
 
+import java.util.Locale;
+
 import com.google.common.collect.ImmutableSet;
 import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
@@ -113,7 +115,7 @@ public enum KNNEngine implements KNNLibrary, VectorSearchEngine {
             return UNDEFINED;
         }
 
-        throw new IllegalArgumentException(String.format("Invalid engine type: %s", name));
+        throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid engine type: %s", name));
     }
 
     /**

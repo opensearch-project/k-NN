@@ -28,6 +28,7 @@ import org.opensearch.knn.index.engine.faiss.QFrameBitEncoder;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -517,7 +518,7 @@ public class RecallTestsIT extends KNNCompressionRestTestCase {
                 TRAIN_FIELD_NAME,
                 TEST_DIMENSION,
                 xContentBuilderToMap(trainingBuilder),
-                String.format("%s-%s", KNNEngine.FAISS.getName(), spaceType.getValue())
+                String.format(Locale.ROOT, "%s-%s", KNNEngine.FAISS.getName(), spaceType.getValue())
             );
             assertTrainingSucceeds(TEST_MODEL_ID, 100, 1000 * 5);
 
@@ -594,7 +595,7 @@ public class RecallTestsIT extends KNNCompressionRestTestCase {
                 TRAIN_FIELD_NAME,
                 TEST_DIMENSION,
                 xContentBuilderToMap(trainingBuilder),
-                String.format("%s-%s", KNNEngine.FAISS.getName(), spaceType.getValue())
+                String.format(Locale.ROOT, "%s-%s", KNNEngine.FAISS.getName(), spaceType.getValue())
             );
             assertTrainingSucceeds(TEST_MODEL_ID, 100, 1000 * 5);
 
@@ -672,7 +673,7 @@ public class RecallTestsIT extends KNNCompressionRestTestCase {
                 TRAIN_FIELD_NAME,
                 TEST_DIMENSION,
                 xContentBuilderToMap(trainingBuilder),
-                String.format("%s-%s", KNNEngine.FAISS.getName(), spaceType.getValue())
+                String.format(Locale.ROOT, "%s-%s", KNNEngine.FAISS.getName(), spaceType.getValue())
             );
             assertTrainingSucceeds(TEST_MODEL_ID, 100, 1000 * 5);
 
@@ -794,7 +795,7 @@ public class RecallTestsIT extends KNNCompressionRestTestCase {
     }
 
     private String createIndexName(VectorSearchEngine knnEngine, SpaceType spaceType) {
-        return String.format("%s_%s_%s", TEST_INDEX_PREFIX_NAME, knnEngine.getName(), spaceType.getValue());
+        return String.format(Locale.ROOT, "%s_%s_%s", TEST_INDEX_PREFIX_NAME, knnEngine.getName(), spaceType.getValue());
     }
 
     @SneakyThrows

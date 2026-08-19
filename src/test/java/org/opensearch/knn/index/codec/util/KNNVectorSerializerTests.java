@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec.util;
 
+import org.opensearch.common.Randomness;
+
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.KNNTestCase;
 
@@ -15,7 +17,7 @@ import java.util.stream.IntStream;
 
 public class KNNVectorSerializerTests extends KNNTestCase {
 
-    Random random = new Random();
+    Random random = Randomness.get();
 
     public void testVectorAsCollectionOfFloatsSerializer() throws Exception {
         // setup

@@ -144,6 +144,7 @@ public class MMRUtil {
         if (!nonKnnFields.isEmpty()) {
             throw new IllegalArgumentException(
                 String.format(
+                    Locale.ROOT,
                     "MMR query extension cannot support non knn_vector field [%s].",
                     nonKnnFields.stream()
                         .map(info -> String.format(Locale.ROOT, "%s:%s", info.getIndexName(), info.getFieldPath()))
@@ -171,6 +172,7 @@ public class MMRUtil {
         if (!current.equals(next)) {
             throw new IllegalArgumentException(
                 String.format(
+                    Locale.ROOT,
                     "MMR query extension cannot support different %s [%s, %s] for the knn_vector field at path %s.",
                     fieldDescription,
                     valueFormatter.apply(current),
@@ -217,6 +219,7 @@ public class MMRUtil {
         if (userProvided != null && resolved != null && !userProvided.equals(resolved)) {
             throw new IllegalArgumentException(
                 String.format(
+                    Locale.ROOT,
                     "The %s [%s] provided in the MMR query extension does not match the %s [%s] in target indices.",
                     fieldDescription,
                     valueFormatter.apply(userProvided),
@@ -253,6 +256,7 @@ public class MMRUtil {
                 if (infoFromModel == null) {
                     throw new IllegalStateException(
                         String.format(
+                            Locale.ROOT,
                             "Unexpected null when try to resolve the info of the vector field at path [%s] based on its model [%s].",
                             info.getModelId(),
                             info.getFieldPath()
@@ -441,14 +445,14 @@ public class MMRUtil {
             String part = pathParts[i];
             if (!(current instanceof Map<?, ?> map)) {
                 throw new IllegalArgumentException(
-                    String.format("%s: expected object at [%s], but found [%s]", baseError, part, current.getClass().getName())
+                    String.format(Locale.ROOT, "%s: expected object at [%s], but found [%s]", baseError, part, current.getClass().getName())
                 );
             }
 
             current = map.get(part);
             if (current == null) {
                 throw new IllegalArgumentException(
-                    String.format("%s: field path [%s] not found in document source.", baseError, fieldPath)
+                    String.format(Locale.ROOT, "%s: field path [%s] not found in document source.", baseError, fieldPath)
                 );
             }
 
@@ -472,7 +476,13 @@ public class MMRUtil {
                         }
                     } catch (Exception e) {
                         throw new IllegalArgumentException(
-                            String.format("%s: unexpected value at the vector field [%s]. error: %s", baseError, fieldPath, e.getMessage()),
+                            String.format(
+                                Locale.ROOT,
+                                "%s: unexpected value at the vector field [%s]. error: %s",
+                                baseError,
+                                fieldPath,
+                                e.getMessage()
+                            ),
                             e
                         );
                     }
@@ -482,6 +492,7 @@ public class MMRUtil {
                 }
                 throw new IllegalArgumentException(
                     String.format(
+                        Locale.ROOT,
                         "%s: expected vector (list of numbers) at field path [%s], but found type [%s]",
                         baseError,
                         fieldPath,
@@ -492,7 +503,9 @@ public class MMRUtil {
         }
 
         // Should never reach here
-        throw new IllegalStateException(String.format("%s: unexpected error resolving field path [%s].", baseError, fieldPath));
+        throw new IllegalStateException(
+            String.format(Locale.ROOT, "%s: unexpected error resolving field path [%s].", baseError, fieldPath)
+        );
     }
 
     /**
@@ -541,7 +554,12 @@ public class MMRUtil {
             String fieldType = (String) current.get(TYPE);
             if (ObjectMapper.NESTED_CONTENT_TYPE.equals(fieldType)) {
                 throw new IllegalArgumentException(
-                    String.format("MMR search extension cannot support the field %s because it is in the nested field %s.", fieldPath, part)
+                    String.format(
+                        Locale.ROOT,
+                        "MMR search extension cannot support the field %s because it is in the nested field %s.",
+                        fieldPath,
+                        part
+                    )
                 );
             }
         }

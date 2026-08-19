@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec.KNN80Codec;
 
+import java.util.Locale;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.lucene.codecs.Codec;
@@ -134,7 +136,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         DocValuesConsumer delegate = mock(DocValuesConsumer.class);
         doNothing().when(delegate).addBinaryField(fieldInfo, docValuesProducer);
 
-        String segmentName = String.format("test_segment%s", randomAlphaOfLength(4));
+        String segmentName = String.format(Locale.ROOT, "test_segment%s", randomAlphaOfLength(4));
         int docsInSegment = 100;
 
         SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
@@ -172,7 +174,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         Long initialMergeOperations = KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue();
         Long initialMergeSize = KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue();
         Long initialMergeDocs = KNNGraphValue.MERGE_TOTAL_DOCS.getValue();
-        String segmentName = String.format("test_segment%s", randomAlphaOfLength(4));
+        String segmentName = String.format(Locale.ROOT, "test_segment%s", randomAlphaOfLength(4));
         int docsInSegment = 100;
 
         SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
@@ -195,9 +197,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
     public void testAddKNNBinaryField_fromScratch_nmslibCurrent() throws IOException {
         // Set information about the segment and the fields
-        String segmentName = String.format("test_segment%s", randomAlphaOfLength(4));
+        String segmentName = String.format(Locale.ROOT, "test_segment%s", randomAlphaOfLength(4));
         int docsInSegment = 100;
-        String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
+        String fieldName = String.format(Locale.ROOT, "test_field%s", randomAlphaOfLength(4));
 
         VectorSearchEngine knnEngine = KNNEngine.NMSLIB;
         SpaceType spaceType = SpaceType.COSINESIMIL;
@@ -263,9 +265,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
     public void testAddKNNBinaryField_fromScratch_nmslibLegacy() throws IOException {
         // Set information about the segment and the fields
-        String segmentName = String.format("test_segment%s", randomAlphaOfLength(4));
+        String segmentName = String.format(Locale.ROOT, "test_segment%s", randomAlphaOfLength(4));
         int docsInSegment = 100;
-        String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
+        String fieldName = String.format(Locale.ROOT, "test_field%s", randomAlphaOfLength(4));
 
         VectorSearchEngine knnEngine = KNNEngine.NMSLIB;
         SpaceType spaceType = SpaceType.COSINESIMIL;
@@ -317,9 +319,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
     }
 
     public void testAddKNNBinaryField_fromScratch_faissCurrent() throws IOException {
-        String segmentName = String.format("test_segment%s", randomAlphaOfLength(4));
+        String segmentName = String.format(Locale.ROOT, "test_segment%s", randomAlphaOfLength(4));
         int docsInSegment = 100;
-        String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
+        String fieldName = String.format(Locale.ROOT, "test_field%s", randomAlphaOfLength(4));
 
         VectorSearchEngine knnEngine = KNNEngine.FAISS;
         SpaceType spaceType = SpaceType.INNER_PRODUCT;
@@ -382,9 +384,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
     }
 
     public void testAddKNNBinaryField_whenFaissBinary_thenAdded() throws IOException {
-        String segmentName = String.format("test_segment%s", randomAlphaOfLength(4));
+        String segmentName = String.format(Locale.ROOT, "test_segment%s", randomAlphaOfLength(4));
         int docsInSegment = 100;
-        String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
+        String fieldName = String.format(Locale.ROOT, "test_field%s", randomAlphaOfLength(4));
 
         VectorSearchEngine knnEngine = KNNEngine.FAISS;
         SpaceType spaceType = SpaceType.HAMMING;
@@ -506,9 +508,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             ModelCache.initialize(modelDao, clusterService);
 
             // Build the segment and field info
-            String segmentName = String.format("test_segment%s", randomAlphaOfLength(4));
+            String segmentName = String.format(Locale.ROOT, "test_segment%s", randomAlphaOfLength(4));
             int docsInSegment = 100;
-            String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
+            String fieldName = String.format(Locale.ROOT, "test_field%s", randomAlphaOfLength(4));
 
             SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
                 .directory(directory)
@@ -686,9 +688,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             ModelCache.initialize(modelDao, clusterService);
 
             // Build the segment and field info
-            String segmentName = String.format("test_segment%s", randomAlphaOfLength(4));
+            String segmentName = String.format(Locale.ROOT, "test_segment%s", randomAlphaOfLength(4));
             int docsInSegment = 100;
-            String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
+            String fieldName = String.format(Locale.ROOT, "test_field%s", randomAlphaOfLength(4));
 
             SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
                 .directory(directory)

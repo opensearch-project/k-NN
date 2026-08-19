@@ -5,6 +5,10 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
+import java.nio.charset.StandardCharsets;
+
+import java.util.Locale;
+
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.KnnFieldVectorsWriter;
@@ -644,7 +648,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final SegmentInfo segmentInfo = mock(SegmentInfo.class);
         when(segmentInfo.getUseCompoundFile()).thenReturn(false);
         when(segmentInfo.files()).thenReturn(Set.of(buildInfo.faissIndexFile));
-        when(segmentInfo.getId()).thenReturn("LuceneOnFaiss".getBytes());
+        when(segmentInfo.getId()).thenReturn("LuceneOnFaiss".getBytes(StandardCharsets.UTF_8));
         when(segmentInfo.getVersion()).thenReturn(org.apache.lucene.util.Version.LATEST);
 
         // Prepare collector and bits
@@ -1016,7 +1020,7 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         // Validate score values are the same
         final Map<Integer, Float> faissIdScores = Arrays.stream(resultsFromFaiss)
             .collect(toMap(KNNQueryResult::getId, KNNQueryResult::getScore));
-        final boolean isRunningInWindows = System.getProperty("os.name").toLowerCase().contains("win");
+        final boolean isRunningInWindows = System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("win");
         if (isRunningInWindows == false) {
             // For unknown reason, this assertion is only failing in Windows
             // Until root causing the issue, blocking assertion for Windows.

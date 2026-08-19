@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec.nativeindex.remote;
 
+import org.opensearch.common.Randomness;
+
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
@@ -138,7 +140,7 @@ public class DefaultVectorRepositoryAccessorTests extends RemoteIndexBuildTests 
         // Create an InputStream with random values
         int TEST_ARRAY_SIZE = 64 * 1024 * 10;
         byte[] byteArray = new byte[TEST_ARRAY_SIZE];
-        Random random = new Random();
+        Random random = Randomness.get();
         random.nextBytes(byteArray);
         InputStream randomStream = new ByteArrayInputStream(byteArray);
 

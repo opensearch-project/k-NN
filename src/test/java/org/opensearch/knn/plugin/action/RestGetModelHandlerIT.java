@@ -11,19 +11,17 @@
 
 package org.opensearch.knn.plugin.action;
 
-import joptsimple.internal.Strings;
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
+import org.opensearch.core.common.Strings;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.core.rest.RestStatus;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
@@ -96,8 +94,8 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, modelId);
         Request request = new Request("GET", restURI);
 
-        List<String> filteredPath = Arrays.asList(MODEL_ID, MODEL_DESCRIPTION, MODEL_TIMESTAMP, KNN_ENGINE);
-        request.addParameter("filter_path", Strings.join(filteredPath, ","));
+        String[] filteredPath = { MODEL_ID, MODEL_DESCRIPTION, MODEL_TIMESTAMP, KNN_ENGINE };
+        request.addParameter("filter_path", Strings.arrayToDelimitedString(filteredPath, ","));
 
         Response response = client().performRequest(request);
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -107,7 +105,7 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
 
         Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
 
-        assertTrue(responseMap.size() == filteredPath.size());
+        assertTrue(responseMap.size() == filteredPath.length);
         assertEquals(modelId, responseMap.get(MODEL_ID));
         assertEquals(modelDescription, responseMap.get(MODEL_DESCRIPTION));
         assertEquals(FAISS.getName(), responseMap.get(KNN_ENGINE));
