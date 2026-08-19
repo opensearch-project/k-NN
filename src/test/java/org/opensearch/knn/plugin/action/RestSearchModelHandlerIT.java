@@ -11,6 +11,8 @@
 
 package org.opensearch.knn.plugin.action;
 
+import java.util.Locale;
+
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.action.search.SearchResponse;
@@ -84,13 +86,14 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
 
             ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
             String messageExpected = String.format(
+                Locale.ROOT,
                 "%s must be between %s and %s inclusive",
                 PARAM_SIZE,
                 SEARCH_MODEL_MIN_SIZE,
                 SEARCH_MODEL_MAX_SIZE
             );
             assertTrue(
-                String.format("FAILED - Expected  \"%s\" to have \"%s\"", ex.getMessage(), messageExpected),
+                String.format(Locale.ROOT, "FAILED - Expected  \"%s\" to have \"%s\"", ex.getMessage(), messageExpected),
                 ex.getMessage().contains(messageExpected)
             );
         }

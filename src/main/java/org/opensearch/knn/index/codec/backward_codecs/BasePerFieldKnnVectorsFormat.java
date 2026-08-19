@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec.backward_codecs;
 
+import java.util.Locale;
+
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnVectorsFormat;
@@ -99,7 +101,7 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         }
         KNNVectorFieldType mappedFieldType = (KNNVectorFieldType) mapperService.orElseThrow(
             () -> new IllegalStateException(
-                String.format("Cannot read field type for field [%s] because mapper service is not available", field)
+                String.format(Locale.ROOT, "Cannot read field type for field [%s] because mapper service is not available", field)
             )
         ).fieldType(field);
 

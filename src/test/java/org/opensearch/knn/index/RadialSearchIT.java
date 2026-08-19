@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index;
 
+import java.util.Locale;
+
 import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
@@ -458,7 +460,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
 
     public void testRadialSearch_thenCorrectResults() throws Exception {
         assumeTrue("Radial search is not supported on quantized indices", isRadialSearchSupported());
-        String indexName = prefix() + testName.toLowerCase().replace(" ", "_");
+        String indexName = prefix() + testName.toLowerCase(Locale.ROOT).replace(" ", "_");
 
         XContentBuilder mapping = XContentFactory.jsonBuilder()
             .startObject()
@@ -499,13 +501,14 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
 
         if (compressionConfig == CompressionTestConfig.X1) {
             assertEquals(
-                String.format("[%s] Expected %d results but got %d", testName, expectedCount, results.size()),
+                String.format(Locale.ROOT, "[%s] Expected %d results but got %d", testName, expectedCount, results.size()),
                 expectedCount,
                 results.size()
             );
         } else {
             assertTrue(
                 String.format(
+                    Locale.ROOT,
                     "[%s] quantized radial returned %d results, expected at most %d",
                     testName,
                     results.size(),
@@ -514,10 +517,10 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
                 results.size() <= testVectors.length
             );
             for (int i = 0; i < results.size(); i++) {
-                assertTrue(String.format("[%s] score should be positive", testName), results.get(i).getScore() > 0.0f);
+                assertTrue(String.format(Locale.ROOT, "[%s] score should be positive", testName), results.get(i).getScore() > 0.0f);
                 if (i > 0) {
                     assertTrue(
-                        String.format("[%s] scores should be in descending order", testName),
+                        String.format(Locale.ROOT, "[%s] scores should be in descending order", testName),
                         results.get(i - 1).getScore() >= results.get(i).getScore()
                     );
                 }

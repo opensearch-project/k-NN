@@ -5,6 +5,10 @@
 
 package org.opensearch.knn.integ;
 
+import java.nio.charset.StandardCharsets;
+
+import java.util.Locale;
+
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.Assert;
@@ -841,7 +845,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
             if (mode == null) {
                 continue;
             }
-            mode = mode.toLowerCase();
+            mode = mode.toLowerCase(Locale.ROOT);
             String indexName = INDEX_NAME + mode;
             String modelId = indexName;
             builder = XContentFactory.jsonBuilder()
@@ -1010,7 +1014,7 @@ public class ModeAndCompressionIT extends KNNRestTestCase {
         assertEquals(
             "The status of index " + indexName + " is not green",
             "green",
-            new String(response.getEntity().getContent().readAllBytes()).split("\n")[0].split(" ")[0]
+            new String(response.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8).split("\n")[0].split(" ")[0]
         );
 
     }

@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.plugin.action;
 
+import java.util.Locale;
+
 import lombok.SneakyThrows;
 import org.opensearch.client.Request;
 import org.opensearch.client.ResponseException;
@@ -52,7 +54,7 @@ public class RestClearCacheHandlerIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testClearCacheSingleIndex() {
-        String testIndex = getTestName().toLowerCase();
+        String testIndex = getTestName().toLowerCase(Locale.ROOT);
         int graphCountBefore = getTotalGraphsInCache();
         createKnnIndex(testIndex, buildKNNIndexSettings(ALWAYS_BUILD_GRAPH), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
         addKnnDoc(testIndex, String.valueOf(randomInt()), TEST_FIELD, new Float[] { randomFloat(), randomFloat() });
@@ -67,8 +69,8 @@ public class RestClearCacheHandlerIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testClearCacheMultipleIndices() {
-        String testIndex1 = getTestName().toLowerCase();
-        String testIndex2 = getTestName().toLowerCase() + 1;
+        String testIndex1 = getTestName().toLowerCase(Locale.ROOT);
+        String testIndex2 = getTestName().toLowerCase(Locale.ROOT) + 1;
         int graphCountBefore = getTotalGraphsInCache();
 
         createKnnIndex(testIndex1, buildKNNIndexSettings(ALWAYS_BUILD_GRAPH), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
@@ -87,9 +89,9 @@ public class RestClearCacheHandlerIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testClearCacheMultipleIndicesWithPatterns() {
-        String testIndex1 = getTestName().toLowerCase();
-        String testIndex2 = getTestName().toLowerCase() + 1;
-        String testIndex3 = "abc" + getTestName().toLowerCase();
+        String testIndex1 = getTestName().toLowerCase(Locale.ROOT);
+        String testIndex2 = getTestName().toLowerCase(Locale.ROOT) + 1;
+        String testIndex3 = "abc" + getTestName().toLowerCase(Locale.ROOT);
         int graphCountBefore = getTotalGraphsInCache();
 
         createKnnIndex(testIndex1, buildKNNIndexSettings(ALWAYS_BUILD_GRAPH), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
@@ -104,7 +106,7 @@ public class RestClearCacheHandlerIT extends KNNRestTestCase {
         knnWarmup(Arrays.asList(testIndex1, testIndex2, testIndex3));
 
         assertEquals(graphCountBefore + 3, getTotalGraphsInCache());
-        String indexPattern = getTestName().toLowerCase() + "*";
+        String indexPattern = getTestName().toLowerCase(Locale.ROOT) + "*";
 
         clearCache(Arrays.asList(indexPattern));
         assertEquals(graphCountBefore + 1, getTotalGraphsInCache());
