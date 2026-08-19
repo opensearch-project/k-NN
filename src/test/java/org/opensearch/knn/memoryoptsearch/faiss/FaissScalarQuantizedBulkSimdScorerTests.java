@@ -87,6 +87,123 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
         }
     }
 
+    /**
+     * The SQ_COSINE kernel treats cosine as a plain inner product ((1 + dot) / 2), which is only
+     * correct when both the stored vectors and the query are L2-normalized. getRandomVectorScorer()
+     * guards the query half of that invariant with an assertion; verify that an un-normalized cosine
+     * query trips it. Assertions are enabled in the test JVM (-ea); guard against environments where
+     * they are not so the test does not spuriously fail.
+     */
+    @Test
+    @SneakyThrows
+    public void testSQCosine_whenQueryNotNormalized_thenAssertionError() {
+        boolean assertionsEnabled = false;
+        assert assertionsEnabled = true; // intentional side effect
+        assumeTrue("Assertions must be enabled (-ea) to exercise the normalization guard", assertionsEnabled);
+
+        final int dimension = 128;
+        final ScalarEncoding encoding = ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE;
+        final FlatVectorsScorer defaultScorer = FlatVectorScorerUtil.getLucene99FlatVectorsScorer();
+        final FlatVectorsFormat rawVectorFormat = getRawVectorFormat();
+
+        final FieldInfo fieldInfo = new FieldInfo(
+            FIELD_NAME,
+            0,
+            false,
+            false,
+            false,
+            IndexOptions.NONE,
+            DocValuesType.NONE,
+            DocValuesSkipIndexType.NONE,
+            -1,
+            Map.of(),
+            0,
+            0,
+            0,
+            dimension,
+            VectorEncoding.FLOAT32,
+            VectorSimilarityFunction.COSINE,
+            false,
+            false
+        );
+        final FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { fieldInfo });
+
+        final Path tempDir = createTempDir();
+        try (MMapDirectory dir = new MMapDirectory(tempDir)) {
+            final SegmentInfo segmentInfo = new SegmentInfo(
+                dir,
+                Version.LATEST,
+                Version.LATEST,
+                "_0",
+                NUM_VECTORS,
+                false,
+                false,
+                null,
+                Collections.emptyMap(),
+                StringHelper.randomId(),
+                new HashMap<>(),
+                null
+            );
+            final SegmentWriteState writeState = new SegmentWriteState(
+                InfoStream.NO_OUTPUT,
+                dir,
+                segmentInfo,
+                fieldInfos,
+                null,
+                IOContext.DEFAULT
+            );
+            final Lucene104ScalarQuantizedVectorScorer luceneVectorScorer = new Lucene104ScalarQuantizedVectorScorer(defaultScorer);
+
+            try (
+                FlatVectorsWriter writer = new Lucene104ScalarQuantizedVectorsWriter(
+                    writeState,
+                    encoding,
+                    rawVectorFormat.fieldsWriter(writeState),
+                    luceneVectorScorer
+                )
+            ) {
+                @SuppressWarnings("unchecked")
+                FlatFieldVectorsWriter<float[]> fieldWriter = (FlatFieldVectorsWriter<float[]>) writer.addField(fieldInfo);
+                for (int i = 0; i < NUM_VECTORS; i++) {
+                    float[] vec = randomCosineVector(dimension);
+                    VectorUtil.l2normalize(vec);
+                    fieldWriter.addValue(i, vec);
+                }
+                writer.flush(NUM_VECTORS, null);
+                writer.finish();
+            }
+
+            final SegmentReadState readState = new SegmentReadState(dir, segmentInfo, fieldInfos, IOContext.DEFAULT);
+            try (
+                FlatVectorsReader reader = new Lucene104ScalarQuantizedVectorsReader(
+                    readState,
+                    rawVectorFormat.fieldsReader(readState),
+                    luceneVectorScorer
+                )
+            ) {
+                final KNN1040ScalarQuantizedVectorScorer simdFlatScorer = new KNN1040ScalarQuantizedVectorScorer(defaultScorer);
+
+                // Deliberately un-normalized query: shift every component so the L2 norm is far from 1.
+                final float[] unnormalizedQuery = randomCosineVector(dimension);
+                for (int i = 0; i < dimension; i++) {
+                    unnormalizedQuery[i] += 10.0f;
+                }
+                assertTrue(
+                    "Test query must be un-normalized",
+                    Math.abs(VectorUtil.dotProduct(unnormalizedQuery, unnormalizedQuery) - 1.0f) > 1e-2f
+                );
+
+                final var floatVectorValues = reader.getFloatVectorValues(FIELD_NAME);
+                expectThrows(
+                    AssertionError.class,
+                    () -> simdFlatScorer.getRandomVectorScorer(VectorSimilarityFunction.COSINE, floatVectorValues, unnormalizedQuery)
+                );
+            }
+        }
+
+        IOUtils.rm(tempDir);
+    }
+
     @SneakyThrows
     private void doTest(final VectorSimilarityFunction similarityFunction, final int dimension) {
         final ScalarEncoding encoding = ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE;
@@ -202,15 +319,11 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
                 assertNotNull("Test scorer should not be null", testScorer);
 
                 // ---- Step 4: Compare scores ----
-                final boolean isCosine = similarityFunction == VectorSimilarityFunction.COSINE;
                 int maxOrd = truthScorer.maxOrd();
                 assertEquals("maxOrd mismatch", maxOrd, testScorer.maxOrd());
 
                 for (int ord = 0; ord < maxOrd; ord++) {
                     float actual = testScorer.score(ord);
-                    if (isCosine) {
-                        actual = convertMaxIpToCosineScore(actual);
-                    }
                     float expected = truthScorer.score(ord);
                     assertEquals("Score mismatch at ord=" + ord + " for " + similarityFunction, expected, actual, 1e-2);
                 }
@@ -228,9 +341,6 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
                     testScorer.bulkScore(ords, bulkScores, batchSize);
                     for (int j = 0; j < batchSize; j++) {
                         float actualBulk = bulkScores[j];
-                        if (isCosine) {
-                            actualBulk = convertMaxIpToCosineScore(actualBulk);
-                        }
                         float expected = truthScorer.score(ords[j]);
                         assertEquals(
                             "Bulk score mismatch at ord=" + ords[j] + " (batch=" + batchSize + ") for " + similarityFunction,
@@ -280,22 +390,5 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
             v[dimension - 1] = -(Randomness.get().nextFloat() * 0.5f + 0.5f);
         }
         return v;
-    }
-
-    /**
-     * Converts a Faiss MAX_IP score (used internally for cosine) to the Lucene cosine score.
-     * Faiss uses MAX_IP under the hood for cosine similarity on normalized vectors.
-     * The MAX_IP transform maps: ip >= 0 → 1 + ip, ip < 0 → 1 / (1 - ip).
-     * This reverses that, then applies the cosine score formula: (1 + ip) / 2.
-     */
-    private static float convertMaxIpToCosineScore(float maxIpScore) {
-        float innerProductValue;
-        if (maxIpScore >= 1) {
-            innerProductValue = maxIpScore - 1;
-        } else {
-            innerProductValue = 1 - 1 / maxIpScore;
-        }
-        innerProductValue = Math.clamp(innerProductValue, -1, 1);
-        return Math.max((1 + innerProductValue) / 2.0f, 0.0f);
     }
 }

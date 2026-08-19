@@ -15,6 +15,7 @@ import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.ArrayUtil;
+import org.apache.lucene.util.VectorUtil;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.apache.lucene.util.quantization.OptimizedScalarQuantizer;
 import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer.PrefetchableRandomVectorScorer;
@@ -194,6 +195,14 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
         // For cosine similarity, the query vector is expected to already be normalized.
         // Normalization is performed upfront in KNNQueryBuilder via VectorTransformerFactory
         // for Lucene cosine with SQ 1-bit and flat methods and for Faiss.
+        //
+        // The SQ_COSINE native kernel treats cosine as a plain inner product ((1 + dot) / 2),
+        // which is only correct when both the query and the stored vectors are L2-normalized.
+        // Guard the query-normalization half of that invariant here; a violation means the query
+        // reached this scorer without the expected upstream normalization (i.e. a misroute or a
+        // missing VectorTransformer), which would silently produce invalid cosine scores.
+        assert similarityFunction != VectorSimilarityFunction.COSINE || isNormalized(target)
+            : "SQ_COSINE requires an L2-normalized query; got squared norm " + VectorUtil.dotProduct(target, target);
 
         // Perform scalar quantization
         final OptimizedScalarQuantizer.QuantizationResult targetCorrectiveTerms = quantizer.scalarQuantize(
@@ -216,6 +225,17 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
             targetCopy.length,
             quantizedByteVectorValues.getCentroidDP()
         );
+    }
+
+    /**
+     * Returns whether {@code vector} is (approximately) L2-normalized, i.e. its squared magnitude
+     * is within a small tolerance of 1.0. Used only by assertions to catch un-normalized cosine
+     * queries; the tolerance is deliberately loose to absorb float rounding from upstream
+     * normalization and quantization.
+     */
+    private static boolean isNormalized(final float[] vector) {
+        final float squaredNorm = VectorUtil.dotProduct(vector, vector);
+        return Math.abs(squaredNorm - 1.0f) <= 1e-2f;
     }
 
     /**
@@ -262,10 +282,10 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
                 targetCorrectiveTerms.additionalCorrection(),
                 targetCorrectiveTerms.quantizedComponentSum(),
                 addressAndSize,
-                similarityFunction == VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT
-                    || similarityFunction == VectorSimilarityFunction.COSINE
+                similarityFunction == VectorSimilarityFunction.COSINE ? SimdVectorComputeService.SimilarityFunctionType.SQ_COSINE.ordinal()
+                    : similarityFunction == VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT
                         ? SimdVectorComputeService.SimilarityFunctionType.SQ_IP.ordinal()
-                        : SimdVectorComputeService.SimilarityFunctionType.SQ_L2.ordinal(),
+                    : SimdVectorComputeService.SimilarityFunctionType.SQ_L2.ordinal(),
                 dimension,
                 centroidDp
             );
