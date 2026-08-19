@@ -18,6 +18,7 @@ import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 
 import java.util.EnumSet;
+import java.util.Locale;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -28,7 +29,7 @@ public class ClearCacheTransportActionTests extends KNNSingleNodeTestCase {
 
     @SneakyThrows
     public void testShardOperation() {
-        String testIndex = getTestName().toLowerCase();
+        String testIndex = getTestName().toLowerCase(Locale.ROOT);
         KNNWarmupRequest knnWarmupRequest = new KNNWarmupRequest(testIndex);
         KNNWarmupTransportAction knnWarmupTransportAction = node().injector().getInstance(KNNWarmupTransportAction.class);
         assertEquals(0, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().size());
@@ -49,7 +50,7 @@ public class ClearCacheTransportActionTests extends KNNSingleNodeTestCase {
 
     @SneakyThrows
     public void testShards() {
-        String testIndex = getTestName().toLowerCase();
+        String testIndex = getTestName().toLowerCase(Locale.ROOT);
         ClusterService clusterService = node().injector().getInstance(ClusterService.class);
         ClearCacheTransportAction clearCacheTransportAction = node().injector().getInstance(ClearCacheTransportAction.class);
         ClearCacheRequest clearCacheRequest = new ClearCacheRequest(testIndex);
@@ -67,7 +68,7 @@ public class ClearCacheTransportActionTests extends KNNSingleNodeTestCase {
     }
 
     public void testCheckGlobalBlock_throwsClusterBlockException() {
-        String testIndex = getTestName().toLowerCase();
+        String testIndex = getTestName().toLowerCase(Locale.ROOT);
         String description = "testing metadata block";
         ClusterService clusterService = mock(ClusterService.class);
         addGlobalClusterBlock(clusterService, description, EnumSet.of(ClusterBlockLevel.METADATA_WRITE));
@@ -78,7 +79,7 @@ public class ClearCacheTransportActionTests extends KNNSingleNodeTestCase {
     }
 
     public void testCheckGlobalBlock_notThrowsClusterBlockException() {
-        String testIndex = getTestName().toLowerCase();
+        String testIndex = getTestName().toLowerCase(Locale.ROOT);
         ClusterService clusterService = mock(ClusterService.class);
         ClearCacheTransportAction clearCacheTransportAction = node().injector().getInstance(ClearCacheTransportAction.class);
         ClearCacheRequest clearCacheRequest = new ClearCacheRequest(testIndex);
@@ -88,7 +89,7 @@ public class ClearCacheTransportActionTests extends KNNSingleNodeTestCase {
     }
 
     public void testCheckRequestBlock_throwsClusterBlockException() {
-        String testIndex = getTestName().toLowerCase();
+        String testIndex = getTestName().toLowerCase(Locale.ROOT);
         String description = "testing index metadata block";
         ClusterService clusterService = mock(ClusterService.class);
         addIndexClusterBlock(clusterService, description, EnumSet.of(ClusterBlockLevel.METADATA_WRITE), testIndex);
@@ -106,7 +107,7 @@ public class ClearCacheTransportActionTests extends KNNSingleNodeTestCase {
     }
 
     public void testCheckRequestBlock_notThrowsClusterBlockException() {
-        String testIndex = getTestName().toLowerCase();
+        String testIndex = getTestName().toLowerCase(Locale.ROOT);
         ClusterService clusterService = mock(ClusterService.class);
         ClearCacheTransportAction clearCacheTransportAction = node().injector().getInstance(ClearCacheTransportAction.class);
         ClearCacheRequest clearCacheRequest = new ClearCacheRequest(testIndex);

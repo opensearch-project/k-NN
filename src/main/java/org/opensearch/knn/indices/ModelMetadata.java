@@ -11,6 +11,8 @@
 
 package org.opensearch.knn.indices;
 
+import java.util.Locale;
+
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.builder.EqualsBuilder;
@@ -147,6 +149,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         if (dimension <= 0 || dimension > maxDimensions) {
             throw new IllegalArgumentException(
                 String.format(
+                    Locale.ROOT,
                     "Dimension \"%s\" is invalid. Value must be greater than 0 and less than or equal to %d",
                     dimension,
                     maxDimensions

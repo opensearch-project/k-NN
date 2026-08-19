@@ -98,6 +98,7 @@ public class PlatformUtilTests extends Assert {
 
     }
 
+    @Test
     public void testIsAVX2SupportedBySystem_platformIsLinux_returnsTrue() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
             mockedPlatform.when(Platform::isIntel).thenReturn(true);

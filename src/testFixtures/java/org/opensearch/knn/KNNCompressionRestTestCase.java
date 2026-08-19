@@ -17,6 +17,7 @@ import org.opensearch.knn.index.SpaceType;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 
 import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
@@ -73,8 +74,8 @@ public abstract class KNNCompressionRestTestCase extends KNNRestTestCase {
      * Creates index name prefix that includes compression level for uniqueness
      */
     protected String prefix() {
-        String sanitizedTestName = getTestName().toLowerCase().replaceAll("[^a-z0-9]", "_");
-        return sanitizedTestName + "_" + compressionConfig.name().toLowerCase() + "_";
+        String sanitizedTestName = getTestName().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "_");
+        return sanitizedTestName + "_" + compressionConfig.name().toLowerCase(Locale.ROOT) + "_";
     }
 
     /**
@@ -131,6 +132,7 @@ public abstract class KNNCompressionRestTestCase extends KNNRestTestCase {
     protected void assertRecall(double actualRecall, SpaceType spaceType) {
         float expectedMinRecall = getMinRecallThreshold(spaceType);
         String message = String.format(
+            Locale.ROOT,
             "%s recall should be >= %.3f but was %.3f",
             compressionConfig.name(),
             expectedMinRecall,

@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.mapper;
 
+import java.util.Locale;
+
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.DocValuesType;
@@ -405,7 +407,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
     private static ModelMetadata getModelMetadata(ModelDao modelDao, String modelId) {
         ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
         if (!ModelUtil.isModelCreated(modelMetadata)) {
-            throw new IllegalStateException(String.format("Model ID '%s' is not created.", modelId));
+            throw new IllegalStateException(String.format(Locale.ROOT, "Model ID '%s' is not created.", modelId));
         }
         return modelMetadata;
     }

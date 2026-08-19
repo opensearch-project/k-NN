@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.engine.faiss;
 
+import java.util.Locale;
+
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
@@ -152,7 +154,9 @@ public abstract class AbstractFaissPQEncoder implements Encoder {
 
             if (trainingVectors < minTrainingVectorCount) {
                 builder.valid(false).minTrainingVectorCount(minTrainingVectorCount);
-                builder.errorMessage(String.format("Number of training points should be greater than %d", minTrainingVectorCount));
+                builder.errorMessage(
+                    String.format(Locale.ROOT, "Number of training points should be greater than %d", minTrainingVectorCount)
+                );
                 return builder.build();
             } else {
                 builder.valid(true);

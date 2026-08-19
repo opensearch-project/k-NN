@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
+import org.opensearch.common.Randomness;
+
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.index.ByteVectorValues;
@@ -34,11 +36,10 @@ import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import org.opensearch.common.io.PathUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
@@ -90,19 +91,19 @@ public abstract class AbstractFaissCagraHnswIndexTests extends KNNTestCase {
             if (vectorDataType == VectorDataType.FLOAT) {
                 final float[] floatQuery = new float[DIMENSION];
                 for (int i = 0; i < DIMENSION; i++) {
-                    floatQuery[i] = ThreadLocalRandom.current().nextFloat();
+                    floatQuery[i] = Randomness.get().nextFloat();
                 }
                 query = floatQuery;
             } else if (vectorDataType == VectorDataType.BYTE) {
                 final byte[] byteQuery = new byte[DIMENSION];
                 for (int i = 0; i < DIMENSION; i++) {
-                    byteQuery[i] = (byte) (ThreadLocalRandom.current().nextInt() & 0xFF);
+                    byteQuery[i] = (byte) (Randomness.get().nextInt() & 0xFF);
                 }
                 query = byteQuery;
             } else {
                 final byte[] binaryQuery = new byte[CODE_SIZE];
                 for (int i = 0; i < CODE_SIZE; i++) {
-                    binaryQuery[i] = (byte) (ThreadLocalRandom.current().nextInt() & 0xFF);
+                    binaryQuery[i] = (byte) (Randomness.get().nextInt() & 0xFF);
                 }
                 query = binaryQuery;
             }
@@ -210,7 +211,7 @@ public abstract class AbstractFaissCagraHnswIndexTests extends KNNTestCase {
 
         // Create a vector file in temp directory, we don't want to take a lock on common shared resource directory.
         final int tmpFileSize = (int) input.length();
-        final Path tempFile = Paths.get(tempDirPath.toFile().getAbsolutePath(), "test.bin");
+        final Path tempFile = PathUtils.get(tempDirPath.toFile().getAbsolutePath(), "test.bin");
         final byte[] buffer = new byte[tmpFileSize];
         input.seek(0);
         input.readBytes(buffer, 0, tmpFileSize);

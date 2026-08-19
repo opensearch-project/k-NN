@@ -11,6 +11,8 @@
 
 package org.opensearch.knn.index;
 
+import org.opensearch.common.Randomness;
+
 import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,6 +43,7 @@ import org.opensearch.knn.plugin.script.KNNScoringUtil;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -117,7 +120,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
     static TestUtils.TestData testData;
 
     @BeforeClass
-    public static void setUpClass() throws IOException {
+    public static void setUpClass() throws IOException, URISyntaxException {
         if (FaissIT.class.getClassLoader() == null) {
             throw new IllegalStateException("ClassLoader of FaissIT Class is null");
         }
@@ -125,7 +128,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
         URL testQueries = FaissIT.class.getClassLoader().getResource("data/test_queries_100x128.csv");
         assert testIndexVectors != null;
         assert testQueries != null;
-        testData = new TestUtils.TestData(testIndexVectors.getPath(), testQueries.getPath());
+        testData = new TestUtils.TestData(testIndexVectors.toURI().getPath(), testQueries.toURI().getPath());
     }
 
     @SneakyThrows
@@ -278,7 +281,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
 
         createKnnIndex(indexName, builder.toString());
 
-        Random random = new Random();
+        Random random = Randomness.get();
         float[] baseVector = new float[dimension];
         for (int i = 0; i < dimension; i++) {
             baseVector[i] = random.nextFloat() - 0.5f;
@@ -318,7 +321,10 @@ public class FaissIT extends KNNCompressionRestTestCase {
         );
 
         for (KNNResult result : results.get(0)) {
-            assertTrue(String.format("Score %.4f below threshold %.3f", result.getScore(), minScore), result.getScore() >= minScore);
+            assertTrue(
+                String.format(Locale.ROOT, "Score %.4f below threshold %.3f", result.getScore(), minScore),
+                result.getScore() >= minScore
+            );
         }
 
         deleteKNNIndex(indexName);
@@ -702,7 +708,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
         String indexName = "test-index-hnsw-sqfp16";
         String fieldName = "test-field-hnsw-sqfp16";
         SpaceType[] spaceTypes = { SpaceType.L2, SpaceType.INNER_PRODUCT };
-        Random random = new Random();
+        Random random = Randomness.get();
         SpaceType spaceType = spaceTypes[random.nextInt(spaceTypes.length)];
 
         List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
@@ -756,7 +762,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
         final String indexName = "test-index-hnsw-sqfp16";
         final String fieldName = "test-field-hnsw-sqfp16";
         final SpaceType[] spaceTypes = { SpaceType.L2, SpaceType.INNER_PRODUCT };
-        final Random random = new Random();
+        final Random random = Randomness.get();
         final SpaceType spaceType = spaceTypes[random.nextInt(spaceTypes.length)];
 
         final int dimension = 128;
@@ -814,7 +820,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
         final String indexName = "test-index-hnsw-sqfp16";
         final String fieldName = "test-field-hnsw-sqfp16";
         final SpaceType[] spaceTypes = { SpaceType.L2, SpaceType.INNER_PRODUCT };
-        final Random random = new Random();
+        final Random random = Randomness.get();
         final SpaceType spaceType = spaceTypes[random.nextInt(spaceTypes.length)];
         final int dimension = 128;
         final int numDocs = 100;
@@ -937,7 +943,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
         String indexName = "test-index-sqfp16";
         String fieldName = "test-field-sqfp16";
         SpaceType[] spaceTypes = { SpaceType.L2, SpaceType.INNER_PRODUCT };
-        Random random = new Random();
+        Random random = Randomness.get();
         SpaceType spaceType = spaceTypes[random.nextInt(spaceTypes.length)];
 
         List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);

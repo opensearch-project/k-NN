@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.engine.faiss;
 
+import java.util.Locale;
+
 import com.google.common.collect.ImmutableSet;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
@@ -130,7 +132,7 @@ public class FaissIVFMethod extends AbstractFaissMethod {
                     Parameter<?> nlistParameter = methodComponent.getParameters().get(METHOD_PARAMETER_NLIST);
                     if (nlistParameter == null) {
                         throw new IllegalStateException(
-                            String.format("%s  is not a valid parameter. This is a bug.", METHOD_PARAMETER_NLIST)
+                            String.format(Locale.ROOT, "%s  is not a valid parameter. This is a bug.", METHOD_PARAMETER_NLIST)
                         );
                     }
 
@@ -138,7 +140,7 @@ public class FaissIVFMethod extends AbstractFaissMethod {
                 }
 
                 if (!(nlistObject instanceof Integer)) {
-                    throw new IllegalStateException(String.format("%s must be an integer.", METHOD_PARAMETER_NLIST));
+                    throw new IllegalStateException(String.format(Locale.ROOT, "%s must be an integer.", METHOD_PARAMETER_NLIST));
                 }
 
                 int centroids = (Integer) nlistObject;

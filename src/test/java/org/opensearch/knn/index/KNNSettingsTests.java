@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index;
 
+import java.nio.charset.StandardCharsets;
+
 import lombok.SneakyThrows;
 import org.opensearch.action.admin.cluster.state.ClusterStateRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
@@ -223,7 +225,7 @@ public class KNNSettingsTests extends KNNTestCase {
     private Node createMockNode(Map<String, Object> configSettings) throws IOException {
         Path configDir = createTempDir();
         File configFile = configDir.resolve("opensearch.yml").toFile();
-        FileWriter configFileWriter = new FileWriter(configFile);
+        FileWriter configFileWriter = new FileWriter(configFile, StandardCharsets.UTF_8);
 
         for (Map.Entry<String, Object> setting : configSettings.entrySet()) {
             configFileWriter.write("\"" + setting.getKey() + "\": " + setting.getValue());
