@@ -43,6 +43,16 @@ public final class ResolvedIndexSpec {
      */
     @Builder.Default
     private final boolean modelBased = false;
+    /**
+     * Method-level behavioral overrides, unset (null) on every core resolution path so built-in behavior is
+     * unchanged. A runtime-registered engine whose method builds its own spec sets them to contribute the
+     * behavior this class otherwise derives from core method and encoder constants: a non-null
+     * {@code rescoreDefaultOverride} is returned by {@link #getRescoreContext()} as the method's default
+     * rescore, and a non-null {@code memoryOptimizedEligibleOverride} answers
+     * {@link #isMemoryOptimizedEligible()}.
+     */
+    private final RescoreContext rescoreDefaultOverride;
+    private final Boolean memoryOptimizedEligibleOverride;
 
     /**
      * Creates a spec for a field with no ANN structure: flat (index.knn=false) fields and
@@ -108,6 +118,9 @@ public final class ResolvedIndexSpec {
      * Faiss HNSW with FLAT, SQ, or BQ encoders.
      */
     public boolean isMemoryOptimizedEligible() {
+        if (memoryOptimizedEligibleOverride != null) {
+            return memoryOptimizedEligibleOverride;
+        }
         return engine == KNNEngine.FAISS
             && METHOD_HNSW.equals(methodName)
             && (encoderType == Encoder.EncoderType.FLAT || encoderType == Encoder.EncoderType.SQ || encoderType == Encoder.EncoderType.BQ);
@@ -182,6 +195,9 @@ public final class ResolvedIndexSpec {
      * {@code getFirstPassK()}.</p>
      */
     public RescoreContext getRescoreContext() {
+        if (rescoreDefaultOverride != null) {
+            return rescoreDefaultOverride;
+        }
         if (isSQOneBit()) {
             return RescoreContext.builder()
                 .oversampleFactor(RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR)

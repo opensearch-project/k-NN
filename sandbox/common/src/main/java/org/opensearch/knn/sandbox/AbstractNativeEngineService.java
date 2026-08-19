@@ -9,9 +9,10 @@ import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.engine.NativeEngineService;
+import org.opensearch.knn.index.engine.NativeIndexBuildParams;
+import org.opensearch.knn.index.engine.NativeSearchParams;
 
 import java.util.Locale;
-import java.util.Map;
 
 /**
  * Convenience base for a sandbox tenant's {@link NativeEngineService}: every operation throws a
@@ -35,17 +36,17 @@ public abstract class AbstractNativeEngineService implements NativeEngineService
     }
 
     @Override
-    public long initIndex(long numDocs, int dim, Map<String, Object> parameters) {
+    public long initIndex(NativeIndexBuildParams params) {
         throw unsupported("Index building");
     }
 
     @Override
-    public void insertToIndex(int[] docs, long vectorsAddress, int dimension, Map<String, Object> parameters, long indexAddress) {
+    public void insertToIndex(int[] docs, long vectorsAddress, long indexAddress, NativeIndexBuildParams params) {
         throw unsupported("Index building");
     }
 
     @Override
-    public void writeIndex(IndexOutputWithBuffer output, long indexAddress, Map<String, Object> parameters, boolean skipFlat) {
+    public void writeIndex(IndexOutputWithBuffer output, long indexAddress, NativeIndexBuildParams params) {
         throw unsupported("Index building");
     }
 
@@ -53,48 +54,30 @@ public abstract class AbstractNativeEngineService implements NativeEngineService
     public void createIndexFromTemplate(
         int[] ids,
         long vectorsAddress,
-        int dim,
         IndexOutputWithBuffer output,
         byte[] templateIndex,
-        Map<String, Object> parameters
+        NativeIndexBuildParams params
     ) {
         throw unsupported("Template-based index building");
     }
 
     @Override
-    public long loadIndex(IndexInputWithBuffer readStream, Map<String, Object> parameters) {
+    public long loadIndex(IndexInputWithBuffer readStream, NativeIndexBuildParams params) {
         throw unsupported("Index loading");
     }
 
     @Override
-    public KNNQueryResult[] queryIndex(
-        long indexPointer,
-        float[] queryVector,
-        int k,
-        Map<String, ?> methodParameters,
-        long[] filteredIds,
-        int filterIdsType,
-        int[] parentIds
-    ) {
+    public KNNQueryResult[] queryIndex(long indexPointer, NativeSearchParams params) {
         throw unsupported("Top-k search");
     }
 
     @Override
-    public KNNQueryResult[] radiusQueryIndex(
-        long indexPointer,
-        float[] queryVector,
-        float radius,
-        Map<String, ?> methodParameters,
-        int indexMaxResultWindow,
-        long[] filteredIds,
-        int filterIdsType,
-        int[] parentIds
-    ) {
+    public KNNQueryResult[] radiusQueryIndex(long indexPointer, NativeSearchParams params) {
         throw unsupported("Radial search");
     }
 
     @Override
-    public void free(long indexPointer, boolean isBinaryIndex) {
+    public void free(long indexPointer) {
         throw unsupported("Index freeing");
     }
 }

@@ -10,66 +10,40 @@ import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 
-import java.util.Map;
-
 /**
- * Generic native-index lifecycle contract for an engine that is contributed at runtime (rather than being a
- * built-in such as Faiss or NMSLIB). {@link org.opensearch.knn.jni.JNIService} routes the eight lifecycle/search operations
- * (init/insert/write/template/load/query/radiusQuery/free) for the registered engine to an implementation of
- * this interface, so it can drive its own isolated JNI library without {@code JNIService} holding any
- * compile-time reference to that engine; binary indexes, training and shared index state remain core-only today.
+ * Native-index lifecycle of a runtime-registered engine. {@link org.opensearch.knn.jni.JNIService} routes its
+ * per-engine operations here, so the engine drives its own JNI library with no compile-time reference in core;
+ * binary indexes, training and shared index state remain core-only. An unsupported operation should throw
+ * {@link UnsupportedOperationException}; core capability checks normally keep it unreachable. Pointer-typed
+ * longs are engine-defined opaque handles.
  *
- * <p>The method set mirrors {@link org.opensearch.knn.jni.JNIService}'s per-engine entry points. An implementation that does not
- * support a particular operation (for example template-based builds or radial search) should throw
- * {@link UnsupportedOperationException}; the corresponding capability checks in the core typically keep those
- * paths unreachable, so the throws are defensive backstops.
- *
- * <p>Implementations must be thread-safe: {@link org.opensearch.knn.jni.JNIService}'s static methods are invoked concurrently from
- * search and merge threads. The service instance is created eagerly at engine discovery, but it must defer any
- * native library loading to first use (via {@link org.opensearch.knn.jni.KNNLibraryLoader#loadLibraryByVariant(String)}).
+ * <p>Implementations must be thread-safe (search and merge threads call concurrently) and must defer native
+ * library loading to first use. Signatures change between experimental iterations; a jar compiled against an
+ * older shape fails with {@link UnsupportedOperationException}, not a linkage error.
  */
 @ExperimentalApi
 public interface NativeEngineService {
 
-    long initIndex(long numDocs, int dim, Map<String, Object> parameters);
+    long initIndex(NativeIndexBuildParams params);
 
     /** {@code vectorsAddress} is an off-heap address of the vectors to copy. */
-    void insertToIndex(int[] docs, long vectorsAddress, int dimension, Map<String, Object> parameters, long indexAddress);
+    void insertToIndex(int[] docs, long vectorsAddress, long indexAddress, NativeIndexBuildParams params);
 
-    void writeIndex(IndexOutputWithBuffer output, long indexAddress, Map<String, Object> parameters, boolean skipFlat);
+    void writeIndex(IndexOutputWithBuffer output, long indexAddress, NativeIndexBuildParams params);
 
     void createIndexFromTemplate(
         int[] ids,
         long vectorsAddress,
-        int dim,
         IndexOutputWithBuffer output,
         byte[] templateIndex,
-        Map<String, Object> parameters
+        NativeIndexBuildParams params
     );
 
-    long loadIndex(IndexInputWithBuffer readStream, Map<String, Object> parameters);
+    long loadIndex(IndexInputWithBuffer readStream, NativeIndexBuildParams params);
 
-    /** {@code filterIdsType} discriminates the {@code filteredIds} encoding. */
-    KNNQueryResult[] queryIndex(
-        long indexPointer,
-        float[] queryVector,
-        int k,
-        Map<String, ?> methodParameters,
-        long[] filteredIds,
-        int filterIdsType,
-        int[] parentIds
-    );
+    KNNQueryResult[] queryIndex(long indexPointer, NativeSearchParams params);
 
-    KNNQueryResult[] radiusQueryIndex(
-        long indexPointer,
-        float[] queryVector,
-        float radius,
-        Map<String, ?> methodParameters,
-        int indexMaxResultWindow,
-        long[] filteredIds,
-        int filterIdsType,
-        int[] parentIds
-    );
+    KNNQueryResult[] radiusQueryIndex(long indexPointer, NativeSearchParams params);
 
-    void free(long indexPointer, boolean isBinaryIndex);
+    void free(long indexPointer);
 }

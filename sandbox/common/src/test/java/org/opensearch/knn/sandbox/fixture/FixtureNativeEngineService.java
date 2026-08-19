@@ -9,12 +9,13 @@ import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.engine.NativeEngineService;
+import org.opensearch.knn.index.engine.NativeIndexBuildParams;
+import org.opensearch.knn.index.engine.NativeSearchParams;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -48,19 +49,19 @@ public final class FixtureNativeEngineService implements NativeEngineService {
     }
 
     @Override
-    public long initIndex(long numDocs, int dim, Map<String, Object> parameters) {
+    public long initIndex(NativeIndexBuildParams params) {
         final long handle = nextHandle.incrementAndGet();
-        opLog.add(String.format(Locale.ROOT, "initIndex(numDocs=%d, dim=%d) -> %d", numDocs, dim, handle));
+        opLog.add(String.format(Locale.ROOT, "initIndex(numDocs=%d, dim=%d) -> %d", params.numDocs(), params.dim(), handle));
         return handle;
     }
 
     @Override
-    public void insertToIndex(int[] docs, long vectorsAddress, int dimension, Map<String, Object> parameters, long indexAddress) {
-        opLog.add(String.format(Locale.ROOT, "insertToIndex(docs=%d, dim=%d, handle=%d)", docs.length, dimension, indexAddress));
+    public void insertToIndex(int[] docs, long vectorsAddress, long indexAddress, NativeIndexBuildParams params) {
+        opLog.add(String.format(Locale.ROOT, "insertToIndex(docs=%d, dim=%d, handle=%d)", docs.length, params.dim(), indexAddress));
     }
 
     @Override
-    public void writeIndex(IndexOutputWithBuffer output, long indexAddress, Map<String, Object> parameters, boolean skipFlat) {
+    public void writeIndex(IndexOutputWithBuffer output, long indexAddress, NativeIndexBuildParams params) {
         opLog.add(String.format(Locale.ROOT, "writeIndex(handle=%d)", indexAddress));
     }
 
@@ -68,68 +69,53 @@ public final class FixtureNativeEngineService implements NativeEngineService {
     public void createIndexFromTemplate(
         int[] ids,
         long vectorsAddress,
-        int dim,
         IndexOutputWithBuffer output,
         byte[] templateIndex,
-        Map<String, Object> parameters
+        NativeIndexBuildParams params
     ) {
         opLog.add("createIndexFromTemplate");
         throw new UnsupportedOperationException("Template-based index builds are not supported by the fixture engine");
     }
 
     @Override
-    public long loadIndex(IndexInputWithBuffer readStream, Map<String, Object> parameters) {
+    public long loadIndex(IndexInputWithBuffer readStream, NativeIndexBuildParams params) {
         final long handle = nextHandle.incrementAndGet();
         opLog.add(String.format(Locale.ROOT, "loadIndex() -> %d", handle));
         return handle;
     }
 
     @Override
-    public KNNQueryResult[] queryIndex(
-        long indexPointer,
-        float[] queryVector,
-        int k,
-        Map<String, ?> methodParameters,
-        long[] filteredIds,
-        int filterIdsType,
-        int[] parentIds
-    ) {
+    public KNNQueryResult[] queryIndex(long indexPointer, NativeSearchParams params) {
+        // The typed read is part of what the dispatch test asserts on, no cast, the key carries the type.
+        final Integer typedWindow = params.methodParameters().get(FixtureConstants.FIXTURE_WINDOW);
         opLog.add(
             String.format(
                 Locale.ROOT,
-                "queryIndex(handle=%d, k=%d, methodParameters=%s, filteredIds=%d, filterIdsType=%d, parentIds=%d)",
+                "queryIndex(handle=%d, k=%d, methodParameters=%s, typedWindow=%d, filteredIds=%d, filterIdsType=%d, parentIds=%d)",
                 indexPointer,
-                k,
-                methodParameters,
-                filteredIds == null ? -1 : filteredIds.length,
-                filterIdsType,
-                parentIds == null ? -1 : parentIds.length
+                params.k(),
+                params.methodParameters().raw(),
+                typedWindow,
+                params.filteredIds() == null ? -1 : params.filteredIds().length,
+                params.filterIdsType(),
+                params.parentIds() == null ? -1 : params.parentIds().length
             )
         );
-        final KNNQueryResult[] results = new KNNQueryResult[k];
-        for (int i = 0; i < k; i++) {
+        final KNNQueryResult[] results = new KNNQueryResult[params.k()];
+        for (int i = 0; i < params.k(); i++) {
             results[i] = new KNNQueryResult(i, 1.0f / (1 + i));
         }
         return results;
     }
 
     @Override
-    public KNNQueryResult[] radiusQueryIndex(
-        long indexPointer,
-        float[] queryVector,
-        float radius,
-        Map<String, ?> methodParameters,
-        int indexMaxResultWindow,
-        long[] filteredIds,
-        int filterIdsType,
-        int[] parentIds
-    ) {
+    public KNNQueryResult[] radiusQueryIndex(long indexPointer, NativeSearchParams params) {
         opLog.add("radiusQueryIndex");
         throw new UnsupportedOperationException("Radial search is not supported by the fixture engine");
     }
 
     @Override
-    public void free(long indexPointer, boolean isBinaryIndex) {
+    public void free(long indexPointer) {
         opLog.add(String.format(Locale.ROOT, "free(handle=%d)", indexPointer));
     }
 }

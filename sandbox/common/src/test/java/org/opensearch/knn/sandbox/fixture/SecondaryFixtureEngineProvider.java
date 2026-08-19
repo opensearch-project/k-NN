@@ -12,6 +12,7 @@ import org.opensearch.knn.index.engine.KNNMethod;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.NativeEngineService;
+import org.opensearch.knn.index.engine.NativeIndexBuildParams;
 import org.opensearch.knn.index.engine.NativeLibrary;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
 import org.opensearch.knn.sandbox.AbstractNativeEngineService;
@@ -34,7 +35,7 @@ public final class SecondaryFixtureEngineProvider implements KNNEngineDefinition
 
     static final NativeEngineService SERVICE = new AbstractNativeEngineService(SECONDARY_FIXTURE_ENGINE_NAME) {
         @Override
-        public long initIndex(long numDocs, int dim, Map<String, Object> parameters) {
+        public long initIndex(NativeIndexBuildParams params) {
             OP_LOG.add("initIndex");
             return 4242L;
         }

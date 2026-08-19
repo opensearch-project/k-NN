@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.sandbox.fixture;
 
+import org.opensearch.knn.index.engine.ParameterKey;
+
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -38,6 +40,9 @@ public final class FixtureConstants {
      * deferred by the REST/gRPC layers and carried by the generic node-to-node wire.
      */
     public static final String METHOD_PARAMETER_FIXTURE_WINDOW = "fixture_window";
+
+    /** Typed key for the same parameter, the read side of the structured params demo. */
+    public static final ParameterKey<Integer> FIXTURE_WINDOW = ParameterKey.intKey(METHOD_PARAMETER_FIXTURE_WINDOW);
 
     private FixtureConstants() {}
 }
