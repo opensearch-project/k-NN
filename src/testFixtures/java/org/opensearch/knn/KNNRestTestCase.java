@@ -260,6 +260,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         List<Map<String, Object>> nodesStats = parseNodeStatsResponse(responseBody);
         Map<String, Object> node = nodesStats.getFirst();
         String path = String.format(
+            Locale.ROOT,
             "%s.%s.%s",
             StatNames.REMOTE_VECTOR_INDEX_BUILD_STATS.getName(),
             StatNames.CLIENT_STATS.getName(),
@@ -2437,14 +2438,14 @@ public class KNNRestTestCase extends ODFERestTestCase {
     protected String createL2PainlessScriptSource(String testField, int dimension, int numDocs) {
         IDVectorProducer idVectorProducer = new IDVectorProducer(dimension, numDocs);
         float[] queryVector = idVectorProducer.getVector(numDocs);
-        return String.format("1/(1 + l2Squared(" + Arrays.toString(queryVector) + ", doc['%s']))", testField);
+        return String.format(Locale.ROOT, "1/(1 + l2Squared(" + Arrays.toString(queryVector) + ", doc['%s']))", testField);
     }
 
     // create painless script source for space_type "l1" by creating query vector based on number of documents
     protected String createL1PainlessScriptSource(String testField, int dimension, int numDocs) {
         IDVectorProducer idVectorProducer = new IDVectorProducer(dimension, numDocs);
         float[] queryVector = idVectorProducer.getVector(numDocs);
-        return String.format("1/(1 + l1Norm(" + Arrays.toString(queryVector) + ", doc['%s']))", testField);
+        return String.format(Locale.ROOT, "1/(1 + l1Norm(" + Arrays.toString(queryVector) + ", doc['%s']))", testField);
     }
 
     /**

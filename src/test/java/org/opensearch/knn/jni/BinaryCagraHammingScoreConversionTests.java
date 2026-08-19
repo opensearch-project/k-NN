@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.jni;
 
+import org.opensearch.common.Randomness;
+
 import lombok.SneakyThrows;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.store.IndexInput;
@@ -17,7 +19,6 @@ import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
 
 import java.util.Collections;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static org.opensearch.knn.memoryoptsearch.FaissHNSWTests.loadHnswBinary;
 
@@ -42,7 +43,7 @@ public class BinaryCagraHammingScoreConversionTests extends KNNTestCase {
 
             // Make a query vector
             for (int i = 0; i < dimension; ++i) {
-                queryVector[i] = (byte) ThreadLocalRandom.current().nextInt();
+                queryVector[i] = (byte) Randomness.get().nextInt();
             }
 
             // Search

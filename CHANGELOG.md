@@ -9,10 +9,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Enable the approximate graph threshold for Faiss SQ x32 (sq bits=1) indices [#3434](https://github.com/opensearch-project/k-NN/pull/3434)
 
 ### Maintenance
+* Fixed multiple forbidden api warnings from the code []()
 
 ### Bug Fixes
 * Fix knn query against a field alias returning zero hits silently [#3485](https://github.com/opensearch-project/k-NN/pull/3485)
 * Add prefetch for Lucene engine's fp32 and binary vector data type [#3504](https://github.com/opensearch-project/k-NN/pull/3504)
+* Fix when BQ file is not present in the segment as there is no vectors in the segment [#3511](https://github.com/opensearch-project/k-NN/pull/3511)
 
 ### Refactoring
 * Wire ResolvedIndexSpec consumers through spec-driven resolution flow [#3421](https://github.com/opensearch-project/k-NN/pull/3421)
