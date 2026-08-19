@@ -54,9 +54,10 @@ consists of the pieces below. The fixture engine is the minimal in-tree referenc
 
 ### Module: `sandbox/acme/`
 
-`settings.gradle` discovers any `sandbox/<dir>` containing a `build.gradle` when the flag is on. The
-build file is a few lines because plugins, repositories, dependencies, and test conventions are inherited
-from [`sandbox/build.gradle`](build.gradle):
+A new tenant adds one `include ":sandbox:<dir>"` line to the sandbox block in `settings.gradle` (the
+subprojects are enumerated explicitly; a directory alone never joins the build). The build file is a few
+lines because plugins, repositories, dependencies, and test conventions are inherited from
+[`sandbox/build.gradle`](build.gradle):
 
 ```groovy
 /*

@@ -37,6 +37,25 @@ public class KNNLibraryLoaderTests extends KNNTestCase {
         assertEquals(List.of(BASE), candidates(true, true, true, true, true, true));
     }
 
+    public void testLoadLibraryByVariant_whenNameOutsideAllowedPattern_thenThrowsBeforeAnyLoad() {
+        for (final String name : new String[] {
+            null,
+            "",
+            "../../../tmp/evil",
+            "lib/name",
+            "lib\\name",
+            "lib.name",
+            "lib-name",
+            "lib name",
+            BASE + "\0" }) {
+            final IllegalArgumentException e = expectThrows(
+                IllegalArgumentException.class,
+                () -> KNNLibraryLoader.loadLibraryByVariant(name)
+            );
+            assertTrue(e.getMessage(), e.getMessage().contains("Invalid native library name"));
+        }
+    }
+
     public void testVariantCandidates_whenAnyCombination_thenEndsWithPlainNameAndHasNoDuplicates() {
         for (int mask = 0; mask < 64; mask++) {
             final List<String> candidates = candidates(

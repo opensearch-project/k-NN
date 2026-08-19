@@ -56,12 +56,18 @@ configure(subprojects.findAll { it.parent.path == project.path }) {
 
     disablePublishing(it)
 
+    // Deliberately narrower than core's repositories: no mavenLocal(), so a locally installed
+    // artifact can never shadow a released one for sandbox code, and no plugin portal, since sandbox
+    // subprojects resolve no gradle plugins of their own. Declaring the block is not enough, the root
+    // allprojects configuration adds mavenLocal to every project, so it is removed again after
+    // evaluation.
     repositories {
-        mavenLocal()
         maven { url = uri("https://ci.opensearch.org/maven2/") }
         maven { url = uri("https://ci.opensearch.org/ci/dbc/snapshots/maven/") }
         mavenCentral()
-        maven { url = uri("https://plugins.gradle.org/m2/") }
+    }
+    afterEvaluate {
+        repositories.removeIf { repo -> repo.name == 'MavenLocal' }
     }
 
     compileJava {

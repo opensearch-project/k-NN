@@ -20,13 +20,10 @@ include ":qa:restart-upgrade"
 include ":remote-index-build-client"
 
 // The sandbox/ tree is excluded from the build graph unless -Pknn.sandbox.enabled=true (release builds
-// never pass the flag) — see sandbox/README.md.
+// never pass the flag), see sandbox/README.md. Subprojects are enumerated explicitly so that a
+// directory dropped into sandbox/ cannot join the build without a reviewed change to this file.
 if (providers.gradleProperty('knn.sandbox.enabled').getOrElse('false') == 'true') {
     include ":sandbox"
-    new File(rootProject.projectDir, 'sandbox').eachDir { dir ->
-        if (new File(dir, 'build.gradle').exists()) {
-            include ":sandbox:${dir.name}"
-        }
-    }
+    include ":sandbox:common"
 }
 

@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import static org.opensearch.knn.index.KNNSettings.isFaissAVX2Disabled;
 import static org.opensearch.knn.index.KNNSettings.isFaissAVX512Disabled;
@@ -39,6 +40,12 @@ public class KNNLibraryLoader {
     static protected Set<String> loaded = new HashSet<>();
     /** Lock object for synchronizing library loading operations */
     static final Object lock = new Object();
+    /**
+     * Shape every base library name must have: the plain segment {@link System#loadLibrary} expects,
+     * with no path separators, dots or dashes, so a caller can never steer the load outside the JVM
+     * library path or at an unexpected artifact.
+     */
+    private static final Pattern LIBRARY_NAME_PATTERN = Pattern.compile("[a-zA-Z0-9_]+");
 
     /**
      * Thread-safe library loading with duplicate prevention.
@@ -76,13 +83,19 @@ public class KNNLibraryLoader {
      * Loads a JNI library by base name, trying the highest-performance permitted variant first
      * ({@code _avx512_spr}, {@code _avx512}, {@code _avx2}, then the plain base name) and falling back to
      * the next candidate when a variant is not shipped. The suffix scheme mirrors faiss's FAISS_OPT_LEVEL
-     * taxonomy, and shipping variants is optional — a single unsuffixed library is fully supported. This
+     * taxonomy, and shipping variants is optional, a single unsuffixed library is fully supported. This
      * class is the only one permitted to call {@link System#loadLibrary}.
      *
-     * @param baseLibraryName e.g. {@code opensearchknn_faiss}
+     * @param baseLibraryName e.g. {@code opensearchknn_faiss}; letters, digits and underscores only
+     * @throws IllegalArgumentException if the name is null, empty or contains any other character
      */
     @ExperimentalApi
     public static void loadLibraryByVariant(String baseLibraryName) {
+        if (baseLibraryName == null || LIBRARY_NAME_PATTERN.matcher(baseLibraryName).matches() == false) {
+            throw new IllegalArgumentException(
+                "Invalid native library name [" + baseLibraryName + "]; letters, digits and underscores only"
+            );
+        }
         final List<String> candidates = variantCandidates(baseLibraryName);
         for (int i = 0; i < candidates.size(); i++) {
             try {
