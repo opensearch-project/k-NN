@@ -13,7 +13,9 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.knn.KNNSingleNodeTestCase;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.test.hamcrest.OpenSearchAssertions;
 
@@ -54,6 +56,7 @@ public class KNNFieldAliasQueryTests extends KNNSingleNodeTestCase {
             .startObject(CONCRETE_FIELD)
             .field("type", "knn_vector")
             .field("dimension", DIMENSION)
+            .field(KNNConstants.COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x1.getName())
             .startObject("method")
             .field("name", "hnsw")
             .field("engine", engine.getName())

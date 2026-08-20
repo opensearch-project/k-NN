@@ -15,6 +15,7 @@ import org.opensearch.cluster.routing.ShardsIterator;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.index.IndexService;
 import org.opensearch.knn.KNNSingleNodeTestCase;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 
 import java.util.EnumSet;
@@ -35,7 +36,7 @@ public class ClearCacheTransportActionTests extends KNNSingleNodeTestCase {
         assertEquals(0, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().size());
 
         IndexService indexService = createIndex(testIndex, getKNNDefaultIndexSettingsBuildsGraphAlways());
-        createKnnIndexMapping(testIndex, TEST_FIELD, DIMENSIONS);
+        createKnnIndexMapping(testIndex, TEST_FIELD, DIMENSIONS, CompressionLevel.x1.getName());
         addKnnDoc(testIndex, String.valueOf(randomInt()), TEST_FIELD, new Float[] { randomFloat(), randomFloat() });
         ShardRouting shardRouting = indexService.iterator().next().routingEntry();
 

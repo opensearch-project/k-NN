@@ -2118,7 +2118,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         ModelDao modelDao = mock(ModelDao.class);
         KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
 
-        // Default to faiss and ensure legacy is in use
+        // Default to faiss and ensure legacy is in use. On V_3_9_0+ (CURRENT), an index with no explicit
+        // compression_level flips to the x32 (SQ 1-bit) default.
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
@@ -2136,10 +2137,10 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             KNNEngine.DEFAULT,
             SpaceType.L2,
             VectorDataType.FLOAT,
-            CompressionLevel.x1,
+            CompressionLevel.x32,
             CompressionLevel.NOT_CONFIGURED,
             Mode.NOT_CONFIGURED,
-            false
+            true
         );
 
         // If mode is in memory and 1x compression, again use default legacy

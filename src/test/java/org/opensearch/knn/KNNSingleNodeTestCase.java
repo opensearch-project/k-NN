@@ -53,6 +53,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -147,6 +148,26 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
         xContentBuilder.endObject();
         xContentBuilder.endObject();
         xContentBuilder.endObject();
+        request.source(xContentBuilder);
+        OpenSearchAssertions.assertAcked(client().admin().indices().putMapping(request).actionGet());
+    }
+
+    /**
+     * Create simple k-NN mapping with an explicit compression level (e.g. "1x" for an uncompressed index).
+     */
+    protected void createKnnIndexMapping(String indexName, String fieldName, Integer dimensions, String compressionLevel)
+        throws IOException {
+        PutMappingRequest request = new PutMappingRequest(indexName);
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimensions.toString())
+            .field(COMPRESSION_LEVEL_PARAMETER, compressionLevel)
+            .endObject()
+            .endObject()
+            .endObject();
         request.source(xContentBuilder);
         OpenSearchAssertions.assertAcked(client().admin().indices().putMapping(request).actionGet());
     }

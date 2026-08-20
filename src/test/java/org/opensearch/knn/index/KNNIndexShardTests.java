@@ -19,6 +19,7 @@ import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 
 import java.io.IOException;
@@ -72,7 +73,7 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
 
     public void testWarmup_shardPresentInCache() throws InterruptedException, ExecutionException, IOException {
         IndexService indexService = createKNNIndex(testIndexName);
-        createKnnIndexMapping(testIndexName, testFieldName, dimensions);
+        createKnnIndexMapping(testIndexName, testFieldName, dimensions, CompressionLevel.x1.getName());
         updateIndexSetting(testIndexName, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0).build());
         addKnnDoc(testIndexName, "1", testFieldName, new Float[] { 2.5F, 3.5F });
 
@@ -87,7 +88,7 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
 
     public void testWarmup_shardNotPresentInCache() throws InterruptedException, ExecutionException, IOException {
         IndexService indexService = createKNNIndex(testIndexName);
-        createKnnIndexMapping(testIndexName, testFieldName, dimensions);
+        createKnnIndexMapping(testIndexName, testFieldName, dimensions, CompressionLevel.x1.getName());
         updateIndexSetting(testIndexName, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0).build());
         IndexShard indexShard;
         KNNIndexShard knnIndexShard;
@@ -192,7 +193,7 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
     @SneakyThrows
     public void testClearCache_shardPresentInCache() {
         IndexService indexService = createKNNIndex(testIndexName);
-        createKnnIndexMapping(testIndexName, testFieldName, dimensions);
+        createKnnIndexMapping(testIndexName, testFieldName, dimensions, CompressionLevel.x1.getName());
         updateIndexSetting(testIndexName, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0).build());
         addKnnDoc(testIndexName, String.valueOf(randomInt()), testFieldName, new Float[] { randomFloat(), randomFloat() });
 
