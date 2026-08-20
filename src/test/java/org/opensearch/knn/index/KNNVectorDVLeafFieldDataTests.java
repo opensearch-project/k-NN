@@ -56,6 +56,10 @@ public class KNNVectorDVLeafFieldDataTests extends KNNTestCase {
             doc.add(new NumericDocValuesField(MOCK_NUMERIC_INDEX_FIELD_NAME, 1000 + i));
             writer.addDocument(doc);
         }
+        // Force a single segment so all docs land in one leaf. The Lucene test framework randomizes
+        // IndexWriterConfig flushing, which can otherwise split docs across segments and make tests that
+        // read only leaves().get(0) flaky.
+        writer.forceMerge(1);
         writer.commit();
         writer.close();
     }
@@ -186,6 +190,8 @@ public class KNNVectorDVLeafFieldDataTests extends KNNTestCase {
                 doc3.add(new KnnFloatVectorField(MOCK_INDEX_FIELD_NAME, vector3, VectorSimilarityFunction.EUCLIDEAN));
                 writer.addDocument(doc3);
 
+                // Single segment so all docs are in leaves().get(0) regardless of the randomized IWC flush behavior.
+                writer.forceMerge(1);
                 writer.commit();
             }
 
@@ -298,6 +304,8 @@ public class KNNVectorDVLeafFieldDataTests extends KNNTestCase {
                 Document doc2 = new Document();
                 doc2.add(new KnnByteVectorField(MOCK_INDEX_FIELD_NAME, byteVector2, VectorSimilarityFunction.EUCLIDEAN));
                 writer.addDocument(doc2);
+                // Single segment so both docs are in leaves().get(0) regardless of the randomized IWC flush behavior.
+                writer.forceMerge(1);
                 writer.commit();
             }
 
@@ -371,6 +379,8 @@ public class KNNVectorDVLeafFieldDataTests extends KNNTestCase {
                 Document doc2 = new Document();
                 doc2.add(new KnnByteVectorField(MOCK_INDEX_FIELD_NAME, binaryVector2, VectorSimilarityFunction.EUCLIDEAN));
                 writer.addDocument(doc2);
+                // Single segment so both docs are in leaves().get(0) regardless of the randomized IWC flush behavior.
+                writer.forceMerge(1);
                 writer.commit();
             }
 
