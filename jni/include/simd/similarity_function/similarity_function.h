@@ -70,6 +70,9 @@ namespace knn_jni::simd::similarity_function {
         // Return thread static storage it's holding.
         static SimdVectorSearchContext* getSearchContext();
 
+        // Repoints the already-saved search context at a new vector chunk
+        static void updateVectorChunk(uint8_t* vectorsPtr, int64_t vectorsByteSize);
+
         // Given vector ids, calculate similarity in bulk and put scores into `scores`.
         virtual void calculateSimilarityInBulk(SimdVectorSearchContext* srchContext,
                                                int32_t* internalVectorIds,

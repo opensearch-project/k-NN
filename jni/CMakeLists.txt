@@ -135,7 +135,9 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/init-simd.cmake)
 # Set target library + source
 set(SIMD_COMPUTING_SRCS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_SimdVectorComputeService.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_SimdFp16.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/simd/similarity_function/similarity_function.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/simd/fp16_codec/fp16_codec.cpp
 )
 
 # Make it a shared library
@@ -158,11 +160,6 @@ target_include_directories(${TARGET_LIB_SIMD} PRIVATE
 
 # Set common properties
 opensearch_set_common_properties(${TARGET_LIB_SIMD})
-
-# Set the output name to embed the SIMD extension (if any)
-set_target_properties(${TARGET_LIB_SIMD} PROPERTIES
-    OUTPUT_NAME "${TARGET_LIB_SIMD}"
-)
 
 # Add target SIMD library to TARGET_LIBS list
 list(APPEND TARGET_LIBS ${TARGET_LIB_SIMD})
