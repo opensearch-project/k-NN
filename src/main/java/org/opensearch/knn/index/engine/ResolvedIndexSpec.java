@@ -25,7 +25,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 @Builder(toBuilder = true)
 @Getter
 public final class ResolvedIndexSpec {
-    private final KNNEngine engine;
+    private final VectorSearchEngine engine;
     private final String methodName;
     private final Encoder.EncoderType encoderType;
     private final Encoder.QuantizationBits quantizationBits;
@@ -69,7 +69,7 @@ public final class ResolvedIndexSpec {
      * the spec as model-based for radial search gating.
      */
     public static ResolvedIndexSpec noAnnFromModel(
-        KNNEngine engine,
+        VectorSearchEngine engine,
         VectorDataType vectorDataType,
         int dimension,
         Version indexVersionCreated

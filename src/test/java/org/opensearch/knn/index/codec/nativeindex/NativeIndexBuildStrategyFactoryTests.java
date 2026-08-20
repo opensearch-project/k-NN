@@ -148,7 +148,6 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
 
             // totalLiveDocs = 10 > MIN_DOCS_FOR_REMOTE_INDEX_BUILD (4)
             int totalLiveDocs = 10;
-            long vectorBlobLength = 32L * totalLiveDocs;
 
             mockedRemote.when(() -> RemoteIndexBuildStrategy.shouldBuildIndexRemotely(any(IndexSettings.class), anyLong()))
                 .thenReturn(true);

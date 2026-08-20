@@ -40,7 +40,7 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 public class KNNMethodContext implements ToXContentFragment, Writeable {
 
     @NonNull
-    private KNNEngine knnEngine;
+    private VectorSearchEngine knnEngine;
     @NonNull
     @Setter
     private SpaceType spaceType;
@@ -70,11 +70,11 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
 
     /**
      *
-     * @param knnEngine {@link KNNEngine}
+     * @param knnEngine {@link VectorSearchEngine}
      * @param spaceType {@link SpaceType}
      * @param methodComponentContext {@link MethodComponentContext}
      */
-    public KNNMethodContext(KNNEngine knnEngine, SpaceType spaceType, MethodComponentContext methodComponentContext) {
+    public KNNMethodContext(VectorSearchEngine knnEngine, SpaceType spaceType, MethodComponentContext methodComponentContext) {
         this(knnEngine, spaceType, methodComponentContext, true);
     }
 
@@ -92,12 +92,12 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
     }
 
     /**
-     * Set the {@link KNNEngine} if it is not configured (i.e. DEFAULT). This is useful for using different engines
+     * Set the {@link VectorSearchEngine} if it is not configured (i.e. DEFAULT). This is useful for using different engines
      * for different configurations - i.e. dynamic defaults
      *
      * @param knnEngine KNNEngine to set
      */
-    public void setKnnEngine(KNNEngine knnEngine) {
+    public void setKnnEngine(VectorSearchEngine knnEngine) {
         if (isEngineConfigured) {
             throw new IllegalArgumentException("Cannot configure KNNEngine if it has already been configured");
         }
@@ -149,7 +149,7 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         Map<String, Object> methodMap = (Map<String, Object>) in;
 
         boolean isEngineConfigured = false;
-        KNNEngine engine = KNNEngine.UNDEFINED; // Get or default
+        VectorSearchEngine engine = VectorSearchEngine.UNDEFINED; // Get or default
         SpaceType spaceType = SpaceType.UNDEFINED; // Get or default
         String name = "";
         Map<String, Object> parameters = new HashMap<>();

@@ -39,19 +39,18 @@ public enum KNNEngine implements KNNLibrary, VectorSearchEngine {
     @Deprecated(since = "2.19.0", forRemoval = true)
     NMSLIB(NMSLIB_NAME, Nmslib.INSTANCE, Version.V_3_0_0),
     FAISS(FAISS_NAME, Faiss.INSTANCE),
-    LUCENE(LUCENE_NAME, Lucene.INSTANCE),
-    UNDEFINED("undefined");
+    LUCENE(LUCENE_NAME, Lucene.INSTANCE);
 
-    public static final KNNEngine DEFAULT = FAISS;
+    public static final VectorSearchEngine DEFAULT = FAISS;
     private final Version restrictedFromVersion; // Nullable field
 
-    private static final Set<KNNEngine> CUSTOM_SEGMENT_FILE_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB, KNNEngine.FAISS);
-    private static final Set<KNNEngine> ENGINES_SUPPORTING_FILTERS = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
-    public static final Set<KNNEngine> ENGINES_SUPPORTING_RADIAL_SEARCH = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
-    public static final Set<KNNEngine> DEPRECATED_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB);
-    public static final Set<KNNEngine> ENGINES_SUPPORTING_NESTED_FIELDS = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
+    private static final Set<VectorSearchEngine> CUSTOM_SEGMENT_FILE_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB, KNNEngine.FAISS);
+    private static final Set<VectorSearchEngine> ENGINES_SUPPORTING_FILTERS = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
+    public static final Set<VectorSearchEngine> ENGINES_SUPPORTING_RADIAL_SEARCH = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
+    public static final Set<VectorSearchEngine> DEPRECATED_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB);
+    public static final Set<VectorSearchEngine> ENGINES_SUPPORTING_NESTED_FIELDS = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
 
-    private static Map<KNNEngine, Integer> MAX_DIMENSIONS_BY_ENGINE = Map.of(
+    private static Map<VectorSearchEngine, Integer> MAX_DIMENSIONS_BY_ENGINE = Map.of(
         KNNEngine.NMSLIB,
         16_000,
         KNNEngine.FAISS,
@@ -99,7 +98,7 @@ public enum KNNEngine implements KNNLibrary, VectorSearchEngine {
      * @param name of engine to be fetched
      * @return KNNEngine corresponding to name
      */
-    public static KNNEngine getEngine(String name) {
+    public static VectorSearchEngine getEngine(String name) {
         if (NMSLIB.getName().equalsIgnoreCase(name)) {
             return NMSLIB;
         }
@@ -136,7 +135,7 @@ public enum KNNEngine implements KNNLibrary, VectorSearchEngine {
      * @param path to be checked
      * @return KNNEngine corresponding to path
      */
-    public static KNNEngine getEngineNameFromPath(String path) {
+    public static VectorSearchEngine getEngineNameFromPath(String path) {
         if (path.endsWith(KNNEngine.NMSLIB.getExtension()) || path.endsWith(KNNEngine.NMSLIB.getCompoundExtension())) {
             return KNNEngine.NMSLIB;
         }
@@ -153,11 +152,11 @@ public enum KNNEngine implements KNNLibrary, VectorSearchEngine {
      *
      * @return Set of all engines that create custom segment files.
      */
-    public static Set<KNNEngine> getEnginesThatCreateCustomSegmentFiles() {
+    public static Set<VectorSearchEngine> getEnginesThatCreateCustomSegmentFiles() {
         return CUSTOM_SEGMENT_FILE_ENGINES;
     }
 
-    public static Set<KNNEngine> getEnginesThatSupportsFilters() {
+    public static Set<VectorSearchEngine> getEnginesThatSupportsFilters() {
         return ENGINES_SUPPORTING_FILTERS;
     }
 
@@ -166,7 +165,7 @@ public enum KNNEngine implements KNNLibrary, VectorSearchEngine {
      * @param knnEngine knn engine to check max dimensions value
      * @return
      */
-    public static int getMaxDimensionByEngine(KNNEngine knnEngine) {
+    public static int getMaxDimensionByEngine(VectorSearchEngine knnEngine) {
         return MAX_DIMENSIONS_BY_ENGINE.getOrDefault(knnEngine, MAX_DIMENSIONS_BY_ENGINE.get(KNNEngine.DEFAULT));
     }
 
@@ -308,13 +307,7 @@ public enum KNNEngine implements KNNLibrary, VectorSearchEngine {
         }
     }
 
-    /**
-     * Returns the field strategy for this engine, used to construct field types
-     * and create vector fields during indexing.
-     *
-     * @return the engine's field strategy
-     * @throws UnsupportedOperationException if this engine does not support field strategies
-     */
+    @Override
     public EngineFieldStrategy getFieldStrategy() {
         switch (this) {
             case LUCENE:

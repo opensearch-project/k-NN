@@ -34,6 +34,7 @@ import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
@@ -83,7 +84,7 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     @ExpectRemoteBuildValidation
     public void testEndToEnd() throws Exception {
         String indexName = "test-index-1";
-        KNNEngine knnEngine = KNNEngine.FAISS; // Only FAISS is used
+        VectorSearchEngine knnEngine = KNNEngine.FAISS; // Only FAISS is used
         String fieldName = "test-field";
         SpaceType spaceType = SpaceType.L2; // Using L2 similarity for FAISS
 
@@ -471,8 +472,8 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
     @Ignore
     public void testCacheClear_whenCloseIndex() throws Exception {
         String indexName = "test-index-1";
-        KNNEngine knnEngine1 = KNNEngine.NMSLIB;
-        KNNEngine knnEngine2 = KNNEngine.FAISS;
+        VectorSearchEngine knnEngine1 = KNNEngine.NMSLIB;
+        VectorSearchEngine knnEngine2 = KNNEngine.FAISS;
         String fieldName1 = "test-field-1";
         String fieldName2 = "test-field-2";
         SpaceType spaceType1 = SpaceType.COSINESIMIL;

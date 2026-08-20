@@ -34,6 +34,7 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 import java.io.IOException;
 import java.util.Map;
@@ -47,7 +48,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
 
     public static final String DELIMITER = ",";
 
-    final private KNNEngine knnEngine;
+    final private VectorSearchEngine knnEngine;
     final private SpaceType spaceType;
     final private int dimension;
 
@@ -129,7 +130,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
      * @param vectorDataType vector data type of the model
      */
     public ModelMetadata(
-        KNNEngine knnEngine,
+        VectorSearchEngine knnEngine,
         SpaceType spaceType,
         int dimension,
         ModelState modelState,
@@ -176,7 +177,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
      *
      * @return knnEngine
      */
-    public KNNEngine getKnnEngine() {
+    public VectorSearchEngine getKnnEngine() {
         return knnEngine;
     }
 
@@ -361,7 +362,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             );
         }
 
-        KNNEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
+        VectorSearchEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
         SpaceType spaceType = SpaceType.getSpace(modelMetadataArray[1]);
         int dimension = Integer.parseInt(modelMetadataArray[2]);
         ModelState modelState = ModelState.getModelState(modelMetadataArray[3]);

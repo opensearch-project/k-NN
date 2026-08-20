@@ -16,7 +16,7 @@ import org.opensearch.cluster.block.ClusterBlocks;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
@@ -135,7 +135,8 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
     /**
      * Create simple k-NN mapping with engine
      */
-    protected void createKnnIndexMapping(String indexName, String fieldName, Integer dimensions, KNNEngine engine) throws IOException {
+    protected void createKnnIndexMapping(String indexName, String fieldName, Integer dimensions, VectorSearchEngine engine)
+        throws IOException {
         PutMappingRequest request = new PutMappingRequest(indexName);
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject().startObject("properties");
         xContentBuilder.startObject(fieldName);

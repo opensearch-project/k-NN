@@ -9,7 +9,7 @@ import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransfer;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.jni.JNIService;
 
@@ -54,7 +54,7 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
         final KNNVectorValues<?> knnVectorValues = indexInfo.getKnnVectorValuesSupplier().get();
         // Needed to make sure we don't get 0 dimensions while initializing index
         initializeVectorValues(knnVectorValues);
-        KNNEngine engine = indexInfo.getKnnEngine();
+        VectorSearchEngine engine = indexInfo.getKnnEngine();
         Map<String, Object> indexParameters = indexInfo.getIndexParameters();
         IndexBuildSetup indexBuildSetup = QuantizationIndexUtils.prepareIndexBuild(knnVectorValues, indexInfo);
 
