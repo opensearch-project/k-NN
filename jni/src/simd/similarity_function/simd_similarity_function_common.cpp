@@ -281,6 +281,13 @@ SimdVectorSearchContext* SimilarityFunction::getSearchContext() {
     return &THREAD_LOCAL_SIMD_VEC_SRCH_CTX;
 }
 
+void SimilarityFunction::updateVectorChunk(uint8_t* vectorsPtr, const int64_t vectorsByteSize) {
+    THREAD_LOCAL_SIMD_VEC_SRCH_CTX.mmapPages.clear();
+    THREAD_LOCAL_SIMD_VEC_SRCH_CTX.mmapPages.emplace_back(reinterpret_cast<void*>(vectorsPtr));
+    THREAD_LOCAL_SIMD_VEC_SRCH_CTX.mmapPageSizes.clear();
+    THREAD_LOCAL_SIMD_VEC_SRCH_CTX.mmapPageSizes.emplace_back(vectorsByteSize);
+}
+
 //
 // Similarity function base
 //
