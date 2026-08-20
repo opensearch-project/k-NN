@@ -11,6 +11,7 @@ import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.VectorUtil;
 import org.junit.Test;
+import org.opensearch.common.Randomness;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.jni.SimdVectorComputeService;

@@ -29,3 +29,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Add base64 binary encoding as default format for knn_vector docvalue_fields [#3324](https://github.com/opensearch-project/k-NN/pull/3324)
 * Add support for binary and byte field support in doc_values [#3340](https://github.com/opensearch-project/k-NN/pull/3340)
 * Add native SIMD cosine scoring for FP16 and SQ formats, removing post-hoc score conversion [#3386](https://github.com/opensearch-project/k-NN/pull/3386)
+* Add NEON SIMD kernel for FP16 L2 similarity [#3512](https://github.com/opensearch-project/k-NN/pull/3512)
