@@ -119,4 +119,52 @@ public class KNN1040ScalarQuantizedVectorScorerTests extends KNNTestCase {
             assertNotNull(result);
         }
     }
+
+    /**
+     * Exercises the {@code IllegalStateException} guard inside {@code bulkSimdRandomVectorScorer}:
+     * when the address extractor returns a non-null address (so the SIMD path is entered) but the
+     * scalar encoding is not {@code SINGLE_BIT_QUERY_NIBBLE}, the method must throw.
+     */
+    @SneakyThrows
+    public void testGetRandomVectorScorer_whenScalarEncodingIsNotSingleBitQueryNibble_thenThrowsIllegalStateException() {
+        final FlatVectorsScorer mockDelegate = mock(FlatVectorsScorer.class);
+        final KNN1040ScalarQuantizedVectorScorer scorer = new KNN1040ScalarQuantizedVectorScorer(mockDelegate);
+
+        final int dimension = 8;
+        final QuantizedByteVectorValues mockQuantizedValues = mock(QuantizedByteVectorValues.class);
+        final IndexInput mockIndexInput = mock(IndexInput.class);
+        when(mockQuantizedValues.getSlice()).thenReturn(mockIndexInput);
+        when(mockIndexInput.length()).thenReturn(1024L);
+        when(mockQuantizedValues.dimension()).thenReturn(dimension);
+        // Use an encoding that is NOT SINGLE_BIT_QUERY_NIBBLE to trigger the guard.
+        when(mockQuantizedValues.getScalarEncoding()).thenReturn(ScalarEncoding.UNSIGNED_BYTE);
+
+        final StubVectorValues stub = new StubVectorValues();
+        final java.lang.reflect.Field field = StubVectorValues.class.getDeclaredField("quantizedVectorValues");
+        field.setAccessible(true);
+        field.set(stub, mockQuantizedValues);
+
+        final float[] target = new float[dimension];
+        final VectorSimilarityFunction similarityFunction = VectorSimilarityFunction.EUCLIDEAN;
+
+        // Mock the extractor to return a non-null addressAndSize so the SIMD path is entered.
+        try (MockedStatic<MemorySegmentAddressExtractorUtil> mockedStatic = Mockito.mockStatic(MemorySegmentAddressExtractorUtil.class)) {
+            mockedStatic.when(
+                () -> MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(
+                    any(IndexInput.class),
+                    Mockito.anyLong(),
+                    Mockito.anyLong()
+                )
+            ).thenReturn(new long[] { 0L, 1024L });
+
+            final IllegalStateException ex = expectThrows(
+                IllegalStateException.class,
+                () -> scorer.getRandomVectorScorer(similarityFunction, stub, target)
+            );
+            assertTrue(
+                "Exception message should mention SINGLE_BIT_QUERY_NIBBLE, was: " + ex.getMessage(),
+                ex.getMessage().contains("SINGLE_BIT_QUERY_NIBBLE")
+            );
+        }
+    }
 }
