@@ -22,6 +22,9 @@ public class FaissQuantizedValueReconstructorFactory {
         if (quantizerType == FaissQuantizerType.QT_FP16) {
             return new FaissFP16Reconstructor(dimension, numOneVectorBits);
         }
+        if (quantizerType == FaissQuantizerType.QT_BF16) {
+            return new FaissBF16Reconstructor(dimension, numOneVectorBits);
+        }
 
         throw new UnsupportedFaissIndexException("Unsupported quantizer type: " + quantizerType);
     }
