@@ -67,6 +67,7 @@ import org.opensearch.knn.plugin.rest.RestSearchModelHandler;
 import org.opensearch.knn.plugin.rest.RestTrainModelHandler;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.opensearch.knn.plugin.search.KNNConcurrentSearchRequestDecider;
+import org.opensearch.knn.plugin.search.LateInteractionStatsSearchListener;
 import org.opensearch.knn.plugin.stats.KNNStats;
 import org.opensearch.knn.plugin.transport.ClearCacheAction;
 import org.opensearch.knn.plugin.transport.ClearCacheTransportAction;
@@ -388,6 +389,7 @@ public class KNNPlugin extends Plugin
     @Override
     public void onIndexModule(IndexModule indexModule) {
         KNNSettings.state().onIndexModule(indexModule);
+        indexModule.addSearchOperationListener(new LateInteractionStatsSearchListener());
         if (KNNSettings.isKNNDerivedSourceEnabled(indexModule.getSettings())) {
             indexModule.addIndexOperationListener(new DerivedSourceIndexOperationListener());
         }
