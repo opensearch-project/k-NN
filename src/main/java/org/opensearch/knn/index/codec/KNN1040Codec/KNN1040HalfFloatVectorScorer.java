@@ -186,6 +186,9 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
      * build - unlike search's fixed-for-the-scorer's-lifetime query.
      */
     static class HalfFloatRandomVectorScorer extends RandomVectorScorer.AbstractRandomVectorScorer {
+        // Matches KNN1040HalfFloatFlatVectorsReader's bulk batch size, so the non-mmap buffer is
+        // pre-sized for a typical bulkScore() call instead of reallocating on the first one.
+        private static final int BULK_SCORE_BATCH_SIZE = 64;
         private final KNN1040HalfFloatFlatVectorsValues values;
         private final SimdVectorComputeService.SimilarityFunctionType nativeFunctionType;
         private final long[] addressAndSize;
@@ -206,7 +209,7 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
             this.nativeFunctionType = nativeFunctionType;
             this.addressAndSize = addressAndSize;
             if (!usesMmapAddress()) {
-                this.vectorBytesBuffer = new byte[values.byteSize()];
+                this.vectorBytesBuffer = new byte[values.byteSize() * BULK_SCORE_BATCH_SIZE];
             }
             setTarget(target);
         }
