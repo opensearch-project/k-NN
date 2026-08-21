@@ -339,6 +339,11 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
         long vectorDataLength, int dimension, int size, OrdToDocDISIReaderConfiguration ordToDoc, FieldInfo info) {
 
         FieldEntry {
+            if (vectorEncoding != VectorEncoding.FLOAT32) {
+                throw new IllegalStateException(
+                    "Unexpected vector encoding for field=\"" + info.name + "\"; expected FLOAT32, got " + vectorEncoding
+                );
+            }
             if (similarity != info.getVectorSimilarityFunction()) {
                 throw new IllegalStateException(
                     "Inconsistent vector similarity function for field=\""
