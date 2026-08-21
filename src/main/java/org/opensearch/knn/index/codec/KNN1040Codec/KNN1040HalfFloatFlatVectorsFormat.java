@@ -17,6 +17,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
 
 import java.io.IOException;
+import java.util.Locale;
 
 /**
  * Custom {@link FlatVectorsFormat} implementation to support half-float vectors. This class is mostly identical to
@@ -59,6 +60,6 @@ public class KNN1040HalfFloatFlatVectorsFormat extends FlatVectorsFormat {
 
     @Override
     public String toString() {
-        return String.format("%s(scorer=%s)", getClass().getSimpleName(), KNN_1040_HALF_FLOAT_FLAT_VECTORS_SCORER);
+        return String.format(Locale.ROOT, "%s(scorer=%s)", getClass().getSimpleName(), KNN_1040_HALF_FLOAT_FLAT_VECTORS_SCORER);
     }
 }

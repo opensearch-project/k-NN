@@ -150,11 +150,17 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
 
                 @Override
                 public float score(int node) throws IOException {
+                    if (prefetchableDelegate == null) {
+                        throw new IllegalStateException("setScoringOrdinal must be called before score");
+                    }
                     return prefetchableDelegate.score(node);
                 }
 
                 @Override
                 public float bulkScore(int[] nodes, float[] scores, int numNodes) throws IOException {
+                    if (prefetchableDelegate == null) {
+                        throw new IllegalStateException("setScoringOrdinal must be called before bulkScore");
+                    }
                     return prefetchableDelegate.bulkScore(nodes, scores, numNodes);
                 }
             };

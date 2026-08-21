@@ -260,10 +260,10 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
         int numOrds = 0;
 
         for (int i = 0; i < numVectors; i++) {
+            if (knnCollector.earlyTerminated()) {
+                break;
+            }
             if (acceptedOrds == null || acceptedOrds.get(i)) {
-                if (knnCollector.earlyTerminated()) {
-                    break;
-                }
                 ords[numOrds++] = i;
                 if (numOrds == BULK_SCORE_BATCH_SIZE) {
                     collectBatch(randomScorer, knnCollector, ords, scores, numOrds);
