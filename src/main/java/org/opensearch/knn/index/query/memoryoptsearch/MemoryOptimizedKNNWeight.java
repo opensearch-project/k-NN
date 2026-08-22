@@ -24,7 +24,6 @@ import org.apache.lucene.search.knn.TopKnnCollectorManager;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
-import org.apache.lucene.util.Version;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -36,7 +35,7 @@ import org.opensearch.lucene.ReentrantKnnCollectorManager;
 
 import java.io.IOException;
 
-import static org.opensearch.knn.common.KNNConstants.DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO;
+import static org.opensearch.knn.common.KNNConstants.DEFAULT_LUCENE_RADIAL_SEARCH_DECAY;
 import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
 
 /**
@@ -69,10 +68,10 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
                 this.knnCollectorManager = new DiversifyingNearestChildrenKnnCollectorManager(k, query.getParentsFilter(), searcher);
             }
         } else {
-            // Radius search
+            // Radius search: use Lucene 10.5's decay-based radial search with resultSimilarity = radius.
             this.knnCollectorManager = (visitLimit, searchStrategy, context) -> new RadiusVectorSimilarityCollector(
-                DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO * query.getRadius(),
                 query.getRadius(),
+                DEFAULT_LUCENE_RADIAL_SEARCH_DECAY,
                 visitLimit
             );
         }
@@ -94,7 +93,6 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         final int k
     ) {
         try {
-            final Version segmentLuceneVersion = reader.getSegmentInfo().info.getVersion();
             if (k > 0) {
                 // KNN search
                 if (quantizedTargetVector != null) {

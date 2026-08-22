@@ -12,10 +12,12 @@ import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.KNNVectorDocValueFormat;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.search.DocValueFormat;
 
@@ -25,8 +27,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.mockito.Mockito.mock;
-import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
-import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
@@ -62,7 +62,6 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
         assertSame(userContext, buildFlatFieldType().resolveRescoreContext(userContext));
     }
 
-    // After resolution, flat method always has x32 compression set in the mapping config
     private KNNVectorFieldType buildFlatFieldType() {
         KNNMethodContext flatMethodContext = new KNNMethodContext(
             KNNEngine.LUCENE,
@@ -85,7 +84,16 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
                 return CompressionLevel.x32;
             }
         };
-        return new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.FLOAT, mappingConfig);
+        ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.LUCENE)
+            .methodName(METHOD_FLAT)
+            .encoderType(Encoder.EncoderType.FLAT)
+            .compressionLevel(CompressionLevel.x32)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .indexVersionCreated(Version.CURRENT)
+            .build();
+        return new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.FLOAT, mappingConfig, Version.CURRENT, spec);
     }
 
     public void testKNNVectorFieldType_whenSQOneBitEncoder_thenAlwaysUseMemoryOptimizedSearchIsTrue() {
@@ -125,7 +133,98 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
             )
         );
         KNNMappingConfig mappingConfig = getMappingConfigForMethodMapping(sqOneBitMethodContext, 128);
-        return new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.FLOAT, mappingConfig, Version.CURRENT);
+        ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName(METHOD_HNSW)
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.ONE)
+            .compressionLevel(CompressionLevel.x32)
+            .mode(Mode.ON_DISK)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .indexVersionCreated(Version.CURRENT)
+            .build();
+        return new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.FLOAT, mappingConfig, Version.CURRENT, spec);
+    }
+
+    public void testKNNVectorFieldType_resolvedSpecStoredWhenProvided() {
+        ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName(METHOD_HNSW)
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.ONE)
+            .compressionLevel(CompressionLevel.x32)
+            .mode(Mode.ON_DISK)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .indexVersionCreated(Version.CURRENT)
+            .build();
+
+        KNNMethodContext sqOneBitMethodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            new MethodComponentContext(
+                METHOD_HNSW,
+                Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Map.of("bits", 1)))
+            )
+        );
+        KNNMappingConfig mappingConfig = getMappingConfigForMethodMapping(sqOneBitMethodContext, 128);
+        KNNVectorFieldType fieldType = new KNNVectorFieldType(
+            FIELD_NAME,
+            Collections.emptyMap(),
+            VectorDataType.FLOAT,
+            mappingConfig,
+            Version.CURRENT,
+            spec
+        );
+        assertNotNull(fieldType.getResolvedSpec());
+        assertSame(spec, fieldType.getResolvedSpec());
+        assertEquals(Encoder.EncoderType.SQ, fieldType.getResolvedSpec().getEncoderType());
+    }
+
+    public void testKNNVectorFieldType_noAnnSpecWhenNotProvided() {
+        KNNMethodContext knnMethodContext = getDefaultKNNMethodContext();
+        KNNMappingConfig mappingConfig = getMappingConfigForMethodMapping(knnMethodContext, 128);
+        KNNVectorFieldType fieldType = new KNNVectorFieldType(
+            FIELD_NAME,
+            Collections.emptyMap(),
+            VectorDataType.FLOAT,
+            mappingConfig,
+            Version.CURRENT
+        );
+        // When no spec is provided, the field type defaults to a no-ANN spec with all behavior off
+        ResolvedIndexSpec spec = fieldType.getResolvedSpec();
+        assertNotNull(spec);
+        assertNull(spec.getEngine());
+        assertEquals(VectorDataType.FLOAT, spec.getVectorDataType());
+        assertEquals(128, spec.getDimension());
+        assertFalse(spec.supportsRadialSearch());
+        assertFalse(spec.supportsRemoteIndexBuild());
+        assertFalse(spec.alwaysUseMemoryOptimizedSearch());
+        assertFalse(spec.isMemoryOptimizedEligible());
+        assertNull(spec.getRescoreContext());
+    }
+
+    public void testKNNVectorFieldType_lazySpecSupplierMemoized() {
+        KNNMethodContext knnMethodContext = getDefaultKNNMethodContext();
+        KNNMappingConfig mappingConfig = getMappingConfigForMethodMapping(knnMethodContext, 128);
+        final int[] calls = { 0 };
+        KNNVectorFieldType fieldType = new KNNVectorFieldType(
+            FIELD_NAME,
+            Collections.emptyMap(),
+            VectorDataType.FLOAT,
+            mappingConfig,
+            Version.CURRENT,
+            () -> {
+                calls[0]++;
+                return ResolvedIndexSpec.noAnn(VectorDataType.FLOAT, 128, Version.CURRENT);
+            }
+        );
+        assertEquals(0, calls[0]);
+        ResolvedIndexSpec first = fieldType.getResolvedSpec();
+        ResolvedIndexSpec second = fieldType.getResolvedSpec();
+        assertSame(first, second);
+        assertEquals(1, calls[0]);
     }
 
     public void testKNNVectorFieldType_whenNonSQOneBitEncoder_thenAlwaysUseMemoryOptimizedSearchIsFalse() {
@@ -138,12 +237,22 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
             )
         );
         KNNMappingConfig mappingConfig = getMappingConfigForMethodMapping(flatMethodContext, 128);
+        ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName(METHOD_HNSW)
+            .encoderType(Encoder.EncoderType.FLAT)
+            .compressionLevel(CompressionLevel.NOT_CONFIGURED)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .indexVersionCreated(Version.CURRENT)
+            .build();
         KNNVectorFieldType fieldType = new KNNVectorFieldType(
             FIELD_NAME,
             Collections.emptyMap(),
             VectorDataType.FLOAT,
             mappingConfig,
-            Version.CURRENT
+            Version.CURRENT,
+            spec
         );
         assertFalse(fieldType.isAlwaysUseMemoryOptimizedSearch());
         assertTrue(fieldType.isMemoryOptimizedSearchAvailable());
@@ -213,289 +322,51 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
         assertTrue(ex.getMessage().contains("does not support custom time zones"));
     }
 
-    // --- validateSupportRadialSearch tests ---
+    // --- radial search support via resolved spec ---
 
-    public void testValidateRadialSearch_whenUnsupportedEngine_thenThrows() {
-        // Given: a field type with NMSLIB engine (not in ENGINES_SUPPORTING_RADIAL_SEARCH)
-        KNNMethodContext methodContext = new KNNMethodContext(
-            KNNEngine.NMSLIB,
-            SpaceType.L2,
-            new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
-        );
-        KNNMappingConfig config = getMappingConfigForMethodMapping(methodContext, 128);
-        KNNVectorFieldType fieldType = new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.FLOAT, config);
-
-        // When/Then: throws with engine name
-        UnsupportedOperationException e = expectThrows(
-            UnsupportedOperationException.class,
-            () -> fieldType.validateSupportRadialSearch(KNNEngine.NMSLIB)
-        );
-        assertTrue(e.getMessage().contains("NMSLIB"));
-    }
-
-    public void testValidateRadialSearch_whenBinaryDataType_thenThrows() {
-        // Given: a field type with BINARY data type
-        KNNMethodContext methodContext = new KNNMethodContext(
-            KNNEngine.FAISS,
-            SpaceType.HAMMING,
-            new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
-        );
-        KNNMappingConfig config = getMappingConfigForMethodMapping(methodContext, 128);
-        KNNVectorFieldType fieldType = new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.BINARY, config);
-
-        // When/Then: throws with binary message
-        UnsupportedOperationException e = expectThrows(
-            UnsupportedOperationException.class,
-            () -> fieldType.validateSupportRadialSearch(KNNEngine.FAISS)
-        );
-        assertTrue(e.getMessage().contains("Binary"));
-    }
-
-    public void testValidateRadialSearch_whenBQQuantized_thenThrows() {
-        // Given: a field type with BQ quantization (QuantizationConfig != EMPTY)
-        KNNMethodContext methodContext = new KNNMethodContext(
-            KNNEngine.FAISS,
-            SpaceType.L2,
-            new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
-        );
-        KNNMappingConfig config = new KNNMappingConfig() {
-            @Override
-            public Optional<KNNMethodContext> getKnnMethodContext() {
-                return Optional.of(methodContext);
-            }
-
-            @Override
-            public int getDimension() {
-                return 128;
-            }
-
-            @Override
-            public QuantizationConfig getQuantizationConfig() {
-                return QuantizationConfig.builder().quantizationType(ScalarQuantizationType.ONE_BIT).build();
-            }
-        };
-        KNNVectorFieldType fieldType = new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.FLOAT, config);
-
-        // When/Then: throws with binary quantization message
-        UnsupportedOperationException e = expectThrows(
-            UnsupportedOperationException.class,
-            () -> fieldType.validateSupportRadialSearch(KNNEngine.FAISS)
-        );
-        assertTrue(e.getMessage().contains("binary quantization"));
-    }
-
-    public void testValidateRadialSearch_whenUnsupportedCompressionLevel_thenThrows() {
-        // Given: a field type with x8 compression and non-SQ-1-bit encoder
-        KNNMethodContext methodContext = new KNNMethodContext(
-            KNNEngine.FAISS,
-            SpaceType.L2,
-            new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
-        );
-        KNNMappingConfig config = new KNNMappingConfig() {
-            @Override
-            public Optional<KNNMethodContext> getKnnMethodContext() {
-                return Optional.of(methodContext);
-            }
-
-            @Override
-            public int getDimension() {
-                return 128;
-            }
-
-            @Override
-            public CompressionLevel getCompressionLevel() {
-                return CompressionLevel.x8;
-            }
-        };
-        KNNVectorFieldType fieldType = new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.FLOAT, config);
-
-        // When/Then: throws with compression level in message
-        UnsupportedOperationException e = expectThrows(
-            UnsupportedOperationException.class,
-            () -> fieldType.validateSupportRadialSearch(KNNEngine.FAISS)
-        );
-        assertTrue(e.getMessage().contains("compression level=x8"));
-    }
-
-    public void testValidateRadialSearch_whenFlatMethod32x_thenPasses() {
-        // Given: a flat method field type with 32x compression
-        KNNMethodContext methodContext = new KNNMethodContext(
-            KNNEngine.LUCENE,
-            SpaceType.L2,
-            new MethodComponentContext(METHOD_FLAT, Collections.emptyMap())
-        );
-        KNNMappingConfig config = new KNNMappingConfig() {
-            @Override
-            public Optional<KNNMethodContext> getKnnMethodContext() {
-                return Optional.of(methodContext);
-            }
-
-            @Override
-            public int getDimension() {
-                return 128;
-            }
-
-            @Override
-            public CompressionLevel getCompressionLevel() {
-                return CompressionLevel.x32;
-            }
-        };
-        KNNVectorFieldType fieldType = new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.FLOAT, config);
-
-        // When/Then: no exception — flat method with 32x is recognized as 1-bit SQ
-        fieldType.validateSupportRadialSearch(KNNEngine.LUCENE);
-    }
-
-    public void testValidateRadialSearch_whenSQOneBit_thenPasses() {
-        // Given: a field type with SQ encoder bits=1
-        KNNVectorFieldType fieldType = buildSQOneBitFieldType();
-
-        // When/Then: no exception — SQ 1-bit is supported via rescoring
-        fieldType.validateSupportRadialSearch(KNNEngine.FAISS);
-    }
-
-    public void testValidateRadialSearch_whenNonQuantized_thenPasses() {
-        // Given: a non-quantized field type (NOT_CONFIGURED compression)
-        KNNMethodContext methodContext = new KNNMethodContext(
-            KNNEngine.FAISS,
-            SpaceType.L2,
-            new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
-        );
-        KNNMappingConfig config = getMappingConfigForMethodMapping(methodContext, 128);
-        KNNVectorFieldType fieldType = new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.FLOAT, config);
-
-        // When/Then: no exception — non-quantized indices always support radial search
-        fieldType.validateSupportRadialSearch(KNNEngine.FAISS);
-    }
-
-    public void testValidateRadialSearch_whenX32HnswNonSQEncoder_thenThrows() {
-        // Given: x32 compression with HNSW method and flat encoder (NOT SQ 1-bit, NOT flat method)
-        KNNMethodContext methodContext = new KNNMethodContext(
-            KNNEngine.FAISS,
-            SpaceType.L2,
-            new MethodComponentContext(
-                METHOD_HNSW,
-                Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_FLAT, Collections.emptyMap()))
-            )
-        );
-        KNNMappingConfig config = new KNNMappingConfig() {
-            @Override
-            public Optional<KNNMethodContext> getKnnMethodContext() {
-                return Optional.of(methodContext);
-            }
-
-            @Override
-            public int getDimension() {
-                return 128;
-            }
-
-            @Override
-            public CompressionLevel getCompressionLevel() {
-                return CompressionLevel.x32;
-            }
-        };
-        KNNVectorFieldType fieldType = new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.FLOAT, config);
-
-        // When/Then: throws — x32 with HNSW and non-SQ encoder is not allowed
-        UnsupportedOperationException e = expectThrows(
-            UnsupportedOperationException.class,
-            () -> fieldType.validateSupportRadialSearch(KNNEngine.FAISS)
-        );
-        assertTrue(e.getMessage().contains("1-bit SQ"));
-        assertTrue(e.getMessage().contains("x32"));
-    }
-
-    public void testValidateRadialSearch_whenFp16Compression_thenPasses() {
-        // Given: a field type with x2 (fp16) compression — not quantized
-        KNNMethodContext methodContext = new KNNMethodContext(
-            KNNEngine.FAISS,
-            SpaceType.L2,
-            new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
-        );
-        KNNMappingConfig config = new KNNMappingConfig() {
-            @Override
-            public Optional<KNNMethodContext> getKnnMethodContext() {
-                return Optional.of(methodContext);
-            }
-
-            @Override
-            public int getDimension() {
-                return 128;
-            }
-
-            @Override
-            public CompressionLevel getCompressionLevel() {
-                return CompressionLevel.x2;
-            }
-        };
-        KNNVectorFieldType fieldType = new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.FLOAT, config);
-
-        // When/Then: no exception — fp16 (x2) is not quantized, passes
-        fieldType.validateSupportRadialSearch(KNNEngine.FAISS);
-    }
-
-    public void testValidateRadialSearch_whenNoMethodContext_thenPasses() {
-        // Given: a model-based field type with no method context
+    public void testRadialSearchSupport_whenNoAnnSpec_thenNotSupported() {
+        // Fields without an ANN structure (flat mapper, pre-method-serialization models) get a no-ANN spec
         KNNMappingConfig config = getMappingConfigForFlatMapping(128);
         KNNVectorFieldType fieldType = new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.FLOAT, config);
-
-        // When/Then: no exception — model-based indices skip quantization check
-        fieldType.validateSupportRadialSearch(KNNEngine.FAISS);
+        assertFalse(fieldType.getResolvedSpec().supportsRadialSearch());
     }
 
-    // --- isRescoringRequiredForRadial tests ---
-
-    public void testIsRescoringRequired_whenSQOneBit_thenTrue() {
-        // Given: a field type with SQ 1-bit encoder
-        KNNVectorFieldType fieldType = buildSQOneBitFieldType();
-
-        // When/Then: rescoring is required
-        assertTrue(fieldType.isRescoringRequiredForRadial());
+    public void testRadialSearchSupport_whenSQOneBit_thenNotSupported() {
+        // SQ 1-bit is a quantized index, so radial search is blocked (#3464) — no exception for 1-bit SQ
+        assertFalse(buildSQOneBitFieldType().getResolvedSpec().supportsRadialSearch());
     }
 
-    public void testIsRescoringRequired_whenNonQuantized_thenFalse() {
-        // Given: a non-quantized field type
-        KNNMethodContext methodContext = new KNNMethodContext(
-            KNNEngine.FAISS,
-            SpaceType.L2,
-            new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
-        );
-        KNNMappingConfig config = getMappingConfigForMethodMapping(methodContext, 128);
-        KNNVectorFieldType fieldType = new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.FLOAT, config);
-
-        // When/Then: rescoring is not required
-        assertFalse(fieldType.isRescoringRequiredForRadial());
+    public void testRadialSearchSupport_whenModelBasedQuantized_thenSupported() {
+        // Model-derived specs skip the compression-level restriction (parity with the legacy model-path
+        // validation, which only blocked BQ via QuantizationConfig)
+        ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName(METHOD_HNSW)
+            .encoderType(Encoder.EncoderType.PQ)
+            .compressionLevel(CompressionLevel.x8)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .indexVersionCreated(Version.CURRENT)
+            .modelBased(true)
+            .build();
+        assertTrue(spec.supportsRadialSearch());
+        // The same configuration on a method-mapped field is blocked
+        assertFalse(spec.toBuilder().modelBased(false).build().supportsRadialSearch());
     }
 
-    public void testIsRescoringRequired_whenNoMethodContext_thenFalse() {
-        // Given: a model-based field type with no method context
-        KNNMappingConfig config = getMappingConfigForFlatMapping(128);
-        KNNVectorFieldType fieldType = new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.FLOAT, config);
-
-        // When/Then: rescoring is not required (no method context to check)
-        assertFalse(fieldType.isRescoringRequiredForRadial());
-    }
-
-    public void testIsRescoringRequired_whenFlatEncoder_thenFalse() {
-        // Given: a field type with flat encoder (not SQ 1-bit)
-        KNNMethodContext methodContext = new KNNMethodContext(
-            KNNEngine.FAISS,
-            SpaceType.L2,
-            new MethodComponentContext(
-                METHOD_HNSW,
-                Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_FLAT, Collections.emptyMap()))
-            )
-        );
-        KNNMappingConfig config = getMappingConfigForMethodMapping(methodContext, 128);
-        KNNVectorFieldType fieldType = new KNNVectorFieldType(
-            FIELD_NAME,
-            Collections.emptyMap(),
-            VectorDataType.FLOAT,
-            config,
-            Version.CURRENT
-        );
-
-        // When/Then: rescoring is not required — flat encoder is not SQ 1-bit
-        assertFalse(fieldType.isRescoringRequiredForRadial());
+    public void testRadialSearchSupport_whenModelBasedBQ_thenNotSupported() {
+        // BQ remains blocked even for model-derived specs
+        ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName(METHOD_HNSW)
+            .encoderType(Encoder.EncoderType.BQ)
+            .quantizationBits(Encoder.QuantizationBits.ONE)
+            .compressionLevel(CompressionLevel.x32)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(128)
+            .indexVersionCreated(Version.CURRENT)
+            .modelBased(true)
+            .build();
+        assertFalse(spec.supportsRadialSearch());
     }
 }

@@ -8,7 +8,8 @@ package org.opensearch.knn.integ;
 import lombok.SneakyThrows;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 
@@ -20,11 +21,15 @@ import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 
-public class TopLevelSpaceTypeParameterIT extends KNNRestTestCase {
+public class TopLevelSpaceTypeParameterIT extends KNNCompressionRestTestCase {
     private final static float[] TEST_VECTOR = new float[] { 1.0f, 2.0f };
     private final static int DIMENSION = 2;
     private final static int K = 1;
     private static final String INDEX_NAME = "top-level-space-type-index";
+
+    public TopLevelSpaceTypeParameterIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
 
     @SneakyThrows
     public void testBaseCase() {
@@ -45,13 +50,10 @@ public class TopLevelSpaceTypeParameterIT extends KNNRestTestCase {
     }
 
     private void createTestIndexWithTopLevelSpaceTypeOnly() throws IOException {
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("properties")
-            .startObject(FIELD_NAME)
-            .field("type", "knn_vector")
-            .field("dimension", DIMENSION)
-            .field(KNNConstants.TOP_LEVEL_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("properties").startObject(FIELD_NAME);
+        builder.field("type", "knn_vector").field("dimension", DIMENSION);
+        addCompressionMappingFields(builder);
+        builder.field(KNNConstants.TOP_LEVEL_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(KNN_ENGINE, FAISS_NAME)
@@ -65,13 +67,10 @@ public class TopLevelSpaceTypeParameterIT extends KNNRestTestCase {
     }
 
     private void createTestIndexWithTopLevelSpaceTypeAndMethodSpaceType() throws IOException {
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("properties")
-            .startObject(FIELD_NAME)
-            .field("type", "knn_vector")
-            .field("dimension", DIMENSION)
-            .field(KNNConstants.TOP_LEVEL_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("properties").startObject(FIELD_NAME);
+        builder.field("type", "knn_vector").field("dimension", DIMENSION);
+        addCompressionMappingFields(builder);
+        builder.field(KNNConstants.TOP_LEVEL_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(KNN_ENGINE, FAISS_NAME)
@@ -86,13 +85,10 @@ public class TopLevelSpaceTypeParameterIT extends KNNRestTestCase {
     }
 
     private void createTestIndexWithNoSpaceType() throws IOException {
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("properties")
-            .startObject(FIELD_NAME)
-            .field("type", "knn_vector")
-            .field("dimension", DIMENSION)
-            .startObject(KNN_METHOD)
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("properties").startObject(FIELD_NAME);
+        builder.field("type", "knn_vector").field("dimension", DIMENSION);
+        addCompressionMappingFields(builder);
+        builder.startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(KNN_ENGINE, FAISS_NAME)
             .endObject()

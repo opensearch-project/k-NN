@@ -82,8 +82,18 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
             spaceType,
             additionalSettings,
             Mode.NOT_CONFIGURED,
-            CompressionLevel.NOT_CONFIGURED
+            defaultCompressionLevel(dataType, methodParams)
         );
+    }
+
+    private static CompressionLevel defaultCompressionLevel(final VectorDataType dataType, final String methodParams) {
+        // Compression is only valid for float32 without an explicit encoder. Pin to 1x there so the plugin's
+        // default compression flip does not silently change these ANN assertions. Byte, binary and encoder-based
+        // configurations reject compression, so leave them unconfigured.
+        if (dataType == VectorDataType.FLOAT && EMPTY_PARAMS.equals(methodParams)) {
+            return CompressionLevel.x1;
+        }
+        return CompressionLevel.NOT_CONFIGURED;
     }
 
     protected void doTestNonNestedIndex(
@@ -120,7 +130,14 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
         final SpaceType spaceType,
         final Consumer<Settings.Builder> additionalSettings
     ) {
-        doTestNestedIndex(dataType, methodParams, spaceType, additionalSettings, Mode.NOT_CONFIGURED, CompressionLevel.NOT_CONFIGURED);
+        doTestNestedIndex(
+            dataType,
+            methodParams,
+            spaceType,
+            additionalSettings,
+            Mode.NOT_CONFIGURED,
+            defaultCompressionLevel(dataType, methodParams)
+        );
     }
 
     protected void doTestNestedIndex(

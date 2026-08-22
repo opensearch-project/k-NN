@@ -67,7 +67,7 @@ TEST(CreateIndexTest, BasicAssertions) {
     knn_jni::faiss_wrapper::IndexService indexService(std::move(mockFaissMethods));
     long indexAddress = indexService.initIndex(&mockJNIUtil, jniEnv, metricType, indexDescription, dim, numIds, threadCount, parametersMap);
     indexService.insertToIndex(dim, numIds, threadCount, (int64_t) &vectors, ids, indexAddress);
-    indexService.writeIndex(&fileIOWriter, indexAddress);
+    indexService.writeIndex(&fileIOWriter, indexAddress, false);
 }
 
 TEST(CreateBinaryIndexTest, BasicAssertions) {
@@ -107,14 +107,14 @@ TEST(CreateBinaryIndexTest, BasicAssertions) {
         .WillOnce(Return(index));
     EXPECT_CALL(*mockFaissMethods, indexBinaryIdMap(index))
         .WillOnce(Return(indexIdMap));
-    EXPECT_CALL(*mockFaissMethods, writeIndexBinary(indexIdMap, ::testing::Eq(&fileIOWriter)))
+    EXPECT_CALL(*mockFaissMethods, writeIndexBinary(indexIdMap, ::testing::Eq(&fileIOWriter), false))
         .Times(1);
 
     // Create the index
     knn_jni::faiss_wrapper::BinaryIndexService indexService(std::move(mockFaissMethods));
     long indexAddress = indexService.initIndex(&mockJNIUtil, jniEnv, metricType, indexDescription, dim, numIds, threadCount, parametersMap);
     indexService.insertToIndex(dim, numIds, threadCount, (int64_t) &vectors, ids, indexAddress);
-    indexService.writeIndex(&fileIOWriter, indexAddress);
+    indexService.writeIndex(&fileIOWriter, indexAddress, false);
 }
 
 TEST(CreateByteIndexTest, BasicAssertions) {
@@ -159,5 +159,5 @@ TEST(CreateByteIndexTest, BasicAssertions) {
     knn_jni::faiss_wrapper::ByteIndexService indexService(std::move(mockFaissMethods));
     long indexAddress = indexService.initIndex(&mockJNIUtil, jniEnv, metricType, indexDescription, dim, numIds, threadCount, parametersMap);
     indexService.insertToIndex(dim, numIds, threadCount, (int64_t) &vectors, ids, indexAddress);
-    indexService.writeIndex(&fileIOWriter, indexAddress);
+    indexService.writeIndex(&fileIOWriter, indexAddress, false);
 }

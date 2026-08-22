@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
+import java.util.Locale;
+
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.opensearch.knn.index.SpaceType;
@@ -26,43 +28,45 @@ class NonNestedNMappingSchema {
     private CompressionLevel compressionLevel;
 
     static String createModeCompressionLevelPartInMapping(final Mode mode, final CompressionLevel compressionLevel) {
-        if (mode == Mode.NOT_CONFIGURED && compressionLevel == CompressionLevel.NOT_CONFIGURED) {
-            return "";
+        final StringBuilder builder = new StringBuilder();
+        if (mode != Mode.NOT_CONFIGURED) {
+            builder.append("\"mode\": \"").append(mode.getName()).append("\",\n");
         }
-
-        return """
-              "mode": "%s",
-              "compression_level": "%s",
-            """.formatted(mode == Mode.NOT_CONFIGURED ? "null" : mode.getName(), compressionLevel.getName());
+        if (compressionLevel != CompressionLevel.NOT_CONFIGURED) {
+            builder.append("\"compression_level\": \"").append(compressionLevel.getName()).append("\",\n");
+        }
+        return builder.toString();
     }
 
     public String createString() {
-        final String mapping = """
-            {
-              "properties": {
-                "%s": {
-                  "type": "knn_vector",
-                  "dimension": %s,
-                  "data_type": "%s",
-                  %s
-                  "space_type": "%s",
-                  "method": {
-                    "engine": "faiss",
-                    "name": "hnsw",
-                    "parameters": %s
-                  }
-                },
-                "%s": {
-                  "type": "keyword",
-                  "index": true
-                },
-                "%s": {
-                  "type": "keyword",
-                  "index": true
-                }
-              },
-              "dynamic": false
-            }""".formatted(
+        final String mapping = String.format(
+            Locale.ROOT,
+            """
+                {
+                  "properties": {
+                    "%s": {
+                      "type": "knn_vector",
+                      "dimension": %s,
+                      "data_type": "%s",
+                      %s
+                      "space_type": "%s",
+                      "method": {
+                        "engine": "faiss",
+                        "name": "hnsw",
+                        "parameters": %s
+                      }
+                    },
+                    "%s": {
+                      "type": "keyword",
+                      "index": true
+                    },
+                    "%s": {
+                      "type": "keyword",
+                      "index": true
+                    }
+                  },
+                  "dynamic": false
+                }""",
             knnFieldName,
             Integer.toString(dimension),
             dataType.getValue(),

@@ -5,7 +5,9 @@
 
 package org.opensearch.knn.integ;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import lombok.SneakyThrows;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.Before;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
@@ -14,6 +16,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.knn.CompressionTestConfig;
 import org.opensearch.knn.DerivedSourceTestCase;
 import org.opensearch.knn.DerivedSourceUtils;
 import org.opensearch.knn.Pair;
@@ -23,6 +26,7 @@ import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -39,6 +43,15 @@ import static org.opensearch.knn.common.KNNConstants.DIMENSION;
  * a few gaps in functionality. Ignoring tests for now as feature is experimental.
  */
 public class DerivedSourceIT extends DerivedSourceTestCase {
+
+    public DerivedSourceIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
+
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 }, new Object[] { CompressionTestConfig.X32 });
+    }
 
     private final String snapshot = "snapshot-test";
     private final String repository = "repo";
@@ -387,9 +400,12 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
 
             Map<String, Object> hits = (Map<String, Object>) searchResult;
             for (String metaField : metaFields) {
-                assertTrue(String.format("Missing meta field '%s' in search result %d", metaField, i), hits.containsKey(metaField));
+                assertTrue(
+                    String.format(Locale.ROOT, "Missing meta field '%s' in search result %d", metaField, i),
+                    hits.containsKey(metaField)
+                );
                 assertNotNull(
-                    String.format("Meta field '%s' value should not be null in search result %d", metaField, i),
+                    String.format(Locale.ROOT, "Meta field '%s' value should not be null in search result %d", metaField, i),
                     hits.get(metaField)
                 );
             }
@@ -429,8 +445,9 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             .field("path_match", "similar_products_vector.*.clip_vit_base_patch32")
             .startObject("mapping")
             .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .startObject("method")
+            .field("dimension", dimension);
+        addCompressionMappingFields(mappingsBuilder);
+        mappingsBuilder.startObject("method")
             .field("engine", "faiss")
             .field("space_type", "l2")
             .field("name", "hnsw")
@@ -499,8 +516,9 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             .startObject(KNNConstants.PROPERTIES)
             .startObject("nameVector")
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .startObject("method")
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingBuilder);
+        mappingBuilder.startObject("method")
             .field("engine", "lucene")
             .field("space_type", "l2")
             .field("name", "hnsw")
@@ -563,7 +581,11 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
         testReindex(indexConfigContexts);
 
         // Snapshot restore
-        testSnapshotRestore(repository, snapshot + getTestName().toLowerCase(Locale.ROOT), indexConfigContexts);
+        testSnapshotRestore(
+            repository,
+            snapshot + getTestName().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9-]", ""),
+            indexConfigContexts
+        );
     }
 
     @SneakyThrows
@@ -577,10 +599,9 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             .startObject("properties")
             .startObject(fieldName)
             .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .endObject()
-            .endObject()
-            .endObject();
+            .field("dimension", dimension);
+        addCompressionMappingFields(builder);
+        builder.endObject().endObject().endObject();
         String mapping = builder.toString();
         createKnnIndex(indexName, mapping);
         validateDerivedSetting(indexName, true);
@@ -598,10 +619,9 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             .startObject("properties")
             .startObject(fieldName)
             .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .endObject()
-            .endObject()
-            .endObject();
+            .field("dimension", dimension);
+        addCompressionMappingFields(builder);
+        builder.endObject().endObject().endObject();
         String mapping = builder.toString();
         expectThrows(
             ResponseException.class,
@@ -633,21 +653,19 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             .startObject(KNNConstants.PROPERTIES)
             .startObject(VECTOR_FIELD_1)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(KNNConstants.DIMENSION, DIMENSION)
-            .endObject()
+            .field(KNNConstants.DIMENSION, DIMENSION);
+        addCompressionMappingFields(mappingBuilder);
+        mappingBuilder.endObject()
             .startObject(VECTOR_FIELD_2)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(KNNConstants.DIMENSION, DIMENSION)
-            .endObject()
+            .field(KNNConstants.DIMENSION, DIMENSION);
+        addCompressionMappingFields(mappingBuilder);
+        mappingBuilder.endObject()
             .startObject(VECTOR_FIELD_3)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(KNNConstants.DIMENSION, DIMENSION)
-            .endObject()
-            .startObject(TEXT_FIELD)
-            .field(KNNConstants.TYPE, "text")
-            .endObject()
-            .endObject()
-            .endObject();
+            .field(KNNConstants.DIMENSION, DIMENSION);
+        addCompressionMappingFields(mappingBuilder);
+        mappingBuilder.endObject().startObject(TEXT_FIELD).field(KNNConstants.TYPE, "text").endObject().endObject().endObject();
 
         createKnnIndex(
             indexName,
@@ -787,17 +805,14 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             .startObject(KNNConstants.PROPERTIES)
             .startObject(VECTOR_FIELD_1)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingWithIncludes);
+        mappingWithIncludes.endObject()
             .startObject(VECTOR_FIELD_2)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
-            .startObject(TEXT_FIELD)
-            .field(KNNConstants.TYPE, "text")
-            .endObject()
-            .endObject()
-            .endObject();
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingWithIncludes);
+        mappingWithIncludes.endObject().startObject(TEXT_FIELD).field(KNNConstants.TYPE, "text").endObject().endObject().endObject();
 
         createKnnIndex(
             indexWithIncludes,
@@ -827,17 +842,14 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             .startObject(KNNConstants.PROPERTIES)
             .startObject(VECTOR_FIELD_1)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingWithExcludes);
+        mappingWithExcludes.endObject()
             .startObject(VECTOR_FIELD_2)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
-            .startObject(TEXT_FIELD)
-            .field(KNNConstants.TYPE, "text")
-            .endObject()
-            .endObject()
-            .endObject();
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingWithExcludes);
+        mappingWithExcludes.endObject().startObject(TEXT_FIELD).field(KNNConstants.TYPE, "text").endObject().endObject().endObject();
 
         createKnnIndex(
             indexWithExcludes,
@@ -868,17 +880,14 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             .startObject(KNNConstants.PROPERTIES)
             .startObject(VECTOR_FIELD_1)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingWithBoth);
+        mappingWithBoth.endObject()
             .startObject(VECTOR_FIELD_2)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
-            .startObject(TEXT_FIELD)
-            .field(KNNConstants.TYPE, "text")
-            .endObject()
-            .endObject()
-            .endObject();
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingWithBoth);
+        mappingWithBoth.endObject().startObject(TEXT_FIELD).field(KNNConstants.TYPE, "text").endObject().endObject().endObject();
 
         createKnnIndex(
             indexWithBoth,
@@ -908,12 +917,14 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             .startObject(KNNConstants.PROPERTIES)
             .startObject(VECTOR_FIELD_1)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingWithWildcardIncludes);
+        mappingWithWildcardIncludes.endObject()
             .startObject(VECTOR_FIELD_2)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingWithWildcardIncludes);
+        mappingWithWildcardIncludes.endObject()
             .startObject(TEXT_FIELD)
             .field(KNNConstants.TYPE, "text")
             .endObject()
@@ -952,12 +963,14 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             .startObject(KNNConstants.PROPERTIES)
             .startObject(VECTOR_FIELD_1)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingWithWildcardExcludes);
+        mappingWithWildcardExcludes.endObject()
             .startObject(VECTOR_FIELD_2)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
-            .field(DIMENSION, dimension)
-            .endObject()
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingWithWildcardExcludes);
+        mappingWithWildcardExcludes.endObject()
             .startObject(TEXT_FIELD)
             .field(KNNConstants.TYPE, "text")
             .endObject()
@@ -984,6 +997,215 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
             indexWithWildcardExcludes,
             new String[] { VECTOR_FIELD_1, TEXT_FIELD },
             new String[] { VECTOR_FIELD_2 }
+        );
+    }
+
+    /**
+     * Regression test for https://github.com/opensearch-project/k-NN/issues/3316.
+     *
+     * When derived source is enabled AND the mapping filters _source (e.g. _source.excludes on an
+     * unrelated field), a segment merge used to re-inject the vector back into the stored _source,
+     * durably bloating the merged segment. This verifies that after a force-merge:
+     *   - a derived-source index that excludes an unrelated keyword field stays roughly the size of
+     *     the equivalent derived-source index with no exclude (i.e. the vector is NOT re-injected), and
+     *   - it is meaningfully smaller than the same index with derived source disabled (where the full
+     *     vector really is stored in _source), and
+     *   - search still returns the full reconstructed vector and omits the excluded field.
+     */
+    @SneakyThrows
+    public void testDerivedSource_withSourceExclude_doesNotAddVectorsInSourceOnMerge() {
+        String vectorField = "test_vector";
+        String excludedKeywordField = "label";
+        int dimension = 128;
+        int docCount = 500;
+
+        String derivedExclude = getIndexName("source-exclude-merge", "derived-exclude", false);
+        String nonDerivedExclude = getIndexName("source-exclude-merge", "nonderived-exclude", false);
+        String derivedNoExclude = getIndexName("source-exclude-merge", "derived-noexclude", false);
+
+        createSourceExcludeIndex(derivedExclude, vectorField, excludedKeywordField, dimension, true, true);
+        createSourceExcludeIndex(nonDerivedExclude, vectorField, excludedKeywordField, dimension, false, true);
+        createSourceExcludeIndex(derivedNoExclude, vectorField, excludedKeywordField, dimension, true, false);
+
+        // Index the same docs into each index, refreshing in batches so multiple segments are created.
+        Random random = new Random(1234);
+        for (int i = 1; i <= docCount; i++) {
+            float[] vector = new float[dimension];
+            for (int d = 0; d < dimension; d++) {
+                vector[d] = random.nextFloat();
+            }
+            String docId = String.valueOf(i);
+            String doc = XContentFactory.jsonBuilder()
+                .startObject()
+                .field(vectorField, vector)
+                .field(excludedKeywordField, "label-" + i)
+                .endObject()
+                .toString();
+            addKnnDoc(derivedExclude, docId, doc);
+            addKnnDoc(nonDerivedExclude, docId, doc);
+            addKnnDoc(derivedNoExclude, docId, doc);
+            if (i % 100 == 0) {
+                refreshIndex(derivedExclude);
+                refreshIndex(nonDerivedExclude);
+                refreshIndex(derivedNoExclude);
+            }
+        }
+
+        forceMergeKnnIndex(derivedExclude, 1);
+        forceMergeKnnIndex(nonDerivedExclude, 1);
+        forceMergeKnnIndex(derivedNoExclude, 1);
+
+        // Correctness (the #2472 guard): a search fetching 10+ adjacent documents still reconstructs
+        // the full vector into _source, and the excluded field is absent.
+        assertVectorPresentAndFieldExcluded(derivedExclude, vectorField, excludedKeywordField, dimension, 20);
+
+        // kNN search must return identical top-k results across all three indices - the fix must not
+        // change what the vector index returns, only what is stored in _source.
+        float[] queryVector = new float[dimension];
+        Random queryRandom = new Random(4321);
+        for (int d = 0; d < dimension; d++) {
+            queryVector[d] = queryRandom.nextFloat();
+        }
+        int k = 10;
+        List<String> derivedExcludeIds = knnSearchDocIds(derivedExclude, vectorField, queryVector, k);
+        List<String> nonDerivedExcludeIds = knnSearchDocIds(nonDerivedExclude, vectorField, queryVector, k);
+        List<String> derivedNoExcludeIds = knnSearchDocIds(derivedNoExclude, vectorField, queryVector, k);
+
+        assertEquals("Expected k results from derived+exclude index", k, derivedExcludeIds.size());
+        assertEquals(
+            "derived+exclude and non-derived+exclude indices should return the same top-k docs",
+            nonDerivedExcludeIds,
+            derivedExcludeIds
+        );
+        assertEquals(
+            "derived+exclude and derived+no-exclude indices should return the same top-k docs",
+            derivedNoExcludeIds,
+            derivedExcludeIds
+        );
+
+        // Size assertions are only meaningful in exhaustive mode; mirror the existing size checks.
+        if (isExhaustive()) {
+            int derivedExcludeSize = indexSizeInBytes(derivedExclude);
+            int nonDerivedExcludeSize = indexSizeInBytes(nonDerivedExclude);
+            int derivedNoExcludeSize = indexSizeInBytes(derivedNoExclude);
+
+            // The bug's signature: with the fix, the derived+exclude index must stay well below the
+            // non-derived index (which really stores the full vector in _source).
+            assertTrue(
+                String.format(
+                    Locale.ROOT,
+                    "derived+exclude index (%d bytes) should be smaller than non-derived+exclude index (%d bytes)",
+                    derivedExcludeSize,
+                    nonDerivedExcludeSize
+                ),
+                derivedExcludeSize < nonDerivedExcludeSize
+            );
+
+            // Excluding an unrelated field should not inflate the derived index relative to the
+            // no-exclude baseline. Allow modest overhead (recovery source is out of scope here) but
+            // it must be far below the full-vector size.
+            assertTrue(
+                String.format(
+                    Locale.ROOT,
+                    "derived+exclude index (%d bytes) should stay close to derived+no-exclude baseline (%d bytes),"
+                        + " not bloat toward the non-derived size (%d bytes)",
+                    derivedExcludeSize,
+                    derivedNoExcludeSize,
+                    nonDerivedExcludeSize
+                ),
+                derivedExcludeSize < derivedNoExcludeSize + (nonDerivedExcludeSize - derivedNoExcludeSize) / 2
+            );
+        }
+    }
+
+    @SneakyThrows
+    @SuppressWarnings("unchecked")
+    private void assertVectorPresentAndFieldExcluded(String indexName, String vectorField, String excludedField, int dimension, int size) {
+        XContentBuilder searchBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field("size", size)
+            .startObject("query")
+            .startObject("match_all")
+            .endObject()
+            .endObject()
+            .endObject();
+
+        Request searchRequest = new Request("POST", "/" + indexName + "/_search");
+        searchRequest.setJsonEntity(searchBuilder.toString());
+        Response response = client().performRequest(searchRequest);
+
+        Map<String, Object> responseMap = entityAsMap(response);
+        Map<String, Object> hits = (Map<String, Object>) responseMap.get("hits");
+        List<Map<String, Object>> hitsList = (List<Map<String, Object>>) hits.get("hits");
+
+        assertTrue("Expected at least 10 hits to exercise the sequential fetch path", hitsList.size() >= 10);
+        for (Map<String, Object> hit : hitsList) {
+            Map<String, Object> source = (Map<String, Object>) hit.get("_source");
+            assertTrue(
+                String.format(Locale.ROOT, "Vector field '%s' should be reconstructed into _source", vectorField),
+                source.containsKey(vectorField)
+            );
+            assertEquals(
+                String.format(Locale.ROOT, "Reconstructed vector '%s' should have full dimension", vectorField),
+                dimension,
+                ((List<Object>) source.get(vectorField)).size()
+            );
+            assertFalse(
+                String.format(Locale.ROOT, "Excluded field '%s' should be absent from _source", excludedField),
+                source.containsKey(excludedField)
+            );
+        }
+    }
+
+    @SneakyThrows
+    @SuppressWarnings("unchecked")
+    private List<String> knnSearchDocIds(String indexName, String vectorField, float[] queryVector, int k) {
+        XContentBuilder queryBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("knn")
+            .startObject(vectorField)
+            .field("vector", queryVector)
+            .field("k", k)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        Response response = searchKNNIndex(indexName, queryBuilder, k);
+        List<Object> hits = parseSearchResponseHits(EntityUtils.toString(response.getEntity()));
+
+        List<String> docIds = new ArrayList<>();
+        for (Object hit : hits) {
+            docIds.add((String) ((Map<String, Object>) hit).get("_id"));
+        }
+        return docIds;
+    }
+
+    @SneakyThrows
+    private void createSourceExcludeIndex(
+        String indexName,
+        String vectorField,
+        String excludedKeywordField,
+        int dimension,
+        boolean derivedSourceEnabled,
+        boolean withExclude
+    ) {
+        XContentBuilder mapping = XContentFactory.jsonBuilder().startObject();
+        if (withExclude) {
+            mapping.startObject("_source").array("excludes", excludedKeywordField).endObject();
+        }
+        mapping.startObject(KNNConstants.PROPERTIES)
+            .startObject(vectorField)
+            .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mapping);
+        mapping.endObject().startObject(excludedKeywordField).field(KNNConstants.TYPE, "keyword").endObject().endObject().endObject();
+
+        createKnnIndex(
+            indexName,
+            Settings.builder().put("index.knn", true).put("index.knn.derived_source.enabled", derivedSourceEnabled).build(),
+            mapping.toString()
         );
     }
 

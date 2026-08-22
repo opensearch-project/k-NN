@@ -67,6 +67,21 @@ public class ScalarQuantizedFloatVectorValuesTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    public void testCopy_whenQuantizedValuesAreNull_thenReturnsNewWrappedInstance() {
+        FloatVectorValues fvv = mock(FloatVectorValues.class);
+        FloatVectorValues fvvCopy = mock(FloatVectorValues.class);
+        when(fvv.copy()).thenReturn(fvvCopy);
+
+        var wrapper = new ScalarQuantizedFloatVectorValues(fvv, null);
+        FloatVectorValues copied = wrapper.copy();
+
+        assertNotSame(wrapper, copied);
+        assertTrue(copied instanceof ScalarQuantizedFloatVectorValues);
+        assertNull(((ScalarQuantizedFloatVectorValues) copied).getSlice());
+        verify(fvv).copy();
+    }
+
+    @SneakyThrows
     public void testGetEncoding_thenDelegatesToFloatVectorValues() {
         FloatVectorValues fvv = mock(FloatVectorValues.class);
         when(fvv.getEncoding()).thenReturn(VectorEncoding.FLOAT32);
@@ -84,6 +99,12 @@ public class ScalarQuantizedFloatVectorValuesTests extends KNNTestCase {
         var wrapper = new ScalarQuantizedFloatVectorValues(mock(FloatVectorValues.class), qbvv);
         assertSame(expectedSlice, wrapper.getSlice());
         verify(qbvv).getSlice();
+    }
+
+    public void testGetSlice_whenQuantizedValuesAreNull_thenReturnsNull() {
+        var wrapper = new ScalarQuantizedFloatVectorValues(mock(FloatVectorValues.class), null);
+
+        assertNull(wrapper.getSlice());
     }
 
     @SneakyThrows

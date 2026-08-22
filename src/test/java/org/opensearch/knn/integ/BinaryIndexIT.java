@@ -25,6 +25,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Collection;
@@ -54,7 +55,7 @@ public class BinaryIndexIT extends KNNRestTestCase {
     }
 
     @BeforeClass
-    public static void setUpClass() throws IOException {
+    public static void setUpClass() throws IOException, URISyntaxException {
         if (BinaryIndexIT.class.getClassLoader() == null) {
             throw new IllegalStateException("ClassLoader of BinaryIndexIT Class is null");
         }
@@ -64,7 +65,11 @@ public class BinaryIndexIT extends KNNRestTestCase {
         assert testIndexVectors != null;
         assert testQueries != null;
         assert groundTruthValues != null;
-        testData = new TestUtils.TestData(testIndexVectors.getPath(), testQueries.getPath(), groundTruthValues.getPath());
+        testData = new TestUtils.TestData(
+            testIndexVectors.toURI().getPath(),
+            testQueries.toURI().getPath(),
+            groundTruthValues.toURI().getPath()
+        );
     }
 
     @SneakyThrows
@@ -165,7 +170,7 @@ public class BinaryIndexIT extends KNNRestTestCase {
         // Query
         float[] queryVector = { (byte) 0b10001111, (byte) 0b10000000 };
         Exception e = expectThrows(Exception.class, () -> runRnnQuery(INDEX_NAME, FIELD_NAME, queryVector, 1, 4));
-        assertTrue(e.getMessage(), e.getMessage().contains("Binary data type does not support radial search"));
+        assertTrue(e.getMessage(), e.getMessage().contains("Radial search is not supported for this configuration"));
     }
 
     private float getRecall(final Set<String> truth, final Set<String> result) {

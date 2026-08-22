@@ -35,6 +35,7 @@ import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.engine.model.QueryContext;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
@@ -125,13 +126,13 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
     @Deprecated
     public KNNQueryBuilder(String fieldName, float[] vector) {
         if (Strings.isNullOrEmpty(fieldName)) {
-            throw new IllegalArgumentException(String.format("[%s] requires fieldName", NAME));
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "[%s] requires fieldName", NAME));
         }
         if (vector == null) {
-            throw new IllegalArgumentException(String.format("[%s] requires query vector", NAME));
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "[%s] requires query vector", NAME));
         }
         if (vector.length == 0) {
-            throw new IllegalArgumentException(String.format("[%s] query vector is empty", NAME));
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "[%s] query vector is empty", NAME));
         }
         this.fieldName = fieldName;
         this.vector = vector;
@@ -436,6 +437,12 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Field '%s' is not knn_vector type.", this.fieldName));
         }
         KNNVectorFieldType knnVectorFieldType = (KNNVectorFieldType) mappedFieldType;
+        // A field alias is mapping-only metadata and never appears in Lucene's FieldInfos, which is what the
+        // segment-level lookup in KNNWeight consults. MappedFieldType#name() is the concrete field name after alias
+        // resolution, so use it for everything that reaches the segment; a query built on the alias name would
+        // otherwise find no field info and return no hits at all. Error messages deliberately keep this.fieldName so
+        // they still name the field the user actually typed. The null fallback mirrors core's CommonTermsQueryBuilder.
+        final String resolvedFieldName = mappedFieldType.name() != null ? mappedFieldType.name() : this.fieldName;
         KNNMappingConfig knnMappingConfig = knnVectorFieldType.getKnnMappingConfig();
         QueryConfigFromMapping queryConfigFromMapping = getQueryConfig(knnMappingConfig, knnVectorFieldType);
 
@@ -443,7 +450,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         MethodComponentContext methodComponentContext = queryConfigFromMapping.getMethodComponentContext();
         SpaceType spaceType = queryConfigFromMapping.getSpaceType();
         VectorDataType vectorDataType = queryConfigFromMapping.getVectorDataType();
-        RescoreContext processedRescoreContext = knnVectorFieldType.resolveRescoreContext(rescoreContext);
+        RescoreContext processedRescoreContext = resolveRescore(knnVectorFieldType, rescoreContext);
         // Transform the query vector if it's required. It will return `vector` itself if transform is not needed.
         // Otherwise, it will return a new transformed vector.
         final float[] transformedQueryVector = knnVectorFieldType.transformQueryVector(vector);
@@ -478,7 +485,19 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         }
 
         if (this.maxDistance != null || this.minScore != null) {
-            knnVectorFieldType.validateSupportRadialSearch(knnEngine);
+            ResolvedIndexSpec spec = knnVectorFieldType.getResolvedSpec();
+            if (!spec.supportsRadialSearch()) {
+                throw new UnsupportedOperationException(
+                    String.format(
+                        Locale.ROOT,
+                        "Radial search is not supported for this configuration: engine=%s, data_type=%s, method=%s, compression=%s",
+                        spec.getEngine(),
+                        spec.getVectorDataType(),
+                        spec.getMethodName(),
+                        spec.getCompressionLevel().getName()
+                    )
+                );
+            }
         }
 
         // Currently, k-NN supports distance and score types radial search
@@ -487,7 +506,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         if (this.maxDistance != null) {
             if (this.maxDistance < 0 && SpaceType.INNER_PRODUCT.equals(spaceType) == false) {
                 throw new IllegalArgumentException(
-                    String.format("[" + NAME + "] requires distance to be non-negative for space type: %s", spaceType)
+                    String.format(Locale.ROOT, "[" + NAME + "] requires distance to be non-negative for space type: %s", spaceType)
                 );
             }
             if (memoryOptimizedSearchEnabled) {
@@ -500,7 +519,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         if (this.minScore != null) {
             if (this.minScore > 1 && SpaceType.INNER_PRODUCT.equals(spaceType) == false) {
                 throw new IllegalArgumentException(
-                    String.format("[" + NAME + "] requires score to be in the range [0, 1] for space type: %s", spaceType)
+                    String.format(Locale.ROOT, "[" + NAME + "] requires score to be in the range [0, 1] for space type: %s", spaceType)
                 );
             }
             if (memoryOptimizedSearchEnabled) {
@@ -514,6 +533,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         if (knnMappingConfig.getDimension() != vectorLength) {
             throw new IllegalArgumentException(
                 String.format(
+                    Locale.ROOT,
                     "Query vector has invalid dimension: %d. Dimension should be: %d",
                     vectorLength,
                     knnMappingConfig.getDimension()
@@ -523,28 +543,13 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
 
         byte[] byteVector = new byte[0];
         switch (vectorDataType) {
-            case BINARY:
+            case BINARY, BYTE:
                 byteVector = new byte[vector.length];
                 for (int i = 0; i < vector.length; i++) {
                     validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
                     byteVector[i] = (byte) vector[i];
                 }
                 spaceType.validateVector(byteVector);
-                break;
-            case BYTE:
-                if (isUsingLuceneQuery(knnEngine, memoryOptimizedSearchEnabled)) {
-                    byteVector = new byte[vector.length];
-                    for (int i = 0; i < vector.length; i++) {
-                        validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
-                        byteVector[i] = (byte) vector[i];
-                    }
-                    spaceType.validateVector(byteVector);
-                } else {
-                    for (float v : vector) {
-                        validateByteVectorValue(v, knnVectorFieldType.getVectorDataType());
-                    }
-                    spaceType.validateVector(vector);
-                }
                 break;
             default:
                 spaceType.validateVector(vector);
@@ -560,10 +565,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
                 .knnEngine(knnEngine)
                 .indexName(indexName)
-                .fieldName(this.fieldName)
+                .fieldName(resolvedFieldName)
                 .vector(getFloatVectorForCreatingQueryRequest(transformedQueryVector, vectorDataType, knnEngine))
                 .originalVector(vector)
-                .byteVector(getByteVectorForCreatingQueryRequest(vectorDataType, knnEngine, byteVector, memoryOptimizedSearchEnabled))
+                .byteVector(getByteVectorForCreatingQueryRequest(vectorDataType, byteVector))
                 .vectorDataType(vectorDataType)
                 .k(this.k)
                 .methodParameters(this.methodParameters)
@@ -579,10 +584,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
                 .knnEngine(knnEngine)
                 .indexName(indexName)
-                .fieldName(this.fieldName)
+                .fieldName(resolvedFieldName)
                 .vector(getFloatVectorForCreatingQueryRequest(transformedQueryVector, vectorDataType, knnEngine))
                 .originalVector(vector)
-                .byteVector(getByteVectorForCreatingQueryRequest(vectorDataType, knnEngine, byteVector, memoryOptimizedSearchEnabled))
+                .byteVector(getByteVectorForCreatingQueryRequest(vectorDataType, byteVector))
                 .vectorDataType(vectorDataType)
                 .vectorFieldType(knnVectorFieldType)
                 .radius(radius)
@@ -619,19 +624,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         }
 
         throw new IllegalArgumentException(String.format(Locale.ROOT, "Field '%s' is not built for ANN search.", this.fieldName));
-    }
-
-    /**
-     * Determine whether the query will be using Lucene query to perform vector search.
-     * Currently, if memory optimized search is enabled, it fallbacks to Lucene and delegate its HNSW graph searcher to perform ANN search
-     * on FAISS index. Hence, if it is true, then we need to use Lucene query.
-     *
-     * @param engine Engine type
-     * @param memoryOptimizedSearchEnabled A bool flag whether memory optimized search is enabled.
-     * @return True when it should use Lucene query False otherwise.
-     */
-    private static boolean isUsingLuceneQuery(final KNNEngine engine, final boolean memoryOptimizedSearchEnabled) {
-        return memoryOptimizedSearchEnabled || engine == KNNEngine.LUCENE;
     }
 
     private ModelMetadata getModelMetadataForField(String modelId) {
@@ -686,15 +678,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         return null;
     }
 
-    private byte[] getByteVectorForCreatingQueryRequest(
-        VectorDataType vectorDataType,
-        KNNEngine knnEngine,
-        byte[] byteVector,
-        boolean memoryOptimizedSearchEnabled
-    ) {
-
-        if (VectorDataType.BINARY == vectorDataType
-            || (VectorDataType.BYTE == vectorDataType && isUsingLuceneQuery(knnEngine, memoryOptimizedSearchEnabled))) {
+    private byte[] getByteVectorForCreatingQueryRequest(VectorDataType vectorDataType, byte[] byteVector) {
+        if (VectorDataType.BINARY == vectorDataType || VectorDataType.BYTE == vectorDataType) {
             return byteVector;
         }
         return null;
@@ -776,6 +761,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             }
         }
         return super.doRewrite(queryShardContext);
+    }
+
+    private static RescoreContext resolveRescore(KNNVectorFieldType fieldType, RescoreContext userContext) {
+        return fieldType.resolveRescoreContext(userContext);
     }
 
     @Getter

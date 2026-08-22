@@ -5,10 +5,14 @@
 
 package org.opensearch.knn.index;
 
+import java.util.Locale;
+
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import lombok.SneakyThrows;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Response;
@@ -18,6 +22,7 @@ import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
@@ -30,7 +35,16 @@ import static org.opensearch.knn.common.KNNConstants.TYPE;
 import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
-public class KNNMapperSearcherIT extends KNNRestTestCase {
+public class KNNMapperSearcherIT extends KNNCompressionRestTestCase {
+
+    public KNNMapperSearcherIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
+
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 }, new Object[] { CompressionTestConfig.X32 });
+    }
 
     private static final String INDEX_NAME = "test_index";
     private static final String FIELD_NAME = "test_vector";
@@ -57,7 +71,7 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
 
     @ExpectRemoteBuildValidation
     public void testKNNResultsWithForceMerge() throws Exception {
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        createKnnIndex(INDEX_NAME, createFieldMapping(2));
         addTestData();
         forceMergeKnnIndex(INDEX_NAME);
 
@@ -80,7 +94,7 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
 
     @ExpectRemoteBuildValidation
     public void testKNNResultsUpdateDocAndForceMerge() throws Exception {
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        createKnnIndex(INDEX_NAME, createFieldMapping(2));
         addDocWithNumericField(INDEX_NAME, "1", "abc", 100);
         addTestData();
         forceMergeKnnIndex(INDEX_NAME);
@@ -103,7 +117,7 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
     }
 
     public void testKNNResultsWithoutForceMerge() throws Exception {
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        createKnnIndex(INDEX_NAME, createFieldMapping(2));
         addTestData();
 
         /**
@@ -127,7 +141,7 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
     }
 
     public void testKNNResultsWithNewDoc() throws Exception {
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        createKnnIndex(INDEX_NAME, createFieldMapping(2));
         addTestData();
 
         float[] queryVector = { 1.0f, 1.0f }; // vector to be queried
@@ -170,7 +184,7 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
     }
 
     public void testKNNResultsWithUpdateDoc() throws Exception {
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        createKnnIndex(INDEX_NAME, createFieldMapping(2));
         addTestData();
 
         float[] queryVector = { 1.0f, 1.0f }; // vector to be queried
@@ -199,7 +213,7 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
     }
 
     public void testKNNResultsWithDeleteDoc() throws Exception {
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        createKnnIndex(INDEX_NAME, createFieldMapping(2));
         addTestData();
 
         float[] queryVector = { 1.0f, 1.0f }; // vector to be queried
@@ -248,7 +262,7 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
      * K &gt; &gt; number of docs
      */
     public void testLargeK() throws Exception {
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        createKnnIndex(INDEX_NAME, createFieldMapping(2));
         addTestData();
 
         float[] queryVector = { 1.0f, 1.0f }; // vector to be queried
@@ -300,7 +314,7 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
     public void testStoredFields_whenByteDataType_thenSucceed() {
         // Create index with stored field and confirm that we can properly retrieve it
         int[] testVector = new int[] { -128, 0, 1, 127 };
-        String expectedResponse = String.format("\"fields\":{\"%s\":[[-128,0,1,127]]}}", FIELD_NAME);
+        String expectedResponse = String.format(Locale.ROOT, "\"fields\":{\"%s\":[[-128,0,1,127]]}}", FIELD_NAME);
         createKnnIndex(
             INDEX_NAME,
             createVectorMapping(testVector.length, KNNEngine.LUCENE.getName(), VectorDataType.BYTE.getValue(), true)
@@ -362,7 +376,7 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
     public void testStoredFields_whenFloatDataType_thenSucceed() {
         List<KNNEngine> enginesToTest = List.of(KNNEngine.FAISS, KNNEngine.LUCENE);
         float[] testVector = new float[] { -100.0f, 100.0f, 0f, 1f };
-        String expectedResponse = String.format("\"fields\":{\"%s\":[[-100.0,100.0,0.0,1.0]]}}", FIELD_NAME);
+        String expectedResponse = String.format(Locale.ROOT, "\"fields\":{\"%s\":[[-100.0,100.0,0.0,1.0]]}}", FIELD_NAME);
         for (KNNEngine knnEngine : enginesToTest) {
             createKnnIndex(INDEX_NAME, createVectorMapping(testVector.length, knnEngine.getName(), VectorDataType.FLOAT.getValue(), true));
             addKnnDoc(INDEX_NAME, "1", FIELD_NAME, testVector);
@@ -418,6 +432,20 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
      *     }
      * }
      */
+    @SneakyThrows
+    private String createFieldMapping(final int dimension) {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES_FIELD)
+            .startObject(FIELD_NAME)
+            .field(TYPE, TYPE_KNN_VECTOR)
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(builder);
+        builder.endObject().endObject().endObject();
+
+        return builder.toString();
+    }
+
     @SneakyThrows
     private String createVectorMapping(final int dimension, final String engine, final String dataType, final boolean isStored) {
         XContentBuilder builder = XContentFactory.jsonBuilder()

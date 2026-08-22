@@ -106,7 +106,7 @@ public abstract class AbstractKNNLibrary implements KNNLibrary {
     private String validateMethodExists(String methodName) {
         KNNMethod method = methods.get(methodName);
         if (method == null) {
-            return String.format("Invalid method name: %s", methodName);
+            return String.format(Locale.ROOT, "Invalid method name: %s", methodName);
         }
         return null;
     }

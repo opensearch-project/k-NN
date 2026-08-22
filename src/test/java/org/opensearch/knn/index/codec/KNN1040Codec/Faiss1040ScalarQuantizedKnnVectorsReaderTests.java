@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
+import java.nio.charset.StandardCharsets;
+
 import com.google.common.collect.ImmutableSet;
 import lombok.SneakyThrows;
 import org.apache.logging.log4j.Level;
@@ -186,16 +188,87 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testWarmUp_whenMOSNotSupported_thenLogsWarning() {
+    public void testWarmUp_whenGraphSkippedByThreshold_thenWarmsVeqWithoutError() {
+        // No native engine (.faiss) file (the approximate threshold skipped the graph). Search is served by
+        // exact search over the quantized .veq codes, so warmUp should warm those codes via the flat reader's
+        // index slice and NOT attempt to load a memory-optimized searcher, so no error/warn is logged.
         final FieldInfo fi = createFieldInfo("field1", KNNEngine.FAISS, 0);
 
-        // Mock flatVectorsReader to return a ScalarQuantizedFloatVectorValues
+        final FlatVectorsReader fvr = mock(FlatVectorsReader.class);
+        final ScalarQuantizedFloatVectorValues mockVectorValues = mock(ScalarQuantizedFloatVectorValues.class);
+        when(mockVectorValues.size()).thenReturn(3);
+        when(mockVectorValues.vectorValue(org.mockito.ArgumentMatchers.anyInt())).thenReturn(new float[] { 1.0f, 2.0f, 3.0f });
+        // The .veq codes are exposed through the index slice; warmUp should read through it.
+        final IndexInput veqSlice = mock(IndexInput.class);
+        when(veqSlice.length()).thenReturn(0L);
+        when(mockVectorValues.getSlice()).thenReturn(veqSlice);
+        when(fvr.getFloatVectorValues("field1")).thenReturn(mockVectorValues);
+
+        final List<LogEvent> logEvents = new ArrayList<>();
+        final Logger logger = (Logger) LogManager.getLogger(Faiss1040ScalarQuantizedKnnVectorsReader.class);
+        final Logger baseLogger = (Logger) LogManager.getLogger(AbstractNativeEnginesKnnVectorsReader.class);
+        final AbstractAppender appender = new AbstractAppender("test-appender", null, null, true, null) {
+            @Override
+            public void append(LogEvent event) {
+                logEvents.add(event.toImmutable());
+            }
+        };
+        appender.start();
+        logger.addAppender(appender);
+        baseLogger.addAppender(appender);
+        final Level originalLevel = logger.getLevel();
+        final Level baseOriginalLevel = baseLogger.getLevel();
+        logger.setLevel(Level.INFO);
+        baseLogger.setLevel(Level.INFO);
+
+        try {
+            final Faiss1040ScalarQuantizedKnnVectorsReader reader = createReader(
+                new FieldInfos(new FieldInfo[] { fi }),
+                Collections.emptySet(),
+                fvr
+            );
+
+            reader.warmUp("field1");
+
+            // The .veq slice must be warmed (read through).
+            verify(veqSlice).seek(0);
+            // No misleading error/warn should be logged for a legitimately graph-less segment.
+            final boolean sawErrorOrWarn = logEvents.stream().anyMatch(e -> e.getLevel() == Level.ERROR || e.getLevel() == Level.WARN);
+            assertFalse("Graph-less warmup must not log error/warn: " + logEvents, sawErrorOrWarn);
+        } finally {
+            logger.removeAppender(appender);
+            baseLogger.removeAppender(appender);
+            logger.setLevel(originalLevel);
+            baseLogger.setLevel(baseOriginalLevel);
+            appender.stop();
+        }
+    }
+
+    @SneakyThrows
+    public void testWarmUp_whenVectorValuesIsNull_thenReturnsEarly() {
+        final FieldInfo fi = createFieldInfo("field1", KNNEngine.FAISS, 0);
+        final FlatVectorsReader fvr = mock(FlatVectorsReader.class);
+        when(fvr.getFloatVectorValues("field1")).thenReturn(null);
+
+        final Faiss1040ScalarQuantizedKnnVectorsReader reader = createReader(
+            new FieldInfos(new FieldInfo[] { fi }),
+            Collections.emptySet(),
+            fvr
+        );
+
+        // Should not throw — returns early
+        reader.warmUp("field1");
+        verify(fvr).getFloatVectorValues("field1");
+    }
+
+    @SneakyThrows
+    public void testWarmUp_whenVectorValuesIsEmpty_thenReturnsEarly() {
+        final FieldInfo fi = createFieldInfo("field1", KNNEngine.FAISS, 0);
         final FlatVectorsReader fvr = mock(FlatVectorsReader.class);
         final ScalarQuantizedFloatVectorValues mockVectorValues = mock(ScalarQuantizedFloatVectorValues.class);
         when(mockVectorValues.size()).thenReturn(0);
         when(fvr.getFloatVectorValues("field1")).thenReturn(mockVectorValues);
 
-        // Set up a log appender to capture log events
         final List<LogEvent> logEvents = new ArrayList<>();
         final Logger logger = (Logger) LogManager.getLogger(Faiss1040ScalarQuantizedKnnVectorsReader.class);
         final AbstractAppender appender = new AbstractAppender("test-appender", null, null, true, null) {
@@ -207,33 +280,26 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
         appender.start();
         logger.addAppender(appender);
         final Level originalLevel = logger.getLevel();
-        logger.setLevel(Level.WARN);
+        logger.setLevel(Level.INFO);
 
         try {
-            // Make KNNEngine return null factory so loadMemoryOptimizedSearcherIfRequired returns null
-            KNNEngine mockFaiss = spy(KNNEngine.FAISS);
-            when(mockFaiss.getVectorSearcherFactory()).thenReturn(null);
+            final Faiss1040ScalarQuantizedKnnVectorsReader reader = createReader(
+                new FieldInfos(new FieldInfo[] { fi }),
+                Collections.emptySet(),
+                fvr
+            );
 
-            try (MockedStatic<KNNEngine> ms = mockStatic(KNNEngine.class)) {
-                ms.when(() -> KNNEngine.getEngine(any())).thenReturn(mockFaiss);
-                ms.when(KNNEngine::getEnginesThatCreateCustomSegmentFiles).thenReturn(ImmutableSet.of(mockFaiss));
+            // Should not throw — returns early with info log
+            reader.warmUp("field1");
 
-                final Faiss1040ScalarQuantizedKnnVectorsReader reader = createReader(
-                    new FieldInfos(new FieldInfo[] { fi }),
-                    Collections.emptySet(),
-                    fvr
+            boolean foundInfoLog = logEvents.stream()
+                .anyMatch(
+                    e -> e.getLevel() == Level.INFO && e.getMessage().getFormattedMessage().contains("No vectors present in the segment")
                 );
+            assertTrue("Expected INFO log about no vectors present", foundInfoLog);
 
-                reader.warmUp("field1");
-
-                // Verify warning was logged
-                boolean foundWarning = logEvents.stream()
-                    .anyMatch(e -> e.getLevel() == Level.WARN && e.getMessage().getFormattedMessage().contains("field1"));
-                assertTrue("Expected a WARN log about MOS not supported for field1", foundWarning);
-
-                // Verify the searcher warmUp was never called (no searcher available)
-                // This is implicitly verified since the searcher is null
-            }
+            // vectorValue should never be called since size is 0
+            verify(mockVectorValues, org.mockito.Mockito.never()).vectorValue(org.mockito.ArgumentMatchers.anyInt());
         } finally {
             logger.removeAppender(appender);
             logger.setLevel(originalLevel);
@@ -257,7 +323,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
         when(dir.openInput(any(), any())).thenReturn(mock(IndexInput.class));
         SegmentInfo si = mock(SegmentInfo.class);
         when(si.files()).thenReturn(files);
-        when(si.getId()).thenReturn((si.hashCode() + "").getBytes());
+        when(si.getId()).thenReturn((si.hashCode() + "").getBytes(StandardCharsets.UTF_8));
         return new Faiss1040ScalarQuantizedKnnVectorsReader(new SegmentReadState(dir, si, fieldInfos, IOContext.DEFAULT), fvr);
     }
 }

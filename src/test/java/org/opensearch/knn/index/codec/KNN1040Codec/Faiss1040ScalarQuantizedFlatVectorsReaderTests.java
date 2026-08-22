@@ -8,11 +8,11 @@ package org.opensearch.knn.index.codec.KNN1040Codec;
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
-import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
 import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
+import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
 import org.mockito.MockedStatic;
 import org.opensearch.knn.KNNTestCase;
 
@@ -72,6 +72,7 @@ public class Faiss1040ScalarQuantizedFlatVectorsReaderTests extends KNNTestCase 
         FloatVectorValues mockFvv = mock(FloatVectorValues.class);
         QuantizedByteVectorValues mockQbvv = mock(QuantizedByteVectorValues.class);
         when(delegate.getFloatVectorValues("field")).thenReturn(mockFvv);
+        when(mockFvv.size()).thenReturn(1);
 
         try (MockedStatic<KNN1040ScalarQuantizedUtils> mockedUtils = mockStatic(KNN1040ScalarQuantizedUtils.class)) {
             mockedUtils.when(() -> KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(any())).thenReturn(mockQbvv);
@@ -84,6 +85,37 @@ public class Faiss1040ScalarQuantizedFlatVectorsReaderTests extends KNNTestCase 
             verify(delegate).getFloatVectorValues("field");
             mockedUtils.verify(() -> KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(mockFvv));
         }
+    }
+
+    @SneakyThrows
+    public void testGetFloatVectorValues_whenEmpty_thenReturnsWrappedEmptyValuesWithoutExtraction() {
+        FlatVectorsReader delegate = mock(FlatVectorsReader.class);
+        FloatVectorValues emptyValues = mock(FloatVectorValues.class);
+        when(delegate.getFloatVectorValues("field")).thenReturn(emptyValues);
+        when(emptyValues.size()).thenReturn(0);
+
+        try (MockedStatic<KNN1040ScalarQuantizedUtils> mockedUtils = mockStatic(KNN1040ScalarQuantizedUtils.class)) {
+            Faiss1040ScalarQuantizedFlatVectorsReader reader = new Faiss1040ScalarQuantizedFlatVectorsReader(delegate);
+            FloatVectorValues result = reader.getFloatVectorValues("field");
+
+            assertTrue(result instanceof ScalarQuantizedFloatVectorValues);
+            assertTrue(result instanceof HasIndexSlice);
+            assertNull(((HasIndexSlice) result).getSlice());
+            assertEquals(0, result.size());
+            verify(delegate).getFloatVectorValues("field");
+            mockedUtils.verifyNoInteractions();
+        }
+    }
+
+    @SneakyThrows
+    public void testGetFloatVectorValues_whenDelegateReturnsNull_thenReturnsNull() {
+        FlatVectorsReader delegate = mock(FlatVectorsReader.class);
+        when(delegate.getFloatVectorValues("field")).thenReturn(null);
+
+        Faiss1040ScalarQuantizedFlatVectorsReader reader = new Faiss1040ScalarQuantizedFlatVectorsReader(delegate);
+
+        assertNull(reader.getFloatVectorValues("field"));
+        verify(delegate).getFloatVectorValues("field");
     }
 
     @SneakyThrows

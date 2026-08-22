@@ -5,8 +5,11 @@
 
 package org.opensearch.knn.index.remote;
 
+import java.util.Locale;
+
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
+import org.opensearch.knn.index.codec.nativeindex.IndexBuildAbortedException;
 import org.opensearch.remoteindexbuild.client.RemoteIndexClient;
 import org.opensearch.remoteindexbuild.model.RemoteBuildStatusRequest;
 import org.opensearch.remoteindexbuild.model.RemoteBuildStatusResponse;
@@ -14,6 +17,7 @@ import org.opensearch.remoteindexbuild.model.RemoteBuildStatusResponse;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Random;
+import java.util.function.Supplier;
 
 import static org.opensearch.knn.index.KNNSettings.getRemoteBuildClientPollInterval;
 import static org.opensearch.knn.index.KNNSettings.getRemoteBuildClientTimeout;
@@ -35,14 +39,22 @@ public class RemoteIndexPoller implements RemoteIndexWaiter {
     public static final String FAILED_INDEX_BUILD = "FAILED_INDEX_BUILD";
 
     private final RemoteIndexClient client;
+    /** Supplier that returns true if the current merge operation has been aborted. Checked each poll iteration. */
+    private final Supplier<Boolean> isMergeAborted;
     private final Random random;
     @Setter
     private long timeout; // Timeout in nanoseconds, to use same units as System.nanoTime().
     @Setter
     private long pollInterval; // Poll interval in milliseconds
 
-    RemoteIndexPoller(RemoteIndexClient client) {
+    /**
+     * @param client         the remote index client used to check build status
+     * @param isMergeAborted supplier indicating whether the merge has been aborted; in production this is
+     *                       typically {@code MergeAbortChecker::isMergeAborted}
+     */
+    RemoteIndexPoller(RemoteIndexClient client, Supplier<Boolean> isMergeAborted) {
         this.client = client;
+        this.isMergeAborted = isMergeAborted;
         this.random = new Random();
         this.timeout = getRemoteBuildClientTimeout().getNanos();
         this.pollInterval = getRemoteBuildClientPollInterval().getMillis();
@@ -50,11 +62,14 @@ public class RemoteIndexPoller implements RemoteIndexWaiter {
 
     /**
      * Polls the remote endpoint for the status of the build job until timeout.
+     * On each iteration, checks whether the merge has been aborted via the {@code isMergeAborted} supplier.
+     * If aborted, throws {@link IndexBuildAbortedException} to terminate the build early.
      *
      * @param remoteBuildStatusRequest The response from the initial build request
      * @return RemoteBuildStatusResponse containing the path of the completed build job
-     * @throws InterruptedException if the thread is interrupted while polling
+     * @throws InterruptedException if the thread is interrupted while polling or the build fails/times out
      * @throws IOException if an I/O error occurs
+     * @throws IndexBuildAbortedException if the merge is aborted during polling
      */
     public RemoteBuildStatusResponse awaitVectorBuild(RemoteBuildStatusRequest remoteBuildStatusRequest) throws InterruptedException,
         IOException {
@@ -65,6 +80,9 @@ public class RemoteIndexPoller implements RemoteIndexWaiter {
         sleepWithJitter(pollInterval * INITIAL_DELAY_FACTOR);
 
         while (System.nanoTime() - startTime < timeout) {
+            if (isMergeAborted.get()) {
+                throw new IndexBuildAbortedException("Merge aborted during remote index build");
+            }
             RemoteBuildStatusResponse remoteBuildStatusResponse;
             try {
                 remoteBuildStatusResponse = client.getBuildStatus(remoteBuildStatusRequest);
@@ -75,12 +93,14 @@ public class RemoteIndexPoller implements RemoteIndexWaiter {
             STATUS_REQUEST_SUCCESS_COUNT.increment();
             String taskStatus = remoteBuildStatusResponse.getTaskStatus();
             if (StringUtils.isBlank(taskStatus)) {
-                throw new IOException(String.format("Invalid response format, missing %s", TASK_STATUS));
+                throw new IOException(String.format(Locale.ROOT, "Invalid response format, missing %s", TASK_STATUS));
             }
             switch (taskStatus) {
                 case COMPLETED_INDEX_BUILD -> {
                     if (StringUtils.isBlank(remoteBuildStatusResponse.getFileName())) {
-                        throw new IOException(String.format("Invalid response format, missing %s for %s status", FILE_NAME, taskStatus));
+                        throw new IOException(
+                            String.format(Locale.ROOT, "Invalid response format, missing %s for %s status", FILE_NAME, taskStatus)
+                        );
                     }
                     return remoteBuildStatusResponse;
                 }
@@ -88,17 +108,18 @@ public class RemoteIndexPoller implements RemoteIndexWaiter {
                     String errorMessage = remoteBuildStatusResponse.getErrorMessage();
                     Duration d = Duration.ofNanos(System.nanoTime() - startTime);
                     throw new InterruptedException(
-                        String.format("Remote index build failed after %d minutes. %s", d.toMinutesPart(), errorMessage)
+                        String.format(Locale.ROOT, "Remote index build failed after %d minutes. %s", d.toMinutesPart(), errorMessage)
                     );
                 }
                 case RUNNING_INDEX_BUILD -> sleepWithJitter(pollInterval);
-                default -> throw new IOException(String.format("Server returned invalid task status %s", taskStatus));
+                default -> throw new IOException(String.format(Locale.ROOT, "Server returned invalid task status %s", taskStatus));
             }
         }
         Duration waitedDuration = Duration.ofNanos(System.nanoTime() - startTime);
         Duration timeoutDuration = Duration.ofNanos(timeout);
         throw new InterruptedException(
             String.format(
+                Locale.ROOT,
                 "Remote index build timed out after %d minutes, timeout is set to %d minutes. Falling back to CPU build",
                 waitedDuration.toMinutesPart(),
                 timeoutDuration.toMinutesPart()

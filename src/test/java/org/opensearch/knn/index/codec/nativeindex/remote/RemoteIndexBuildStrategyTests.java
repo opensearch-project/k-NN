@@ -5,6 +5,12 @@
 
 package org.opensearch.knn.index.codec.nativeindex.remote;
 
+import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.SegmentWriteState;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexOutput;
+import org.apache.lucene.util.InfoStream;
 import org.opensearch.common.SetOnce;
 import org.opensearch.common.blobstore.BlobContainer;
 import org.opensearch.common.blobstore.BlobPath;
@@ -17,6 +23,13 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.common.exception.TerminalIOException;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.nativeindex.IndexBuildAbortedException;
+import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
+import org.opensearch.knn.index.engine.Encoder;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
 import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
 import org.opensearch.repositories.RepositoriesService;
@@ -27,6 +40,7 @@ import java.io.IOException;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -114,6 +128,166 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
 
         assertThrows(TerminalIOException.class, () -> { objectUnderTest.buildAndWriteIndex(buildIndexParams); });
         assertFalse(fallback.get());
+        // A terminal termination is benign and must not be counted as a build failure.
+        assertEquals(0L, (long) KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT.getValue());
+        assertEquals(1L, (long) KNNRemoteIndexBuildValue.INDEX_BUILD_TERMINAL_EXCEPTION.getValue());
+    }
+
+    /**
+     * Test that we do not fall back to the fallback BuildStrategy when an IndexBuildAbortedException is thrown.
+     * This simulates a merge abort during remote index build - the exception should propagate up
+     * rather than falling back to local build.
+     */
+    public void testRemoteIndexBuildStrategyAbortDoesNotFallback() throws IOException {
+        final SetOnce<Boolean> fallback = new SetOnce<>(Boolean.FALSE);
+
+        RemoteIndexBuildStrategy objectUnderTest = spy(
+            new RemoteIndexBuildStrategy(
+                () -> mock(RepositoriesService.class),
+                new TestIndexBuildStrategy(fallback),
+                mock(IndexSettings.class),
+                null
+            )
+        );
+
+        // Use doAnswer rather than doThrow: IndexBuildAbortedException is not assignable to the
+        // TerminalIOException declared by getRepositoryContext, so doThrow's checked-exception validation
+        // would reject it. The JVM does not enforce checked exceptions at runtime, and buildAndWriteIndex
+        // declares throws IOException, so the abort propagates just as it would from the polling phase.
+        doAnswer(invocation -> { throw new IndexBuildAbortedException("Merge aborted during remote index build"); }).when(objectUnderTest)
+            .getRepositoryContext(any());
+
+        assertThrows(IndexBuildAbortedException.class, () -> { objectUnderTest.buildAndWriteIndex(buildIndexParams); });
+        assertFalse(fallback.get());
+        // A merge abort is a benign cancellation and must not be counted as a build failure.
+        assertEquals(0L, (long) KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT.getValue());
+        assertEquals(1L, (long) KNNRemoteIndexBuildValue.INDEX_BUILD_MERGE_ABORT_EXCEPTION.getValue());
+    }
+
+    /**
+     * Test that when remote build fails after partially writing to IndexOutput, the fallback
+     * strategy receives a fresh IndexOutput (via recreate) so it doesn't produce a corrupt file.
+     * Simulates partial data written to a real IndexOutput, then verifies the file is clean after recreate.
+     */
+    public void testFallback_whenPartialRemoteWrite_thenRecreatesIndexOutput() throws IOException {
+        // Use a real directory so we can verify file contents
+        try (Directory directory = newDirectory()) {
+            final String fileName = "test_field.faiss";
+            IndexOutput output = directory.createOutput(fileName, IOContext.DEFAULT);
+
+            // Create IndexOutputWithBuffer first, then write THROUGH it to track bytesWritten
+            IndexOutputWithBuffer realIndexOutputWithBuffer = new IndexOutputWithBuffer(output);
+
+            // Simulate partial remote write via writeFromStreamWithBuffer (as S3 download would)
+            byte[] partialData = new byte[] { 0x49, 0x78, 0x4d, 0x70, 0x00, 0x04, 0x00, 0x00 }; // "IxMp" header fragment
+            realIndexOutputWithBuffer.writeFromStreamWithBuffer(new java.io.ByteArrayInputStream(partialData), partialData.length);
+            assertTrue(realIndexOutputWithBuffer.getBytesWritten() > 0);
+
+            // Build params with the real IndexOutputWithBuffer and this directory
+            SegmentWriteState realSegmentWriteState = new SegmentWriteState(
+                mock(InfoStream.class),
+                directory,
+                segmentInfo,
+                mock(FieldInfos.class),
+                null,
+                IOContext.DEFAULT
+            );
+            BuildIndexParams realBuildIndexParams = BuildIndexParams.builder()
+                .indexOutputWithBuffer(realIndexOutputWithBuffer)
+                .segmentWriteState(realSegmentWriteState)
+                .knnEngine(buildIndexParams.getKnnEngine())
+                .field(buildIndexParams.getField())
+                .vectorDataType(buildIndexParams.getVectorDataType())
+                .indexParameters(buildIndexParams.getIndexParameters())
+                .knnVectorValuesSupplier(buildIndexParams.getKnnVectorValuesSupplier())
+                .totalLiveDocs(buildIndexParams.getTotalLiveDocs())
+                .isFlush(buildIndexParams.isFlush())
+                .build();
+
+            // Set up remote strategy to fail (triggering fallback)
+            RepositoriesService repositoriesService = mock(RepositoriesService.class);
+            when(repositoriesService.repository(any())).thenThrow(new RepositoryMissingException("Fallback"));
+
+            final SetOnce<Boolean> fallback = new SetOnce<>();
+            RemoteIndexBuildStrategy objectUnderTest = new RemoteIndexBuildStrategy(
+                () -> repositoriesService,
+                new TestIndexBuildStrategy(fallback),
+                mock(IndexSettings.class),
+                null
+            );
+
+            objectUnderTest.buildAndWriteIndex(realBuildIndexParams);
+
+            // Verify fallback was called
+            assertTrue(fallback.get());
+
+            // Verify bytesWritten was reset to 0 after recreate
+            assertEquals(0, realIndexOutputWithBuffer.getBytesWritten());
+
+            // Close and verify file exists with zero length (clean slate for fallback to write)
+            realIndexOutputWithBuffer.close();
+            assertEquals(0, directory.fileLength(fileName));
+        }
+    }
+
+    /**
+     * Test that when remote build fails BEFORE any data is written to IndexOutput, recreate
+     * is NOT called (bytesWritten == 0), and the fallback writes to the original output directly.
+     */
+    public void testFallback_whenNothingWritten_thenSkipsRecreate() throws IOException {
+        try (Directory directory = newDirectory()) {
+            final String fileName = "test_field_empty.faiss";
+            IndexOutput output = directory.createOutput(fileName, IOContext.DEFAULT);
+
+            // Nothing written — file exists but is empty (file pointer at 0)
+            assertEquals(0, output.getFilePointer());
+
+            IndexOutputWithBuffer realIndexOutputWithBuffer = new IndexOutputWithBuffer(output);
+            assertEquals(0, realIndexOutputWithBuffer.getBytesWritten());
+
+            SegmentWriteState realSegmentWriteState = new SegmentWriteState(
+                mock(InfoStream.class),
+                directory,
+                segmentInfo,
+                mock(FieldInfos.class),
+                null,
+                IOContext.DEFAULT
+            );
+            BuildIndexParams realBuildIndexParams = BuildIndexParams.builder()
+                .indexOutputWithBuffer(realIndexOutputWithBuffer)
+                .segmentWriteState(realSegmentWriteState)
+                .knnEngine(buildIndexParams.getKnnEngine())
+                .field(buildIndexParams.getField())
+                .vectorDataType(buildIndexParams.getVectorDataType())
+                .indexParameters(buildIndexParams.getIndexParameters())
+                .knnVectorValuesSupplier(buildIndexParams.getKnnVectorValuesSupplier())
+                .totalLiveDocs(buildIndexParams.getTotalLiveDocs())
+                .isFlush(buildIndexParams.isFlush())
+                .build();
+
+            // Remote fails before any write happens
+            RepositoriesService repositoriesService = mock(RepositoriesService.class);
+            when(repositoriesService.repository(any())).thenThrow(new RepositoryMissingException("Fallback"));
+
+            final SetOnce<Boolean> fallback = new SetOnce<>();
+            RemoteIndexBuildStrategy objectUnderTest = new RemoteIndexBuildStrategy(
+                () -> repositoriesService,
+                new TestIndexBuildStrategy(fallback),
+                mock(IndexSettings.class),
+                null
+            );
+
+            objectUnderTest.buildAndWriteIndex(realBuildIndexParams);
+
+            // Verify fallback was called
+            assertTrue(fallback.get());
+
+            // Verify bytesWritten is still 0 (reset was not called since nothing was written)
+            assertEquals(0, realIndexOutputWithBuffer.getBytesWritten());
+
+            // Close
+            realIndexOutputWithBuffer.close();
+        }
     }
 
     public void testShouldBuildIndexRemotely() {
@@ -181,12 +355,21 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
     }
 
     public void testBuildRequest() throws IOException {
+        ResolvedIndexSpec resolvedSpec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName("hnsw")
+            .encoderType(Encoder.EncoderType.SQ)
+            .compressionLevel(CompressionLevel.NOT_CONFIGURED)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(2)
+            .build();
         RemoteBuildRequest request = RemoteIndexBuildStrategy.buildRemoteBuildRequest(
             createTestIndexSettings(),
             buildIndexParams,
             createTestRepositoryMetadata(),
             MOCK_FULL_PATH,
-            getMockParameterMap()
+            getMockParameterMap(),
+            resolvedSpec
         );
         assertEquals(S3, request.getRepositoryType());
         assertEquals(TEST_BUCKET, request.getContainerName());
@@ -201,24 +384,44 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
     }
 
     public void testBuildRequestSQOneBit() throws IOException {
+        ResolvedIndexSpec resolvedSpec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName("hnsw")
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.ONE)
+            .compressionLevel(CompressionLevel.x32)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(2)
+            .build();
         RemoteBuildRequest request = RemoteIndexBuildStrategy.buildRemoteBuildRequest(
             createTestIndexSettings(),
             buildIndexParams,
             createTestRepositoryMetadata(),
             MOCK_FULL_PATH,
-            getMockSQOneBitParameterMap()
+            getMockSQOneBitParameterMap(),
+            resolvedSpec
         );
         assertEquals(VectorDataType.FLOAT.getValue(), request.getVectorDataType());
         assertTrue(request.isSkipStoredVectors());
     }
 
     public void testBuildRequestFP16() throws IOException {
+        ResolvedIndexSpec resolvedSpec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName("hnsw")
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.SIXTEEN)
+            .compressionLevel(CompressionLevel.x2)
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(2)
+            .build();
         RemoteBuildRequest request = RemoteIndexBuildStrategy.buildRemoteBuildRequest(
             createTestIndexSettings(),
             buildIndexParams,
             createTestRepositoryMetadata(),
             MOCK_FULL_PATH,
-            getMockFP16ParameterMap()
+            getMockFP16ParameterMap(),
+            resolvedSpec
         );
         assertEquals("half_float", request.getVectorDataType());
         assertFalse(request.isSkipStoredVectors());

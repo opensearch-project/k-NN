@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.jni;
 
+import org.opensearch.common.Randomness;
+
 import org.apache.lucene.store.IndexInput;
 import org.junit.Test;
 import org.opensearch.knn.KNNTestCase;
@@ -16,7 +18,6 @@ import org.opensearch.knn.index.store.IndexInputWithBuffer;
 
 import java.util.Collections;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static org.opensearch.knn.common.KNNConstants.ADC_ENABLED_FAISS_INDEX_INTERNAL_PARAMETER;
 import static org.opensearch.knn.memoryoptsearch.FaissHNSWTests.loadHnswBinary;
@@ -41,7 +42,7 @@ public class BinaryCagraWithADCTests extends KNNTestCase {
             int dimension = 768;
             float[] queryVector = new float[dimension];
             for (int i = 0; i < dimension; ++i) {
-                queryVector[i] = ThreadLocalRandom.current().nextFloat();
+                queryVector[i] = Randomness.get().nextFloat();
             }
             int k = 10;
 

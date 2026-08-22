@@ -5,16 +5,21 @@
 
 package org.opensearch.knn.index;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import org.junit.Assert;
-import org.opensearch.knn.KNNRestTestCase;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.plugin.stats.StatNames;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -24,10 +29,19 @@ import static org.opensearch.knn.index.KNNCircuitBreaker.CB_TIME_INTERVAL;
 /**
  * Integration tests to test Circuit Breaker functionality
  */
-public class KNNCircuitBreakerIT extends KNNRestTestCase {
+public class KNNCircuitBreakerIT extends KNNCompressionRestTestCase {
     private static final Integer ALWAYS_BUILD_GRAPH = 0;
     private static final String INDEX_1 = INDEX_NAME + "1";
     private static final String INDEX_2 = INDEX_NAME + "2";
+
+    public KNNCircuitBreakerIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
+
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 });
+    }
 
     /**
      * Base setup for all circuit breaker tests.
@@ -99,7 +113,6 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
     }
 
     private void generateCbLoad(String indexName1, String indexName2) throws Exception {
-        // Create index with 1 primary and numNodes-1 replicas so that the data will be on every node in the cluster
         int numNodes = Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1"));
         Settings settings = Settings.builder()
             .put("number_of_shards", 1)
@@ -108,8 +121,16 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
             .put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, ALWAYS_BUILD_GRAPH)
             .build();
 
-        createKnnIndex(indexName1, settings, createKnnIndexMapping(FIELD_NAME, 2));
-        createKnnIndex(indexName2, settings, createKnnIndexMapping(FIELD_NAME, 2));
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", "2");
+        addCompressionMappingFields(builder);
+        String mapping = builder.endObject().endObject().endObject().toString();
+        createKnnIndex(indexName1, settings, mapping);
+        createKnnIndex(indexName2, settings, mapping);
 
         Float[] vector = { 1.3f, 2.2f };
         int docsInIndex = 10; // through testing, 10 is minimum number of docs to trip circuit breaker at 1kb

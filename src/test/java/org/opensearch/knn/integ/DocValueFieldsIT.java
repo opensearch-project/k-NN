@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.integ;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import com.google.common.primitives.Floats;
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
@@ -13,8 +14,9 @@ import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.knn.CompressionTestConfig;
+import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNJsonIndexMappingsBuilder;
-import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -29,6 +31,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -39,7 +42,16 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
  * Validates that vectors can be retrieved directly from doc values in search responses
  * across different engines, data types, query types, and field configurations.
  */
-public class DocValueFieldsIT extends KNNRestTestCase {
+public class DocValueFieldsIT extends KNNCompressionRestTestCase {
+
+    public DocValueFieldsIT(CompressionTestConfig compressionConfig) {
+        super(compressionConfig);
+    }
+
+    @ParametersFactory(argumentFormatting = "compression:%1$s")
+    public static Collection<Object[]> compressionParameters() {
+        return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 });
+    }
 
     private static final String TEST_INDEX = "docvalue_fields_test_index";
     private static final String VECTOR_FIELD = "test_vector";
@@ -237,13 +249,12 @@ public class DocValueFieldsIT extends KNNRestTestCase {
             .engine(KNNEngine.FAISS.getName())
             .build();
 
-        String mapping = KNNJsonIndexMappingsBuilder.builder()
-            .fieldName(VECTOR_FIELD)
-            .dimension(highDimension)
-            .vectorDataType(VectorDataType.FLOAT.getValue())
-            .method(method)
-            .build()
-            .getIndexMapping();
+        String mapping = addCompressionMappingFields(
+            KNNJsonIndexMappingsBuilder.builder()
+                .fieldName(VECTOR_FIELD)
+                .dimension(highDimension)
+                .vectorDataType(VectorDataType.FLOAT.getValue())
+        ).method(method).build().getIndexMapping();
 
         createKnnIndex(indexName, mapping);
 
@@ -897,13 +908,12 @@ public class DocValueFieldsIT extends KNNRestTestCase {
             .engine(KNNEngine.FAISS.getName())
             .build();
 
-        String mapping = KNNJsonIndexMappingsBuilder.builder()
-            .fieldName(VECTOR_FIELD)
-            .dimension(DIMENSION)
-            .vectorDataType(VectorDataType.FLOAT.getValue())
-            .method(method)
-            .build()
-            .getIndexMapping();
+        String mapping = addCompressionMappingFields(
+            KNNJsonIndexMappingsBuilder.builder()
+                .fieldName(VECTOR_FIELD)
+                .dimension(DIMENSION)
+                .vectorDataType(VectorDataType.FLOAT.getValue())
+        ).method(method).build().getIndexMapping();
 
         Settings settings = Settings.builder()
             .put("number_of_shards", 1)
@@ -986,13 +996,12 @@ public class DocValueFieldsIT extends KNNRestTestCase {
             .engine(KNNEngine.FAISS.getName())
             .build();
 
-        String mapping = KNNJsonIndexMappingsBuilder.builder()
-            .fieldName(VECTOR_FIELD)
-            .dimension(DIMENSION)
-            .vectorDataType(VectorDataType.FLOAT.getValue())
-            .method(method)
-            .build()
-            .getIndexMapping();
+        String mapping = addCompressionMappingFields(
+            KNNJsonIndexMappingsBuilder.builder()
+                .fieldName(VECTOR_FIELD)
+                .dimension(DIMENSION)
+                .vectorDataType(VectorDataType.FLOAT.getValue())
+        ).method(method).build().getIndexMapping();
 
         Settings settings = Settings.builder()
             .put("number_of_shards", 1)
@@ -1107,13 +1116,12 @@ public class DocValueFieldsIT extends KNNRestTestCase {
                 .engine(engine.getName())
                 .build();
 
-            String mapping = KNNJsonIndexMappingsBuilder.builder()
-                .fieldName(VECTOR_FIELD)
-                .dimension(DIMENSION)
-                .vectorDataType(VectorDataType.FLOAT.getValue())
-                .method(method)
-                .build()
-                .getIndexMapping();
+            String mapping = addCompressionMappingFields(
+                KNNJsonIndexMappingsBuilder.builder()
+                    .fieldName(VECTOR_FIELD)
+                    .dimension(DIMENSION)
+                    .vectorDataType(VectorDataType.FLOAT.getValue())
+            ).method(method).build().getIndexMapping();
 
             createKnnIndex(indexName, mapping);
             addKnnDoc(indexName, "1", VECTOR_FIELD, Floats.asList(VECTOR_1).toArray());
@@ -1185,13 +1193,12 @@ public class DocValueFieldsIT extends KNNRestTestCase {
                 .engine(engine.getName())
                 .build();
 
-            String mapping = KNNJsonIndexMappingsBuilder.builder()
-                .fieldName(VECTOR_FIELD)
-                .dimension(DIMENSION)
-                .vectorDataType(VectorDataType.FLOAT.getValue())
-                .method(method)
-                .build()
-                .getIndexMapping();
+            String mapping = addCompressionMappingFields(
+                KNNJsonIndexMappingsBuilder.builder()
+                    .fieldName(VECTOR_FIELD)
+                    .dimension(DIMENSION)
+                    .vectorDataType(VectorDataType.FLOAT.getValue())
+            ).method(method).build().getIndexMapping();
 
             createKnnIndex(indexName, mapping);
             addKnnDoc(indexName, "1", VECTOR_FIELD, Floats.asList(VECTOR_1).toArray());
@@ -1748,19 +1755,18 @@ public class DocValueFieldsIT extends KNNRestTestCase {
         String floatIndex = TEST_INDEX + "_base64_float";
         createKnnIndex(
             floatIndex,
-            KNNJsonIndexMappingsBuilder.builder()
-                .fieldName(VECTOR_FIELD)
-                .dimension(DIMENSION)
-                .vectorDataType(VectorDataType.FLOAT.getValue())
-                .method(
-                    KNNJsonIndexMappingsBuilder.Method.builder()
-                        .methodName(METHOD_HNSW)
-                        .spaceType(SpaceType.L2.getValue())
-                        .engine(KNNEngine.LUCENE.getName())
-                        .build()
-                )
-                .build()
-                .getIndexMapping()
+            addCompressionMappingFields(
+                KNNJsonIndexMappingsBuilder.builder()
+                    .fieldName(VECTOR_FIELD)
+                    .dimension(DIMENSION)
+                    .vectorDataType(VectorDataType.FLOAT.getValue())
+            ).method(
+                KNNJsonIndexMappingsBuilder.Method.builder()
+                    .methodName(METHOD_HNSW)
+                    .spaceType(SpaceType.L2.getValue())
+                    .engine(KNNEngine.LUCENE.getName())
+                    .build()
+            ).build().getIndexMapping()
         );
 
         ByteBuffer buffer = ByteBuffer.allocate(DIMENSION * Float.BYTES).order(ByteOrder.LITTLE_ENDIAN);
@@ -1856,19 +1862,18 @@ public class DocValueFieldsIT extends KNNRestTestCase {
 
         createKnnIndex(
             indexName,
-            KNNJsonIndexMappingsBuilder.builder()
-                .fieldName(VECTOR_FIELD)
-                .dimension(DIMENSION)
-                .vectorDataType(VectorDataType.FLOAT.getValue())
-                .method(
-                    KNNJsonIndexMappingsBuilder.Method.builder()
-                        .methodName(METHOD_HNSW)
-                        .spaceType(SpaceType.L2.getValue())
-                        .engine(KNNEngine.LUCENE.getName())
-                        .build()
-                )
-                .build()
-                .getIndexMapping()
+            addCompressionMappingFields(
+                KNNJsonIndexMappingsBuilder.builder()
+                    .fieldName(VECTOR_FIELD)
+                    .dimension(DIMENSION)
+                    .vectorDataType(VectorDataType.FLOAT.getValue())
+            ).method(
+                KNNJsonIndexMappingsBuilder.Method.builder()
+                    .methodName(METHOD_HNSW)
+                    .spaceType(SpaceType.L2.getValue())
+                    .engine(KNNEngine.LUCENE.getName())
+                    .build()
+            ).build().getIndexMapping()
         );
 
         // Index doc 1 via JSON array
@@ -1935,19 +1940,18 @@ public class DocValueFieldsIT extends KNNRestTestCase {
         String floatIndex = TEST_INDEX + "_base64_invalid_float";
         createKnnIndex(
             floatIndex,
-            KNNJsonIndexMappingsBuilder.builder()
-                .fieldName(VECTOR_FIELD)
-                .dimension(DIMENSION)
-                .vectorDataType(VectorDataType.FLOAT.getValue())
-                .method(
-                    KNNJsonIndexMappingsBuilder.Method.builder()
-                        .methodName(METHOD_HNSW)
-                        .spaceType(SpaceType.L2.getValue())
-                        .engine(KNNEngine.LUCENE.getName())
-                        .build()
-                )
-                .build()
-                .getIndexMapping()
+            addCompressionMappingFields(
+                KNNJsonIndexMappingsBuilder.builder()
+                    .fieldName(VECTOR_FIELD)
+                    .dimension(DIMENSION)
+                    .vectorDataType(VectorDataType.FLOAT.getValue())
+            ).method(
+                KNNJsonIndexMappingsBuilder.Method.builder()
+                    .methodName(METHOD_HNSW)
+                    .spaceType(SpaceType.L2.getValue())
+                    .engine(KNNEngine.LUCENE.getName())
+                    .build()
+            ).build().getIndexMapping()
         );
 
         String invalidFloatBase64 = Base64.getEncoder().encodeToString(new byte[] { 1, 2, 3 });
@@ -2016,19 +2020,18 @@ public class DocValueFieldsIT extends KNNRestTestCase {
         String destIndex = TEST_INDEX + "_base64_reindex_dest";
         int numDocs = 10;
 
-        String mapping = KNNJsonIndexMappingsBuilder.builder()
-            .fieldName(VECTOR_FIELD)
-            .dimension(DIMENSION)
-            .vectorDataType(VectorDataType.FLOAT.getValue())
-            .method(
-                KNNJsonIndexMappingsBuilder.Method.builder()
-                    .methodName(METHOD_HNSW)
-                    .spaceType(SpaceType.L2.getValue())
-                    .engine(KNNEngine.FAISS.getName())
-                    .build()
-            )
-            .build()
-            .getIndexMapping();
+        String mapping = addCompressionMappingFields(
+            KNNJsonIndexMappingsBuilder.builder()
+                .fieldName(VECTOR_FIELD)
+                .dimension(DIMENSION)
+                .vectorDataType(VectorDataType.FLOAT.getValue())
+        ).method(
+            KNNJsonIndexMappingsBuilder.Method.builder()
+                .methodName(METHOD_HNSW)
+                .spaceType(SpaceType.L2.getValue())
+                .engine(KNNEngine.FAISS.getName())
+                .build()
+        ).build().getIndexMapping();
 
         createKnnIndex(sourceIndex, mapping);
 
@@ -2145,13 +2148,12 @@ public class DocValueFieldsIT extends KNNRestTestCase {
             .engine(engine.getName())
             .build();
 
-        String mapping = KNNJsonIndexMappingsBuilder.builder()
-            .fieldName(VECTOR_FIELD)
-            .dimension(DIMENSION)
-            .vectorDataType(VectorDataType.FLOAT.getValue())
-            .method(method)
-            .build()
-            .getIndexMapping();
+        String mapping = addCompressionMappingFields(
+            KNNJsonIndexMappingsBuilder.builder()
+                .fieldName(VECTOR_FIELD)
+                .dimension(DIMENSION)
+                .vectorDataType(VectorDataType.FLOAT.getValue())
+        ).method(method).build().getIndexMapping();
 
         createKnnIndex(TEST_INDEX, mapping);
     }
@@ -2163,13 +2165,12 @@ public class DocValueFieldsIT extends KNNRestTestCase {
             .engine(engine.getName())
             .build();
 
-        String mapping = KNNJsonIndexMappingsBuilder.builder()
-            .fieldName(VECTOR_FIELD)
-            .dimension(DIMENSION)
-            .vectorDataType(VectorDataType.FLOAT.getValue())
-            .method(method)
-            .build()
-            .getIndexMapping();
+        String mapping = addCompressionMappingFields(
+            KNNJsonIndexMappingsBuilder.builder()
+                .fieldName(VECTOR_FIELD)
+                .dimension(DIMENSION)
+                .vectorDataType(VectorDataType.FLOAT.getValue())
+        ).method(method).build().getIndexMapping();
 
         createKnnIndex(indexName, mapping);
     }

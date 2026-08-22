@@ -5,14 +5,14 @@
 
 package org.opensearch.knn.index.codec.nativeindex;
 
+import java.util.Locale;
+
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.SegmentWriteState;
-import org.apache.lucene.store.IndexOutput;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.core.common.bytes.BytesArray;
@@ -171,8 +171,11 @@ public class NativeIndexWriter {
             fieldInfo.name,
             knnEngine.getExtension()
         );
-        try (IndexOutput output = state.directory.createOutput(engineFileName, state.context)) {
-            final IndexOutputWithBuffer indexOutputWithBuffer = new IndexOutputWithBuffer(output);
+        try (
+            IndexOutputWithBuffer indexOutputWithBuffer = new IndexOutputWithBuffer(
+                state.directory.createOutput(engineFileName, state.context)
+            )
+        ) {
             final BuildIndexParams nativeIndexParams = indexParams(
                 fieldInfo,
                 indexOutputWithBuffer,
@@ -187,7 +190,7 @@ public class NativeIndexWriter {
                 knnVectorValuesSupplier.get()
             );
             indexBuilder.buildAndWriteIndex(nativeIndexParams);
-            CodecUtil.writeFooter(output);
+            indexOutputWithBuffer.writeFooter();
         }
     }
 
@@ -318,7 +321,7 @@ public class NativeIndexWriter {
         String modelId = fieldInfo.attributes().get(MODEL_ID);
         Model model = ModelCache.getInstance().get(modelId);
         if (model.getModelBlob() == null) {
-            throw new RuntimeException(String.format("There is no trained model with id \"%s\"", modelId));
+            throw new RuntimeException(String.format(Locale.ROOT, "There is no trained model with id \"%s\"", modelId));
         }
         return model;
     }

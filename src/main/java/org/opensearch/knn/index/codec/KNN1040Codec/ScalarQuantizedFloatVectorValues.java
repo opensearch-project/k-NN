@@ -28,7 +28,9 @@ import java.io.IOException;
  * <p>This class bridges the gap by delegating all {@link FloatVectorValues} operations to the original
  * instance, while implementing {@link HasIndexSlice#getSlice()} by returning the {@link IndexInput}
  * from the underlying {@link QuantizedByteVectorValues}. The quantized byte values hold the on-disk
- * slice that contains the quantized vector data and correction factors used during scoring.
+ * slice that contains the quantized vector data and correction factors used during scoring. For an
+ * empty vector segment, the quantized values may be {@code null}; in that case, this wrapper has no
+ * index slice.
  */
 @RequiredArgsConstructor
 class ScalarQuantizedFloatVectorValues extends FloatVectorValues implements HasIndexSlice {
@@ -52,7 +54,10 @@ class ScalarQuantizedFloatVectorValues extends FloatVectorValues implements HasI
 
     @Override
     public FloatVectorValues copy() throws IOException {
-        return new ScalarQuantizedFloatVectorValues(floatVectorValues.copy(), quantizedVectorValues.copy());
+        return new ScalarQuantizedFloatVectorValues(
+            floatVectorValues.copy(),
+            quantizedVectorValues == null ? null : quantizedVectorValues.copy()
+        );
     }
 
     @Override
@@ -62,7 +67,7 @@ class ScalarQuantizedFloatVectorValues extends FloatVectorValues implements HasI
 
     @Override
     public IndexInput getSlice() {
-        return quantizedVectorValues.getSlice();
+        return quantizedVectorValues == null ? null : quantizedVectorValues.getSlice();
     }
 
     @Override

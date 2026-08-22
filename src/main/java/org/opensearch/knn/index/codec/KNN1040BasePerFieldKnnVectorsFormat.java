@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec;
 
+import java.util.Locale;
+
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
@@ -13,6 +15,7 @@ import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactor
 import org.opensearch.knn.index.engine.CodecFormatResolver;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
@@ -76,7 +79,7 @@ public abstract class KNN1040BasePerFieldKnnVectorsFormat extends PerFieldKnnVec
         }
         KNNVectorFieldType mappedFieldType = (KNNVectorFieldType) mapperService.orElseThrow(
             () -> new IllegalStateException(
-                String.format("Cannot read field type for field [%s] because mapper service is not available", field)
+                String.format(Locale.ROOT, "Cannot read field type for field [%s] because mapper service is not available", field)
             )
         ).fieldType(field);
 
@@ -90,13 +93,13 @@ public abstract class KNN1040BasePerFieldKnnVectorsFormat extends PerFieldKnnVec
         nativeIndexBuildStrategyFactory.setKnnLibraryIndexingContext(knnMappingConfig.getKnnLibraryIndexingContext());
         final KNNEngine engine = knnMethodContext.getKnnEngine();
         final Map<String, Object> params = knnMethodContext.getMethodComponentContext().getParameters();
+        final ResolvedIndexSpec resolvedSpec = mappedFieldType.getResolvedSpec();
 
         if (engine == KNNEngine.LUCENE) {
-            return luceneFormatResolver.resolve(field, knnMethodContext, params, defaultMaxConnections, defaultBeamWidth);
+            return luceneFormatResolver.resolve(field, knnMethodContext, params, defaultMaxConnections, defaultBeamWidth, resolvedSpec);
         }
 
-        // Native engines — pass params so the resolver can detect SQ encoder
-        return nativeFormatResolver.resolve(field, knnMethodContext, params, defaultMaxConnections, defaultBeamWidth);
+        return nativeFormatResolver.resolve(field, knnMethodContext, params, defaultMaxConnections, defaultBeamWidth, resolvedSpec);
     }
 
     @Override
