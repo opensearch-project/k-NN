@@ -89,6 +89,7 @@ import org.opensearch.knn.quantization.models.quantizationState.QuantizationStat
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -104,6 +105,7 @@ import java.util.stream.Collectors;
 import static java.util.stream.Collectors.toMap;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.ADC_ENABLED_FAISS_INDEX_INTERNAL_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
@@ -407,6 +409,89 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    private static KNNVectorSimilarityFunction invokeResolveSimilarity(final FieldInfo fieldInfo, final FaissIndex faissIndex) {
+        final Method method = FaissMemoryOptimizedSearcher.class.getDeclaredMethod(
+            "resolveKnnVectorSimilarityFunction",
+            FieldInfo.class,
+            FaissIndex.class
+        );
+        method.setAccessible(true);
+        return (KNNVectorSimilarityFunction) method.invoke(null, fieldInfo, faissIndex);
+    }
+
+    /**
+     * Cosine is the one space where the declared attribute must override the Faiss header: cosine
+     * indices are written as METRIC_INNER_PRODUCT on normalized vectors, so the header reports IP.
+     * The resolver must return COSINE so the FP16_COSINE / SQ_COSINE kernels fire.
+     */
+    public void testResolveSimilarity_whenCosineDeclared_thenOverridesFaissHeaderWithCosine() {
+        final FieldInfo fieldInfo = mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.COSINESIMIL.getValue());
+
+        final FaissIndex faissIndex = mock(FaissIndex.class);
+        // Faiss collapses cosine to inner product on disk.
+        when(faissIndex.getVectorSimilarityFunction()).thenReturn(KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT);
+
+        assertEquals(KNNVectorSimilarityFunction.COSINE, invokeResolveSimilarity(fieldInfo, faissIndex));
+    }
+
+    /**
+     * For every non-cosine declared space the resolver must NOT override; it trusts the metric the
+     * Faiss header reports so a stale/mismatched declared attribute can never mask the on-disk metric.
+     * Here the declared attribute (L2 / IP) is deliberately made to disagree with the header, and the
+     * resolver must still return the header's value.
+     */
+    public void testResolveSimilarity_whenNonCosineDeclared_thenTrustsFaissHeader() {
+        for (final SpaceType declared : new SpaceType[] { SpaceType.L2, SpaceType.INNER_PRODUCT }) {
+            final FieldInfo fieldInfo = mock(FieldInfo.class);
+            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(declared.getValue());
+
+            final FaissIndex faissIndex = mock(FaissIndex.class);
+            when(faissIndex.getVectorSimilarityFunction()).thenReturn(KNNVectorSimilarityFunction.COSINE);
+
+            assertEquals(
+                "Non-cosine declared space [" + declared + "] must defer to the Faiss header",
+                KNNVectorSimilarityFunction.COSINE,
+                invokeResolveSimilarity(fieldInfo, faissIndex)
+            );
+            verify(faissIndex).getVectorSimilarityFunction();
+        }
+    }
+
+    /**
+     * An unrecognized space-type attribute must not fail searcher construction: the resolver logs a
+     * warning and falls back to the Faiss-reported similarity. Exercises the IllegalArgumentException
+     * catch branch.
+     */
+    public void testResolveSimilarity_whenUnrecognizedSpaceType_thenFallsBackToFaissHeader() {
+        final FieldInfo fieldInfo = mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn("not-a-real-space-type");
+
+        final FaissIndex faissIndex = mock(FaissIndex.class);
+        when(faissIndex.getVectorSimilarityFunction()).thenReturn(KNNVectorSimilarityFunction.EUCLIDEAN);
+
+        assertEquals(KNNVectorSimilarityFunction.EUCLIDEAN, invokeResolveSimilarity(fieldInfo, faissIndex));
+        verify(faissIndex).getVectorSimilarityFunction();
+    }
+
+    /**
+     * A missing / empty space-type attribute skips the declared-override block entirely and defers to
+     * the Faiss header.
+     */
+    public void testResolveSimilarity_whenNoSpaceTypeAttribute_thenUsesFaissHeader() {
+        for (final String attr : new String[] { null, "" }) {
+            final FieldInfo fieldInfo = mock(FieldInfo.class);
+            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(attr);
+
+            final FaissIndex faissIndex = mock(FaissIndex.class);
+            when(faissIndex.getVectorSimilarityFunction()).thenReturn(KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT);
+
+            assertEquals(KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT, invokeResolveSimilarity(fieldInfo, faissIndex));
+            verify(faissIndex).getVectorSimilarityFunction();
+        }
+    }
+
+    @SneakyThrows
     private void doSearchTest(final TestingSpec testingSpec, final IndexingType indexingType) {
         final List<SpaceType> spaceTypes;
         if (testingSpec.dataType == VectorDataType.BINARY) {
@@ -575,17 +660,17 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         }
 
         // Search via VectorReader
+        final boolean isAdc = testingSpec.quantizationConfig != null && testingSpec.quantizationConfig.enableADC;
         final KNNQueryResult[] resultsFromVectorReader = doSearchViaVectorReader(
             buildInfo,
             queryForVectorReader,
-            testingSpec.quantizationConfig != null && testingSpec.quantizationConfig.enableADC
-                ? VectorDataType.FLOAT
-                : testingSpec.dataType,
+            isAdc ? VectorDataType.FLOAT : testingSpec.dataType,
             filteredIds,
             k,
             doExhaustiveSearch,
             spaceType,
-            testingSpec.directoryClass
+            testingSpec.directoryClass,
+            isAdc
         );
 
         // Validate results
@@ -620,7 +705,8 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         final int k,
         final boolean exhaustiveSearch,
         final SpaceType spaceType,
-        final Class<D> directoryClass
+        final Class<D> directoryClass,
+        final boolean isAdc
     ) {
         // Make KNN vector field info
         KNNCodecTestUtil.FieldInfoBuilder fieldInfoBuilder = KNNCodecTestUtil.FieldInfoBuilder.builder(TARGET_FIELD)
@@ -742,7 +828,11 @@ public class FaissMemoryOptimizedSearcherTests extends KNNTestCase {
         // Make results
         final TopDocs topDocs = knnCollector.topDocs();
         final ScoreDoc[] scoreDocs = topDocs.scoreDocs;
-        if (spaceType == SpaceType.COSINESIMIL) {
+        // For FP16 / SQ formats the scorer emits cosine scores directly (the FP16_COSINE / SQ_COSINE
+        // kernels apply the (1 + dot) / 2 transform in-kernel), so no post-conversion is needed here -
+        // this mirrors MemoryOptimizedKNNWeight. The ADC path still emits MaxIP-format scores, so cosine
+        // requires the MaxIP -> cosine post-conversion, matching production.
+        if (isAdc && spaceType == SpaceType.COSINESIMIL) {
             MemoryOptimizedSearchScoreConverter.convertToCosineScore(scoreDocs);
         }
         assertTrue(scoreDocs.length >= k);

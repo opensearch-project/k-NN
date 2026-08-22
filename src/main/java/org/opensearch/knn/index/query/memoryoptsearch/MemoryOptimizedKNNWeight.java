@@ -106,7 +106,8 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
                             filterIdsBitSet,
                             reader,
                             knnEngine,
-                            spaceType
+                            spaceType,
+                            false
                         );
                     }
 
@@ -130,12 +131,13 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
                         filterIdsBitSet,
                         reader,
                         knnEngine,
-                        spaceType
+                        spaceType,
+                        false
                     );
                 }
 
                 if (adcTransformedVector != null) {
-                    // ADC case
+                    // ADC case: the scorer emits MaxIP-format scores, so cosine requires post-conversion.
                     return queryIndex(
                         adcTransformedVector,
                         cardinality,
@@ -144,7 +146,8 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
                         filterIdsBitSet,
                         reader,
                         knnEngine,
-                        spaceType
+                        spaceType,
+                        true
                     );
                 }
 
@@ -157,11 +160,22 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
                     filterIdsBitSet,
                     reader,
                     knnEngine,
-                    spaceType
+                    spaceType,
+                    false
                 );
             } else {
                 // Radius search
-                return queryIndex(knnQuery.getVector(), cardinality, cardinality, context, filterIdsBitSet, reader, knnEngine, spaceType);
+                return queryIndex(
+                    knnQuery.getVector(),
+                    cardinality,
+                    cardinality,
+                    context,
+                    filterIdsBitSet,
+                    reader,
+                    knnEngine,
+                    spaceType,
+                    false
+                );
             }
         } catch (Exception e) {
             GRAPH_QUERY_ERRORS.increment();
@@ -177,7 +191,8 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         final BitSet filterIdsBitSet,
         final SegmentReader reader,
         final KNNEngine knnEngine,
-        final SpaceType spaceType
+        final SpaceType spaceType,
+        final boolean isAdc
     ) throws IOException {
         assert (targetVector instanceof float[] || targetVector instanceof byte[]);
 
@@ -214,7 +229,12 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
             log.debug("[KNN] Query yielded 0 results");
             return EMPTY_TOPDOCS;
         }
-        if (spaceType == SpaceType.COSINESIMIL) {
+        // For the FP16 and SQ formats the scorer now emits cosine scores directly via
+        // VectorSimilarityFunction.COSINE (the FP16_COSINE / SQ_COSINE kernels apply the (1 + dot) / 2
+        // transform in-kernel), so no post-conversion is needed. The ADC (binary-quantized) path scores a
+        // float query against 1-bit vectors and still emits MaxIP-format scores, so it retains the
+        // MaxIP -> cosine post-conversion here.
+        if (isAdc && spaceType == SpaceType.COSINESIMIL) {
             MemoryOptimizedSearchScoreConverter.convertToCosineScore(topDocs.scoreDocs);
         }
         addExplainIfRequired(topDocs, knnEngine, spaceType);
