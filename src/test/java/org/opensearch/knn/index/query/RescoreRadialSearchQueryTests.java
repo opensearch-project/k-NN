@@ -235,6 +235,7 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             QUERY_VECTOR,
             RADIUS,
             false,
+            25,
             MAX_RESULTS_RADIAL_RESCORING
         );
 
@@ -242,6 +243,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         assertEquals(FIELD_NAME, query.getField());
         assertArrayEquals(QUERY_VECTOR, query.getQueryVector(), 0.0f);
         assertEquals(RADIUS, query.getRadius(), 0.0f);
+        assertEquals(25, query.getFirstPassK());
+        assertEquals(MAX_RESULTS_RADIAL_RESCORING, query.getMaxResultsSize());
     }
 
     // Given: a RescoreRadialSearchQuery with an inner query that rewrites to a different query
@@ -281,6 +284,21 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
 
         // Then: converges — returns the same instance since inner didn't change
         assertSame(firstRewrite, secondRewrite);
+    }
+
+    public void testRewrite_preservesIndependentCandidateAndFinalResultLimits() throws IOException {
+        Query originalInner = mock(Query.class);
+        Query rewrittenInner = new MatchAllDocsQuery();
+        IndexSearcher searcher = mock(IndexSearcher.class);
+        when(originalInner.rewrite(searcher)).thenReturn(rewrittenInner);
+
+        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(originalInner, FIELD_NAME, QUERY_VECTOR, RADIUS, false, 6, 3);
+
+        RescoreRadialSearchQuery rewrittenQuery = (RescoreRadialSearchQuery) query.rewrite(searcher);
+
+        assertSame(rewrittenInner, rewrittenQuery.getInnerQuery());
+        assertEquals(6, rewrittenQuery.getFirstPassK());
+        assertEquals(3, rewrittenQuery.getMaxResultsSize());
     }
 
     // Given: a RescoreRadialSearchQuery whose inner query already rewrites to itself
@@ -670,12 +688,11 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         }
     }
 
-    // Given: inner query returns more docs than maxResultsSize
-    // When: RescoreRadialSearchQuery rescores
-    // Then: only top-maxResultsSize candidates (by score) are collected before rescoring,
-    // meaning the highest-scoring vectors are retained and low-scoring ones are dropped
+    // Given: inner query returns more docs than the first-pass candidate limit
+    // When: RescoreRadialSearchQuery rescoring retains more candidates than final results
+    // Then: the final result limit is applied after exact scoring
     @SneakyThrows
-    public void testRescore_whenCostExceedsMaxResultsSize_thenCollectsTopCandidatesByScore() {
+    public void testRescore_whenCandidateLimitExceedsFinalResultLimit_thenReturnsFinalResultLimit() {
         final float[] queryVector = { 1.0f, 0.0f, 0.0f };
         // 6 vectors with clearly different similarities to query.
         // Euclidean similarity = 1/(1+dist^2).
@@ -693,7 +710,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         };
         // Loose radius so all vectors pass the rescore filter
         final float radiusThreshold = 0.1f;
-        // Only top 3 by score should be collected for rescoring
+        // Retain five first-pass candidates but return only three full-precision results.
+        final int firstPassK = 5;
         final int maxResultsSize = 3;
 
         try (Directory directory = newDirectory()) {
@@ -716,8 +734,12 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                     queryVector,
                     radiusThreshold,
                     false,
+                    firstPassK,
                     maxResultsSize
                 );
+
+                assertEquals(firstPassK, rescoreQuery.getFirstPassK());
+                assertEquals(maxResultsSize, rescoreQuery.getMaxResultsSize());
 
                 TopDocs results = searcher.search(rescoreQuery, vectors.length);
 

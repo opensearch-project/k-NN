@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 3.9](https://github.com/opensearch-project/k-NN/compare/main...HEAD)
 ### Features
 * Enable the approximate graph threshold for Faiss SQ x32 (sq bits=1) indices [#3434](https://github.com/opensearch-project/k-NN/pull/3434)
+* Added new radial search method that acts as a postfilter on size * oversample_factor topK on quantized indices [#3491](https://github.com/opensearch-project/k-NN/pull/3491)
 
 ### Maintenance
 * Fixed multiple forbidden api warnings from the code []()
