@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.integ;
 
+import java.util.Locale;
+
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
@@ -1163,7 +1165,11 @@ public class KNNSourceExcludesProcessorIT extends KNNRestTestCase {
 
         // Painless script: standard L2 score boosted by a constant multiplier (2.0) to manipulate the distance computation.
         // score = (1 / (1 + l2Squared(queryVec, doc[field]))) * 2.0
-        String scriptSource = String.format("(1.0 / (1.0 + l2Squared([1.0f, 2.0f, 3.0f, 4.0f], doc['%s']))) * 2.0", VECTOR_FIELD);
+        String scriptSource = String.format(
+            Locale.ROOT,
+            "(1.0 / (1.0 + l2Squared([1.0f, 2.0f, 3.0f, 4.0f], doc['%s']))) * 2.0",
+            VECTOR_FIELD
+        );
 
         Request request = constructScriptScoreContextSearchRequest(
             indexName,

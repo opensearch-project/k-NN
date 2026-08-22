@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index;
 
+import java.util.Locale;
+
 import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import com.google.common.primitives.Floats;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
@@ -279,6 +281,7 @@ public class MinScoreIT extends KNNCompressionRestTestCase {
 
             assertEquals(
                 String.format(
+                    Locale.ROOT,
                     "[%s, %s, memOpt=%s] Expected %d results with min_score=%.2f",
                     knnEngine.getName(),
                     spaceType.getValue(),
@@ -294,6 +297,7 @@ public class MinScoreIT extends KNNCompressionRestTestCase {
             for (KNNResult result : results) {
                 assertTrue(
                     String.format(
+                        Locale.ROOT,
                         "[%s, %s, memOpt=%s] Score %.3f should be >= %.2f",
                         knnEngine.getName(),
                         spaceType.getValue(),

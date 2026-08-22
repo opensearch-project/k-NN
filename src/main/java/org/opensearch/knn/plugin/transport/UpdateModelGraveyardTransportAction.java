@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import java.util.Locale;
+
 import lombok.Value;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -163,6 +165,7 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
                 if (!indicesUsingModel.isEmpty()) {
                     throw new DeleteModelException(
                         String.format(
+                            Locale.ROOT,
                             "Cannot delete model [%s].  Model is in use by the following indices %s, which must be deleted first.",
                             task.getModelId(),
                             indicesUsingModel

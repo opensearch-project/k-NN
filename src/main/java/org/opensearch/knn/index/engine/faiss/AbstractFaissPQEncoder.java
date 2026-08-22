@@ -5,11 +5,16 @@
 
 package org.opensearch.knn.index.engine.faiss;
 
+import java.util.Locale;
+
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.mapper.CompressionLevel;
+
+import java.util.EnumSet;
+import java.util.Set;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
@@ -96,6 +101,22 @@ public abstract class AbstractFaissPQEncoder implements Encoder {
     }
 
     @Override
+    public void validate(KNNMethodContext resolvedMethodContext, KNNMethodConfigContext configContext) {
+        if (resolvedMethodContext == null || configContext == null) {
+            return;
+        }
+        if (resolvedMethodContext.getMethodComponentContext().getParameters().containsKey(ENCODER_PARAMETER_PQ_M)
+            && configContext.getDimension() != null
+            && configContext.getDimension() % (Integer) resolvedMethodContext.getMethodComponentContext()
+                .getParameters()
+                .get(ENCODER_PARAMETER_PQ_M) != 0) {
+            ValidationException validationException = new ValidationException();
+            validationException.addValidationError("Training request ENCODER_PARAMETER_PQ_M is not divisible by vector dimensions");
+            throw validationException;
+        }
+    }
+
+    @Override
     public TrainingConfigValidationOutput validateEncoderConfig(TrainingConfigValidationInput trainingConfigValidationInput) {
         KNNMethodContext knnMethodContext = trainingConfigValidationInput.getKnnMethodContext();
         KNNMethodConfigContext knnMethodConfigContext = trainingConfigValidationInput.getKnnMethodConfigContext();
@@ -133,7 +154,9 @@ public abstract class AbstractFaissPQEncoder implements Encoder {
 
             if (trainingVectors < minTrainingVectorCount) {
                 builder.valid(false).minTrainingVectorCount(minTrainingVectorCount);
-                builder.errorMessage(String.format("Number of training points should be greater than %d", minTrainingVectorCount));
+                builder.errorMessage(
+                    String.format(Locale.ROOT, "Number of training points should be greater than %d", minTrainingVectorCount)
+                );
                 return builder.build();
             } else {
                 builder.valid(true);
@@ -142,4 +165,15 @@ public abstract class AbstractFaissPQEncoder implements Encoder {
 
         return builder.build();
     }
+
+    @Override
+    public EncoderType getEncoderType() {
+        return EncoderType.PQ;
+    }
+
+    @Override
+    public Set<QuantizationBits> getSupportedBits() {
+        return EnumSet.noneOf(QuantizationBits.class);
+    }
+
 }

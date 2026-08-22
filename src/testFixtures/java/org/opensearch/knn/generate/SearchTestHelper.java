@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
+import org.opensearch.common.Randomness;
 
 public class SearchTestHelper {
     public static class Vectors {
@@ -83,7 +84,9 @@ public class SearchTestHelper {
      */
     public static List<Integer> takePortions(final List<Integer> sequence, final double percentage) {
         List<Integer> newSequence = new ArrayList<>(sequence);
-        Collections.shuffle(newSequence);
+        // Call Randomness.get() fresh (do NOT cache in a static field): under randomizedtesting it returns the
+        // current test's Random, which is invalidated after each test method.
+        Collections.shuffle(newSequence, Randomness.get());
         newSequence = newSequence.subList(0, (int) (newSequence.size() * percentage));
         Collections.sort(newSequence);
         return newSequence;

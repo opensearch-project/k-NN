@@ -6,9 +6,8 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableSet;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import org.opensearch.Version;
+import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContextImpl;
@@ -21,13 +20,12 @@ import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
 import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 
-import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_FLAT_DESCRIPTION;
@@ -61,28 +59,7 @@ import static org.opensearch.knn.common.KNNConstants.NAME;
 public class FaissSQEncoder implements Encoder {
 
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
-    private static final Set<Integer> VALID_BITS = Arrays.stream(Bits.values()).map(Bits::getValue).collect(Collectors.toUnmodifiableSet());
-
-    /**
-     * Supported bit widths for SQ quantization. Each maps to a specific quantization strategy
-     * and compression level.
-     */
-    @Getter
-    @RequiredArgsConstructor
-    public enum Bits {
-        ONE(1, CompressionLevel.x32),
-        SIXTEEN(16, CompressionLevel.x2);
-
-        private final int value;
-        private final CompressionLevel compressionLevel;
-
-        public static Bits fromValue(int value) {
-            for (Bits b : values()) {
-                if (b.value == value) return b;
-            }
-            throw new IllegalArgumentException(String.format(Locale.ROOT, "Unsupported bits value: %d", value));
-        }
-    }
+    private static final Set<Integer> VALID_BITS = Set.of(QuantizationBits.ONE.getValue(), QuantizationBits.SIXTEEN.getValue());
 
     private final static MethodComponent METHOD_COMPONENT = MethodComponent.Builder.builder(ENCODER_SQ)
         .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
@@ -103,7 +80,7 @@ public class FaissSQEncoder implements Encoder {
             Object bitsObj = params.get(SQ_BITS);
 
             // bits=1 path: 1-bit quantization — use flat description, Faiss only builds the HNSW graph
-            if (bitsObj instanceof Integer && (Integer) bitsObj == Bits.ONE.getValue()) {
+            if (bitsObj instanceof Integer && (Integer) bitsObj == QuantizationBits.ONE.getValue()) {
                 int bits = (Integer) bitsObj;
                 return KNNLibraryIndexingContextImpl.builder().parameters(new HashMap<>() {
                     {
@@ -134,33 +111,24 @@ public class FaissSQEncoder implements Encoder {
         if (methodComponentContext != null && methodComponentContext.getParameters().containsKey(SQ_BITS)) {
             Object bitsObj = methodComponentContext.getParameters().get(SQ_BITS);
             if (bitsObj instanceof Integer) {
-                return Bits.fromValue((Integer) bitsObj).getCompressionLevel();
+                return QuantizationBits.fromValue((Integer) bitsObj).getCompressionLevel();
             }
         }
         // Legacy path — type=fp16 is x2
         return CompressionLevel.x2;
     }
 
-    // TODO: The Encoder interface's validateEncoderConfig uses TrainingConfigValidation* types that were
-    // designed for model training. We should add a general-purpose validation method to the Encoder interface
-    // (e.g. Encoder.validate(KNNMethodContext, KNNMethodConfigContext)) that both Faiss and Lucene resolvers
-    // can delegate to, decoupled from training concerns. See LuceneHNSWMethodResolver.validateEncoderParams()
-    // for the Lucene equivalent that avoids the training interface.
     @Override
-    public TrainingConfigValidationOutput validateEncoderConfig(TrainingConfigValidationInput validationInput) {
-        TrainingConfigValidationOutput.TrainingConfigValidationOutputBuilder builder = TrainingConfigValidationOutput.builder();
-        KNNMethodContext knnMethodContext = validationInput.getKnnMethodContext();
-        KNNMethodConfigContext configContext = validationInput.getKnnMethodConfigContext();
-
-        if (knnMethodContext == null || configContext == null) {
-            return builder.build();
+    public void validate(KNNMethodContext resolvedMethodContext, KNNMethodConfigContext configContext) {
+        if (resolvedMethodContext == null || configContext == null) {
+            return;
         }
 
-        MethodComponentContext encoderContext = (MethodComponentContext) knnMethodContext.getMethodComponentContext()
+        MethodComponentContext encoderContext = (MethodComponentContext) resolvedMethodContext.getMethodComponentContext()
             .getParameters()
             .get(METHOD_ENCODER_PARAMETER);
         if (encoderContext == null) {
-            return builder.build();
+            return;
         }
 
         Map<String, Object> encoderParams = encoderContext.getParameters();
@@ -170,108 +138,101 @@ public class FaissSQEncoder implements Encoder {
         boolean hasType = encoderParams.containsKey(FAISS_SQ_TYPE);
         boolean hasClip = encoderParams.containsKey(FAISS_SQ_CLIP);
 
-        // On 3.6.0+, bits is required when the user explicitly specifies the sq encoder for FLOAT data
+        ValidationException validationException = new ValidationException();
+
         if (isV360OrLater && bitsObj == null && configContext.getVectorDataType() == VectorDataType.FLOAT) {
-            return builder.valid(false)
-                .errorMessage(
-                    String.format(
-                        Locale.ROOT,
-                        "Parameter [%s] is required for encoder [%s] on indices created with version 3.6.0 or later. "
-                            + "Supported values: %s",
-                        SQ_BITS,
-                        ENCODER_SQ,
-                        VALID_BITS
-                    )
+            validationException.addValidationError(
+                String.format(
+                    Locale.ROOT,
+                    "Parameter [%s] is required for encoder [%s] on indices created with version 3.6.0 or later. " + "Supported values: %s",
+                    SQ_BITS,
+                    ENCODER_SQ,
+                    VALID_BITS
                 )
-                .build();
+            );
+            throw validationException;
+        }
+
+        if (bitsObj instanceof Integer && !VALID_BITS.contains((Integer) bitsObj)) {
+            validationException.addValidationError(
+                String.format(Locale.ROOT, "Unsupported bits value: %d. Supported values: %s", (Integer) bitsObj, VALID_BITS)
+            );
+            throw validationException;
         }
 
         if (bitsObj instanceof Integer) {
             int bits = (Integer) bitsObj;
 
-            // type and clip is only applicable for fp16 (bits=16)
-            if (Bits.SIXTEEN.getValue() != bits) {
+            if (QuantizationBits.SIXTEEN.getValue() != bits) {
                 if (hasType) {
-                    return builder.valid(false)
-                        .errorMessage(
-                            String.format(
-                                Locale.ROOT,
-                                "Parameter [%s] is not supported when [%s=%d] for encoder [%s]. "
-                                    + "The type parameter is only applicable for fp16 quantization (bits=16).",
-                                FAISS_SQ_TYPE,
-                                SQ_BITS,
-                                bits,
-                                ENCODER_SQ
-                            )
+                    validationException.addValidationError(
+                        String.format(
+                            Locale.ROOT,
+                            "Parameter [%s] is not supported when [%s=%d] for encoder [%s]. "
+                                + "The type parameter is only applicable for fp16 quantization (bits=16).",
+                            FAISS_SQ_TYPE,
+                            SQ_BITS,
+                            bits,
+                            ENCODER_SQ
                         )
-                        .build();
+                    );
+                    throw validationException;
                 }
 
                 if (hasClip) {
-                    return builder.valid(false)
-                        .errorMessage(
-                            String.format(
-                                Locale.ROOT,
-                                "Parameter [%s] is not supported when [%s=%d] for encoder [%s]. "
-                                    + "Clipping is only applicable for fp16 quantization (bits=16).",
-                                FAISS_SQ_CLIP,
-                                SQ_BITS,
-                                bits,
-                                ENCODER_SQ
-                            )
+                    validationException.addValidationError(
+                        String.format(
+                            Locale.ROOT,
+                            "Parameter [%s] is not supported when [%s=%d] for encoder [%s]. "
+                                + "Clipping is only applicable for fp16 quantization (bits=16).",
+                            FAISS_SQ_CLIP,
+                            SQ_BITS,
+                            bits,
+                            ENCODER_SQ
                         )
-                        .build();
+                    );
+                    throw validationException;
                 }
-
             }
 
-            // Validate compression level compatibility if explicitly set
             CompressionLevel configuredCompression = configContext.getCompressionLevel();
             if (CompressionLevel.isConfigured(configuredCompression)) {
-                CompressionLevel expectedCompression = Bits.fromValue(bits).getCompressionLevel();
+                CompressionLevel expectedCompression = QuantizationBits.fromValue(bits).getCompressionLevel();
                 if (configuredCompression != expectedCompression) {
-                    return builder.valid(false)
-                        .errorMessage(
-                            String.format(
-                                Locale.ROOT,
-                                "Compression level [%s] is incompatible with [%s=%d] for encoder [%s]. "
-                                    + "Expected compression level: [%s]",
-                                configuredCompression.getName(),
-                                SQ_BITS,
-                                bits,
-                                ENCODER_SQ,
-                                expectedCompression.getName()
-                            )
+                    validationException.addValidationError(
+                        String.format(
+                            Locale.ROOT,
+                            "Compression level [%s] is incompatible with [%s=%d] for encoder [%s]. " + "Expected compression level: [%s]",
+                            configuredCompression.getName(),
+                            SQ_BITS,
+                            bits,
+                            ENCODER_SQ,
+                            expectedCompression.getName()
                         )
-                        .build();
+                    );
+                    throw validationException;
                 }
             }
         }
-
-        return builder.build();
     }
 
-    /**
-     * Checks whether the given method parameters map contains an sq encoder with bits=1.
-     * Works with both the method component parameters (from KNNMethodContext) and the
-     * per-field params map (from codec format resolver).
-     *
-     * @param params map that may contain a {@code METHOD_ENCODER_PARAMETER} entry
-     * @return true if the encoder is sq with bits=1
-     */
-    public static boolean isSQOneBit(Map<String, Object> params) {
-        if (params == null) {
-            return false;
+    @Override
+    public TrainingConfigValidationOutput validateEncoderConfig(TrainingConfigValidationInput validationInput) {
+        try {
+            validate(validationInput.getKnnMethodContext(), validationInput.getKnnMethodConfigContext());
+            return TrainingConfigValidationOutput.builder().build();
+        } catch (ValidationException e) {
+            return TrainingConfigValidationOutput.builder().valid(false).errorMessage(e.getMessage()).build();
         }
-        Object encoderObj = params.get(METHOD_ENCODER_PARAMETER);
-        if (encoderObj instanceof MethodComponentContext == false) {
-            return false;
-        }
-        MethodComponentContext encoderCtx = (MethodComponentContext) encoderObj;
-        if (ENCODER_SQ.equals(encoderCtx.getName()) == false) {
-            return false;
-        }
-        Object bits = encoderCtx.getParameters().get(SQ_BITS);
-        return bits instanceof Integer && (Integer) bits == Bits.ONE.getValue();
+    }
+
+    @Override
+    public EncoderType getEncoderType() {
+        return EncoderType.SQ;
+    }
+
+    @Override
+    public Set<QuantizationBits> getSupportedBits() {
+        return EnumSet.of(QuantizationBits.ONE, QuantizationBits.SIXTEEN);
     }
 }

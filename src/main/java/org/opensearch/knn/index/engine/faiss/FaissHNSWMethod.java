@@ -31,18 +31,14 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_HNSW_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
-import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
-import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
-import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 /**
  * Faiss HNSW method implementation
@@ -157,7 +153,6 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
 
     /**
      * Get the parameters that need to be passed to the remote build service for training from a KNNLibraryIndexingContext LibraryParameters map
-     * See example map in {@link FaissHNSWMethod#supportsRemoteIndexBuild}
      * @param parameters map to parse
      * @return Map of parameters to be used as "index_parameters" in the remote build request
      */
@@ -172,219 +167,6 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
         builder.efSearch(getIntegerFromMap(innerParameters, METHOD_PARAMETER_EF_SEARCH));
         builder.m(getIntegerFromMap(innerParameters, METHOD_PARAMETER_M));
         return builder.build();
-    }
-
-    /**
-     * @param parameters Map of method parameters including encoder information
-     * Example JSON structure:
-     * {
-     *   "index_description": "HNSW12,Flat",
-     *   "spaceType": "innerproduct",
-     *   "name": "hnsw",
-     *   "data_type": "float",
-     *   "parameters": {
-     *     "ef_search": 24,
-     *     "ef_construction": 28,
-     *     "m": 12,
-     *     "encoder": {
-     *       "name": "flat",
-     *       "parameters": {}
-     *     }
-     *   }
-     * }
-     * @return true if the method parameters + vector data type combination is supported for remote index build
-     */
-    @SuppressWarnings("unchecked")
-    static boolean supportsRemoteIndexBuild(final Map<String, Object> parameters) {
-        try {
-            final VectorDataType vectorDataType = extractVectorDataType(parameters);
-            final Map<String, Object> encoderMap = extractEncoderMap(parameters);
-
-            if (isSQOneBitIndex(vectorDataType, parameters)) {
-                return true;
-            }
-
-            if (isFloat32Index(vectorDataType, encoderMap)) {
-                return true;
-            }
-
-            if (isFloat16Index(vectorDataType, parameters)) {
-                return true;
-            }
-
-            if (isBinaryIndex(vectorDataType, encoderMap)) {
-                return true;
-            }
-
-            if (isQuantizedIndex(vectorDataType, encoderMap)) {
-                return true;
-            }
-
-            return isByteIndex(vectorDataType, encoderMap);
-        } catch (final Exception e) {
-            // We don't need to rethrow this, as technically, it is not error even we hit an exception here.
-            // It merely tells us that configured parameters are not set in a way that we expect for supported types.
-            log.warn(e.getMessage());
-        }
-
-        return false;
-    }
-
-    private static boolean isFloat32Index(final VectorDataType vectorDataType, final Map<String, Object> encoderMap) {
-        try {
-            // Check whether if float32 vector data
-            if (vectorDataType != VectorDataType.FLOAT) {
-                return false;
-            }
-
-            // Check encoding is 'flat'
-            final String encoder = getStringFromMap(encoderMap, NAME);
-            return encoder.equals(ENCODER_FLAT);
-        } catch (final Exception e) {
-            log.debug(e.getMessage());
-            // Ignore
-            return false;
-        }
-    }
-
-    /**
-     * From indexing library parameter, it determines whether configured index is FP16, scalar quantized.
-     *
-     * @param parameters KNN library indexing parameters.
-     * @return Trye if FP16, otherwise False.
-     */
-    public static boolean isFloat16Index(final VectorDataType vectorDataType, final Map<String, Object> parameters) {
-        try {
-            // Check whether if vector type is float
-            if (vectorDataType != VectorDataType.FLOAT) {
-                return false;
-            }
-
-            // Check encoding is 'sq' meaning fp32 is being scalar quantized to fp16
-            final Map<String, Object> encoderMap = extractEncoderMap(parameters);
-            final String encoder = getStringFromMap(encoderMap, NAME);
-            if (encoder.equals(ENCODER_SQ) == false) {
-                return false;
-            }
-            // bits is null for legacy pre-3.6.0 indexes which default to fp16
-            Object bits = encoderMap.get(SQ_BITS);
-            return bits == null || (bits instanceof Integer && (Integer) bits == FaissSQEncoder.Bits.SIXTEEN.getValue());
-        } catch (final Exception e) {
-            log.debug(e.getMessage());
-            // Ignore
-            return false;
-        }
-    }
-
-    private static boolean isBinaryIndex(final VectorDataType vectorDataType, final Map<String, Object> encoderMap) {
-        try {
-            // This index type is a binary case where user ingested binary vectors (e.g. bit stream)
-            // Therefore, we didn't do any quantization from our end, it is already done from user side.
-            // Check whether if vector type is binary
-            return vectorDataType == VectorDataType.BINARY && getStringFromMap(encoderMap, NAME).equals(ENCODER_FLAT);
-        } catch (final Exception e) {
-            log.warn(e.getMessage());
-            // Ignore
-            return false;
-        }
-    }
-
-    private static boolean isQuantizedIndex(final VectorDataType vectorDataType, final Map<String, Object> encoderMap) {
-        try {
-            // Check whether if vector type is FLOAT
-            // It is a little bit counter-intuitive, but for quantization, we set 'float' as a vector data type by the time
-            // this method is called.
-            if (vectorDataType != VectorDataType.FLOAT) {
-                return false;
-            }
-
-            // Check encoding is empty. For the quantization case, we don't save encoder.
-            return encoderMap.isEmpty();
-        } catch (final Exception e) {
-            log.debug(e.getMessage());
-            // Ignore
-            return false;
-        }
-    }
-
-    private static boolean isByteIndex(final VectorDataType vectorDataType, final Map<String, Object> encoderMap) {
-        try {
-            // Check whether if byte index
-            if (vectorDataType != VectorDataType.BYTE) {
-                return false;
-            }
-
-            // Check encoding is 'flat'
-            final String encoder = getStringFromMap(encoderMap, NAME);
-            return encoder.equals(ENCODER_FLAT);
-        } catch (final Exception e) {
-            log.debug(e.getMessage());
-            // Ignore
-            return false;
-        }
-    }
-
-    /**
-     * Checks whether the given parameters represent an SQ 1-bit index (encoder: sq, bits: 1).
-     *
-     * TODO: Consolidate the logic in this function with {@link FaissSQEncoder#isSQOneBit} into one function,
-     * so that there is a single source of truth. Currently, this is not possible because
-     * {@link FaissSQEncoder#isSQOneBit} assumes the encoder object is a {@link MethodComponentContext}.
-     *
-     * @param vectorDataType The data type for the vector field
-     * @param parameters KNN library indexing parameters
-     * @return true if SQ 1 bit, false otherwise
-     */
-    public static boolean isSQOneBitIndex(final VectorDataType vectorDataType, final Map<String, Object> parameters) {
-        try {
-            if (vectorDataType != VectorDataType.FLOAT) {
-                return false;
-            }
-            final Map<String, Object> encoderMap = extractEncoderMap(parameters);
-            final String encoder = getStringFromMap(encoderMap, NAME);
-            if (encoder.equals(ENCODER_SQ) == false) {
-                return false;
-            }
-            Object bits = encoderMap.get(SQ_BITS);
-            return bits instanceof Integer && (Integer) bits == FaissSQEncoder.Bits.ONE.getValue();
-        } catch (final Exception e) {
-            log.error("Failed to check if method parameters contain an sq encoder with bits=1", e);
-            // Ignore
-            return false;
-        }
-    }
-
-    /**
-     * Extract {@link VectorDataType} from parameter.
-     *
-     * @param parameters
-     * @return
-     */
-    private static VectorDataType extractVectorDataType(final Map<String, Object> parameters) {
-        // Check whether if byte index
-        final String dataType = getStringFromMap(parameters, VECTOR_DATA_TYPE_FIELD);
-        final VectorDataType vectorDataType = VectorDataType.get(dataType);
-        return vectorDataType;
-    }
-
-    /**
-     * Extract encoder map from the given parameters.
-     * Ex: {
-     *    ...
-     *    "parameters: {
-     *        "encoder": {
-     *            <This blob will be returned>
-     *        }
-     *    }
-     * }
-     *
-     * @param parameters
-     * @return
-     */
-    private static Map<String, Object> extractEncoderMap(final Map<String, Object> parameters) {
-        final Map<String, Object> innerMap = (Map<String, Object>) parameters.get(PARAMETERS);
-        final Map<String, Object> encoderMap = (Map<String, Object>) innerMap.get(METHOD_ENCODER_PARAMETER);
-        return encoderMap;
     }
 
     /**

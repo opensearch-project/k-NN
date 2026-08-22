@@ -8,6 +8,7 @@ package org.opensearch.knn.index.codec.nativeindex.remote;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
+import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.BuildResult;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
 import java.io.IOException;
@@ -16,7 +17,9 @@ import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorV
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.BUILD_REQUEST_FAILURE_COUNT;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.BUILD_REQUEST_SUCCESS_COUNT;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT;
+import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.INDEX_BUILD_MERGE_ABORT_EXCEPTION;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.INDEX_BUILD_SUCCESS_COUNT;
+import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.INDEX_BUILD_TERMINAL_EXCEPTION;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.READ_FAILURE_COUNT;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.READ_SUCCESS_COUNT;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.READ_TIME;
@@ -132,17 +135,34 @@ public class RemoteIndexBuildMetrics {
     }
 
     /**
-     * Helper method to collect overall remote index build metrics
+     * Helper method to collect overall remote index build metrics. The {@link BuildResult} determines which outcome
+     * counter is incremented. Benign terminations (merge aborts and terminal IO exceptions) are tracked with their own
+     * counters rather than {@link org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue#INDEX_BUILD_FAILURE_COUNT},
+     * so that {@code INDEX_BUILD_FAILURE_COUNT} reflects only genuine build failures
      */
-    public void endRemoteIndexBuildMetrics(boolean wasSuccessful) {
+    public void endRemoteIndexBuildMetrics(BuildResult buildResult) {
         long time_in_millis = overallStopWatch.stop().totalTime().millis();
-        if (wasSuccessful) {
-            INDEX_BUILD_SUCCESS_COUNT.increment();
-            log.debug("Remote index build succeeded after {} ms for vector field [{}]", time_in_millis, fieldName);
-        } else {
-            INDEX_BUILD_FAILURE_COUNT.increment();
-            log.debug("Remote index build failed after {} ms for vector field [{}]", time_in_millis, fieldName);
+        final String outcome;
+        switch (buildResult) {
+            case SUCCESS:
+                INDEX_BUILD_SUCCESS_COUNT.increment();
+                outcome = "succeeded";
+                break;
+            case MERGE_ABORT:
+                INDEX_BUILD_MERGE_ABORT_EXCEPTION.increment();
+                outcome = "aborted";
+                break;
+            case TERMINAL_IO:
+                INDEX_BUILD_TERMINAL_EXCEPTION.increment();
+                outcome = "terminated";
+                break;
+            case FAILURE:
+            default:
+                INDEX_BUILD_FAILURE_COUNT.increment();
+                outcome = "failed";
+                break;
         }
+        log.debug("Remote index build {} after {} ms for vector field [{}]", outcome, time_in_millis, fieldName);
         if (isFlush) {
             REMOTE_INDEX_BUILD_CURRENT_FLUSH_OPERATIONS.decrement();
             REMOTE_INDEX_BUILD_CURRENT_FLUSH_SIZE.decrementBy(size);

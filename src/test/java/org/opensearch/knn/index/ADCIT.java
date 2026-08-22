@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index;
 
+import java.util.Locale;
+
 import com.google.common.collect.ImmutableList;
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
@@ -98,7 +100,7 @@ public class ADCIT extends KNNRestTestCase {
         }
 
         // Create control index (with ADC disabled)
-        String controlIndexName = "adc-it-control-index-" + spaceType.toString().toLowerCase();
+        String controlIndexName = "adc-it-control-index-" + spaceType.toString().toLowerCase(Locale.ROOT);
         makeOnlyQBitIndex(controlIndexName, QFrameBitEncoder.ENABLE_ADC_PARAM, dimension, bits, false, spaceType);
 
         // Index documents
@@ -108,7 +110,7 @@ public class ADCIT extends KNNRestTestCase {
         forceMergeKnnIndex(controlIndexName);
 
         // Create test index (with ADC enabled)
-        String testIndexName = "adc-it-test-index-" + spaceType.toString().toLowerCase();
+        String testIndexName = "adc-it-test-index-" + spaceType.toString().toLowerCase(Locale.ROOT);
         makeOnlyQBitIndex(testIndexName, QFrameBitEncoder.ENABLE_ADC_PARAM, dimension, bits, true, spaceType);
 
         // Index same vectors
@@ -168,7 +170,7 @@ public class ADCIT extends KNNRestTestCase {
         }
 
         // Create control index (without filter)
-        String controlIndexName = "control-index" + spaceType.toString().toLowerCase();
+        String controlIndexName = "control-index" + spaceType.toString().toLowerCase(Locale.ROOT);
         makeOnlyQBitIndex(controlIndexName, QFrameBitEncoder.ENABLE_ADC_PARAM, dimension, bits, true, spaceType);
 
         // Index documents
@@ -197,7 +199,7 @@ public class ADCIT extends KNNRestTestCase {
             .collect(Collectors.toList());
 
         // Create test index (with filter)
-        String testIndexName = "test-index" + spaceType.toString().toLowerCase();
+        String testIndexName = "test-index" + spaceType.toString().toLowerCase(Locale.ROOT);
         makeOnlyQBitIndex(testIndexName, QFrameBitEncoder.ENABLE_ADC_PARAM, dimension, bits, true, spaceType);
 
         // Index same vectors

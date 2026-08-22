@@ -74,7 +74,8 @@ public class RNNQueryFactory extends BaseQueryFactory {
             innerQuery = createLuceneRadialQuery(createQueryRequest);
         }
 
-        if (createQueryRequest.getVectorFieldType() != null && createQueryRequest.getVectorFieldType().isRescoringRequiredForRadial()) {
+        // Only 1-bit SQ (32x compression) requires rescoring after radial search to eliminate false positives.
+        if (createQueryRequest.getVectorFieldType() != null && createQueryRequest.getVectorFieldType().getResolvedSpec().isSQOneBit()) {
             // Honor the index-level max_result_window setting to cap the number of results retained
             // after rescoring. Falls back to MAX_RESULTS_RADIAL_RESCORING if context is unavailable.
             final int maxResultsSize;
@@ -150,7 +151,13 @@ public class RNNQueryFactory extends BaseQueryFactory {
         final Query filterQuery = getFilterQuery(request);
 
         log.debug(
-            String.format("Creating Lucene r-NN query for index: %s \"\", field: %s \"\", k: %f", request.getIndexName(), fieldName, radius)
+            String.format(
+                Locale.ROOT,
+                "Creating Lucene r-NN query for index: %s \"\", field: %s \"\", k: %f",
+                request.getIndexName(),
+                fieldName,
+                radius
+            )
         );
 
         switch (request.getVectorDataType()) {

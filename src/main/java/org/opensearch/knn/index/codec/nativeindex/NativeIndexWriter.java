@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec.nativeindex;
 
+import java.util.Locale;
+
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
@@ -319,7 +321,7 @@ public class NativeIndexWriter {
         String modelId = fieldInfo.attributes().get(MODEL_ID);
         Model model = ModelCache.getInstance().get(modelId);
         if (model.getModelBlob() == null) {
-            throw new RuntimeException(String.format("There is no trained model with id \"%s\"", modelId));
+            throw new RuntimeException(String.format(Locale.ROOT, "There is no trained model with id \"%s\"", modelId));
         }
         return model;
     }

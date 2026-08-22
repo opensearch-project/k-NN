@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.engine.Encoder.QuantizationBits;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 
 import java.util.HashMap;
@@ -85,7 +86,7 @@ public class FaissFP16UtilTests extends KNNTestCase {
 
     public void testIsFaissSQfp16_sqEncoderWithBits1_returnsFalse() {
         Map<String, Object> encoderParams = new HashMap<>();
-        encoderParams.put(SQ_BITS, FaissSQEncoder.Bits.ONE.getValue());
+        encoderParams.put(SQ_BITS, QuantizationBits.ONE.getValue());
         MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, encoderParams);
         Map<String, Object> params = new HashMap<>();
         params.put(METHOD_ENCODER_PARAMETER, encoderContext);
@@ -105,7 +106,7 @@ public class FaissFP16UtilTests extends KNNTestCase {
 
     public void testIsFaissSQfp16_sqEncoderWithBits16_returnsTrue() {
         Map<String, Object> encoderParams = new HashMap<>();
-        encoderParams.put(SQ_BITS, FaissSQEncoder.Bits.SIXTEEN.getValue());
+        encoderParams.put(SQ_BITS, QuantizationBits.SIXTEEN.getValue());
         encoderParams.put(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16);
         MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, encoderParams);
         Map<String, Object> params = new HashMap<>();

@@ -5,14 +5,14 @@
 
 package org.opensearch.knn.index.query;
 
+import org.opensearch.common.Randomness;
+
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNRestTestCase;
-
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Abstract base for radial search integration tests on quantized indices.
@@ -116,7 +116,7 @@ public abstract class AbstractRadialSearchOnQuantizedIndexIT extends KNNRestTest
         for (int i = 0; i < NUM_DOCS; i++) {
             float[] vector = new float[DIMENSION];
             for (int j = 0; j < DIMENSION; j++) {
-                vector[j] = ThreadLocalRandom.current().nextFloat() * 4 - 2;
+                vector[j] = Randomness.get().nextFloat() * 4 - 2;
             }
             addKnnDoc(getIndexName(), Integer.toString(i), FIELD_NAME, vector);
         }
@@ -125,7 +125,7 @@ public abstract class AbstractRadialSearchOnQuantizedIndexIT extends KNNRestTest
     protected Response executeRadialSearch(String thresholdType, float thresholdValue) throws Exception {
         float[] queryVector = new float[DIMENSION];
         for (int i = 0; i < DIMENSION; i++) {
-            queryVector[i] = ThreadLocalRandom.current().nextFloat() * 4 - 2;
+            queryVector[i] = Randomness.get().nextFloat() * 4 - 2;
         }
 
         String query = XContentFactory.jsonBuilder()

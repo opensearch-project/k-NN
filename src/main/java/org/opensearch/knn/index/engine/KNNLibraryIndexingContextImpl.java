@@ -12,6 +12,7 @@ import org.opensearch.knn.index.mapper.PerDimensionValidator;
 import org.opensearch.knn.index.mapper.VectorTransformer;
 import org.opensearch.knn.index.mapper.VectorValidator;
 
+import org.opensearch.common.Nullable;
 import java.util.Collections;
 import java.util.Map;
 import java.util.function.Function;
@@ -31,6 +32,7 @@ public class KNNLibraryIndexingContextImpl implements KNNLibraryIndexingContext 
     @Builder.Default
     private QuantizationConfig quantizationConfig = QuantizationConfig.EMPTY;
     private Function<TrainingConfigValidationInput, TrainingConfigValidationOutput> trainingConfigValidationSetup;
+    private ResolvedIndexSpec resolvedSpec;
 
     @Override
     public Map<String, Object> getLibraryParameters() {
@@ -65,5 +67,11 @@ public class KNNLibraryIndexingContextImpl implements KNNLibraryIndexingContext 
     @Override
     public Function<TrainingConfigValidationInput, TrainingConfigValidationOutput> getTrainingConfigValidationSetup() {
         return trainingConfigValidationSetup;
+    }
+
+    @Override
+    @Nullable
+    public ResolvedIndexSpec getResolvedSpec() {
+        return resolvedSpec;
     }
 }

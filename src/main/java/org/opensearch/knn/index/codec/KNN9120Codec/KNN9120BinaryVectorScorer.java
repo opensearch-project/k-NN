@@ -7,7 +7,6 @@ package org.opensearch.knn.index.codec.KNN9120Codec;
 
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.VectorSimilarityFunction;
-import org.apache.lucene.util.Bits;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
@@ -18,7 +17,9 @@ import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import java.io.IOException;
 
 /**
- * A FlatVectorsScorer to be used for scoring binary vectors. Meant to be used with {@link KNN9120BinaryVectorScorer}
+ * A {@link FlatVectorsScorer} for scoring binary (Hamming) vectors. Used by {@link KNN9120HnswBinaryVectorsFormat}.
+ * The query path returns a fixed-target {@link BinaryRandomVectorScorer}; graph construction uses the updateable
+ * {@link BinaryUpdatableRandomVectorScorer} produced by {@link BinaryRandomVectorScorerSupplier}.
  */
 public class KNN9120BinaryVectorScorer implements FlatVectorsScorer {
     @Override
@@ -48,46 +49,67 @@ public class KNN9120BinaryVectorScorer implements FlatVectorsScorer {
         byte[] queryVector
     ) throws IOException {
         if (randomAccessVectorValues instanceof ByteVectorValues) {
+            // The query path uses a fixed-target scorer that extends AbstractRandomVectorScorer, mirroring Lucene's
+            // DefaultFlatVectorScorer. Only the supplier path (graph construction) needs the updateable scorer below.
             return new BinaryRandomVectorScorer((ByteVectorValues) randomAccessVectorValues, queryVector);
         }
         throw new IllegalArgumentException("vectorValues must be an instance of RandomAccessVectorValues.Bytes");
     }
 
-    static class BinaryRandomVectorScorer implements UpdateableRandomVectorScorer {
-        private final ByteVectorValues vectorValues;
+    /**
+     * Fixed-target query scorer for binary vectors. Mirrors Lucene's {@code DefaultFlatVectorScorer}, which returns a
+     * plain {@link RandomVectorScorer.AbstractRandomVectorScorer} for the query path (as opposed to the updateable
+     * {@link BinaryUpdatableRandomVectorScorer} used during graph construction). Extending {@code AbstractRandomVectorScorer}
+     * keeps the query scorer compatible with wrappers such as the prefetching scorer.
+     */
+    static class BinaryRandomVectorScorer extends RandomVectorScorer.AbstractRandomVectorScorer {
         private final byte[] queryVector;
 
         BinaryRandomVectorScorer(ByteVectorValues vectorValues, byte[] query) {
+            super(vectorValues);
             this.queryVector = query;
-            this.vectorValues = vectorValues;
         }
 
         @Override
         public float score(int node) throws IOException {
-            return KNNVectorSimilarityFunction.HAMMING.compare(queryVector, vectorValues.vectorValue(node));
+            return KNNVectorSimilarityFunction.HAMMING.compare(queryVector, ((ByteVectorValues) values()).vectorValue(node));
+        }
+    }
+
+    /**
+     * Just like a {@link BinaryRandomVectorScorer} but allows the scoring ordinal to be changed. Useful
+     * during indexing operations.
+     *
+     * <p>Mirrors Lucene's {@code DefaultFlatVectorScorer}: reads vectors for both {@link #score(int)} and
+     * {@link #setScoringOrdinal(int)} through an independent {@code targetVectors} copy (a distinct
+     * {@link ByteVectorValues} with its own {@code IndexInput} cursor and read buffer), while the base
+     * {@code values()} is used only for graph metadata. Using a separate copy avoids sharing a stateful
+     * cursor/buffer with the base values during graph construction.
+     */
+    static class BinaryUpdatableRandomVectorScorer extends UpdateableRandomVectorScorer.AbstractUpdateableRandomVectorScorer {
+        private final ByteVectorValues targetVectors;
+        private final byte[] vector;
+
+        BinaryUpdatableRandomVectorScorer(ByteVectorValues vectorValues, ByteVectorValues targetVectors, byte[] vector) {
+            super(vectorValues);
+            this.targetVectors = targetVectors;
+            this.vector = vector;
         }
 
         @Override
-        public int maxOrd() {
-            return vectorValues.size();
-        }
-
-        @Override
-        public int ordToDoc(int ord) {
-            return vectorValues.ordToDoc(ord);
-        }
-
-        @Override
-        public Bits getAcceptOrds(Bits acceptDocs) {
-            return vectorValues.getAcceptOrds(acceptDocs);
+        public float score(int node) throws IOException {
+            return KNNVectorSimilarityFunction.HAMMING.compare(vector, targetVectors.vectorValue(node));
         }
 
         @Override
         public void setScoringOrdinal(int node) throws IOException {
-            System.arraycopy(vectorValues.vectorValue(node), 0, queryVector, 0, queryVector.length);
+            System.arraycopy(targetVectors.vectorValue(node), 0, vector, 0, vector.length);
         }
     }
 
+    /**
+     * A supplier that creates {@link RandomVectorScorer} from an ordinal.
+     */
     static class BinaryRandomVectorScorerSupplier implements RandomVectorScorerSupplier {
         protected final ByteVectorValues vectorValues;
         protected final ByteVectorValues targetVectors;
@@ -100,7 +122,7 @@ public class KNN9120BinaryVectorScorer implements FlatVectorsScorer {
         @Override
         public UpdateableRandomVectorScorer scorer() throws IOException {
             byte[] query = new byte[vectorValues.dimension()];
-            return new BinaryRandomVectorScorer(vectorValues, query);
+            return new BinaryUpdatableRandomVectorScorer(vectorValues, targetVectors, query);
         }
 
         @Override

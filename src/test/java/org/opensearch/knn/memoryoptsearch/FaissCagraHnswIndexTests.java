@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
+import org.opensearch.common.Randomness;
+
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.index.FieldInfo;
@@ -27,7 +29,6 @@ import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.memoryoptsearch.FaissHNSWTests.loadHnswBinary;
@@ -65,7 +66,7 @@ public class FaissCagraHnswIndexTests extends KNNTestCase {
             // Build a query
             final float[] query = new float[DIMENSION];
             for (int i = 0; i < query.length; i++) {
-                query[i] = ThreadLocalRandom.current().nextFloat();
+                query[i] = Randomness.get().nextFloat();
             }
 
             // Start searching
