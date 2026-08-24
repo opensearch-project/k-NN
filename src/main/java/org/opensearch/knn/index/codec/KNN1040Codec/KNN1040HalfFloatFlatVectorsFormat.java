@@ -21,8 +21,8 @@ import java.util.Locale;
 
 /**
  * Custom {@link FlatVectorsFormat} implementation to support half-float vectors. This class is mostly identical to
- * {@link org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat}, however we use the custom
- * {@link KNN1040HalfFloatFlatVectorsWriter} for storage of half-float vectors.
+ * {@link org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat}, however we use the custom {@link KNN1040HalfFloatFlatVectorsWriter}
+ * and {@link KNN1040HalfFloatFlatVectorsReader} for storage and retrieval of half-float vectors.
  */
 public class KNN1040HalfFloatFlatVectorsFormat extends FlatVectorsFormat {
 
@@ -35,8 +35,8 @@ public class KNN1040HalfFloatFlatVectorsFormat extends FlatVectorsFormat {
     static final int VERSION_CURRENT = VERSION_START;
     static final int DIRECT_MONOTONIC_BLOCK_SHIFT = 16;
 
-    private static final FlatVectorsScorer KNN_1040_HALF_FLOAT_FLAT_VECTORS_SCORER = new PrefetchableFlatVectorScorer(
-        new NativeEngines990KnnVectorsScorer(FlatVectorScorerUtil.getLucene99FlatVectorsScorer())
+    private static final FlatVectorsScorer KNN_1040_HALF_FLOAT_FLAT_VECTORS_SCORER = new KNN1040HalfFloatVectorScorer(
+        new PrefetchableFlatVectorScorer(new NativeEngines990KnnVectorsScorer(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()))
     );
 
     public KNN1040HalfFloatFlatVectorsFormat() {
@@ -50,7 +50,7 @@ public class KNN1040HalfFloatFlatVectorsFormat extends FlatVectorsFormat {
 
     @Override
     public FlatVectorsReader fieldsReader(SegmentReadState state) throws IOException {
-        throw new UnsupportedOperationException("KNN1040HalfFloatFlatVectorsReader is not yet implemented");
+        return new KNN1040HalfFloatFlatVectorsReader(state, KNN_1040_HALF_FLOAT_FLAT_VECTORS_SCORER);
     }
 
     @Override
