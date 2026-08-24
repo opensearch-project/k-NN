@@ -21,7 +21,7 @@ import java.util.Locale;
 
 /**
  * Custom {@link FlatVectorsFormat} implementation to support half-float vectors. This class is mostly identical to
- * {@link org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat}, however we use the custom {@link KNN1040HalfFloatFlatVectorsWriter}
+ * {@link org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat}, however we use the custom KNN1040HalfFloatFlatVectorsWriter
  * and {@link KNN1040HalfFloatFlatVectorsReader} for storage and retrieval of half-float vectors.
  */
 public class KNN1040HalfFloatFlatVectorsFormat extends FlatVectorsFormat {
