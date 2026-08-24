@@ -12,6 +12,7 @@ import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.FieldInfo;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissBinaryHnswIndex;
 import org.opensearch.knn.memoryoptsearch.faiss.binary.FaissBinaryIndex;
@@ -38,6 +39,12 @@ public class FaissFlatIndexFactory {
         if (FieldInfoExtractor.isSQField(fieldInfo)
             && FieldInfoExtractor.extractSQConfig(fieldInfo).getBits() == Encoder.QuantizationBits.ONE.getValue()) {
             return new FaissScalarQuantizedFlatIndex(flatVectorsReader, fieldInfo.getName());
+        }
+        // FP32 flat-vector dedup: a full-precision (non-quantized) float field whose embedded flat storage was skipped
+        // in the .faiss (index.knn.advanced.flat_vector_dedup). Serve the vectors from Lucene's .vec file.
+        if (FieldInfoExtractor.isSQField(fieldInfo) == false
+            && FieldInfoExtractor.extractVectorDataType(fieldInfo) == VectorDataType.FLOAT) {
+            return new FaissFP32FlatIndex(flatVectorsReader, fieldInfo.getName());
         }
         return null;
     }
@@ -94,6 +101,27 @@ public class FaissFlatIndexFactory {
                     "Unsupported metric type: " + metricType + ", only support " + Arrays.asList(FaissMetricType.values())
                 );
             }
+            return;
+        }
+
+        // Float HNSW path (local JNI build with IO_FLAG_SKIP_STORAGE for FP32 flat-vector dedup). A plain float HNSW
+        // (IHNf) whose flat storage was skipped loads a FaissEmptyIndex placeholder; replace it with a Lucene-backed
+        // FP32 flat index. NOTE: this method also handles binary/CAGRA; the "Binary" in its name is historical.
+        if (nested instanceof FaissHNSWIndex hnswIndex && FaissEmptyIndex.isEmptyIndex(hnswIndex.getFlatVectors())) {
+            final FaissIndex flatIndex = createFlatIndex(fieldInfo, flatVectorsReader);
+            if (flatIndex == null) {
+                throw new IllegalStateException(
+                    String.format(
+                        Locale.ROOT,
+                        "%s found for field [%s] but %s returned null - cannot wire flat storage for float HNSW index.",
+                        FaissEmptyIndex.class.getName(),
+                        fieldInfo.getName(),
+                        FaissFlatIndexFactory.class.getName()
+                    )
+                );
+            }
+            hnswIndex.setFlatVectors(flatIndex);
+            // No space type override needed - float HNSW reads the correct metric type from readCommonHeader() in doLoad().
             return;
         }
 

@@ -184,7 +184,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
                 nativeIndexWriterMockedStatic.when(
-                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory, null)
+                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory, null, false)
                 ).thenReturn(nativeIndexWriter);
             });
 
@@ -285,7 +285,8 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                         segmentWriteState,
                         quantizationState,
                         nativeIndexBuildStrategyFactory,
-                        null
+                        null,
+                        false
                     )
                 ).thenReturn(nativeIndexWriter);
             });
@@ -383,7 +384,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
                 nativeIndexWriterMockedStatic.when(
-                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory, null)
+                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory, null, false)
                 ).thenReturn(nativeIndexWriter);
             });
 
@@ -458,7 +459,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
                 nativeIndexWriterMockedStatic.when(
-                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory, null)
+                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory, null, false)
                 ).thenReturn(nativeIndexWriter);
             });
 
@@ -533,7 +534,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
                 nativeIndexWriterMockedStatic.when(
-                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory, null)
+                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory, null, false)
                 ).thenReturn(nativeIndexWriter);
             });
 
@@ -617,7 +618,7 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
 
                 when(quantizationService.getQuantizationParams(fieldInfo)).thenReturn(null);
                 nativeIndexWriterMockedStatic.when(
-                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory, null)
+                    () -> NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, null, nativeIndexBuildStrategyFactory, null, false)
                 ).thenReturn(nativeIndexWriter);
             });
 
@@ -716,7 +717,8 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                         segmentWriteState,
                         quantizationState,
                         nativeIndexBuildStrategyFactory,
-                        null
+                        null,
+                        false
                     )
                 ).thenReturn(nativeIndexWriter);
             });
@@ -826,7 +828,8 @@ public class NativeEngines990KnnVectorsWriterFlushTests extends OpenSearchTestCa
                         segmentWriteState,
                         quantizationState,
                         nativeIndexBuildStrategyFactory,
-                        null
+                        null,
+                        false
                     )
                 ).thenReturn(nativeIndexWriter);
             });

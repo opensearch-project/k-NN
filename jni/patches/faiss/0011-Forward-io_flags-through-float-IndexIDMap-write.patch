@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Gaurav Kumar <gku@amazon.com>
+Date: Wed, 20 Aug 2026 00:00:00 -0700
+Subject: [PATCH] Forward io_flags through the float IndexIDMap write branch
+
+Mirror patch 0008 (which added IO_FLAG_SKIP_STORAGE forwarding for the
+binary IndexBinaryIDMap) for the float write path. The float index is
+serialized as IndexIDMap wrapping IndexHNSWFlat; without forwarding
+io_flags here, IO_FLAG_SKIP_STORAGE never reaches the IndexHNSW writer
+(which already honors it at the "null" storage branch), so a graph-only
+.faiss cannot be produced for FP32 flat-vector deduplication.
+
+Signed-off-by: Gaurav Kumar <gku@amazon.com>
+---
+ faiss/impl/index_write.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/faiss/impl/index_write.cpp b/faiss/impl/index_write.cpp
+index def7dcd2b..f396177e1 100644
+--- a/faiss/impl/index_write.cpp
++++ b/faiss/impl/index_write.cpp
+@@ -765,7 +765,7 @@ void write_index(const Index* idx, IOWriter* f, int io_flags) {
+         // no need to store additional info for IndexIDMap2
+         WRITE1(h);
+         write_index_header(idxmap, f);
+-        write_index(idxmap->index, f);
++        write_index(idxmap->index, f, io_flags);
+         WRITEVECTOR(idxmap->id_map);
+     } else if (const IndexHNSW* idxhnsw = dynamic_cast<const IndexHNSW*>(idx)) {
+         uint32_t h = dynamic_cast<const IndexHNSWFlat*>(idx) ? fourcc("IHNf")

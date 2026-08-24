@@ -113,7 +113,7 @@ public class JNIService {
             } else if (IndexUtil.isByteIndex(parameters)) {
                 FaissService.writeByteIndex(indexAddress, output);
             } else {
-                FaissService.writeIndex(indexAddress, output);
+                FaissService.writeIndex(indexAddress, output, skipFlat);
             }
             return;
         }

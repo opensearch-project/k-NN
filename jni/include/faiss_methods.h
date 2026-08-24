@@ -36,7 +36,7 @@ public:
 
     virtual faiss::IndexIDMapTemplate<faiss::IndexBinary>* indexBinaryIdMap(faiss::IndexBinary* index);
 
-    virtual void writeIndex(const faiss::Index* idx, faiss::IOWriter* writer);
+    virtual void writeIndex(const faiss::Index* idx, faiss::IOWriter* writer, bool skipFlat);
 
     virtual void writeIndexBinary(const faiss::IndexBinary* idx, faiss::IOWriter* writer, bool skipFlat);
 

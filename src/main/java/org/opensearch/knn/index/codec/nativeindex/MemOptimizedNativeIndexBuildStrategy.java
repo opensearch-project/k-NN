@@ -122,7 +122,13 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
 
             // Write vector
             AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-                JNIService.writeIndex(indexInfo.getIndexOutputWithBuffer(), indexMemoryAddress, engine, indexParameters, false);
+                JNIService.writeIndex(
+                    indexInfo.getIndexOutputWithBuffer(),
+                    indexMemoryAddress,
+                    engine,
+                    indexParameters,
+                    indexInfo.isSkipVectorStorage()
+                );
                 return null;
             });
 

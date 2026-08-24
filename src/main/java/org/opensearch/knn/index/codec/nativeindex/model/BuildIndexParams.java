@@ -44,4 +44,10 @@ public class BuildIndexParams {
      */
     @Nullable
     QuantizedByteVectorValues quantizedByteVectorValues;
+    /**
+     * When true, the flat vector storage is not embedded in the .faiss file (a graph-only index is written via
+     * IO_FLAG_SKIP_STORAGE) and vectors are served from Lucene's .vec file at search time. Set only for FAISS FP32
+     * HNSW fields when {@code index.knn.advanced.flat_vector_dedup} is enabled; false otherwise.
+     */
+    boolean skipVectorStorage;
 }

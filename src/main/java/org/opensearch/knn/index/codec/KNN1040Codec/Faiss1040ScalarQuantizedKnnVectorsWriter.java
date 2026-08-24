@@ -126,7 +126,9 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
                 approximateThreshold,
                 segmentWriteState,
                 nativeIndexBuildStrategyFactory,
-                quantizedValues
+                quantizedValues,
+                // SQ has its own graph-only path; FP32 flat-vector dedup does not apply here.
+                false
             );
         } finally {
             IOUtils.close(flatVectorsReader);
@@ -167,7 +169,9 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
                 approximateThreshold,
                 segmentWriteState,
                 nativeIndexBuildStrategyFactory,
-                quantizedValues
+                quantizedValues,
+                // SQ has its own graph-only path; FP32 flat-vector dedup does not apply here.
+                false
             );
         } finally {
             IOUtils.close(flatVectorsReader);

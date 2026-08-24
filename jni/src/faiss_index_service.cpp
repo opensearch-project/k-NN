@@ -149,7 +149,7 @@ void IndexService::writeIndex(
 
     try {
         // Write the index to disk
-        faissMethods->writeIndex(idMap.get(), writer);
+        faissMethods->writeIndex(idMap.get(), writer, skipFlat);
         if (auto openSearchIOWriter = dynamic_cast<knn_jni::stream::FaissOpenSearchIOWriter*>(writer)) {
             openSearchIOWriter->flush();
         }
@@ -396,7 +396,7 @@ void ByteIndexService::writeIndex(
 
     try {
         // Write the index to disk
-        faissMethods->writeIndex(idMap.get(), writer);
+        faissMethods->writeIndex(idMap.get(), writer, skipFlat);
         if (auto openSearchIOWriter = dynamic_cast<knn_jni::stream::FaissOpenSearchIOWriter*>(writer)) {
             openSearchIOWriter->flush();
         }

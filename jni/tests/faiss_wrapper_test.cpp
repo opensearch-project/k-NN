@@ -18,6 +18,8 @@
 #include "jni_util.h"
 #include "test_util.h"
 #include "faiss/IndexHNSW.h"
+#include "faiss/IndexIDMap.h"
+#include "faiss/index_io.h"
 #include "faiss/IndexBinaryHNSW.h"
 #include "faiss/IndexIVFPQ.h"
 #include "faiss/IndexIVFFlat.h"
@@ -1926,4 +1928,52 @@ TEST(FaissLoadIndexWithStreamADCTest, PreservesIdMapping) {
 
     // Clean up
     knn_jni::faiss_wrapper::Free(resultPtr, JNI_FALSE);
+}
+
+// Verifies the FP32 flat-vector dedup write side: writing a float IndexIDMap<IndexHNSWFlat> with
+// IO_FLAG_SKIP_STORAGE must produce a graph-only index (null storage). This exercises faiss patch 0011,
+// which forwards io_flags through the float IndexIDMap write branch so the flag reaches the IndexHNSW
+// writer's "null" storage branch. Without the patch, the storage would still be embedded.
+TEST(FaissFloatSkipStorageTest, GraphOnlyIndexWrittenWithSkipStorage) {
+    const int dim = 8;
+    const int numVecs = 60;
+    std::vector<float> vectors(dim * numVecs);
+    for (int i = 0; i < dim * numVecs; ++i) {
+        vectors[i] = test_util::RandomFloat(-1.0f, 1.0f);
+    }
+    std::vector<faiss::idx_t> ids(numVecs);
+    for (int i = 0; i < numVecs; ++i) {
+        ids[i] = i;
+    }
+
+    // Mirror the OpenSearch FP32 write layout: IndexIDMap wrapping IndexHNSWFlat.
+    faiss::IndexHNSWFlat hnsw(dim, 16, faiss::METRIC_L2);
+    faiss::IndexIDMap idMap(&hnsw);
+    idMap.add_with_ids(numVecs, vectors.data(), ids.data());
+
+    const std::string fullPath = test_util::RandomString(16, "tmp/", ".faiss");
+    const std::string skipPath = test_util::RandomString(16, "tmp/", ".faiss");
+
+    // Full write embeds the flat storage; skip write must omit it (graph-only).
+    faiss::write_index(&idMap, fullPath.c_str());
+    faiss::write_index(&idMap, skipPath.c_str(), faiss::IO_FLAG_SKIP_STORAGE);
+
+    // Full build: storage is present.
+    std::unique_ptr<faiss::Index> readFull(faiss::read_index(fullPath.c_str()));
+    auto* idMapFull = dynamic_cast<faiss::IndexIDMap*>(readFull.get());
+    ASSERT_NE(idMapFull, nullptr);
+    auto* hnswFull = dynamic_cast<faiss::IndexHNSW*>(idMapFull->index);
+    ASSERT_NE(hnswFull, nullptr);
+    ASSERT_NE(hnswFull->storage, nullptr);
+
+    // Graph-only build: storage is null (the "null" marker). Relies on faiss patch 0011.
+    std::unique_ptr<faiss::Index> readSkip(faiss::read_index(skipPath.c_str()));
+    auto* idMapSkip = dynamic_cast<faiss::IndexIDMap*>(readSkip.get());
+    ASSERT_NE(idMapSkip, nullptr);
+    auto* hnswSkip = dynamic_cast<faiss::IndexHNSW*>(idMapSkip->index);
+    ASSERT_NE(hnswSkip, nullptr);
+    ASSERT_EQ(hnswSkip->storage, nullptr);
+
+    std::remove(fullPath.c_str());
+    std::remove(skipPath.c_str());
 }
