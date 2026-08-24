@@ -16,19 +16,8 @@ import org.opensearch.knn.jni.SimdFp16;
 
 import static org.mockito.Mockito.mock;
 
-/**
- * Verifies {@link KNN1040HalfFloatFlatVectorsValues#selectFallbackScorer} wraps its result in
- * {@link PrefetchableRandomVectorScorer} - regardless of which inner branch (native SIMD or plain
- * Java) it takes - so this fallback tier still prefetches ahead of bulk scoring, same as the mmap
- * tier already gets via {@code KNN1040HalfFloatVectorScorer#getRandomVectorScorer}.
- */
 public class KNN1040HalfFloatFlatVectorsValuesTests extends KNNTestCase {
 
-    // Only exercises selectFallbackScorer's construction, never .score()/.bulkScore(): the native
-    // branch's constructor makes a real (unmocked) SimdVectorComputeService#saveSearchContext call
-    // with a real target and an empty address array - the same legitimate pattern the byte-copy merge
-    // tier already uses successfully in production - but actually scoring against a mocked/fake
-    // address would risk the native SIGSEGV documented in KNN1040HalfFloatVectorScorerTests.
     @SneakyThrows
     public void testSelectFallbackScorer_nativeTierAvailable_isWrappedInPrefetchableScorer() {
         assertFallbackScorerIsPrefetchable(VectorSimilarityFunction.EUCLIDEAN, true);

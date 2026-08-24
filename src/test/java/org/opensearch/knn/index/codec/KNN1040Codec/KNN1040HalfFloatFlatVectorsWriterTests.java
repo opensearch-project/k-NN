@@ -138,11 +138,7 @@ public class KNN1040HalfFloatFlatVectorsWriterTests extends KNNTestCase {
                 writer.finish();
             }
 
-            String metaFileName = IndexFileNames.segmentFileName(
-                "_0",
-                segmentSuffix,
-                KNN1040HalfFloatFlatVectorsFormat.META_EXTENSION
-            );
+            String metaFileName = IndexFileNames.segmentFileName("_0", segmentSuffix, KNN1040HalfFloatFlatVectorsFormat.META_EXTENSION);
             String vectorDataFileName = IndexFileNames.segmentFileName(
                 "_0",
                 segmentSuffix,
@@ -182,11 +178,7 @@ public class KNN1040HalfFloatFlatVectorsWriterTests extends KNNTestCase {
                 writer.finish();
             }
 
-            String vectorDataFileName = IndexFileNames.segmentFileName(
-                "_0",
-                "",
-                KNN1040HalfFloatFlatVectorsFormat.VECTOR_DATA_EXTENSION
-            );
+            String vectorDataFileName = IndexFileNames.segmentFileName("_0", "", KNN1040HalfFloatFlatVectorsFormat.VECTOR_DATA_EXTENSION);
             try (IndexInput input = dir.openInput(vectorDataFileName, IOContext.DEFAULT)) {
                 CodecUtil.checkIndexHeader(
                     input,

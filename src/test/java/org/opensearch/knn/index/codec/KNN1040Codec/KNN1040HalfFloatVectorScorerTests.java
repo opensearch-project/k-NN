@@ -24,13 +24,6 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/**
- * Verifies {@link KNN1040HalfFloatVectorScorer#getRandomVectorScorerSupplier} picks the decode-free
- * native SIMD tier when a native FP16 kernel exists for the similarity function and SIMD is
- * available, and otherwise falls back to {@link org.apache.lucene.codecs.hnsw.DefaultFlatVectorScorer}
- * - the same crash this class was written to avoid (see class javadoc). This guards against silently
- * regressing back to the slow/crashing fallback for spaces that should be using native SIMD.
- */
 public class KNN1040HalfFloatVectorScorerTests extends KNNTestCase {
 
     private static final String NATIVE_TIER_CLASS_NAME = "HalfFloatRandomVectorScorerSupplier";
@@ -47,7 +40,7 @@ public class KNN1040HalfFloatVectorScorerTests extends KNNTestCase {
 
     @SneakyThrows
     public void testGetRandomVectorScorerSupplier_cosine_neverUsesNativeTierRegardlessOfSimd() {
-        // No native FP16 kernel exists for COSINE at all - must fall back even when SIMD is available.
+        // No native FP16 kernel exists for COSINE yet so must fall back even when SIMD is available.
         assertFallbackTierUsed(VectorSimilarityFunction.COSINE, true);
         assertFallbackTierUsed(VectorSimilarityFunction.COSINE, false);
     }
@@ -57,12 +50,6 @@ public class KNN1040HalfFloatVectorScorerTests extends KNNTestCase {
         assertFallbackTierUsed(VectorSimilarityFunction.EUCLIDEAN, false);
     }
 
-    // Deliberately never invokes .scorer()/.score(): SimdVectorComputeService's methods are declared
-    // `native`, and Mockito's mockStatic does not reliably intercept JNI-linked native methods in this
-    // environment - a version of this test that called .score() with a fake address crashed the JVM
-    // with a real SIGSEGV inside the native FP16 SIMD library instead of hitting the mock. Verifying
-    // via reflection that the address is threaded into the supplier (rather than discarded, as before
-    // this change) covers the actual behavior change without touching native code at all.
     @SneakyThrows
     public void testGetRandomVectorScorerSupplier_mmapAvailable_threadsAddressIntoSupplier() {
         final FlatVectorsScorer mockDelegate = mock(FlatVectorsScorer.class);
@@ -85,10 +72,6 @@ public class KNN1040HalfFloatVectorScorerTests extends KNNTestCase {
         }
     }
 
-    // Same native-call safety note as above: setScoringOrdinal constructs a real HalfFloatRandomVectorScorer
-    // (a legitimate saveSearchContext call with a real target and an empty address array, matching the
-    // byte-copy tier's normal production behavior), but this test never calls .score()/.bulkScore(), so
-    // it never risks dereferencing anything.
     @SneakyThrows
     public void testGetRandomVectorScorerSupplier_scorerWrapsDelegateInPrefetchableScorer() {
         final FlatVectorsScorer mockDelegate = mock(FlatVectorsScorer.class);

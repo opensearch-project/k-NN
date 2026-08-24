@@ -427,11 +427,6 @@ public class KNN1040HalfFloatFlatVectorsFormatTests extends KNNTestCase {
         }
     }
 
-    /**
-     * Reflectively unwraps the {@code RandomVectorScorer} captured in the anonymous
-     * {@link VectorScorer} that {@code scorer()} returns (stored as javac's synthetic
-     * {@code val$scorer} field), so production code doesn't need a test-only accessor.
-     */
     private static RandomVectorScorer unwrapCapturedScorer(VectorScorer vectorScorer) throws Exception {
         return getPrivateField(vectorScorer, "val$scorer", RandomVectorScorer.class);
     }
