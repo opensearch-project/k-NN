@@ -29,7 +29,7 @@ import java.io.IOException;
  *
  * Implements {@link HasIndexSlice} so that {@link org.opensearch.knn.memoryoptsearch.faiss.MMapFloatVectorValues}
  * can expose the underlying slice for I/O prefetching. Callers must not hand an instance of this
- * class directly to Lucene's own flat vector scorer factory ({@code Lucene99FlatVectorsScorer}):
+ * class directly to Lucene's own flat vector scorer factoryß ({@code Lucene99FlatVectorsScorer}):
  * that factory independently detects {@code HasIndexSlice} and reads the raw slice assuming
  * 4 bytes/dimension (float32), which silently overreads past the buffer on this FP16 (2 bytes/dimension)
  * data. Use {@link #selectFallbackScorer(KNN1040HalfFloatFlatVectorsValues, float[], VectorSimilarityFunction)}
@@ -167,13 +167,10 @@ class KNN1040HalfFloatFlatVectorsValues extends FloatVectorValues implements Has
         );
         SimdVectorComputeService.SimilarityFunctionType nativeType = NativeEngines990KnnVectorsScorer.getNativeFunctionType(similarity);
         if (addressAndSize != null && nativeType != null) {
-            // Safe only with both mmap and a native type: the chain then builds
-            // NativeRandomVectorScorer directly and never reaches Lucene's delegate.
             MMapFloatVectorValues mmapValues = new MMapFloatVectorValues(values, addressAndSize);
             return values.flatVectorsScorer.getRandomVectorScorer(similarity, mmapValues, target);
         }
-        // Never hand `values` to the shared chain: Lucene's delegate would read its HasIndexSlice
-        // slice as float32 and overrun this FP16 data.
+
         return selectFallbackScorer(values, target, similarity);
     }
 

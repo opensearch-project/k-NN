@@ -45,10 +45,8 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
         KnnVectorValues vectorValues
     ) throws IOException {
         FloatVectorValues bottomValues = WrappedFloatVectorValues.getBottomFloatVectorValues(vectorValues);
-        // MMapFloatVectorValues doesn't extend WrappedFloatVectorValues, so the unwrap above stops at
-        // it rather than reaching the FP16 values it wraps - unwrap that one extra layer here. Keep its
-        // address around: when present, candidate scoring can read straight from mapped memory instead
-        // of copying each candidate's bytes out of the IndexInput slice first.
+        // The unwrap above stops at MMapFloatVectorValues; unwrap one more layer and keep its address
+        // for zero-copy scoring straight off mapped memory.
         long[] addressAndSize = null;
         if (bottomValues instanceof MMapFloatVectorValues mmapValues) {
             addressAndSize = mmapValues.getAddressAndSize();
@@ -61,16 +59,8 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
             if (nativeType != null && SimdFp16.isSIMDSupported()) {
                 return new HalfFloatRandomVectorScorerSupplier(halfFloatValues, nativeType, addressAndSize);
             }
-            // No native FP16 kernel for this similarity function (e.g. COSINE - see
-            // NativeEngines990KnnVectorsScorer#getNativeFunctionType), or SIMD isn't available. Must
-            // still never hand `halfFloatValues` to `delegate` below: that's Lucene's *optimized*
-            // scorer chain, which detects HasIndexSlice and reads the raw slice assuming 4
-            // bytes/dimension (float32), corrupting/crashing on this FP16 (2 bytes/dimension) data -
-            // the same danger `KNN1040HalfFloatFlatVectorsValues#selectFallbackScorer` already avoids
-            // for search. DefaultFlatVectorScorer is Lucene's plain, non-accelerated scorer: it only
-            // ever calls FloatVectorValues#vectorValue(ord) - our own correct FP16 decode - and never
-            // does any HasIndexSlice/memory-segment detection, so it's safe here even though the
-            // values also implement HasIndexSlice for the (separate, guarded) mmap-native path above.
+            // No native kernel or SIMD unavailable: never hand halfFloatValues to delegate, which
+            // assumes 4 bytes/dimension and would overread this FP16 (2-byte) data.
             return DefaultFlatVectorScorer.INSTANCE.getRandomVectorScorerSupplier(similarityFunction, halfFloatValues);
         }
         return delegate.getRandomVectorScorerSupplier(similarityFunction, vectorValues);
@@ -106,7 +96,7 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
      * {@link UpdateableRandomVectorScorer#setScoringOrdinal} is decoded once (via
      * {@link KNN1040HalfFloatFlatVectorsValues#vectorValue}) to build the native search context;
      * every subsequent candidate comparison against it stays fully byte-based - one decode per graph
-     * node instead of one per graph edge, versus the generic Lucene fallback this replaces.
+     * node instead of one per graph edge.
      */
     private static final class HalfFloatRandomVectorScorerSupplier implements RandomVectorScorerSupplier {
         private final KNN1040HalfFloatFlatVectorsValues values;
@@ -129,10 +119,6 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
         public UpdateableRandomVectorScorer scorer() {
             return new UpdateableRandomVectorScorer.AbstractUpdateableRandomVectorScorer(values) {
                 private HalfFloatRandomVectorScorer delegate;
-                // Wraps `delegate` once it exists, prefetching candidate bytes ahead of each bulkScore
-                // call - same PrefetchableRandomVectorScorer used for search's mmap tier and the flat
-                // fallback tier. Built once alongside `delegate` and reused across setScoringOrdinal
-                // calls, same as the buffer/native-context reuse below.
                 private PrefetchableRandomVectorScorer prefetchableDelegate;
 
                 @Override
@@ -142,8 +128,7 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
                         delegate = new HalfFloatRandomVectorScorer(values, target, nativeType, addressAndSize);
                         prefetchableDelegate = new PrefetchableRandomVectorScorer(delegate);
                     } else {
-                        // Reuse the existing scorer/buffer instead of allocating a fresh one for every
-                        // graph node - only the native search context needs to change.
+                        // Reuse the existing scorer/buffer instead of allocating a fresh one for every graph node
                         delegate.setTarget(target);
                     }
                 }
@@ -173,17 +158,11 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
     }
 
     /**
-     * Scores FP16 vectors via native SIMD. When {@code addressAndSize} is available (the segment
-     * being read from is mmap-backed), candidates are scored directly off mapped memory by ordinal -
-     * the same zero-copy mechanism {@link org.opensearch.knn.memoryoptsearch.faiss.NativeRandomVectorScorer}
-     * uses for search - via {@link SimdVectorComputeService#scoreSimilarity}/{@code scoreSimilarityInBulk}.
-     * Otherwise candidates are read one at a time from the segment's {@link org.apache.lucene.store.IndexInput}
-     * slice into a heap buffer before scoring via {@link SimdVectorComputeService#scoreSimilarityInBulkFromFp16Bytes}.
-     *
-     * The search context (query buffer + similarity function, plus the mmap address when present) is
-     * saved once per target in {@link #setTarget}, since the "current" graph node being scored against
-     * changes on every {@link UpdateableRandomVectorScorer#setScoringOrdinal} call during HNSW graph
-     * build - unlike search's fixed-for-the-scorer's-lifetime query.
+     * Scores FP16 vectors via native SIMD: directly off mapped memory when {@code addressAndSize} is
+     * present (mmap-backed, zero-copy), otherwise by reading candidates into a heap buffer first.
+     * {@link #setTarget} re-saves the native search context on every
+     * {@link UpdateableRandomVectorScorer#setScoringOrdinal} call, since HNSW graph build scores
+     * against a new "current" node each time, unlike search's fixed query.
      */
     static class HalfFloatRandomVectorScorer extends RandomVectorScorer.AbstractRandomVectorScorer {
         // Matches KNN1040HalfFloatFlatVectorsReader's bulk batch size, so the non-mmap buffer is
@@ -195,7 +174,6 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
         private byte[] vectorBytesBuffer;
         private final float[] singleScoreBuffer = new float[1];
         private final int[] singleVectorId = new int[] { 0 };
-        // Positional ids of the vectors packed into vectorBytesBuffer - only used without an mmap address
         private int[] identityIds = new int[0];
 
         HalfFloatRandomVectorScorer(

@@ -37,12 +37,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Tests {@link KNN1040HalfFloatFlatVectorsReader} in isolation, without going through
- * {@link KNN1040HalfFloatFlatVectorsWriter}. Fixtures are written directly with low-level Lucene
- * primitives (mirroring the writer's on-disk layout, not calling the writer class itself), so a bug
- * introduced only in the writer can't mask a bug in the reader, or vice versa.
- */
 public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
 
     private static final String FIELD_NAME = "fp16_vector";
@@ -131,8 +125,6 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
     @SneakyThrows
     public void testFieldEntry_dimensionMismatch_throws() {
         try (Directory dir = new ByteBuffersDirectory()) {
-            // Meta records DIMENSION+1 vectors' worth of dimension, but FieldInfo (read separately by
-            // the reader) still says DIMENSION - triggers the "Inconsistent vector dimension" check.
             SegmentReadState readState = writeRawSegment(
                 dir,
                 new float[][] { { 1f, 2f, 3f, 4f } },
@@ -147,8 +139,6 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
     @SneakyThrows
     public void testFieldEntry_similarityMismatch_throws() {
         try (Directory dir = new ByteBuffersDirectory()) {
-            // Meta records COSINE's ordinal, but FieldInfo says EUCLIDEAN - triggers the "Inconsistent
-            // vector similarity function" check.
             SegmentReadState readState = writeRawSegment(
                 dir,
                 new float[][] { { 1f, 2f, 3f, 4f } },
@@ -191,8 +181,6 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
     @SneakyThrows
     public void testReadFields_unknownFieldNumber_throws() {
         try (Directory dir = new ByteBuffersDirectory()) {
-            // FieldInfos only has field number 0 (see createFieldInfo); recording 99 in meta instead
-            // triggers readFields()'s own "Invalid field number" check, before FieldEntry ever exists.
             SegmentReadState readState = writeRawSegment(
                 dir,
                 new float[][] { { 1f, 2f, 3f, 4f } },
@@ -207,8 +195,6 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
     @SneakyThrows
     public void testReadSimilarityFunction_outOfRangeOrdinal_throws() {
         try (Directory dir = new ByteBuffersDirectory()) {
-            // 99 is out of SIMILARITY_FUNCTIONS' range - caught by readSimilarityFunction() itself,
-            // distinct from testFieldEntry_similarityMismatch_throws's in-range-but-wrong value.
             SegmentReadState readState = writeRawSegment(
                 dir,
                 new float[][] { { 1f, 2f, 3f, 4f } },
@@ -223,8 +209,6 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
     @SneakyThrows
     public void testReadVectorEncoding_outOfRangeOrdinal_throws() {
         try (Directory dir = new ByteBuffersDirectory()) {
-            // 99 is out of VectorEncoding.values()' range - caught by readVectorEncoding() itself,
-            // distinct from testFieldEntry_encodingMismatch_throws's in-range-but-wrong value.
             SegmentReadState readState = writeRawSegment(
                 dir,
                 new float[][] { { 1f, 2f, 3f, 4f } },
@@ -288,8 +272,6 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
             SegmentReadState readState = writeRawSegment(dir, new float[][] { { 1f, 2f, 3f, 4f } }, VectorSimilarityFunction.EUCLIDEAN);
             String vectorDataFileName = IndexFileNames.segmentFileName("_0", "", KNN1040HalfFloatFlatVectorsFormat.VECTOR_DATA_EXTENSION);
             dir.deleteFile(vectorDataFileName);
-            // Too short for even the codec header - checkIndexHeader() fails before any of our own
-            // validation runs, exercising openDataInput()'s own success==false cleanup path.
             try (IndexOutput truncated = dir.createOutput(vectorDataFileName, IOContext.DEFAULT)) {
                 truncated.writeByte((byte) 0);
             }

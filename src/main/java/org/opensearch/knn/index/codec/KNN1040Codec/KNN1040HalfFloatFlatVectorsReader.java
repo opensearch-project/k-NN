@@ -234,7 +234,6 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
     public RandomVectorScorer getRandomVectorScorer(String field, float[] target) throws IOException {
         final FieldEntry entry = getFieldEntry(field, VectorEncoding.FLOAT32);
         KNN1040HalfFloatFlatVectorsValues base = newVectorValues(entry);
-        // Empty segment: search() relies on a null scorer to mean "nothing to collect".
         if (base.size() == 0) {
             return null;
         }
@@ -326,7 +325,6 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
 
     @Override
     public void finishMerge() throws IOException {
-        // Revert the sequential access hint applied by getMergeInstance().
         vectorData.updateIOContext(dataContext);
     }
 
@@ -361,7 +359,6 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
                 );
             }
 
-            // FP16: 2 bytes per dimension, where Lucene's flat format uses encoding.byteSize.
             final int byteSize = Short.BYTES;
             long vectorBytes = Math.multiplyExact((long) infoVectorDimension, byteSize);
             long numBytes = Math.multiplyExact(vectorBytes, size);
