@@ -41,12 +41,24 @@ import static org.opensearch.knn.index.codec.KNN1040Codec.KNN1040HalfFloatFlatVe
 import static org.opensearch.knn.index.codec.KNN1040Codec.KNN1040HalfFloatFlatVectorsFormat.VERSION_CURRENT;
 
 /**
- * Writer for half-precision (FP16) flat vector fields. Encodes incoming FP32 vectors to FP16
- * (2 bytes per dimension) and writes them sequentially to a {@code .vec} file, with per-field
- * metadata stored in a {@code .vemf} file.
+ * Writer for half-precision (FP16) flat vector fields. Only {@link VectorEncoding#FLOAT32} fields
+ * are accepted; vector data goes to a {@code .vec} file (per-field metadata lives separately in
+ * {@code .vemf}), each with a standard Lucene codec header and checksum footer. Within {@code .vec},
+ * each field occupies its own contiguous, {@value #VECTOR_DATA_ALIGNMENT}-byte-aligned block (via
+ * {@link #alignOutput}, including before the first field), written back to back with no gaps.
+ * Vector order depends on the call: {@link #writeField} uses insertion order, {@link
+ * #writeSortingField} remaps to new-doc order first, and {@link #mergeOneFlatVectorField} writes
+ * final merged-segment order via {@link KnnVectorsWriter.MergedVectorValues#mergeFloatVectorValues}
+ * (dropping deletions, applying any index sort). Sparse fields get a trailing doc-id/ordinal
+ * mapping block from {@link OrdToDocDISIReaderConfiguration#writeStoredMeta} appended right after
+ * their vectors; dense and empty fields skip it.
  *
- * The on-disk layout follows the same structural pattern as Lucene's {@code Lucene99FlatVectorsWriter}:
- * Each float dimension is converted to IEEE 754 half-float and stored as 2 bytes in little-endian order.
+ * <p>Each 32-bit {@code float} is converted to a 16-bit IEEE 754 half-precision value and written
+ * as 2 bytes, little-endian, via {@link KNNVectorAsCollectionOfHalfFloatsSerializer#floatToByteArray}
+ * - so a {@code dimension}-length vector takes exactly {@code dimension * 2} bytes, half of
+ * FLOAT32's {@code dimension * 4}. The conversion runs through native SIMD when available
+ * ({@code SimdFp16.encodeFp32ToFp16}), falling back to the equivalent {@code Float.floatToFloat16}
+ * in pure Java; both produce identical bytes.
  */
 public class KNN1040HalfFloatFlatVectorsWriter extends FlatVectorsWriter {
 
