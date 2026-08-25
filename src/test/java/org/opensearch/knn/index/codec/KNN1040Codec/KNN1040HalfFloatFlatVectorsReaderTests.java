@@ -23,15 +23,25 @@ import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
+import org.apache.lucene.search.AcceptDocs;
+import org.apache.lucene.search.KnnCollector;
+import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TopKnnCollector;
 import org.apache.lucene.store.ByteBuffersDirectory;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexOutput;
+import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
+import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.codec.scorer.NativeEngines990KnnVectorsScorer;
+import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfHalfFloatsSerializer;
+import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
+import org.opensearch.knn.memoryoptsearch.faiss.MMapFloatVectorValues;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -267,6 +277,189 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    public void testGetRandomVectorScorer_nonMmapDirectory_matchesExpectedSimilarity() {
+        try (Directory dir = new ByteBuffersDirectory()) {
+            float[][] vectors = { { 1.5f, -2.5f, 3.25f, 0.0f }, { -1.0f, 2.0f, -3.0f, 4.0f }, { 0.5f, 0.5f, 0.5f, 0.5f } };
+            SegmentReadState readState = writeRawSegment(dir, vectors, VectorSimilarityFunction.EUCLIDEAN);
+
+            try (FlatVectorsReader reader = newReader(readState)) {
+                float[] query = { 1f, 1f, 1f, 1f };
+                RandomVectorScorer scorer = reader.getRandomVectorScorer(FIELD_NAME, query);
+                assertNotNull(scorer);
+                assertEquals(vectors.length, scorer.maxOrd());
+
+                for (int i = 0; i < vectors.length; i++) {
+                    float[] decoded = new float[DIMENSION];
+                    for (int d = 0; d < DIMENSION; d++) {
+                        decoded[d] = Float.float16ToFloat(Float.floatToFloat16(vectors[i][d]));
+                    }
+                    float expected = VectorSimilarityFunction.EUCLIDEAN.compare(query, decoded);
+                    assertEquals("Vector " + i, expected, scorer.score(i), 1e-3f);
+                }
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testGetRandomVectorScorer_emptySegment_returnsNull() {
+        try (Directory dir = new ByteBuffersDirectory()) {
+            SegmentReadState readState = writeRawSegment(
+                dir,
+                new float[0][0],
+                VectorSimilarityFunction.EUCLIDEAN,
+                Overrides.builder().maxDoc(5).build()
+            );
+            try (FlatVectorsReader reader = newReader(readState)) {
+                assertNull(reader.getRandomVectorScorer(FIELD_NAME, new float[] { 1f, 1f, 1f, 1f }));
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testSearch_nonMmapDirectory_collectsAllVectorsWithoutThrowing() {
+        try (Directory dir = new ByteBuffersDirectory()) {
+            float[][] vectors = { { 1.5f, -2.5f, 3.25f, 0.0f }, { -1.0f, 2.0f, -3.0f, 4.0f }, { 0.5f, 0.5f, 0.5f, 0.5f } };
+            SegmentReadState readState = writeRawSegment(dir, vectors, VectorSimilarityFunction.EUCLIDEAN);
+
+            try (FlatVectorsReader reader = newReader(readState)) {
+                float[] query = { 1f, 1f, 1f, 1f };
+                KnnCollector collector = new TopKnnCollector(vectors.length, Integer.MAX_VALUE);
+                reader.search(FIELD_NAME, query, collector, AcceptDocs.fromLiveDocs(null, vectors.length));
+
+                // topDocs() drains the underlying queue, so call it exactly once.
+                ScoreDoc[] scoreDocs = collector.topDocs().scoreDocs;
+                assertEquals(vectors.length, scoreDocs.length);
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testSearch_emptySegment_collectsNothingWithoutThrowing() {
+        try (Directory dir = new ByteBuffersDirectory()) {
+            SegmentReadState readState = writeRawSegment(
+                dir,
+                new float[0][0],
+                VectorSimilarityFunction.EUCLIDEAN,
+                Overrides.builder().maxDoc(5).build()
+            );
+            try (FlatVectorsReader reader = newReader(readState)) {
+                KnnCollector collector = new TopKnnCollector(5, Integer.MAX_VALUE);
+                reader.search(FIELD_NAME, new float[] { 1f, 1f, 1f, 1f }, collector, AcceptDocs.fromLiveDocs(null, 5));
+                assertEquals(0, collector.topDocs().scoreDocs.length);
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testGetFloatVectorValues_mmapDirectory_wrapsInMMapFloatVectorValuesAndDecodesCorrectly() {
+        try (Directory dir = new MMapDirectory(createTempDir())) {
+            float[][] vectors = { { 1.5f, -2.5f, 3.25f, 0.0f }, { -1.0f, 2.0f, -3.0f, 4.0f } };
+            SegmentReadState readState = writeRawSegment(dir, vectors, VectorSimilarityFunction.EUCLIDEAN);
+
+            try (FlatVectorsReader reader = newReader(readState)) {
+                FloatVectorValues values = reader.getFloatVectorValues(FIELD_NAME);
+                assertTrue("expected mmap-backed values for this test", values instanceof MMapFloatVectorValues);
+                assertEquals(DIMENSION, values.dimension());
+                assertEquals(vectors.length, values.size());
+
+                for (int i = 0; i < vectors.length; i++) {
+                    float[] actual = values.vectorValue(i);
+                    for (int d = 0; d < DIMENSION; d++) {
+                        float expected = Float.float16ToFloat(Float.floatToFloat16(vectors[i][d]));
+                        assertEquals("vector " + i + " dim " + d, expected, actual[d], 0.0f);
+                    }
+                }
+
+                // Exercises MMapFloatVectorValues' iterator()/ordToDoc() pass-throughs directly.
+                FloatVectorValues.DocIndexIterator iterator = values.iterator();
+                int ord = 0;
+                for (int doc = iterator.nextDoc(); doc != org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS; doc = iterator
+                    .nextDoc()) {
+                    assertEquals(ord, doc);
+                    assertEquals(ord, values.ordToDoc(ord));
+                    ord++;
+                }
+                assertEquals(vectors.length, ord);
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testGetRandomVectorScorer_mmapDirectory_matchesExpectedSimilarity() {
+        try (Directory dir = new MMapDirectory(createTempDir())) {
+            float[][] vectors = { { 1.5f, -2.5f, 3.25f, 0.0f }, { -1.0f, 2.0f, -3.0f, 4.0f }, { 0.5f, 0.5f, 0.5f, 0.5f } };
+            SegmentReadState readState = writeRawSegment(dir, vectors, VectorSimilarityFunction.EUCLIDEAN);
+
+            try (FlatVectorsReader reader = newReaderWithRealScorer(readState)) {
+                float[] query = { 1f, 1f, 1f, 1f };
+                RandomVectorScorer scorer = reader.getRandomVectorScorer(FIELD_NAME, query);
+                assertNotNull(scorer);
+
+                for (int i = 0; i < vectors.length; i++) {
+                    float[] decoded = new float[DIMENSION];
+                    for (int d = 0; d < DIMENSION; d++) {
+                        decoded[d] = Float.float16ToFloat(Float.floatToFloat16(vectors[i][d]));
+                    }
+                    float expected = VectorSimilarityFunction.EUCLIDEAN.compare(query, decoded);
+                    assertEquals("Vector " + i, expected, scorer.score(i), 1e-3f);
+                }
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testSearch_mmapDirectory_collectsAllVectorsWithoutThrowing() {
+        try (Directory dir = new MMapDirectory(createTempDir())) {
+            float[][] vectors = { { 1.5f, -2.5f, 3.25f, 0.0f }, { -1.0f, 2.0f, -3.0f, 4.0f }, { 0.5f, 0.5f, 0.5f, 0.5f } };
+            SegmentReadState readState = writeRawSegment(dir, vectors, VectorSimilarityFunction.EUCLIDEAN);
+
+            try (FlatVectorsReader reader = newReaderWithRealScorer(readState)) {
+                KnnCollector collector = new TopKnnCollector(vectors.length, Integer.MAX_VALUE);
+                reader.search(FIELD_NAME, new float[] { 1f, 1f, 1f, 1f }, collector, AcceptDocs.fromLiveDocs(null, vectors.length));
+                assertEquals(vectors.length, collector.topDocs().scoreDocs.length);
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testGetRandomVectorScorer_cosineSimilarity_usesPureJavaFallbackAndMatchesExpected() {
+        try (Directory dir = new ByteBuffersDirectory()) {
+            float[][] vectors = { { 1.5f, -2.5f, 3.25f, 0.0f }, { -1.0f, 2.0f, -3.0f, 4.0f } };
+            SegmentReadState readState = writeRawSegment(dir, vectors, VectorSimilarityFunction.COSINE);
+
+            try (FlatVectorsReader reader = newReader(readState)) {
+                float[] query = { 1f, 1f, 1f, 1f };
+                RandomVectorScorer scorer = reader.getRandomVectorScorer(FIELD_NAME, query);
+                assertNotNull(scorer);
+
+                for (int i = 0; i < vectors.length; i++) {
+                    float[] decoded = new float[DIMENSION];
+                    for (int d = 0; d < DIMENSION; d++) {
+                        decoded[d] = Float.float16ToFloat(Float.floatToFloat16(vectors[i][d]));
+                    }
+                    float expected = VectorSimilarityFunction.COSINE.compare(query, decoded);
+                    assertEquals("Vector " + i, expected, scorer.score(i), 1e-3f);
+                }
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testGetFloatVectorValues_repeatedOrdinal_hitsCacheAndReturnsSameArray() {
+        try (Directory dir = new ByteBuffersDirectory()) {
+            float[][] vectors = { { 1.5f, -2.5f, 3.25f, 0.0f }, { -1.0f, 2.0f, -3.0f, 4.0f } };
+            SegmentReadState readState = writeRawSegment(dir, vectors, VectorSimilarityFunction.EUCLIDEAN);
+
+            try (FlatVectorsReader reader = newReader(readState)) {
+                FloatVectorValues values = reader.getFloatVectorValues(FIELD_NAME);
+                float[] first = values.vectorValue(0);
+                float[] second = values.vectorValue(0);
+                assertSame("repeated access to the same ordinal should hit the cache", first, second);
+            }
+        }
+    }
+
+    @SneakyThrows
     public void testOpenDataInput_truncatedVectorDataFile_throws() {
         try (Directory dir = new ByteBuffersDirectory()) {
             SegmentReadState readState = writeRawSegment(dir, new float[][] { { 1f, 2f, 3f, 4f } }, VectorSimilarityFunction.EUCLIDEAN);
@@ -281,6 +474,19 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
 
     private FlatVectorsReader newReader(SegmentReadState readState) throws Exception {
         FlatVectorsScorer scorer = Mockito.mock(FlatVectorsScorer.class);
+        return new KNN1040HalfFloatFlatVectorsReader(readState, scorer);
+    }
+
+    /**
+     * Like {@link #newReader}, but with the real {@link KNN1040HalfFloatVectorScorer} chain instead of
+     * a mock. {@code selectScorer}'s mmap-native branch calls {@code flatVectorsScorer.getRandomVectorScorer}
+     * directly (unlike the non-mmap fallback branch, which never touches the injected scorer), so a
+     * mock would return null there instead of exercising real scoring.
+     */
+    private FlatVectorsReader newReaderWithRealScorer(SegmentReadState readState) throws Exception {
+        FlatVectorsScorer scorer = new KNN1040HalfFloatVectorScorer(
+            new PrefetchableFlatVectorScorer(new NativeEngines990KnnVectorsScorer(FlatVectorsScorerProvider.getLucene99FlatVectorsScorer()))
+        );
         return new KNN1040HalfFloatFlatVectorsReader(readState, scorer);
     }
 

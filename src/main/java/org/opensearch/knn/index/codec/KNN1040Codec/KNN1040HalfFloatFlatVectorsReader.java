@@ -218,7 +218,8 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
      */
     private KNN1040HalfFloatFlatVectorsValues newVectorValues(FieldEntry entry) throws IOException {
         IndexInput slice = vectorData.slice(VECTOR_VALUES_SLICE, entry.vectorDataOffset, entry.vectorDataLength);
-        DirectMonotonicReader ordToDocReader = entry.ordToDoc.isDense() ? null : entry.ordToDoc.getDirectMonotonicReader(vectorData);
+        boolean needsOrdToDocReader = entry.ordToDoc.isDense() == false && entry.ordToDoc.isEmpty() == false;
+        DirectMonotonicReader ordToDocReader = needsOrdToDocReader ? entry.ordToDoc.getDirectMonotonicReader(vectorData) : null;
         return new KNN1040HalfFloatFlatVectorsValues(entry.dimension, entry.size, slice, ordToDocReader, scorer, entry.similarity);
     }
 
