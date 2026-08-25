@@ -23,10 +23,6 @@ import java.util.Locale;
  * Custom {@link FlatVectorsFormat} implementation to support half-float vectors. This class is mostly identical to
  * {@link org.apache.lucene.codecs.lucene99.Lucene99FlatVectorsFormat}, however we use the custom
  * {@link KNN1040HalfFloatFlatVectorsWriter} for storage of half-float vectors.
- *
- * <p>The reader side lands in a separate PR; {@link #fieldsReader} is a placeholder until then, so this
- * format does not yet wrap the writer's scorer in the decode-free {@code KNN1040HalfFloatVectorScorer}
- * that PR adds - there is nothing to read back yet.
  */
 public class KNN1040HalfFloatFlatVectorsFormat extends FlatVectorsFormat {
 
