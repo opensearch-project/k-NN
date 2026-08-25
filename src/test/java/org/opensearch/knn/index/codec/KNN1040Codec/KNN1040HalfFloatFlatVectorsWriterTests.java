@@ -18,6 +18,7 @@ import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentWriteState;
+import org.apache.lucene.index.Sorter;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.store.ByteBuffersDirectory;
@@ -204,6 +205,72 @@ public class KNN1040HalfFloatFlatVectorsWriterTests extends KNNTestCase {
                     for (int d = 0; d < DIMENSION; d++) {
                         float expectedFp16 = Float.float16ToFloat(Float.floatToFloat16(expected[d]));
                         assertEquals(expectedFp16, decoded[d], 0.0f);
+                    }
+                }
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testFlush_withSortMap_writesVectorsInNewDocOrder() {
+        try (Directory dir = new ByteBuffersDirectory()) {
+            float[][] vectors = { generateVector(), generateVector(), generateVector() };
+            FieldInfo fieldInfo = createFieldInfo();
+            SegmentInfo segmentInfo = createSegmentInfo(dir, "_0");
+            // Reverses doc order: old doc i becomes new doc (vectors.length - 1 - i).
+            Sorter.DocMap sortMap = new Sorter.DocMap() {
+                @Override
+                public int oldToNew(int docID) {
+                    return vectors.length - 1 - docID;
+                }
+
+                @Override
+                public int newToOld(int docID) {
+                    return vectors.length - 1 - docID;
+                }
+
+                @Override
+                public int size() {
+                    return vectors.length;
+                }
+            };
+
+            try (FlatVectorsWriter writer = newWriter(dir, segmentInfo)) {
+                @SuppressWarnings("unchecked")
+                FlatFieldVectorsWriter<float[]> fieldWriter = (FlatFieldVectorsWriter<float[]>) writer.addField(fieldInfo);
+                for (int i = 0; i < vectors.length; i++) {
+                    fieldWriter.addValue(i, vectors[i]);
+                }
+                writer.flush(vectors.length, sortMap);
+                writer.finish();
+            }
+
+            String vectorDataFileName = IndexFileNames.segmentFileName("_0", "", KNN1040HalfFloatFlatVectorsFormat.VECTOR_DATA_EXTENSION);
+            try (IndexInput input = dir.openInput(vectorDataFileName, IOContext.DEFAULT)) {
+                CodecUtil.checkIndexHeader(
+                    input,
+                    KNN1040HalfFloatFlatVectorsFormat.VECTOR_DATA_CODEC_NAME,
+                    KNN1040HalfFloatFlatVectorsFormat.VERSION_CURRENT,
+                    KNN1040HalfFloatFlatVectorsFormat.VERSION_CURRENT,
+                    segmentInfo.getId(),
+                    ""
+                );
+                final int vectorDataAlignment = 64;
+                long aligned = ((input.getFilePointer() + vectorDataAlignment - 1) / vectorDataAlignment) * vectorDataAlignment;
+                input.seek(aligned);
+
+                int byteSize = DIMENSION * Short.BYTES;
+                byte[] raw = new byte[byteSize];
+                // New doc order is the reverse of vectors[]: expect vectors[2], vectors[1], vectors[0].
+                for (int newDoc = 0; newDoc < vectors.length; newDoc++) {
+                    input.readBytes(raw, 0, byteSize);
+                    float[] decoded = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE.byteToFloatArray(
+                        new org.apache.lucene.util.BytesRef(raw)
+                    );
+                    float[] expected = vectors[vectors.length - 1 - newDoc];
+                    for (int d = 0; d < DIMENSION; d++) {
+                        float expectedFp16 = Float.float16ToFloat(Float.floatToFloat16(expected[d]));
+                        assertEquals("newDoc " + newDoc + " dim " + d, expectedFp16, decoded[d], 0.0f);
                     }
                 }
             }
