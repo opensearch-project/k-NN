@@ -692,6 +692,10 @@ task integTestRemoteIndexBuild(type: RestIntegTestTask) {
         excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
         // Flaky with remote index build, see: https://github.com/opensearch-project/k-NN/issues/3383
         excludeTestsMatching "org.opensearch.knn.memoryoptsearch.MOSFaissFloatIndexIT.testFilteredSearch_whenVisitBudgetExhausted_thenFallbackToExactSearch"
+        // gRPC transport ITs need the transport-grpc aux transport, which is only wired into the
+        // testClusters.integTest cluster (not this remote-index-build cluster). They are unrelated to
+        // remote index build, so run them under :integTest only.
+        excludeTestsMatching "org.opensearch.knn.integ.grpc.*"
     }
     systemProperty("test.remoteBuild", System.getProperty("test.remoteBuild"))
     systemProperty("test.bucket", System.getProperty("test.bucket"))
@@ -811,6 +815,9 @@ task integTestRemote(type: RestIntegTestTask) {
     if (System.getProperty("tests.rest.cluster") != null) {
         filter {
             includeTestsMatching "org.opensearch.knn.*IT"
+            // gRPC transport ITs require the transport-grpc aux transport on a known port, which is only
+            // guaranteed on the gradle-managed :integTest cluster. Skip them against an external cluster.
+            excludeTestsMatching "org.opensearch.knn.integ.grpc.*"
         }
     }
 }
