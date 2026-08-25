@@ -99,33 +99,34 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
      * node instead of one per graph edge.
      */
     private static final class HalfFloatRandomVectorScorerSupplier implements RandomVectorScorerSupplier {
-        private final KNN1040HalfFloatFlatVectorsValues values;
-        private final KNN1040HalfFloatFlatVectorsValues targetValues;
+        // Used for both raw-byte candidate reads (readRawVectorBytes) and decoding the "current"
+        // graph node into a float[] target (vectorValue, in setScoringOrdinal below) - safe to share
+        // since both always seek explicitly before reading, and only the target side ever decodes.
+        private final KNN1040HalfFloatFlatVectorsValues vectorValues;
         private final SimdVectorComputeService.SimilarityFunctionType nativeType;
         private final long[] addressAndSize;
 
         HalfFloatRandomVectorScorerSupplier(
-            KNN1040HalfFloatFlatVectorsValues values,
+            KNN1040HalfFloatFlatVectorsValues vectorValues,
             SimdVectorComputeService.SimilarityFunctionType nativeType,
             long[] addressAndSize
-        ) throws IOException {
-            this.values = values;
-            this.targetValues = values.copy();
+        ) {
+            this.vectorValues = vectorValues;
             this.nativeType = nativeType;
             this.addressAndSize = addressAndSize;
         }
 
         @Override
         public UpdateableRandomVectorScorer scorer() {
-            return new UpdateableRandomVectorScorer.AbstractUpdateableRandomVectorScorer(values) {
+            return new UpdateableRandomVectorScorer.AbstractUpdateableRandomVectorScorer(vectorValues) {
                 private HalfFloatRandomVectorScorer delegate;
                 private PrefetchableRandomVectorScorer prefetchableDelegate;
 
                 @Override
                 public void setScoringOrdinal(int node) throws IOException {
-                    float[] target = targetValues.vectorValue(node);
+                    float[] target = vectorValues.vectorValue(node);
                     if (delegate == null) {
-                        delegate = new HalfFloatRandomVectorScorer(values, target, nativeType, addressAndSize);
+                        delegate = new HalfFloatRandomVectorScorer(vectorValues, target, nativeType, addressAndSize);
                         prefetchableDelegate = new PrefetchableRandomVectorScorer(delegate);
                     } else {
                         // Reuse the existing scorer/buffer instead of allocating a fresh one for every graph node
@@ -133,27 +134,39 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
                     }
                 }
 
+                /**
+                 * Scores {@code node} against whatever target {@link #setScoringOrdinal} last set,
+                 * via the byte-based {@link HalfFloatRandomVectorScorer} built above - no decode here.
+                 */
                 @Override
                 public float score(int node) throws IOException {
-                    if (prefetchableDelegate == null) {
-                        throw new IllegalStateException("setScoringOrdinal must be called before score");
-                    }
-                    return prefetchableDelegate.score(node);
+                    return requireDelegate().score(node);
                 }
 
+                /**
+                 * Scores {@code numNodes} candidates from {@code nodes} against the current target in
+                 * one call, returning the maximum score. {@code requireDelegate()} returns the
+                 * {@link PrefetchableRandomVectorScorer} wrapper, so this also issues an I/O prefetch
+                 * for the candidates' backing bytes before the real scoring happens - see the
+                 * prefetch note on {@link #setScoringOrdinal} above.
+                 */
                 @Override
                 public float bulkScore(int[] nodes, float[] scores, int numNodes) throws IOException {
+                    return requireDelegate().bulkScore(nodes, scores, numNodes);
+                }
+
+                private PrefetchableRandomVectorScorer requireDelegate() {
                     if (prefetchableDelegate == null) {
-                        throw new IllegalStateException("setScoringOrdinal must be called before bulkScore");
+                        throw new IllegalStateException("setScoringOrdinal must be called before scoring");
                     }
-                    return prefetchableDelegate.bulkScore(nodes, scores, numNodes);
+                    return prefetchableDelegate;
                 }
             };
         }
 
         @Override
         public RandomVectorScorerSupplier copy() throws IOException {
-            return new HalfFloatRandomVectorScorerSupplier(values.copy(), nativeType, addressAndSize);
+            return new HalfFloatRandomVectorScorerSupplier(vectorValues.copy(), nativeType, addressAndSize);
         }
     }
 
