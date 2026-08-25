@@ -171,6 +171,7 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
         private final KNN1040HalfFloatFlatVectorsValues values;
         private final SimdVectorComputeService.SimilarityFunctionType nativeFunctionType;
         private final long[] addressAndSize;
+        private final boolean usesMmapAddress;
         private byte[] vectorBytesBuffer;
         private final float[] singleScoreBuffer = new float[1];
         private final int[] singleVectorId = new int[] { 0 };
@@ -186,14 +187,11 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
             this.values = values;
             this.nativeFunctionType = nativeFunctionType;
             this.addressAndSize = addressAndSize;
-            if (!usesMmapAddress()) {
+            this.usesMmapAddress = addressAndSize != null && addressAndSize.length > 0;
+            if (!usesMmapAddress) {
                 this.vectorBytesBuffer = new byte[values.byteSize() * BULK_SCORE_BATCH_SIZE];
             }
             setTarget(target);
-        }
-
-        private boolean usesMmapAddress() {
-            return addressAndSize != null && addressAndSize.length > 0;
         }
 
         // Repoints the native search context at a new target vector, reusing this scorer's buffers -
@@ -202,14 +200,14 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
         void setTarget(float[] target) {
             SimdVectorComputeService.saveSearchContext(
                 target,
-                usesMmapAddress() ? addressAndSize : new long[0],
+                usesMmapAddress ? addressAndSize : new long[0],
                 nativeFunctionType.ordinal()
             );
         }
 
         @Override
         public float score(int node) throws IOException {
-            if (usesMmapAddress()) {
+            if (usesMmapAddress) {
                 return SimdVectorComputeService.scoreSimilarity(node);
             }
             values.readRawVectorBytes(node, vectorBytesBuffer, 0);
@@ -219,7 +217,7 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
 
         @Override
         public float bulkScore(int[] nodes, float[] scores, int numNodes) throws IOException {
-            if (usesMmapAddress()) {
+            if (usesMmapAddress) {
                 return SimdVectorComputeService.scoreSimilarityInBulk(nodes, scores, numNodes);
             }
             int byteSize = values.byteSize();

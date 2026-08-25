@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.FloatVectorValues;
@@ -35,6 +36,7 @@ import java.io.IOException;
  * data. Use {@link #selectFallbackScorer(KNN1040HalfFloatFlatVectorsValues, float[], VectorSimilarityFunction)}
  * instead whenever mmap addresses are unavailable, or the similarity function has no native SIMD type.
  */
+@Log4j2
 class KNN1040HalfFloatFlatVectorsValues extends FloatVectorValues implements HasIndexSlice {
     private final int dimension;
     private final int size;
@@ -124,11 +126,13 @@ class KNN1040HalfFloatFlatVectorsValues extends FloatVectorValues implements Has
     @Override
     public VectorScorer scorer(float[] target) throws IOException {
         if (size() == 0) {
+            log.debug("No vectors present; returning null scorer from scorer(float[])");
             return null;
         }
         KNN1040HalfFloatFlatVectorsValues copy = copy();
         DocIndexIterator iterator = copy.iterator();
         RandomVectorScorer scorer = selectScorer(copy, target, similarity);
+        log.debug("Selected scorer [{}] for similarity [{}]", scorer.getClass().getSimpleName(), similarity);
         return new VectorScorer() {
             @Override
             public float score() throws IOException {
