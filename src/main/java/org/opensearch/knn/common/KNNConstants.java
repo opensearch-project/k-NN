@@ -235,4 +235,13 @@ public class KNNConstants {
     // before this version may have engine=lucene persisted in their flat mapping — they must
     // continue to load without error. New indices reject any engine setting on flat.
     public static final Version FLAT_METHOD_ENGINE_AGNOSTIC_VERSION = Version.V_3_9_0;
+
+    // Version gate for accepting SQ 1-bit (x32) on the Lucene HNSW method. Indices created
+    // before this version only support the legacy 7-bit path (x4) on Lucene HNSW.
+    public static final Version LUCENE_HNSW_SQ_1BIT_MIN_VERSION = Version.V_3_6_0;
+
+    // Version gate for accepting SQ 2-bit / 4-bit (x16 / x8) on the Lucene HNSW method. Indices
+    // created before this version only support SQ 1-bit (x32) and 7-bit (x4) on Lucene HNSW.
+    // 1-bit was introduced in 3.6.0 and stays gated there; 2/4-bit require the newer version.
+    public static final Version LUCENE_HNSW_SQ_2BIT_4BIT_MIN_VERSION = Version.V_3_9_0;
 }
