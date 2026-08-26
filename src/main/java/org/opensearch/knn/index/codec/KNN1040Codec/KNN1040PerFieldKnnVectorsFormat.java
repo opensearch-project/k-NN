@@ -25,7 +25,8 @@ import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.faiss.FaissCodecFormatResolver;
 import org.opensearch.knn.index.engine.lucene.LuceneCodecFormatResolver;
-import org.opensearch.knn.index.engine.lucene.LuceneSQEncoder;
+import org.opensearch.knn.index.engine.lucene.LuceneFlatMethodResolver;
+import org.opensearch.knn.index.engine.Encoder.QuantizationBits;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import java.util.Map;
@@ -103,7 +104,13 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
             );
             final Tuple<Integer, ExecutorService> merge = getMergeThreadCountAndExecutorService();
             final int threshold = toTinySegmentsThreshold(ctx.getApproximateThreshold());
-            if (p.getBits() == LuceneSQEncoder.Bits.ONE.getValue()) {
+
+            // bits ∈ {1, 2, 4} — Lucene 10.4 integer-coded SQ path (x32 / x16 / x8) with SIMD
+            // flat scorer. bits == 7 falls through to the legacy Lucene99 RW format so the
+            // {@code confidenceInterval} parameter is preserved for pre-3.6.0 mappings.
+            if (p.getBits() == QuantizationBits.ONE.getValue()
+                || p.getBits() == QuantizationBits.TWO.getValue()
+                || p.getBits() == QuantizationBits.FOUR.getValue()) {
                 return new KNN1040HnswScalarQuantizedVectorsFormat(
                     p.getBitEncoding(),
                     p.getMaxConnections(),

@@ -177,6 +177,16 @@ public class LuceneSQMappingIT extends KNNRestTestCase {
         validateMappingFails(buildSQMapping(7, CompressionLevel.x32.getName(), null), "incompatible");
     }
 
+    // 8x compression with bits = 2 (bits=2 → x16)
+    public void testMapping_whenBits2WithX8Compression_thenFail() throws Exception {
+        validateMappingFails(buildSQMapping(2, CompressionLevel.x8.getName(), null), "incompatible");
+    }
+
+    // 16x compression with bits = 4 (bits=4 → x8)
+    public void testMapping_whenBits4WithX16Compression_thenFail() throws Exception {
+        validateMappingFails(buildSQMapping(4, CompressionLevel.x16.getName(), null), "incompatible");
+    }
+
     // --- Valid base test cases ---
 
     // Only compression 32x specified
@@ -207,6 +217,26 @@ public class LuceneSQMappingIT extends KNNRestTestCase {
     // Bits = 7, 4x compression specified
     public void testMapping_whenBits7WithX4Compression_thenSuccess() throws Exception {
         validateIndex(INDEX_NAME, buildSQMapping(7, CompressionLevel.x4.getName(), null), null, FIELD_NAME, ENCODER_SQ, 7);
+    }
+
+    // Bits = 2, 16x compression specified
+    public void testMapping_whenBits2WithX16Compression_thenSuccess() throws Exception {
+        validateIndex(INDEX_NAME, buildSQMapping(2, CompressionLevel.x16.getName(), null), null, FIELD_NAME, ENCODER_SQ, 2);
+    }
+
+    // Bits = 4, 8x compression specified
+    public void testMapping_whenBits4WithX8Compression_thenSuccess() throws Exception {
+        validateIndex(INDEX_NAME, buildSQMapping(4, CompressionLevel.x8.getName(), null), null, FIELD_NAME, ENCODER_SQ, 4);
+    }
+
+    // Bits = 2, no compression specified
+    public void testMapping_whenBits2NoCompression_thenSuccess() throws Exception {
+        validateIndex(INDEX_NAME, buildSQMapping(2, null, null), null, FIELD_NAME, ENCODER_SQ, 2);
+    }
+
+    // Bits = 4, no compression specified
+    public void testMapping_whenBits4NoCompression_thenSuccess() throws Exception {
+        validateIndex(INDEX_NAME, buildSQMapping(4, null, null), null, FIELD_NAME, ENCODER_SQ, 4);
     }
 
     // --- Valid cases when Encoder Specified ---

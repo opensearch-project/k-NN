@@ -336,14 +336,14 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
             )
         );
 
-        // Changed from 32x to 16x, Lucene 32x compression was added
+        // x2 is not a supported compression level for the Lucene HNSW method
         expectThrows(
             ValidationException.class,
             () -> TEST_RESOLVER.resolveMethod(
                 null,
                 KNNMethodConfigContext.builder()
                     .vectorDataType(VectorDataType.FLOAT)
-                    .compressionLevel(CompressionLevel.x16)
+                    .compressionLevel(CompressionLevel.x2)
                     .versionCreated(Version.CURRENT)
                     .build(),
                 false,
@@ -513,6 +513,165 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
                 .getParameters()
                 .get(METHOD_ENCODER_PARAMETER)).getParameters().get(LUCENE_SQ_BITS)
         );
+    }
+
+    public void testResolveMethod_whenExplicitCompression16x_thenResolvesToSQTwoBit() {
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            null,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.FLOAT)
+                .compressionLevel(CompressionLevel.x16)
+                .versionCreated(Version.CURRENT)
+                .build(),
+            false,
+            SpaceType.L2
+        );
+        assertEquals(CompressionLevel.x16, resolvedMethodContext.getCompressionLevel());
+        assertEquals(KNNEngine.LUCENE, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
+        MethodComponentContext encoderCtx = (MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+            .getMethodComponentContext()
+            .getParameters()
+            .get(METHOD_ENCODER_PARAMETER);
+        assertEquals(ENCODER_SQ, encoderCtx.getName());
+        assertEquals(2, encoderCtx.getParameters().get(LUCENE_SQ_BITS));
+    }
+
+    public void testResolveMethod_whenExplicitCompression8x_thenResolvesToSQFourBit() {
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            null,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.FLOAT)
+                .compressionLevel(CompressionLevel.x8)
+                .versionCreated(Version.CURRENT)
+                .build(),
+            false,
+            SpaceType.L2
+        );
+        assertEquals(CompressionLevel.x8, resolvedMethodContext.getCompressionLevel());
+        assertEquals(KNNEngine.LUCENE, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
+        MethodComponentContext encoderCtx = (MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+            .getMethodComponentContext()
+            .getParameters()
+            .get(METHOD_ENCODER_PARAMETER);
+        assertEquals(ENCODER_SQ, encoderCtx.getName());
+        assertEquals(4, encoderCtx.getParameters().get(LUCENE_SQ_BITS));
+    }
+
+    public void testResolveMethod_whenX16OnPreGate_thenThrow() {
+        // Past the 3.6.0 gate (1-bit works there) but before the 2/4-bit gate.
+        expectThrows(
+            ValidationException.class,
+            () -> TEST_RESOLVER.resolveMethod(
+                null,
+                KNNMethodConfigContext.builder()
+                    .vectorDataType(VectorDataType.FLOAT)
+                    .compressionLevel(CompressionLevel.x16)
+                    .versionCreated(Version.V_3_7_0)
+                    .build(),
+                false,
+                SpaceType.L2
+            )
+        );
+    }
+
+    public void testResolveMethod_whenX8OnPreGate_thenThrow() {
+        expectThrows(
+            ValidationException.class,
+            () -> TEST_RESOLVER.resolveMethod(
+                null,
+                KNNMethodConfigContext.builder()
+                    .vectorDataType(VectorDataType.FLOAT)
+                    .compressionLevel(CompressionLevel.x8)
+                    .versionCreated(Version.V_3_7_0)
+                    .build(),
+                false,
+                SpaceType.L2
+            )
+        );
+    }
+
+    public void testResolveMethod_whenOnDiskPreGate_thenBitsDerivedAsOne() {
+        // On_disk on a 3.6.0-pre-gate index resolves to x32 (bits=1) — never x16/x8.
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            null,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.FLOAT)
+                .mode(Mode.ON_DISK)
+                .versionCreated(Version.V_3_7_0)
+                .build(),
+            false,
+            SpaceType.L2
+        );
+        assertEquals(CompressionLevel.x32, resolvedMethodContext.getCompressionLevel());
+        MethodComponentContext encoderCtx = (MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+            .getMethodComponentContext()
+            .getParameters()
+            .get(METHOD_ENCODER_PARAMETER);
+        assertEquals(ENCODER_SQ, encoderCtx.getName());
+        assertEquals("pre-gate index must resolve to bits=1, never bits=2/4", 1, encoderCtx.getParameters().get(LUCENE_SQ_BITS));
+    }
+
+    public void testResolveMethod_whenX32OnPreGate_thenOk() {
+        // The 2/4-bit gate applies only to x8/x16 — x32 (bits=1) must still work on 3.6.0-3.7.x.
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            null,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.FLOAT)
+                .compressionLevel(CompressionLevel.x32)
+                .versionCreated(Version.V_3_7_0)
+                .build(),
+            false,
+            SpaceType.L2
+        );
+        assertEquals(CompressionLevel.x32, resolvedMethodContext.getCompressionLevel());
+    }
+
+    public void testResolveMethod_whenUserSpecifiesBits2_thenResolvesToX16() {
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.INNER_PRODUCT,
+            new MethodComponentContext(
+                METHOD_HNSW,
+                Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 2)))
+            )
+        );
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            knnMethodContext,
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build(),
+            false,
+            SpaceType.INNER_PRODUCT
+        );
+        assertEquals(CompressionLevel.x16, resolvedMethodContext.getCompressionLevel());
+        MethodComponentContext encoderCtx = (MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+            .getMethodComponentContext()
+            .getParameters()
+            .get(METHOD_ENCODER_PARAMETER);
+        assertEquals(ENCODER_SQ, encoderCtx.getName());
+        assertEquals(2, encoderCtx.getParameters().get(LUCENE_SQ_BITS));
+    }
+
+    public void testResolveMethod_whenUserSpecifiesBits4_thenResolvesToX8() {
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.INNER_PRODUCT,
+            new MethodComponentContext(
+                METHOD_HNSW,
+                Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 4)))
+            )
+        );
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            knnMethodContext,
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build(),
+            false,
+            SpaceType.INNER_PRODUCT
+        );
+        assertEquals(CompressionLevel.x8, resolvedMethodContext.getCompressionLevel());
+        MethodComponentContext encoderCtx = (MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+            .getMethodComponentContext()
+            .getParameters()
+            .get(METHOD_ENCODER_PARAMETER);
+        assertEquals(ENCODER_SQ, encoderCtx.getName());
+        assertEquals(4, encoderCtx.getParameters().get(LUCENE_SQ_BITS));
     }
 
     public void testResolveMethod_whenExplicitCompression4x_thenResolvesToSQSevenBit() {

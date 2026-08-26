@@ -51,6 +51,46 @@ public class VectorTransformerFactoryTests extends KNNTestCase {
         assertTrue(transformer instanceof NormalizeVectorTransformer);
     }
 
+    public void testLuceneCosine_withSQTwoBit_returnsNormalizer() {
+        MethodComponentContext encoderCtx = new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 2));
+        MethodComponentContext hnswCtx = new MethodComponentContext(
+            METHOD_HNSW,
+            new HashMap<>(Map.of(METHOD_ENCODER_PARAMETER, encoderCtx))
+        );
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(KNNEngine.LUCENE, SpaceType.COSINESIMIL, hnswCtx);
+        assertTrue(transformer instanceof NormalizeVectorTransformer);
+    }
+
+    public void testLuceneCosine_withSQFourBit_returnsNormalizer() {
+        MethodComponentContext encoderCtx = new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 4));
+        MethodComponentContext hnswCtx = new MethodComponentContext(
+            METHOD_HNSW,
+            new HashMap<>(Map.of(METHOD_ENCODER_PARAMETER, encoderCtx))
+        );
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(KNNEngine.LUCENE, SpaceType.COSINESIMIL, hnswCtx);
+        assertTrue(transformer instanceof NormalizeVectorTransformer);
+    }
+
+    public void testLuceneL2_withSQTwoBit_returnsNoop() {
+        MethodComponentContext encoderCtx = new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 2));
+        MethodComponentContext hnswCtx = new MethodComponentContext(
+            METHOD_HNSW,
+            new HashMap<>(Map.of(METHOD_ENCODER_PARAMETER, encoderCtx))
+        );
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(KNNEngine.LUCENE, SpaceType.L2, hnswCtx);
+        assertSame(VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER, transformer);
+    }
+
+    public void testLuceneCosine_withSQEightBit_returnsNoop() {
+        MethodComponentContext encoderCtx = new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 8));
+        MethodComponentContext hnswCtx = new MethodComponentContext(
+            METHOD_HNSW,
+            new HashMap<>(Map.of(METHOD_ENCODER_PARAMETER, encoderCtx))
+        );
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(KNNEngine.LUCENE, SpaceType.COSINESIMIL, hnswCtx);
+        assertSame(VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER, transformer);
+    }
+
     public void testLuceneCosine_withSQSevenBit_returnsNoop() {
         MethodComponentContext encoderCtx = new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 7));
         MethodComponentContext hnswCtx = new MethodComponentContext(

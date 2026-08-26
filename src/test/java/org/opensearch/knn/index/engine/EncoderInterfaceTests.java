@@ -35,8 +35,10 @@ public class EncoderInterfaceTests extends KNNTestCase {
         LuceneSQEncoder encoder = new LuceneSQEncoder();
         assertEquals(Encoder.EncoderType.SQ, encoder.getEncoderType());
         assertTrue(encoder.getSupportedBits().contains(Encoder.QuantizationBits.ONE));
+        assertTrue(encoder.getSupportedBits().contains(Encoder.QuantizationBits.TWO));
+        assertTrue(encoder.getSupportedBits().contains(Encoder.QuantizationBits.FOUR));
         assertTrue(encoder.getSupportedBits().contains(Encoder.QuantizationBits.SEVEN));
-        assertEquals(2, encoder.getSupportedBits().size());
+        assertEquals(4, encoder.getSupportedBits().size());
     }
 
     public void testQFrameBitEncoderType() {
