@@ -159,24 +159,25 @@ public class KNN1040HalfFloatVectorScorerTests extends KNNTestCase {
             final FlatVectorsScorer mockDelegate = mock(FlatVectorsScorer.class);
             final KNN1040HalfFloatVectorScorer scorer = new KNN1040HalfFloatVectorScorer(mockDelegate);
 
+            RandomVectorScorerSupplier supplier;
             try (MockedStatic<SimdFp16> mockedSimdFp16 = Mockito.mockStatic(SimdFp16.class)) {
                 mockedSimdFp16.when(SimdFp16::isSIMDSupported).thenReturn(true);
-
-                RandomVectorScorerSupplier supplier = scorer.getRandomVectorScorerSupplier(VectorSimilarityFunction.EUCLIDEAN, values);
-                UpdateableRandomVectorScorer candidateScorer = supplier.scorer();
-
-                candidateScorer.setScoringOrdinal(0);
-                // Second call exercises the "reuse existing delegate/buffer" branch instead of allocating a new one.
-                candidateScorer.setScoringOrdinal(2);
-
-                float expectedSingle = expectedEuclidean(vectors, dimension, 2, 1);
-                assertEquals(expectedSingle, candidateScorer.score(1), 1e-3f);
-
-                float[] scores = new float[2];
-                float maxScore = candidateScorer.bulkScore(new int[] { 0, 1 }, scores, 2);
-                float expectedMax = Math.max(expectedEuclidean(vectors, dimension, 2, 0), expectedEuclidean(vectors, dimension, 2, 1));
-                assertEquals(expectedMax, maxScore, 1e-3f);
+                supplier = scorer.getRandomVectorScorerSupplier(VectorSimilarityFunction.EUCLIDEAN, values);
             }
+            assertEquals(NATIVE_TIER_CLASS_NAME, supplier.getClass().getSimpleName());
+
+            UpdateableRandomVectorScorer candidateScorer = supplier.scorer();
+
+            candidateScorer.setScoringOrdinal(0);
+            candidateScorer.setScoringOrdinal(2);
+
+            float expectedSingle = expectedEuclidean(vectors, dimension, 2, 1);
+            assertEquals(expectedSingle, candidateScorer.score(1), 1e-3f);
+
+            float[] scores = new float[2];
+            float maxScore = candidateScorer.bulkScore(new int[] { 0, 1 }, scores, 2);
+            float expectedMax = Math.max(expectedEuclidean(vectors, dimension, 2, 0), expectedEuclidean(vectors, dimension, 2, 1));
+            assertEquals(expectedMax, maxScore, 1e-3f);
         }
     }
 
