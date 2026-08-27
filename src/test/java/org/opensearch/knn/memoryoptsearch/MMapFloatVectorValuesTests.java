@@ -6,6 +6,8 @@
 package org.opensearch.knn.memoryoptsearch;
 
 import lombok.SneakyThrows;
+import org.apache.lucene.index.FloatVectorValues;
+import org.apache.lucene.search.VectorScorer;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
@@ -25,7 +27,22 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 public class MMapFloatVectorValuesTests extends LuceneTestCase {
+    @SneakyThrows
+    public void testScorer_delegatesToWrappedFloatVectorValues() {
+        final FloatVectorValues mockDelegate = mock(FloatVectorValues.class);
+        final VectorScorer expected = mock(VectorScorer.class);
+        final float[] target = { 1f, 2f, 3f };
+        when(mockDelegate.scorer(target)).thenReturn(expected);
+
+        final MMapFloatVectorValues values = new MMapFloatVectorValues(mockDelegate, new long[] { 1L, 2L });
+
+        assertSame(expected, values.scorer(target));
+    }
+
     @SneakyThrows
     public void testValidBytesLoad() {
         // Creat temp dir

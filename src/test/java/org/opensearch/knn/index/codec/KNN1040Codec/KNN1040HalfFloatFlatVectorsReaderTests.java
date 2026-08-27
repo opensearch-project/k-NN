@@ -472,6 +472,74 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
         }
     }
 
+    @SneakyThrows
+    public void testSearch_collectorRequestsZeroResults_returnsImmediatelyWithoutCollecting() {
+        try (Directory dir = new ByteBuffersDirectory()) {
+            float[][] vectors = { { 1f, 2f, 3f, 4f }, { 5f, 6f, 7f, 8f } };
+            SegmentReadState readState = writeRawSegment(dir, vectors, VectorSimilarityFunction.EUCLIDEAN);
+
+            try (FlatVectorsReader reader = newReader(readState)) {
+                KnnCollector mockCollector = Mockito.mock(KnnCollector.class);
+                Mockito.when(mockCollector.k()).thenReturn(0);
+
+                reader.search(FIELD_NAME, new float[] { 1f, 1f, 1f, 1f }, mockCollector, AcceptDocs.fromLiveDocs(null, vectors.length));
+
+                Mockito.verify(mockCollector, Mockito.never()).collect(Mockito.anyInt(), Mockito.anyFloat());
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testSearch_earlyTerminationMidLoop_stopsCollectingRemainingVectors() {
+        try (Directory dir = new ByteBuffersDirectory()) {
+            float[][] vectors = { { 1f, 2f, 3f, 4f }, { 5f, 6f, 7f, 8f }, { 9f, 10f, 11f, 12f } };
+            SegmentReadState readState = writeRawSegment(dir, vectors, VectorSimilarityFunction.EUCLIDEAN);
+
+            try (FlatVectorsReader reader = newReader(readState)) {
+                KnnCollector mockCollector = Mockito.mock(KnnCollector.class);
+                Mockito.when(mockCollector.k()).thenReturn(5);
+                // False for the first vector (loop proceeds), true from then on (loop breaks).
+                Mockito.when(mockCollector.earlyTerminated()).thenReturn(false, true);
+
+                reader.search(FIELD_NAME, new float[] { 1f, 1f, 1f, 1f }, mockCollector, AcceptDocs.fromLiveDocs(null, vectors.length));
+
+                Mockito.verify(mockCollector, Mockito.atMost(1)).incVisitedCount(Mockito.anyInt());
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testSearch_moreVectorsThanBulkBatchSize_flushesFullBatchMidLoop() {
+        try (Directory dir = new ByteBuffersDirectory()) {
+            int numVectors = 70; // exceeds the reader's internal BULK_SCORE_BATCH_SIZE of 64
+            float[][] vectors = new float[numVectors][DIMENSION];
+            for (int i = 0; i < numVectors; i++) {
+                for (int d = 0; d < DIMENSION; d++) {
+                    vectors[i][d] = i + d;
+                }
+            }
+            SegmentReadState readState = writeRawSegment(dir, vectors, VectorSimilarityFunction.EUCLIDEAN);
+
+            try (FlatVectorsReader reader = newReader(readState)) {
+                KnnCollector collector = new TopKnnCollector(numVectors, Integer.MAX_VALUE);
+                reader.search(FIELD_NAME, new float[] { 1f, 1f, 1f, 1f }, collector, AcceptDocs.fromLiveDocs(null, numVectors));
+
+                assertEquals(numVectors, collector.topDocs().scoreDocs.length);
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testGetFlatVectorScorer_returnsInjectedScorerInstance() {
+        try (Directory dir = new ByteBuffersDirectory()) {
+            SegmentReadState readState = writeRawSegment(dir, new float[][] { { 1f, 2f, 3f, 4f } }, VectorSimilarityFunction.EUCLIDEAN);
+            FlatVectorsScorer scorer = Mockito.mock(FlatVectorsScorer.class);
+            try (FlatVectorsReader reader = new KNN1040HalfFloatFlatVectorsReader(readState, scorer)) {
+                assertSame(scorer, reader.getFlatVectorScorer(FIELD_NAME));
+            }
+        }
+    }
+
     private FlatVectorsReader newReader(SegmentReadState readState) throws Exception {
         FlatVectorsScorer scorer = Mockito.mock(FlatVectorsScorer.class);
         return new KNN1040HalfFloatFlatVectorsReader(readState, scorer);
