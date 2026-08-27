@@ -30,7 +30,9 @@ import org.opensearch.knn.index.engine.lucene.LuceneSQEncoder;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 /**
@@ -133,6 +135,14 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
         if (mergeThreadCount <= 1) {
             return DEFAULT_MERGE_THREAD_COUNT_AND_EXECUTOR_SERVICE;
         }
-        return Tuple.tuple(mergeThreadCount, Executors.newFixedThreadPool(mergeThreadCount));
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+            mergeThreadCount,
+            mergeThreadCount,
+            60L,
+            TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>()
+        );
+        executor.allowCoreThreadTimeOut(true);
+        return Tuple.tuple(mergeThreadCount, executor);
     }
 }

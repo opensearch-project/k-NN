@@ -18,7 +18,9 @@ import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Class provides per field format implementation for Lucene Knn vector type
@@ -101,7 +103,15 @@ public class KNN9120PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsForma
         if (mergeThreadCount <= 1) {
             return DEFAULT_MERGE_THREAD_COUNT_AND_EXECUTOR_SERVICE;
         } else {
-            return Tuple.tuple(mergeThreadCount, Executors.newFixedThreadPool(mergeThreadCount));
+            ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                mergeThreadCount,
+                mergeThreadCount,
+                60L,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>()
+            );
+            executor.allowCoreThreadTimeOut(true);
+            return Tuple.tuple(mergeThreadCount, executor);
         }
     }
 }
