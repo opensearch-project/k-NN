@@ -320,6 +320,36 @@ public class KNN1040HalfFloatFlatVectorsWriterTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    public void testConstructor_directoryFailsCreatingMeta_cleansUpAndPropagatesOriginalException() {
+        try (Directory baseDir = new ByteBuffersDirectory()) {
+            Directory failingDir = new FilterDirectory(baseDir) {
+                @Override
+                public IndexOutput createOutput(String name, IOContext context) throws IOException {
+                    if (name.endsWith(KNN1040HalfFloatFlatVectorsFormat.META_EXTENSION)) {
+                        throw new IOException("simulated failure creating meta output");
+                    }
+                    return super.createOutput(name, context);
+                }
+            };
+
+            SegmentInfo segmentInfo = createSegmentInfo(failingDir, "_0");
+            FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { createFieldInfo() });
+            SegmentWriteState writeState = new SegmentWriteState(
+                InfoStream.NO_OUTPUT,
+                failingDir,
+                segmentInfo,
+                fieldInfos,
+                null,
+                IOContext.DEFAULT
+            );
+            FlatVectorsScorer scorer = Mockito.mock(FlatVectorsScorer.class);
+
+            IOException e = expectThrows(IOException.class, () -> new KNN1040HalfFloatFlatVectorsWriter(writeState, scorer));
+            assertEquals("simulated failure creating meta output", e.getMessage());
+        }
+    }
+
+    @SneakyThrows
     public void testFlush_multipleFields_writesEachFieldWithCorrectAlignment() {
         try (Directory dir = new ByteBuffersDirectory()) {
             FieldInfo fieldInfo1 = createFieldInfo("field_one", 0);
