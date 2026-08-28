@@ -324,8 +324,13 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndexWithSt
         knn_jni::stream::FaissOpenSearchIOReader faissOpenSearchIOReader {&mediator};
 
         // Pass IOReader to Faiss for loading vector index.
-        return knn_jni::faiss_wrapper::LoadIndexWithStream(
-                 &faissOpenSearchIOReader);
+        jlong indexAddress = knn_jni::faiss_wrapper::LoadIndexWithStream(&faissOpenSearchIOReader);
+
+        // If this is a graph-only .faiss (FP32 flat-vector dedup), reconstruct the native flat storage by streaming
+        // the full-precision vectors from Lucene's .vec file through the same mediator. No-op for normal indices.
+        knn_jni::faiss_wrapper::ReconstructFlatStorageFromStreamIfNeeded((faiss::Index*) indexAddress, &mediator);
+
+        return indexAddress;
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }

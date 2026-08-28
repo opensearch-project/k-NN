@@ -14,6 +14,10 @@ import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.Version;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.common.CheckedSupplier;
+import org.opensearch.knn.common.FieldInfoExtractor;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
@@ -190,6 +194,16 @@ public class DefaultKNNWeight extends KNNWeight {
         final String modelId,
         LeafReaderContext context
     ) throws ExecutionException, IOException {
+        // For a potentially graph-only (FP32 flat-vector deduped) FAISS float index, provide a lazy supplier of the
+        // full-precision vectors so native can reconstruct flat storage from the .vec file at load. The supplier is
+        // invoked only if the loaded .faiss has no embedded storage; null otherwise, so normal loads pay nothing.
+        final CheckedSupplier<KNNVectorValues<?>, IOException> knnVectorValuesSupplier = maybeGetVectorValuesSupplierForReconstruction(
+            reader,
+            knnQuery.getField(),
+            knnEngine,
+            vectorDataType,
+            quantizedVector
+        );
         return nativeMemoryCacheManager.get(
             new NativeMemoryEntryContext.IndexEntryContext(
                 reader.directory(),
@@ -204,9 +218,32 @@ public class DefaultKNNWeight extends KNNWeight {
                     segmentLevelQuantizationInfo
                 ),
                 knnQuery.getIndexName(),
-                modelId
+                modelId,
+                knnVectorValuesSupplier
             ),
             true
         );
+    }
+
+    /**
+     * Returns a lazy supplier of full-precision {@link KNNVectorValues} for the field when the loaded index could be a
+     * graph-only (FP32 flat-vector deduped) FAISS float index, so native can reconstruct flat storage from Lucene's
+     * .vec file. Returns null for non-FAISS, non-float, or quantized fields, where reconstruction does not apply. The
+     * supplier defers all segment-reader access until native actually needs it (only for graph-only indices).
+     */
+    private CheckedSupplier<KNNVectorValues<?>, IOException> maybeGetVectorValuesSupplierForReconstruction(
+        final SegmentReader reader,
+        final String field,
+        final KNNEngine knnEngine,
+        final VectorDataType vectorDataType,
+        final byte[] quantizedVector
+    ) {
+        if (knnEngine != KNNEngine.FAISS || vectorDataType != VectorDataType.FLOAT || quantizedVector != null) {
+            return null;
+        }
+        return () -> {
+            final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, field);
+            return fieldInfo == null ? null : KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
+        };
     }
 }

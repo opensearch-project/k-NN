@@ -87,6 +87,56 @@ class NativeEngineIndexInputMediator {
     return bytes;
   }
 
+  // Streams up to `maxVectors` full-precision FP32 vectors (each `dim` floats, row-major) from the Java
+  // IndexInputWithBuffer's attached vector cursor into `destination`, returning the number of vectors copied
+  // (0 at end of the iterator). Used to reconstruct native flat storage for a graph-only .faiss produced by
+  // FP32 flat-vector deduplication (IO_FLAG_SKIP_STORAGE), where the vectors live only in Lucene's .vec file.
+  //
+  // Mirrors copyBytes: the Java side stages the batch into a reused float[] (IndexInputWithBuffer.vectorBuffer),
+  // and this method memcpy's it out under a JNI critical section. The float[] is lazily (re)allocated on the Java
+  // side, so it is fetched per call and its local ref released.
+  int32_t copyVectors(int32_t maxVectors, int32_t dim, float * RESTRICT destination) {
+    auto jclazz = getIndexInputWithBufferClass(jni_interface, env);
+
+    jvalue args;
+    args.i = maxVectors;
+    const int32_t copiedVectors =
+        jni_interface->CallNonvirtualIntMethodA(env, indexInput, jclazz, getCopyVectorsMethod(jni_interface, env), &args);
+    jni_interface->HasExceptionInStack(env, "Reading full-precision vectors via IndexInput has failed.");
+
+    if (copiedVectors <= 0) {
+      return copiedVectors;
+    }
+
+    // The vectorBuffer float[] is (re)allocated lazily on the Java side, so fetch it fresh each call.
+    jfloatArray vectorBufferArray =
+        (jfloatArray) jni_interface->GetObjectField(env, indexInput, getVectorBufferFieldId(jni_interface, env));
+
+    // Defensive bounds check: the Java staging buffer is sized from the Lucene vector dimension, while `dim` here is
+    // the graph's dimension. They always match (same field), but if they ever diverged the memcpy below would
+    // over-read. Fail cleanly instead of corrupting memory.
+    const int64_t requiredFloats = ((int64_t) copiedVectors) * ((int64_t) dim);
+    if (jni_interface->GetJavaFloatArrayLength(env, vectorBufferArray) < requiredFloats) {
+      jni_interface->DeleteLocalRef(env, vectorBufferArray);
+      throw std::runtime_error("Vector staging buffer is smaller than copiedVectors * dim; dimension mismatch between .vec and the graph.");
+    }
+
+    // === Critical Section Start ===
+    jfloat * RESTRICT primitiveArray =
+        (jfloat *) jni_interface->GetPrimitiveArrayCritical(env, vectorBufferArray, nullptr);
+
+    std::memcpy(destination, primitiveArray, ((size_t) copiedVectors) * ((size_t) dim) * sizeof(float));
+
+    // JNI_ABORT: we only read the Java array, so skip copying back.
+    jni_interface->ReleasePrimitiveArrayCritical(env, vectorBufferArray, primitiveArray, JNI_ABORT);
+    // === Critical Section End ===
+
+    // Release the local ref to avoid overflowing the local reference table across many batches.
+    jni_interface->DeleteLocalRef(env, vectorBufferArray);
+
+    return copiedVectors;
+  }
+
  private:
   static jclass getIndexInputWithBufferClass(JNIUtilInterface *jni_interface, JNIEnv *env) {
     static jclass INDEX_INPUT_WITH_BUFFER_CLASS =
@@ -110,6 +160,18 @@ class NativeEngineIndexInputMediator {
     static jfieldID BUFFER_FIELD_ID =
         jni_interface->GetFieldID(env, getIndexInputWithBufferClass(jni_interface, env), "buffer", "[B");
     return BUFFER_FIELD_ID;
+  }
+
+  static jmethodID getCopyVectorsMethod(JNIUtilInterface *jni_interface, JNIEnv *env) {
+    static jmethodID COPY_VECTORS_METHOD_ID =
+        jni_interface->GetMethodID(env, getIndexInputWithBufferClass(jni_interface, env), "copyVectors", "(I)I");
+    return COPY_VECTORS_METHOD_ID;
+  }
+
+  static jfieldID getVectorBufferFieldId(JNIUtilInterface *jni_interface, JNIEnv *env) {
+    static jfieldID VECTOR_BUFFER_FIELD_ID =
+        jni_interface->GetFieldID(env, getIndexInputWithBufferClass(jni_interface, env), "vectorBuffer", "[F");
+    return VECTOR_BUFFER_FIELD_ID;
   }
 
   JNIUtilInterface *jni_interface;

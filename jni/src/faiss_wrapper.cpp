@@ -20,6 +20,7 @@
 #include "faiss/index_factory.h"
 #include "faiss/index_io.h"
 #include "faiss/IndexHNSW.h"
+#include "faiss/IndexFlat.h"
 #include "faiss/IndexIVFFlat.h"
 #include "faiss/Index.h"
 #include "faiss/impl/IDSelector.h"
@@ -592,6 +593,68 @@ jlong knn_jni::faiss_wrapper::LoadIndexWithStream(faiss::IOReader* ioReader) {
 
     return (jlong) indexReader;
 }
+
+void knn_jni::faiss_wrapper::ReconstructFlatStorageFromStreamIfNeeded(
+    faiss::Index* index,
+    knn_jni::stream::NativeEngineIndexInputMediator* mediator
+) {
+    if (index == nullptr || mediator == nullptr) {
+        return;
+    }
+
+    // FP32 flat-vector dedup writes a float IndexIDMap wrapping an IndexHNSW whose flat storage was skipped
+    // (IO_FLAG_SKIP_STORAGE), so read_index yields storage == nullptr. Detect exactly that shape; anything else
+    // (normal indices with embedded storage, binary/ADC handled elsewhere) is left untouched.
+    auto* idMap = dynamic_cast<faiss::IndexIDMap*>(index);
+    if (idMap == nullptr) {
+        return;
+    }
+    auto* hnsw = dynamic_cast<faiss::IndexHNSW*>(idMap->index);
+    if (hnsw == nullptr || hnsw->storage != nullptr) {
+        return;
+    }
+
+    const int dimension = hnsw->d;
+    if (dimension <= 0) {
+        throw std::runtime_error("Cannot reconstruct flat storage: invalid dimension in graph-only HNSW header.");
+    }
+
+    // Build flat storage matching the graph's metric type and dimension (both restored from the HNSW header on read).
+    // IndexFlat is trained by construction, so no training is needed.
+    std::unique_ptr<faiss::IndexFlat> flatStorage(new faiss::IndexFlat(dimension, hnsw->metric_type));
+
+    // Stream the full-precision vectors from Lucene's .vec (via the Java mediator) in add order and append them.
+    // Batch ~2 MB worth of vectors per JNI crossing to amortize the callback across many vectors, avoiding a
+    // per-vector crossing (which would be prohibitive for large segments).
+    constexpr int64_t TARGET_BATCH_BYTES = 2 * 1024 * 1024;
+    const int32_t maxVectorsPerBatch = std::max<int32_t>(
+        1,
+        static_cast<int32_t>(TARGET_BATCH_BYTES / (static_cast<int64_t>(dimension) * sizeof(float)))
+    );
+    std::vector<float> batch(static_cast<size_t>(maxVectorsPerBatch) * dimension);
+
+    int64_t totalAdded = 0;
+    int32_t copied;
+    while ((copied = mediator->copyVectors(maxVectorsPerBatch, dimension, batch.data())) > 0) {
+        flatStorage->add(copied, batch.data());
+        totalAdded += copied;
+    }
+
+    // The streamed vector count must match the graph's vector count; otherwise the HNSW graph would reference vectors
+    // that are missing or misaligned (silent recall corruption). Fail loudly instead of returning a broken index.
+    if (totalAdded != hnsw->ntotal) {
+        throw std::runtime_error(
+            "Reconstructed flat storage vector count (" + std::to_string(totalAdded) +
+            ") does not match graph-only HNSW ntotal (" + std::to_string(hnsw->ntotal) +
+            "); the .vec file and .faiss graph are out of sync.");
+    }
+
+    // Assign as the HNSW storage. own_fields = true so the flat storage is freed when the enclosing IndexIDMap
+    // (own_fields = true from read_index) is deleted on the normal (non-binary) free path.
+    hnsw->storage = flatStorage.release();
+    hnsw->own_fields = true;
+}
+
 jlong knn_jni::faiss_wrapper::LoadIndexWithStreamADCParams(faiss::IOReader* ioReader, knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jobject methodParamsJ) {
     auto methodParams = jniUtil->ConvertJavaMapToCppMap(env, methodParamsJ);
 

@@ -13,15 +13,19 @@ package org.opensearch.knn.index.memory;
 
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Nullable;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.common.CheckedSupplier;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
 import java.io.IOException;
 import java.util.Map;
@@ -105,6 +109,14 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         IndexInputWithBuffer indexInputWithBuffer;
 
         /**
+         * Lazily supplies the field's full-precision vectors, used only to reconstruct native flat storage when
+         * loading a graph-only .faiss produced by FP32 flat-vector deduplication. Invoked only if native needs it
+         * (graph-only index); null when reconstruction cannot apply.
+         */
+        @Getter
+        CheckedSupplier<KNNVectorValues<?>, IOException> knnVectorValuesSupplier;
+
+        /**
          * Constructor
          *
          * @param directory Lucene directory to create required IndexInput/IndexOutput to access files.
@@ -141,23 +153,86 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
             String openSearchIndexName,
             String modelId
         ) {
+            this(directory, vectorIndexCacheKey, indexLoadStrategy, parameters, openSearchIndexName, modelId, null);
+        }
+
+        /**
+         * Constructor
+         *
+         * @param directory Lucene directory to create required IndexInput/IndexOutput to access files.
+         * @param vectorIndexCacheKey Cache key for {@link NativeMemoryCacheManager}. It must contain a vector file name.
+         * @param indexLoadStrategy strategy to load index into memory
+         * @param parameters load time parameters
+         * @param openSearchIndexName opensearch index associated with index
+         * @param modelId model to be loaded. If none available, pass null
+         * @param knnVectorValuesSupplier lazily supplies full-precision vectors to reconstruct native flat storage for
+         *                        a graph-only (FP32 flat-vector deduped) .faiss. Pass null when not applicable.
+         */
+        public IndexEntryContext(
+            Directory directory,
+            String vectorIndexCacheKey,
+            NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy,
+            Map<String, Object> parameters,
+            String openSearchIndexName,
+            String modelId,
+            CheckedSupplier<KNNVectorValues<?>, IOException> knnVectorValuesSupplier
+        ) {
             super(vectorIndexCacheKey);
             this.directory = directory;
             this.indexLoadStrategy = indexLoadStrategy;
             this.openSearchIndexName = openSearchIndexName;
             this.parameters = parameters;
             this.modelId = modelId;
+            this.knnVectorValuesSupplier = knnVectorValuesSupplier;
         }
+
+        // Bytes to add to the on-disk .faiss size to account for vectors reconstructed into native RAM at load
+        // (flat-vector dedup). -1 until computed once, then cached (calculateSizeInKB is called repeatedly by the cache
+        // manager for capacity checks).
+        private long reconstructedVectorBytes = -1L;
 
         @Override
         public Integer calculateSizeInKB() {
             final String indexFileName = NativeMemoryCacheKeyHelper.extractVectorIndexFileName(key);
             try {
                 final long fileLength = directory.fileLength(indexFileName);
-                return (int) (fileLength / 1024L);
+                return (int) ((fileLength + reconstructedVectorBytes(indexFileName)) / 1024L);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
+        }
+
+        /**
+         * For a graph-only (flat-vector-deduped) .faiss, the loaded index reconstructs the field's vectors from the
+         * segment's Lucene .vec into native RAM, but the .faiss file on disk holds only the graph. Without adjustment
+         * the native-memory cache would size this entry by the (small) graph-only file and under-count the loaded
+         * footprint, so the circuit breaker would not reserve/evict correctly. Add the segment's .vec size when
+         * flat_vector_dedup is enabled for the index. Conservative: counts the whole segment .vec (all float vector
+         * fields); exact for the common single-vector-field case. Best-effort and cached; on any error it falls back to
+         * file-size-only accounting.
+         */
+        private long reconstructedVectorBytes(final String indexFileName) {
+            if (reconstructedVectorBytes >= 0) {
+                return reconstructedVectorBytes;
+            }
+            long bytes = 0L;
+            try {
+                if (openSearchIndexName != null
+                    && KNNSettings.getIndexSettings(openSearchIndexName)
+                        .getAsBoolean(KNNSettings.INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP, false)) {
+                    final String segmentName = IndexFileNames.parseSegmentName(indexFileName);
+                    for (final String file : directory.listAll()) {
+                        if (file.endsWith(".vec") && segmentName.equals(IndexFileNames.parseSegmentName(file))) {
+                            bytes += directory.fileLength(file);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                // Best-effort: fall back to file-size-only accounting rather than fail sizing.
+                bytes = 0L;
+            }
+            reconstructedVectorBytes = bytes;
+            return bytes;
         }
 
         @Override
@@ -181,7 +256,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
 
             // Try to open an index input then pass it down to native engine for loading an index.
             try {
-                indexSizeKb = Math.toIntExact(directory.fileLength(vectorFileName) / 1024);
+                indexSizeKb = Math.toIntExact((directory.fileLength(vectorFileName) + reconstructedVectorBytes(vectorFileName)) / 1024);
                 readStream = directory.openInput(vectorFileName, IOContext.READONCE);
                 readStream.seek(0);
                 indexInputWithBuffer = new IndexInputWithBuffer(readStream);

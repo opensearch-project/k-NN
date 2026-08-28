@@ -14,6 +14,7 @@ package org.opensearch.knn.index;
 import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Floats;
+import org.opensearch.common.settings.Settings;
 import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
@@ -190,5 +191,102 @@ public class FaissHNSWFlatE2EIT extends KNNRestTestCase {
         }
 
         fail("Graphs are not getting evicted");
+    }
+
+    // Exercises FP32 flat-vector dedup on the DEFAULT (non-MOS) search path: a graph-only .faiss (no embedded flat
+    // storage) is written, then bulk-loaded into native memory where the flat storage is reconstructed by streaming
+    // full-precision vectors from Lucene's .vec file. Scores must remain exact (identical to a full build), which
+    // verifies the reconstructed storage and its ordinal ordering against the graph.
+    @SneakyThrows
+    public void testEndToEnd_whenFlatVectorDedup_thenSucceed() {
+        String indexName = "test-index-flat-vector-dedup";
+        String fieldName = "test-field-1";
+        SpaceType spaceType = SpaceType.L2;
+        Integer dimension = testData.indexData.vectors[0].length;
+
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
+            .field(KNNConstants.METHOD_PARAMETER_M, 16)
+            .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, 128)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        String mapping = builder.toString();
+
+        // Enable flat-vector dedup (graph-only .faiss). Memory-optimized search is left disabled, so search bulk-loads
+        // the index into native memory and reconstructs the flat storage from .vec - the non-MOS path under test.
+        Settings settings = Settings.builder()
+            .put("number_of_shards", 1)
+            .put("number_of_replicas", 0)
+            .put("index.knn", true)
+            .put(KNNSettings.INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP, true)
+            .build();
+        createKnnIndex(indexName, settings, mapping);
+
+        for (int i = 0; i < testData.indexData.docs.length; i++) {
+            addKnnDoc(
+                indexName,
+                Integer.toString(testData.indexData.docs[i]),
+                fieldName,
+                Floats.asList(testData.indexData.vectors[i]).toArray()
+            );
+        }
+        refreshAllNonSystemIndices();
+        assertEquals(testData.indexData.docs.length, getDocCount(indexName));
+
+        if (deleteRandomDocs) {
+            final Set<Integer> docIdsToBeDeleted = new HashSet<>();
+            while (docIdsToBeDeleted.size() < 10) {
+                docIdsToBeDeleted.add(randomInt(testData.indexData.docs.length - 1));
+            }
+            for (Integer id : docIdsToBeDeleted) {
+                deleteKnnDoc(indexName, Integer.toString(testData.indexData.docs[id]));
+            }
+            refreshAllNonSystemIndices();
+            // Force-merge to consolidate and purge deletes, producing a merged graph-only .faiss whose native
+            // reconstruction from .vec is exercised on search. Mirrors the non-deduped end-to-end test.
+            forceMergeKnnIndex(indexName, 3);
+            assertEquals(testData.indexData.docs.length - 10, getDocCount(indexName));
+        }
+
+        // Even without a force-merge, flushed segments are written graph-only (dedup) and are bulk-loaded into native
+        // memory on search, exercising the reconstruction path.
+        for (int i = 0; i < testData.queries.length; i++) {
+            final KNNQueryBuilder queryBuilder = KNNQueryBuilder.builder()
+                .fieldName(fieldName)
+                .vector(testData.queries[i])
+                .k(k)
+                .methodParameters(methodParameters)
+                .build();
+            Response response = searchKNNIndex(indexName, queryBuilder, k);
+            String responseBody = EntityUtils.toString(response.getEntity());
+            List<KNNResult> knnResults = parseSearchResponse(responseBody, fieldName);
+
+            // Exact-score check first: catches any ordinal misalignment in the reconstructed storage. Each returned
+            // result's search score must equal the exact L2 score of its own (source) vector.
+            List<Float> actualScores = parseSearchResponseScore(responseBody, fieldName);
+            for (int j = 0; j < knnResults.size(); j++) {
+                float[] primitiveArray = knnResults.get(j).getVector();
+                assertEquals(
+                    KNNEngine.FAISS.score(KNNScoringUtil.l2Squared(testData.queries[i], primitiveArray), spaceType),
+                    actualScores.get(j),
+                    0.0001
+                );
+            }
+            assertEquals(k, knnResults.size());
+        }
+
+        deleteKNNIndex(indexName);
     }
 }

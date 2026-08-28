@@ -62,6 +62,12 @@ namespace knn_jni {
         // Returns a pointer of the loaded index
         jlong LoadIndexWithStream(faiss::IOReader* ioReader);
 
+        // Reconstructs the native flat storage for a graph-only .faiss produced by FP32 flat-vector deduplication
+        // (IO_FLAG_SKIP_STORAGE). If `index` is a float IndexIDMap wrapping an IndexHNSW whose storage is null, this
+        // streams the full-precision vectors from the mediator (backed by Lucene's .vec file) into a new IndexFlat and
+        // assigns it as the HNSW storage. No-op for any other index shape (normal indices already have storage).
+        void ReconstructFlatStorageFromStreamIfNeeded(faiss::Index* index, knn_jni::stream::NativeEngineIndexInputMediator* mediator);
+
         // Loads an index with a reader implemented IOReader. The index
         // is expected to be a binary index. For ADC, it will be converted into a
         // float index.

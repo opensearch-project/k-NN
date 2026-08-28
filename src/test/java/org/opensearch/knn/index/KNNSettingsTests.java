@@ -14,8 +14,6 @@ import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.network.NetworkModule;
-import org.opensearch.common.settings.IndexScopedSettings;
-import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.env.Environment;
@@ -36,10 +34,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.opensearch.test.NodeRoles.dataNode;
@@ -317,29 +313,5 @@ public class KNNSettingsTests extends KNNTestCase {
         int availableProcessors = Runtime.getRuntime().availableProcessors();
         int expected = (availableProcessors >= 32) ? 4 : 1;
         assertEquals(expected, threadQtyWithEmpty);
-    }
-
-    public void testFlatVectorDedupRequiresMemoryOptimizedSearch() {
-        final Set<Setting<?>> registeredSettings = new HashSet<>(IndexScopedSettings.BUILT_IN_INDEX_SETTINGS);
-        registeredSettings.add(KNNSettings.INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP_SETTING);
-        registeredSettings.add(KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_MODE_SETTING);
-        final IndexScopedSettings indexScopedSettings = new IndexScopedSettings(Settings.EMPTY, registeredSettings);
-
-        // flat_vector_dedup enabled without memory_optimized_search is rejected.
-        final Settings dedupWithoutMos = Settings.builder()
-            .put(KNNSettings.INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP, true)
-            .put(KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_MODE, false)
-            .build();
-        expectThrows(IllegalArgumentException.class, () -> indexScopedSettings.validate(dedupWithoutMos, true));
-
-        // flat_vector_dedup enabled together with memory_optimized_search is allowed.
-        final Settings dedupWithMos = Settings.builder()
-            .put(KNNSettings.INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP, true)
-            .put(KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_MODE, true)
-            .build();
-        indexScopedSettings.validate(dedupWithMos, true);
-
-        // flat_vector_dedup disabled is always allowed, regardless of memory_optimized_search.
-        indexScopedSettings.validate(Settings.EMPTY, true);
     }
 }

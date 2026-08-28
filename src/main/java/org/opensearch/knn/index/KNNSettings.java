@@ -41,7 +41,6 @@ import java.security.InvalidParameterException;
 import org.opensearch.common.util.concurrent.OpenSearchExecutors;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -222,38 +221,6 @@ public class KNNSettings {
     public static final Setting<Boolean> INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP_SETTING = Setting.boolSetting(
         INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP,
         INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP_DEFAULT_VALUE,
-        // Flat-vector dedup writes a graph-only .faiss whose vectors are served from Lucene's .vec only by
-        // memory-optimized search. It is therefore only safe to enable together with memory_optimized_search.
-        // (MEMORY_OPTIMIZED_KNN_SEARCH_MODE_SETTING is referenced lazily at validation time, so the forward
-        // reference to a field declared later in this class is safe.)
-        new Setting.Validator<Boolean>() {
-            @Override
-            public void validate(final Boolean value) {
-                // Cross-setting validation is performed in the two-argument overload.
-            }
-
-            @Override
-            public void validate(final Boolean value, final Map<Setting<?>, Object> settings) {
-                if (Boolean.TRUE.equals(value) == false) {
-                    return;
-                }
-                final Object memoryOptimizedSearchEnabled = settings.get(MEMORY_OPTIMIZED_KNN_SEARCH_MODE_SETTING);
-                if (Boolean.TRUE.equals(memoryOptimizedSearchEnabled) == false) {
-                    throw new IllegalArgumentException(
-                        "["
-                            + INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP
-                            + "] can only be enabled when ["
-                            + MEMORY_OPTIMIZED_KNN_SEARCH_MODE
-                            + "] is enabled on the index."
-                    );
-                }
-            }
-
-            @Override
-            public Iterator<Setting<?>> settings() {
-                return List.<Setting<?>>of(MEMORY_OPTIMIZED_KNN_SEARCH_MODE_SETTING).iterator();
-            }
-        },
         IndexScope,
         Dynamic
     );
@@ -1203,23 +1170,6 @@ public class KNNSettings {
         final IndexSettings indexSettings = mapperService.getIndexSettings();
         final Boolean flatVectorDedupEnabled = indexSettings.getValue(INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP_SETTING);
         return flatVectorDedupEnabled != null ? flatVectorDedupEnabled : INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP_DEFAULT_VALUE;
-    }
-
-    /**
-     * Retrieves the {@code index.knn.memory_optimized_search} value from the given
-     * {@link org.opensearch.index.mapper.MapperService}'s index settings, or returns the default value (false) when
-     * {@code mapperService} is null or the setting is not explicitly configured. Named distinctly from the
-     * {@code String}-indexName overload to avoid an ambiguous overload when called with a {@code null} literal.
-     *
-     * @param mapperService the mapper service (nullable)
-     * @return whether memory-optimized search is enabled for the index
-     */
-    public static boolean isMemoryOptimizedKnnSearchModeEnabledForMapper(@Nullable MapperService mapperService) {
-        if (mapperService == null) {
-            return DEFAULT_MEMORY_OPTIMIZED_KNN_SEARCH_MODE;
-        }
-        final Boolean memoryOptimizedSearchEnabled = mapperService.getIndexSettings().getValue(MEMORY_OPTIMIZED_KNN_SEARCH_MODE_SETTING);
-        return memoryOptimizedSearchEnabled != null ? memoryOptimizedSearchEnabled : DEFAULT_MEMORY_OPTIMIZED_KNN_SEARCH_MODE;
     }
 
     private static String percentageAsString(Integer percentage) {
