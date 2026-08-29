@@ -80,11 +80,165 @@ public class VectorScorersTests extends KNNTestCase {
         KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
         when(iteratorValues.getDocIdSetIterator()).thenReturn(floatVectorValues.iterator());
         when(iteratorValues.getKnnVectorValues()).thenReturn(floatVectorValues);
+        when(fieldInfo.getVectorSimilarityFunction()).thenReturn(VectorSimilarityFunction.EUCLIDEAN);
 
         VectorScorer scorer = VectorScorers.createScorer(iteratorValues, query, VectorScorerMode.SCORE, SpaceType.L2, fieldInfo);
 
         assertNotNull(scorer);
         assertScores(buildExpectedScores(query, docs, SpaceType.L2), scorer);
+    }
+
+    @SneakyThrows
+    public void testFloatTarget_withFloatVectorValues_fieldSimilarityDisagrees_scoresWithConfiguredSpaceType() {
+        float[] query = { 1.0f, 2.0f };
+        List<float[]> docs = List.of(new float[] { 1.0f, 2.0f }, new float[] { 3.0f, 4.0f });
+        // A model based field records the default similarity function regardless of the model's space type.
+        TestVectorValues.PreDefinedFloatVectorValues floatVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            docs,
+            VectorSimilarityFunction.EUCLIDEAN
+        );
+
+        KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
+        when(iteratorValues.getDocIdSetIterator()).thenReturn(floatVectorValues.iterator());
+        when(iteratorValues.getKnnVectorValues()).thenReturn(floatVectorValues);
+        when(fieldInfo.getVectorSimilarityFunction()).thenReturn(VectorSimilarityFunction.EUCLIDEAN);
+
+        Map<Integer, Float> innerProductScores = buildExpectedScores(query, docs, SpaceType.INNER_PRODUCT);
+        Map<Integer, Float> recordedScores = buildExpectedScores(query, docs, SpaceType.L2);
+        // Guards against the fixture drifting to vectors where both functions agree.
+        assertNotEquals(recordedScores, innerProductScores);
+
+        VectorScorer scorer = VectorScorers.createScorer(iteratorValues, query, VectorScorerMode.SCORE, SpaceType.INNER_PRODUCT, fieldInfo);
+
+        assertNotNull(scorer);
+        assertScores(innerProductScores, scorer);
+    }
+
+    @SneakyThrows
+    public void testFloatTarget_withFloatVectorValues_fieldSimilarityDisagrees_rescoreMode() {
+        float[] query = { 1.0f, 2.0f };
+        List<float[]> docs = List.of(new float[] { 1.0f, 2.0f }, new float[] { 3.0f, 4.0f });
+        TestVectorValues.PreDefinedFloatVectorValues floatVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            docs,
+            VectorSimilarityFunction.EUCLIDEAN
+        );
+
+        KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
+        when(iteratorValues.getDocIdSetIterator()).thenReturn(floatVectorValues.iterator());
+        when(iteratorValues.getKnnVectorValues()).thenReturn(floatVectorValues);
+        when(fieldInfo.getVectorSimilarityFunction()).thenReturn(VectorSimilarityFunction.EUCLIDEAN);
+
+        Map<Integer, Float> innerProductScores = buildExpectedScores(query, docs, SpaceType.INNER_PRODUCT);
+        assertNotEquals(buildExpectedScores(query, docs, SpaceType.L2), innerProductScores);
+
+        // The rescore pass reaches this path through RescoreKNNVectorQuery, which asks for RESCORE mode.
+        VectorScorer scorer = VectorScorers.createScorer(
+            iteratorValues,
+            query,
+            VectorScorerMode.RESCORE,
+            SpaceType.INNER_PRODUCT,
+            fieldInfo
+        );
+
+        assertNotNull(scorer);
+        assertScores(innerProductScores, scorer);
+    }
+
+    @SneakyThrows
+    public void testFloatTarget_withFloatVectorValues_fieldSimilarityDisagrees_cosineSpaceType() {
+        float[] query = { 1.0f, 2.0f };
+        List<float[]> docs = List.of(new float[] { 2.0f, 1.0f }, new float[] { 3.0f, 4.0f });
+        TestVectorValues.PreDefinedFloatVectorValues floatVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            docs,
+            VectorSimilarityFunction.EUCLIDEAN
+        );
+
+        KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
+        when(iteratorValues.getDocIdSetIterator()).thenReturn(floatVectorValues.iterator());
+        when(iteratorValues.getKnnVectorValues()).thenReturn(floatVectorValues);
+        when(fieldInfo.getVectorSimilarityFunction()).thenReturn(VectorSimilarityFunction.EUCLIDEAN);
+
+        Map<Integer, Float> cosineScores = buildExpectedScores(query, docs, SpaceType.COSINESIMIL);
+        assertNotEquals(buildExpectedScores(query, docs, SpaceType.L2), cosineScores);
+
+        VectorScorer scorer = VectorScorers.createScorer(iteratorValues, query, VectorScorerMode.SCORE, SpaceType.COSINESIMIL, fieldInfo);
+
+        assertNotNull(scorer);
+        assertScores(cosineScores, scorer);
+    }
+
+    @SneakyThrows
+    public void testFloatTarget_withFloatVectorValues_fieldSimilarityAgrees_delegatesToScoreMode() {
+        float[] query = { 1.0f, 2.0f };
+        List<float[]> docs = List.of(new float[] { 1.0f, 2.0f }, new float[] { 3.0f, 4.0f });
+        TestVectorValues.PreDefinedFloatVectorValues floatVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            docs,
+            VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT
+        );
+
+        KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
+        when(iteratorValues.getDocIdSetIterator()).thenReturn(floatVectorValues.iterator());
+        when(iteratorValues.getKnnVectorValues()).thenReturn(floatVectorValues);
+        when(fieldInfo.getVectorSimilarityFunction()).thenReturn(VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT);
+
+        VectorScorerMode vectorScorerMode = mock(VectorScorerMode.class);
+        VectorScorer delegated = mock(VectorScorer.class);
+        when(vectorScorerMode.createScorer(any(FloatVectorValues.class), any(float[].class))).thenReturn(delegated);
+
+        VectorScorer scorer = VectorScorers.createScorer(iteratorValues, query, vectorScorerMode, SpaceType.INNER_PRODUCT, fieldInfo);
+
+        assertSame(delegated, scorer);
+    }
+
+    @SneakyThrows
+    public void testFloatTarget_withFloatVectorValues_hammingSpaceType_delegatesToScoreMode() {
+        float[] query = { 1.0f, 2.0f };
+        List<float[]> docs = List.of(new float[] { 1.0f, 2.0f });
+        TestVectorValues.PreDefinedFloatVectorValues floatVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            docs,
+            VectorSimilarityFunction.EUCLIDEAN
+        );
+
+        KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
+        when(iteratorValues.getDocIdSetIterator()).thenReturn(floatVectorValues.iterator());
+        when(iteratorValues.getKnnVectorValues()).thenReturn(floatVectorValues);
+        when(fieldInfo.getVectorSimilarityFunction()).thenReturn(VectorSimilarityFunction.EUCLIDEAN);
+
+        VectorScorerMode vectorScorerMode = mock(VectorScorerMode.class);
+        VectorScorer delegated = mock(VectorScorer.class);
+        when(vectorScorerMode.createScorer(any(FloatVectorValues.class), any(float[].class))).thenReturn(delegated);
+
+        // Defensive: HAMMING requires binary data and so routes to the byte overload. It has no Lucene
+        // equivalent either, so there is nothing to compare against and the mode still applies.
+        VectorScorer scorer = VectorScorers.createScorer(iteratorValues, query, vectorScorerMode, SpaceType.HAMMING, fieldInfo);
+
+        assertSame(delegated, scorer);
+    }
+
+    @SneakyThrows
+    public void testFloatTarget_withFloatVectorValues_spaceTypeWithoutLuceneEquivalent_delegatesToScoreMode() {
+        float[] query = { 1.0f, 2.0f };
+        List<float[]> docs = List.of(new float[] { 1.0f, 2.0f });
+        TestVectorValues.PreDefinedFloatVectorValues floatVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            docs,
+            VectorSimilarityFunction.EUCLIDEAN
+        );
+
+        KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
+        when(iteratorValues.getDocIdSetIterator()).thenReturn(floatVectorValues.iterator());
+        when(iteratorValues.getKnnVectorValues()).thenReturn(floatVectorValues);
+        when(fieldInfo.getVectorSimilarityFunction()).thenReturn(VectorSimilarityFunction.EUCLIDEAN);
+
+        VectorScorerMode vectorScorerMode = mock(VectorScorerMode.class);
+        VectorScorer delegated = mock(VectorScorer.class);
+        when(vectorScorerMode.createScorer(any(FloatVectorValues.class), any(float[].class))).thenReturn(delegated);
+
+        // L1 and LINF have no Lucene similarity function, so the recorded one is used and these fields keep
+        // scoring with L2. That gap is not addressed here and needs a dedicated scorer, as HAMMING has.
+        for (SpaceType spaceType : List.of(SpaceType.L1, SpaceType.LINF)) {
+            VectorScorer scorer = VectorScorers.createScorer(iteratorValues, query, vectorScorerMode, spaceType, fieldInfo);
+            assertSame(delegated, scorer);
+        }
     }
 
     @SneakyThrows
@@ -163,11 +317,37 @@ public class VectorScorersTests extends KNNTestCase {
         KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
         when(iteratorValues.getDocIdSetIterator()).thenReturn(byteVectorValues.iterator());
         when(iteratorValues.getKnnVectorValues()).thenReturn(byteVectorValues);
+        when(fieldInfo.getVectorSimilarityFunction()).thenReturn(VectorSimilarityFunction.EUCLIDEAN);
 
         VectorScorer scorer = VectorScorers.createScorer(iteratorValues, query, VectorScorerMode.SCORE, SpaceType.L2, fieldInfo);
 
         assertNotNull(scorer);
         assertScores(buildExpectedScores(query, docs, SpaceType.L2), scorer);
+    }
+
+    @SneakyThrows
+    public void testByteTarget_withByteVectorValues_fieldSimilarityDisagrees_scoresWithConfiguredSpaceType() {
+        byte[] query = { 4, 2 };
+        List<byte[]> docs = List.of(new byte[] { 4, 2 }, new byte[] { 1, 7 });
+        // A model based byte field records the default similarity function, same as the float case.
+        TestVectorValues.PreDefinedByteVectorValues byteVectorValues = new TestVectorValues.PreDefinedByteVectorValues(
+            docs,
+            VectorSimilarityFunction.EUCLIDEAN
+        );
+
+        KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
+        when(iteratorValues.getDocIdSetIterator()).thenReturn(byteVectorValues.iterator());
+        when(iteratorValues.getKnnVectorValues()).thenReturn(byteVectorValues);
+        when(fieldInfo.getVectorSimilarityFunction()).thenReturn(VectorSimilarityFunction.EUCLIDEAN);
+
+        Map<Integer, Float> innerProductScores = buildExpectedScores(query, docs, SpaceType.INNER_PRODUCT);
+        // Guards against the fixture drifting to vectors where both functions agree.
+        assertNotEquals(buildExpectedScores(query, docs, SpaceType.L2), innerProductScores);
+
+        VectorScorer scorer = VectorScorers.createScorer(iteratorValues, query, VectorScorerMode.SCORE, SpaceType.INNER_PRODUCT, fieldInfo);
+
+        assertNotNull(scorer);
+        assertScores(innerProductScores, scorer);
     }
 
     @SneakyThrows
@@ -227,6 +407,7 @@ public class VectorScorersTests extends KNNTestCase {
         KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
         when(iteratorValues.getDocIdSetIterator()).thenReturn(floatVectorValues.iterator());
         when(iteratorValues.getKnnVectorValues()).thenReturn(floatVectorValues);
+        when(fieldInfo.getVectorSimilarityFunction()).thenReturn(VectorSimilarityFunction.EUCLIDEAN);
 
         VectorScorerMode vectorScorerMode = mock(VectorScorerMode.class);
         VectorScorer baseScorer = mock(VectorScorer.class);
@@ -259,6 +440,7 @@ public class VectorScorersTests extends KNNTestCase {
         KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
         when(iteratorValues.getDocIdSetIterator()).thenReturn(byteVectorValues.iterator());
         when(iteratorValues.getKnnVectorValues()).thenReturn(byteVectorValues);
+        when(fieldInfo.getVectorSimilarityFunction()).thenReturn(VectorSimilarityFunction.EUCLIDEAN);
 
         VectorScorerMode vectorScorerMode = mock(VectorScorerMode.class);
         VectorScorer baseScorer = mock(VectorScorer.class);
