@@ -227,4 +227,10 @@ public class KNNConstants {
     // dimension-based oversample defaults.
     // TODO: bump this to Version.V_3_9_0 once it is defined in OpenSearch core.
     public static final Version SQ_MULTI_BIT_X16_X8_DEFAULTS_FLIP_VERSION = Version.V_3_8_0;
+
+    // Version gate for rejecting user-supplied engine on method=flat mappings. Indices created
+    // before this version may have engine=lucene persisted in their flat mapping — they must
+    // continue to load without error. New indices reject any engine setting on flat.
+    // TODO: bump this to Version.V_3_9_0 once it is defined in OpenSearch core.
+    public static final Version FLAT_METHOD_ENGINE_AGNOSTIC_VERSION = Version.V_3_8_0;
 }

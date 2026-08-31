@@ -2844,6 +2844,25 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
+     * Returns true when the BWC old-cluster version still accepts an explicit engine on method=flat.
+     * The reject was introduced in {@link org.opensearch.knn.common.KNNConstants#FLAT_METHOD_ENGINE_AGNOSTIC_VERSION}.
+     * Tests that verify the pre-gate → post-gate BWC path must only run when the old cluster
+     * predates the gate (otherwise the old cluster itself rejects the mapping).
+     */
+    protected boolean isFlatMethodEnginePermittedOnOldCluster(final Optional<String> bwcVersion) {
+        if (bwcVersion.isEmpty()) {
+            return false;
+        }
+        String versionString = bwcVersion.get();
+        if (versionString.endsWith("-SNAPSHOT")) {
+            versionString = versionString.substring(0, versionString.length() - 9);
+        }
+        final Version version = Version.fromString(versionString);
+        return version.onOrAfter(Version.V_3_6_0)
+            && version.before(org.opensearch.knn.common.KNNConstants.FLAT_METHOD_ENGINE_AGNOSTIC_VERSION);
+    }
+
+    /**
      * Generates a random lowercase string with length between MIN_CODE_UNITS and MAX_CODE_UNITS.
      * This method is used for test fixtures to generate random string values that can be used
      * as identifiers, names, or other string-based test data.

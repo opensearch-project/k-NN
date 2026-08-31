@@ -773,7 +773,6 @@ public class RecallTestsIT extends KNNCompressionRestTestCase {
                 .field(DIMENSION, TEST_DIMENSION)
                 .startObject(KNN_METHOD)
                 .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-                .field(KNN_ENGINE, LUCENE_NAME)
                 .field(NAME, METHOD_FLAT)
                 .endObject()
                 .endObject()

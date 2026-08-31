@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine;
 
 import org.apache.lucene.codecs.KnnVectorsFormat;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import java.util.Map;
 
@@ -32,6 +33,24 @@ public interface CodecFormatResolver {
         int defaultMaxConnections,
         int defaultBeamWidth
     );
+
+    /**
+     * Overload that additionally threads the resolved {@link CompressionLevel} through. Needed by
+     * the Lucene FLAT format factory to pick the correct scalar-quantization encoding when the
+     * user selects {@code method=flat} with x8 / x16 / x32 compression. Default implementation
+     * delegates to {@link #resolve(String, KNNMethodContext, Map, int, int)} so engines that do
+     * not consume the compression level (e.g., Faiss) don't need to override.
+     */
+    default KnnVectorsFormat resolve(
+        String field,
+        KNNMethodContext methodContext,
+        Map<String, Object> params,
+        int defaultMaxConnections,
+        int defaultBeamWidth,
+        CompressionLevel compressionLevel
+    ) {
+        return resolve(field, methodContext, params, defaultMaxConnections, defaultBeamWidth);
+    }
 
     KnnVectorsFormat resolve();
 }

@@ -12,6 +12,7 @@ import org.opensearch.knn.index.codec.LuceneVectorsFormatType;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.engine.CodecFormatResolver;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import java.util.Map;
 import java.util.function.Function;
@@ -55,12 +56,26 @@ public class LuceneCodecFormatResolver implements CodecFormatResolver {
         int defaultMaxConnections,
         int defaultBeamWidth
     ) {
+        return resolve(field, methodContext, params, defaultMaxConnections, defaultBeamWidth, CompressionLevel.NOT_CONFIGURED);
+    }
+
+    @Override
+    public KnnVectorsFormat resolve(
+        String field,
+        KNNMethodContext methodContext,
+        Map<String, Object> params,
+        int defaultMaxConnections,
+        int defaultBeamWidth,
+        CompressionLevel compressionLevel
+    ) {
         LuceneVectorsFormatType formatType = determineFormatType(field, methodContext, params, defaultMaxConnections, defaultBeamWidth);
         Function<KnnVectorsFormatContext, KnnVectorsFormat> factory = formatResolvers.get(formatType);
         if (factory == null) {
             throw new IllegalStateException(String.format("No Lucene vectors format registered for type [%s]", formatType));
         }
-        return factory.apply(new KnnVectorsFormatContext(field, methodContext, params, defaultMaxConnections, defaultBeamWidth));
+        return factory.apply(
+            new KnnVectorsFormatContext(field, methodContext, params, defaultMaxConnections, defaultBeamWidth, compressionLevel)
+        );
     }
 
     /**
