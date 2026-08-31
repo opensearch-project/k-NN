@@ -26,7 +26,6 @@ import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
-import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.util.IOFunction;
@@ -509,8 +508,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
                 assertNotNull(emptyValues);
                 assertTrue(emptyValues instanceof ScalarQuantizedFloatVectorValues);
                 assertEquals(0, emptyValues.size());
-                assertTrue(emptyValues instanceof HasIndexSlice);
-                assertNull(((HasIndexSlice) emptyValues).getSlice());
+                assertNull(((ScalarQuantizedFloatVectorValues) emptyValues).getQuantizedVectorValues());
                 ((Faiss1040ScalarQuantizedKnnVectorsReader) emptySegmentReader).warmUp(FIELD_NAME);
             }
 
