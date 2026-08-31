@@ -20,6 +20,8 @@ import org.opensearch.knn.jni.SimdVectorComputeService;
 import org.opensearch.knn.memoryoptsearch.faiss.MMapFloatVectorValues;
 import org.opensearch.knn.memoryoptsearch.faiss.WrappedFloatVectorValues;
 
+import static org.opensearch.knn.index.codec.KNN1040Codec.KNN1040HalfFloatFlatVectorsFormat.BULK_SCORE_BATCH_SIZE;
+
 import java.io.IOException;
 
 /**
@@ -178,9 +180,6 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
      * against a new "current" node each time, unlike search's fixed query.
      */
     static class HalfFloatRandomVectorScorer extends RandomVectorScorer.AbstractRandomVectorScorer {
-        // Matches KNN1040HalfFloatFlatVectorsReader's bulk batch size, so the non-mmap buffer is
-        // pre-sized for a typical bulkScore() call instead of reallocating on the first one.
-        private static final int BULK_SCORE_BATCH_SIZE = 64;
         private final KNN1040HalfFloatFlatVectorsValues values;
         private final SimdVectorComputeService.SimilarityFunctionType nativeFunctionType;
         private final long[] addressAndSize;

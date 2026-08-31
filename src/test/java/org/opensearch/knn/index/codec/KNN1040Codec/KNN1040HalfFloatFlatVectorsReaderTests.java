@@ -211,7 +211,7 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
                 VectorSimilarityFunction.EUCLIDEAN,
                 Overrides.builder().metaSimilarityOrdinal(99).build()
             );
-            IllegalArgumentException e = expectThrows(IllegalArgumentException.class, () -> newReader(readState));
+            CorruptIndexException e = expectThrows(CorruptIndexException.class, () -> newReader(readState));
             assertTrue(e.getMessage().contains("invalid distance function"));
         }
     }

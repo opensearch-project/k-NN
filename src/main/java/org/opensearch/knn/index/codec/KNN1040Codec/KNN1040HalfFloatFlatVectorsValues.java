@@ -171,6 +171,7 @@ class KNN1040HalfFloatFlatVectorsValues extends FloatVectorValues implements Has
         );
         SimdVectorComputeService.SimilarityFunctionType nativeType = NativeEngines990KnnVectorsScorer.getNativeFunctionType(similarity);
         if (addressAndSize != null && nativeType != null) {
+            log.debug("Selected mmap native SIMD scorer for similarity [{}], nativeType [{}]", similarity, nativeType);
             MMapFloatVectorValues mmapValues = new MMapFloatVectorValues(values, addressAndSize);
             return values.flatVectorsScorer.getRandomVectorScorer(similarity, mmapValues, target);
         }
@@ -193,8 +194,15 @@ class KNN1040HalfFloatFlatVectorsValues extends FloatVectorValues implements Has
         SimdVectorComputeService.SimilarityFunctionType nativeType = NativeEngines990KnnVectorsScorer.getNativeFunctionType(similarity);
         RandomVectorScorer.AbstractRandomVectorScorer scorer;
         if (nativeType != null && SimdFp16.isSIMDSupported()) {
+            log.debug("Selected byte-copy SIMD scorer for similarity [{}], nativeType [{}]", similarity, nativeType);
             scorer = new KNN1040HalfFloatVectorScorer.HalfFloatRandomVectorScorer(values, target, nativeType, null);
         } else {
+            log.debug(
+                "Selected Java fallback scorer for similarity [{}]; nativeType [{}], simdSupported [{}]",
+                similarity,
+                nativeType,
+                SimdFp16.isSIMDSupported()
+            );
             scorer = new RandomVectorScorer.AbstractRandomVectorScorer(values) {
                 @Override
                 public float score(int node) throws IOException {

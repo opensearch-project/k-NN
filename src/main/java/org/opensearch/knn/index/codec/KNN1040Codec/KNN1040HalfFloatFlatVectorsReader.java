@@ -40,10 +40,12 @@ import org.opensearch.knn.memoryoptsearch.faiss.MMapFloatVectorValues;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
 
+import static org.opensearch.knn.index.codec.KNN1040Codec.KNN1040HalfFloatFlatVectorsFormat.BULK_SCORE_BATCH_SIZE;
 import static org.opensearch.knn.index.codec.KNN1040Codec.KNN1040HalfFloatFlatVectorsFormat.META_CODEC_NAME;
 import static org.opensearch.knn.index.codec.KNN1040Codec.KNN1040HalfFloatFlatVectorsFormat.META_EXTENSION;
 import static org.opensearch.knn.index.codec.KNN1040Codec.KNN1040HalfFloatFlatVectorsFormat.VECTOR_DATA_CODEC_NAME;
@@ -63,7 +65,6 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
 
     private static final long SHALLOW_SIZE = RamUsageEstimator.shallowSizeOfInstance(KNN1040HalfFloatFlatVectorsReader.class);
 
-    private static final int BULK_SCORE_BATCH_SIZE = 64;
     private static final String VECTOR_VALUES_SLICE = "KNN1040HalfFloatFlatVectorsValuesSlice";
 
     private final IntObjectHashMap<FieldEntry> fields = new IntObjectHashMap<>();
@@ -119,7 +120,7 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
             );
             if (versionMeta != versionVectorData) {
                 throw new CorruptIndexException(
-                    "Format versions mismatch: meta=" + versionMeta + ", " + codecName + "=" + versionVectorData,
+                    String.format(Locale.ROOT, "Format versions mismatch: meta=%d, %s=%d", versionMeta, codecName, versionVectorData),
                     in
                 );
             }
@@ -180,7 +181,7 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
     private static VectorSimilarityFunction readSimilarityFunction(DataInput input) throws IOException {
         int i = input.readInt();
         if (i < 0 || i >= SIMILARITY_FUNCTIONS.size()) {
-            throw new IllegalArgumentException("invalid distance function: " + i);
+            throw new CorruptIndexException("invalid distance function: " + i, input);
         }
         return SIMILARITY_FUNCTIONS.get(i);
     }

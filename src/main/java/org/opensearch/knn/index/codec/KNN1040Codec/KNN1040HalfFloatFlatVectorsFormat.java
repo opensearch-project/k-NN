@@ -13,6 +13,7 @@ import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.opensearch.knn.index.codec.scorer.NativeEngines990KnnVectorsScorer;
+import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer;
 import org.opensearch.knn.index.engine.KNNEngine;
 
@@ -34,6 +35,7 @@ public class KNN1040HalfFloatFlatVectorsFormat extends FlatVectorsFormat {
     static final int VERSION_START = 0;
     static final int VERSION_CURRENT = VERSION_START;
     static final int DIRECT_MONOTONIC_BLOCK_SHIFT = 16;
+    static final int BULK_SCORE_BATCH_SIZE = 64;
 
     private static final FlatVectorsScorer KNN_1040_HALF_FLOAT_FLAT_VECTORS_SCORER = new KNN1040HalfFloatVectorScorer(
         new PrefetchableFlatVectorScorer(new NativeEngines990KnnVectorsScorer(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()))
