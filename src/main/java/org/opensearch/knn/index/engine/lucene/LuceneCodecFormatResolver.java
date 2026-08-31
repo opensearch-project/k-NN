@@ -18,6 +18,7 @@ import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatPara
 import org.opensearch.knn.index.engine.CodecFormatResolver;
 import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import java.util.Map;
 import java.util.function.Function;
@@ -74,8 +75,19 @@ public class LuceneCodecFormatResolver implements CodecFormatResolver {
             throw new IllegalStateException(String.format(Locale.ROOT, "No Lucene vectors format registered for type [%s]", formatType));
         }
         final int approximateThreshold = KNNSettings.getApproximateThresholdValue(mapperService);
+        final CompressionLevel compressionLevel = resolvedSpec != null
+            ? resolvedSpec.getCompressionLevel()
+            : CompressionLevel.NOT_CONFIGURED;
         return factory.apply(
-            new KnnVectorsFormatContext(field, methodContext, params, defaultMaxConnections, defaultBeamWidth, approximateThreshold)
+            new KnnVectorsFormatContext(
+                field,
+                methodContext,
+                params,
+                defaultMaxConnections,
+                defaultBeamWidth,
+                approximateThreshold,
+                compressionLevel
+            )
         );
     }
 

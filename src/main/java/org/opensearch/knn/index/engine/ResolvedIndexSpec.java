@@ -220,6 +220,13 @@ public final class ResolvedIndexSpec {
             return RescoreContext.builder().oversampleFactor(FLAT_OVERSAMPLE_FACTOR).userProvided(false).build();
         }
 
+        if (isMethodFlat() && (compressionLevel == CompressionLevel.x16 || compressionLevel == CompressionLevel.x8)) {
+            return RescoreContext.builder()
+                .oversampleFactor(RescoreContext.SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR)
+                .userProvided(false)
+                .build();
+        }
+
         if (compressionLevel.isModeValidForRescore(mode)) {
             Version version = indexVersionCreated != null ? indexVersionCreated : Version.CURRENT;
 

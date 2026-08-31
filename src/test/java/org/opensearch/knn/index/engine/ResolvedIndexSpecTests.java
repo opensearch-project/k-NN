@@ -187,6 +187,41 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
         assertEquals(expected, spec.getRescoreContext());
     }
 
+    public void testRescoreContext_FlatMethodX16_thenOversampleOne() {
+        // method=flat with x16 (Lucene 2-bit SQ) uses SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR (=1)
+        // for the same reason as the SQ encoder + bits=2 path — 2-bit codes recover most recall on
+        // their own. Overrides allowed (unlike the SQ encoder branch), matching the x32-flat pattern.
+        ResolvedIndexSpec spec = baseFaiss().methodName(METHOD_FLAT)
+            .encoderType(Encoder.EncoderType.FLAT)
+            .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
+            .compressionLevel(CompressionLevel.x16)
+            .mode(Mode.ON_DISK)
+            .dimension(1500)
+            .build();
+        RescoreContext expected = RescoreContext.builder()
+            .oversampleFactor(RescoreContext.SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR)
+            .userProvided(false)
+            .build();
+        assertEquals(expected, spec.getRescoreContext());
+    }
+
+    public void testRescoreContext_FlatMethodX8_thenOversampleOne() {
+        // method=flat with x8 (Lucene 4-bit SQ) uses SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR (=1)
+        // for the same reason as the SQ encoder + bits=4 path — 4-bit codes are near-lossless.
+        ResolvedIndexSpec spec = baseFaiss().methodName(METHOD_FLAT)
+            .encoderType(Encoder.EncoderType.FLAT)
+            .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
+            .compressionLevel(CompressionLevel.x8)
+            .mode(Mode.ON_DISK)
+            .dimension(1500)
+            .build();
+        RescoreContext expected = RescoreContext.builder()
+            .oversampleFactor(RescoreContext.SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR)
+            .userProvided(false)
+            .build();
+        assertEquals(expected, spec.getRescoreContext());
+    }
+
     public void testRescoreContext_x1ReturnsNull() {
         ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.FLAT)
             .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
