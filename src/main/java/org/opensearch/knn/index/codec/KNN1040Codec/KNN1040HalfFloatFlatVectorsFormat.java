@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
+import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.hnsw.FlatVectorsFormat;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
@@ -14,7 +15,6 @@ import org.apache.lucene.index.SegmentWriteState;
 import org.opensearch.knn.index.codec.scorer.NativeEngines990KnnVectorsScorer;
 import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
 
 import java.io.IOException;
 import java.util.Locale;
@@ -36,7 +36,7 @@ public class KNN1040HalfFloatFlatVectorsFormat extends FlatVectorsFormat {
     static final int DIRECT_MONOTONIC_BLOCK_SHIFT = 16;
 
     private static final FlatVectorsScorer KNN_1040_HALF_FLOAT_FLAT_VECTORS_SCORER = new PrefetchableFlatVectorScorer(
-        new NativeEngines990KnnVectorsScorer(FlatVectorsScorerProvider.getLucene99FlatVectorsScorer())
+        new NativeEngines990KnnVectorsScorer(FlatVectorScorerUtil.getLucene99FlatVectorsScorer())
     );
 
     public KNN1040HalfFloatFlatVectorsFormat() {

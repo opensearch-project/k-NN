@@ -210,6 +210,7 @@ public class KNN1040HalfFloatFlatVectorsWriter extends FlatVectorsWriter {
     private void writeField(FlatFieldVectorsWriter<?> fieldWriter, FieldInfo fieldInfo, int maxDoc) throws IOException {
         final int dimension = fieldInfo.getVectorDimension();
         final byte[] outputBuffer = new byte[dimension * Short.BYTES];
+        assert fieldWriter instanceof FloatFieldWriter;
         @SuppressWarnings("unchecked")
         final List<float[]> vectors = (List<float[]>) fieldWriter.getVectors();
 
@@ -227,6 +228,7 @@ public class KNN1040HalfFloatFlatVectorsWriter extends FlatVectorsWriter {
         throws IOException {
         final int dimension = fieldInfo.getVectorDimension();
         final byte[] outputBuffer = new byte[dimension * Short.BYTES];
+        assert fieldWriter instanceof FloatFieldWriter;
         @SuppressWarnings("unchecked")
         final List<float[]> vectors = (List<float[]>) fieldWriter.getVectors();
 
