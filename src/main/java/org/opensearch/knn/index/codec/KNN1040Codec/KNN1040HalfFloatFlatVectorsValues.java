@@ -6,7 +6,6 @@
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
 import lombok.extern.log4j.Log4j2;
-import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorSimilarityFunction;
@@ -21,7 +20,6 @@ import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfHalfFloatsSeri
 import org.opensearch.knn.jni.SimdFp16;
 import org.opensearch.knn.jni.SimdVectorComputeService;
 import org.opensearch.knn.memoryoptsearch.MemorySegmentAddressExtractorUtil;
-import org.opensearch.knn.memoryoptsearch.faiss.MMapFloatVectorValues;
 
 import java.io.IOException;
 
@@ -33,8 +31,8 @@ import java.io.IOException;
  * class directly to Lucene's own flat vector scorer factory ({@code Lucene99FlatVectorsScorer}):
  * that factory independently detects {@code HasIndexSlice} and reads the raw slice assuming
  * 4 bytes/dimension (float32), which silently overreads past the buffer on this FP16 (2 bytes/dimension)
- * data. Use {@link #selectFallbackScorer(KNN1040HalfFloatFlatVectorsValues, float[], VectorSimilarityFunction)}
- * instead whenever mmap addresses are unavailable, or the similarity function has no native SIMD type.
+ * data. Use {@link #selectNativeOrJavaScorer} instead, which never hands {@code values} to a
+ * {@code FlatVectorsScorer} delegate chain.
  */
 @Log4j2
 class KNN1040HalfFloatFlatVectorsValues extends FloatVectorValues implements HasIndexSlice {
@@ -45,7 +43,6 @@ class KNN1040HalfFloatFlatVectorsValues extends FloatVectorValues implements Has
     private final float[] value;
     private final byte[] rawBytes;
     private final DirectMonotonicReader ordToDocReader;
-    private final FlatVectorsScorer flatVectorsScorer;
     private final VectorSimilarityFunction similarity;
     private int lastOrd = -1;
 
@@ -54,7 +51,6 @@ class KNN1040HalfFloatFlatVectorsValues extends FloatVectorValues implements Has
         int size,
         IndexInput slice,
         DirectMonotonicReader ordToDocReader,
-        FlatVectorsScorer flatVectorsScorer,
         VectorSimilarityFunction similarity
     ) {
         this.dimension = dimension;
@@ -64,7 +60,6 @@ class KNN1040HalfFloatFlatVectorsValues extends FloatVectorValues implements Has
         this.value = new float[dimension];
         this.rawBytes = new byte[byteSize];
         this.ordToDocReader = ordToDocReader;
-        this.flatVectorsScorer = flatVectorsScorer;
         this.similarity = similarity;
     }
 
@@ -153,14 +148,13 @@ class KNN1040HalfFloatFlatVectorsValues extends FloatVectorValues implements Has
 
     @Override
     public KNN1040HalfFloatFlatVectorsValues copy() throws IOException {
-        return new KNN1040HalfFloatFlatVectorsValues(dimension, size, slice.clone(), ordToDocReader, flatVectorsScorer, similarity);
+        return new KNN1040HalfFloatFlatVectorsValues(dimension, size, slice.clone(), ordToDocReader, similarity);
     }
 
     /**
-     * Selects the fastest available scorer for {@code values}: mmap-backed native SIMD
-     * when address extraction succeeds and the similarity has a native type, otherwise
-     * {@link #selectFallbackScorer}. Shared by both the reader's {@code getRandomVectorScorer} and
-     * this class's {@link #scorer(float[])}.
+     * Extracts the mmap address for {@code values} (if available) and delegates the actual scorer
+     * choice to {@link #selectNativeOrJavaScorer}. Shared by both the reader's
+     * {@code getRandomVectorScorer} and this class's {@link #scorer(float[])}.
      */
     static RandomVectorScorer selectScorer(KNN1040HalfFloatFlatVectorsValues values, float[] target, VectorSimilarityFunction similarity)
         throws IOException {
@@ -169,33 +163,35 @@ class KNN1040HalfFloatFlatVectorsValues extends FloatVectorValues implements Has
             0,
             values.getSlice().length()
         );
-        SimdVectorComputeService.SimilarityFunctionType nativeType = NativeEngines990KnnVectorsScorer.getNativeFunctionType(similarity);
-        if (addressAndSize != null && nativeType != null) {
-            log.debug("Selected mmap native SIMD scorer for similarity [{}], nativeType [{}]", similarity, nativeType);
-            MMapFloatVectorValues mmapValues = new MMapFloatVectorValues(values, addressAndSize);
-            return values.flatVectorsScorer.getRandomVectorScorer(similarity, mmapValues, target);
-        }
-
-        return selectFallbackScorer(values, target, similarity);
+        return selectNativeOrJavaScorer(values, target, similarity, addressAndSize);
     }
 
     /**
-     * Builds a {@link RandomVectorScorer} that never exposes {@code values} to Lucene's own flat
-     * vector scorer factory. Used whenever mmap address extraction fails, or the similarity
-     * function has no native SIMD type. Wrapped in {@link PrefetchableRandomVectorScorer} - same as
-     * {@link #selectScorer}'s mmap tier gets via {@code KNN1040HalfFloatVectorScorer#getRandomVectorScorer} -
-     * so this tier still prefetches ahead of bulk scoring during graph traversal.
+     * Picks between native SIMD and plain-Java scoring for {@code values}, and never routes it
+     * through a {@code FlatVectorsScorer} delegate chain (see this class's javadoc for why). Native
+     * scoring is used whenever the similarity has a native type and either {@code addressAndSize} is
+     * available (mmap zero-copy) or {@link SimdFp16#isSIMDSupported()} (heap-buffer copy); either way
+     * {@link KNN1040HalfFloatVectorScorer.HalfFloatRandomVectorScorer} picks the right one internally
+     * based on whether {@code addressAndSize} is non-null. Falls back to a plain Java scorer otherwise.
+     * Wrapped in {@link PrefetchableRandomVectorScorer} either way, so this still prefetches ahead of
+     * bulk scoring during graph traversal.
      */
-    static RandomVectorScorer selectFallbackScorer(
+    static RandomVectorScorer selectNativeOrJavaScorer(
         KNN1040HalfFloatFlatVectorsValues values,
         float[] target,
-        VectorSimilarityFunction similarity
+        VectorSimilarityFunction similarity,
+        long[] addressAndSize
     ) {
         SimdVectorComputeService.SimilarityFunctionType nativeType = NativeEngines990KnnVectorsScorer.getNativeFunctionType(similarity);
         RandomVectorScorer.AbstractRandomVectorScorer scorer;
-        if (nativeType != null && SimdFp16.isSIMDSupported()) {
-            log.debug("Selected byte-copy SIMD scorer for similarity [{}], nativeType [{}]", similarity, nativeType);
-            scorer = new KNN1040HalfFloatVectorScorer.HalfFloatRandomVectorScorer(values, target, nativeType, null);
+        if (nativeType != null && (addressAndSize != null || SimdFp16.isSIMDSupported())) {
+            log.debug(
+                "Selected native SIMD scorer for similarity [{}], nativeType [{}], mmap [{}]",
+                similarity,
+                nativeType,
+                addressAndSize != null
+            );
+            scorer = new KNN1040HalfFloatVectorScorer.HalfFloatRandomVectorScorer(values, target, nativeType, addressAndSize);
         } else {
             log.debug(
                 "Selected Java fallback scorer for similarity [{}]; nativeType [{}], simdSupported [{}]",

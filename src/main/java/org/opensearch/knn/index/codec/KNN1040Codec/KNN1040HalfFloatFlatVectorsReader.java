@@ -55,8 +55,9 @@ import static org.opensearch.knn.index.codec.KNN1040Codec.KNN1040HalfFloatFlatVe
  * Reader for half-precision (FP16) flat vector fields, reading vectors from {@code .vec} and
  * per-field metadata from {@code .vemf}.
  *
- * With mmap and a native SIMD type, scoring goes through {@code NativeEngines990KnnVectorsScorer}
- * and {@code NativeRandomVectorScorer}; otherwise {@link KNN1040HalfFloatFlatVectorsValues#selectFallbackScorer}.
+ * Scoring is selected by {@link KNN1040HalfFloatFlatVectorsValues#selectScorer}: native SIMD
+ * (mmap zero-copy when available, else a heap-buffer copy) when the similarity has a native type,
+ * otherwise a plain Java fallback.
  */
 @Log4j2
 public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
@@ -222,7 +223,7 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
         IndexInput slice = vectorData.slice(VECTOR_VALUES_SLICE, entry.vectorDataOffset, entry.vectorDataLength);
         boolean needsOrdToDocReader = entry.ordToDoc.isDense() == false && entry.ordToDoc.isEmpty() == false;
         DirectMonotonicReader ordToDocReader = needsOrdToDocReader ? entry.ordToDoc.getDirectMonotonicReader(vectorData) : null;
-        return new KNN1040HalfFloatFlatVectorsValues(entry.dimension, entry.size, slice, ordToDocReader, scorer, entry.similarity);
+        return new KNN1040HalfFloatFlatVectorsValues(entry.dimension, entry.size, slice, ordToDocReader, entry.similarity);
     }
 
     @Override

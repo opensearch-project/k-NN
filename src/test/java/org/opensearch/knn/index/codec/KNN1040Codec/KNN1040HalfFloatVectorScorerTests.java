@@ -280,14 +280,7 @@ public class KNN1040HalfFloatVectorScorerTests extends KNNTestCase {
             }
         }
         IndexInput in = dir.openInput(fileName, IOContext.DEFAULT);
-        return new KNN1040HalfFloatFlatVectorsValues(
-            dimension,
-            vectors.length,
-            in,
-            null,
-            mock(FlatVectorsScorer.class),
-            VectorSimilarityFunction.EUCLIDEAN
-        );
+        return new KNN1040HalfFloatFlatVectorsValues(dimension, vectors.length, in, null, VectorSimilarityFunction.EUCLIDEAN);
     }
 
     private float expectedEuclidean(float[][] vectors, int dimension, int targetOrd, int candidateOrd) {

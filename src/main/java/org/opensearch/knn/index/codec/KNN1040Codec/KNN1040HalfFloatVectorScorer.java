@@ -27,7 +27,7 @@ import java.io.IOException;
 /**
  * Wraps a {@link FlatVectorsScorer} to give HNSW graph construction (flush's incremental build and
  * merge's graph rebuild) a decode-free scorer supplier for FP16 values, matching the decode-free path
- * search already gets via {@link KNN1040HalfFloatFlatVectorsValues#selectFallbackScorer}. Without
+ * search already gets via {@link KNN1040HalfFloatFlatVectorsValues#selectNativeOrJavaScorer}. Without
  * this, {@code getRandomVectorScorerSupplier} has no SIMD-aware path and decodes on every graph-edge
  * comparison instead of once per vector.
  *

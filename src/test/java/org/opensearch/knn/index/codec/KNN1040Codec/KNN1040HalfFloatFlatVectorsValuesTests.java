@@ -6,7 +6,6 @@
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
 import lombok.SneakyThrows;
-import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.DocIdSetIterator;
@@ -29,15 +28,15 @@ import static org.mockito.Mockito.mock;
 public class KNN1040HalfFloatFlatVectorsValuesTests extends KNNTestCase {
 
     @SneakyThrows
-    public void testSelectFallbackScorer_nativeTierAvailable_isWrappedInPrefetchableScorer() {
-        assertFallbackScorerIsPrefetchable(VectorSimilarityFunction.EUCLIDEAN, true);
+    public void testSelectNativeOrJavaScorer_nativeTierAvailable_isWrappedInPrefetchableScorer() {
+        assertNativeOrJavaScorerIsPrefetchable(VectorSimilarityFunction.EUCLIDEAN, true);
     }
 
     @SneakyThrows
-    public void testSelectFallbackScorer_noNativeKernel_isStillWrappedInPrefetchableScorer() {
+    public void testSelectNativeOrJavaScorer_noNativeKernel_isStillWrappedInPrefetchableScorer() {
         // COSINE never reaches the native branch at all (see NativeEngines990KnnVectorsScorer#getNativeFunctionType),
         // so this exercises the plain-Java anonymous scorer branch instead.
-        assertFallbackScorerIsPrefetchable(VectorSimilarityFunction.COSINE, true);
+        assertNativeOrJavaScorerIsPrefetchable(VectorSimilarityFunction.COSINE, true);
     }
 
     @SneakyThrows
@@ -52,7 +51,6 @@ public class KNN1040HalfFloatFlatVectorsValuesTests extends KNNTestCase {
                     0,
                     in,
                     null,
-                    mock(FlatVectorsScorer.class),
                     VectorSimilarityFunction.EUCLIDEAN
                 );
                 assertNull(values.scorer(new float[] { 1f, 1f, 1f, 1f }));
@@ -75,7 +73,7 @@ public class KNN1040HalfFloatFlatVectorsValuesTests extends KNNTestCase {
 
             try (IndexInput in = dir.openInput("vals.vec", IOContext.DEFAULT)) {
                 try (MockedStatic<SimdFp16> mockedSimdFp16 = Mockito.mockStatic(SimdFp16.class)) {
-                    // Forces the plain-Java fallback branch inside selectFallbackScorer, avoiding any
+                    // Forces the plain-Java fallback branch inside selectNativeOrJavaScorer, avoiding any
                     // dependency on whether the native SIMD lib happens to be loaded in this test run.
                     mockedSimdFp16.when(SimdFp16::isSIMDSupported).thenReturn(false);
 
@@ -84,7 +82,6 @@ public class KNN1040HalfFloatFlatVectorsValuesTests extends KNNTestCase {
                         vectors.length,
                         in,
                         null,
-                        mock(FlatVectorsScorer.class),
                         VectorSimilarityFunction.EUCLIDEAN
                     );
 
@@ -114,13 +111,18 @@ public class KNN1040HalfFloatFlatVectorsValuesTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    private void assertFallbackScorerIsPrefetchable(VectorSimilarityFunction similarityFunction, boolean simdSupported) {
+    private void assertNativeOrJavaScorerIsPrefetchable(VectorSimilarityFunction similarityFunction, boolean simdSupported) {
         final KNN1040HalfFloatFlatVectorsValues mockValues = mock(KNN1040HalfFloatFlatVectorsValues.class);
         final float[] target = new float[] { 1f, 2f, 3f };
 
         try (MockedStatic<SimdFp16> mockedSimdFp16 = Mockito.mockStatic(SimdFp16.class)) {
             mockedSimdFp16.when(SimdFp16::isSIMDSupported).thenReturn(simdSupported);
-            RandomVectorScorer scorer = KNN1040HalfFloatFlatVectorsValues.selectFallbackScorer(mockValues, target, similarityFunction);
+            RandomVectorScorer scorer = KNN1040HalfFloatFlatVectorsValues.selectNativeOrJavaScorer(
+                mockValues,
+                target,
+                similarityFunction,
+                null
+            );
             assertTrue(scorer instanceof PrefetchableRandomVectorScorer);
         }
     }

@@ -547,9 +547,8 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
 
     /**
      * Like {@link #newReader}, but with the real {@link KNN1040HalfFloatVectorScorer} chain instead of
-     * a mock. {@code selectScorer}'s mmap-native branch calls {@code flatVectorsScorer.getRandomVectorScorer}
-     * directly (unlike the non-mmap fallback branch, which never touches the injected scorer), so a
-     * mock would return null there instead of exercising real scoring.
+     * a mock, so mmap-directory tests exercise real native SIMD scoring (via
+     * {@code KNN1040HalfFloatFlatVectorsValues#selectScorer}) end-to-end instead of a mocked result.
      */
     private FlatVectorsReader newReaderWithRealScorer(SegmentReadState readState) throws Exception {
         FlatVectorsScorer scorer = new KNN1040HalfFloatVectorScorer(
