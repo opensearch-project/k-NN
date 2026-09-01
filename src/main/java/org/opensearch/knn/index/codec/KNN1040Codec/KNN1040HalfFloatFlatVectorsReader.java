@@ -42,8 +42,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Stream;
 
 import static org.opensearch.knn.index.codec.KNN1040Codec.KNN1040HalfFloatFlatVectorsFormat.BULK_SCORE_BATCH_SIZE;
 import static org.opensearch.knn.index.codec.KNN1040Codec.KNN1040HalfFloatFlatVectorsFormat.META_CODEC_NAME;
@@ -77,15 +75,18 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
         this(state, scorer, DataAccessHint.RANDOM);
     }
 
+    private static FileOpenHint[] buildFileOpenHints(DataAccessHint accessHint) {
+        return accessHint == null
+            ? new FileOpenHint[] { FileTypeHint.DATA, FileDataHint.KNN_VECTORS }
+            : new FileOpenHint[] { FileTypeHint.DATA, FileDataHint.KNN_VECTORS, accessHint };
+    }
+
     public KNN1040HalfFloatFlatVectorsReader(SegmentReadState state, FlatVectorsScorer scorer, DataAccessHint accessHint)
         throws IOException {
         super();
         this.scorer = scorer;
         this.fieldInfos = state.fieldInfos;
-        final FileOpenHint[] hints = Stream.of(FileTypeHint.DATA, FileDataHint.KNN_VECTORS, accessHint)
-            .filter(Objects::nonNull)
-            .toArray(FileOpenHint[]::new);
-        this.dataContext = state.context.withHints(hints);
+        this.dataContext = state.context.withHints(buildFileOpenHints(accessHint));
 
         boolean success = false;
         try {
