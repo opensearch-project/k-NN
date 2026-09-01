@@ -84,16 +84,6 @@ public class FaissFloatVectorValues extends FloatVectorValues implements HasInde
         public SparseFloatVectorValuesImpl(final FloatVectorValues vectorValues, final DirectMonotonicReader idMappingReader) {
             super(vectorValues);
             this.idMappingReader = idMappingReader;
-            if ((vectorValues instanceof HasIndexSlice) == false) {
-                throw new IllegalArgumentException(
-                    "SparseFloatVectorValuesImpl needs an instance of "
-                        + "FloatVectorValues which implements HasIndexSlice interface. "
-                        + vectorValues.getClass().getCanonicalName()
-                        + " doesn't implement "
-                        + HasIndexSlice.class
-                        + "interface"
-                );
-            }
         }
 
         @Override
@@ -146,8 +136,13 @@ public class FaissFloatVectorValues extends FloatVectorValues implements HasInde
 
         @Override
         public IndexInput getSlice() {
-            // Since in constructor we are already validating the instance type we don't need another validation here
-            return ((HasIndexSlice) floatVectorValues).getSlice();
+            // Two-slice wrappers (e.g. ScalarQuantizedFloatVectorValues, which fronts both .vec and
+            // .veq) don't implement HasIndexSlice because no single slice honestly represents them.
+            // Return null so consumers fall through to their non-slice path.
+            if (floatVectorValues instanceof HasIndexSlice hasIndexSlice) {
+                return hasIndexSlice.getSlice();
+            }
+            return null;
         }
     }
 }
