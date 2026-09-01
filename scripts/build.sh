@@ -139,22 +139,22 @@ echo "Building faiss / simd lib without hardware acceleration"
 if [ "$PLATFORM" != "windows" ] && [ "$ARCHITECTURE" = "x64" ]; then
   echo "Building k-NN library nmslib on non-windows x64"
   rm -rf jni/build/CMakeCache.txt jni/build/CMakeFiles
-  ./gradlew :buildJniLib -Pknn_libs=opensearchknn_nmslib -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT
+  ./gradlew :buildJniLib -Pknn_libs=opensearchknn_nmslib -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false -Dnproc.count=${NPROC_COUNT:-1} -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT
 
   echo "Building k-NN library faiss lib after enabling AVX2"
   # Skip applying patches as patches were applied already from previous :buildJniLib task
   # If we apply patches again, it fails with conflict
   rm -rf jni/build/CMakeCache.txt jni/build/CMakeFiles
-  ./gradlew :buildJniLib -Pknn_libs=opensearchknn_faiss,opensearchknn_simd -Davx2.enabled=true -Davx512.enabled=false -Davx512_spr.enabled=false -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT
+  ./gradlew :buildJniLib -Pknn_libs=opensearchknn_faiss,opensearchknn_simd -Davx2.enabled=true -Davx512.enabled=false -Davx512_spr.enabled=false -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false -Dnproc.count=${NPROC_COUNT:-1} -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT
 
   echo "Building k-NN library faiss lib after enabling AVX512"
-  ./gradlew :buildJniLib -Pknn_libs=opensearchknn_faiss,opensearchknn_simd -Davx512.enabled=true -Davx512_spr.enabled=false -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT
+  ./gradlew :buildJniLib -Pknn_libs=opensearchknn_faiss,opensearchknn_simd -Davx512.enabled=true -Davx512_spr.enabled=false -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false -Dnproc.count=${NPROC_COUNT:-1} -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT
 
   echo "Building k-NN library faiss lib after enabling AVX512_SPR"
-  ./gradlew :buildJniLib -Pknn_libs=opensearchknn_faiss,opensearchknn_simd -Davx512_spr.enabled=true -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT
+  ./gradlew :buildJniLib -Pknn_libs=opensearchknn_faiss,opensearchknn_simd -Davx512_spr.enabled=true -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false -Dnproc.count=${NPROC_COUNT:-1} -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT
 
 else
-  ./gradlew :buildJniLib -Pknn_libs=opensearchknn_nmslib -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT
+  ./gradlew :buildJniLib -Pknn_libs=opensearchknn_nmslib -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false -Dnproc.count=${NPROC_COUNT:-1} -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT
 fi
 
 ./gradlew publishPluginZipPublicationToZipStagingRepository -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER

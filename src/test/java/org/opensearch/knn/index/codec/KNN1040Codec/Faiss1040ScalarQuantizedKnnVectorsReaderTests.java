@@ -189,20 +189,22 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testWarmUp_whenGraphSkippedByThreshold_thenWarmsVeqWithoutError() {
+    public void testWarmUp_whenGraphSkippedByThreshold_thenWarmsVeqAndVecWithoutError() {
         // No native engine (.faiss) file (the approximate threshold skipped the graph). Search is served by
-        // exact search over the quantized .veq codes, so warmUp should warm those codes via the flat reader's
-        // index slice and NOT attempt to load a memory-optimized searcher, so no error/warn is logged.
+        // exact search over the quantized .veq codes, so warmUp should warm both the .veq codes (via the
+        // quantized delegate) and the .vec fp32 floats (via the fp32 delegate), and NOT attempt to load a
+        // memory-optimized searcher, so no error/warn is logged.
         final FieldInfo fi = createFieldInfo("field1", KNNEngine.FAISS, 0);
 
         final FlatVectorsReader fvr = mock(FlatVectorsReader.class);
         final ScalarQuantizedFloatVectorValues mockVectorValues = mock(ScalarQuantizedFloatVectorValues.class);
+        final FloatVectorValues mockFloatDelegate = mock(FloatVectorValues.class);
+        final org.apache.lucene.util.quantization.QuantizedByteVectorValues mockQuantizedDelegate = mock(
+            org.apache.lucene.util.quantization.QuantizedByteVectorValues.class
+        );
         when(mockVectorValues.size()).thenReturn(3);
-        when(mockVectorValues.vectorValue(org.mockito.ArgumentMatchers.anyInt())).thenReturn(new float[] { 1.0f, 2.0f, 3.0f });
-        // The .veq codes are exposed through the index slice; warmUp should read through it.
-        final IndexInput veqSlice = mock(IndexInput.class);
-        when(veqSlice.length()).thenReturn(0L);
-        when(mockVectorValues.getSlice()).thenReturn(veqSlice);
+        when(mockVectorValues.getFloatVectorValues()).thenReturn(mockFloatDelegate);
+        when(mockVectorValues.getQuantizedVectorValues()).thenReturn(mockQuantizedDelegate);
         when(fvr.getFloatVectorValues("field1")).thenReturn(mockVectorValues);
 
         final List<LogEvent> logEvents = new ArrayList<>();
@@ -222,7 +224,9 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
         logger.setLevel(Level.INFO);
         baseLogger.setLevel(Level.INFO);
 
-        try {
+        try (
+            MockedStatic<org.opensearch.knn.index.util.WarmupUtil> mockedWarmup = mockStatic(org.opensearch.knn.index.util.WarmupUtil.class)
+        ) {
             final Faiss1040ScalarQuantizedKnnVectorsReader reader = createReader(
                 new FieldInfos(new FieldInfo[] { fi }),
                 Collections.emptySet(),
@@ -231,8 +235,10 @@ public class Faiss1040ScalarQuantizedKnnVectorsReaderTests extends KNNTestCase {
 
             reader.warmUp("field1");
 
-            // The .veq slice must be warmed (read through).
-            verify(veqSlice).seek(0);
+            // Both the .veq codes (via the quantized delegate) and the .vec fp32 floats (via the fp32 delegate)
+            // must be warmed.
+            mockedWarmup.verify(() -> org.opensearch.knn.index.util.WarmupUtil.readAll(mockQuantizedDelegate));
+            mockedWarmup.verify(() -> org.opensearch.knn.index.util.WarmupUtil.readAll(mockFloatDelegate));
             // No misleading error/warn should be logged for a legitimately graph-less segment.
             final boolean sawErrorOrWarn = logEvents.stream().anyMatch(e -> e.getLevel() == Level.ERROR || e.getLevel() == Level.WARN);
             assertFalse("Graph-less warmup must not log error/warn: " + logEvents, sawErrorOrWarn);
