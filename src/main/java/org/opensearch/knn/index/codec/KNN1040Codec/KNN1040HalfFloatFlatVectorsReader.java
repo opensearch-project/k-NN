@@ -39,9 +39,10 @@ import org.opensearch.knn.memoryoptsearch.MemorySegmentAddressExtractorUtil;
 import org.opensearch.knn.memoryoptsearch.faiss.MMapFloatVectorValues;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.EnumSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import static org.opensearch.knn.index.codec.KNN1040Codec.KNN1040HalfFloatFlatVectorsFormat.BULK_SCORE_BATCH_SIZE;
 import static org.opensearch.knn.index.codec.KNN1040Codec.KNN1040HalfFloatFlatVectorsFormat.META_CODEC_NAME;
@@ -171,9 +172,11 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
         }
     }
 
-    // Order must match Lucene94FieldInfosFormat#SIMILARITY_FUNCTIONS; listed explicitly so the
-    // on-disk ordinal does not depend on VectorSimilarityFunction's declaration order.
-    private static final List<VectorSimilarityFunction> SIMILARITY_FUNCTIONS = List.of(
+    // A whitelist, not a decode table: readSimilarityFunction decodes via VectorSimilarityFunction
+    // .values()[i] directly (the same ordinal the writer persists), then checks membership here so an
+    // ordinal for a similarity function this codec hasn't validated FP16 scoring for is rejected
+    // instead of silently accepted.
+    private static final Set<VectorSimilarityFunction> SUPPORTED_SIMILARITY_FUNCTIONS = EnumSet.of(
         VectorSimilarityFunction.EUCLIDEAN,
         VectorSimilarityFunction.DOT_PRODUCT,
         VectorSimilarityFunction.COSINE,
@@ -182,10 +185,11 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
 
     private static VectorSimilarityFunction readSimilarityFunction(DataInput input) throws IOException {
         int i = input.readInt();
-        if (i < 0 || i >= SIMILARITY_FUNCTIONS.size()) {
+        VectorSimilarityFunction[] values = VectorSimilarityFunction.values();
+        if (i < 0 || i >= values.length || !SUPPORTED_SIMILARITY_FUNCTIONS.contains(values[i])) {
             throw new CorruptIndexException("invalid distance function: " + i, input);
         }
-        return SIMILARITY_FUNCTIONS.get(i);
+        return values[i];
     }
 
     private static VectorEncoding readVectorEncoding(DataInput input) throws IOException {
@@ -302,6 +306,7 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
 
     @Override
     public FlatVectorsScorer getFlatVectorScorer(String field) throws IOException {
+        getFieldEntryOrThrow(field);
         return scorer;
     }
 
