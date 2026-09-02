@@ -27,6 +27,7 @@ import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactor
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
 
 import java.io.IOException;
+import java.util.Locale;
 import java.util.function.Function;
 
 /**
@@ -62,6 +63,9 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
     private FlatFieldVectorsWriter<?> fieldWriter;
     private FieldInfo fieldInfo;
     private boolean finished;
+    // Set to true once the flat writer has been finished+closed (inline in flush/mergeOneField)
+    // so subsequent calls fail loud instead of writing to (or re-closing) a closed writer.
+    private boolean flatWriterDone;
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
     private final Integer approximateThreshold;
 
@@ -83,6 +87,17 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
      * {@link #addField(FieldInfo)} and {@link #mergeOneField(FieldInfo, MergeState)}.
      */
     private FlatVectorsWriter getOrInitFlatVectorsWriter(final FieldInfo fieldInfoForResolution) throws IOException {
+        if (flatWriterDone) {
+            throw new IllegalStateException(
+                String.format(
+                    Locale.ROOT,
+                    "%s flat writer has already been finished and closed; cannot access it again for field [%s]. "
+                        + "This writer supports only a single field per instance.",
+                    Faiss1040ScalarQuantizedKnnVectorsWriter.class.getSimpleName(),
+                    fieldInfoForResolution.name
+                )
+            );
+        }
         if (flatVectorsWriter == null) {
             this.resolvedFlatFormat = flatFormatResolver.apply(fieldInfoForResolution);
             this.flatVectorsWriter = resolvedFlatFormat.fieldsWriter(segmentWriteState);
@@ -126,10 +141,13 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
             return;
         }
         // Flush, finish, and close the flat vectors writer so that the .vec and .veb files
-        // are fully written and file handles are released.
+        // are fully written and file handles are released. Mark the writer done so any later
+        // access (subsequent mergeOneField, or close()) fails loud instead of touching a
+        // closed writer.
         flatVectorsWriter.flush(maxDoc, sortMap);
         flatVectorsWriter.finish();
         IOUtils.close(flatVectorsWriter);
+        this.flatWriterDone = true;
 
         if (fieldWriter == null) {
             return;
@@ -169,12 +187,15 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
         // paths don't go through addField, so this is where lazy init happens for merges.
         final FlatVectorsWriter writer = getOrInitFlatVectorsWriter(fieldInfo);
 
-        // Merge, finish, and close the flat writer so that files are readable.
+        // Merge, finish, and close the flat writer so that files are readable. Mark the writer
+        // done so a subsequent mergeOneField (or close()) can't write to / re-close it — the
+        // instance is expected to handle only one field.
         IORunnable mergeRunnable = writer.mergeOneField(fieldInfo, mergeState);
 
         if (mergeRunnable != null) mergeRunnable.run();
         writer.finish();
         IOUtils.close(writer);
+        this.flatWriterDone = true;
 
         // Open a reader on the merged flat files, extract QuantizedByteVectorValues,
         // and pass it to the build strategy. The writer owns the reader lifecycle.
@@ -215,8 +236,13 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
 
     @Override
     public void close() throws IOException {
-        // flatVectorsWriter is already closed in flush/mergeOneField.
-        // IOUtils.close is safe to call on an already-closed resource.
+        // flush/mergeOneField already finished and closed the flat writer inline. Guard on
+        // flatWriterDone so we don't re-close (which some FlatVectorsWriter implementations
+        // may not tolerate) — and still handle the flush/merge-never-called case by closing
+        // the still-open writer if flatVectorsWriter was allocated but never finalized.
+        if (flatWriterDone) {
+            return;
+        }
         IOUtils.close(flatVectorsWriter);
     }
 

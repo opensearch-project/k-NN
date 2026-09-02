@@ -264,6 +264,93 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
         verify(flatVectorsWriter, Mockito.never()).close();
     }
 
+    /**
+     * Test: after flush() finished + closed the flat writer inline, a subsequent close() is a
+     * no-op — must NOT re-close the writer. Guards the "flat writer done" invariant.
+     */
+    @SneakyThrows
+    public void testClose_afterFlush_thenNoOp() {
+        final FieldInfo fi = mockFieldInfo(0);
+        objectUnderTest.addField(fi);
+        try {
+            objectUnderTest.flush(0, null);
+        } catch (Exception ignored) {
+            // The mocked FieldInfo doesn't wire indexOptions, so the native-build path inside
+            // flush() throws — but the flat-writer finish+close (and flatWriterDone flag) run
+            // BEFORE that, which is what this test exercises.
+        }
+        // flush() already closed the writer once — reset to distinguish the second call.
+        Mockito.reset(flatVectorsWriter);
+
+        objectUnderTest.close();
+        verify(flatVectorsWriter, Mockito.never()).close();
+    }
+
+    /**
+     * Test: after mergeOneField() finished + closed the flat writer inline, a subsequent
+     * close() is a no-op — must NOT re-close the writer.
+     */
+    @SneakyThrows
+    public void testClose_afterMergeOneField_thenNoOp() {
+        final FieldInfo fi = mockFieldInfo(0);
+        try {
+            objectUnderTest.mergeOneField(fi, mock(MergeState.class));
+        } catch (Exception ignored) {
+            // Mock plumbing may throw during native build — we only care that flatWriterDone
+            // is set by the finish+close block that precedes the native build.
+        }
+        Mockito.reset(flatVectorsWriter);
+
+        objectUnderTest.close();
+        verify(flatVectorsWriter, Mockito.never()).close();
+    }
+
+    /**
+     * Test: calling mergeOneField() after flush() has finished+closed the flat writer must fail
+     * loud rather than silently write to a closed writer. The flatWriterDone guard in
+     * getOrInitFlatVectorsWriter is the enforcement point.
+     */
+    @SneakyThrows
+    public void testMergeOneField_afterFlush_thenThrowsIllegalState() {
+        final FieldInfo fi1 = mockFieldInfo(0);
+        objectUnderTest.addField(fi1);
+        try {
+            objectUnderTest.flush(0, null);
+        } catch (Exception ignored) {
+            // The mocked FieldInfo doesn't wire indexOptions, so the native-build path inside
+            // flush() throws — but the flat-writer finish+close (and flatWriterDone flag) run
+            // BEFORE that, which is what this test exercises.
+        }
+
+        final FieldInfo fi2 = mockFieldInfo(1);
+        IllegalStateException ex = expectThrows(
+            IllegalStateException.class,
+            () -> objectUnderTest.mergeOneField(fi2, mock(MergeState.class))
+        );
+        assertTrue("Expected error to mention 'flat writer'; got: " + ex.getMessage(), ex.getMessage().contains("flat writer"));
+    }
+
+    /**
+     * Test: a second mergeOneField call on the same writer instance must fail loud — the writer
+     * only supports a single field, and the flat writer is closed inline after the first merge.
+     */
+    @SneakyThrows
+    public void testMergeOneField_calledTwice_thenThrowsIllegalState() {
+        final FieldInfo fi1 = mockFieldInfo(0);
+        try {
+            objectUnderTest.mergeOneField(fi1, mock(MergeState.class));
+        } catch (Exception ignored) {
+            // Mock plumbing may throw during native build — flatWriterDone is set beforehand.
+        }
+
+        final FieldInfo fi2 = mockFieldInfo(1);
+        IllegalStateException ex = expectThrows(
+            IllegalStateException.class,
+            () -> objectUnderTest.mergeOneField(fi2, mock(MergeState.class))
+        );
+        assertTrue("Expected error to mention 'flat writer'; got: " + ex.getMessage(), ex.getMessage().contains("flat writer"));
+    }
+
     // ===================== ramBytesUsed =====================
 
     /**
