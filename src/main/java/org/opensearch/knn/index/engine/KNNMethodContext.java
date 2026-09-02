@@ -102,8 +102,13 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         if (isEngineConfigured) {
             throw new IllegalArgumentException("Cannot configure KNNEngine if it has already been configured");
         }
+        // Note: we intentionally do NOT set isEngineConfigured=true here. That flag reflects
+        // "engine was explicitly provided in the user's mapping" and is consumed by
+        // EngineResolver.rejectEngineForMethodFlat + KNNMethodContext.toXContent to preserve
+        // BWC round-trips. Internal resolvers that call setKnnEngine (KNNVectorFieldMapper,
+        // RestTrainModelHandler) already gate on isEngineConfigured() before calling, so
+        // there's no risk of double-set even though the flag no longer guards it.
         this.knnEngine = knnEngine;
-        this.isEngineConfigured = true;
     }
 
     /**

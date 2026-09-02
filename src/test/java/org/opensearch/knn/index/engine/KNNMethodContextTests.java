@@ -281,6 +281,36 @@ public class KNNMethodContextTests extends KNNTestCase {
         assertEquals(KNNEngine.LUCENE.getName(), out.get(KNN_ENGINE));
     }
 
+    /**
+     * Regression guard: {@link KNNMethodContext#setKnnEngine} must NOT flip
+     * {@code isEngineConfigured=true} as a side effect. That flag reflects "user provided engine
+     * in the mapping source"; if an internal resolver's {@code setKnnEngine(LUCENE)} call flipped
+     * it, {@code toXContent} would emit {@code engine=lucene} on the mapping's assertSerialization
+     * round-trip, which would then be rejected by
+     * {@code EngineResolver.rejectEngineForMethodFlat} because it looks user-supplied.
+     */
+    public void testSetKnnEngine_doesNotFlipIsEngineConfigured() throws IOException {
+        // Parse a flat mapping WITHOUT engine — isEngineConfigured must start false.
+        XContentBuilder in = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_FLAT)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .endObject();
+        KNNMethodContext ctx = KNNMethodContext.parse(xContentBuilderToMap(in));
+        assertFalse("isEngineConfigured must be false when user's mapping has no engine", ctx.isEngineConfigured());
+
+        // Internal resolver calls setKnnEngine to attach the resolved engine — must NOT flip the flag.
+        ctx.setKnnEngine(KNNEngine.LUCENE);
+        assertEquals("engine should be set to the resolved value", KNNEngine.LUCENE, ctx.getKnnEngine());
+        assertFalse("setKnnEngine must not flip isEngineConfigured", ctx.isEngineConfigured());
+
+        // toXContent round-trip: engine must NOT be emitted since user didn't configure it.
+        XContentBuilder out = XContentFactory.jsonBuilder().startObject();
+        ctx.toXContent(out, ToXContent.EMPTY_PARAMS).endObject();
+        Map<String, Object> serialized = xContentBuilderToMap(out);
+        assertFalse("engine must not be serialized on flat when not user-configured", serialized.containsKey(KNN_ENGINE));
+    }
+
     public void testEquals() {
         SpaceType spaceType1 = SpaceType.L1;
         SpaceType spaceType2 = SpaceType.L2;
