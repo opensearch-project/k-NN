@@ -161,12 +161,13 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToByteInde
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_writeIndex(JNIEnv * env,
                                                                            jclass cls,
                                                                            jlong indexAddress,
-                                                                           jobject output)
+                                                                           jobject output,
+                                                                           jboolean skipFlat)
 {
   try {
       std::unique_ptr<knn_jni::faiss_wrapper::FaissMethods> faissMethods(new knn_jni::faiss_wrapper::FaissMethods());
       knn_jni::faiss_wrapper::IndexService indexService(std::move(faissMethods));
-      knn_jni::faiss_wrapper::WriteIndex(&jniUtil, env, output, indexAddress, &indexService);
+      knn_jni::faiss_wrapper::WriteIndex(&jniUtil, env, output, indexAddress, &indexService, skipFlat);
   } catch (...) {
       jniUtil.CatchCppExceptionAndThrowJava(env);
   }

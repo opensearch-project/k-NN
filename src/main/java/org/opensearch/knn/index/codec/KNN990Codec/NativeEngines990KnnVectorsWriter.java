@@ -47,6 +47,7 @@ public class NativeEngines990KnnVectorsWriter extends AbstractNativeEnginesKnnVe
     private boolean finished;
     private final Integer approximateThreshold;
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
+    private final boolean flatVectorDedup;
 
     public NativeEngines990KnnVectorsWriter(
         SegmentWriteState segmentWriteState,
@@ -54,10 +55,21 @@ public class NativeEngines990KnnVectorsWriter extends AbstractNativeEnginesKnnVe
         Integer approximateThreshold,
         NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
     ) {
+        this(segmentWriteState, flatVectorsWriter, approximateThreshold, nativeIndexBuildStrategyFactory, false);
+    }
+
+    public NativeEngines990KnnVectorsWriter(
+        SegmentWriteState segmentWriteState,
+        FlatVectorsWriter flatVectorsWriter,
+        Integer approximateThreshold,
+        NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory,
+        boolean flatVectorDedup
+    ) {
         this.segmentWriteState = segmentWriteState;
         this.flatVectorsWriter = flatVectorsWriter;
         this.approximateThreshold = approximateThreshold;
         this.nativeIndexBuildStrategyFactory = nativeIndexBuildStrategyFactory;
+        this.flatVectorDedup = flatVectorDedup;
     }
 
     /**
@@ -95,7 +107,8 @@ public class NativeEngines990KnnVectorsWriter extends AbstractNativeEnginesKnnVe
                 approximateThreshold,
                 segmentWriteState,
                 nativeIndexBuildStrategyFactory,
-                null
+                null,
+                flatVectorDedup
             );
         }
     }
@@ -107,7 +120,16 @@ public class NativeEngines990KnnVectorsWriter extends AbstractNativeEnginesKnnVe
 
         if (mergeRunnable != null) mergeRunnable.run();
 
-        doMergeOneField(fieldInfo, mergeState, this::train, approximateThreshold, segmentWriteState, nativeIndexBuildStrategyFactory, null);
+        doMergeOneField(
+            fieldInfo,
+            mergeState,
+            this::train,
+            approximateThreshold,
+            segmentWriteState,
+            nativeIndexBuildStrategyFactory,
+            null,
+            flatVectorDedup
+        );
         return null;
     }
 

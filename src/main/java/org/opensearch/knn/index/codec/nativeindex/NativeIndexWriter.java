@@ -63,6 +63,9 @@ public class NativeIndexWriter {
     private final QuantizationState quantizationState;
     @Nullable
     private final QuantizedByteVectorValues quantizedByteVectorValues;
+    // When true (FAISS FP32 HNSW with index.knn.advanced.flat_vector_dedup enabled), a graph-only .faiss is written
+    // and vectors are served from Lucene's .vec file. Threaded from the codec format; false for all other cases.
+    private final boolean skipVectorStorage;
 
     /**
      * Gets the correct writer type from fieldInfo
@@ -71,7 +74,7 @@ public class NativeIndexWriter {
      * @return correct NativeIndexWriter to make index specified in fieldInfo
      */
     public static NativeIndexWriter getWriter(final FieldInfo fieldInfo, SegmentWriteState state) {
-        return createWriter(fieldInfo, state, null, new NativeIndexBuildStrategyFactory(), null);
+        return createWriter(fieldInfo, state, null, new NativeIndexBuildStrategyFactory(), null, false);
     }
 
     /**
@@ -95,7 +98,7 @@ public class NativeIndexWriter {
         final QuantizationState quantizationState,
         final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
     ) {
-        return createWriter(fieldInfo, state, quantizationState, nativeIndexBuildStrategyFactory, null);
+        return createWriter(fieldInfo, state, quantizationState, nativeIndexBuildStrategyFactory, null, false);
     }
 
     /**
@@ -115,7 +118,31 @@ public class NativeIndexWriter {
         final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory,
         @Nullable final QuantizedByteVectorValues quantizedByteVectorValues
     ) {
-        return createWriter(fieldInfo, state, quantizationState, nativeIndexBuildStrategyFactory, quantizedByteVectorValues);
+        return createWriter(fieldInfo, state, quantizationState, nativeIndexBuildStrategyFactory, quantizedByteVectorValues, false);
+    }
+
+    /**
+     * Same as {@link #getWriter(FieldInfo, SegmentWriteState, QuantizationState, NativeIndexBuildStrategyFactory,
+     * QuantizedByteVectorValues)} with control over flat-vector dedup (graph-only .faiss).
+     *
+     * @param skipVectorStorage when true, the flat vector storage is skipped in the .faiss (FAISS FP32 HNSW only).
+     */
+    public static NativeIndexWriter getWriter(
+        final FieldInfo fieldInfo,
+        final SegmentWriteState state,
+        final QuantizationState quantizationState,
+        final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory,
+        @Nullable final QuantizedByteVectorValues quantizedByteVectorValues,
+        final boolean skipVectorStorage
+    ) {
+        return createWriter(
+            fieldInfo,
+            state,
+            quantizationState,
+            nativeIndexBuildStrategyFactory,
+            quantizedByteVectorValues,
+            skipVectorStorage
+        );
     }
 
     /**
@@ -219,6 +246,15 @@ public class NativeIndexWriter {
             parameters = getParameters(fieldInfo, vectorDataType, knnEngine);
         }
 
+        // Flat-vector dedup (graph-only .faiss) applies only to non-model FAISS FP32 fields, which build a plain HNSW
+        // via MemOptimizedNativeIndexBuildStrategy. Quantized (SQ) fields have their own graph-only path; models may be
+        // IVF (whose writer does not honor IO_FLAG_SKIP_STORAGE), so they are excluded.
+        final boolean skipVectorStorageForField = skipVectorStorage
+            && knnEngine == KNNEngine.FAISS
+            && vectorDataType == VectorDataType.FLOAT
+            && quantizationState == null
+            && fieldInfo.attributes().containsKey(MODEL_ID) == false;
+
         return BuildIndexParams.builder()
             .field(fieldInfo.getName())
             .indexParameters(parameters)
@@ -231,6 +267,7 @@ public class NativeIndexWriter {
             .segmentWriteState(state)
             .isFlush(isFlush)
             .quantizedByteVectorValues(quantizedByteVectorValues)
+            .skipVectorStorage(skipVectorStorageForField)
             .build();
     }
 
@@ -359,8 +396,16 @@ public class NativeIndexWriter {
         final SegmentWriteState state,
         @Nullable final QuantizationState quantizationState,
         NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory,
-        @Nullable final QuantizedByteVectorValues quantizedByteVectorValues
+        @Nullable final QuantizedByteVectorValues quantizedByteVectorValues,
+        final boolean skipVectorStorage
     ) {
-        return new NativeIndexWriter(state, fieldInfo, nativeIndexBuildStrategyFactory, quantizationState, quantizedByteVectorValues);
+        return new NativeIndexWriter(
+            state,
+            fieldInfo,
+            nativeIndexBuildStrategyFactory,
+            quantizationState,
+            quantizedByteVectorValues,
+            skipVectorStorage
+        );
     }
 }

@@ -41,6 +41,7 @@ import java.security.InvalidParameterException;
 import org.opensearch.common.util.concurrent.OpenSearchExecutors;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -86,6 +87,7 @@ public class KNNSettings {
      * Settings name
      */
     public static final String INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD = "index.knn.advanced.approximate_threshold";
+    public static final String INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP = "index.knn.advanced.flat_vector_dedup";
     public static final String KNN_ALGO_PARAM_EF_SEARCH = "index.knn.algo_param.ef_search";
     public static final String KNN_ALGO_PARAM_INDEX_THREAD_QTY = "knn.algo_param.index_thread_qty";
     public static final String KNN_MEMORY_CIRCUIT_BREAKER_ENABLED = "knn.memory.circuit_breaker.enabled";
@@ -138,6 +140,7 @@ public class KNNSettings {
     public static final boolean KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE = false;
     public static final String INDEX_KNN_DEFAULT_SPACE_TYPE = "l2";
     public static final Integer INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE = 0;
+    public static final boolean INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP_DEFAULT_VALUE = false;
     public static final Integer INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MIN = -1;
     public static final Integer INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MAX = Integer.MAX_VALUE - 2;
     public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_M = 16;
@@ -207,6 +210,50 @@ public class KNNSettings {
         INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE,
         INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MIN,
         INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MAX,
+        IndexScope,
+        Dynamic
+    );
+
+    /**
+     * When enabled on a FAISS FP32 index, the flat vectors are not embedded in the .faiss file (a graph-only index is
+     * written). Vectors are served from Lucene's .vec file at search time, avoiding the duplicate on-disk storage.
+     * Index-scoped, dynamic, and OFF by default. FP32 native (FAISS) HNSW only; other data types are ignored.
+     */
+    public static final Setting<Boolean> INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP_SETTING = Setting.boolSetting(
+        INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP,
+        INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP_DEFAULT_VALUE,
+        // Flat-vector dedup writes a graph-only .faiss whose vectors are served from Lucene's .vec only by
+        // memory-optimized search. It is therefore only safe to enable together with memory_optimized_search.
+        // (MEMORY_OPTIMIZED_KNN_SEARCH_MODE_SETTING is referenced lazily at validation time, so the forward
+        // reference to a field declared later in this class is safe.)
+        new Setting.Validator<Boolean>() {
+            @Override
+            public void validate(final Boolean value) {
+                // Cross-setting validation is performed in the two-argument overload.
+            }
+
+            @Override
+            public void validate(final Boolean value, final Map<Setting<?>, Object> settings) {
+                if (Boolean.TRUE.equals(value) == false) {
+                    return;
+                }
+                final Object memoryOptimizedSearchEnabled = settings.get(MEMORY_OPTIMIZED_KNN_SEARCH_MODE_SETTING);
+                if (Boolean.TRUE.equals(memoryOptimizedSearchEnabled) == false) {
+                    throw new IllegalArgumentException(
+                        "["
+                            + INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP
+                            + "] can only be enabled when ["
+                            + MEMORY_OPTIMIZED_KNN_SEARCH_MODE
+                            + "] is enabled on the index."
+                    );
+                }
+            }
+
+            @Override
+            public Iterator<Setting<?>> settings() {
+                return List.<Setting<?>>of(MEMORY_OPTIMIZED_KNN_SEARCH_MODE_SETTING).iterator();
+            }
+        },
         IndexScope,
         Dynamic
     );
@@ -741,6 +788,7 @@ public class KNNSettings {
     public List<Setting<?>> getSettings() {
         List<Setting<?>> settings = Arrays.asList(
             INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING,
+            INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP_SETTING,
             INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING,
             KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING,
             KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING,
@@ -1138,6 +1186,40 @@ public class KNNSettings {
         final IndexSettings indexSettings = mapperService.getIndexSettings();
         final Integer approximateThresholdValue = indexSettings.getValue(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING);
         return approximateThresholdValue != null ? approximateThresholdValue : INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE;
+    }
+
+    /**
+     * Retrieves the {@code index.knn.advanced.flat_vector_dedup} value from the given
+     * {@link org.opensearch.index.mapper.MapperService}'s index settings, or returns the default value (false) when
+     * {@code mapperService} is null or the setting is not explicitly configured.
+     *
+     * @param mapperService the mapper service (nullable)
+     * @return whether flat-vector deduplication (graph-only .faiss) is enabled for the index
+     */
+    public static boolean isFlatVectorDedupEnabled(@Nullable MapperService mapperService) {
+        if (mapperService == null) {
+            return INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP_DEFAULT_VALUE;
+        }
+        final IndexSettings indexSettings = mapperService.getIndexSettings();
+        final Boolean flatVectorDedupEnabled = indexSettings.getValue(INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP_SETTING);
+        return flatVectorDedupEnabled != null ? flatVectorDedupEnabled : INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP_DEFAULT_VALUE;
+    }
+
+    /**
+     * Retrieves the {@code index.knn.memory_optimized_search} value from the given
+     * {@link org.opensearch.index.mapper.MapperService}'s index settings, or returns the default value (false) when
+     * {@code mapperService} is null or the setting is not explicitly configured. Named distinctly from the
+     * {@code String}-indexName overload to avoid an ambiguous overload when called with a {@code null} literal.
+     *
+     * @param mapperService the mapper service (nullable)
+     * @return whether memory-optimized search is enabled for the index
+     */
+    public static boolean isMemoryOptimizedKnnSearchModeEnabledForMapper(@Nullable MapperService mapperService) {
+        if (mapperService == null) {
+            return DEFAULT_MEMORY_OPTIMIZED_KNN_SEARCH_MODE;
+        }
+        final Boolean memoryOptimizedSearchEnabled = mapperService.getIndexSettings().getValue(MEMORY_OPTIMIZED_KNN_SEARCH_MODE_SETTING);
+        return memoryOptimizedSearchEnabled != null ? memoryOptimizedSearchEnabled : DEFAULT_MEMORY_OPTIMIZED_KNN_SEARCH_MODE;
     }
 
     private static String percentageAsString(Integer percentage) {

@@ -21,7 +21,7 @@ public:
     MOCK_METHOD(faiss::IndexBinary*, indexBinaryFactory, (int d, const char* description), (override));
     MOCK_METHOD(faiss::IndexIDMapTemplate<faiss::Index>*, indexIdMap, (faiss::Index* index), (override));
     MOCK_METHOD(faiss::IndexIDMapTemplate<faiss::IndexBinary>*, indexBinaryIdMap, (faiss::IndexBinary* index), (override));
-    MOCK_METHOD(void, writeIndex, (const faiss::Index* idx, faiss::IOWriter* writer), (override));
+    MOCK_METHOD(void, writeIndex, (const faiss::Index* idx, faiss::IOWriter* writer, bool skipFlat), (override));
     MOCK_METHOD(void, writeIndexBinary, (const faiss::IndexBinary* idx, faiss::IOWriter* writer, bool skipFlat), (override));
 };
 

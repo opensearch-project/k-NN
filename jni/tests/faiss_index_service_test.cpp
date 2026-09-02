@@ -60,7 +60,7 @@ TEST(CreateIndexTest, BasicAssertions) {
         .WillOnce(Return(index));
     EXPECT_CALL(*mockFaissMethods, indexIdMap(index))
         .WillOnce(Return(indexIdMap));
-    EXPECT_CALL(*mockFaissMethods, writeIndex(indexIdMap, ::testing::Eq(&fileIOWriter)))
+    EXPECT_CALL(*mockFaissMethods, writeIndex(indexIdMap, ::testing::Eq(&fileIOWriter), false))
         .Times(1);
 
     // Create the index
@@ -152,7 +152,7 @@ TEST(CreateByteIndexTest, BasicAssertions) {
         .WillOnce(Return(index));
     EXPECT_CALL(*mockFaissMethods, indexIdMap(index))
         .WillOnce(Return(indexIdMap));
-    EXPECT_CALL(*mockFaissMethods, writeIndex(indexIdMap, ::testing::Eq(&fileIOWriter)))
+    EXPECT_CALL(*mockFaissMethods, writeIndex(indexIdMap, ::testing::Eq(&fileIOWriter), false))
         .Times(1);
 
     // Create the index

@@ -22,6 +22,7 @@ import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
@@ -65,6 +66,23 @@ public class MOSFaissFloatIndexIT extends AbstractMemoryOptimizedKnnSearchIT {
     public void testWhenNoIndexBuilt() {
         doTestNonNestedIndex(VectorDataType.FLOAT, EMPTY_PARAMS, true, SpaceType.L2, NO_BUILD_HNSW);
         doTestNonNestedIndex(VectorDataType.FLOAT, EMPTY_PARAMS, false, SpaceType.L2, NO_BUILD_HNSW);
+    }
+
+    // Enables FP32 flat-vector dedup (graph-only .faiss). With memory-optimized search, the vectors must be served from
+    // Lucene's .vec file and produce results identical to a normal (non-deduped) build.
+    private static final Consumer<Settings.Builder> FLAT_VECTOR_DEDUP_ENABLED = settingsBuilder -> settingsBuilder.put(
+        KNNSettings.INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP,
+        true
+    );
+
+    public void testNonNestedFloatIndexWithFlatVectorDedup() {
+        doTestNonNestedIndex(VectorDataType.FLOAT, EMPTY_PARAMS, false, SpaceType.L2, FLAT_VECTOR_DEDUP_ENABLED);
+        doTestNonNestedIndex(VectorDataType.FLOAT, EMPTY_PARAMS, false, SpaceType.INNER_PRODUCT, FLAT_VECTOR_DEDUP_ENABLED);
+    }
+
+    // Nested indexing exercises the sparse ordinal->docId path (FaissIdMapIndex) on top of the FP32 flat index.
+    public void testNestedFloatIndexWithFlatVectorDedup() {
+        doTestNestedIndex(VectorDataType.FLOAT, EMPTY_PARAMS, SpaceType.L2, FLAT_VECTOR_DEDUP_ENABLED);
     }
 
     /**

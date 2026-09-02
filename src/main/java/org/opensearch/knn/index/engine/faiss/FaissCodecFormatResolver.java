@@ -65,6 +65,11 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
     @Override
     public KnnVectorsFormat resolve() {
         final int approximateThreshold = KNNSettings.getApproximateThresholdValue(mapperService);
-        return new NativeEngines990KnnVectorsFormat(approximateThreshold, nativeIndexBuildStrategyFactory);
+        // Only write a graph-only (deduped) .faiss when memory-optimized search is enabled: MOS is the only search
+        // path that serves vectors from Lucene's .vec, so graph-only segments are only safe to produce under MOS.
+        // KNNSettings validation enforces the same invariant at config time; this is the write-path safety net.
+        final boolean flatVectorDedup = KNNSettings.isFlatVectorDedupEnabled(mapperService)
+            && KNNSettings.isMemoryOptimizedKnnSearchModeEnabledForMapper(mapperService);
+        return new NativeEngines990KnnVectorsFormat(approximateThreshold, nativeIndexBuildStrategyFactory, flatVectorDedup);
     }
 }
