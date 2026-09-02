@@ -38,7 +38,7 @@ import static org.mockito.Mockito.when;
 
 public class KNN1040HalfFloatVectorScorerTests extends KNNTestCase {
 
-    private static final String NATIVE_TIER_CLASS_NAME = "HalfFloatRandomVectorScorerSupplier";
+    private static final String NATIVE_TIER_CLASS_NAME = "NativeHalfFloatRandomVectorScorerSupplier";
 
     @SneakyThrows
     public void testGetRandomVectorScorerSupplier_euclideanWithSimdSupported_usesNativeTier() {
@@ -218,7 +218,7 @@ public class KNN1040HalfFloatVectorScorerTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testHalfFloatRandomVectorScorer_mmapAddress_scoreAndBulkScoreUseNativeAddressPath() {
+    public void testNativeHalfFloatScorer_mmapAddress_scoreAndBulkScoreUseNativeAddressPath() {
         try (Directory dir = new MMapDirectory(createTempDir())) {
             int dimension = 4;
             float[][] vectors = { { 1f, 2f, 3f, 4f }, { 5f, 6f, 7f, 8f } };
@@ -231,8 +231,8 @@ public class KNN1040HalfFloatVectorScorerTests extends KNNTestCase {
             assertNotNull("test host must support mmap address extraction", addressAndSize);
 
             float[] target = { 1f, 1f, 1f, 1f };
-            KNN1040HalfFloatVectorScorer.HalfFloatRandomVectorScorer halfFloatScorer =
-                new KNN1040HalfFloatVectorScorer.HalfFloatRandomVectorScorer(
+            KNN1040HalfFloatVectorScorer.NativeHalfFloatRandomVectorScorer halfFloatScorer =
+                new KNN1040HalfFloatVectorScorer.NativeHalfFloatRandomVectorScorer(
                     values,
                     target,
                     SimdVectorComputeService.SimilarityFunctionType.FP16_L2,
@@ -250,7 +250,7 @@ public class KNN1040HalfFloatVectorScorerTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testHalfFloatRandomVectorScorer_nonMmap_bulkScoreGrowsBufferAndIdentityIdsPastDefaultBatchSize() {
+    public void testNativeHalfFloatScorer_nonMmap_bulkScoreGrowsBufferAndIdentityIdsPastDefaultBatchSize() {
         try (Directory dir = new ByteBuffersDirectory()) {
             int dimension = 2;
             // Default non-mmap buffer is sized for 64 nodes; exceeding that forces both the byte
@@ -264,8 +264,8 @@ public class KNN1040HalfFloatVectorScorerTests extends KNNTestCase {
             KNN1040HalfFloatFlatVectorsValues values = writeAndOpenValues(dir, "nonmmap.vec", vectors, dimension);
 
             float[] target = { 1f, 2f };
-            KNN1040HalfFloatVectorScorer.HalfFloatRandomVectorScorer halfFloatScorer =
-                new KNN1040HalfFloatVectorScorer.HalfFloatRandomVectorScorer(
+            KNN1040HalfFloatVectorScorer.NativeHalfFloatRandomVectorScorer halfFloatScorer =
+                new KNN1040HalfFloatVectorScorer.NativeHalfFloatRandomVectorScorer(
                     values,
                     target,
                     SimdVectorComputeService.SimilarityFunctionType.FP16_L2,

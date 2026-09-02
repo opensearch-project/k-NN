@@ -64,7 +64,7 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
                 similarityFunction
             );
             if (usesNativeScorer(nativeType, addressAndSize)) {
-                return new HalfFloatRandomVectorScorerSupplier(halfFloatValues, nativeType, addressAndSize);
+                return new NativeHalfFloatRandomVectorScorerSupplier(halfFloatValues, nativeType, addressAndSize);
             }
             // No usable native path: never hand halfFloatValues to delegate, which assumes 4
             // bytes/dimension and would overread this FP16 (2-byte) data.
@@ -115,14 +115,14 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
 
     /**
      * Builds {@link UpdateableRandomVectorScorer}s for HNSW graph construction that read raw FP16
-     * bytes directly for candidate comparisons via {@link HalfFloatRandomVectorScorer} - the
+     * bytes directly for candidate comparisons via {@link NativeHalfFloatRandomVectorScorer} - the
      * same decode-free path search already uses. The "current" graph node set via
      * {@link UpdateableRandomVectorScorer#setScoringOrdinal} is decoded once (via
      * {@link KNN1040HalfFloatFlatVectorsValues#vectorValue}) to build the native search context;
      * every subsequent candidate comparison against it stays fully byte-based - one decode per graph
      * node instead of one per graph edge.
      */
-    private static final class HalfFloatRandomVectorScorerSupplier implements RandomVectorScorerSupplier {
+    private static final class NativeHalfFloatRandomVectorScorerSupplier implements RandomVectorScorerSupplier {
         // Used for both raw-byte candidate reads (readRawVectorBytes) and decoding the "current"
         // graph node into a float[] target (vectorValue, in setScoringOrdinal below) - safe to share
         // since both always seek explicitly before reading, and only the target side ever decodes.
@@ -130,7 +130,7 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
         private final SimdVectorComputeService.SimilarityFunctionType nativeType;
         private final long[] addressAndSize;
 
-        HalfFloatRandomVectorScorerSupplier(
+        NativeHalfFloatRandomVectorScorerSupplier(
             KNN1040HalfFloatFlatVectorsValues vectorValues,
             SimdVectorComputeService.SimilarityFunctionType nativeType,
             long[] addressAndSize
@@ -143,14 +143,14 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
         @Override
         public UpdateableRandomVectorScorer scorer() {
             return new UpdateableRandomVectorScorer.AbstractUpdateableRandomVectorScorer(vectorValues) {
-                private HalfFloatRandomVectorScorer delegate;
+                private NativeHalfFloatRandomVectorScorer delegate;
                 private PrefetchableRandomVectorScorer prefetchableDelegate;
 
                 @Override
                 public void setScoringOrdinal(int node) throws IOException {
                     float[] target = vectorValues.vectorValue(node);
                     if (delegate == null) {
-                        delegate = new HalfFloatRandomVectorScorer(vectorValues, target, nativeType, addressAndSize);
+                        delegate = new NativeHalfFloatRandomVectorScorer(vectorValues, target, nativeType, addressAndSize);
                         prefetchableDelegate = new PrefetchableRandomVectorScorer(delegate);
                     } else {
                         // Reuse the existing scorer/buffer instead of allocating a fresh one for every graph node
@@ -160,7 +160,7 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
 
                 /**
                  * Scores {@code node} against whatever target {@link #setScoringOrdinal} last set,
-                 * via the byte-based {@link HalfFloatRandomVectorScorer} built above - no decode here.
+                 * via the byte-based {@link NativeHalfFloatRandomVectorScorer} built above - no decode here.
                  */
                 @Override
                 public float score(int node) throws IOException {
@@ -190,7 +190,7 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
 
         @Override
         public RandomVectorScorerSupplier copy() throws IOException {
-            return new HalfFloatRandomVectorScorerSupplier(vectorValues.copy(), nativeType, addressAndSize);
+            return new NativeHalfFloatRandomVectorScorerSupplier(vectorValues.copy(), nativeType, addressAndSize);
         }
     }
 
@@ -201,7 +201,7 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
      * {@link UpdateableRandomVectorScorer#setScoringOrdinal} call, since HNSW graph build scores
      * against a new "current" node each time, unlike search's fixed query.
      */
-    static class HalfFloatRandomVectorScorer extends RandomVectorScorer.AbstractRandomVectorScorer {
+    static class NativeHalfFloatRandomVectorScorer extends RandomVectorScorer.AbstractRandomVectorScorer {
         private final KNN1040HalfFloatFlatVectorsValues values;
         private final SimdVectorComputeService.SimilarityFunctionType nativeFunctionType;
         private final long[] addressAndSize;
@@ -211,7 +211,7 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
         private final int[] singleVectorId = new int[] { 0 };
         private int[] identityIds = new int[0];
 
-        HalfFloatRandomVectorScorer(
+        NativeHalfFloatRandomVectorScorer(
             KNN1040HalfFloatFlatVectorsValues values,
             float[] target,
             SimdVectorComputeService.SimilarityFunctionType nativeFunctionType,

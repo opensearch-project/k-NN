@@ -213,7 +213,7 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
         final FieldEntry entry = getFieldEntry(field, VectorEncoding.FLOAT32);
         KNN1040HalfFloatFlatVectorsValues base = newVectorValues(entry);
         long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(base.getSlice(), 0, base.getSlice().length());
-        return addressAndSize != null ? new MMapFloatVectorValues(base, addressAndSize) : base;
+        return addressAndSize != null && addressAndSize.length > 0 ? new MMapFloatVectorValues(base, addressAndSize) : base;
     }
 
     // Flat/exhaustive search only (see #search below) - HNSW graph traversal never calls this,

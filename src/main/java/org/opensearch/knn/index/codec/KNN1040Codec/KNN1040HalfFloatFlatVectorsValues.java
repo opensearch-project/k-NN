@@ -106,7 +106,7 @@ class KNN1040HalfFloatFlatVectorsValues extends FloatVectorValues implements Has
 
     /**
      * Reads the raw FP16 bytes for {@code ord} into {@code dest}, starting at
-     * {@code destOffset}. Used by {@link KNN1040HalfFloatVectorScorer.HalfFloatRandomVectorScorer} to feed native SIMD
+     * {@code destOffset}. Used by {@link KNN1040HalfFloatVectorScorer.NativeHalfFloatRandomVectorScorer} to feed native SIMD
      * scoring without a Java-side FP16-to-FP32 decode.
      */
     void readRawVectorBytes(int ord, byte[] dest, int destOffset) throws IOException {
@@ -192,7 +192,7 @@ class KNN1040HalfFloatFlatVectorsValues extends FloatVectorValues implements Has
                 nativeType,
                 addressAndSize != null
             );
-            scorer = new KNN1040HalfFloatVectorScorer.HalfFloatRandomVectorScorer(values, target, nativeType, addressAndSize);
+            scorer = new KNN1040HalfFloatVectorScorer.NativeHalfFloatRandomVectorScorer(values, target, nativeType, addressAndSize);
         } else {
             log.debug(
                 "Selected Java fallback scorer for similarity [{}]; nativeType [{}], simdSupported [{}]",

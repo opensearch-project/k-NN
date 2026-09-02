@@ -512,6 +512,37 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
         }
     }
 
+    @SneakyThrows
+    public void testGetFloatVectorValues_whenFieldHasNoVectorsOnMmap_thenReturnsEmptyUnmappedValues() {
+        try (Directory dir = new MMapDirectory(createTempDir())) {
+            SegmentReadState readState = writeRawSegment(dir, new float[0][], VectorSimilarityFunction.EUCLIDEAN);
+
+            try (FlatVectorsReader reader = newReader(readState)) {
+                FloatVectorValues values = reader.getFloatVectorValues(FIELD_NAME);
+
+                assertNotNull(values);
+                assertEquals(0, values.size());
+                assertFalse("there is nothing to map for an empty field", values instanceof MMapFloatVectorValues);
+                assertNull(reader.getRandomVectorScorer(FIELD_NAME, new float[DIMENSION]));
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testGetFloatVectorValues_whenFieldHasNoVectorsOnHeap_thenReturnsEmptyValues() {
+        try (Directory dir = new ByteBuffersDirectory()) {
+            SegmentReadState readState = writeRawSegment(dir, new float[0][], VectorSimilarityFunction.EUCLIDEAN);
+
+            try (FlatVectorsReader reader = newReader(readState)) {
+                FloatVectorValues values = reader.getFloatVectorValues(FIELD_NAME);
+
+                assertNotNull(values);
+                assertEquals(0, values.size());
+                assertNull(reader.getRandomVectorScorer(FIELD_NAME, new float[DIMENSION]));
+            }
+        }
+    }
+
     private FlatVectorsReader newReader(SegmentReadState readState) throws Exception {
         FlatVectorsScorer scorer = Mockito.mock(FlatVectorsScorer.class);
         return new KNN1040HalfFloatFlatVectorsReader(readState, scorer);
