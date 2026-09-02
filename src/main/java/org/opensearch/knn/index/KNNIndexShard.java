@@ -15,6 +15,7 @@ import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.SegmentCommitInfo;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.store.Directory;
+import org.opensearch.common.CheckedSupplier;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.index.engine.Engine;
 import org.opensearch.index.mapper.MapperService;
@@ -22,6 +23,8 @@ import org.opensearch.index.shard.IndexShard;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
@@ -104,7 +107,7 @@ public class KNNIndexShard {
 
                 // Load off-heap index
                 final List<EngineFileContext> engineFileContexts = getAllEngineFileContexts(loadedFieldNames, leafReaderContext);
-                warmUpOffHeapIndex(engineFileContexts, directory);
+                warmUpOffHeapIndex(engineFileContexts, directory, leafReaderContext);
                 log.info(
                     "[KNN] Loaded off-heap indices for fields {}",
                     engineFileContexts.stream().map(ctx -> ctx.fieldName).collect(Collectors.toSet())
@@ -117,7 +120,12 @@ public class KNNIndexShard {
         }
     }
 
-    private void warmUpOffHeapIndex(final List<EngineFileContext> engineFileContexts, final Directory directory) {
+    private void warmUpOffHeapIndex(
+        final List<EngineFileContext> engineFileContexts,
+        final Directory directory,
+        final LeafReaderContext leafReaderContext
+    ) throws IOException {
+        final SegmentReader segmentReader = Lucene.segmentReader(leafReaderContext.reader());
         for (final EngineFileContext engineFileContext : engineFileContexts) {
             try {
                 // Get cache key for an off-heap index
@@ -125,6 +133,13 @@ public class KNNIndexShard {
                     engineFileContext.vectorFileName,
                     engineFileContext.segmentInfo
                 );
+
+                final KNNEngine knnEngine = KNNEngine.getEngineNameFromPath(engineFileContext.getVectorFileName());
+                // Provide a lazy supplier of full-precision vectors so native can reconstruct flat storage when warming
+                // up a graph-only (FP32 flat-vector deduped) FAISS float index. Invoked only if native needs it; null
+                // otherwise, so normal indices pay nothing.
+                final CheckedSupplier<KNNVectorValues<?>, IOException> knnVectorValuesSupplier =
+                    maybeGetVectorValuesSupplierForReconstruction(segmentReader, engineFileContext, knnEngine);
 
                 // Load an off-heap index
                 nativeMemoryCacheManager.get(
@@ -134,14 +149,15 @@ public class KNNIndexShard {
                         NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
                         getParametersAtLoading(
                             engineFileContext.getSpaceType(),
-                            KNNEngine.getEngineNameFromPath(engineFileContext.getVectorFileName()),
+                            knnEngine,
                             getIndexName(),
                             engineFileContext.getVectorDataType(),
                             engineFileContext.getSegmentLevelQuantizationInfo()
 
                         ),
                         getIndexName(),
-                        engineFileContext.getModelId()
+                        engineFileContext.getModelId(),
+                        knnVectorValuesSupplier
                     ),
                     true
                 );
@@ -149,6 +165,28 @@ public class KNNIndexShard {
                 throw new RuntimeException(ex);
             }
         }
+    }
+
+    /**
+     * Returns a lazy supplier of full-precision {@link KNNVectorValues} for the field when the index could be a
+     * graph-only (FP32 flat-vector deduped) FAISS float index, so native can reconstruct flat storage from Lucene's
+     * .vec file during warmup. Returns null for non-FAISS, non-float, or quantized fields, where reconstruction does
+     * not apply. The supplier defers segment-reader access until native actually needs it (only for graph-only indices).
+     */
+    private CheckedSupplier<KNNVectorValues<?>, IOException> maybeGetVectorValuesSupplierForReconstruction(
+        final SegmentReader segmentReader,
+        final EngineFileContext engineFileContext,
+        final KNNEngine knnEngine
+    ) {
+        if (knnEngine != KNNEngine.FAISS
+            || engineFileContext.getVectorDataType() != VectorDataType.FLOAT
+            || engineFileContext.getSegmentLevelQuantizationInfo() != null) {
+            return null;
+        }
+        return () -> {
+            final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(segmentReader, engineFileContext.getFieldName());
+            return fieldInfo == null ? null : KNNVectorValuesFactory.getVectorValues(fieldInfo, segmentReader);
+        };
     }
 
     /**

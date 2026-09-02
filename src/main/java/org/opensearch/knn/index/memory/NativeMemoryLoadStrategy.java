@@ -90,6 +90,10 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
                 throw new IllegalStateException("Index [" + indexEntryContext.getOpenSearchIndexName() + "] is not preloaded");
             }
             try (indexEntryContext) {
+                // Attach the (lazy) full-precision vector supplier so native can reconstruct flat storage if this is a
+                // graph-only (FP32 flat-vector deduped) .faiss. Null for normal loads; the supplier is invoked only if
+                // native actually needs to reconstruct.
+                indexEntryContext.indexInputWithBuffer.setKnnVectorValuesSupplier(indexEntryContext.getKnnVectorValuesSupplier());
                 final long indexAddress = JNIService.loadIndex(
                     indexEntryContext.indexInputWithBuffer,
                     indexEntryContext.getParameters(),

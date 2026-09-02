@@ -41,6 +41,7 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
     private static final String FORMAT_NAME = "NativeEngines990KnnVectorsFormat";
     private final int approximateThreshold;
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
+    private final boolean flatVectorDedup;
 
     public NativeEngines990KnnVectorsFormat() {
         this(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE);
@@ -54,9 +55,18 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
         int approximateThreshold,
         final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
     ) {
+        this(approximateThreshold, nativeIndexBuildStrategyFactory, KNNSettings.INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP_DEFAULT_VALUE);
+    }
+
+    public NativeEngines990KnnVectorsFormat(
+        int approximateThreshold,
+        final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory,
+        boolean flatVectorDedup
+    ) {
         super(FORMAT_NAME);
         this.approximateThreshold = approximateThreshold;
         this.nativeIndexBuildStrategyFactory = nativeIndexBuildStrategyFactory;
+        this.flatVectorDedup = flatVectorDedup;
     }
 
     /**
@@ -70,7 +80,8 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
             state,
             flatVectorsFormat.fieldsWriter(state),
             approximateThreshold,
-            nativeIndexBuildStrategyFactory
+            nativeIndexBuildStrategyFactory,
+            flatVectorDedup
         );
     }
 
@@ -109,6 +120,8 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
             + flatVectorsFormat
             + ", approximateThreshold="
             + approximateThreshold
+            + ", flatVectorDedup="
+            + flatVectorDedup
             + ")";
     }
 }

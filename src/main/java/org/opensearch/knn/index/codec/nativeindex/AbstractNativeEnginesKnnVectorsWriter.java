@@ -40,7 +40,8 @@ public abstract class AbstractNativeEnginesKnnVectorsWriter extends KnnVectorsWr
         final Integer approximateThreshold,
         final SegmentWriteState segmentWriteState,
         final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory,
-        @Nullable final QuantizedByteVectorValues quantizedByteVectorValues
+        @Nullable final QuantizedByteVectorValues quantizedByteVectorValues,
+        final boolean flatVectorDedup
     ) throws IOException {
         // Check total live docs first to avoid unnecessary supplier creation for empty fields
         final int totalLiveDocs;
@@ -89,7 +90,8 @@ public abstract class AbstractNativeEnginesKnnVectorsWriter extends KnnVectorsWr
             segmentWriteState,
             quantizationState,
             nativeIndexBuildStrategyFactory,
-            quantizedByteVectorValues
+            quantizedByteVectorValues,
+            flatVectorDedup
         );
 
         final StopWatch stopWatch = new StopWatch().start();
@@ -106,7 +108,8 @@ public abstract class AbstractNativeEnginesKnnVectorsWriter extends KnnVectorsWr
         final Integer approximateThreshold,
         final SegmentWriteState segmentWriteState,
         final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory,
-        @Nullable final QuantizedByteVectorValues quantizedByteVectorValues
+        @Nullable final QuantizedByteVectorValues quantizedByteVectorValues,
+        final boolean flatVectorDedup
     ) throws IOException {
         final VectorDataType vectorDataType = extractVectorDataType(fieldInfo);
         final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier = getKNNVectorValuesSupplierForMerge(
@@ -143,7 +146,8 @@ public abstract class AbstractNativeEnginesKnnVectorsWriter extends KnnVectorsWr
             segmentWriteState,
             quantizationState,
             nativeIndexBuildStrategyFactory,
-            quantizedByteVectorValues
+            quantizedByteVectorValues,
+            flatVectorDedup
         );
 
         final StopWatch stopWatch = new StopWatch().start();

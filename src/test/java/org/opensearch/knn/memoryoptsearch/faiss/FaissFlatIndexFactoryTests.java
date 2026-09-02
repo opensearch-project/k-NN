@@ -193,7 +193,7 @@ public class FaissFlatIndexFactoryTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testMaybeSetFlatIndex_whenCagraWithEmptyFlatVectorsAndNonSQField_thenThrows() {
+    public void testMaybeSetFlatIndex_whenCagraWithEmptyFlatVectorsAndFP32Field_thenSetsFP32FlatIndex() {
         FlatVectorsReader mockReader = mock(FlatVectorsReader.class);
 
         FaissHNSWCagraIndex cagraIndex = new FaissHNSWCagraIndex(FaissHNSWCagraIndex.IHNC);
@@ -202,13 +202,64 @@ public class FaissFlatIndexFactoryTests extends KNNTestCase {
         FaissIdMapIndex idMapIndex = mock(FaissIdMapIndex.class);
         when(idMapIndex.getNestedIndex()).thenReturn(cagraIndex);
 
+        // Default field is full-precision FP32 (non-SQ). With flat-vector dedup, a graph-only float CAGRA index is now
+        // served from Lucene's .vec via FaissFP32FlatIndex instead of throwing (previously unsupported).
         FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test_field").build();
 
-        try {
-            FaissFlatIndexFactory.maybeSetFlatBinaryIndex(idMapIndex, fieldInfo, mockReader);
-            fail("Expected IllegalStateException");
-        } catch (IllegalStateException e) {
-            assertTrue(e.getMessage().contains("CAGRA"));
-        }
+        FaissFlatIndexFactory.maybeSetFlatBinaryIndex(idMapIndex, fieldInfo, mockReader);
+
+        assertNotNull(cagraIndex.getFlatVectors());
+        assertFalse(FaissEmptyIndex.isEmptyIndex(cagraIndex.getFlatVectors()));
+        assertTrue(cagraIndex.getFlatVectors() instanceof FaissFP32FlatIndex);
+    }
+
+    @SneakyThrows
+    public void testCreate_whenFP32Field_thenReturnsFaissFP32FlatIndex() {
+        // A default (non-SQ, full-precision) float field maps to the FP32 flat index.
+        FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test_field").build();
+        FlatVectorsReader mockReader = mock(FlatVectorsReader.class);
+
+        FaissIndex result = FaissFlatIndexFactory.createFlatIndex(fieldInfo, mockReader);
+
+        assertTrue(result instanceof FaissFP32FlatIndex);
+    }
+
+    @SneakyThrows
+    public void testMaybeSetFlatIndex_whenFloatHnswWithEmptyFlatVectors_thenSetsFP32FlatIndex() {
+        FlatVectorsReader mockReader = mock(FlatVectorsReader.class);
+
+        // Plain float HNSW (IHNf) whose flat storage was skipped (IO_FLAG_SKIP_STORAGE) loads a FaissEmptyIndex.
+        FaissHNSWIndex hnswIndex = new FaissHNSWIndex(FaissHNSWIndex.IHNF);
+        hnswIndex.setFlatVectors(FaissEmptyIndex.INSTANCE);
+
+        FaissIdMapIndex idMapIndex = mock(FaissIdMapIndex.class);
+        when(idMapIndex.getNestedIndex()).thenReturn(hnswIndex);
+
+        FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test_field").build();
+
+        FaissFlatIndexFactory.maybeSetFlatBinaryIndex(idMapIndex, fieldInfo, mockReader);
+
+        assertNotNull(hnswIndex.getFlatVectors());
+        assertFalse(FaissEmptyIndex.isEmptyIndex(hnswIndex.getFlatVectors()));
+        assertTrue(hnswIndex.getFlatVectors() instanceof FaissFP32FlatIndex);
+    }
+
+    @SneakyThrows
+    public void testMaybeSetFlatIndex_whenFloatHnswWithExistingFlatVectors_thenNoOp() {
+        FlatVectorsReader mockReader = mock(FlatVectorsReader.class);
+
+        // A normal (non-deduped) float HNSW already has real flat storage; it must not be overwritten.
+        FaissHNSWIndex hnswIndex = new FaissHNSWIndex(FaissHNSWIndex.IHNF);
+        FaissIndex existingFlat = mock(FaissIndex.class);
+        hnswIndex.setFlatVectors(existingFlat);
+
+        FaissIdMapIndex idMapIndex = mock(FaissIdMapIndex.class);
+        when(idMapIndex.getNestedIndex()).thenReturn(hnswIndex);
+
+        FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test_field").build();
+
+        FaissFlatIndexFactory.maybeSetFlatBinaryIndex(idMapIndex, fieldInfo, mockReader);
+
+        assertSame(existingFlat, hnswIndex.getFlatVectors());
     }
 }

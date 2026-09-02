@@ -86,6 +86,7 @@ public class KNNSettings {
      * Settings name
      */
     public static final String INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD = "index.knn.advanced.approximate_threshold";
+    public static final String INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP = "index.knn.advanced.flat_vector_dedup";
     public static final String KNN_ALGO_PARAM_EF_SEARCH = "index.knn.algo_param.ef_search";
     public static final String KNN_ALGO_PARAM_INDEX_THREAD_QTY = "knn.algo_param.index_thread_qty";
     public static final String KNN_MEMORY_CIRCUIT_BREAKER_ENABLED = "knn.memory.circuit_breaker.enabled";
@@ -138,6 +139,7 @@ public class KNNSettings {
     public static final boolean KNN_DEFAULT_FAISS_AVX512_SPR_DISABLED_VALUE = false;
     public static final String INDEX_KNN_DEFAULT_SPACE_TYPE = "l2";
     public static final Integer INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE = 0;
+    public static final boolean INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP_DEFAULT_VALUE = false;
     public static final Integer INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MIN = -1;
     public static final Integer INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MAX = Integer.MAX_VALUE - 2;
     public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_M = 16;
@@ -207,6 +209,18 @@ public class KNNSettings {
         INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE,
         INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MIN,
         INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MAX,
+        IndexScope,
+        Dynamic
+    );
+
+    /**
+     * When enabled on a FAISS FP32 index, the flat vectors are not embedded in the .faiss file (a graph-only index is
+     * written). Vectors are served from Lucene's .vec file at search time, avoiding the duplicate on-disk storage.
+     * Index-scoped, dynamic, and OFF by default. FP32 native (FAISS) HNSW only; other data types are ignored.
+     */
+    public static final Setting<Boolean> INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP_SETTING = Setting.boolSetting(
+        INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP,
+        INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP_DEFAULT_VALUE,
         IndexScope,
         Dynamic
     );
@@ -741,6 +755,7 @@ public class KNNSettings {
     public List<Setting<?>> getSettings() {
         List<Setting<?>> settings = Arrays.asList(
             INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING,
+            INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP_SETTING,
             INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING,
             KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING,
             KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING,
@@ -1138,6 +1153,23 @@ public class KNNSettings {
         final IndexSettings indexSettings = mapperService.getIndexSettings();
         final Integer approximateThresholdValue = indexSettings.getValue(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING);
         return approximateThresholdValue != null ? approximateThresholdValue : INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE;
+    }
+
+    /**
+     * Retrieves the {@code index.knn.advanced.flat_vector_dedup} value from the given
+     * {@link org.opensearch.index.mapper.MapperService}'s index settings, or returns the default value (false) when
+     * {@code mapperService} is null or the setting is not explicitly configured.
+     *
+     * @param mapperService the mapper service (nullable)
+     * @return whether flat-vector deduplication (graph-only .faiss) is enabled for the index
+     */
+    public static boolean isFlatVectorDedupEnabled(@Nullable MapperService mapperService) {
+        if (mapperService == null) {
+            return INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP_DEFAULT_VALUE;
+        }
+        final IndexSettings indexSettings = mapperService.getIndexSettings();
+        final Boolean flatVectorDedupEnabled = indexSettings.getValue(INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP_SETTING);
+        return flatVectorDedupEnabled != null ? flatVectorDedupEnabled : INDEX_KNN_ADVANCED_FLAT_VECTOR_DEDUP_DEFAULT_VALUE;
     }
 
     private static String percentageAsString(Integer percentage) {
