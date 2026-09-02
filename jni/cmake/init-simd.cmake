@@ -73,14 +73,19 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND AVX512_SPR_ENABLED)
     # -mavx512bw : 16-bit Masking. Ex: __mmask16, mask generation
     # -mavx512vl : 256-bit "Sub-vector" support. Ex: _mm256_maskz_loadu_epi16
     # -mavx512fp16 : Native FP16 / EVEX Conversion.
-    set(CMAKE_REQUIRED_FLAGS "-mavx512f -mavx512bw -mavx512vl -mavx512fp16")
+    # -mavx512bf16 : Native BF16 dot-product (_mm512_dpbf16_ps) and FP32->BF16 conversion.
+    set(CMAKE_REQUIRED_FLAGS "-mavx512f -mavx512bw -mavx512vl -mavx512fp16 -mavx512bf16")
     check_cxx_source_compiles("
         #include <immintrin.h>
         int main() {
             __m512 v = _mm512_set1_ps(1.0f);
             __m256i h = _mm512_cvt_roundps_ph(v, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
             __m512 w = _mm512_cvtph_ps(h);
+            // Verify AVX512-BF16 support, since the SPR kernels use it for BF16 IP.
+            __m512bh bf = (__m512bh)_mm512_cvtne2ps_pbh(v, v);
+            __m512 acc = _mm512_dpbf16_ps(_mm512_setzero_ps(), bf, bf);
             (void)w;
+            (void)acc;
             return 0;
         }" HAVE_AVX512_SPR_COMPILER)
     unset(CMAKE_REQUIRED_FLAGS)
@@ -88,7 +93,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND AVX512_SPR_ENABLED)
     if(HAVE_AVX512_SPR_COMPILER)
         set(KNN_HAVE_AVX512_SPR ON)
         set(SIMD_OPT_LEVEL "avx512_spr")
-        set(SIMD_FLAGS -mavx512f -mavx512bw -mavx512vl -mavx512fp16)
+        set(SIMD_FLAGS -mavx512f -mavx512bw -mavx512vl -mavx512fp16 -mavx512bf16)
         add_definitions(-DKNN_HAVE_AVX512_SPR)
         message(STATUS "[SIMD] AVX512_SPR supported by compiler.")
     else()
