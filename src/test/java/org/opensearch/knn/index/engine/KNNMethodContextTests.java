@@ -23,6 +23,7 @@ import java.util.Map;
 import org.opensearch.core.common.io.stream.StreamInput;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
@@ -230,6 +231,54 @@ public class KNNMethodContextTests extends KNNTestCase {
         assertEquals(methodName, out.get(NAME));
         assertEquals(spaceType, out.get(METHOD_PARAMETER_SPACE_TYPE));
         assertEquals(knnEngine, out.get(KNN_ENGINE));
+    }
+
+    /**
+     * Flat method with no engine in the source mapping (post-gate index) — engine must NOT be
+     * serialized. Round-trip re-parse would otherwise be rejected by
+     * {@code EngineResolver.rejectEngineForMethodFlat}.
+     */
+    public void testToXContent_flatMethod_whenEngineNotConfigured_thenEngineOmitted() throws IOException {
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_FLAT)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        assertFalse("isEngineConfigured should be false for flat without engine", knnMethodContext.isEngineConfigured());
+
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
+        builder = knnMethodContext.toXContent(builder, ToXContent.EMPTY_PARAMS).endObject();
+
+        Map<String, Object> out = xContentBuilderToMap(builder);
+        assertEquals(METHOD_FLAT, out.get(NAME));
+        assertFalse("KNN_ENGINE must be omitted for flat when not user-configured", out.containsKey(KNN_ENGINE));
+    }
+
+    /**
+     * BWC: a pre-gate index persisted {@code engine=lucene} on its flat mapping. Re-serialization
+     * on a new node must preserve the {@code engine} attribute so rolling-upgrade round-trips
+     * (cluster state, snapshot metadata) don't drop it and cause mapping divergence between
+     * old and new nodes.
+     */
+    public void testToXContent_flatMethod_whenEngineConfigured_thenEnginePreserved() throws IOException {
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_FLAT)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        assertTrue("isEngineConfigured should be true when engine was in the source", knnMethodContext.isEngineConfigured());
+
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
+        builder = knnMethodContext.toXContent(builder, ToXContent.EMPTY_PARAMS).endObject();
+
+        Map<String, Object> out = xContentBuilderToMap(builder);
+        assertEquals(METHOD_FLAT, out.get(NAME));
+        assertEquals(KNNEngine.LUCENE.getName(), out.get(KNN_ENGINE));
     }
 
     public void testEquals() {

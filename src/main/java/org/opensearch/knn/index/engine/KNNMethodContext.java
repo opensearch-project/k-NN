@@ -228,9 +228,14 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        // Flat is engine-agnostic; do not serialize a resolved engine — the round-trip parse
-        // would otherwise be flagged as a user-supplied engine and rejected.
-        if (METHOD_FLAT.equalsIgnoreCase(methodComponentContext.getName()) == false) {
+        // Flat is engine-agnostic on new indices (created on/after FLAT_METHOD_ENGINE_AGNOSTIC_VERSION):
+        // the resolver rejects any user-supplied engine and always resolves internally to Lucene, so we
+        // omit KNN_ENGINE to avoid a re-parse rejection. Pre-gate indices persisted engine=lucene in
+        // their flat mapping explicitly; we preserve that emission (isEngineConfigured=true) so
+        // rolling-upgrade round-trips of cluster state / snapshot metadata don't drop the attribute
+        // and cause mapping divergence between old and new nodes.
+        final boolean isFlatMethod = METHOD_FLAT.equalsIgnoreCase(methodComponentContext.getName());
+        if (isFlatMethod == false || isEngineConfigured) {
             builder.field(KNN_ENGINE, knnEngine.getName());
         }
         builder.field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue());
