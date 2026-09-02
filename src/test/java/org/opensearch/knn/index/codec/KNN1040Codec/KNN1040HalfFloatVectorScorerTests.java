@@ -85,6 +85,23 @@ public class KNN1040HalfFloatVectorScorerTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    public void testGetRandomVectorScorerSupplier_mmapAvailableButSimdUnsupported_stillUsesNativeTier() {
+        final FlatVectorsScorer mockDelegate = mock(FlatVectorsScorer.class);
+        final KNN1040HalfFloatVectorScorer scorer = new KNN1040HalfFloatVectorScorer(mockDelegate);
+
+        final KNN1040HalfFloatFlatVectorsValues mockValues = mock(KNN1040HalfFloatFlatVectorsValues.class);
+        when(mockValues.copy()).thenReturn(mockValues);
+        final MMapFloatVectorValues mmapValues = new MMapFloatVectorValues(mockValues, new long[] { 123L, 456L });
+
+        try (MockedStatic<SimdFp16> mockedSimdFp16 = Mockito.mockStatic(SimdFp16.class)) {
+            mockedSimdFp16.when(SimdFp16::isSIMDSupported).thenReturn(false);
+
+            RandomVectorScorerSupplier supplier = scorer.getRandomVectorScorerSupplier(VectorSimilarityFunction.EUCLIDEAN, mmapValues);
+            assertEquals(NATIVE_TIER_CLASS_NAME, supplier.getClass().getSimpleName());
+        }
+    }
+
+    @SneakyThrows
     public void testGetRandomVectorScorerSupplier_scorerWrapsDelegateInPrefetchableScorer() {
         final FlatVectorsScorer mockDelegate = mock(FlatVectorsScorer.class);
         final KNN1040HalfFloatVectorScorer scorer = new KNN1040HalfFloatVectorScorer(mockDelegate);

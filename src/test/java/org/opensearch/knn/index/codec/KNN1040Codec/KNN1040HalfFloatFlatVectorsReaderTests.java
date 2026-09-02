@@ -7,6 +7,7 @@ package org.opensearch.knn.index.codec.KNN1040Codec;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.CodecUtil;
+import org.apache.lucene.codecs.hnsw.FlatVectorScorerUtil;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.codecs.lucene95.OrdToDocDISIReaderConfiguration;
@@ -40,7 +41,6 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.codec.scorer.NativeEngines990KnnVectorsScorer;
 import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfHalfFloatsSerializer;
-import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
 import org.opensearch.knn.memoryoptsearch.faiss.MMapFloatVectorValues;
 
 import java.util.Collections;
@@ -147,20 +147,6 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testFieldEntry_similarityMismatch_throws() {
-        try (Directory dir = new ByteBuffersDirectory()) {
-            SegmentReadState readState = writeRawSegment(
-                dir,
-                new float[][] { { 1f, 2f, 3f, 4f } },
-                VectorSimilarityFunction.EUCLIDEAN,
-                Overrides.builder().metaSimilarityOrdinal(VectorSimilarityFunction.COSINE.ordinal()).build()
-            );
-            IllegalStateException e = expectThrows(IllegalStateException.class, () -> newReader(readState));
-            assertTrue(e.getMessage().contains("Inconsistent vector similarity function"));
-        }
-    }
-
-    @SneakyThrows
     public void testFieldEntry_encodingMismatch_throws() {
         try (Directory dir = new ByteBuffersDirectory()) {
             SegmentReadState readState = writeRawSegment(
@@ -199,20 +185,6 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
             );
             CorruptIndexException e = expectThrows(CorruptIndexException.class, () -> newReader(readState));
             assertTrue(e.getMessage().contains("Invalid field number"));
-        }
-    }
-
-    @SneakyThrows
-    public void testReadSimilarityFunction_outOfRangeOrdinal_throws() {
-        try (Directory dir = new ByteBuffersDirectory()) {
-            SegmentReadState readState = writeRawSegment(
-                dir,
-                new float[][] { { 1f, 2f, 3f, 4f } },
-                VectorSimilarityFunction.EUCLIDEAN,
-                Overrides.builder().metaSimilarityOrdinal(99).build()
-            );
-            CorruptIndexException e = expectThrows(CorruptIndexException.class, () -> newReader(readState));
-            assertTrue(e.getMessage().contains("invalid distance function"));
         }
     }
 
@@ -551,15 +523,14 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
      * {@code KNN1040HalfFloatFlatVectorsValues#selectScorer}) end-to-end instead of a mocked result.
      */
     private FlatVectorsReader newReaderWithRealScorer(SegmentReadState readState) throws Exception {
-        FlatVectorsScorer scorer = new KNN1040HalfFloatVectorScorer(
-            new PrefetchableFlatVectorScorer(new NativeEngines990KnnVectorsScorer(FlatVectorsScorerProvider.getLucene99FlatVectorsScorer()))
+        FlatVectorsScorer scorer = new PrefetchableFlatVectorScorer(
+            new KNN1040HalfFloatVectorScorer(new NativeEngines990KnnVectorsScorer(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()))
         );
         return new KNN1040HalfFloatFlatVectorsReader(readState, scorer);
     }
 
     private static final class Overrides {
         private final Integer metaDimension;
-        private final Integer metaSimilarityOrdinal;
         private final Integer metaEncodingOrdinal;
         private final Long metaVectorDataLength;
         private final Integer metaFieldNumber;
@@ -568,7 +539,6 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
 
         private Overrides(
             Integer metaDimension,
-            Integer metaSimilarityOrdinal,
             Integer metaEncodingOrdinal,
             Long metaVectorDataLength,
             Integer metaFieldNumber,
@@ -576,7 +546,6 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
             Integer maxDoc
         ) {
             this.metaDimension = metaDimension;
-            this.metaSimilarityOrdinal = metaSimilarityOrdinal;
             this.metaEncodingOrdinal = metaEncodingOrdinal;
             this.metaVectorDataLength = metaVectorDataLength;
             this.metaFieldNumber = metaFieldNumber;
@@ -590,7 +559,6 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
 
         static final class Builder {
             private Integer metaDimension;
-            private Integer metaSimilarityOrdinal;
             private Integer metaEncodingOrdinal;
             private Long metaVectorDataLength;
             private Integer metaFieldNumber;
@@ -599,11 +567,6 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
 
             Builder metaDimension(int v) {
                 this.metaDimension = v;
-                return this;
-            }
-
-            Builder metaSimilarityOrdinal(int v) {
-                this.metaSimilarityOrdinal = v;
                 return this;
             }
 
@@ -633,15 +596,7 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
             }
 
             Overrides build() {
-                return new Overrides(
-                    metaDimension,
-                    metaSimilarityOrdinal,
-                    metaEncodingOrdinal,
-                    metaVectorDataLength,
-                    metaFieldNumber,
-                    docIds,
-                    maxDoc
-                );
+                return new Overrides(metaDimension, metaEncodingOrdinal, metaVectorDataLength, metaFieldNumber, docIds, maxDoc);
             }
         }
     }
@@ -704,7 +659,6 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
 
             meta.writeInt(overrides.metaFieldNumber != null ? overrides.metaFieldNumber : fieldInfo.number);
             meta.writeInt(overrides.metaEncodingOrdinal != null ? overrides.metaEncodingOrdinal : VectorEncoding.FLOAT32.ordinal());
-            meta.writeInt(overrides.metaSimilarityOrdinal != null ? overrides.metaSimilarityOrdinal : similarity.ordinal());
             meta.writeVLong(vectorDataOffset);
             meta.writeVLong(overrides.metaVectorDataLength != null ? overrides.metaVectorDataLength : vectorDataLength);
             meta.writeVInt(overrides.metaDimension != null ? overrides.metaDimension : DIMENSION);

@@ -39,10 +39,8 @@ import org.opensearch.knn.memoryoptsearch.MemorySegmentAddressExtractorUtil;
 import org.opensearch.knn.memoryoptsearch.faiss.MMapFloatVectorValues;
 
 import java.io.IOException;
-import java.util.EnumSet;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 
 import static org.opensearch.knn.index.codec.KNN1040Codec.KNN1040HalfFloatFlatVectorsFormat.BULK_SCORE_BATCH_SIZE;
 import static org.opensearch.knn.index.codec.KNN1040Codec.KNN1040HalfFloatFlatVectorsFormat.META_CODEC_NAME;
@@ -172,26 +170,6 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
         }
     }
 
-    // A whitelist, not a decode table: readSimilarityFunction decodes via VectorSimilarityFunction
-    // .values()[i] directly (the same ordinal the writer persists), then checks membership here so an
-    // ordinal for a similarity function this codec hasn't validated FP16 scoring for is rejected
-    // instead of silently accepted.
-    private static final Set<VectorSimilarityFunction> SUPPORTED_SIMILARITY_FUNCTIONS = EnumSet.of(
-        VectorSimilarityFunction.EUCLIDEAN,
-        VectorSimilarityFunction.DOT_PRODUCT,
-        VectorSimilarityFunction.COSINE,
-        VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT
-    );
-
-    private static VectorSimilarityFunction readSimilarityFunction(DataInput input) throws IOException {
-        int i = input.readInt();
-        VectorSimilarityFunction[] values = VectorSimilarityFunction.values();
-        if (i < 0 || i >= values.length || !SUPPORTED_SIMILARITY_FUNCTIONS.contains(values[i])) {
-            throw new CorruptIndexException("invalid distance function: " + i, input);
-        }
-        return values[i];
-    }
-
     private static VectorEncoding readVectorEncoding(DataInput input) throws IOException {
         int encodingId = input.readInt();
         if (encodingId < 0 || encodingId >= VectorEncoding.values().length) {
@@ -227,7 +205,7 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
         IndexInput slice = vectorData.slice(VECTOR_VALUES_SLICE, entry.vectorDataOffset, entry.vectorDataLength);
         boolean needsOrdToDocReader = entry.ordToDoc.isDense() == false && entry.ordToDoc.isEmpty() == false;
         DirectMonotonicReader ordToDocReader = needsOrdToDocReader ? entry.ordToDoc.getDirectMonotonicReader(vectorData) : null;
-        return new KNN1040HalfFloatFlatVectorsValues(entry.dimension, entry.size, slice, ordToDocReader, entry.similarity);
+        return new KNN1040HalfFloatFlatVectorsValues(entry.dimension, entry.size, slice, ordToDocReader, entry.similarity());
     }
 
     @Override
@@ -238,6 +216,8 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
         return addressAndSize != null ? new MMapFloatVectorValues(base, addressAndSize) : base;
     }
 
+    // Flat/exhaustive search only (see #search below) - HNSW graph traversal never calls this,
+    // it goes through getFlatVectorScorer's supplier instead.
     @Override
     public RandomVectorScorer getRandomVectorScorer(String field, float[] target) throws IOException {
         final FieldEntry entry = getFieldEntry(field, VectorEncoding.FLOAT32);
@@ -245,7 +225,7 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
         if (base.size() == 0) {
             return null;
         }
-        return KNN1040HalfFloatFlatVectorsValues.selectScorer(base, target, entry.similarity);
+        return KNN1040HalfFloatFlatVectorsValues.selectScorer(base, target, entry.similarity());
     }
 
     // Exhaustive brute-force search over all FP16 vectors, scoring ords in batches.
@@ -304,6 +284,8 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
         throw new UnsupportedOperationException("FP16 format does not support byte vector scoring");
     }
 
+    // Consumed only by Lucene's own HNSW graph build/search machinery (via its supplier);
+    // flat/exhaustive search above never calls this, it uses selectScorer directly.
     @Override
     public FlatVectorsScorer getFlatVectorScorer(String field) throws IOException {
         getFieldEntryOrThrow(field);
@@ -342,23 +324,17 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
         IOUtils.close(vectorData);
     }
 
-    private record FieldEntry(VectorSimilarityFunction similarity, VectorEncoding vectorEncoding, long vectorDataOffset,
-        long vectorDataLength, int dimension, int size, OrdToDocDISIReaderConfiguration ordToDoc, FieldInfo info) {
+    private record FieldEntry(VectorEncoding vectorEncoding, long vectorDataOffset, long vectorDataLength, int dimension, int size,
+        OrdToDocDISIReaderConfiguration ordToDoc, FieldInfo info) {
+
+        VectorSimilarityFunction similarity() {
+            return info.getVectorSimilarityFunction();
+        }
 
         FieldEntry {
             if (vectorEncoding != VectorEncoding.FLOAT32) {
                 throw new IllegalStateException(
                     "Unexpected vector encoding for field=\"" + info.name + "\"; expected FLOAT32, got " + vectorEncoding
-                );
-            }
-            if (similarity != info.getVectorSimilarityFunction()) {
-                throw new IllegalStateException(
-                    "Inconsistent vector similarity function for field=\""
-                        + info.name
-                        + "\"; "
-                        + similarity
-                        + " != "
-                        + info.getVectorSimilarityFunction()
                 );
             }
             int infoVectorDimension = info.getVectorDimension();
@@ -389,13 +365,12 @@ public class KNN1040HalfFloatFlatVectorsReader extends FlatVectorsReader {
 
         static FieldEntry create(IndexInput input, FieldInfo info) throws IOException {
             final VectorEncoding vectorEncoding = readVectorEncoding(input);
-            final VectorSimilarityFunction similarityFunction = readSimilarityFunction(input);
             final var vectorDataOffset = input.readVLong();
             final var vectorDataLength = input.readVLong();
             final var dimension = input.readVInt();
             final var size = input.readInt();
             final var ordToDoc = OrdToDocDISIReaderConfiguration.fromStoredMeta(input, size);
-            return new FieldEntry(similarityFunction, vectorEncoding, vectorDataOffset, vectorDataLength, dimension, size, ordToDoc, info);
+            return new FieldEntry(vectorEncoding, vectorDataOffset, vectorDataLength, dimension, size, ordToDoc, info);
         }
     }
 }

@@ -25,11 +25,14 @@ import static org.opensearch.knn.index.codec.KNN1040Codec.KNN1040HalfFloatFlatVe
 import java.io.IOException;
 
 /**
- * Wraps a {@link FlatVectorsScorer} to give HNSW graph construction (flush's incremental build and
- * merge's graph rebuild) a decode-free scorer supplier for FP16 values, matching the decode-free path
- * search already gets via {@link KNN1040HalfFloatFlatVectorsValues#selectNativeOrJavaScorer}. Without
- * this, {@code getRandomVectorScorerSupplier} has no SIMD-aware path and decodes on every graph-edge
- * comparison instead of once per vector.
+ * Wraps a {@link FlatVectorsScorer} to give HNSW graph rebuild during merge a decode-free scorer
+ * supplier for FP16 values, matching the decode-free path search already gets via
+ * {@link KNN1040HalfFloatFlatVectorsValues#selectNativeOrJavaScorer}. Only applies during merge -
+ * flush's initial graph build scores against an in-memory {@code float[]} buffer that was never
+ * FP16-encoded to begin with, so it never reaches our {@link KNN1040HalfFloatFlatVectorsValues}
+ * check below and falls through to {@code delegate} instead. Without this class,
+ * {@code getRandomVectorScorerSupplier} has no SIMD-aware path during merge and decodes on every
+ * graph-edge comparison instead of once per vector.
  *
  * <p>Delegates everything else unchanged, so it's safe to wrap any existing scorer chain - this class
  * only touches the one method, and only activates for our own {@link KNN1040HalfFloatFlatVectorsValues}.
@@ -41,6 +44,8 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
         this.delegate = delegate;
     }
 
+    // HNSW graph build/search only - reached via the reader's getFlatVectorScorer, never by the
+    // flat/exact-search path (which calls KNN1040HalfFloatFlatVectorsValues#selectScorer directly).
     @Override
     public RandomVectorScorerSupplier getRandomVectorScorerSupplier(
         VectorSimilarityFunction similarityFunction,
@@ -58,14 +63,31 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
             final SimdVectorComputeService.SimilarityFunctionType nativeType = NativeEngines990KnnVectorsScorer.getNativeFunctionType(
                 similarityFunction
             );
-            if (nativeType != null && SimdFp16.isSIMDSupported()) {
+            if (usesNativeScorer(nativeType, addressAndSize)) {
                 return new HalfFloatRandomVectorScorerSupplier(halfFloatValues, nativeType, addressAndSize);
             }
-            // No native kernel or SIMD unavailable: never hand halfFloatValues to delegate, which
-            // assumes 4 bytes/dimension and would overread this FP16 (2-byte) data.
+            // No usable native path: never hand halfFloatValues to delegate, which assumes 4
+            // bytes/dimension and would overread this FP16 (2-byte) data.
             return DefaultFlatVectorScorer.INSTANCE.getRandomVectorScorerSupplier(similarityFunction, halfFloatValues);
         }
         return delegate.getRandomVectorScorerSupplier(similarityFunction, vectorValues);
+    }
+
+    /**
+     * True when native scoring should be used for {@code nativeType}. Mmap ({@code addressAndSize}
+     * non-null and non-empty) is enough on its own - zero-copy scoring uses its own native call path
+     * and doesn't need {@link SimdFp16#isSIMDSupported()} to be true (that flag only matters for the
+     * heap-buffer copy path below). Without mmap, falls back to whatever
+     * {@link SimdFp16#isSIMDSupported()} says.
+     */
+    static boolean usesNativeScorer(SimdVectorComputeService.SimilarityFunctionType nativeType, long[] addressAndSize) {
+        if (nativeType == null) {
+            return false;
+        }
+        if (addressAndSize != null && addressAndSize.length > 0) {
+            return true;
+        }
+        return SimdFp16.isSIMDSupported();
     }
 
     @Override

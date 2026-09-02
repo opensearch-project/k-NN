@@ -154,7 +154,9 @@ class KNN1040HalfFloatFlatVectorsValues extends FloatVectorValues implements Has
     /**
      * Extracts the mmap address for {@code values} (if available) and delegates the actual scorer
      * choice to {@link #selectNativeOrJavaScorer}. Shared by both the reader's
-     * {@code getRandomVectorScorer} and this class's {@link #scorer(float[])}.
+     * {@code getRandomVectorScorer} and this class's {@link #scorer(float[])} - both flat/exact-search
+     * paths, never called during HNSW graph traversal (that goes through
+     * {@link KNN1040HalfFloatVectorScorer#getRandomVectorScorerSupplier} instead).
      */
     static RandomVectorScorer selectScorer(KNN1040HalfFloatFlatVectorsValues values, float[] target, VectorSimilarityFunction similarity)
         throws IOException {
@@ -167,14 +169,13 @@ class KNN1040HalfFloatFlatVectorsValues extends FloatVectorValues implements Has
     }
 
     /**
-     * Picks between native SIMD and plain-Java scoring for {@code values}, and never routes it
-     * through a {@code FlatVectorsScorer} delegate chain (see this class's javadoc for why). Native
-     * scoring is used whenever the similarity has a native type and either {@code addressAndSize} is
-     * available (mmap zero-copy) or {@link SimdFp16#isSIMDSupported()} (heap-buffer copy); either way
-     * {@link KNN1040HalfFloatVectorScorer.HalfFloatRandomVectorScorer} picks the right one internally
-     * based on whether {@code addressAndSize} is non-null. Falls back to a plain Java scorer otherwise.
-     * Wrapped in {@link PrefetchableRandomVectorScorer} either way, so this still prefetches ahead of
-     * bulk scoring during graph traversal.
+     * Picks native SIMD or plain-Java scoring for {@code values} (never a {@code FlatVectorsScorer}
+     * delegate chain - see this class's javadoc for why). See
+     * {@link KNN1040HalfFloatVectorScorer#usesNativeScorer} for how native-vs-fallback is decided.
+     * Shared with {@link KNN1040HalfFloatVectorScorer#getRandomVectorScorerSupplier} (HNSW graph
+     * build/search) so the two entry points can't drift apart. Wrapped in
+     * {@link PrefetchableRandomVectorScorer} either way, so this still prefetches ahead of bulk
+     * scoring during graph traversal.
      */
     static RandomVectorScorer selectNativeOrJavaScorer(
         KNN1040HalfFloatFlatVectorsValues values,
@@ -184,7 +185,7 @@ class KNN1040HalfFloatFlatVectorsValues extends FloatVectorValues implements Has
     ) {
         SimdVectorComputeService.SimilarityFunctionType nativeType = NativeEngines990KnnVectorsScorer.getNativeFunctionType(similarity);
         RandomVectorScorer.AbstractRandomVectorScorer scorer;
-        if (nativeType != null && (addressAndSize != null || SimdFp16.isSIMDSupported())) {
+        if (KNN1040HalfFloatVectorScorer.usesNativeScorer(nativeType, addressAndSize)) {
             log.debug(
                 "Selected native SIMD scorer for similarity [{}], nativeType [{}], mmap [{}]",
                 similarity,
