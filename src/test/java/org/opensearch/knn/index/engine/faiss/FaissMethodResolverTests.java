@@ -38,7 +38,8 @@ public class FaissMethodResolverTests extends KNNTestCase {
             false,
             SpaceType.INNER_PRODUCT
         );
-        validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x1, SpaceType.INNER_PRODUCT, ENCODER_FLAT, false);
+        // On V_3_9_0+ (Version.CURRENT), an unspecified compression flips to the x32 (SQ 1-bit) default.
+        validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x32, SpaceType.INNER_PRODUCT, ENCODER_SQ, true);
 
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             null,
@@ -129,8 +130,10 @@ public class FaissMethodResolverTests extends KNNTestCase {
             false,
             SpaceType.L2
         );
-        validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x1, SpaceType.L2, ENCODER_FLAT, false);
+        // On V_3_9_0+ (Version.CURRENT), an unspecified compression flips to the x32 (SQ 1-bit) default.
+        validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x32, SpaceType.L2, ENCODER_SQ, true);
 
+        // BINARY vectors are not affected by the x32 default flip and stay uncompressed (x1).
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, new MethodComponentContext(METHOD_HNSW, Map.of())),
             KNNMethodConfigContext.builder().vectorDataType(VectorDataType.BINARY).versionCreated(Version.CURRENT).build(),
@@ -358,17 +361,17 @@ public class FaissMethodResolverTests extends KNNTestCase {
         validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x1, SpaceType.INNER_PRODUCT, ENCODER_FLAT, false);
     }
 
-    public void testResolveMethod_whenNoCompressionSpecified_thenResolvesToX1() {
-        // TODO: [DEFAULT_FLIP] After Step 4, assert CompressionLevel.x32 for V_3_8_0+, keep x1 for older versions
+    public void testResolveMethod_whenNoCompressionSpecifiedOnV390OrLater_thenResolvesToX32() {
+        // On V_3_9_0+ (Version.CURRENT), FLOAT HNSW indices with no compression flip to the x32 (SQ 1-bit) default.
         ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             null,
             KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build(),
             false,
             SpaceType.L2
         );
-        assertEquals(CompressionLevel.x1, resolvedMethodContext.getCompressionLevel());
+        assertEquals(CompressionLevel.x32, resolvedMethodContext.getCompressionLevel());
         assertEquals(
-            ENCODER_FLAT,
+            ENCODER_SQ,
             ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
                 .getMethodComponentContext()
                 .getParameters()
@@ -381,15 +384,16 @@ public class FaissMethodResolverTests extends KNNTestCase {
             false,
             SpaceType.L2
         );
-        assertEquals(CompressionLevel.x1, resolvedMethodContext.getCompressionLevel());
+        assertEquals(CompressionLevel.x32, resolvedMethodContext.getCompressionLevel());
         assertEquals(
-            ENCODER_FLAT,
+            ENCODER_SQ,
             ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
                 .getMethodComponentContext()
                 .getParameters()
                 .get(METHOD_ENCODER_PARAMETER)).getName()
         );
 
+        // BINARY vectors are excluded from the flip and remain uncompressed (x1).
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             new KNNMethodContext(KNNEngine.FAISS, SpaceType.HAMMING, new MethodComponentContext(METHOD_HNSW, Map.of())),
             KNNMethodConfigContext.builder().vectorDataType(VectorDataType.BINARY).versionCreated(Version.CURRENT).build(),
@@ -442,51 +446,60 @@ public class FaissMethodResolverTests extends KNNTestCase {
         validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x32, SpaceType.L2, QFrameBitEncoder.NAME, true);
     }
 
-    public void testResolveMethod_whenNoCompressionAcrossVersions_thenAlwaysResolvesToX1() {
-        // TODO: [DEFAULT_FLIP] After Step 4, split into: indexVersionCreated < V_3_8_0 → assert x1,
-        // indexVersionCreated >= V_3_8_0 → assert x32
-        Version[] versions = new Version[] { Version.V_3_5_0, Version.V_3_6_0, Version.V_3_7_0, Version.CURRENT };
+    public void testResolveMethod_whenNoCompressionAcrossVersions_thenFlipsAtV390() {
+        // Before the x32-default flip (V_3_9_0), an unspecified compression resolves to x1 (flat).
+        Version[] preFlipVersions = new Version[] { Version.V_3_5_0, Version.V_3_6_0, Version.V_3_7_0, Version.V_3_8_0 };
+        // On or after the flip, it resolves to x32 (SQ 1-bit).
+        Version[] postFlipVersions = new Version[] { Version.V_3_9_0, Version.CURRENT };
 
-        for (Version version : versions) {
-            ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+        for (Version version : preFlipVersions) {
+            for (KNNMethodContext methodContext : new KNNMethodContext[] {
                 null,
-                KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(version).build(),
-                false,
-                SpaceType.L2
-            );
-            assertEquals(
-                "Expected x1 for version " + version + " with no compression specified",
-                CompressionLevel.x1,
-                resolvedMethodContext.getCompressionLevel()
-            );
-            assertEquals(
-                ENCODER_FLAT,
-                ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
-                    .getMethodComponentContext()
-                    .getParameters()
-                    .get(METHOD_ENCODER_PARAMETER)).getName()
-            );
+                new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, new MethodComponentContext(METHOD_HNSW, Map.of())) }) {
+                ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+                    methodContext,
+                    KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(version).build(),
+                    false,
+                    SpaceType.L2
+                );
+                assertEquals(
+                    "Expected x1 for version " + version + " with no compression specified",
+                    CompressionLevel.x1,
+                    resolvedMethodContext.getCompressionLevel()
+                );
+                assertEquals(
+                    ENCODER_FLAT,
+                    ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+                        .getMethodComponentContext()
+                        .getParameters()
+                        .get(METHOD_ENCODER_PARAMETER)).getName()
+                );
+            }
         }
 
-        for (Version version : versions) {
-            ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
-                new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, new MethodComponentContext(METHOD_HNSW, Map.of())),
-                KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(version).build(),
-                false,
-                SpaceType.L2
-            );
-            assertEquals(
-                "Expected x1 for version " + version + " with HNSW and no compression",
-                CompressionLevel.x1,
-                resolvedMethodContext.getCompressionLevel()
-            );
-            assertEquals(
-                ENCODER_FLAT,
-                ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
-                    .getMethodComponentContext()
-                    .getParameters()
-                    .get(METHOD_ENCODER_PARAMETER)).getName()
-            );
+        for (Version version : postFlipVersions) {
+            for (KNNMethodContext methodContext : new KNNMethodContext[] {
+                null,
+                new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, new MethodComponentContext(METHOD_HNSW, Map.of())) }) {
+                ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+                    methodContext,
+                    KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(version).build(),
+                    false,
+                    SpaceType.L2
+                );
+                assertEquals(
+                    "Expected x32 for version " + version + " with no compression specified",
+                    CompressionLevel.x32,
+                    resolvedMethodContext.getCompressionLevel()
+                );
+                assertEquals(
+                    ENCODER_SQ,
+                    ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+                        .getMethodComponentContext()
+                        .getParameters()
+                        .get(METHOD_ENCODER_PARAMETER)).getName()
+                );
+            }
         }
     }
 
