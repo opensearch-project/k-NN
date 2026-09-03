@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix when BQ file is not present in the segment as there is no vectors in the segment [#3511](https://github.com/opensearch-project/k-NN/pull/3511)
 * Fix shared mutable PerLeafResult.EMPTY_RESULT causing NPE [#3534](https://github.com/opensearch-project/k-NN/pull/3534)
 * Drop HasIndexSlice from ScalarQuantizedFloatVectorValues and expose float/quantized delegates via getters [#3486](https://github.com/opensearch-project/k-NN/pull/3486)
+* Fix exact search and rescore scoring innerproduct and cosinesimil fields with L2 on model based and 2.17 to 2.19 indices [#3537](https://github.com/opensearch-project/k-NN/pull/3537)
 
 ### Refactoring
 * Wire ResolvedIndexSpec consumers through spec-driven resolution flow [#3421](https://github.com/opensearch-project/k-NN/pull/3421)
