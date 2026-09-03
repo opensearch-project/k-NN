@@ -64,9 +64,7 @@ public class NativeEngines990KnnVectorsScorer implements FlatVectorsScorer {
         return delegate.getRandomVectorScorerSupplier(similarityFunction, vectorValues);
     }
 
-    private static SimdVectorComputeService.SimilarityFunctionType getNativeFunctionType(
-        final VectorSimilarityFunction similarityFunction
-    ) {
+    public static SimdVectorComputeService.SimilarityFunctionType getNativeFunctionType(final VectorSimilarityFunction similarityFunction) {
         return switch (similarityFunction) {
             case MAXIMUM_INNER_PRODUCT -> SimdVectorComputeService.SimilarityFunctionType.FP16_MAXIMUM_INNER_PRODUCT;
             case EUCLIDEAN -> SimdVectorComputeService.SimilarityFunctionType.FP16_L2;

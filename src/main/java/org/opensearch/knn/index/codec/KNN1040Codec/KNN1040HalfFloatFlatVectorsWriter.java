@@ -252,7 +252,6 @@ public class KNN1040HalfFloatFlatVectorsWriter extends FlatVectorsWriter {
         throws IOException {
         meta.writeInt(fieldInfo.number);
         meta.writeInt(fieldInfo.getVectorEncoding().ordinal());
-        meta.writeInt(fieldInfo.getVectorSimilarityFunction().ordinal());
         meta.writeVLong(vectorDataOffset);
         meta.writeVLong(vectorDataLength);
         meta.writeVInt(fieldInfo.getVectorDimension());
