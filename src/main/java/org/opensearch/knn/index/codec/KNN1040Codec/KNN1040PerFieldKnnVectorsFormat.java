@@ -132,6 +132,10 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
 
     private static Tuple<Integer, ExecutorService> getMergeThreadCountAndExecutorService() {
         int mergeThreadCount = KNNSettings.getIndexThreadQty();
+        return buildMergeThreadCountAndExecutorService(mergeThreadCount);
+    }
+
+    static Tuple<Integer, ExecutorService> buildMergeThreadCountAndExecutorService(int mergeThreadCount) {
         if (mergeThreadCount <= 1) {
             return DEFAULT_MERGE_THREAD_COUNT_AND_EXECUTOR_SERVICE;
         }
