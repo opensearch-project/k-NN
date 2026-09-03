@@ -24,6 +24,6 @@ public class KNN1040HalfFloatFlatVectorsFormatTests extends KNNTestCase {
         KNN1040HalfFloatFlatVectorsFormat format = new KNN1040HalfFloatFlatVectorsFormat();
         String str = format.toString();
         assertTrue(str.contains("KNN1040HalfFloatFlatVectorsFormat"));
-        assertTrue(str.contains("scorer="));
+        assertTrue("toString should expose scorer info, was: " + str, str.contains("scorer="));
     }
 }

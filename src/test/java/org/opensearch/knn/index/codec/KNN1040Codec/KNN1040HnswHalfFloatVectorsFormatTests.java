@@ -58,10 +58,12 @@ public class KNN1040HnswHalfFloatVectorsFormatTests extends KNNTestCase {
     }
 
     public void testConstructor_whenSingleWorkerWithExecutor_thenThrows() {
-        expectThrows(
-            IllegalArgumentException.class,
-            () -> new KNN1040HnswHalfFloatVectorsFormat(16, 100, 1, Executors.newFixedThreadPool(1))
-        );
+        ExecutorService mergeExec = Executors.newFixedThreadPool(1);
+        try {
+            expectThrows(IllegalArgumentException.class, () -> new KNN1040HnswHalfFloatVectorsFormat(16, 100, 1, mergeExec));
+        } finally {
+            mergeExec.shutdownNow();
+        }
     }
 
     public void testConstructor_whenMultipleWorkersWithExecutor_thenSucceeds() {
