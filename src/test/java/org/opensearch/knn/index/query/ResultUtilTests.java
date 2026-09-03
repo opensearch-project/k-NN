@@ -145,7 +145,7 @@ public class ResultUtilTests extends KNNTestCase {
     }
 
     public void testMatchNoBitSet_nextClearBit_throwsUOE() {
-        expectThrows(UnsupportedOperationException.class, () -> PerLeafResult.EMPTY_RESULT.getFilterBits().nextClearBit(0, 10));
+        expectThrows(UnsupportedOperationException.class, () -> PerLeafResult.empty().getFilterBits().nextClearBit(0, 10));
     }
 
 }
