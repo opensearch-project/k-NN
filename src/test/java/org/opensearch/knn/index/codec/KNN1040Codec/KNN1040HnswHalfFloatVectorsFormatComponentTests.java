@@ -102,14 +102,42 @@ public class KNN1040HnswHalfFloatVectorsFormatComponentTests extends KNNTestCase
         }
     }
 
+    @SneakyThrows
+    public void testSearch_whenHnswHalfFloatVectorsFormatWithCosine_thenScoresMatchCosine() {
+        try (Directory dir = newDirectory()) {
+            final float[][] vectors = indexFloatDocs(dir, VectorSimilarityFunction.COSINE);
+
+            try (DirectoryReader reader = DirectoryReader.open(dir)) {
+                final IndexSearcher searcher = new IndexSearcher(reader);
+                final float[] query = vectors[2];
+
+                final TopDocs topDocs = searcher.search(new KnnFloatVectorQuery(FIELD_NAME, query, NUM_DOCS), NUM_DOCS);
+
+                assertEquals("all indexed docs should be returned", NUM_DOCS, topDocs.scoreDocs.length);
+
+                float previousScore = Float.MAX_VALUE;
+                for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
+                    final float expected = VectorSimilarityFunction.COSINE.compare(query, roundTripFp16(vectors[scoreDoc.doc]));
+                    assertEquals("score mismatch for doc " + scoreDoc.doc, expected, scoreDoc.score, 1e-3f);
+                    assertTrue("scores must be in descending order", scoreDoc.score <= previousScore);
+                    previousScore = scoreDoc.score;
+                }
+            }
+        }
+    }
+
     private float[][] indexFloatDocs(final Directory dir) throws Exception {
+        return indexFloatDocs(dir, VectorSimilarityFunction.EUCLIDEAN);
+    }
+
+    private float[][] indexFloatDocs(final Directory dir, final VectorSimilarityFunction similarity) throws Exception {
         final Codec codec = new UnitTestCodec(KNN1040HnswHalfFloatVectorsFormat::new);
         final IndexWriterConfig iwc = newIndexWriterConfig().setCodec(codec);
         final float[][] vectors = generateVectors(NUM_DOCS);
         try (IndexWriter writer = new IndexWriter(dir, iwc)) {
             for (int i = 0; i < NUM_DOCS; i++) {
                 final Document doc = new Document();
-                doc.add(new KnnFloatVectorField(FIELD_NAME, vectors[i], VectorSimilarityFunction.EUCLIDEAN));
+                doc.add(new KnnFloatVectorField(FIELD_NAME, vectors[i], similarity));
                 writer.addDocument(doc);
             }
             writer.forceMerge(1);

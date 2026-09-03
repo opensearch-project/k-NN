@@ -107,10 +107,12 @@ public class KNN1040HnswHalfFloatVectorsFormat extends KnnVectorsFormat {
     public String toString() {
         return String.format(
             Locale.ROOT,
-            "%s(maxConn=%d, beamWidth=%d, tinySegmentsThreshold=%d, flatVectorFormat=%s)",
+            "%s(maxConn=%d, beamWidth=%d, numMergeWorkers=%d, mergeExec=%s, tinySegmentsThreshold=%d, flatVectorFormat=%s)",
             getClass().getSimpleName(),
             maxConn,
             beamWidth,
+            numMergeWorkers,
+            mergeExec,
             tinySegmentsThreshold,
             flatVectorsFormat
         );

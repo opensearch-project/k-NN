@@ -37,6 +37,8 @@ public class KNN1040HnswHalfFloatVectorsFormatTests extends KNNTestCase {
         assertTrue(str.contains("KNN1040HnswHalfFloatVectorsFormat"));
         assertTrue(str.contains("maxConn=32"));
         assertTrue(str.contains("beamWidth=200"));
+        assertTrue(str.contains("numMergeWorkers=1"));
+        assertTrue(str.contains("mergeExec=null"));
         assertTrue(str.contains("tinySegmentsThreshold=500"));
         assertTrue(str.contains("KNN1040HalfFloatFlatVectorsFormat"));
     }
