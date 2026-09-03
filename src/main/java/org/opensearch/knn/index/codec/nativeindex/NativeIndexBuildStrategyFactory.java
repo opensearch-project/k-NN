@@ -10,9 +10,9 @@ import org.apache.lucene.index.FieldInfo;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
-import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
+import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.repositories.RepositoriesService;
 
@@ -60,12 +60,12 @@ public final class NativeIndexBuildStrategyFactory {
         final KNNEngine knnEngine = extractKNNEngine(fieldInfo);
         final boolean isTemplate = fieldInfo.attributes().containsKey(MODEL_ID);
         final boolean iterative = !isTemplate && knnEngine.supportsIterativeBuild();
-        final boolean isFaissSQOneBitField = FieldInfoExtractor.isSQField(fieldInfo)
-            && FieldInfoExtractor.extractSQConfig(fieldInfo).getBits() == Encoder.QuantizationBits.ONE.getValue();
+        final boolean isFaissSQMosField = FieldInfoExtractor.isSQField(fieldInfo)
+            && FaissSQEncoder.isSQCodedBits(FieldInfoExtractor.extractSQConfig(fieldInfo).getBits());
 
         // Determine build strategy
         final NativeIndexBuildStrategy strategy;
-        if (isFaissSQOneBitField) {
+        if (isFaissSQMosField) {
             strategy = MemOptimizedScalarQuantizedIndexBuildStrategy.getInstance();
         } else if (iterative) {
             strategy = MemOptimizedNativeIndexBuildStrategy.getInstance();

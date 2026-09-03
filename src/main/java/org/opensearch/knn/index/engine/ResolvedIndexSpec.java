@@ -104,13 +104,17 @@ public final class ResolvedIndexSpec {
 
     /**
      * Whether this configuration always uses memory optimized search.
-     * SQ 1-bit indices require memory optimized search for correctness, regardless of engine
-     * (both Faiss and Lucene SQ 1-bit rely on it). The one exclusion is IVF: IVF-based SQ 1-bit
-     * models (e.g. trained with on_disk/32x) produce IVF Faiss indices that the memory optimized
-     * reader cannot load, so forcing memory optimized search for them would fail at query time.
+     * Multi-bit SQ indices (bits ∈ {1, 2, 4}) require memory optimized search for correctness,
+     * regardless of engine — document vectors are stored as integer-coded scalar-quantization
+     * codes in Lucene's flat SQ files, and only the memory-optimized reader knows how to
+     * score against those codes. The one exclusion is IVF: IVF-based SQ 1-bit models
+     * (e.g. trained with on_disk/32x) produce IVF Faiss indices that the memory optimized
+     * reader cannot load, so forcing memory optimized search for them would fail at query
+     * time. Multi-bit SQ + IVF is not a supported combination, so the same exclusion is safe
+     * for bits=2 and bits=4.
      */
     public boolean alwaysUseMemoryOptimizedSearch() {
-        return isSQOneBit() && METHOD_IVF.equals(methodName) == false;
+        return isSQMultiBit() && METHOD_IVF.equals(methodName) == false;
     }
 
     /**
@@ -177,7 +181,10 @@ public final class ResolvedIndexSpec {
      *
      * <p>Resolution order:</p>
      * <ol>
-     *   <li>SQ 1-bit: fixed 2x oversample (quantized distances need full-precision rescoring)</li>
+     *   <li>SQ multi-bit (bits ∈ {1, 2, 4}): fixed oversample, overrides disallowed.
+     *       bits=1 (x32) uses the Faiss scalar-quantized factor; bits=2 (x16) and bits=4 (x8) use
+     *       {@link RescoreContext#SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR} — the higher-bit codes
+     *       recover most recall on their own.</li>
      *   <li>x32 compression with the flat method: 2x oversample</li>
      *   <li>Otherwise, only when the compression level requires rescoring for the resolved mode
      *       ({@link CompressionLevel#isModeValidForRescore}):
@@ -198,9 +205,12 @@ public final class ResolvedIndexSpec {
         if (rescoreDefaultOverride != null) {
             return rescoreDefaultOverride;
         }
-        if (isSQOneBit()) {
+        if (isSQMultiBit()) {
+            final float oversampleFactor = quantizationBits == Encoder.QuantizationBits.ONE
+                ? RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR
+                : RescoreContext.SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR;
             return RescoreContext.builder()
-                .oversampleFactor(RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR)
+                .oversampleFactor(oversampleFactor)
                 .allowOverrideOversampleFactor(false)
                 .userProvided(false)
                 .build();
@@ -208,6 +218,13 @@ public final class ResolvedIndexSpec {
 
         if (compressionLevel == CompressionLevel.x32 && isMethodFlat()) {
             return RescoreContext.builder().oversampleFactor(FLAT_OVERSAMPLE_FACTOR).userProvided(false).build();
+        }
+
+        if (isMethodFlat() && (compressionLevel == CompressionLevel.x16 || compressionLevel == CompressionLevel.x8)) {
+            return RescoreContext.builder()
+                .oversampleFactor(RescoreContext.SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR)
+                .userProvided(false)
+                .build();
         }
 
         if (compressionLevel.isModeValidForRescore(mode)) {
@@ -280,7 +297,7 @@ public final class ResolvedIndexSpec {
             return false;
         }
 
-        if (isSQOneBit() || isFP16QuantizedIndex()) {
+        if (isSQMultiBit() || isFP16QuantizedIndex()) {
             return true;
         }
 
@@ -290,15 +307,6 @@ public final class ResolvedIndexSpec {
                 || vectorDataType == VectorDataType.BYTE;
         }
 
-        if (vectorDataType == VectorDataType.FLOAT
-            && encoderType == Encoder.EncoderType.SQ
-            && quantizationBits != null
-            && quantizationBits != Encoder.QuantizationBits.ONE
-            && quantizationBits != Encoder.QuantizationBits.SIXTEEN
-            && quantizationBits != Encoder.QuantizationBits.FULL_PRECISION) {
-            return true;
-        }
-
         return false;
     }
 
@@ -306,8 +314,24 @@ public final class ResolvedIndexSpec {
         return encoderType == Encoder.EncoderType.SQ && quantizationBits == Encoder.QuantizationBits.ONE;
     }
 
+    /**
+     * True when the encoder is SQ configured for the memory-optimized multi-bit path
+     * (bits ∈ {1, 2, 4}). Document vectors are stored as integer-coded scalar-quantization
+     * codes in Lucene's flat SQ files; Faiss only builds the HNSW graph.
+     */
+    public boolean isSQMultiBit() {
+        return encoderType == Encoder.EncoderType.SQ
+            && (quantizationBits == Encoder.QuantizationBits.ONE
+                || quantizationBits == Encoder.QuantizationBits.TWO
+                || quantizationBits == Encoder.QuantizationBits.FOUR);
+    }
+
     public boolean isFaissSQOneBit() {
         return engine == KNNEngine.FAISS && isSQOneBit();
+    }
+
+    public boolean isFaissSQMultiBit() {
+        return engine == KNNEngine.FAISS && isSQMultiBit();
     }
 
     private boolean isMethodFlat() {

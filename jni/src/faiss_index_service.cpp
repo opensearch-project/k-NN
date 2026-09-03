@@ -208,7 +208,7 @@ jlong BinaryIndexService::initIndex(
 
 jlong BinaryIndexService::initFaissSQIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric,
                                             std::string indexDescription, int dim, int numVectors, int threadCount,
-                                            std::unordered_map<std::string, jobject> parameters, float centroidDp, int quantizedVectorBytes) {
+                                            std::unordered_map<std::string, jobject> parameters, float centroidDp, int quantizedVectorBytes, int docBits) {
     if (auto it = parameters.find(M); it == parameters.end()) {
         throw std::runtime_error("Parameter [" + M + "] is required for Faiss scalar optimized index");
     }
@@ -218,7 +218,7 @@ jlong BinaryIndexService::initFaissSQIndex(knn_jni::JNIUtilInterface *jniUtil, J
 
     // Create Faiss SQ HNSW Index
     std::unique_ptr<knn_jni::FaissSQHnsw> faissSQHnsw (new knn_jni::FaissSQHnsw(
-        m, new knn_jni::FaissSQFlat(numVectors, quantizedVectorBytes, centroidDp, dim, metric)));
+        m, new knn_jni::FaissSQFlat(numVectors, quantizedVectorBytes, centroidDp, dim, metric, docBits)));
 
     // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
     if (threadCount != 0) {

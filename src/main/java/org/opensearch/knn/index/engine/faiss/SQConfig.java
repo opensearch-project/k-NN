@@ -8,17 +8,20 @@ package org.opensearch.knn.index.engine.faiss;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import org.opensearch.knn.index.engine.Encoder;
 
 /**
  * Configuration for the SQ (Scalar Quantization) encoder stored as a field attribute.
+ *
+ * <p>The {@code bits} field must be set explicitly by callers — there is no default. The supported
+ * MOS bit widths are {@code 1}, {@code 2}, and {@code 4}; {@link #EMPTY} carries {@code bits=0} as
+ * a sentinel. Callers that treat the value as a doc bit width should validate it through
+ * {@link FaissSQEncoder#isSQCodedBits(int)}.
  */
 @Builder
 @Getter
 @EqualsAndHashCode
 public class SQConfig {
-    @Builder.Default
-    private int bits = Encoder.QuantizationBits.ONE.getValue();
+    private int bits;
 
     public static final SQConfig EMPTY = SQConfig.builder().bits(0).build();
 }

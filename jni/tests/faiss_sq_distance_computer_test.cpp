@@ -189,13 +189,13 @@ TEST_P(FaissSQDistanceComputerTest, OperatorSingleVector) {
     // Create distance computer via template
     std::unique_ptr<faiss::DistanceComputer> dc;
     if (isMaxIP && isBytesMultipleOf8)
-        dc.reset(new FaissSQDistanceComputer<true, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<true, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
     else if (isMaxIP && !isBytesMultipleOf8)
-        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
     else if (!isMaxIP && isBytesMultipleOf8)
-        dc.reset(new FaissSQDistanceComputer<false, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<false, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
     else
-        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
 
     dc->set_query(reinterpret_cast<const float*>(queryBuf.data()));
 
@@ -234,13 +234,13 @@ TEST_P(FaissSQDistanceComputerTest, DistancesBatch4) {
 
     std::unique_ptr<faiss::DistanceComputer> dc;
     if (isMaxIP && isBytesMultipleOf8)
-        dc.reset(new FaissSQDistanceComputer<true, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<true, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
     else if (isMaxIP && !isBytesMultipleOf8)
-        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
     else if (!isMaxIP && isBytesMultipleOf8)
-        dc.reset(new FaissSQDistanceComputer<false, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<false, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
     else
-        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
 
     dc->set_query(reinterpret_cast<const float*>(queryBuf.data()));
 
@@ -276,13 +276,13 @@ TEST_P(FaissSQDistanceComputerTest, SymmetricDis) {
 
     std::unique_ptr<faiss::DistanceComputer> dc;
     if (isMaxIP && isBytesMultipleOf8)
-        dc.reset(new FaissSQDistanceComputer<true, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<true, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
     else if (isMaxIP && !isBytesMultipleOf8)
-        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
     else if (!isMaxIP && isBytesMultipleOf8)
-        dc.reset(new FaissSQDistanceComputer<false, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<false, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
     else
-        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
 
     // symmetric_dis doesn't need set_query, it works on stored vectors only
     for (int i = 0; i < NUM_VECS; ++i) {
@@ -328,13 +328,13 @@ TEST_P(FaissSQDistanceComputerTest, CorrectionFactorsExtraction) {
 
     std::unique_ptr<faiss::DistanceComputer> dc;
     if (isMaxIP && isBytesMultipleOf8)
-        dc.reset(new FaissSQDistanceComputer<true, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<true, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
     else if (isMaxIP && !isBytesMultipleOf8)
-        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
     else if (!isMaxIP && isBytesMultipleOf8)
-        dc.reset(new FaissSQDistanceComputer<false, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<false, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
     else
-        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
 
     // Verify correction factor extraction indirectly: set_query reads query correction
     // factors, then operator() uses both query and target correction factors in the
@@ -371,7 +371,7 @@ TEST_P(FaissSQDistanceComputerTest, GetDistanceComputerIntegration) {
     constexpr int NUM_VECS = 4;
 
     faiss::MetricType metric = isMaxIP ? faiss::METRIC_INNER_PRODUCT : faiss::METRIC_L2;
-    FaissSQFlat flat(NUM_VECS, qvb, CENTROID_DP, dim, metric);
+    FaissSQFlat flat(NUM_VECS, qvb, CENTROID_DP, dim, metric, 1);
 
     // Populate the storage
     auto buf = makeBuffer(NUM_VECS, qvb);
@@ -439,9 +439,9 @@ TEST_P(FaissSQDistanceComputerTest, OperatorNonMultipleOf8Bytes) {
 
     std::unique_ptr<faiss::DistanceComputer> dc;
     if (isMaxIP)
-        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
     else
-        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
 
     dc->set_query(reinterpret_cast<const float*>(queryBuf.data()));
 
@@ -478,9 +478,9 @@ TEST_P(FaissSQDistanceComputerTest, DistancesBatch4NonMultipleOf8Bytes) {
 
     std::unique_ptr<faiss::DistanceComputer> dc;
     if (isMaxIP)
-        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
     else
-        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
 
     dc->set_query(reinterpret_cast<const float*>(queryBuf.data()));
 
@@ -505,9 +505,9 @@ TEST_P(FaissSQDistanceComputerTest, SymmetricDisNonMultipleOf8Bytes) {
 
     std::unique_ptr<faiss::DistanceComputer> dc;
     if (isMaxIP)
-        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<true, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
     else
-        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS));
+        dc.reset(new FaissSQDistanceComputer<false, false>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
 
     for (int i = 0; i < NUM_VECS; ++i) {
         for (int j = i; j < NUM_VECS; ++j) {
@@ -548,7 +548,7 @@ TEST_P(FaissSQDistanceComputerTest, GetDistanceComputerIntegrationNonMultipleOf8
     constexpr int NUM_VECS = 4;
 
     faiss::MetricType metric = isMaxIP ? faiss::METRIC_INNER_PRODUCT : faiss::METRIC_L2;
-    FaissSQFlat flat(NUM_VECS, qvb, CENTROID_DP, dim, metric);
+    FaissSQFlat flat(NUM_VECS, qvb, CENTROID_DP, dim, metric, 1);
 
     auto buf = makeBuffer(NUM_VECS, qvb);
     flat.quantizedVectorsAndCorrectionFactors.assign(buf.data.begin(), buf.data.end());
@@ -595,5 +595,376 @@ INSTANTIATE_TEST_SUITE_P(
         return info.param.name();
     }
 );
+
+// ---------------------------------------------------------------------------
+// Multi-bit tests (docBits in {1, 2, 4})
+// ---------------------------------------------------------------------------
+//
+// The tests above all pass docBits=1. These new tests cover B=2 and B=4 by
+// comparing FaissSQDistanceComputer output against a scalar reference that
+// mirrors the production formula:
+//   dp = Σ_{i,j<docBits} popcount(planeA_i AND planeB_j) << (i + j)
+// and validates that the intervalLength scaling by 1/(2^docBits - 1) applies
+// correctly (no-op for B=1, 1/3 for B=2, 1/15 for B=4).
+
+struct MultiBitParams {
+    bool isMaxIP;
+    int32_t docBits;
+    std::string name() const {
+        return std::string(isMaxIP ? "MaxIP" : "L2") + "_B" + std::to_string(docBits);
+    }
+};
+
+class FaissSQDistanceComputerMultiBitTest : public ::testing::TestWithParam<MultiBitParams> {
+protected:
+    static constexpr float CENTROID_DP = 0.5f;
+    static constexpr float TOLERANCE  = 1e-4f;
+
+    std::mt19937 rng{123};
+
+    struct Buffer {
+        std::vector<uint8_t, NBytesAlignedAllocator<uint8_t, 8>> data;
+        int32_t oneElementSize;
+        int32_t quantizedVectorBytes;
+    };
+
+    // qvb must be a multiple of docBits so `planeBytes = qvb / docBits` is exact.
+    // Aligned qvb (multiple of 8) also exercises the fast reinterpret_cast path.
+    Buffer makeBuffer(int numVecs, int32_t quantizedVectorBytes) {
+        const int32_t oneElementSize = quantizedVectorBytes + 3 * sizeof(float) + sizeof(int32_t);
+        Buffer buf;
+        buf.oneElementSize = oneElementSize;
+        buf.quantizedVectorBytes = quantizedVectorBytes;
+        buf.data.resize(numVecs * oneElementSize, 0);
+
+        std::uniform_int_distribution<int> byteDist(0, 255);
+        std::uniform_real_distribution<float> floatDist(-2.0f, 2.0f);
+        std::uniform_int_distribution<int32_t> intDist(-1000, 1000);
+
+        for (int v = 0; v < numVecs; ++v) {
+            uint8_t* base = buf.data.data() + v * oneElementSize;
+            for (int32_t b = 0; b < quantizedVectorBytes; ++b) {
+                base[b] = static_cast<uint8_t>(byteDist(rng));
+            }
+            float lower = floatDist(rng);
+            float upper = lower + std::abs(floatDist(rng)) + 0.01f;
+            float additional = floatDist(rng);
+            int32_t componentSum = intDist(rng);
+            writeCorrectionFactors(base + quantizedVectorBytes, lower, upper, additional, componentSum);
+        }
+        return buf;
+    }
+
+    std::vector<uint8_t, NBytesAlignedAllocator<uint8_t, 8>> makeQuery(int32_t quantizedVectorBytes) {
+        const int32_t oneElementSize = quantizedVectorBytes + 3 * sizeof(float) + sizeof(int32_t);
+        std::vector<uint8_t, NBytesAlignedAllocator<uint8_t, 8>> q(oneElementSize, 0);
+
+        std::uniform_int_distribution<int> byteDist(0, 255);
+        std::uniform_real_distribution<float> floatDist(-2.0f, 2.0f);
+        std::uniform_int_distribution<int32_t> intDist(-1000, 1000);
+
+        for (int32_t b = 0; b < quantizedVectorBytes; ++b) {
+            q[b] = static_cast<uint8_t>(byteDist(rng));
+        }
+        float lower = floatDist(rng);
+        float upper = lower + std::abs(floatDist(rng)) + 0.01f;
+        float additional = floatDist(rng);
+        int32_t componentSum = intDist(rng);
+        writeCorrectionFactors(q.data() + quantizedVectorBytes, lower, upper, additional, componentSum);
+        return q;
+    }
+
+    // Reference multiBitDp. The formula depends on the docBits Lucene layout:
+    //   B=1, B=2 (bit-plane popcount): Σ_{i,j} popcount(planeA_i AND planeB_j) << (i + j)
+    //   B=4 (PACKED_NIBBLE):           Σ_i (aHi_i * bHi_i + aLo_i * bLo_i)
+    // We dispatch on docBits so this reference matches production for every supported width.
+    static uint64_t referenceMultiBitDp(const uint8_t* a, const uint8_t* b, int32_t quantizedVectorBytes, int32_t docBits) {
+        if (docBits == 4) {
+            // PACKED_NIBBLE byte-wise multiply: each byte holds two 4-bit elements.
+            uint64_t total = 0;
+            for (int32_t k = 0; k < quantizedVectorBytes; ++k) {
+                const uint32_t aLo = a[k] & 0x0Fu;
+                const uint32_t aHi = (a[k] >> 4) & 0x0Fu;
+                const uint32_t bLo = b[k] & 0x0Fu;
+                const uint32_t bHi = (b[k] >> 4) & 0x0Fu;
+                total += aLo * bLo + aHi * bHi;
+            }
+            return total;
+        }
+        // B=1, B=2: bit-plane popcount-AND-shift double sum.
+        const uint64_t planeBytes = static_cast<uint64_t>(quantizedVectorBytes) / static_cast<uint64_t>(docBits);
+        uint64_t dp = 0;
+        for (int32_t i = 0; i < docBits; ++i) {
+            const uint8_t* pa = a + static_cast<uint64_t>(i) * planeBytes;
+            for (int32_t j = 0; j < docBits; ++j) {
+                const uint8_t* pb = b + static_cast<uint64_t>(j) * planeBytes;
+                uint64_t pc = 0;
+                for (uint64_t k = 0; k < planeBytes; ++k) {
+                    pc += __builtin_popcount((pa[k] & pb[k]) & 0xFF);
+                }
+                dp += pc << (i + j);
+            }
+        }
+        return dp;
+    }
+
+    // Reference score using the docBits-scaled intervalLength.
+    static float referenceScoreMultiBit(bool isMaxIP, int32_t dim, float centroidDp,
+                                         float lowerY, float rawIntervalY, float additionalY, float y1,
+                                         float lowerX, float rawIntervalX, float additionalX, float x1,
+                                         uint64_t dp, int32_t docBits) {
+        const float scale = 1.0f / static_cast<float>((1 << docBits) - 1);
+        const float ay = lowerY;
+        const float ly = rawIntervalY * scale;
+        const float ax = lowerX;
+        const float lx = rawIntervalX * scale;
+        float score = ax * ay * dim + ay * lx * x1 + ax * ly * y1 + lx * ly * static_cast<float>(dp);
+        if (isMaxIP) {
+            score += additionalY + additionalX - centroidDp;
+            return -score;
+        } else {
+            return additionalY + additionalX - 2.0f * score;
+        }
+    }
+
+    struct RawCorr { float lower, rawInterval, additional; float componentSum; };
+    static RawCorr readRawCorr(const uint8_t* ptr) {
+        RawCorr c;
+        float lower, upper;
+        std::memcpy(&lower, ptr, sizeof(float));
+        std::memcpy(&upper, ptr + 4, sizeof(float));
+        std::memcpy(&c.additional, ptr + 8, sizeof(float));
+        int32_t cs;
+        std::memcpy(&cs, ptr + 12, sizeof(int32_t));
+        c.lower = lower;
+        c.rawInterval = upper - lower;
+        c.componentSum = static_cast<float>(cs);
+        return c;
+    }
+};
+
+// Operator() bit-identical to scalar reference across docBits ∈ {1, 2, 4}.
+TEST_P(FaissSQDistanceComputerMultiBitTest, OperatorMatchesReference) {
+    auto [isMaxIP, docBits] = GetParam();
+    // planeBytes must divide quantizedVectorBytes cleanly. Pick qvb = docBits * 16 (multiple of 8 → aligned path).
+    const int32_t qvb = docBits * 16;
+    const int32_t planeBytes = qvb / docBits;
+    // dim doesn't matter for correctness beyond feeding the score formula; use planeBytes*8.
+    const int32_t dim = planeBytes * 8;
+    constexpr int NUM_VECS = 8;
+
+    auto buf = makeBuffer(NUM_VECS, qvb);
+    auto queryBuf = makeQuery(qvb);
+
+    // Use the aligned template path (qvb is a multiple of 8 by construction here).
+    std::unique_ptr<faiss::DistanceComputer> dc;
+    if (isMaxIP) {
+        dc.reset(new FaissSQDistanceComputer<true,  true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, docBits));
+    } else {
+        dc.reset(new FaissSQDistanceComputer<false, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, docBits));
+    }
+    dc->set_query(reinterpret_cast<const float*>(queryBuf.data()));
+
+    auto qCorr = readRawCorr(queryBuf.data() + qvb);
+    for (int i = 0; i < NUM_VECS; ++i) {
+        const uint8_t* target = buf.data.data() + i * buf.oneElementSize;
+        const uint64_t refDp = referenceMultiBitDp(queryBuf.data(), target, qvb, docBits);
+        auto tCorr = readRawCorr(target + qvb);
+        float expected = referenceScoreMultiBit(
+            isMaxIP, dim, CENTROID_DP,
+            qCorr.lower, qCorr.rawInterval, qCorr.additional, qCorr.componentSum,
+            tCorr.lower, tCorr.rawInterval, tCorr.additional, tCorr.componentSum,
+            refDp, docBits);
+        float actual = (*dc)(static_cast<idx_t>(i));
+        EXPECT_NEAR(actual, expected, TOLERANCE)
+            << "docBits=" << docBits << ", isMaxIP=" << isMaxIP << ", i=" << i;
+    }
+}
+
+// symmetric_dis (build-time distance between two stored codes) bit-identical to reference.
+TEST_P(FaissSQDistanceComputerMultiBitTest, SymmetricDisMatchesReference) {
+    auto [isMaxIP, docBits] = GetParam();
+    const int32_t qvb = docBits * 16;
+    const int32_t planeBytes = qvb / docBits;
+    const int32_t dim = planeBytes * 8;
+    constexpr int NUM_VECS = 6;
+
+    auto buf = makeBuffer(NUM_VECS, qvb);
+
+    std::unique_ptr<FaissSQDistanceComputer<true, true>> dcMax;
+    std::unique_ptr<FaissSQDistanceComputer<false, true>> dcL2;
+    // We need the concrete type to call symmetric_dis (which isn't a virtual).
+    if (isMaxIP) {
+        dcMax.reset(new FaissSQDistanceComputer<true, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, docBits));
+    } else {
+        dcL2.reset(new FaissSQDistanceComputer<false, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, docBits));
+    }
+
+    for (int i = 0; i < NUM_VECS; ++i) {
+        for (int j = i; j < NUM_VECS; ++j) {
+            const uint8_t* a = buf.data.data() + i * buf.oneElementSize;
+            const uint8_t* b = buf.data.data() + j * buf.oneElementSize;
+            const uint64_t refDp = referenceMultiBitDp(a, b, qvb, docBits);
+            auto aCorr = readRawCorr(a + qvb);
+            auto bCorr = readRawCorr(b + qvb);
+
+            // symmetric_dis mirrors scoringSecondPart structure but with both sides scaled.
+            const float scale = 1.0f / static_cast<float>((1 << docBits) - 1);
+            const float ax = aCorr.lower;
+            const float lx = aCorr.rawInterval * scale;
+            const float az = bCorr.lower;
+            const float lz = bCorr.rawInterval * scale;
+            float score = ax * az * dim + az * lx * aCorr.componentSum + ax * lz * bCorr.componentSum
+                        + lx * lz * static_cast<float>(refDp);
+            float expected;
+            if (isMaxIP) {
+                score += aCorr.additional + bCorr.additional - CENTROID_DP;
+                expected = -score;
+            } else {
+                expected = aCorr.additional + bCorr.additional - 2.0f * score;
+            }
+
+            float actual = isMaxIP ? dcMax->symmetric_dis(i, j) : dcL2->symmetric_dis(i, j);
+            EXPECT_NEAR(actual, expected, TOLERANCE)
+                << "docBits=" << docBits << ", isMaxIP=" << isMaxIP << ", (i,j)=(" << i << "," << j << ")";
+        }
+    }
+}
+
+// distances_batch_4 must agree with per-element operator() at each docBits.
+TEST_P(FaissSQDistanceComputerMultiBitTest, DistancesBatch4MatchesSingle) {
+    auto [isMaxIP, docBits] = GetParam();
+    const int32_t qvb = docBits * 16;
+    const int32_t planeBytes = qvb / docBits;
+    const int32_t dim = planeBytes * 8;
+    constexpr int NUM_VECS = 6;
+
+    auto buf = makeBuffer(NUM_VECS, qvb);
+    auto queryBuf = makeQuery(qvb);
+
+    std::unique_ptr<faiss::DistanceComputer> dc;
+    if (isMaxIP) {
+        dc.reset(new FaissSQDistanceComputer<true, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, docBits));
+    } else {
+        dc.reset(new FaissSQDistanceComputer<false, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, docBits));
+    }
+    dc->set_query(reinterpret_cast<const float*>(queryBuf.data()));
+
+    float d0, d1, d2, d3;
+    dc->distances_batch_4(0, 1, 2, 3, d0, d1, d2, d3);
+    EXPECT_NEAR(d0, (*dc)(0), TOLERANCE) << "docBits=" << docBits;
+    EXPECT_NEAR(d1, (*dc)(1), TOLERANCE) << "docBits=" << docBits;
+    EXPECT_NEAR(d2, (*dc)(2), TOLERANCE) << "docBits=" << docBits;
+    EXPECT_NEAR(d3, (*dc)(3), TOLERANCE) << "docBits=" << docBits;
+}
+
+// docBits=1 must produce results bit-identical to the legacy single-bit path,
+// which is the "no regression on existing 1-bit graphs" invariant the POC commit relies on.
+TEST_P(FaissSQDistanceComputerMultiBitTest, DocBits1MatchesLegacyPopcount) {
+    auto [isMaxIP, docBits] = GetParam();
+    if (docBits != 1) {
+        GTEST_SKIP() << "This invariant only applies to docBits=1";
+    }
+    const int32_t qvb = 24;
+    const int32_t dim = qvb * 32;
+    constexpr int NUM_VECS = 4;
+
+    auto buf = makeBuffer(NUM_VECS, qvb);
+    auto queryBuf = makeQuery(qvb);
+
+    std::unique_ptr<faiss::DistanceComputer> dc;
+    if (isMaxIP) {
+        dc.reset(new FaissSQDistanceComputer<true, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
+    } else {
+        dc.reset(new FaissSQDistanceComputer<false, true>(buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, NUM_VECS, 1));
+    }
+    dc->set_query(reinterpret_cast<const float*>(queryBuf.data()));
+
+    // For docBits=1, dataScale = 1.0 so intervalLength is unchanged, and multiBitDp reduces
+    // to popcount(a AND b). So the legacy referencePopcount + referenceScore path (used in
+    // the SQTestParams tests above) must agree with the multi-bit reference too.
+    for (int i = 0; i < NUM_VECS; ++i) {
+        const uint8_t* target = buf.data.data() + i * buf.oneElementSize;
+        uint32_t legacyDp = referencePopcount(queryBuf.data(), target, qvb);
+        uint64_t multiBitRef = referenceMultiBitDp(queryBuf.data(), target, qvb, 1);
+        EXPECT_EQ(legacyDp, multiBitRef)
+            << "docBits=1 multi-bit dp must equal legacy popcount, i=" << i;
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    MultiBit,
+    FaissSQDistanceComputerMultiBitTest,
+    ::testing::Values(
+        MultiBitParams{false, 1}, MultiBitParams{false, 2}, MultiBitParams{false, 4},
+        MultiBitParams{true,  1}, MultiBitParams{true,  2}, MultiBitParams{true,  4}
+    ),
+    [](const ::testing::TestParamInfo<MultiBitParams>& info) { return info.param.name(); }
+);
+
+// ---------------------------------------------------------------------------
+// docBits validation — constructor must reject unsupported / dangerous values
+// ---------------------------------------------------------------------------
+
+TEST(FaissSQDistanceComputerValidation, RejectsUnsupportedDocBits) {
+    // We only need a dummy buffer big enough to compute oneElementByteSize; nothing is dereferenced
+    // because the constructor validates docBits before touching any data.
+    // oneElementByteSize must be > 16 (correction factors) for quantizedVectorBytes to be positive.
+    constexpr int32_t qvb = 8;
+    constexpr int32_t oneElementByteSize = qvb + 3 * sizeof(float) + sizeof(int32_t);
+    std::vector<uint8_t, NBytesAlignedAllocator<uint8_t, 8>> dummy(oneElementByteSize, 0);
+
+    // docBits=0 would trigger div-by-zero in planeBytes computation.
+    EXPECT_THROW(
+        (FaissSQDistanceComputer<false, true>(oneElementByteSize, dummy.data(), 0.0f, 8, 1, /*docBits=*/0)),
+        std::runtime_error);
+    // docBits=3 is not a supported MOS width.
+    EXPECT_THROW(
+        (FaissSQDistanceComputer<false, true>(oneElementByteSize, dummy.data(), 0.0f, 8, 1, /*docBits=*/3)),
+        std::runtime_error);
+    // docBits=8 exceeds Lucene's MOS bit widths.
+    EXPECT_THROW(
+        (FaissSQDistanceComputer<false, true>(oneElementByteSize, dummy.data(), 0.0f, 8, 1, /*docBits=*/8)),
+        std::runtime_error);
+    // Negative docBits — the (1 << bits) computation would be UB.
+    EXPECT_THROW(
+        (FaissSQDistanceComputer<false, true>(oneElementByteSize, dummy.data(), 0.0f, 8, 1, /*docBits=*/-1)),
+        std::runtime_error);
+}
+
+TEST(FaissSQDistanceComputerValidation, RejectsOddQuantizedVectorBytesAtB2) {
+    // qvb=9 is not divisible by docBits=2. B=2 requires two bit planes of equal length,
+    // so quantizedVectorBytes must be even. B=1 and B=4 have no such requirement.
+    constexpr int32_t qvb = 9;
+    constexpr int32_t oneElementByteSize = qvb + 3 * sizeof(float) + sizeof(int32_t);
+    std::vector<uint8_t, NBytesAlignedAllocator<uint8_t, 8>> dummy(oneElementByteSize, 0);
+
+    // B=2 must throw because 9 is odd.
+    EXPECT_THROW(
+        (FaissSQDistanceComputer<false, false>(oneElementByteSize, dummy.data(), 0.0f, 8, 1, /*docBits=*/2)),
+        std::runtime_error);
+
+    // B=1 is fine (any qvb is valid — planeBytes == qvb).
+    EXPECT_NO_THROW(
+        (FaissSQDistanceComputer<false, false>(oneElementByteSize, dummy.data(), 0.0f, 8, 1, /*docBits=*/1)));
+
+    // B=4 is fine too — PACKED_NIBBLE bytes are independent (each byte holds 2 elements),
+    // so qvb=9 doesn't need any divisibility property beyond "positive".
+    EXPECT_NO_THROW(
+        (FaissSQDistanceComputer<false, false>(oneElementByteSize, dummy.data(), 0.0f, 8, 1, /*docBits=*/4)));
+}
+
+TEST(FaissSQDistanceComputerValidation, AcceptsAllSupportedDocBits) {
+    // Verify the happy path for each supported docBits width. qvb must be a multiple of docBits.
+    for (int32_t docBits : {1, 2, 4}) {
+        const int32_t qvb = docBits * 16; // multiple of docBits AND multiple of 8
+        const int32_t oneElementByteSize = qvb + 3 * sizeof(float) + sizeof(int32_t);
+        std::vector<uint8_t, NBytesAlignedAllocator<uint8_t, 8>> dummy(oneElementByteSize, 0);
+
+        EXPECT_NO_THROW(
+            (FaissSQDistanceComputer<false, true>(oneElementByteSize, dummy.data(), 0.0f, 128, 1, docBits))
+        ) << "docBits=" << docBits << " must be accepted";
+    }
+}
 
 } // namespace knn_jni
