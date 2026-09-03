@@ -136,11 +136,19 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
     }
 
     static Tuple<Integer, ExecutorService> buildMergeThreadCountAndExecutorService(int mergeThreadCount) {
+        return buildMergeThreadCountAndExecutorService(mergeThreadCount, 60L, TimeUnit.SECONDS);
+    }
+
+    static Tuple<Integer, ExecutorService> buildMergeThreadCountAndExecutorService(
+        int mergeThreadCount,
+        long keepAliveTime,
+        TimeUnit keepAliveUnit
+    ) {
         if (mergeThreadCount <= 1) {
             return DEFAULT_MERGE_THREAD_COUNT_AND_EXECUTOR_SERVICE;
         }
         ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(mergeThreadCount);
-        executor.setKeepAliveTime(60L, TimeUnit.SECONDS);
+        executor.setKeepAliveTime(keepAliveTime, keepAliveUnit);
         executor.allowCoreThreadTimeOut(true);
         return Tuple.tuple(mergeThreadCount, executor);
     }

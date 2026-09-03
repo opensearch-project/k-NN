@@ -100,12 +100,20 @@ public class KNN9120PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsForma
     }
 
     static Tuple<Integer, ExecutorService> buildMergeThreadCountAndExecutorService(int mergeThreadCount) {
+        return buildMergeThreadCountAndExecutorService(mergeThreadCount, 60L, TimeUnit.SECONDS);
+    }
+
+    static Tuple<Integer, ExecutorService> buildMergeThreadCountAndExecutorService(
+        int mergeThreadCount,
+        long keepAliveTime,
+        TimeUnit keepAliveUnit
+    ) {
         // Lucene expects a null executor when the merge thread count is <= 1
         if (mergeThreadCount <= 1) {
             return DEFAULT_MERGE_THREAD_COUNT_AND_EXECUTOR_SERVICE;
         }
         ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(mergeThreadCount);
-        executor.setKeepAliveTime(60L, TimeUnit.SECONDS);
+        executor.setKeepAliveTime(keepAliveTime, keepAliveUnit);
         executor.allowCoreThreadTimeOut(true);
         return Tuple.tuple(mergeThreadCount, executor);
     }

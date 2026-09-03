@@ -8,8 +8,13 @@ package org.opensearch.knn.index.codec.KNN1040Codec;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.knn.KNNTestCase;
 
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class KNN1040PerFieldKnnVectorsFormatTests extends KNNTestCase {
 
@@ -87,5 +92,89 @@ public class KNN1040PerFieldKnnVectorsFormatTests extends KNNTestCase {
             first.v2().shutdownNow();
             second.v2().shutdownNow();
         }
+    }
+
+    public void testThreadsCulledAfterTimeout() throws Exception {
+        Tuple<Integer, ExecutorService> result = KNN1040PerFieldKnnVectorsFormat.buildMergeThreadCountAndExecutorService(
+            4,
+            1L,
+            TimeUnit.SECONDS
+        );
+        ThreadPoolExecutor executor = (ThreadPoolExecutor) result.v2();
+        try {
+            CountDownLatch tasksStarted = new CountDownLatch(4);
+            CountDownLatch tasksCanFinish = new CountDownLatch(1);
+            for (int i = 0; i < 4; i++) {
+                executor.submit(() -> {
+                    tasksStarted.countDown();
+                    try {
+                        tasksCanFinish.await();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+            }
+            assertTrue(tasksStarted.await(5, TimeUnit.SECONDS));
+            assertEquals(4, executor.getActiveCount());
+
+            tasksCanFinish.countDown();
+            assertBusy(() -> assertEquals(0, executor.getPoolSize()), 10, TimeUnit.SECONDS);
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    public void testThreadsSurviveDuringActiveMerge() throws Exception {
+        Tuple<Integer, ExecutorService> result = KNN1040PerFieldKnnVectorsFormat.buildMergeThreadCountAndExecutorService(
+            4,
+            1L,
+            TimeUnit.SECONDS
+        );
+        ThreadPoolExecutor executor = (ThreadPoolExecutor) result.v2();
+        try {
+            CountDownLatch tasksStarted = new CountDownLatch(4);
+            CountDownLatch tasksCanFinish = new CountDownLatch(1);
+            for (int i = 0; i < 4; i++) {
+                executor.submit(() -> {
+                    tasksStarted.countDown();
+                    try {
+                        tasksCanFinish.await();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+            }
+            assertTrue(tasksStarted.await(5, TimeUnit.SECONDS));
+
+            Thread.sleep(2000);
+            assertEquals(4, executor.getPoolSize());
+            assertEquals(4, executor.getActiveCount());
+
+            tasksCanFinish.countDown();
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    public void testExecutorIsGarbageCollectedAfterUse() throws Exception {
+        List<WeakReference<ExecutorService>> refs = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            Tuple<Integer, ExecutorService> result = KNN1040PerFieldKnnVectorsFormat.buildMergeThreadCountAndExecutorService(
+                2,
+                1L,
+                TimeUnit.SECONDS
+            );
+            refs.add(new WeakReference<>(result.v2()));
+        }
+
+        Thread.sleep(3000);
+
+        for (int i = 0; i < 10; i++) {
+            System.gc();
+            Thread.sleep(100);
+        }
+
+        long collected = refs.stream().filter(ref -> ref.get() == null).count();
+        assertTrue("Expected at least one executor to be GC'd, but none were", collected > 0);
     }
 }
