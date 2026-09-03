@@ -327,7 +327,7 @@ public class KNN1040HalfFloatFlatVectorsFormatTests extends KNNTestCase {
     @SneakyThrows
     public void testScorerBulk_nonMmapDirectory_matchesExpectedSimilarity() {
         // Exercises VectorScorer.bulk(), which is what the reader's exhaustive search() path uses.
-        // With mmap unavailable, this goes through KNN1040HalfFloatRandomVectorScorer.bulkScore() when SIMD
+        // With mmap unavailable, this goes through NativeHalfFloatRandomVectorScorer.bulkScore() when SIMD
         // is supported, or the pure-Java fallback (via the default Bulk implementation) otherwise.
         try (Directory dir = new ByteBuffersDirectory()) {
             float[][] vectors = generateVectors(NUM_VECTORS, DIMENSION);
@@ -382,7 +382,7 @@ public class KNN1040HalfFloatFlatVectorsFormatTests extends KNNTestCase {
 
     /**
      * Verifies {@code Values.scorer(target)} picks the mmap zero-copy path of
-     * {@link KNN1040HalfFloatVectorScorer.HalfFloatRandomVectorScorer} via the shared
+     * {@link KNN1040HalfFloatVectorScorer.NativeHalfFloatRandomVectorScorer} via the shared
      * {@code selectScorer}/{@code selectNativeOrJavaScorer} helpers, matching the reader's own
      * selection -- exercised through {@link MMapFloatVectorValues#scorer}, the path Lucene's filtered
      * exact-search fallback and rescore use. Guards against silently falling back to the heap-buffer
@@ -409,9 +409,9 @@ public class KNN1040HalfFloatFlatVectorsFormatTests extends KNNTestCase {
                     RandomVectorScorer.AbstractRandomVectorScorer.class
                 );
                 assertTrue(
-                    "scorer() should select HalfFloatRandomVectorScorer when a native similarity type is "
+                    "scorer() should select NativeHalfFloatRandomVectorScorer when a native similarity type is "
                         + "available, not fall back to the plain-Java scorer",
-                    prefetchDelegate instanceof KNN1040HalfFloatVectorScorer.HalfFloatRandomVectorScorer
+                    prefetchDelegate instanceof KNN1040HalfFloatVectorScorer.NativeHalfFloatRandomVectorScorer
                 );
                 Boolean usesMmapAddress = getPrivateField(prefetchDelegate, "usesMmapAddress", Boolean.class);
                 assertTrue(
