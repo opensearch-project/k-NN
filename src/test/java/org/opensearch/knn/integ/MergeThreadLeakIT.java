@@ -83,12 +83,7 @@ public class MergeThreadLeakIT extends KNNRestTestCase {
             for (int d = 0; d < DIMENSION; d++) {
                 queryVector[d] = 0.5f;
             }
-            String query = KNNJsonQueryBuilder.builder()
-                .fieldName(FIELD_NAME)
-                .vector(queryVector)
-                .k(10)
-                .build()
-                .getQueryString();
+            String query = KNNJsonQueryBuilder.builder().fieldName(FIELD_NAME).vector(queryVector).k(10).build().getQueryString();
 
             Response response = searchKNNIndex(INDEX_NAME, query, 10);
             List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
