@@ -306,10 +306,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
             // return FlatVectorFieldMapper only for indices that are created on or after 2.17.0, for others, use
             // EngineFieldMapper to maintain backwards compatibility.
-            // HALF_FLOAT is excluded because FlatVectorFieldMapper relies on DocValues which HALF_FLOAT does not support.
+            // HALF_FLOAT is excluded because FlatVectorFieldMapper relies on binary DocValues storage.
+            final VectorDataType resolvedDataType = vectorDataType.getValue();
             if (originalParameters.getResolvedKnnMethodContext() == null
                 && indexCreatedVersion.onOrAfter(Version.V_2_17_0)
-                && vectorDataType.getValue() != VectorDataType.HALF_FLOAT) {
+                && resolvedDataType != VectorDataType.HALF_FLOAT) {
                 // Prior to 3.0.0, hasDocValues defaulted to false. However, FlatVectorFieldMapper requires
                 // hasDocValues to be true to maintain proper functionality for vector search operations.
                 // For indices created on or after 3.0.0, we automatically set hasDocValues to true if not
@@ -419,11 +420,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
 
             final boolean isKNNDisabled = isKNNDisabled(parserContext.getSettings());
+            final VectorDataType parsedDataType = builder.vectorDataType.getValue();
 
             // half_float needs the Lucene FP16 codec, which is only wired up when index.knn is true.
             // Checked here rather than in validateFromFlat below so it is independent of the version
             // gate, which exists only to preserve pre-2.17 flat-mapper behavior.
-            if (isKNNDisabled && builder.vectorDataType.getValue() == VectorDataType.HALF_FLOAT) {
+            if (isKNNDisabled && parsedDataType == VectorDataType.HALF_FLOAT) {
                 throw new IllegalArgumentException(
                     "HALF_FLOAT vector data type is not supported when index.knn is disabled. "
                         + "Use method 'flat' with engine 'lucene' and index.knn enabled instead."
