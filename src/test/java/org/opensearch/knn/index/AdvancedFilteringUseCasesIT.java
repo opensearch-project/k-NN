@@ -26,6 +26,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -76,8 +77,8 @@ public class AdvancedFilteringUseCasesIT extends KNNCompressionRestTestCase {
 
     private static final Float[] QUERY_VECTOR = { 5f };
 
-    private static final List<String> enginesToTest = KNNEngine.getEnginesThatSupportsFilters()
-        .stream()
+    private static final List<String> enginesToTest = Arrays.stream(KNNEngine.values())
+        .filter(KNNEngine::supportsFilters)
         .map(KNNEngine::getName)
         .collect(Collectors.toList());
 

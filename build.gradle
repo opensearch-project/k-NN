@@ -90,7 +90,7 @@ plugins {
     id 'java-library'
     id 'java-test-fixtures'
     id 'idea'
-    id "com.diffplug.spotless" version "8.6.0" apply false
+    id "com.diffplug.spotless" version "8.10.1" apply false
     id 'io.freefair.lombok' version '8.14'
     id "de.undercouch.download" version "5.3.0"
 }
@@ -358,6 +358,24 @@ opensearchplugin {
     noticeFile = rootProject.file('NOTICE.txt')
 }
 
+// Sandbox jars are bundled runtime-only when -Pknn.sandbox.enabled=true. Snapshot builds only, the
+// same rule core enforces in OpenSearch's sandbox/build.gradle, so a release can never include them.
+def knnSandboxEnabled = providers.gradleProperty('knn.sandbox.enabled').getOrElse('false') == 'true'
+if (knnSandboxEnabled && !isSnapshot) {
+    throw new GradleException("knn.sandbox.enabled requires a snapshot build (build.snapshot=true)")
+}
+if (knnSandboxEnabled) {
+    def sandboxSubprojects = rootProject.subprojects.findAll { it.path.startsWith(':sandbox:') }
+    sandboxSubprojects.each { evaluationDependsOn(it.path) }
+    tasks.named("bundlePlugin").configure { bundleTask ->
+        sandboxSubprojects.each { sandboxProject ->
+            bundleTask.dependsOn "${sandboxProject.path}:jar"
+            // Lazy archive-file reference; the jar lands at the root of the zip with the other runtime jars.
+            bundleTask.from(sandboxProject.tasks.named('jar').flatMap { it.archiveFile })
+        }
+    }
+}
+
 tasks.named("integTest").configure {
     it.dependsOn(project.tasks.named("bundlePlugin"))
 }
@@ -552,6 +570,18 @@ tasks.register('cmakeJniLib', Exec) {
     args.add("-DCOMMIT_LIB_PATCHES=${commit_lib_patches}")
     args.add("-DAPPLY_LIB_PATCHES=${apply_lib_patches}")
     args.add("-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+    // Opt-in configure of sandbox tenant JNI libraries (see jni/sandbox/). Tenant cmake overrides pass
+    // through -Psandbox.cmake.args, semicolon-separated: -Psandbox.cmake.args="-DFLAG_A=x;-DFLAG_B=y"
+    if (knnSandboxEnabled) {
+        args.add("-DCONFIG_SANDBOX=ON")
+        if (project.hasProperty('sandbox.cmake.args')) {
+            project.property('sandbox.cmake.args').toString().split(';').each { extraArg ->
+                if (!extraArg.trim().isEmpty()) {
+                    args.add(extraArg.trim())
+                }
+            }
+        }
+    }
     def javaHome = Jvm.current().getJavaHome()
     logger.lifecycle("Java home directory used by gradle: $javaHome")
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
@@ -585,6 +615,14 @@ tasks.register('buildJniLib', Exec) {
     def knn_libs = ['opensearchknn_faiss', 'opensearchknn_common', 'opensearchknn_nmslib', 'opensearchknn_simd']
     if (project.hasProperty('knn_libs')) {
         knn_libs = ['opensearchknn_common'] + project.knn_libs.split(',').collect { it.trim() }
+    }
+    // Each opted-in tenant with jni/sandbox/<tenant>/tenant.cmake builds `opensearchknn_<tenant>`.
+    if (knnSandboxEnabled) {
+        rootProject.subprojects.findAll { it.path.startsWith(':sandbox:') }.each { sandboxProject ->
+            if (rootProject.file("jni/sandbox/${sandboxProject.name}/tenant.cmake").exists()) {
+                knn_libs = knn_libs + "opensearchknn_${sandboxProject.name}".toString()
+            }
+        }
     }
     args.addAll(knn_libs)
     args.add("--parallel")

@@ -385,9 +385,10 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
 
     private static String determineVectorDataType(final VectorDataType dataType, @NonNull final ResolvedIndexSpec resolvedSpec) {
         if (dataType == VectorDataType.FLOAT) {
-            // SQ 1-bit sends fp32 vectors. Once support is added for building 1 bit SQ graphs
-            // in the Remote Vector Index Builder, then this can be modified to send 1 bit SQ vectors.
-            if (resolvedSpec.isFaissSQOneBit()) {
+            // SQ memory-optimized-search (bits ∈ {1, 2, 4}) sends fp32 vectors. The remote builder
+            // constructs an HNSW graph over fp32 neighbors — quantization happens locally on the
+            // data node, and the graph is stitched with the locally-quantized .veq at search time.
+            if (resolvedSpec.isFaissSQMultiBit()) {
                 return dataType.getValue();
             }
             if (resolvedSpec.isFP16QuantizedIndex()) {
@@ -404,7 +405,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
      * flat vectors at search time via {@link org.opensearch.knn.memoryoptsearch.faiss.FaissFlatIndexFactory}.
      */
     private static boolean shouldSkipStoredVectors(final VectorDataType vectorDataType, @NonNull final ResolvedIndexSpec resolvedSpec) {
-        return resolvedSpec.isFaissSQOneBit();
+        return resolvedSpec.isFaissSQMultiBit();
     }
 
     /**

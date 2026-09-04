@@ -24,13 +24,20 @@ import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 import static org.opensearch.knn.index.engine.lucene.LuceneFlatMethod.FLAT_METHOD_COMPONENT;
 
 /**
- * Resolves method configuration for the Lucene flat method. The flat method uses SQ (1-bit quantization)
- * without an HNSW graph, supporting only {@link org.opensearch.knn.index.mapper.CompressionLevel#x32} compression
- * and does not support {@link org.opensearch.knn.index.mapper.Mode}.
+ * Resolves method configuration for the Lucene flat method. The flat method uses scalar quantization
+ * without an HNSW graph (brute-force scan). Supported compression levels are
+ * {@link org.opensearch.knn.index.mapper.CompressionLevel#x32} (SQ 1-bit),
+ * {@link org.opensearch.knn.index.mapper.CompressionLevel#x16} (SQ 2-bit), and
+ * {@link org.opensearch.knn.index.mapper.CompressionLevel#x8} (SQ 4-bit).
+ * {@link org.opensearch.knn.index.mapper.Mode} is not supported.
  */
 public class LuceneFlatMethodResolver extends AbstractMethodResolver {
 
-    static final Set<CompressionLevel> SUPPORTED_COMPRESSION_LEVELS = Set.of(CompressionLevel.x32);
+    static final Set<CompressionLevel> SUPPORTED_COMPRESSION_LEVELS = Set.of(
+        CompressionLevel.x32,
+        CompressionLevel.x16,
+        CompressionLevel.x8
+    );
     static final CompressionLevel DEFAULT_COMPRESSION = CompressionLevel.x32;
 
     @Override
@@ -92,7 +99,12 @@ public class LuceneFlatMethodResolver extends AbstractMethodResolver {
             if (!SUPPORTED_COMPRESSION_LEVELS.contains(compressionLevel)) {
                 ValidationException validationException = new ValidationException();
                 validationException.addValidationError(
-                    String.format(Locale.ROOT, "\"%s\" method only supports \"%s\" compression", METHOD_FLAT, DEFAULT_COMPRESSION.getName())
+                    String.format(
+                        Locale.ROOT,
+                        "[%s] method only supports these compression levels: [%s] ",
+                        METHOD_FLAT,
+                        SUPPORTED_COMPRESSION_LEVELS.stream().map(CompressionLevel::getName).sorted().toList()
+                    )
                 );
                 throw validationException;
             }

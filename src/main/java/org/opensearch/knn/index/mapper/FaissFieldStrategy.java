@@ -66,9 +66,9 @@ public final class FaissFieldStrategy implements EngineFieldStrategy {
         fieldType.putAttribute(SPACE_TYPE, resolvedKnnMethodContext.getSpaceType().getValue());
 
         ResolvedIndexSpec spec = knnLibraryIndexingContext.getResolvedSpec();
-        // 1-bit quantization has its own per-field format that handles quantization internally,
-        // so we set sq_config instead of qframe_config
-        if (spec.isSQOneBit()) {
+        // The sq (1/2/4-bit) MOS path has its own per-field format that handles quantization
+        // internally, so we set sq_config (carrying the bit width) instead of qframe_config.
+        if (spec.isSQMultiBit()) {
             SQConfig sqConfig = SQConfig.builder().bits(spec.getQuantizationBits().getValue()).build();
             fieldType.putAttribute(SQ_CONFIG, SQConfigParser.toCsv(sqConfig));
         } else {

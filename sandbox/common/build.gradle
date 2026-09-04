@@ -1,0 +1,7 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+description = "Shared sandbox tenant support (AbstractNativeEngineService) and the test-only fixture " +
+    "engine exercising the k-NN engine extension points"

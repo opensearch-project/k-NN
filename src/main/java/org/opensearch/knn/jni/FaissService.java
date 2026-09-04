@@ -506,7 +506,8 @@ class FaissService {
         final int dimension,
         final Map<String, Object> indexParameters,
         final float centroidDp,
-        final int quantizedVecBytes
+        final int quantizedVecBytes,
+        final int docBits
     );
 
     /**
