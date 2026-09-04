@@ -21,7 +21,7 @@ interface VectorRepositoryAccessor {
      *
      * @param blobName                  Base name of the blobs we are writing, excluding file extensions
      * @param totalLiveDocs             Number of documents we are processing. This is used to compute the size of the blob we are writing
-     * @param vectorDataType            Data type of the vector (FLOAT, BYTE, BINARY)
+     * @param vectorDataType            Data type of the vector (FLOAT, HALF_FLOAT, BYTE, BINARY)
      * @param knnVectorValuesSupplier   Supplier for {@link org.opensearch.knn.index.vectorvalues.KNNVectorValues}
      * @throws java.io.IOException
      * @throws InterruptedException

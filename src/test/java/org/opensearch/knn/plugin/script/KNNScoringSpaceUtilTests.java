@@ -76,6 +76,17 @@ public class KNNScoringSpaceUtilTests extends KNNTestCase {
         expectThrows(ClassCastException.class, () -> KNNScoringSpaceUtil.parseToFloatArray(invalidObject, 3, VectorDataType.FLOAT));
     }
 
+    public void testParseKNNVectorQuery_whenHalfFloat_thenSuccess() {
+        float[] arrayFloat = new float[] { 1.0f, 2.0f, 3.0f };
+        List<Double> arrayListQueryObject = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));
+        assertArrayEquals(arrayFloat, KNNScoringSpaceUtil.parseToFloatArray(arrayListQueryObject, 3, VectorDataType.HALF_FLOAT), 0.1f);
+
+        expectThrows(
+            IllegalStateException.class,
+            () -> KNNScoringSpaceUtil.parseToFloatArray(arrayListQueryObject, 4, VectorDataType.HALF_FLOAT)
+        );
+    }
+
     public void testConvertVectorToByteArray() {
         byte[] arrayByte = new byte[] { 1, 2, 3 };
         List<Double> arrayListQueryObject = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));

@@ -164,6 +164,7 @@ public class RNNQueryFactory extends BaseQueryFactory {
             case BYTE:
                 return getByteVectorSimilarityQuery(fieldName, request.getByteVector(), radius, filterQuery);
             case FLOAT:
+            case HALF_FLOAT:
                 return getFloatVectorSimilarityQuery(fieldName, request.getVector(), radius, filterQuery);
             default:
                 throw new IllegalArgumentException(

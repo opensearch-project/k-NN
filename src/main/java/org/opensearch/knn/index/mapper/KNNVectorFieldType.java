@@ -268,7 +268,7 @@ public class KNNVectorFieldType extends MappedFieldType {
      * 4. Throws exception if neither configuration is present
      */
     public float[] transformQueryVector(float[] vector) {
-        if (VectorDataType.FLOAT != vectorDataType) {
+        if (VectorDataType.FLOAT != vectorDataType && VectorDataType.HALF_FLOAT != vectorDataType) {
             return vector;
         }
         final Optional<KNNMethodContext> knnMethodContext = knnMappingConfig.getKnnMethodContext();

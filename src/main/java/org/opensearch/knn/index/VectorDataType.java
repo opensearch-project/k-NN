@@ -13,6 +13,7 @@ import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
+import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfHalfFloatsSerializer;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.jni.JNICommons;
@@ -92,6 +93,30 @@ public enum VectorDataType {
         @Override
         public float[] getVectorFromBytesRef(BytesRef binaryValue) {
             final KNNVectorSerializer vectorSerializer = KNNVectorAsCollectionOfFloatsSerializer.INSTANCE;
+            return vectorSerializer.byteToFloatArray(binaryValue);
+        }
+
+        @Override
+        public TrainingDataConsumer getTrainingDataConsumer(NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation) {
+            return new FloatTrainingDataConsumer(trainingDataAllocation);
+        }
+
+        @Override
+        public void freeNativeMemory(long memoryAddress) {
+            JNICommons.freeVectorData(memoryAddress);
+        }
+
+    },
+    HALF_FLOAT("half_float") {
+
+        @Override
+        public FieldType createKnnVectorFieldType(int dimension, KNNVectorSimilarityFunction knnVectorSimilarityFunction) {
+            return KnnFloatVectorField.createFieldType(dimension, knnVectorSimilarityFunction.getVectorSimilarityFunction());
+        }
+
+        @Override
+        public float[] getVectorFromBytesRef(BytesRef binaryValue) {
+            final KNNVectorAsCollectionOfHalfFloatsSerializer vectorSerializer = KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE;
             return vectorSerializer.byteToFloatArray(binaryValue);
         }
 

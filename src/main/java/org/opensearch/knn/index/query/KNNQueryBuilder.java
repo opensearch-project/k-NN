@@ -672,7 +672,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         KNNEngine knnEngine
     ) {
 
-        if ((VectorDataType.FLOAT == vectorDataType) || (VectorDataType.BYTE == vectorDataType && FAISS == knnEngine)) {
+        if ((VectorDataType.FLOAT == vectorDataType)
+            || (VectorDataType.HALF_FLOAT == vectorDataType)
+            || (VectorDataType.BYTE == vectorDataType && FAISS == knnEngine)) {
             return transformedVector;
         }
         return null;
