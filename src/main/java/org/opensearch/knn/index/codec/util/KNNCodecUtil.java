@@ -41,11 +41,11 @@ public class KNNCodecUtil {
      */
     public static long calculateArraySize(int numVectors, int vectorLength, VectorDataType vectorDataType) {
         if (vectorDataType == VectorDataType.FLOAT) {
-            return numVectors * vectorLength * FLOAT_BYTE_SIZE;
+            return (long) numVectors * vectorLength * FLOAT_BYTE_SIZE;
         } else if (vectorDataType == VectorDataType.HALF_FLOAT) {
-            return numVectors * vectorLength * HALF_FLOAT_BYTE_SIZE;
+            return (long) numVectors * vectorLength * HALF_FLOAT_BYTE_SIZE;
         } else if (vectorDataType == VectorDataType.BINARY || vectorDataType == VectorDataType.BYTE) {
-            return numVectors * vectorLength;
+            return (long) numVectors * vectorLength;
         } else {
             throw new IllegalArgumentException(
                 "Float, half_float, binary, and byte are the only supported vector data types for array size calculation."
