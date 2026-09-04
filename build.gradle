@@ -708,8 +708,6 @@ integTest {
 task integTestRemoteIndexBuild(type: RestIntegTestTask) {
     commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes)
     filter {
-        // Temporarily skipping this test class, see: https://github.com/opensearch-project/k-NN/issues/2726
-        excludeTestsMatching "org.opensearch.knn.index.SegmentReplicationIT"
         excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
         // Flaky with remote index build, see: https://github.com/opensearch-project/k-NN/issues/3383
         excludeTestsMatching "org.opensearch.knn.memoryoptsearch.MOSFaissFloatIndexIT.testFilteredSearch_whenVisitBudgetExhausted_thenFallbackToExactSearch"

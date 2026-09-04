@@ -60,9 +60,6 @@ public class SegmentReplicationIT extends KNNCompressionRestTestCase {
             deleteKnnDoc(INDEX_NAME, Integer.toString(i));
         }
         refreshIndex(INDEX_NAME);
-        // sleep for 5sec to ensure data is replicated. I don't have a better way here to know if segments has been
-        // replicated.
-        Thread.sleep(5000);
         // validate warmup is successful or not.
         doKnnWarmup(List.of(INDEX_NAME));
 
@@ -81,10 +78,12 @@ public class SegmentReplicationIT extends KNNCompressionRestTestCase {
 
         if (ensureMinDataNodesCountForTestingQueriesOnReplica()) {
             // validate replicas are working
-            searchResponse = performSearch(INDEX_NAME, queryBuilder.toString(), "preference=_replica");
-            responseBody = EntityUtils.toString(searchResponse.getEntity());
-            knnResults = parseSearchResponse(responseBody, FIELD_NAME);
-            assertEquals(docsInIndex - deleteDocs, knnResults.size());
+            assertBusy(() -> {
+                Response replicaSearchResponse = performSearch(INDEX_NAME, queryBuilder.toString(), "preference=_replica");
+                String replicaResponseBody = EntityUtils.toString(replicaSearchResponse.getEntity());
+                List<KNNResult> replicaResults = parseSearchResponse(replicaResponseBody, FIELD_NAME);
+                assertEquals(docsInIndex - deleteDocs, replicaResults.size());
+            });
         }
     }
 
