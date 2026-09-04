@@ -19,6 +19,8 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Class provides per field format implementation for Lucene Knn vector type
@@ -93,15 +95,26 @@ public class KNN9120PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsForma
     }
 
     private static Tuple<Integer, ExecutorService> getMergeThreadCountAndExecutorService() {
-        // To ensure that only once we are fetching the settings per segment, we are fetching the num threads once while
-        // creating the executors
         int mergeThreadCount = KNNSettings.getIndexThreadQty();
-        // We need to return null whenever the merge threads are <=1, as lucene assumes that if number of threads are 1
-        // then we should be giving a null value of the executor
+        return buildMergeThreadCountAndExecutorService(mergeThreadCount);
+    }
+
+    static Tuple<Integer, ExecutorService> buildMergeThreadCountAndExecutorService(int mergeThreadCount) {
+        return buildMergeThreadCountAndExecutorService(mergeThreadCount, 60L, TimeUnit.SECONDS);
+    }
+
+    static Tuple<Integer, ExecutorService> buildMergeThreadCountAndExecutorService(
+        int mergeThreadCount,
+        long keepAliveTime,
+        TimeUnit keepAliveUnit
+    ) {
+        // Lucene expects a null executor when the merge thread count is <= 1
         if (mergeThreadCount <= 1) {
             return DEFAULT_MERGE_THREAD_COUNT_AND_EXECUTOR_SERVICE;
-        } else {
-            return Tuple.tuple(mergeThreadCount, Executors.newFixedThreadPool(mergeThreadCount));
         }
+        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(mergeThreadCount);
+        executor.setKeepAliveTime(keepAliveTime, keepAliveUnit);
+        executor.allowCoreThreadTimeOut(true);
+        return Tuple.tuple(mergeThreadCount, executor);
     }
 }

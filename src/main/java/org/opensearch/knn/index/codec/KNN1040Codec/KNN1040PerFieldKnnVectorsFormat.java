@@ -32,6 +32,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 /**
@@ -134,10 +136,25 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
 
     private static Tuple<Integer, ExecutorService> getMergeThreadCountAndExecutorService() {
         int mergeThreadCount = KNNSettings.getIndexThreadQty();
+        return buildMergeThreadCountAndExecutorService(mergeThreadCount);
+    }
+
+    static Tuple<Integer, ExecutorService> buildMergeThreadCountAndExecutorService(int mergeThreadCount) {
+        return buildMergeThreadCountAndExecutorService(mergeThreadCount, 60L, TimeUnit.SECONDS);
+    }
+
+    static Tuple<Integer, ExecutorService> buildMergeThreadCountAndExecutorService(
+        int mergeThreadCount,
+        long keepAliveTime,
+        TimeUnit keepAliveUnit
+    ) {
         if (mergeThreadCount <= 1) {
             return DEFAULT_MERGE_THREAD_COUNT_AND_EXECUTOR_SERVICE;
         }
-        return Tuple.tuple(mergeThreadCount, Executors.newFixedThreadPool(mergeThreadCount));
+        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(mergeThreadCount);
+        executor.setKeepAliveTime(keepAliveTime, keepAliveUnit);
+        executor.allowCoreThreadTimeOut(true);
+        return Tuple.tuple(mergeThreadCount, executor);
     }
 
     /**
