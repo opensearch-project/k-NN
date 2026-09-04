@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine;
 
 import org.apache.lucene.codecs.KnnVectorsFormat;
+import org.opensearch.knn.index.VectorDataType;
 
 import java.util.Map;
 
@@ -25,6 +26,7 @@ public interface CodecFormatResolver {
      * @param defaultBeamWidth      default beam width for HNSW
      * @param resolvedSpec          the resolved index spec; implementations can derive
      *                              {@code compressionLevel} from it via {@code resolvedSpec.getCompressionLevel()}
+     * @param vectorDataType        the vector data type for the field
      * @return the resolved {@link KnnVectorsFormat}
      */
     KnnVectorsFormat resolve(
@@ -33,7 +35,8 @@ public interface CodecFormatResolver {
         Map<String, Object> params,
         int defaultMaxConnections,
         int defaultBeamWidth,
-        ResolvedIndexSpec resolvedSpec
+        ResolvedIndexSpec resolvedSpec,
+        VectorDataType vectorDataType
     );
 
     KnnVectorsFormat resolve();

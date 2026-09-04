@@ -55,6 +55,7 @@ public interface EngineFieldStrategy {
      * @param stored whether the field is stored
      * @param hasDocValues whether the field has doc values
      * @param isDerivedSourceEnabled whether derived source is enabled
+     * @param vectorDataType the vector data type
      * @return optional list of fields to add to the document
      */
     default Optional<List<Field>> getFloatFieldOverrides(
@@ -64,7 +65,8 @@ public interface EngineFieldStrategy {
         FieldType vectorFieldType,
         boolean stored,
         boolean hasDocValues,
-        boolean isDerivedSourceEnabled
+        boolean isDerivedSourceEnabled,
+        VectorDataType vectorDataType
     ) {
         return Optional.empty();
     }

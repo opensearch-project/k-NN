@@ -160,7 +160,7 @@ public class KNNVectorDVLeafFieldData implements LeafFieldData {
 
             @Override
             public Object nextValue() throws IOException {
-                if (vectorDataType == VectorDataType.FLOAT) {
+                if (vectorDataType == VectorDataType.FLOAT || vectorDataType == VectorDataType.HALF_FLOAT) {
                     if (isBinary) {
                         // Convert float[] to little-endian byte[]; XContentBuilder will base64-encode it
                         return KNNVectorDocValueFormat.floatToLittleEndianBytes((float[]) vectorValues.getVector());

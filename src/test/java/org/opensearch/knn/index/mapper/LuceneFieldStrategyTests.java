@@ -93,7 +93,8 @@ public class LuceneFieldStrategyTests extends KNNTestCase {
             vectorFieldType,
             true,
             true,
-            false
+            false,
+            VectorDataType.FLOAT
         );
 
         assertTrue(fields.isPresent());
@@ -113,7 +114,8 @@ public class LuceneFieldStrategyTests extends KNNTestCase {
             null,
             false,
             false,
-            false
+            false,
+            VectorDataType.FLOAT
         );
 
         assertTrue(fields.isPresent());
@@ -176,7 +178,8 @@ public class LuceneFieldStrategyTests extends KNNTestCase {
             null,
             false,
             true,
-            false
+            false,
+            VectorDataType.FLOAT
         );
 
         assertTrue(fields.isPresent());

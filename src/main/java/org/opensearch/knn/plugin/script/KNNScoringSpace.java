@@ -53,7 +53,11 @@ public interface KNNScoringSpace {
      * Base class to represent vector space for knn field
      */
     abstract class KNNFieldSpace implements KNNScoringSpace {
-        public static final Set<VectorDataType> DATA_TYPES_DEFAULT = Set.of(VectorDataType.FLOAT, VectorDataType.BYTE);
+        public static final Set<VectorDataType> DATA_TYPES_DEFAULT = Set.of(
+            VectorDataType.FLOAT,
+            VectorDataType.BYTE,
+            VectorDataType.HALF_FLOAT
+        );
 
         private Object processedQuery;
         @Getter
@@ -143,7 +147,7 @@ public interface KNNScoringSpace {
             VectorDataType vectorDataType = knnVectorFieldType.getVectorDataType() == null
                 ? VectorDataType.FLOAT
                 : knnVectorFieldType.getVectorDataType();
-            if (vectorDataType == VectorDataType.FLOAT) {
+            if (vectorDataType == VectorDataType.FLOAT || vectorDataType == VectorDataType.HALF_FLOAT) {
                 return parseToFloatArray(
                     query,
                     KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldType),

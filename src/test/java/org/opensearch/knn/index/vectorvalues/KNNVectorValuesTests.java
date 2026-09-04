@@ -46,6 +46,30 @@ public class KNNVectorValuesTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    public void testHalfFloatVectorValues_whenValidInput_thenSuccess() {
+        final List<float[]> floatArray = List.of(new float[] { 1, 2 }, new float[] { 2, 3 });
+        final int dimension = floatArray.get(0).length;
+        final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            floatArray
+        );
+        final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.HALF_FLOAT,
+            randomVectorValues
+        );
+        new CompareVectorValues<float[]>().validateVectorValues(knnVectorValues, floatArray, 4, dimension, true);
+
+        final DocsWithFieldSet docsWithFieldSet = getDocIdSetIterator(floatArray.size());
+        final Map<Integer, float[]> vectorsMap = Map.of(0, floatArray.get(0), 1, floatArray.get(1));
+        final KNNVectorValues<float[]> knnVectorValuesForFieldWriter = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.HALF_FLOAT,
+            docsWithFieldSet,
+            vectorsMap
+        );
+        new CompareVectorValues<float[]>().validateVectorValues(knnVectorValuesForFieldWriter, floatArray, 4, dimension, false);
+
+    }
+
+    @SneakyThrows
     public void testByteVectorValues_whenValidInput_thenSuccess() {
         final List<byte[]> byteArray = List.of(new byte[] { 4, 5 }, new byte[] { 6, 7 });
         final int dimension = byteArray.get(0).length;

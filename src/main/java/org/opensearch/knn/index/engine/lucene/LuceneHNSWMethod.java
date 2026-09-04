@@ -33,7 +33,8 @@ public class LuceneHNSWMethod extends AbstractKNNMethod {
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(
         VectorDataType.FLOAT,
         VectorDataType.BYTE,
-        VectorDataType.BINARY
+        VectorDataType.BINARY,
+        VectorDataType.HALF_FLOAT
     );
 
     public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
