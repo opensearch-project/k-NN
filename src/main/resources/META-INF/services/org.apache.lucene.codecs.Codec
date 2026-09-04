@@ -1,3 +1,6 @@
+# Copyright OpenSearch Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 org.opensearch.knn.index.codec.backward_codecs.KNN910Codec.KNN910Codec
 org.opensearch.knn.index.codec.backward_codecs.KNN920Codec.KNN920Codec
 org.opensearch.knn.index.codec.backward_codecs.KNN940Codec.KNN940Codec
