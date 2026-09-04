@@ -497,6 +497,20 @@ dependencies {
     // Declare guava as compile time since guava will come from OpenSearch transport-grpc module.
     compileOnly group: 'com.google.guava', name: 'guava', version: "${versions.guava}"
 
+    // gRPC transport integration tests (see org.opensearch.knn.integ.grpc.*IT) dial the node's gRPC
+    // aux transport directly. The test code needs a real gRPC client on the test classpath: the
+    // protobuf stubs (DocumentServiceGrpc etc.), the Netty channel, and stub/protobuf glue. On the node
+    // these are provided by the installed transport-grpc module; the in-test client brings its own copies.
+    testImplementation "org.opensearch:protobufs:${versions.opensearchprotobufs}"
+    testImplementation "io.grpc:grpc-api:${versions.grpc}"
+    testImplementation "io.grpc:grpc-core:${versions.grpc}"
+    testImplementation "io.grpc:grpc-stub:${versions.grpc}"
+    testImplementation "io.grpc:grpc-protobuf:${versions.grpc}"
+    testImplementation "io.grpc:grpc-protobuf-lite:${versions.grpc}"
+    testImplementation "io.grpc:grpc-netty-shaded:${versions.grpc}"
+    testImplementation "com.google.protobuf:protobuf-java:${versions.protobuf}"
+    testImplementation "io.perfmark:perfmark-api:0.27.0"
+
     api "org.apache.commons:commons-lang3:${versions.commonslang}"
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: "${versions.bytebuddy}"
@@ -699,6 +713,9 @@ def commonIntegTest(RestIntegTestTask task, project, integTestDependOnJniLib, op
 
 integTest {
     commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes)
+    // gRPC aux transport port the test cluster binds (see testClusters.integTest). gRPC ITs read this to
+    // build a channel to the node. Keep in sync with the 'aux.transport.transport-grpc.port' cluster setting.
+    systemProperty 'tests.grpc.port', System.getProperty('tests.grpc.port', '9400')
     filter {
         excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
     }
@@ -713,6 +730,10 @@ task integTestRemoteIndexBuild(type: RestIntegTestTask) {
         excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
         // Flaky with remote index build, see: https://github.com/opensearch-project/k-NN/issues/3383
         excludeTestsMatching "org.opensearch.knn.memoryoptsearch.MOSFaissFloatIndexIT.testFilteredSearch_whenVisitBudgetExhausted_thenFallbackToExactSearch"
+        // gRPC transport ITs need the transport-grpc aux transport, which is only wired into the
+        // testClusters.integTest cluster (not this remote-index-build cluster). They are unrelated to
+        // remote index build, so run them under :integTest only.
+        excludeTestsMatching "org.opensearch.knn.integ.grpc.*"
     }
     systemProperty("test.remoteBuild", System.getProperty("test.remoteBuild"))
     systemProperty("test.bucket", System.getProperty("test.bucket"))
@@ -788,6 +809,12 @@ testClusters.integTest {
     commonIntegTestClusters(it, _numNodes)
     // Forcing optimistic search for testing
     systemProperty 'mem_opt_srch.force_reenter', 'true'
+    // Enable the gRPC aux transport (transport-grpc module ships in the ARCHIVE distribution) on a fixed
+    // port so gRPC integration tests (org.opensearch.knn.integ.grpc.*IT) can dial 127.0.0.1:<port> without
+    // needing to discover it from transport-grpc module internals (that module is not a resolvable test
+    // dependency). Single-node integTest makes a fixed port safe.
+    setting 'aux.transport.types', '[transport-grpc]'
+    setting 'aux.transport.transport-grpc.port', System.getProperty('tests.grpc.port', '9400-9400')
 }
 
 testClusters.integTestRemoteIndexBuild {
@@ -826,6 +853,9 @@ task integTestRemote(type: RestIntegTestTask) {
     if (System.getProperty("tests.rest.cluster") != null) {
         filter {
             includeTestsMatching "org.opensearch.knn.*IT"
+            // gRPC transport ITs require the transport-grpc aux transport on a known port, which is only
+            // guaranteed on the gradle-managed :integTest cluster. Skip them against an external cluster.
+            excludeTestsMatching "org.opensearch.knn.integ.grpc.*"
         }
     }
 }
