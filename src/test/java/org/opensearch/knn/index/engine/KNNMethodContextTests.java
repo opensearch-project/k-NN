@@ -34,7 +34,7 @@ public class KNNMethodContextTests extends KNNTestCase {
      * Test reading from and writing to streams
      */
     public void testStreams() throws IOException {
-        KNNEngine knnEngine = KNNEngine.FAISS;
+        VectorSearchEngine knnEngine = KNNEngine.FAISS;
         SpaceType spaceType = SpaceType.INNER_PRODUCT;
         String name = "test-name";
         Map<String, Object> parameters = ImmutableMap.of("test-p-1", 10, "test-p-2", "string-p");
@@ -159,7 +159,7 @@ public class KNNMethodContextTests extends KNNTestCase {
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
 
-        assertEquals(KNNEngine.UNDEFINED, knnMethodContext.getKnnEngine());
+        assertEquals(VectorSearchEngine.UNDEFINED, knnMethodContext.getKnnEngine());
         assertEquals(SpaceType.UNDEFINED, knnMethodContext.getSpaceType());
         assertEquals(methodName, knnMethodContext.getMethodComponentContext().getName());
         assertTrue(knnMethodContext.getMethodComponentContext().getParameters().isEmpty());
@@ -443,7 +443,7 @@ public class KNNMethodContextTests extends KNNTestCase {
     }
 
     private void validateValidateVectorDataType(
-        final KNNEngine knnEngine,
+        final VectorSearchEngine knnEngine,
         final String methodName,
         final VectorDataType vectorDataType,
         final SpaceType spaceType,

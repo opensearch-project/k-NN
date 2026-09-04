@@ -30,6 +30,7 @@ import org.opensearch.knn.index.codec.backward_codecs.KNN10010Codec.KNN10010Code
 import org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec.KNN9120PerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -82,7 +83,7 @@ public class KNN80DocValuesProducerTests extends KNNTestCase {
             String.format(Locale.ROOT, "%s_165_%s%s", segmentName, fieldName2, KNNEngine.FAISS.getExtension())
         );
 
-        KNNEngine knnEngine = KNNEngine.NMSLIB;
+        VectorSearchEngine knnEngine = KNNEngine.NMSLIB;
         SpaceType spaceType = SpaceType.COSINESIMIL;
         SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
             .directory(directory)
@@ -151,7 +152,7 @@ public class KNN80DocValuesProducerTests extends KNNTestCase {
             String.format(Locale.ROOT, "%s_165_%s%s", segmentName, fieldName2, KNNEngine.FAISS.getExtension())
         );
 
-        KNNEngine knnEngine = KNNEngine.NMSLIB;
+        VectorSearchEngine knnEngine = KNNEngine.NMSLIB;
         SpaceType spaceType = SpaceType.COSINESIMIL;
         SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
             .directory(directory)

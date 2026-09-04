@@ -19,6 +19,7 @@ import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -43,7 +44,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
     private static final String FILTER_FIELD = "color";
 
     private final String testName;
-    private final KNNEngine engine;
+    private final VectorSearchEngine engine;
     private final SpaceType spaceType;
     private final float[][] testVectors;
     private final float[] queryVector;
@@ -56,7 +57,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
     public RadialSearchIT(
         CompressionTestConfig compressionConfig,
         String testName,
-        KNNEngine engine,
+        VectorSearchEngine engine,
         SpaceType spaceType,
         float[][] testVectors,
         float[] queryVector,
@@ -202,7 +203,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
     private static void addRadialCases(
         List<Object[]> params,
         String prefix,
-        KNNEngine engine,
+        VectorSearchEngine engine,
         SpaceType spaceType,
         float[][] vectors,
         float[] query,
@@ -220,7 +221,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
     private static void addRadialCases(
         List<Object[]> params,
         String prefix,
-        KNNEngine engine,
+        VectorSearchEngine engine,
         SpaceType spaceType,
         float[][] vectors,
         float[] query,

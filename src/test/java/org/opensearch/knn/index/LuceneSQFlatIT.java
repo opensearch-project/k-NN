@@ -22,6 +22,7 @@ import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 
 import java.io.IOException;
@@ -121,7 +122,7 @@ public class LuceneSQFlatIT extends KNNRestTestCase {
     @SneakyThrows
     public void testFlatMethod_withExplicitEngine_thenFail() {
         // Flat method is engine-agnostic — any user-supplied engine (even lucene) must be rejected.
-        for (KNNEngine engine : new KNNEngine[] { KNNEngine.LUCENE, KNNEngine.FAISS }) {
+        for (VectorSearchEngine engine : new VectorSearchEngine[] { KNNEngine.LUCENE, KNNEngine.FAISS }) {
             XContentBuilder builder = XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject(PROPERTIES_FIELD)

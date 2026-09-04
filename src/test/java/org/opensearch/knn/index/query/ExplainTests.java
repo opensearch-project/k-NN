@@ -368,7 +368,7 @@ public class ExplainTests extends KNNWeightTestCase {
                 SpaceType.L2.explainScoreTranslation(DOC_ID_TO_SCORES.get(docId))
             );
             Explanation nestedDetail = explanation.getDetails()[0].getDetails()[0];
-            assertTrue(nestedDetail.getDescription().contains(KNNEngine.FAISS.name()));
+            assertTrue(nestedDetail.getDescription().contains(KNNEngine.FAISS.getName().toUpperCase(Locale.ENGLISH)));
             assertEquals(DOC_ID_TO_SCORES.get(docId), nestedDetail.getValue().floatValue(), 0.01f);
             assertEquals(score, knnScorer.score(), 0.01f);
         }
@@ -749,7 +749,7 @@ public class ExplainTests extends KNNWeightTestCase {
                 " search since exact search is disabled,"
             );
             Explanation nestedDetail = explanation.getDetails()[0].getDetails()[0];
-            assertTrue(nestedDetail.getDescription().contains(KNNEngine.FAISS.name()));
+            assertTrue(nestedDetail.getDescription().contains(KNNEngine.FAISS.getName().toUpperCase(Locale.ENGLISH)));
             assertEquals(DOC_ID_TO_SCORES.get(docId), nestedDetail.getValue().floatValue(), 0.01f);
             assertEquals(score, knnScorer.score(), 0.01f);
         }
@@ -838,7 +838,7 @@ public class ExplainTests extends KNNWeightTestCase {
                 SpaceType.L2.explainScoreTranslation(DOC_ID_TO_SCORES.get(docId))
             );
             Explanation nestedDetail = explanation.getDetails()[0].getDetails()[0];
-            assertTrue(nestedDetail.getDescription().contains(KNNEngine.FAISS.name()));
+            assertTrue(nestedDetail.getDescription().contains(KNNEngine.FAISS.getName().toUpperCase(Locale.ENGLISH)));
             assertEquals(DOC_ID_TO_SCORES.get(docId), nestedDetail.getValue().floatValue(), 0.01f);
         }
         assertEquals(docIdSetIterator.cost(), actualDocIds.size());

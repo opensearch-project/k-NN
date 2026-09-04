@@ -8,6 +8,7 @@ package org.opensearch.knn.index.mapper;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 
 import java.util.HashMap;
@@ -29,7 +30,7 @@ public class VectorTransformerFactoryTests extends KNNTestCase {
     }
 
     public void testAllEngines_withCosine() {
-        for (KNNEngine engine : KNNEngine.values()) {
+        for (VectorSearchEngine engine : KNNEngine.values()) {
             VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(engine, SpaceType.COSINESIMIL, null);
             validateTransformer(SpaceType.COSINESIMIL, engine, transformer);
         }
@@ -84,7 +85,7 @@ public class VectorTransformerFactoryTests extends KNNTestCase {
         assertTrue(transformer instanceof NormalizeVectorTransformer);
     }
 
-    private static void validateTransformer(SpaceType spaceType, KNNEngine engine, VectorTransformer transformer) {
+    private static void validateTransformer(SpaceType spaceType, VectorSearchEngine engine, VectorTransformer transformer) {
         if (spaceType == SpaceType.COSINESIMIL && engine == KNNEngine.FAISS) {
             assertTrue(
                 "Should return NormalizeVectorTransformer for FAISS with " + spaceType,
