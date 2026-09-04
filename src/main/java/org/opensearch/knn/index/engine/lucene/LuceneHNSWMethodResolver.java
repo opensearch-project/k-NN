@@ -96,6 +96,7 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
             compressionLevel,
             SUPPORTED_COMPRESSION_HALF_FLOAT,
             KNNEngine.LUCENE,
+            knnMethodConfigContext.getVectorDataType(),
             validationException
         );
         if (validationException != null) {
@@ -194,6 +195,7 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
             knnMethodConfigContext.getCompressionLevel(),
             SUPPORTED_COMPRESSION_LEVELS,
             KNNEngine.LUCENE,
+            knnMethodConfigContext.getVectorDataType(),
             validationException
         );
         validationException = validateCompressionNotx1WhenOnDisk(knnMethodConfigContext, validationException);

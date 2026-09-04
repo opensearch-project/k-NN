@@ -105,6 +105,7 @@ public class LuceneFlatMethodResolver extends AbstractMethodResolver {
                     compressionLevel,
                     SUPPORTED_COMPRESSION_HALF_FLOAT,
                     KNNEngine.LUCENE,
+                    knnMethodConfigContext.getVectorDataType(),
                     null
                 );
                 if (validationException != null) {
