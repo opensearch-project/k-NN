@@ -286,10 +286,10 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_setMergeInterrup
 /*
  * Class:     org_opensearch_knn_jni_FaissService
  * Method:    initFaissSQIndex
- * Signature: (IILjava/util/Map;FI)J
+ * Signature: (IILjava/util/Map;FII)J
  */
 JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_initFaissSQIndex
-  (JNIEnv *, jclass, jint, jint, jobject, jfloat, jint);
+  (JNIEnv *, jclass, jint, jint, jobject, jfloat, jint, jint);
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService

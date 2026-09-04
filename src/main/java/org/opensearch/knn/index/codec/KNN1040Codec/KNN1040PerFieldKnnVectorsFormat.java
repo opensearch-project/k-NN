@@ -26,6 +26,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.faiss.FaissCodecFormatResolver;
 import org.opensearch.knn.index.engine.lucene.LuceneCodecFormatResolver;
 import org.opensearch.knn.index.engine.lucene.LuceneSQEncoder;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import java.util.Map;
 import java.util.Optional;
@@ -120,7 +121,10 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
                 merge.v2(),
                 threshold
             );
-        }, LuceneVectorsFormatType.FLAT, ctx -> new KNN1040ScalarQuantizedVectorsFormat(ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE));
+        },
+            LuceneVectorsFormatType.FLAT,
+            ctx -> new KNN1040ScalarQuantizedVectorsFormat(resolveFlatScalarEncoding(ctx.getCompressionLevel()))
+        );
     }
 
     @Override
@@ -134,5 +138,23 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
             return DEFAULT_MERGE_THREAD_COUNT_AND_EXECUTOR_SERVICE;
         }
         return Tuple.tuple(mergeThreadCount, Executors.newFixedThreadPool(mergeThreadCount));
+    }
+
+    /**
+     * Picks the {@link ScalarEncoding} for the FLAT format from the field's compression level.
+     * x32 → 1-bit ({@code SINGLE_BIT_QUERY_NIBBLE}), x16 → 2-bit ({@code DIBIT_QUERY_NIBBLE}),
+     * x8 → 4-bit ({@code PACKED_NIBBLE}). Any other value (including {@code NOT_CONFIGURED},
+     * which the resolver maps to x32) falls back to 1-bit. {@link LuceneFlatMethodResolver}
+     * rejects unsupported compression levels at mapping time so an unexpected value here would
+     * indicate an upstream invariant violation.
+     */
+    private static ScalarEncoding resolveFlatScalarEncoding(final CompressionLevel compressionLevel) {
+        if (compressionLevel == CompressionLevel.x8) {
+            return ScalarEncodingResolver.forDocBits(4);
+        }
+        if (compressionLevel == CompressionLevel.x16) {
+            return ScalarEncodingResolver.forDocBits(2);
+        }
+        return ScalarEncodingResolver.forDocBits(1);
     }
 }

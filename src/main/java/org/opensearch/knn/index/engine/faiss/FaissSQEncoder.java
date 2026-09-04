@@ -45,10 +45,15 @@ import static org.opensearch.knn.common.KNNConstants.NAME;
  * <p>Starting with 3.6.0, this encoder supports a {@code bits} parameter that controls the
  * quantization bit width:
  * <ul>
- *   <li>{@code bits=1} — 1-bit quantization, x32 compression. Uses a dedicated
- *       per-field format backed by Lucene's 1-bit scalar quantization. The {@code type} parameter
- *       is not allowed when bits=1.</li>
- *   <li>{@code bits=16} — equivalent to the existing {@code type=fp16} behavior, x2 compression</li>
+ *   <li>{@code bits=1} — 1-bit quantization, x32 compression. Document vectors are stored as
+ *       integer-coded scalar quantization codes in Lucene's flat SQ format; Faiss only builds
+ *       the HNSW graph. The {@code type} and {@code clip} parameters are not allowed.</li>
+ *   <li>{@code bits=2} — 2-bit quantization, x16 compression. Same coded-flat path as bits=1.
+ *       The {@code type} and {@code clip} parameters are not allowed.</li>
+ *   <li>{@code bits=4} — 4-bit quantization, x8 compression. Same coded-flat path as bits=1.
+ *       The {@code type} and {@code clip} parameters are not allowed.</li>
+ *   <li>{@code bits=16} — equivalent to the existing {@code type=fp16} behavior, x2 compression.
+ *       Uses the standard Faiss SQ description.</li>
  * </ul>
  *
  * <p>For indices created before 3.6.0, the encoder works as before with just the {@code type}
@@ -59,7 +64,13 @@ import static org.opensearch.knn.common.KNNConstants.NAME;
 public class FaissSQEncoder implements Encoder {
 
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
-    private static final Set<Integer> VALID_BITS = Set.of(QuantizationBits.ONE.getValue(), QuantizationBits.SIXTEEN.getValue());
+
+    private static final Set<Integer> VALID_BITS = Set.of(
+        QuantizationBits.ONE.getValue(),
+        QuantizationBits.TWO.getValue(),
+        QuantizationBits.FOUR.getValue(),
+        QuantizationBits.SIXTEEN.getValue()
+    );
 
     private final static MethodComponent METHOD_COMPONENT = MethodComponent.Builder.builder(ENCODER_SQ)
         .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
@@ -79,8 +90,10 @@ public class FaissSQEncoder implements Encoder {
             Map<String, Object> params = methodComponentContext.getParameters();
             Object bitsObj = params.get(SQ_BITS);
 
-            // bits=1 path: 1-bit quantization — use flat description, Faiss only builds the HNSW graph
-            if (bitsObj instanceof Integer && (Integer) bitsObj == QuantizationBits.ONE.getValue()) {
+            // Multi-bit MOS path (bits in {1,2,4}): document vectors are scalar-quantized to B bits and
+            // stored in Lucene's flat SQ files; Faiss only builds the HNSW graph. Use the flat description
+            // and carry SQ_BITS = B so the codec/build path can resolve the document bit width.
+            if (bitsObj instanceof Integer && isSQCodedBits((Integer) bitsObj)) {
                 int bits = (Integer) bitsObj;
                 return KNNLibraryIndexingContextImpl.builder().parameters(new HashMap<>() {
                     {
@@ -233,6 +246,21 @@ public class FaissSQEncoder implements Encoder {
 
     @Override
     public Set<QuantizationBits> getSupportedBits() {
-        return EnumSet.of(QuantizationBits.ONE, QuantizationBits.SIXTEEN);
+        return EnumSet.of(QuantizationBits.ONE, QuantizationBits.TWO, QuantizationBits.FOUR, QuantizationBits.SIXTEEN);
+    }
+
+    /**
+     * Returns true if {@code bits} is a document bit width stored as integer-coded scalar quantization
+     * codes in Lucene's flat SQ format. These are the widths {1, 2, 4} — HNSW construction is
+     * delegated to native Faiss over the coded bytes. fp16 (16) is excluded — it is a compressed
+     * float representation (not integer-quantized codes) and takes the standard Faiss SQ description.
+     *
+     * @param bits the configured sq encoder bit width
+     * @return true for bits in {1, 2, 4}
+     */
+    public static boolean isSQCodedBits(final int bits) {
+        return bits == QuantizationBits.ONE.getValue()
+            || bits == QuantizationBits.TWO.getValue()
+            || bits == QuantizationBits.FOUR.getValue();
     }
 }
