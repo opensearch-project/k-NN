@@ -12,6 +12,7 @@ import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.KNNJsonIndexMappingsBuilder;
@@ -19,6 +20,7 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.index.SpaceType;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +30,10 @@ public class HalfFloatIndexIT extends KNNRestTestCase {
 
     private static final String INDEX_NAME = "half_float_test_index";
     private static final int DIMENSION = 4;
+    /** Every component is exactly representable in half precision, so FP16 rounding is the identity. */
+    private static final float[] EXACT_VECTOR = { 1.0f, 2.0f, 3.0f, 4.0f };
+    /** 0.1 has no exact half-precision representation, so it must come back rounded. */
+    private static final float[] INEXACT_VECTOR = { 0.1f, 0.1f, 0.1f, 0.1f };
 
     // ────────────────────────────────────────────────────────────────────────────
     // Basic indexing and search
@@ -427,7 +433,66 @@ public class HalfFloatIndexIT extends KNNRestTestCase {
     }
 
     // ────────────────────────────────────────────────────────────────────────────
-    // Helpers
+    // Filtered search and vector retrieval
+    // ────────────────────────────────────────────────────────────────────────────
+
+    @SneakyThrows
+    public void testHalfFloatFlatIndex_filteredSearch() {
+        String filterFieldName = "parking";
+        createKnnIndex(INDEX_NAME, buildHalfFloatMappingWithKeywordField(filterFieldName));
+
+        // Docs 1 and 3 match the filter, doc 2 does not. Doc 3 is nearest to the query vector.
+        addKnnDocWithAttributes(INDEX_NAME, "1", FIELD_NAME, new Float[] { 1.0f, 1.0f, 1.0f, 1.0f }, Map.of(filterFieldName, "true"));
+        addKnnDocWithAttributes(INDEX_NAME, "2", FIELD_NAME, new Float[] { 2.0f, 2.0f, 2.0f, 2.0f }, Map.of(filterFieldName, "false"));
+        addKnnDocWithAttributes(INDEX_NAME, "3", FIELD_NAME, new Float[] { 3.0f, 3.0f, 3.0f, 3.0f }, Map.of(filterFieldName, "true"));
+        refreshIndex(INDEX_NAME);
+        forceMergeKnnIndex(INDEX_NAME);
+
+        float[] queryVector = { 3.0f, 3.0f, 3.0f, 3.0f };
+        Response response = searchKNNIndex(INDEX_NAME, buildFilteredSearchQuery(queryVector, 3, filterFieldName, "true"), 3);
+        String entity = EntityUtils.toString(response.getEntity());
+
+        List<String> docIds = parseIds(entity);
+        assertEquals("Filter should exclude doc 2", 2, docIds.size());
+        assertEquals("3", docIds.get(0));
+        assertEquals("1", docIds.get(1));
+        assertEquals(2, parseTotalSearchHits(entity));
+    }
+
+    @SneakyThrows
+    public void testHalfFloatFlatIndex_docValueFields() {
+        createKnnIndex(INDEX_NAME, buildHalfFloatMapping("l2"));
+        indexFp16ExactAndInexactDocs();
+
+        Response response = searchKNNIndex(INDEX_NAME, buildDocValueFieldsQuery(), 10);
+        Map<String, List<Double>> byDocId = parseDocValueVectors(EntityUtils.toString(response.getEntity()));
+
+        assertEquals(2, byDocId.size());
+        assertFp16Vector("doc 1 (exactly representable)", byDocId.get("1"), EXACT_VECTOR);
+        assertFp16Vector("doc 2 (not representable)", byDocId.get("2"), INEXACT_VECTOR);
+    }
+
+    @SneakyThrows
+    public void testHalfFloatFlatIndex_knnDerivedSource() {
+        Settings settings = Settings.builder()
+            .put("number_of_shards", 1)
+            .put("number_of_replicas", 0)
+            .put("index.knn", true)
+            .put("index.knn.derived_source.enabled", true)
+            .build();
+        createKnnIndex(INDEX_NAME, settings, buildHalfFloatMapping("l2"));
+        indexFp16ExactAndInexactDocs();
+
+        Response response = searchKNNIndex(INDEX_NAME, buildMatchAllSourceQuery(), 10);
+        Map<String, List<Double>> byDocId = parseSourceVectors(EntityUtils.toString(response.getEntity()));
+
+        assertEquals(2, byDocId.size());
+        assertFp16Vector("doc 1 (exactly representable)", byDocId.get("1"), EXACT_VECTOR);
+        assertFp16Vector("doc 2 (not representable)", byDocId.get("2"), INEXACT_VECTOR);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // Helpers - mappings
     // ────────────────────────────────────────────────────────────────────────────
 
     private String buildHalfFloatMapping(String spaceType) throws Exception {
@@ -451,6 +516,14 @@ public class HalfFloatIndexIT extends KNNRestTestCase {
     }
 
     private String buildHalfFloatMappingWithSortField(String sortFieldName) {
+        return buildHalfFloatMappingWithExtraField(sortFieldName, "long");
+    }
+
+    private String buildHalfFloatMappingWithKeywordField(String keywordFieldName) {
+        return buildHalfFloatMappingWithExtraField(keywordFieldName, "keyword");
+    }
+
+    private String buildHalfFloatMappingWithExtraField(String extraFieldName, String extraFieldType) {
         return "{"
             + "\"properties\":{"
             + "\""
@@ -464,10 +537,133 @@ public class HalfFloatIndexIT extends KNNRestTestCase {
             + "\"method\":{\"name\":\"flat\",\"engine\":\"lucene\",\"space_type\":\"l2\"}"
             + "},"
             + "\""
-            + sortFieldName
-            + "\":{\"type\":\"long\"}"
+            + extraFieldName
+            + "\":{\"type\":\""
+            + extraFieldType
+            + "\"}"
             + "}}";
     }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // Helpers - queries
+    // ────────────────────────────────────────────────────────────────────────────
+
+    private String buildFilteredSearchQuery(float[] queryVector, int k, String filterFieldName, String filterValue) throws IOException {
+        return XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("knn")
+            .startObject(FIELD_NAME)
+            .field("vector", queryVector)
+            .field("k", k)
+            .startObject("filter")
+            .startObject("term")
+            .field(filterFieldName, filterValue)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+    }
+
+    private String buildDocValueFieldsQuery() throws IOException {
+        return XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("match_all")
+            .endObject()
+            .endObject()
+            .startArray("docvalue_fields")
+            .startObject()
+            .field("field", FIELD_NAME)
+            .field("format", "array")
+            .endObject()
+            .endArray()
+            .field("_source", false)
+            .startObject("sort")
+            .field("_id", "asc")
+            .endObject()
+            .endObject()
+            .toString();
+    }
+
+    private String buildMatchAllSourceQuery() throws IOException {
+        return XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("match_all")
+            .endObject()
+            .endObject()
+            .startObject("sort")
+            .field("_id", "asc")
+            .endObject()
+            .endObject()
+            .toString();
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // Helpers - FP16 round-trip assertions
+    // ────────────────────────────────────────────────────────────────────────────
+
+    private void indexFp16ExactAndInexactDocs() throws Exception {
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, new Float[] { 1.0f, 2.0f, 3.0f, 4.0f });
+        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, new Float[] { 0.1f, 0.1f, 0.1f, 0.1f });
+        refreshIndex(INDEX_NAME);
+        forceMergeKnnIndex(INDEX_NAME);
+    }
+
+    private void assertFp16Vector(String context, List<Double> actual, float[] indexedValues) {
+        assertNotNull(context + ": vector should be present", actual);
+        assertEquals(context + ": dimension mismatch", indexedValues.length, actual.size());
+        for (int i = 0; i < indexedValues.length; i++) {
+            float expected = Float.float16ToFloat(Float.floatToFloat16(indexedValues[i]));
+            assertEquals(context + ": value " + i, expected, actual.get(i).floatValue(), 0.0f);
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // Helpers - response parsing
+    // ────────────────────────────────────────────────────────────────────────────
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> parseHitsList(String responseBody) throws IOException {
+        Map<String, Object> responseMap = createParser(org.opensearch.common.xcontent.json.JsonXContent.jsonXContent, responseBody).map();
+        return (List<Map<String, Object>>) ((Map<String, Object>) responseMap.get("hits")).get("hits");
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, List<Double>> parseDocValueVectors(String responseBody) throws IOException {
+        Map<String, List<Double>> byDocId = new HashMap<>();
+        for (Map<String, Object> hit : parseHitsList(responseBody)) {
+            assertNull("_source should be disabled", hit.get("_source"));
+            Map<String, Object> fields = (Map<String, Object>) hit.get("fields");
+            assertNotNull("fields should be present", fields);
+            List<List<Double>> vectorField = (List<List<Double>>) fields.get(FIELD_NAME);
+            assertNotNull("docvalue_fields should return the vector", vectorField);
+            assertFalse("docvalue_fields vector should not be empty", vectorField.isEmpty());
+            byDocId.put((String) hit.get("_id"), vectorField.get(0));
+        }
+        return byDocId;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, List<Double>> parseSourceVectors(String responseBody) throws IOException {
+        Map<String, List<Double>> byDocId = new HashMap<>();
+        for (Map<String, Object> hit : parseHitsList(responseBody)) {
+            Map<String, Object> source = (Map<String, Object>) hit.get("_source");
+            assertNotNull("_source should be reconstructed", source);
+            List<Double> vector = (List<Double>) source.get(FIELD_NAME);
+            assertNotNull("_source should contain the vector field", vector);
+            byDocId.put((String) hit.get("_id"), vector);
+        }
+        return byDocId;
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // Helpers - index operations
+    // ────────────────────────────────────────────────────────────────────────────
 
     private void flushIndex(String index, boolean force) throws Exception {
         Request request = new Request("POST", "/" + index + "/_flush");
