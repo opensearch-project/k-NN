@@ -1,0 +1,10 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+// Plugins, dependencies, test conventions, JNI-header generation, and REST integTest wiring are inherited
+// from the shared sandbox configuration in sandbox/build.gradle. The native build is discovered from
+// jni/sandbox/svs/tenant.cmake.
+description = "Experimental Intel SVS engine for k-NN: SVS Vamana graph search (svs_vamana) with " +
+    "flat / sq (fp16, sq8) / lvq / leanvec encoders, running in an isolated JNI library with its own SVS-enabled upstream faiss"

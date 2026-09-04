@@ -25,5 +25,6 @@ include ":remote-index-build-client"
 if (providers.gradleProperty('knn.sandbox.enabled').getOrElse('false') == 'true') {
     include ":sandbox"
     include ":sandbox:common"
+    include ":sandbox:svs"
 }
 
