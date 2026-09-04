@@ -83,12 +83,9 @@ public class RescoreRadialSearchQuery extends Query {
     private final boolean memoryOptimizedSearchEnabled;
 
     /**
-     * Maximum number of results to retain after rescoring.
-     * Derived from the index-level {@code max_result_window} setting when available,
-     * otherwise defaults to {@code MAX_RESULTS_RADIAL_RESCORING}.
-     * All first-pass candidates are still scored, but only the top results up to this cap are kept.
+     * Maximum number of approximate candidates retained before full-precision rescoring.
      */
-    private final int maxResultsSize;
+    private final int firstPassK;
 
     /**
      * Constructs a new rescoring wrapper for radial search on a quantized index.
@@ -98,6 +95,7 @@ public class RescoreRadialSearchQuery extends Query {
      * @param queryVector                  the query vector (must not be null)
      * @param radius                       the radius threshold for the search
      * @param memoryOptimizedSearchEnabled whether memory-optimized search is enabled
+     * @param firstPassK                   maximum number of approximate candidates to rescore
      */
     public RescoreRadialSearchQuery(
         final Query innerQuery,
@@ -105,14 +103,14 @@ public class RescoreRadialSearchQuery extends Query {
         final float[] queryVector,
         float radius,
         final boolean memoryOptimizedSearchEnabled,
-        final int maxResultsSize
+        final int firstPassK
     ) {
         this.innerQuery = Objects.requireNonNull(innerQuery);
         this.field = Objects.requireNonNull(field);
         this.queryVector = Objects.requireNonNull(queryVector);
         this.radius = radius;
         this.memoryOptimizedSearchEnabled = memoryOptimizedSearchEnabled;
-        this.maxResultsSize = maxResultsSize;
+        this.firstPassK = firstPassK;
         Objects.requireNonNull(EXACT_SEARCHER_SINGLETON, "Exact searcher was not initialized.");
     }
 
@@ -142,7 +140,7 @@ public class RescoreRadialSearchQuery extends Query {
     public Query rewrite(final IndexSearcher indexSearcher) throws IOException {
         final Query rewritten = innerQuery.rewrite(indexSearcher);
         if (rewritten != innerQuery) {
-            return new RescoreRadialSearchQuery(rewritten, field, queryVector, radius, memoryOptimizedSearchEnabled, maxResultsSize);
+            return new RescoreRadialSearchQuery(rewritten, field, queryVector, radius, memoryOptimizedSearchEnabled, firstPassK);
         } else {
             return this;
         }
@@ -188,7 +186,7 @@ public class RescoreRadialSearchQuery extends Query {
         private final float[] queryVector;
         private final float radius;
         private final boolean memoryOptimizedSearchEnabled;
-        private final int maxResultsSize;
+        private final int firstPassK;
 
         /**
          * @param query       the parent query (for Lucene's Weight contract)
@@ -204,7 +202,7 @@ public class RescoreRadialSearchQuery extends Query {
             this.queryVector = rescoreQuery.queryVector;
             this.radius = rescoreQuery.radius;
             this.memoryOptimizedSearchEnabled = rescoreQuery.memoryOptimizedSearchEnabled;
-            this.maxResultsSize = rescoreQuery.maxResultsSize;
+            this.firstPassK = rescoreQuery.firstPassK;
         }
 
         @Override
@@ -245,12 +243,14 @@ public class RescoreRadialSearchQuery extends Query {
                         return KNNScorer.emptyScorer();
                     }
 
-                    // 3. If more candidates than maxResultsSize, pull only top-maxResultsSize
-                    // from the inner scorer; otherwise use the iterator directly.
+                    // 3. Retain at most the configured first-pass candidate count before exact rescoring.
+                    // The inner scorer can exceed firstPassK: memory-optimized search widens the search
+                    // to max(firstPassK, ef_search) and, when effectiveK == k, NativeEngineKnnVectorQuery
+                    // merges the union of per-leaf results rather than trimming to k.
                     final DocIdSetIterator docsToRescore;
                     final long numDocsToRescore;
-                    if (matchedDocs.cost() > maxResultsSize) {
-                        final TopDocs topCandidates = collectTopDocs(innerScorer);
+                    if (matchedDocs.cost() > firstPassK) {
+                        final TopDocs topCandidates = collectTopDocs(innerScorer, firstPassK);
                         docsToRescore = new TopDocsDISI(topCandidates);
                         numDocsToRescore = topCandidates.scoreDocs.length;
                     } else {
@@ -263,18 +263,21 @@ public class RescoreRadialSearchQuery extends Query {
                         .matchedDocsIterator(docsToRescore)
                         .numberOfMatchedDocs(numDocsToRescore)
                         .useQuantizedVectorsForSearch(false)
-                        .maxResultWindow((int) Math.min(maxResultsSize, numDocsToRescore))
                         .radius(radius)
                         .field(field)
                         .floatQueryVector(queryVector)
                         .isMemoryOptimizedSearchEnabled(memoryOptimizedSearchEnabled)
                         .build();
 
-                    // 5. Rescore — ExactSearcher handles radius → minScore conversion internally
-                    final TopDocs rescored = EXACT_SEARCHER_SINGLETON.searchLeaf(context, exactSearcherContext);
-
-                    // 6. Return scorer over rescored results
-                    return new KNNScorer(rescored, boost);
+                    // 5. Return a lazy scorer over the candidates. exactSearchScorer hands back the
+                    // BulkVectorScorer itself rather than draining it into TopDocs, so the
+                    // full-precision vector reads happen only for the docs a conjunction actually
+                    // advances to, instead of for every candidate up front.
+                    final Scorer rescoreScorer = EXACT_SEARCHER_SINGLETON.exactSearchScorer(context, exactSearcherContext);
+                    if (rescoreScorer == null) {
+                        return KNNScorer.emptyScorer();
+                    }
+                    return boost == 1.0f ? rescoreScorer : new BoostedScorer(rescoreScorer, boost);
                 }
 
                 @Override
@@ -297,17 +300,63 @@ public class RescoreRadialSearchQuery extends Query {
         }
 
         /**
-         * Collects the top-maxResultsSize documents by score from the scorer.
+         * Collects the top candidateLimit documents by score from the scorer.
          */
-        private TopDocs collectTopDocs(final Scorer scorer) throws IOException {
-            final TopKnnCollector collector = new TopKnnCollector(maxResultsSize, Integer.MAX_VALUE);
+        private TopDocs collectTopDocs(final Scorer scorer, final int candidateLimit) throws IOException {
+            final TopKnnCollector collector = new TopKnnCollector(candidateLimit, Integer.MAX_VALUE);
             final DocIdSetIterator iterator = scorer.iterator();
-            assert (iterator.cost() > maxResultsSize);
+            assert iterator.cost() > candidateLimit;
             int docId;
             while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
                 collector.collect(docId, scorer.score());
             }
             return collector.topDocs();
+        }
+    }
+
+    /**
+     * Applies the query boost to a delegate scorer. Needed because the rescore pass now returns the
+     * lazy {@code BulkVectorScorer} directly rather than a {@link KNNScorer}, which used to apply the
+     * boost while replaying materialized results.
+     */
+    @VisibleForTesting
+    static class BoostedScorer extends Scorer {
+        private final Scorer delegate;
+        private final float boost;
+
+        BoostedScorer(final Scorer delegate, final float boost) {
+            this.delegate = delegate;
+            this.boost = boost;
+        }
+
+        @Override
+        public int docID() {
+            return delegate.docID();
+        }
+
+        @Override
+        public DocIdSetIterator iterator() {
+            return delegate.iterator();
+        }
+
+        @Override
+        public float score() throws IOException {
+            return delegate.score() * boost;
+        }
+
+        @Override
+        public float getMaxScore(final int upTo) throws IOException {
+            return delegate.getMaxScore(upTo) * boost;
+        }
+
+        @Override
+        public int advanceShallow(final int target) throws IOException {
+            return delegate.advanceShallow(target);
+        }
+
+        @Override
+        public void setMinCompetitiveScore(final float minScore) throws IOException {
+            delegate.setMinCompetitiveScore(boost == 0.0f ? 0.0f : minScore / boost);
         }
     }
 }

@@ -748,9 +748,9 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         validateQueryResultsWithFilters(searchVector, 5, 1, expectedDocIdsKGreaterThanFilterResult, expectedDocIdsKLimitsFilterResult);
     }
 
-    // Remove or invert this test when radial search is re-enabled for quantized indices (#3452)
+    // Radial search is re-enabled for SQ/BQ at 1/2/4 bits via the size-bounded rescoring path (#3491).
     @SneakyThrows
-    public void testRadialSearch_withMaxDistance_onLuceneSQ1bit_thenBlocked() {
+    public void testRadialSearch_withMaxDistance_onLuceneSQ1bit_thenSucceeds() {
         createKnnIndexMappingWithLuceneEngineWithModeAndCompression(CompressionLevel.x32, DIMENSION, Mode.NOT_CONFIGURED);
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, new Float[] { 1.0f, 1.0f, 1.0f });
         refreshIndex(INDEX_NAME);
@@ -769,13 +769,14 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         org.opensearch.client.Request request = new org.opensearch.client.Request("POST", "/" + INDEX_NAME + "/_search");
         request.setJsonEntity(query.toString());
 
-        ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-        assertTrue(ex.getMessage().contains("Radial search is not supported for this configuration"));
+        final Response response = client().performRequest(request);
+        assertEquals(200, response.getStatusLine().getStatusCode());
+        assertEquals(1, parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME).size());
     }
 
-    // Remove or invert this test when radial search is re-enabled for quantized indices (#3452)
+    // Radial search is re-enabled for SQ/BQ at 1/2/4 bits via the size-bounded rescoring path (#3491).
     @SneakyThrows
-    public void testRadialSearch_withMinScore_onLuceneSQ1bit_thenBlocked() {
+    public void testRadialSearch_withMinScore_onLuceneSQ1bit_thenSucceeds() {
         createKnnIndexMappingWithLuceneEngineWithModeAndCompression(CompressionLevel.x32, DIMENSION, Mode.NOT_CONFIGURED);
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, new Float[] { 1.0f, 1.0f, 1.0f });
         refreshIndex(INDEX_NAME);
@@ -794,8 +795,9 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         org.opensearch.client.Request request = new org.opensearch.client.Request("POST", "/" + INDEX_NAME + "/_search");
         request.setJsonEntity(query.toString());
 
-        ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-        assertTrue(ex.getMessage().contains("Radial search is not supported for this configuration"));
+        final Response response = client().performRequest(request);
+        assertEquals(200, response.getStatusLine().getStatusCode());
+        assertEquals(1, parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME).size());
     }
 
     private void createKnnIndexMappingWithLuceneEngineAndSQEncoder(

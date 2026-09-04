@@ -38,8 +38,7 @@ public final class ResolvedIndexSpec {
     private final Version indexVersionCreated;
     /**
      * Whether this spec was resolved from model metadata rather than an explicit method mapping.
-     * Model-derived specs keep parity with the legacy model-path validation, which never applied
-     * compression-level restrictions (see {@link #supportsRadialSearch()}).
+     * Retained as provenance only; it no longer changes any behavior on this class.
      */
     @Builder.Default
     private final boolean modelBased = false;
@@ -131,22 +130,9 @@ public final class ResolvedIndexSpec {
     }
 
     /**
-     * Whether this configuration supports radial search.
-     *
-     * <p>Radial search is blocked for:</p>
-     * <ul>
-     *   <li>Engines that do not support radial search (NMSLIB)</li>
-     *   <li>Binary vector data type</li>
-     *   <li>BQ (binary quantization) encoder</li>
-     *   <li>All quantized indices (compression level other than {@code x1}/{@code x2}), regardless of
-     *       encoder or method. Radial search was disabled for quantized indices due to low recall
-     *       (see <a href="https://github.com/opensearch-project/k-NN/pull/3464">#3464</a>); there are
-     *       no longer any exceptions for flat method or 1-bit SQ.</li>
-     * </ul>
-     *
-     * <p>Model-derived specs skip the compression-level restriction: the legacy model-path
-     * validation only blocked BQ (via {@code QuantizationConfig != EMPTY}), so quantized
-     * models such as PQ/IVF-PQ remain allowed.</p>
+     * Whether this configuration supports radial search. Blocked for engines that do not support it
+     * (NMSLIB), binary vectors, and quantized indices other than those handled by
+     * {@link #requiresFullPrecisionRadialRescore()}.
      */
     public boolean supportsRadialSearch() {
         if (engine == null || engine.supportsRadialSearch() == false) {
@@ -155,11 +141,8 @@ public final class ResolvedIndexSpec {
         if (vectorDataType == VectorDataType.BINARY) {
             return false;
         }
-        if (encoderType == Encoder.EncoderType.BQ) {
-            return false;
-        }
-        // All quantized indices block radial search — no flat-method or 1-bit SQ exception (#3464).
-        if (modelBased == false && isQuantizedIndex()) {
+        // Quantized indices not served by the rescoring path remain blocked.
+        if (isQuantizedIndex() && requiresFullPrecisionRadialRescore() == false) {
             return false;
         }
         return true;
@@ -321,6 +304,24 @@ public final class ResolvedIndexSpec {
      */
     public boolean isSQMultiBit() {
         return encoderType == Encoder.EncoderType.SQ
+            && (quantizationBits == Encoder.QuantizationBits.ONE
+                || quantizationBits == Encoder.QuantizationBits.TWO
+                || quantizationBits == Encoder.QuantizationBits.FOUR);
+    }
+
+    /**
+     * Whether radial search on this configuration is served by the size-bounded rescoring path in
+     * {@link org.opensearch.knn.index.query.RNNQueryFactory}. True for SQ and BQ at 1, 2 or 4 bits,
+     * where quantization error admits false positives inside the radius so candidates must be rescored
+     * against full-precision vectors.
+     *
+     * @see <a href="https://github.com/opensearch-project/k-NN/issues/3452">#3452</a>
+     */
+    public boolean requiresFullPrecisionRadialRescore() {
+        if (isSQMultiBit()) {
+            return true;
+        }
+        return encoderType == Encoder.EncoderType.BQ
             && (quantizationBits == Encoder.QuantizationBits.ONE
                 || quantizationBits == Encoder.QuantizationBits.TWO
                 || quantizationBits == Encoder.QuantizationBits.FOUR);
