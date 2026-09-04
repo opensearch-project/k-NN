@@ -169,6 +169,7 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             compressionLevel,
             SUPPORTED_COMPRESSION_LEVELS,
             KNNEngine.FAISS,
+            knnMethodConfigContext.getVectorDataType(),
             null
         );
         if (validationException != null) {

@@ -25,6 +25,7 @@ import org.opensearch.knn.index.KnnCircuitBreakerException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
+import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfHalfFloatsSerializer;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -76,6 +77,18 @@ public class KNNVectorFieldMapperUtil {
      */
     public static StoredField createStoredFieldForFloatVector(String name, float[] vector) {
         return new StoredField(name, KNNVectorAsCollectionOfFloatsSerializer.INSTANCE.floatToByteArray(vector));
+    }
+
+    /**
+     * Creates a stored field for a half-float vector, serialized as fp16 (2 bytes per element).
+     *
+     * @param name field name
+     * @param vector vector to be added to stored field
+     */
+    public static StoredField createStoredFieldForHalfFloatVector(String name, float[] vector) {
+        byte[] output = new byte[vector.length * 2];
+        KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE.floatToByteArray(vector, output, vector.length);
+        return new StoredField(name, output);
     }
 
     /**

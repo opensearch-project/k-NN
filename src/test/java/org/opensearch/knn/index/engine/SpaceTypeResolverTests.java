@@ -184,6 +184,25 @@ public class SpaceTypeResolverTests extends KNNTestCase {
         assertResolveSpaceType(nullMethodContext, "", emptySettings, VectorDataType.BINARY, SpaceType.DEFAULT_BINARY);
     }
 
+    public void testResolveSpaceType_whenHalfFloat_thenDefaultSameAsFloat() {
+        final KNNMethodContext emptyMethodContext = new KNNMethodContext(
+            KNNEngine.DEFAULT,
+            SpaceType.UNDEFINED,
+            MethodComponentContext.EMPTY
+        );
+        assertResolveSpaceType(emptyMethodContext, "", DONT_CARE_SETTINGS, VectorDataType.HALF_FLOAT, SpaceType.DEFAULT);
+
+        assertResolveSpaceType(
+            emptyMethodContext,
+            SpaceType.COSINESIMIL.getValue(),
+            DONT_CARE_SETTINGS,
+            VectorDataType.HALF_FLOAT,
+            SpaceType.COSINESIMIL
+        );
+
+        assertResolveSpaceType(null, SpaceType.L2.getValue(), DONT_CARE_SETTINGS, VectorDataType.HALF_FLOAT, SpaceType.L2);
+    }
+
     @SneakyThrows
     public void testResolveSpaceType_whenMethodSpaceTypeAndTopLevelSpecified_thenThrowIfConflict() {
         expectThrows(

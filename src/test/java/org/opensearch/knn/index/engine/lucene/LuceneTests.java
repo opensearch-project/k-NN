@@ -13,6 +13,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 
 import java.io.IOException;
@@ -20,6 +21,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
@@ -142,5 +144,39 @@ public class LuceneTests extends KNNTestCase {
         final List<String> expectedSettings = List.of("vex", "vec");
         assertTrue(expectedSettings.containsAll(luceneMmapExtensions));
         assertTrue(luceneMmapExtensions.containsAll(expectedSettings));
+    }
+
+    public void testLuceneHNSWMethod_whenHalfFloat_thenValidationPasses() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(10)
+            .vectorDataType(VectorDataType.HALF_FLOAT)
+            .build();
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
+        );
+        assertNull(
+            "HALF_FLOAT should be supported for Lucene HNSW method",
+            KNNEngine.LUCENE.validateMethod(knnMethodContext, knnMethodConfigContext)
+        );
+    }
+
+    public void testLuceneFlatMethod_whenHalfFloat_thenValidationPasses() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(10)
+            .vectorDataType(VectorDataType.HALF_FLOAT)
+            .build();
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_FLAT, Collections.emptyMap())
+        );
+        assertNull(
+            "HALF_FLOAT should be supported for Lucene flat method",
+            KNNEngine.LUCENE.validateMethod(knnMethodContext, knnMethodConfigContext)
+        );
     }
 }

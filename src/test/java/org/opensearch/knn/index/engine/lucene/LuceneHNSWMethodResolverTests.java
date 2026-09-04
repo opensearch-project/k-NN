@@ -690,4 +690,78 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
         }
     }
 
+    public void testResolveMethod_whenHalfFloat_thenResolvesToX1WithoutEncoder() {
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            null,
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.HALF_FLOAT).versionCreated(Version.CURRENT).build(),
+            false,
+            SpaceType.L2
+        );
+        assertEquals(METHOD_HNSW, resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getName());
+        assertEquals(KNNEngine.LUCENE, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
+        assertEquals(SpaceType.L2, resolvedMethodContext.getKnnMethodContext().getSpaceType());
+        assertEquals(CompressionLevel.x1, resolvedMethodContext.getCompressionLevel());
+        assertFalse(
+            "half_float must not go through an encoder",
+            resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getParameters().containsKey(METHOD_ENCODER_PARAMETER)
+        );
+    }
+
+    /** The value HALF_FLOAT defaults to must also be accepted when set explicitly. */
+    public void testResolveMethod_whenHalfFloatWithExplicitX1_thenResolve() {
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            null,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.HALF_FLOAT)
+                .compressionLevel(CompressionLevel.x1)
+                .versionCreated(Version.CURRENT)
+                .build(),
+            false,
+            SpaceType.L2
+        );
+        assertEquals(CompressionLevel.x1, resolvedMethodContext.getCompressionLevel());
+        assertFalse(
+            resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getParameters().containsKey(METHOD_ENCODER_PARAMETER)
+        );
+    }
+
+    /**
+     * Every compression level outside {@link LuceneHNSWMethodResolver#SUPPORTED_COMPRESSION_HALF_FLOAT}
+     * must be rejected, not silently ignored or conflated with an encoder. Driving the loop off that
+     * set rather than a hardcoded level keeps this honest as levels are added: a newly supported
+     * level drops out of the loop, the rest still have to fail.
+     */
+    public void testResolveMethod_whenHalfFloatWithUnsupportedCompression_thenThrow() {
+        for (CompressionLevel level : CompressionLevel.values()) {
+            if (level == CompressionLevel.NOT_CONFIGURED || LuceneHNSWMethodResolver.SUPPORTED_COMPRESSION_HALF_FLOAT.contains(level)) {
+                continue;
+            }
+            expectThrows(
+                ValidationException.class,
+                () -> TEST_RESOLVER.resolveMethod(
+                    null,
+                    KNNMethodConfigContext.builder()
+                        .vectorDataType(VectorDataType.HALF_FLOAT)
+                        .compressionLevel(level)
+                        .versionCreated(Version.CURRENT)
+                        .build(),
+                    false,
+                    SpaceType.L2
+                )
+            );
+        }
+    }
+
+    public void testResolveMethod_whenHalfFloatWithTraining_thenThrow() {
+        expectThrows(
+            ValidationException.class,
+            () -> TEST_RESOLVER.resolveMethod(
+                null,
+                KNNMethodConfigContext.builder().vectorDataType(VectorDataType.HALF_FLOAT).versionCreated(Version.CURRENT).build(),
+                true,
+                SpaceType.L2
+            )
+        );
+    }
+
 }

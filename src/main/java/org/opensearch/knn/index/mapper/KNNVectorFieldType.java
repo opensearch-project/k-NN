@@ -262,13 +262,13 @@ public class KNNVectorFieldType extends MappedFieldType {
      * @throws IllegalStateException if neither KNN method context nor Model ID is configured
      *
      * The transformation process follows this order:
-     * 1. If vector is not FLOAT type, no transformation is performed
+     * 1. If vector is not FLOAT or HALF_FLOAT type, no transformation is performed
      * 2. Attempts to use KNN method context if present
      * 3. Falls back to model ID if KNN method context is not available
      * 4. Throws exception if neither configuration is present
      */
     public float[] transformQueryVector(float[] vector) {
-        if (VectorDataType.FLOAT != vectorDataType) {
+        if (VectorDataType.FLOAT != vectorDataType && VectorDataType.HALF_FLOAT != vectorDataType) {
             return vector;
         }
         final Optional<KNNMethodContext> knnMethodContext = knnMappingConfig.getKnnMethodContext();

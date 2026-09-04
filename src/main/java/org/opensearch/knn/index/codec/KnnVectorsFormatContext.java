@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.codec;
 
 import lombok.Value;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 
 import java.util.Map;
@@ -55,4 +56,9 @@ public class KnnVectorsFormatContext {
      * </ul>
      */
     int approximateThreshold;
+
+    /**
+     * The vector data type for the field (FLOAT, BYTE, BINARY, HALF_FLOAT).
+     */
+    VectorDataType vectorDataType;
 }

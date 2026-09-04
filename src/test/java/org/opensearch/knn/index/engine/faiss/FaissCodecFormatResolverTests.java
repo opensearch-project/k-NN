@@ -10,6 +10,7 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNN1040Codec.Faiss1040ScalarQuantizedKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
@@ -114,7 +115,15 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
             .quantizationBits(Encoder.QuantizationBits.ONE)
             .build();
 
-        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, Map.of(), DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, sqOneBitSpec);
+        KnnVectorsFormat result = resolver.resolve(
+            TEST_FIELD,
+            null,
+            Map.of(),
+            DEFAULT_MAX_CONN,
+            DEFAULT_BEAM_WIDTH,
+            sqOneBitSpec,
+            VectorDataType.FLOAT
+        );
         assertTrue(
             "Expected Faiss1040ScalarQuantizedKnnVectorsFormat but got " + result.getClass().getSimpleName(),
             result instanceof Faiss1040ScalarQuantizedKnnVectorsFormat
@@ -131,7 +140,15 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
 
         ResolvedIndexSpec flatSpec = ResolvedIndexSpec.builder().engine(KNNEngine.FAISS).encoderType(Encoder.EncoderType.FLAT).build();
 
-        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, Map.of(), DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, flatSpec);
+        KnnVectorsFormat result = resolver.resolve(
+            TEST_FIELD,
+            null,
+            Map.of(),
+            DEFAULT_MAX_CONN,
+            DEFAULT_BEAM_WIDTH,
+            flatSpec,
+            VectorDataType.FLOAT
+        );
         assertTrue(
             "Expected NativeEngines990KnnVectorsFormat but got " + result.getClass().getSimpleName(),
             result instanceof NativeEngines990KnnVectorsFormat
@@ -152,7 +169,15 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
             .quantizationBits(Encoder.QuantizationBits.FOUR)
             .build();
 
-        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, Map.of(), DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, sqFourBitSpec);
+        KnnVectorsFormat result = resolver.resolve(
+            TEST_FIELD,
+            null,
+            Map.of(),
+            DEFAULT_MAX_CONN,
+            DEFAULT_BEAM_WIDTH,
+            sqFourBitSpec,
+            VectorDataType.FLOAT
+        );
         assertTrue(
             "Expected NativeEngines990KnnVectorsFormat but got " + result.getClass().getSimpleName(),
             result instanceof NativeEngines990KnnVectorsFormat
@@ -168,7 +193,15 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
         FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(mapperService, mock(NativeIndexBuildStrategyFactory.class));
         // A non-SQ-1-bit spec should fall back to the default native format
         ResolvedIndexSpec flatSpec = ResolvedIndexSpec.builder().engine(KNNEngine.FAISS).encoderType(Encoder.EncoderType.FLAT).build();
-        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, null, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, flatSpec);
+        KnnVectorsFormat result = resolver.resolve(
+            TEST_FIELD,
+            null,
+            null,
+            DEFAULT_MAX_CONN,
+            DEFAULT_BEAM_WIDTH,
+            flatSpec,
+            VectorDataType.FLOAT
+        );
         assertTrue(
             "Expected NativeEngines990KnnVectorsFormat but got " + result.getClass().getSimpleName(),
             result instanceof NativeEngines990KnnVectorsFormat
@@ -191,7 +224,15 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
             .encoderType(Encoder.EncoderType.SQ)
             .quantizationBits(Encoder.QuantizationBits.SIXTEEN)
             .build();
-        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, params, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, sqSixteenBitSpec);
+        KnnVectorsFormat result = resolver.resolve(
+            TEST_FIELD,
+            null,
+            params,
+            DEFAULT_MAX_CONN,
+            DEFAULT_BEAM_WIDTH,
+            sqSixteenBitSpec,
+            VectorDataType.FLOAT
+        );
         assertTrue(
             "SQ with bits=16 should return NativeEngines990KnnVectorsFormat, got " + result.getClass().getSimpleName(),
             result instanceof NativeEngines990KnnVectorsFormat

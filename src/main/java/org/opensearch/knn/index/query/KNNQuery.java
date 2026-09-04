@@ -287,7 +287,7 @@ public class KNNQuery extends Query {
                 yield queryVector;
             }
             case BINARY -> byteQueryVector;
-            case FLOAT -> queryVector;
+            case FLOAT, HALF_FLOAT -> queryVector;
         };
     }
 
