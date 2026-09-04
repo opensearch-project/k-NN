@@ -14,8 +14,11 @@ package org.opensearch.knn.jni;
 import org.apache.commons.lang3.ArrayUtils;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.engine.EngineParameters;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.VectorSearchEngine;
+import org.opensearch.knn.index.engine.NativeIndexBuildParams;
+import org.opensearch.knn.index.engine.NativeSearchParams;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
@@ -41,6 +44,9 @@ public class JNIService {
      * @return address of the index in memory
      */
     public static long initIndex(long numDocs, int dim, Map<String, Object> parameters, VectorSearchEngine knnEngine) {
+        if (knnEngine.getNativeService() != null) {
+            return knnEngine.getNativeService().initIndex(NativeIndexBuildParams.forInit(numDocs, dim, EngineParameters.of(parameters)));
+        }
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
                 return FaissService.initBinaryIndex(numDocs, dim, parameters);
@@ -75,6 +81,16 @@ public class JNIService {
         long indexAddress,
         VectorSearchEngine knnEngine
     ) {
+        if (knnEngine.getNativeService() != null) {
+            knnEngine.getNativeService()
+                .insertToIndex(
+                    docs,
+                    vectorsAddress,
+                    indexAddress,
+                    NativeIndexBuildParams.forVectors(dimension, EngineParameters.of(parameters))
+                );
+            return;
+        }
         int threadCount = (int) parameters.getOrDefault(KNNConstants.INDEX_THREAD_QTY, 0);
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
@@ -108,6 +124,11 @@ public class JNIService {
         Map<String, Object> parameters,
         boolean skipFlat
     ) {
+        if (knnEngine.getNativeService() != null) {
+            knnEngine.getNativeService()
+                .writeIndex(output, indexAddress, NativeIndexBuildParams.forWrite(skipFlat, EngineParameters.of(parameters)));
+            return;
+        }
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
                 FaissService.writeBinaryIndex(indexAddress, output, skipFlat);
@@ -175,6 +196,17 @@ public class JNIService {
         Map<String, Object> parameters,
         VectorSearchEngine knnEngine
     ) {
+        if (knnEngine.getNativeService() != null) {
+            knnEngine.getNativeService()
+                .createIndexFromTemplate(
+                    ids,
+                    vectorsAddress,
+                    output,
+                    templateIndex,
+                    NativeIndexBuildParams.forVectors(dim, EngineParameters.of(parameters))
+                );
+            return;
+        }
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
                 FaissService.createBinaryIndexFromTemplate(ids, vectorsAddress, dim, output, templateIndex, parameters);
@@ -203,6 +235,9 @@ public class JNIService {
      * @return Pointer to location in memory the index resides in
      */
     public static long loadIndex(IndexInputWithBuffer readStream, Map<String, Object> parameters, VectorSearchEngine knnEngine) {
+        if (knnEngine.getNativeService() != null) {
+            return knnEngine.getNativeService().loadIndex(readStream, NativeIndexBuildParams.forLoad(EngineParameters.of(parameters)));
+        }
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
                 return FaissService.loadBinaryIndexWithStream(readStream);
@@ -295,6 +330,13 @@ public class JNIService {
         int filterIdsType,
         int[] parentIds
     ) {
+        if (knnEngine.getNativeService() != null) {
+            return knnEngine.getNativeService()
+                .queryIndex(
+                    indexPointer,
+                    NativeSearchParams.forTopK(queryVector, k, EngineParameters.of(methodParameters), filteredIds, filterIdsType, parentIds)
+                );
+        }
         if (KNNEngine.NMSLIB == knnEngine) {
             return NmslibService.queryIndex(indexPointer, queryVector, k, methodParameters);
         }
@@ -378,6 +420,10 @@ public class JNIService {
      * @param isBinaryIndex indicate if it is binary index or not
      */
     public static void free(final long indexPointer, final VectorSearchEngine knnEngine, final boolean isBinaryIndex) {
+        if (knnEngine.getNativeService() != null) {
+            knnEngine.getNativeService().free(indexPointer);
+            return;
+        }
         if (KNNEngine.NMSLIB == knnEngine) {
             NmslibService.free(indexPointer);
             return;
@@ -462,6 +508,26 @@ public class JNIService {
         int filterIdsType,
         int[] parentIds
     ) {
+        if (knnEngine.getNativeService() != null) {
+            if (knnEngine.supportsRadialSearch() == false) {
+                throw new IllegalStateException(
+                    String.format(Locale.ROOT, "Engine [%s] does not support radial search", knnEngine.getName())
+                );
+            }
+            return knnEngine.getNativeService()
+                .radiusQueryIndex(
+                    indexPointer,
+                    NativeSearchParams.forRadial(
+                        queryVector,
+                        radius,
+                        indexMaxResultWindow,
+                        EngineParameters.of(methodParameters),
+                        filteredIds,
+                        filterIdsType,
+                        parentIds
+                    )
+                );
+        }
         if (KNNEngine.FAISS == knnEngine) {
             if (ArrayUtils.isNotEmpty(filteredIds)) {
                 return FaissService.rangeSearchIndexWithFilter(
@@ -486,10 +552,11 @@ public class JNIService {
         final Map<String, Object> indexParameters,
         final float centroidDp,
         final int quantizedVecBytes,
+        final int docBits,
         final VectorSearchEngine knnEngine
     ) {
         if (KNNEngine.FAISS == knnEngine) {
-            return FaissService.initFaissSQIndex(totalLiveDocs, dimension, indexParameters, centroidDp, quantizedVecBytes);
+            return FaissService.initFaissSQIndex(totalLiveDocs, dimension, indexParameters, centroidDp, quantizedVecBytes, docBits);
         }
 
         throw new IllegalArgumentException(

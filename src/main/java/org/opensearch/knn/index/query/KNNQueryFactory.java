@@ -11,7 +11,6 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.lucenelib.OSKnnByteVectorQuery;
@@ -26,7 +25,6 @@ import java.util.Locale;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.EXPAND_NESTED;
-import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_NESTED_FIELDS;
 
 /**
  * Creates the Lucene k-NN queries
@@ -73,7 +71,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
             );
         }
 
-        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
+        if (createQueryRequest.getKnnEngine().createsCustomSegmentFiles()) {
             final Query validatedFilterQuery = validateFilterQuerySupport(filterQuery, createQueryRequest.getKnnEngine());
 
             log.debug(
@@ -122,7 +120,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
 
             if (memoryOptimizedSearchEnabled
                 || createQueryRequest.getRescoreContext().isPresent()
-                || (ENGINES_SUPPORTING_NESTED_FIELDS.contains(createQueryRequest.getKnnEngine()) && expandNested)) {
+                || (createQueryRequest.getKnnEngine().supportsNestedFields() && expandNested)) {
                 return new NativeEngineKnnVectorQuery(knnQuery, QueryUtils.getInstance(), expandNested);
             }
 
@@ -177,7 +175,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
 
     private static Query validateFilterQuerySupport(final Query filterQuery, final VectorSearchEngine knnEngine) {
         log.debug("filter query {}, knnEngine {}", filterQuery, knnEngine);
-        if (filterQuery != null && KNNEngine.getEnginesThatSupportsFilters().contains(knnEngine)) {
+        if (filterQuery != null && knnEngine.supportsFilters()) {
             return filterQuery;
         }
         return null;

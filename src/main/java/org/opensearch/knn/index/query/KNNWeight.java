@@ -329,7 +329,7 @@ public abstract class KNNWeight extends Weight {
         // We should give this condition a deeper look that where it should be placed. For now I feel this is a good
         // place,
         if (filterWeight != null && filterCardinality == 0) {
-            return PerLeafResult.EMPTY_RESULT;
+            return PerLeafResult.empty();
         }
         if (knnQuery.isExplain()) {
             knnExplanation.setCardinality(filterCardinality);

@@ -240,4 +240,24 @@ public interface VectorSearchEngine {
      * @throws UnsupportedOperationException if this engine does not support field strategies
      */
     EngineFieldStrategy getFieldStrategy();
+
+    /**
+     * The native index lifecycle for this engine, or {@code null} for a built-in engine whose native ops are
+     * served by the core {@code FaissService}/{@code NmslibService}. A runtime-registered engine returns its own
+     * {@link NativeEngineService}, which {@code JNIService} dispatches to generically.
+     *
+     * @return the engine's native service, or {@code null} if it is a built-in handled by the core services
+     */
+    @ExperimentalApi
+    NativeEngineService getNativeService();
+
+    boolean createsCustomSegmentFiles();
+
+    boolean supportsRadialSearch();
+
+    boolean supportsFilters();
+
+    boolean supportsNestedFields();
+
+    boolean supportsIterativeBuild();
 }

@@ -12,6 +12,7 @@ import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.Encoder.QuantizationBits;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.ResolvedIndexSpec;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.lucene.LuceneSQEncoder;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
@@ -239,24 +240,12 @@ public class CompressionLevelTests extends KNNTestCase {
         assertFalse(rescoreContext.isAllowOverrideOversampleFactor());
     }
 
-    public void testGetRescoreContext_whenNonSQOneBitEncoder_thenFallsBackToNormalLogic() {
-        // Non-sq(bits=1) encoder should fall through to normal compression level logic
+    public void testGetRescoreContext_whenNonSQMultiBitEncoder_thenFallsBackToNormalLogic() {
+        // Non-SQ-multi-bit encoders (FLAT, BQ, etc.) should fall through to normal compression-level
+        // logic — dim-below-threshold → OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD.
+        // SQ multi-bit (bits ∈ {1,2,4}) has its own fixed-oversample branch — covered by
+        // ResolvedIndexSpecTests.testRescoreContext_SQ{1,2,4}Bit_*.
         ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
-            .engine(KNNEngine.FAISS)
-            .methodName(METHOD_HNSW)
-            .encoderType(Encoder.EncoderType.SQ)
-            .quantizationBits(Encoder.QuantizationBits.FOUR)
-            .compressionLevel(CompressionLevel.x8)
-            .mode(Mode.ON_DISK)
-            .dimension(500)
-            .indexVersionCreated(Version.CURRENT)
-            .build();
-        RescoreContext rescoreContext = spec.getRescoreContext();
-        assertNotNull(rescoreContext);
-        assertEquals(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD, rescoreContext.getOversampleFactor(), 0.0f);
-
-        // FLAT encoder should also fall through
-        spec = ResolvedIndexSpec.builder()
             .engine(KNNEngine.FAISS)
             .methodName(METHOD_HNSW)
             .encoderType(Encoder.EncoderType.FLAT)
@@ -266,7 +255,7 @@ public class CompressionLevelTests extends KNNTestCase {
             .dimension(500)
             .indexVersionCreated(Version.CURRENT)
             .build();
-        rescoreContext = spec.getRescoreContext();
+        RescoreContext rescoreContext = spec.getRescoreContext();
         assertNotNull(rescoreContext);
         assertEquals(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD, rescoreContext.getOversampleFactor(), 0.0f);
     }
@@ -341,7 +330,7 @@ public class CompressionLevelTests extends KNNTestCase {
         assertEquals(CompressionLevel.x32, luceneBits1.getCompressionLevel());
     }
 
-    private ResolvedIndexSpec buildSpec(CompressionLevel compression, Mode mode, int dimension, KNNEngine engine) {
+    private ResolvedIndexSpec buildSpec(CompressionLevel compression, Mode mode, int dimension, VectorSearchEngine engine) {
         return ResolvedIndexSpec.builder()
             .engine(engine != null ? engine : KNNEngine.FAISS)
             .methodName(METHOD_HNSW)

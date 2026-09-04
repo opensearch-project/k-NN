@@ -275,6 +275,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategyTests extends KNNTestC
         when(quantizedValues.vectorValue(0)).thenReturn(new byte[] { 0x01 });
         when(quantizedValues.getCentroidDP()).thenReturn(1.0f);
         when(quantizedValues.size()).thenReturn(1);
+        when(quantizedValues.getScalarEncoding()).thenReturn(SINGLE_BIT_QUERY_NIBBLE);
         when(quantizedValues.getCorrectiveTerms(0)).thenReturn(new OptimizedScalarQuantizer.QuantizationResult(0.0f, 1.0f, 0.0f, 0));
 
         IndexOutputWithBuffer indexOutputWithBuffer = mock(IndexOutputWithBuffer.class);
@@ -294,7 +295,7 @@ public class MemOptimizedScalarQuantizedIndexBuildStrategyTests extends KNNTestC
 
         try (MockedStatic<JNIService> mockedJNIService = Mockito.mockStatic(JNIService.class)) {
             mockedJNIService.when(
-                () -> JNIService.initFaissSQIndex(anyInt(), anyInt(), anyMap(), anyFloat(), anyInt(), any(KNNEngine.class))
+                () -> JNIService.initFaissSQIndex(anyInt(), anyInt(), anyMap(), anyFloat(), anyInt(), anyInt(), any(KNNEngine.class))
             ).thenReturn(fakeIndexAddress);
 
             // Phase 1 throws

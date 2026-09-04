@@ -157,4 +157,34 @@ public abstract class AbstractKNNEngineBase implements VectorSearchEngine {
     public EngineFieldStrategy getFieldStrategy() {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public NativeEngineService getNativeService() {
+        return null;
+    }
+
+    @Override
+    public boolean createsCustomSegmentFiles() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsRadialSearch() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsFilters() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsNestedFields() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsIterativeBuild() {
+        return false;
+    }
 }

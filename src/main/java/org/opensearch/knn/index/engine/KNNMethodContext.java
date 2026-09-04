@@ -27,6 +27,7 @@ import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
@@ -101,8 +102,13 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         if (isEngineConfigured) {
             throw new IllegalArgumentException("Cannot configure KNNEngine if it has already been configured");
         }
+        // Note: we intentionally do NOT set isEngineConfigured=true here. That flag reflects
+        // "engine was explicitly provided in the user's mapping" and is consumed by
+        // EngineResolver.rejectEngineForMethodFlat + KNNMethodContext.toXContent to preserve
+        // BWC round-trips. Internal resolvers that call setKnnEngine (KNNVectorFieldMapper,
+        // RestTrainModelHandler) already gate on isEngineConfigured() before calling, so
+        // there's no risk of double-set even though the flag no longer guards it.
         this.knnEngine = knnEngine;
-        this.isEngineConfigured = true;
     }
 
     /**
@@ -227,7 +233,16 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        builder.field(KNN_ENGINE, knnEngine.getName());
+        // Flat is engine-agnostic on new indices (created on/after FLAT_METHOD_ENGINE_AGNOSTIC_VERSION):
+        // the resolver rejects any user-supplied engine and always resolves internally to Lucene, so we
+        // omit KNN_ENGINE to avoid a re-parse rejection. Pre-gate indices persisted engine=lucene in
+        // their flat mapping explicitly; we preserve that emission (isEngineConfigured=true) so
+        // rolling-upgrade round-trips of cluster state / snapshot metadata don't drop the attribute
+        // and cause mapping divergence between old and new nodes.
+        final boolean isFlatMethod = METHOD_FLAT.equalsIgnoreCase(methodComponentContext.getName());
+        if (isFlatMethod == false || isEngineConfigured) {
+            builder.field(KNN_ENGINE, knnEngine.getName());
+        }
         builder.field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue());
         builder = methodComponentContext.toXContent(builder, params);
         return builder;

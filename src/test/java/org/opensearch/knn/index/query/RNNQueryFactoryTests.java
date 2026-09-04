@@ -139,11 +139,11 @@ public class RNNQueryFactoryTests extends KNNTestCase {
         // real Lucene similarity query is produced.
         when(mockFieldType.getResolvedSpec()).thenReturn(nonQuantizedSpec());
 
-        final List<KNNEngine> luceneEngines = Arrays.stream(KNNEngine.values())
+        final List<VectorSearchEngine> luceneEngines = Arrays.stream(KNNEngine.values())
             .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
             .collect(Collectors.toList());
 
-        for (KNNEngine knnEngine : luceneEngines) {
+        for (VectorSearchEngine knnEngine : luceneEngines) {
             // FLOAT -> FloatVectorSimilarityQuery
             final RNNQueryFactory.CreateQueryRequest floatRequest = RNNQueryFactory.CreateQueryRequest.builder()
                 .knnEngine(knnEngine)

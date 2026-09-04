@@ -16,7 +16,9 @@ import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.Locale;
 
+import static org.opensearch.knn.common.KNNConstants.FLAT_METHOD_ENGINE_AGNOSTIC_VERSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_DEFAULT_COMPRESSION_FLIP_VERSION;
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 import static org.opensearch.knn.index.engine.KNNEngine.DEPRECATED_ENGINES;
 
@@ -80,6 +82,13 @@ public final class EngineResolver {
         boolean requiresTraining,
         Version version
     ) {
+        // Flat method is engine-agnostic from the user's perspective: it always resolves to
+        // Lucene internally. Reject ANY user-provided engine (method-level or top-level, even if
+        // it happens to be Lucene) — but only for indices created on/after the gate version.
+        // Pre-gate indices may have engine=lucene persisted in their flat mapping and must
+        // continue to load without error.
+        rejectEngineForMethodFlat(knnMethodContext, topLevelEngineString, version);
+
         VectorSearchEngine userConfiguredEngine = resolveAndValidateUserConfiguredEngine(
             knnMethodContext,
             topLevelEngineString,
@@ -128,6 +137,26 @@ public final class EngineResolver {
             return resolveEngineForX1OrNoCompression(mode, version);
         }
         return KNNEngine.FAISS;
+    }
+
+    private void rejectEngineForMethodFlat(KNNMethodContext knnMethodContext, String topLevelEngineString, Version version) {
+        final boolean isFlatMethod = knnMethodContext != null
+            && METHOD_FLAT.equalsIgnoreCase(knnMethodContext.getMethodComponentContext().getName());
+        if (isFlatMethod == false) {
+            return;
+        }
+        // Skip the reject for pre-gate indices so existing flat mappings with engine=lucene
+        // persisted from earlier versions keep loading.
+        if (version != null && version.before(FLAT_METHOD_ENGINE_AGNOSTIC_VERSION)) {
+            return;
+        }
+        // Flat is engine-agnostic — do not accept any user-provided engine, even if it happens
+        // to match the internally-resolved one.
+        if (hasUserConfiguredMethodEngine(knnMethodContext) || hasUserConfiguredTopLevelEngine(topLevelEngineString)) {
+            throw new MapperParsingException(
+                String.format(Locale.ROOT, "[%s] method does not support [%s] parameter", METHOD_FLAT, KNN_ENGINE)
+            );
+        }
     }
 
     private boolean hasUserConfiguredMethodEngine(KNNMethodContext knnMethodContext) {

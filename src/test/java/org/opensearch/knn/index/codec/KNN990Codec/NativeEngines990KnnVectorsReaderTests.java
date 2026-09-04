@@ -91,7 +91,7 @@ public class NativeEngines990KnnVectorsReaderTests extends KNNTestCase {
         FieldInfo[] fieldInfoArray = new FieldInfo[] { fieldInfo };
         final FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
 
-        KNNEngine mockFaiss = spy(KNNEngine.FAISS);
+        VectorSearchEngine mockFaiss = spy(KNNEngine.FAISS);
         VectorSearcherFactory mockFactory = mock(VectorSearcherFactory.class);
         VectorSearcher mockSearcher = mock(VectorSearcher.class);
         when(mockSearcher.getByteVectorValues(any())).thenReturn(mock(ByteVectorValues.class));

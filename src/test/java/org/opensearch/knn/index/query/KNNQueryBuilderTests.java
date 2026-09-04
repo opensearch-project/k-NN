@@ -80,7 +80,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.index.KNNClusterTestUtils.mockClusterService;
-import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
 
 public class KNNQueryBuilderTests extends KNNTestCase {
 
@@ -1493,7 +1492,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
     public void testRadialSearch_whenUnsupportedEngine_thenThrowException() {
         List<VectorSearchEngine> unsupportedEngines = Arrays.stream(KNNEngine.values())
-            .filter(knnEngine -> !ENGINES_SUPPORTING_RADIAL_SEARCH.contains(knnEngine))
+            .filter(knnEngine -> !knnEngine.supportsRadialSearch())
             .filter(knnEngine -> knnEngine != KNNEngine.UNDEFINED)
             .collect(Collectors.toList());
         for (VectorSearchEngine knnEngine : unsupportedEngines) {

@@ -22,11 +22,15 @@ import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.InfoStream;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
+import org.opensearch.knn.index.engine.faiss.SQConfig;
+import org.opensearch.knn.index.engine.faiss.SQConfigParser;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+
+import static org.opensearch.knn.common.KNNConstants.SQ_CONFIG;
 
 final class KNN1040ScalarQuantizedTestUtils {
 
@@ -42,6 +46,23 @@ final class KNN1040ScalarQuantizedTestUtils {
     // the directory outlives any readers opened from this state.
     static SegmentReadState writeQuantizedVectors(MMapDirectory dir, KNN1040ScalarQuantizedVectorsFormat format, Random random)
         throws Exception {
+        return writeQuantizedVectors(dir, "_0", format, 1, random);
+    }
+
+    /**
+     * Overload for tests that need to control the {@code SQ_CONFIG bits} attribute and the
+     * segment name (to write multiple segments in the same directory without collision).
+     */
+    static SegmentReadState writeQuantizedVectors(
+        MMapDirectory dir,
+        String segmentName,
+        KNN1040ScalarQuantizedVectorsFormat format,
+        int bits,
+        Random random
+    ) throws Exception {
+        // Set SQ_CONFIG so Faiss1040ScalarQuantizedKnnVectorsFormat can resolve the per-field
+        // encoding at fieldsReader() / addField() time.
+        final Map<String, String> attributes = Map.of(SQ_CONFIG, SQConfigParser.toCsv(SQConfig.builder().bits(bits).build()));
         final FieldInfo fieldInfo = new FieldInfo(
             FIELD_NAME,
             0,
@@ -52,7 +73,7 @@ final class KNN1040ScalarQuantizedTestUtils {
             DocValuesType.NONE,
             DocValuesSkipIndexType.NONE,
             -1,
-            Map.of(),
+            attributes,
             0,
             0,
             0,
@@ -68,7 +89,7 @@ final class KNN1040ScalarQuantizedTestUtils {
             dir,
             Version.LATEST,
             Version.LATEST,
-            "_0",
+            segmentName,
             NUM_VECTORS,
             false,
             false,

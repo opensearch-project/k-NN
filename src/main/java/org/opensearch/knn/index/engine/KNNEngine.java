@@ -5,9 +5,9 @@
 
 package org.opensearch.knn.index.engine;
 
-import java.util.Locale;
-
 import com.google.common.collect.ImmutableSet;
+import lombok.extern.log4j.Log4j2;
+import org.opensearch.common.annotation.ExperimentalApi;
 import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
@@ -23,7 +23,9 @@ import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -34,21 +36,155 @@ import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 /**
  * KNNEngine provides the functionality to validate and transform user defined indices into information that can be
  * passed to the respective k-NN library's JNI layer.
+ *
+ * <p>This was a Java {@code enum} with a fixed set of constants and is now an open, instance based type. The
+ * built-in engines are still {@code public static final} singletons, so existing references and identity
+ * checks are unchanged, and more engines can be contributed at runtime through {@link KNNEngineDefinition}.
+ * The public surface is preserved.
  */
-public enum KNNEngine implements KNNLibrary, VectorSearchEngine {
+@Log4j2
+public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
+
+    // Built-ins pass a null native service because their JNI lifecycle is the core FaissService and
+    // NmslibService. A runtime registered engine carries its own NativeEngineService. The field
+    // strategies are safe to reference here: neither strategy touches KNNEngine statics during its
+    // class initialization.
     @Deprecated(since = "2.19.0", forRemoval = true)
-    NMSLIB(NMSLIB_NAME, Nmslib.INSTANCE, Version.V_3_0_0),
-    FAISS(FAISS_NAME, Faiss.INSTANCE),
-    LUCENE(LUCENE_NAME, Lucene.INSTANCE);
+    public static final KNNEngine NMSLIB = new KNNEngine(
+        "NMSLIB",
+        NMSLIB_NAME,
+        Nmslib.INSTANCE,
+        Version.V_3_0_0,
+        FaissFieldStrategy.INSTANCE
+    );
+    public static final VectorSearchEngine FAISS = new KNNEngine("FAISS", FAISS_NAME, Faiss.INSTANCE, null, FaissFieldStrategy.INSTANCE);
+    public static final VectorSearchEngine LUCENE = new KNNEngine(
+        "LUCENE",
+        LUCENE_NAME,
+        Lucene.INSTANCE,
+        null,
+        LuceneFieldStrategy.INSTANCE
+    );
 
     public static final VectorSearchEngine DEFAULT = FAISS;
-    private final Version restrictedFromVersion; // Nullable field
 
-    private static final Set<VectorSearchEngine> CUSTOM_SEGMENT_FILE_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB, KNNEngine.FAISS);
-    private static final Set<VectorSearchEngine> ENGINES_SUPPORTING_FILTERS = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
-    public static final Set<VectorSearchEngine> ENGINES_SUPPORTING_RADIAL_SEARCH = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
+    // Built-in engines in declaration order. Registered engines are appended when discovery runs.
+    private static final List<VectorSearchEngine> BUILT_INS = List.of(NMSLIB, FAISS, LUCENE, UNDEFINED);
+
+    /** One immutable snapshot of built-ins plus every registered engine, swapped once when discovery runs. */
+    private record EngineTable(Map<String, VectorSearchEngine> byName, VectorSearchEngine[] all, Set<
+        VectorSearchEngine> customSegmentFileEngines, Set<String> engineContributedQueryParameters) {
+
+        static EngineTable of(Map<String, VectorSearchEngine> byName, Set<String> engineContributedQueryParameters) {
+            final ImmutableSet.Builder<VectorSearchEngine> customFiles = ImmutableSet.builder();
+            for (VectorSearchEngine engine : byName.values()) {
+                if (engine.createsCustomSegmentFiles()) {
+                    customFiles.add(engine);
+                }
+            }
+            return new EngineTable(
+                java.util.Collections.unmodifiableMap(byName),
+                byName.values().toArray(new VectorSearchEngine[0]),
+                customFiles.build(),
+                Set.copyOf(engineContributedQueryParameters)
+            );
+        }
+    }
+
+    // Discovery runs from KNNPlugin#createComponents in production, which hands definitions the node
+    // services. Tests and tools that never construct the plugin discover lazily on first use.
+    private static volatile EngineTable TABLE = EngineTable.of(builtInsByName(), Set.of());
+    private static volatile boolean DISCOVERY_ATTEMPTED = false;
+    // Definitions whose initialize completed, in registration order; drained by closeEngineDefinitions.
+    private static volatile List<KNNEngineDefinition> INITIALIZED_DEFINITIONS = List.of();
+    // True only while a discovery pass runs. Volatile so a lookup during the pass serves the built-ins
+    // snapshot instead of waiting on the lock, and so a definition that calls back into KNNEngine from
+    // its initialize returns without recursing.
+    private static volatile boolean DISCOVERING = false;
+
+    /**
+     * Discovers and registers runtime engines, handing each definition the given context. Idempotent, the
+     * first caller wins; called by {@code KNNPlugin#createComponents} with real node services.
+     */
+    public static void initialize(KNNEngineContext context) {
+        synchronized (KNNEngine.class) {
+            if (DISCOVERY_ATTEMPTED) {
+                if (context != KNNEngineContext.EMPTY) {
+                    log.warn("Node services arrived after engine discovery had already run; engine definitions did not receive them");
+                }
+                return;
+            }
+            if (DISCOVERING) {
+                // A definition called back into KNNEngine from its initialize. It sees the built-ins.
+                return;
+            }
+            if (context == KNNEngineContext.EMPTY) {
+                log.info("Engine discovery running without node services; expected only outside a node (tests and tools)");
+            }
+            DISCOVERING = true;
+            // The finally latches even if the pass failed, so lookups never rerun discovery and
+            // initialize stays once only.
+            try {
+                final KNNEngineRegistry.DiscoveryResult discovery = KNNEngineRegistry.discover(context);
+                final Map<String, VectorSearchEngine> byName = builtInsByName();
+                for (KNNEngineRegistry.RegisteredEngine registered : discovery.engines()) {
+                    byName.put(registered.engineName().toLowerCase(Locale.ROOT), new KNNEngine(registered));
+                }
+                TABLE = EngineTable.of(byName, discovery.queryParameterNames());
+                INITIALIZED_DEFINITIONS = discovery.initialized();
+            } finally {
+                DISCOVERING = false;
+                DISCOVERY_ATTEMPTED = true;
+            }
+        }
+    }
+
+    /**
+     * Runs the {@code close} hook of every definition whose {@code initialize} completed, in reverse
+     * registration order; called by {@code KNNPlugin#close} when the node shuts down. Best effort: a throw
+     * is logged and the remaining definitions still close. Idempotent, the definitions are drained on the
+     * first call. The engines themselves stay registered, lookups keep working during shutdown.
+     *
+     * <p>Like discovery, this state is per JVM, which matches production (one node per JVM). In an
+     * embedded multi-node JVM the first plugin instance to close would close the definitions for all.
+     */
+    public static void closeEngineDefinitions() {
+        final List<KNNEngineDefinition> definitions;
+        synchronized (KNNEngine.class) {
+            definitions = INITIALIZED_DEFINITIONS;
+            INITIALIZED_DEFINITIONS = List.of();
+        }
+        for (int i = definitions.size() - 1; i >= 0; i--) {
+            final KNNEngineDefinition definition = definitions.get(i);
+            try {
+                definition.close();
+            } catch (Throwable t) {
+                // Shutdown cleanup must not abort the loop: the list is already drained, so a definition
+                // skipped here would never get another chance to release what initialize acquired. Even
+                // an Error from one definition (assertion, stack overflow) only costs its own cleanup.
+                log.warn("Engine definition [{}] threw from close; continuing with the rest", definition.getClass().getName(), t);
+            }
+        }
+    }
+
+    private static Map<String, VectorSearchEngine> builtInsByName() {
+        final Map<String, VectorSearchEngine> byName = new LinkedHashMap<>();
+        for (VectorSearchEngine engine : BUILT_INS) {
+            byName.put(engine.getName().toLowerCase(Locale.ROOT), engine);
+        }
+        return byName;
+    }
+
+    private static EngineTable table() {
+        // While a discovery pass is in flight every lookup serves the current snapshot, nothing blocks.
+        if (DISCOVERY_ATTEMPTED == false && DISCOVERING == false) {
+            initialize(KNNEngineContext.EMPTY);
+        }
+        return TABLE;
+    }
+
+    // Deprecation is core release policy, not an engine capability, so this set stays literal.
     public static final Set<VectorSearchEngine> DEPRECATED_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB);
-    public static final Set<VectorSearchEngine> ENGINES_SUPPORTING_NESTED_FIELDS = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
 
     private static Map<VectorSearchEngine, Integer> MAX_DIMENSIONS_BY_ENGINE = Map.of(
         KNNEngine.NMSLIB,
@@ -59,38 +195,100 @@ public enum KNNEngine implements KNNLibrary, VectorSearchEngine {
         16_000
     );
 
-    /**
-     * Constructor for KNNEngine
-     *
-     * @param name name of engine
-     * @param knnLibrary library the engine uses
-     */
-    KNNEngine(String name, KNNLibrary knnLibrary) {
-        this.name = name;
-        this.knnLibrary = knnLibrary;
-        this.restrictedFromVersion = null;
-    }
-
-    /**
-     * Constructor for deprecated engines.
-     */
-    KNNEngine(String name, KNNLibrary knnLibrary, Version restrictedVersion) {
-        this.name = name;
-        this.knnLibrary = knnLibrary;
-        this.restrictedFromVersion = restrictedVersion;
-    }
-
-    /**
-     * Constructor for undefined engines.
-     */
-    KNNEngine(String name) {
-        this.name = name;
-        this.knnLibrary = null;
-        this.restrictedFromVersion = null;
-    }
-
+    private final String enumName; // former enum-constant name (e.g. "FAISS"); preserves name()/toString()
     private final String name;
     private final KNNLibrary knnLibrary;
+    private final Version restrictedFromVersion; // Nullable field
+    private final NativeEngineService nativeService; // null for built-ins; set for runtime-registered engines
+    // For a registered engine the capability flags and the segment file extensions are read once at
+    // discovery and cached here, so plugin code is never asked again for them. Null for built-ins, which
+    // delegate to their core library.
+    private final KNNEngineRegistry.EngineCapabilities capabilities;
+    private final String extension;
+    private final String compoundExtension;
+    // The engine's field strategy: set at construction for built-ins, read once at discovery for
+    // registered engines. Null only when the engine has none (UNDEFINED, or a definition that
+    // declared none), in which case getFieldStrategy throws.
+    private final EngineFieldStrategy fieldStrategy;
+
+    // Built-in engines only.
+    private KNNEngine(
+        String enumName,
+        String name,
+        KNNLibrary knnLibrary,
+        Version restrictedFromVersion,
+        EngineFieldStrategy fieldStrategy
+    ) {
+        this(enumName, name, knnLibrary, restrictedFromVersion, null, null, null, null, fieldStrategy);
+    }
+
+    // Runtime-registered engines only.
+    private KNNEngine(KNNEngineRegistry.RegisteredEngine registered) {
+        this(
+            registered.engineName().toUpperCase(Locale.ROOT),
+            registered.engineName(),
+            registered.library(),
+            null,
+            registered.nativeService(),
+            registered.capabilities(),
+            registered.extension(),
+            registered.compoundExtension(),
+            registered.fieldStrategy()
+        );
+    }
+
+    private KNNEngine(
+        String enumName,
+        String name,
+        KNNLibrary knnLibrary,
+        Version restrictedFromVersion,
+        NativeEngineService nativeService,
+        KNNEngineRegistry.EngineCapabilities capabilities,
+        String extension,
+        String compoundExtension,
+        EngineFieldStrategy fieldStrategy
+    ) {
+        this.enumName = enumName;
+        this.name = name;
+        this.knnLibrary = knnLibrary;
+        this.restrictedFromVersion = restrictedFromVersion;
+        this.nativeService = nativeService;
+        this.capabilities = capabilities;
+        this.fieldStrategy = fieldStrategy;
+        this.extension = extension;
+        this.compoundExtension = compoundExtension;
+    }
+
+    /**
+     * The native index lifecycle for this engine, or {@code null} for a built-in engine whose native ops are
+     * served by the core {@code FaissService}/{@code NmslibService}. A runtime-registered engine returns its own
+     * {@link NativeEngineService}, which {@code JNIService} dispatches to generically.
+     *
+     * @return the engine's native service, or {@code null} if it is a built-in handled by the core services
+     */
+    @ExperimentalApi
+    public NativeEngineService getNativeService() {
+        return nativeService;
+    }
+
+    /**
+     * The former enum-constant identifier (e.g. {@code "FAISS"}), preserved so callers and serialized output that
+     * relied on the enum's {@code name()}/{@code toString()} (such as the query explanation string) are unchanged.
+     *
+     * @return the engine's constant-style name
+     */
+    public String name() {
+        return enumName;
+    }
+
+    /**
+     * All known engines (built-ins plus any runtime-registered engine). Mirrors the former enum {@code values()}.
+     *
+     * @return array of all engines
+     */
+    public static VectorSearchEngine[] values() {
+        return table().all().clone();
+    }
 
     /**
      * Get the engine
@@ -99,23 +297,33 @@ public enum KNNEngine implements KNNLibrary, VectorSearchEngine {
      * @return KNNEngine corresponding to name
      */
     public static VectorSearchEngine getEngine(String name) {
-        if (NMSLIB.getName().equalsIgnoreCase(name)) {
-            return NMSLIB;
+        final VectorSearchEngine engine = table().byName().get(name == null ? null : name.toLowerCase(Locale.ROOT));
+        if (engine != null) {
+            return engine;
         }
+        throw new IllegalArgumentException(
+            String.format(
+                Locale.ROOT,
+                "Invalid engine type: %s. If an engine definition for this name exists, it may have failed to load; check startup warnings.",
+                name
+            )
+        );
+    }
 
-        if (FAISS.getName().equalsIgnoreCase(name)) {
-            return FAISS;
-        }
-
-        if (LUCENE.getName().equalsIgnoreCase(name)) {
-            return LUCENE;
-        }
-
-        if (UNDEFINED.getName().equalsIgnoreCase(name)) {
-            return UNDEFINED;
-        }
-
-        throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid engine type: %s", name));
+    /**
+     * Whether a registered engine has declared this query-time method parameter name (see
+     * {@link KNNEngineDefinition#engineSpecificQueryParameters()}). The REST/gRPC parse layers use this to
+     * defer — rather than reject — a name unknown to the core {@code MethodParameter} enum, so the
+     * engine-aware validation in {@code KNNQueryBuilder#doToQuery} can judge it against the engine's
+     * {@link KNNLibrarySearchContext}. Matching is exact (case-sensitive), mirroring
+     * {@code MethodParameter.enumOf}.
+     *
+     * @param name the method parameter name from the query
+     * @return true if a registered engine declared the name; false otherwise
+     */
+    @ExperimentalApi
+    public static boolean isEngineContributedQueryParameter(String name) {
+        return name != null && table().engineContributedQueryParameters().contains(name);
     }
 
     /**
@@ -136,28 +344,23 @@ public enum KNNEngine implements KNNLibrary, VectorSearchEngine {
      * @return KNNEngine corresponding to path
      */
     public static VectorSearchEngine getEngineNameFromPath(String path) {
-        if (path.endsWith(KNNEngine.NMSLIB.getExtension()) || path.endsWith(KNNEngine.NMSLIB.getCompoundExtension())) {
-            return KNNEngine.NMSLIB;
+        // Only custom-segment-file engines have a file extension; Lucene's getExtension() throws.
+        for (VectorSearchEngine engine : table().customSegmentFileEngines()) {
+            if (path.endsWith(engine.getExtension()) || path.endsWith(engine.getCompoundExtension())) {
+                return engine;
+            }
         }
-
-        if (path.endsWith(KNNEngine.FAISS.getExtension()) || path.endsWith(KNNEngine.FAISS.getCompoundExtension())) {
-            return KNNEngine.FAISS;
-        }
-
         throw new IllegalArgumentException("No engine matches the path's suffix");
     }
 
     /**
-     * Returns all engines that create custom segment files.
+     * Returns all engines that create custom segment files. The one collection accessor kept, because its
+     * callers iterate the set and a test mocks it.
      *
      * @return Set of all engines that create custom segment files.
      */
     public static Set<VectorSearchEngine> getEnginesThatCreateCustomSegmentFiles() {
-        return CUSTOM_SEGMENT_FILE_ENGINES;
-    }
-
-    public static Set<VectorSearchEngine> getEnginesThatSupportsFilters() {
-        return ENGINES_SUPPORTING_FILTERS;
+        return table().customSegmentFileEngines();
     }
 
     /**
@@ -188,17 +391,29 @@ public enum KNNEngine implements KNNLibrary, VectorSearchEngine {
     }
 
     @Override
+    public String toString() {
+        // Preserve the former enum behavior (toString == constant name, e.g. "FAISS").
+        return enumName;
+    }
+
+    @Override
     public String getVersion() {
         return knnLibrary.getVersion();
     }
 
     @Override
     public String getExtension() {
+        if (extension != null) {
+            return extension;
+        }
         return knnLibrary.getExtension();
     }
 
     @Override
     public String getCompoundExtension() {
+        if (compoundExtension != null) {
+            return compoundExtension;
+        }
         return knnLibrary.getCompoundExtension();
     }
 
@@ -286,6 +501,46 @@ public enum KNNEngine implements KNNLibrary, VectorSearchEngine {
     }
 
     @Override
+    public boolean supportsIterativeBuild() {
+        if (capabilities != null) {
+            return capabilities.iterativeBuild();
+        }
+        return knnLibrary != null && knnLibrary.supportsIterativeBuild();
+    }
+
+    @Override
+    public boolean createsCustomSegmentFiles() {
+        if (capabilities != null) {
+            return capabilities.customSegmentFiles();
+        }
+        return knnLibrary != null && knnLibrary.createsCustomSegmentFiles();
+    }
+
+    @Override
+    public boolean supportsFilters() {
+        if (capabilities != null) {
+            return capabilities.filters();
+        }
+        return knnLibrary != null && knnLibrary.supportsFilters();
+    }
+
+    @Override
+    public boolean supportsRadialSearch() {
+        if (capabilities != null) {
+            return capabilities.radialSearch();
+        }
+        return knnLibrary != null && knnLibrary.supportsRadialSearch();
+    }
+
+    @Override
+    public boolean supportsNestedFields() {
+        if (capabilities != null) {
+            return capabilities.nestedFields();
+        }
+        return knnLibrary != null && knnLibrary.supportsNestedFields();
+    }
+
+    @Override
     public RescoreContext getRescoreContext(
         CompressionLevel compression,
         Mode mode,
@@ -307,15 +562,21 @@ public enum KNNEngine implements KNNLibrary, VectorSearchEngine {
         }
     }
 
+    /**
+     * Returns the field strategy for this engine, used to construct field types
+     * and create vector fields during indexing. Built-ins carry theirs from construction;
+     * discovered engines carry the one their {@link KNNEngineDefinition} provided at discovery.
+     *
+     * @return the engine's field strategy
+     * @throws UnsupportedOperationException if this engine does not support field strategies
+     */
     @Override
     public EngineFieldStrategy getFieldStrategy() {
-        switch (this) {
-            case LUCENE:
-                return LuceneFieldStrategy.INSTANCE;
-            case FAISS, NMSLIB:
-                return FaissFieldStrategy.INSTANCE;
-            default:
-                throw new UnsupportedOperationException("Engine " + name + " does not support field strategies");
+        if (fieldStrategy != null) {
+            return fieldStrategy;
         }
+        throw new UnsupportedOperationException(
+            "Engine " + name() + " does not support field strategies; its KNNEngineDefinition did not provide a fieldStrategy"
+        );
     }
 }

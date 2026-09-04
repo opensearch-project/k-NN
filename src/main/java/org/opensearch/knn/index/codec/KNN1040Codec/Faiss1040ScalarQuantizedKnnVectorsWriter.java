@@ -20,7 +20,6 @@ import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.Sorter;
-import org.apache.lucene.util.IOFunction;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.RamUsageEstimator;
 import org.opensearch.knn.index.codec.nativeindex.AbstractNativeEnginesKnnVectorsWriter;
@@ -28,6 +27,8 @@ import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactor
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
 
 import java.io.IOException;
+import java.util.Locale;
+import java.util.function.Function;
 
 /**
  * Writer for Faiss SQ vector fields. Unlike {@link org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsWriter}
@@ -47,27 +48,61 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
     private static final long SHALLOW_SIZE = RamUsageEstimator.shallowSizeOfInstance(Faiss1040ScalarQuantizedKnnVectorsWriter.class);
 
     private final SegmentWriteState segmentWriteState;
-    private final FlatVectorsWriter flatVectorsWriter;
+    // Supplies a Lucene flat format for a given FieldInfo. Called lazily on the first addField()
+    // or mergeOneField() call — this is when Lucene hands us the exact FieldInfo, so we can
+    // resolve the correct ScalarEncoding from its SQ_CONFIG attribute rather than relying on a
+    // pre-baked encoding at construction time. Deferring is required because at
+    // Faiss1040ScalarQuantizedKnnVectorsFormat.fieldsWriter(state) time, state.fieldInfos may
+    // still be null on the initial-write path (Lucene's IndexingChain calls fieldsWriter before
+    // fieldInfos is populated).
+    private final Function<FieldInfo, KNN1040ScalarQuantizedVectorsFormat> flatFormatResolver;
+    // The lazily-constructed flat writer — non-null after the first addField/mergeOneField call.
+    private FlatVectorsWriter flatVectorsWriter;
+    private KNN1040ScalarQuantizedVectorsFormat resolvedFlatFormat;
     // Single field — SQ gets a dedicated format per field via BasePerFieldKnnVectorsFormat
     private FlatFieldVectorsWriter<?> fieldWriter;
     private FieldInfo fieldInfo;
     private boolean finished;
-    private final IOFunction<SegmentReadState, FlatVectorsReader> quantizedFlatVectorsReaderSupplier;
+    // Set to true once the flat writer has been finished+closed (inline in flush/mergeOneField)
+    // so subsequent calls fail loud instead of writing to (or re-closing) a closed writer.
+    private boolean flatWriterDone;
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
     private final Integer approximateThreshold;
 
     Faiss1040ScalarQuantizedKnnVectorsWriter(
         @NonNull SegmentWriteState segmentWriteState,
-        @NonNull FlatVectorsWriter flatVectorsWriter,
-        @NonNull IOFunction<SegmentReadState, FlatVectorsReader> quantizedFlatVectorsReaderSupplier,
+        @NonNull Function<FieldInfo, KNN1040ScalarQuantizedVectorsFormat> flatFormatResolver,
         @NonNull NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory,
         Integer approximateThreshold
     ) {
         this.segmentWriteState = segmentWriteState;
-        this.flatVectorsWriter = flatVectorsWriter;
-        this.quantizedFlatVectorsReaderSupplier = quantizedFlatVectorsReaderSupplier;
+        this.flatFormatResolver = flatFormatResolver;
         this.nativeIndexBuildStrategyFactory = nativeIndexBuildStrategyFactory;
         this.approximateThreshold = approximateThreshold;
+    }
+
+    /**
+     * Resolves the flat format from the given field on first call, constructs the underlying
+     * Lucene flat writer, and caches both for subsequent operations (flush, close). Called from
+     * {@link #addField(FieldInfo)} and {@link #mergeOneField(FieldInfo, MergeState)}.
+     */
+    private FlatVectorsWriter getOrInitFlatVectorsWriter(final FieldInfo fieldInfoForResolution) throws IOException {
+        if (flatWriterDone) {
+            throw new IllegalStateException(
+                String.format(
+                    Locale.ROOT,
+                    "%s flat writer has already been finished and closed; cannot access it again for field [%s]. "
+                        + "This writer supports only a single field per instance.",
+                    Faiss1040ScalarQuantizedKnnVectorsWriter.class.getSimpleName(),
+                    fieldInfoForResolution.name
+                )
+            );
+        }
+        if (flatVectorsWriter == null) {
+            this.resolvedFlatFormat = flatFormatResolver.apply(fieldInfoForResolution);
+            this.flatVectorsWriter = resolvedFlatFormat.fieldsWriter(segmentWriteState);
+        }
+        return flatVectorsWriter;
     }
 
     /**
@@ -86,7 +121,7 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
             );
         }
         this.fieldInfo = newFieldInfo;
-        this.fieldWriter = flatVectorsWriter.addField(newFieldInfo);
+        this.fieldWriter = getOrInitFlatVectorsWriter(newFieldInfo).addField(newFieldInfo);
         return fieldWriter;
     }
 
@@ -101,11 +136,18 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
      */
     @Override
     public void flush(int maxDoc, Sorter.DocMap sortMap) throws IOException {
+        if (flatVectorsWriter == null) {
+            // No field was added — nothing to flush and no native build to run.
+            return;
+        }
         // Flush, finish, and close the flat vectors writer so that the .vec and .veb files
-        // are fully written and file handles are released.
+        // are fully written and file handles are released. Mark the writer done so any later
+        // access (subsequent mergeOneField, or close()) fails loud instead of touching a
+        // closed writer.
         flatVectorsWriter.flush(maxDoc, sortMap);
         flatVectorsWriter.finish();
         IOUtils.close(flatVectorsWriter);
+        this.flatWriterDone = true;
 
         if (fieldWriter == null) {
             return;
@@ -141,12 +183,19 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
         // Setting field info
         this.fieldInfo = fieldInfo;
 
-        // Merge, finish, and close the flat writer so that files are readable.
-        IORunnable mergeRunnable = flatVectorsWriter.mergeOneField(fieldInfo, mergeState);
+        // Resolve the flat format from the merged field's SQ_CONFIG on the first call. Merge
+        // paths don't go through addField, so this is where lazy init happens for merges.
+        final FlatVectorsWriter writer = getOrInitFlatVectorsWriter(fieldInfo);
+
+        // Merge, finish, and close the flat writer so that files are readable. Mark the writer
+        // done so a subsequent mergeOneField (or close()) can't write to / re-close it — the
+        // instance is expected to handle only one field.
+        IORunnable mergeRunnable = writer.mergeOneField(fieldInfo, mergeState);
 
         if (mergeRunnable != null) mergeRunnable.run();
-        flatVectorsWriter.finish();
-        IOUtils.close(flatVectorsWriter);
+        writer.finish();
+        IOUtils.close(writer);
+        this.flatWriterDone = true;
 
         // Open a reader on the merged flat files, extract QuantizedByteVectorValues,
         // and pass it to the build strategy. The writer owns the reader lifecycle.
@@ -187,18 +236,26 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
 
     @Override
     public void close() throws IOException {
-        // flatVectorsWriter is already closed in flush/mergeOneField.
-        // IOUtils.close is safe to call on an already-closed resource.
+        // flush/mergeOneField already finished and closed the flat writer inline. Guard on
+        // flatWriterDone so we don't re-close (which some FlatVectorsWriter implementations
+        // may not tolerate) — and still handle the flush/merge-never-called case by closing
+        // the still-open writer if flatVectorsWriter was allocated but never finalized.
+        if (flatWriterDone) {
+            return;
+        }
         IOUtils.close(flatVectorsWriter);
     }
 
     @Override
     public long ramBytesUsed() {
-        return SHALLOW_SIZE + flatVectorsWriter.ramBytesUsed() + (fieldWriter != null ? fieldWriter.ramBytesUsed() : 0);
+        return SHALLOW_SIZE + (flatVectorsWriter != null ? flatVectorsWriter.ramBytesUsed() : 0) + (fieldWriter != null
+            ? fieldWriter.ramBytesUsed()
+            : 0);
     }
 
     /**
      * Opens a FlatVectorsReader scoped to this single field from the already-written flat files.
+     * Uses the resolved flat format from the write phase to ensure encoding matches.
      */
     private FlatVectorsReader openFlatVectorsReader() throws IOException {
         final SegmentReadState readState = new SegmentReadState(
@@ -208,6 +265,6 @@ class Faiss1040ScalarQuantizedKnnVectorsWriter extends AbstractNativeEnginesKnnV
             segmentWriteState.context,
             segmentWriteState.segmentSuffix
         );
-        return quantizedFlatVectorsReaderSupplier.apply(readState);
+        return resolvedFlatFormat.fieldsReader(readState);
     }
 }

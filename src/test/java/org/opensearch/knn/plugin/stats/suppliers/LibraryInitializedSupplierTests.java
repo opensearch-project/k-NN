@@ -25,7 +25,7 @@ public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
 
     public void testEngineInitialized() {
         KNNLibrary knnLibrary = new TestLibrary();
-        LibraryInitializedSupplier libraryInitializedSupplier = new LibraryInitializedSupplier(knnLibrary);
+        LibraryInitializedSupplier libraryInitializedSupplier = new LibraryInitializedSupplier(knnLibrary::isInitialized);
         knnLibrary.setInitialized(false);
         assertFalse(libraryInitializedSupplier.get());
         knnLibrary.setInitialized(true);

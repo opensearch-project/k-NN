@@ -1,3 +1,8 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #pragma once
 // Ensures this header file is included only once during compilation.
 // Prevents duplicate definition errors if included multiple times.

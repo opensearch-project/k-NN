@@ -138,7 +138,9 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
         );
     }
 
-    public void testResolve_whenCalledWithFieldContext_andSQNonOneBitSpec_thenReturnsNativeFormat() {
+    public void testResolve_whenCalledWithFieldContext_andSQSixteenBitSpec_thenReturnsNativeFormat() {
+        // SQ bits=16 (fp16) does NOT go through the multi-bit MOS path — falls through to the
+        // default native format. Only bits ∈ {1, 2, 4} route to Faiss1040ScalarQuantizedKnnVectorsFormat.
         MapperService mapperService = mock(MapperService.class);
         IndexSettings indexSettings = mock(IndexSettings.class);
         when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING)).thenReturn(null);
@@ -146,13 +148,13 @@ public class FaissCodecFormatResolverTests extends KNNTestCase {
 
         FaissCodecFormatResolver resolver = new FaissCodecFormatResolver(mapperService, mock(NativeIndexBuildStrategyFactory.class));
 
-        ResolvedIndexSpec sqFourBitSpec = ResolvedIndexSpec.builder()
+        ResolvedIndexSpec sqSixteenBitSpec = ResolvedIndexSpec.builder()
             .engine(KNNEngine.FAISS)
             .encoderType(Encoder.EncoderType.SQ)
-            .quantizationBits(Encoder.QuantizationBits.FOUR)
+            .quantizationBits(Encoder.QuantizationBits.SIXTEEN)
             .build();
 
-        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, Map.of(), DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, sqFourBitSpec);
+        KnnVectorsFormat result = resolver.resolve(TEST_FIELD, null, Map.of(), DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, sqSixteenBitSpec);
         assertTrue(
             "Expected NativeEngines990KnnVectorsFormat but got " + result.getClass().getSimpleName(),
             result instanceof NativeEngines990KnnVectorsFormat
