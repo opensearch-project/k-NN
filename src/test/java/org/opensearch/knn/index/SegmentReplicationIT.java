@@ -15,8 +15,11 @@ import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.Assert;
+import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.rest.RestStatus;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.CompressionTestConfig;
 import org.opensearch.knn.KNNCompressionRestTestCase;
@@ -25,6 +28,7 @@ import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -77,14 +81,34 @@ public class SegmentReplicationIT extends KNNCompressionRestTestCase {
         assertEquals(docsInIndex - deleteDocs, knnResults.size());
 
         if (ensureMinDataNodesCountForTestingQueriesOnReplica()) {
-            // validate replicas are working
-            assertBusy(() -> {
-                Response replicaSearchResponse = performSearch(INDEX_NAME, queryBuilder.toString(), "preference=_replica");
-                String replicaResponseBody = EntityUtils.toString(replicaSearchResponse.getEntity());
-                List<KNNResult> replicaResults = parseSearchResponse(replicaResponseBody, FIELD_NAME);
-                assertEquals(docsInIndex - deleteDocs, replicaResults.size());
-            });
+            // Segment replication is asynchronous, so wait on the replication signal itself rather than on the k-NN
+            // assertion. Polling the assertion under test would retry away a genuinely invalid remote-built graph,
+            // which is the exact failure this test exists to catch.
+            assertBusy(() -> assertEquals(docsInIndex - deleteDocs, getDocCountWithPreference(INDEX_NAME, "_replica")));
+
+            // validate replicas are working. Asserted once: past this point the replica has the primary's live docs,
+            // so a wrong result count is a real failure and must surface immediately.
+            searchResponse = performSearch(INDEX_NAME, queryBuilder.toString(), "preference=_replica");
+            responseBody = EntityUtils.toString(searchResponse.getEntity());
+            knnResults = parseSearchResponse(responseBody, FIELD_NAME);
+            assertEquals(docsInIndex - deleteDocs, knnResults.size());
         }
+    }
+
+    /**
+     * Returns the number of live documents visible to the shard copy selected by {@code preference}. Used to wait for
+     * segment replication to deliver the primary's latest commit to the replica before searching it.
+     */
+    private int getDocCountWithPreference(final String indexName, final String preference) throws Exception {
+        final Request request = new Request("GET", "/" + indexName + "/_count");
+        request.addParameter("preference", preference);
+
+        final Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        final String responseBody = EntityUtils.toString(response.getEntity());
+        final Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
+        return (Integer) responseMap.get("count");
     }
 
     private boolean ensureMinDataNodesCountForTestingQueriesOnReplica() {
