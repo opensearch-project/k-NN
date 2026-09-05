@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Maintenance
 * Fixed multiple forbidden api warnings from the code []()
+* Re-enable `SegmentReplicationIT` for the remote index build test suite and replace the fixed sleep with a replication wait [#3550](https://github.com/opensearch-project/k-NN/pull/3550)
 
 ### Bug Fixes
 * Fix knn query against a field alias returning zero hits silently [#3485](https://github.com/opensearch-project/k-NN/pull/3485)
