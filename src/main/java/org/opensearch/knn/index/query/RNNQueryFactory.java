@@ -21,6 +21,7 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 /**
  * Class to create radius nearest neighbor queries
@@ -74,15 +75,20 @@ public class RNNQueryFactory extends BaseQueryFactory {
             innerQuery = createLuceneRadialQuery(createQueryRequest);
         }
 
-        // Only 1-bit SQ (32x compression) requires rescoring after radial search to eliminate false positives.
-        if (createQueryRequest.getVectorFieldType() != null && createQueryRequest.getVectorFieldType().getResolvedSpec().isSQOneBit()) {
-            // Honor the index-level max_result_window setting to cap the number of results retained
-            // after rescoring. Falls back to MAX_RESULTS_RADIAL_RESCORING if context is unavailable.
-            final int maxResultsSize;
+        // SQ or BQ at 1, 2 or 4 bits requires rescoring after radial search to eliminate false positives.
+        if (createQueryRequest.getVectorFieldType() != null
+            && createQueryRequest.getVectorFieldType().getResolvedSpec().requiresFullPrecisionRadialRescore()) {
+            final Query sizeBoundedQuery = createSizeBoundedQuantizedRadialQuery(createQueryRequest);
+            if (sizeBoundedQuery != null) {
+                return sizeBoundedQuery;
+            }
+            // Honor the index-level max_result_window setting to cap the candidates rescored.
+            // Falls back to MAX_RESULTS_RADIAL_RESCORING if context is unavailable.
+            final int fallbackFirstPassK;
             if (createQueryRequest.getContext().isPresent()) {
-                maxResultsSize = createQueryRequest.getContext().get().getIndexSettings().getMaxResultWindow();
+                fallbackFirstPassK = createQueryRequest.getContext().get().getIndexSettings().getMaxResultWindow();
             } else {
-                maxResultsSize = MAX_RESULTS_RADIAL_RESCORING;
+                fallbackFirstPassK = MAX_RESULTS_RADIAL_RESCORING;
             }
             return new RescoreRadialSearchQuery(
                 innerQuery,
@@ -90,10 +96,60 @@ public class RNNQueryFactory extends BaseQueryFactory {
                 vector,
                 radius,
                 createQueryRequest.isMemoryOptimizedSearchEnabled(),
-                maxResultsSize
+                fallbackFirstPassK
             );
         }
         return innerQuery;
+    }
+
+    /**
+     * Builds the size-bounded form of a quantized radial query: an oversampled top-k first pass of
+     * {@code ceil(size * oversample_factor)} candidates instead of an unbounded radial scan, then rescored
+     * against full-precision vectors. The cap scales with the oversample factor so a large size can still
+     * surface {@link RescoreContext#MAX_FIRST_PASS_RESULTS} hits.
+     *
+     * @param request the query creation request
+     * @return the size-bounded query, or {@code null} if the request size is unavailable
+     */
+    private static Query createSizeBoundedQuantizedRadialQuery(final CreateQueryRequest request) {
+        final Integer size = request.getSize();
+        if (size == null || size <= 0) {
+            return null;
+        }
+
+        final RescoreContext rescoreContext = request.getRescoreContext().orElse(RescoreContext.getDefault());
+        final float oversampleFactor = rescoreContext.getOversampleFactor();
+        final int firstPassK = (int) Math.min(
+            Math.ceil((double) RescoreContext.MAX_FIRST_PASS_RESULTS * oversampleFactor),
+            Math.ceil((double) size * oversampleFactor)
+        );
+
+        final Query approximateCandidates = KNNQueryFactory.create(
+            KNNQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(request.getKnnEngine())
+                .indexName(request.getIndexName())
+                .fieldName(request.getFieldName())
+                .vector(request.getVector())
+                .originalVector(request.getOriginalVector())
+                .byteVector(request.getByteVector())
+                .vectorDataType(request.getVectorDataType())
+                .k(firstPassK)
+                .methodParameters(request.getMethodParameters())
+                .filter(request.getFilter().orElse(null))
+                .context(request.getContext().orElse(null))
+                .expandNested(request.isExpandNested())
+                .memoryOptimizedSearchEnabled(request.isMemoryOptimizedSearchEnabled())
+                .build()
+        );
+
+        return new RescoreRadialSearchQuery(
+            approximateCandidates,
+            request.getFieldName(),
+            request.getVector(),
+            request.getRadius(),
+            request.isMemoryOptimizedSearchEnabled(),
+            firstPassK
+        );
     }
 
     /**

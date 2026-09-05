@@ -15,6 +15,7 @@ import org.apache.lucene.util.VectorUtil;
 import org.junit.Before;
 import org.mockito.MockedStatic;
 import org.opensearch.Version;
+import org.opensearch.action.search.SearchRequest;
 import org.opensearch.cluster.ClusterModule;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -30,8 +31,10 @@ import org.opensearch.core.index.Index;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.QueryCoordinatorContext;
 import org.opensearch.index.query.QueryRewriteContext;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.TermQueryBuilder;
@@ -60,6 +63,8 @@ import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
+import org.opensearch.search.SearchService;
+import org.opensearch.search.builder.SearchSourceBuilder;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -515,8 +520,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertTrue(e.getMessage().contains("Radial search is not supported"));
     }
 
-    public void testDoToQuery_whenRadialSearchOnDiskMode_thenException() {
-        // Given: a radial search query on a BQ quantized index (QuantizationConfig != EMPTY)
+    public void testDoToQuery_whenRadialSearchOnUnsupportedQuantizedEncoder_thenException() {
+        // Given: a radial search query on a quantized index whose encoder has no rescoring path (PQ)
         float[] queryVector = { 1.0f };
         KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
             .fieldName(FIELD_NAME)
@@ -559,20 +564,20 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
             .engine(KNNEngine.FAISS)
             .methodName("hnsw")
-            .encoderType(Encoder.EncoderType.SQ)
-            .quantizationBits(Encoder.QuantizationBits.FOUR)
-            .compressionLevel(CompressionLevel.x4)
+            .encoderType(Encoder.EncoderType.PQ)
+            .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
+            .compressionLevel(CompressionLevel.x8)
             .vectorDataType(VectorDataType.FLOAT)
             .dimension(1)
             .build();
         when(mockKNNVectorField.getResolvedSpec()).thenReturn(spec);
 
-        // When/Then: BQ (QuantizationConfig != EMPTY) is still blocked for radial search
+        // When/Then: PQ is quantized but not served by the size-bounded rescoring path, so still blocked
         Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
         assertTrue(e.getMessage(), e.getMessage().contains("Radial search is not supported for this configuration"));
     }
 
-    // Given: a Faiss index with unsupported SQ compression level (x4, x8, x16)
+    // Given: a Faiss index with an SQ compression level radial search still rejects (x4 / 7-bit)
     // When: radial search is attempted
     // Then: UnsupportedOperationException is thrown
     public void testDoToQuery_whenRadialSearchOnUnsupportedCompressionLevel_thenException() {
@@ -584,11 +589,10 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         );
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext);
 
-        CompressionLevel[] unsupportedLevels = { CompressionLevel.x4, CompressionLevel.x8, CompressionLevel.x16 };
-        Encoder.QuantizationBits[] unsupportedBits = {
-            Encoder.QuantizationBits.SEVEN,
-            Encoder.QuantizationBits.FOUR,
-            Encoder.QuantizationBits.TWO };
+        // 2-bit (x16) and 4-bit (x8) SQ are now served by the size-bounded rescoring path (#3491),
+        // leaving 7-bit (x4) as the only SQ width still rejected for radial search.
+        CompressionLevel[] unsupportedLevels = { CompressionLevel.x4 };
+        Encoder.QuantizationBits[] unsupportedBits = { Encoder.QuantizationBits.SEVEN };
         for (int i = 0; i < unsupportedLevels.length; i++) {
             CompressionLevel level = unsupportedLevels[i];
             KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
@@ -697,140 +701,6 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         // Then: validation passes — flat method with 32x is recognized as 1-bit SQ
         assertNotNull(query);
         assertTrue(query instanceof RescoreRadialSearchQuery);
-    }
-
-    public void testDoToQuery_whenRadialSearchOnFaissSQ32x_thenException() {
-        float[] queryVector = { 1.0f };
-        Index dummyIndex = new Index("dummy", "dummy");
-        MethodComponentContext methodComponentContext = new MethodComponentContext(
-            org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
-            ImmutableMap.of()
-        );
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext);
-        KNNMappingConfig faissSQ32xMappingConfig = new KNNMappingConfig() {
-            @Override
-            public Optional<KNNMethodContext> getKnnMethodContext() {
-                return Optional.of(knnMethodContext);
-            }
-
-            @Override
-            public int getDimension() {
-                return 1;
-            }
-
-            @Override
-            public CompressionLevel getCompressionLevel() {
-                return CompressionLevel.x32;
-            }
-        };
-        ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
-            .engine(KNNEngine.FAISS)
-            .methodName("hnsw")
-            .encoderType(Encoder.EncoderType.SQ)
-            .quantizationBits(Encoder.QuantizationBits.FOUR)
-            .compressionLevel(CompressionLevel.x32)
-            .vectorDataType(VectorDataType.FLOAT)
-            .dimension(1)
-            .build();
-
-        // Test with maxDistance
-        KNNQueryBuilder knnQueryBuilderWithDistance = KNNQueryBuilder.builder()
-            .fieldName(FIELD_NAME)
-            .vector(queryVector)
-            .maxDistance(MAX_DISTANCE)
-            .build();
-        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
-        KNNVectorFieldType mockKNNVectorField = mockFieldTypeWithDefaultSpec();
-        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(faissSQ32xMappingConfig);
-        when(mockKNNVectorField.getResolvedSpec()).thenReturn(spec);
-        Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithDistance.doToQuery(mockQueryShardContext));
-        assertTrue(e.getMessage(), e.getMessage().contains("Radial search is not supported for this configuration"));
-
-        // Test with minScore
-        KNNQueryBuilder knnQueryBuilderWithScore = KNNQueryBuilder.builder()
-            .fieldName(FIELD_NAME)
-            .vector(queryVector)
-            .minScore(MIN_SCORE)
-            .build();
-        QueryShardContext mockQueryShardContext2 = mock(QueryShardContext.class);
-        KNNVectorFieldType mockKNNVectorField2 = mockFieldTypeWithDefaultSpec();
-        when(mockQueryShardContext2.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField2.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        when(mockQueryShardContext2.fieldMapper(anyString())).thenReturn(mockKNNVectorField2);
-        when(mockKNNVectorField2.getKnnMappingConfig()).thenReturn(faissSQ32xMappingConfig);
-        when(mockKNNVectorField2.getResolvedSpec()).thenReturn(spec);
-        Exception e2 = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithScore.doToQuery(mockQueryShardContext2));
-        assertTrue(e2.getMessage(), e2.getMessage().contains("Radial search is not supported for this configuration"));
-    }
-
-    public void testDoToQuery_whenRadialSearchOnLuceneSQ32x_thenException() {
-        float[] queryVector = { 1.0f };
-        Index dummyIndex = new Index("dummy", "dummy");
-        MethodComponentContext methodComponentContext = new MethodComponentContext(
-            org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
-            ImmutableMap.of()
-        );
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
-        KNNMappingConfig luceneSQ32xMappingConfig = new KNNMappingConfig() {
-            @Override
-            public Optional<KNNMethodContext> getKnnMethodContext() {
-                return Optional.of(knnMethodContext);
-            }
-
-            @Override
-            public int getDimension() {
-                return 1;
-            }
-
-            @Override
-            public CompressionLevel getCompressionLevel() {
-                return CompressionLevel.x32;
-            }
-        };
-        ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
-            .engine(KNNEngine.LUCENE)
-            .methodName("hnsw")
-            .encoderType(Encoder.EncoderType.SQ)
-            .quantizationBits(Encoder.QuantizationBits.FOUR)
-            .compressionLevel(CompressionLevel.x32)
-            .vectorDataType(VectorDataType.FLOAT)
-            .dimension(1)
-            .build();
-
-        // Test with maxDistance
-        KNNQueryBuilder knnQueryBuilderWithDistance = KNNQueryBuilder.builder()
-            .fieldName(FIELD_NAME)
-            .vector(queryVector)
-            .maxDistance(MAX_DISTANCE)
-            .build();
-        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
-        KNNVectorFieldType mockKNNVectorField = mockFieldTypeWithDefaultSpec();
-        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(luceneSQ32xMappingConfig);
-        when(mockKNNVectorField.getResolvedSpec()).thenReturn(spec);
-        Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithDistance.doToQuery(mockQueryShardContext));
-        assertTrue(e.getMessage(), e.getMessage().contains("Radial search is not supported for this configuration"));
-
-        // Test with minScore
-        KNNQueryBuilder knnQueryBuilderWithScore = KNNQueryBuilder.builder()
-            .fieldName(FIELD_NAME)
-            .vector(queryVector)
-            .minScore(MIN_SCORE)
-            .build();
-        QueryShardContext mockQueryShardContext2 = mock(QueryShardContext.class);
-        KNNVectorFieldType mockKNNVectorField2 = mockFieldTypeWithDefaultSpec();
-        when(mockQueryShardContext2.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField2.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        when(mockQueryShardContext2.fieldMapper(anyString())).thenReturn(mockKNNVectorField2);
-        when(mockKNNVectorField2.getKnnMappingConfig()).thenReturn(luceneSQ32xMappingConfig);
-        when(mockKNNVectorField2.getResolvedSpec()).thenReturn(spec);
-        Exception e2 = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilderWithScore.doToQuery(mockQueryShardContext2));
-        assertTrue(e2.getMessage(), e2.getMessage().contains("Radial search is not supported for this configuration"));
     }
 
     public void testDoToQuery_whenRadialSearchOnLuceneFlat32x_thenException() {
@@ -1398,6 +1268,43 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertSerialization(Version.CURRENT, Optional.empty(), K, null, null, null, RescoreContext.getDefault());
     }
 
+    /**
+     * The request window size is gated on the version of the individual stream, so it round-trips to a
+     * current-version node and is silently dropped when written to a node that predates the field. In the
+     * dropped case the receiving node sees {@code null} and falls back to the {@code max_result_window}
+     * bound, which is the pre-feature behavior.
+     */
+    public void testSizeSerialization() throws Exception {
+        assertSizeSerialization(Version.CURRENT, 42, 42);
+        assertSizeSerialization(Version.CURRENT, null, null);
+        assertSizeSerialization(Version.V_3_8_0, 42, null);
+    }
+
+    private void assertSizeSerialization(final Version version, final Integer size, final Integer expectedSize) throws Exception {
+        final KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(QUERY_VECTOR)
+            .maxDistance(MAX_DISTANCE)
+            .size(size)
+            .build();
+        assertEquals(size, knnQueryBuilder.getSize());
+
+        final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
+        knnClusterUtil.initialize(mockClusterService(version), mock(IndexNameExpressionResolver.class));
+
+        try (BytesStreamOutput output = new BytesStreamOutput()) {
+            output.setVersion(version);
+            output.writeNamedWriteable(knnQueryBuilder);
+
+            try (StreamInput in = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry())) {
+                in.setVersion(version);
+                final KNNQueryBuilder deserialized = (KNNQueryBuilder) in.readNamedWriteable(QueryBuilder.class);
+                assertEquals(expectedSize, deserialized.getSize());
+                assertEquals(MAX_DISTANCE.floatValue(), deserialized.getMaxDistance(), 0.0f);
+            }
+        }
+    }
+
     private void assertSerialization(
         final Version version,
         final Optional<QueryBuilder> queryBuilderOptional,
@@ -1707,6 +1614,146 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         // Then
         assertEquals(expected, actual);
+    }
+
+    /**
+     * The coordinating-node rewrite is the only place a query builder can see the enclosing search request,
+     * so it is where the radial window gets stamped.
+     */
+    @SneakyThrows
+    public void testDoRewrite_whenRadialQueryOnCoordinator_thenStampsSize() {
+        final KNNQueryBuilder radial = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(QUERY_VECTOR)
+            .maxDistance(MAX_DISTANCE)
+            .build();
+
+        final KNNQueryBuilder rewritten = (KNNQueryBuilder) radial.rewrite(coordinatorContext(new SearchSourceBuilder().size(25)));
+
+        assertEquals(Integer.valueOf(25), rewritten.getSize());
+        assertNull("the original builder must not be mutated", radial.getSize());
+    }
+
+    /**
+     * Unlike the shard-side {@code ApproximateScoreQuery} hook, which core only applies to the root query,
+     * the rewrite recurses through compound queries — this is the case that motivated the whole approach.
+     */
+    @SneakyThrows
+    public void testDoRewrite_whenRadialQueryNestedInBool_thenStampsSize() {
+        final KNNQueryBuilder radial = KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).minScore(MIN_SCORE).build();
+        final BoolQueryBuilder bool = new BoolQueryBuilder().must(new MatchAllQueryBuilder()).must(radial);
+
+        final BoolQueryBuilder rewritten = (BoolQueryBuilder) bool.rewrite(coordinatorContext(new SearchSourceBuilder().size(30)));
+
+        final KNNQueryBuilder rewrittenRadial = (KNNQueryBuilder) rewritten.must().get(1);
+        assertEquals(Integer.valueOf(30), rewrittenRadial.getSize());
+    }
+
+    /**
+     * {@code from} is deliberately excluded from the window, matching how top-k treats it: {@code k}
+     * bounds what a shard produces regardless of which page was asked for.
+     */
+    @SneakyThrows
+    public void testDoRewrite_whenFromIsSet_thenFromIsIgnored() {
+        final KNNQueryBuilder radial = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(QUERY_VECTOR)
+            .maxDistance(MAX_DISTANCE)
+            .build();
+
+        final KNNQueryBuilder rewritten = (KNNQueryBuilder) radial.rewrite(coordinatorContext(new SearchSourceBuilder().from(90).size(10)));
+
+        assertEquals(Integer.valueOf(10), rewritten.getSize());
+    }
+
+    /** An unset size means core will apply its own default, so the window has to match that default. */
+    @SneakyThrows
+    public void testDoRewrite_whenSizeUnset_thenUsesCoreDefaults() {
+        final KNNQueryBuilder radial = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(QUERY_VECTOR)
+            .maxDistance(MAX_DISTANCE)
+            .build();
+
+        final KNNQueryBuilder rewritten = (KNNQueryBuilder) radial.rewrite(coordinatorContext(new SearchSourceBuilder()));
+
+        assertEquals(Integer.valueOf(SearchService.DEFAULT_SIZE), rewritten.getSize());
+    }
+
+    /** size: 0 is an aggregation-only request, so there is no top-hits window to bound. */
+    @SneakyThrows
+    public void testDoRewrite_whenSizeIsZero_thenLeavesSizeUnset() {
+        final KNNQueryBuilder radial = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(QUERY_VECTOR)
+            .maxDistance(MAX_DISTANCE)
+            .build();
+
+        final QueryBuilder rewritten = radial.rewrite(coordinatorContext(new SearchSourceBuilder().size(0)));
+
+        assertNull(((KNNQueryBuilder) rewritten).getSize());
+    }
+
+    @SneakyThrows
+    public void testDoRewrite_whenTopKQuery_thenLeavesSizeUnset() {
+        final KNNQueryBuilder topK = KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).k(K).build();
+
+        final QueryBuilder rewritten = topK.rewrite(coordinatorContext(new SearchSourceBuilder().size(25)));
+
+        assertNull(((KNNQueryBuilder) rewritten).getSize());
+    }
+
+    /**
+     * Core rewrites to a fixed point, so a builder that already carries a window must rewrite to itself or
+     * the rewrite loop never terminates.
+     */
+    @SneakyThrows
+    public void testDoRewrite_whenSizeAlreadySet_thenIsIdempotent() {
+        final KNNQueryBuilder radial = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(QUERY_VECTOR)
+            .maxDistance(MAX_DISTANCE)
+            .size(42)
+            .build();
+
+        final QueryBuilder rewritten = radial.rewrite(coordinatorContext(new SearchSourceBuilder().size(25)));
+
+        assertSame(radial, rewritten);
+        assertEquals(Integer.valueOf(42), ((KNNQueryBuilder) rewritten).getSize());
+    }
+
+    /** Percolate, delete_by_query and _validate/query rewrite without a coordinator context. */
+    @SneakyThrows
+    public void testDoRewrite_whenNoCoordinatorContext_thenLeavesSizeUnset() {
+        final KNNQueryBuilder radial = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(QUERY_VECTOR)
+            .maxDistance(MAX_DISTANCE)
+            .build();
+
+        final QueryBuilder rewritten = radial.rewrite(mock(QueryRewriteContext.class));
+
+        assertNull(((KNNQueryBuilder) rewritten).getSize());
+    }
+
+    @SneakyThrows
+    public void testDoRewrite_whenNoSource_thenLeavesSizeUnset() {
+        final KNNQueryBuilder radial = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(QUERY_VECTOR)
+            .maxDistance(MAX_DISTANCE)
+            .build();
+
+        final QueryBuilder rewritten = radial.rewrite(coordinatorContext(null));
+
+        assertNull(((KNNQueryBuilder) rewritten).getSize());
+    }
+
+    private static QueryRewriteContext coordinatorContext(final SearchSourceBuilder source) {
+        final QueryCoordinatorContext context = mock(QueryCoordinatorContext.class);
+        when(context.convertToCoordinatorContext()).thenReturn(context);
+        when(context.getSearchRequest()).thenReturn(source == null ? new SearchRequest() : new SearchRequest().source(source));
+        return context;
     }
 
     @SneakyThrows
