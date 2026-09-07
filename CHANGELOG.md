@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased 3.8](https://github.com/opensearch-project/k-NN/compare/main...HEAD)
 ### Features
+* Add sandbox module as an incubation environment for experimental algorithms [#3296](https://github.com/opensearch-project/k-NN/pull/3296)
 * Add rescoring phase after radial search on quantized index [#3347](https://github.com/opensearch-project/k-NN/pull/3347)
 * Add base64 encoded vector indexing support for knn_vector fields [#3350](https://github.com/opensearch-project/k-NN/pull/3350)
 
