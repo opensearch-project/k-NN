@@ -6,12 +6,11 @@
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
 import lombok.SneakyThrows;
-import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
 import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.search.VectorScorer;
-import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
 import org.opensearch.knn.KNNTestCase;
 
 import static org.mockito.Mockito.mock;
@@ -62,6 +61,8 @@ public class ScalarQuantizedFloatVectorValuesTests extends KNNTestCase {
 
         assertNotSame(wrapper, copied);
         assertTrue(copied instanceof ScalarQuantizedFloatVectorValues);
+        assertSame(fvvCopy, ((ScalarQuantizedFloatVectorValues) copied).getFloatVectorValues());
+        assertSame(qbvvCopy, ((ScalarQuantizedFloatVectorValues) copied).getQuantizedVectorValues());
         verify(fvv).copy();
         verify(qbvv).copy();
     }
@@ -77,7 +78,7 @@ public class ScalarQuantizedFloatVectorValuesTests extends KNNTestCase {
 
         assertNotSame(wrapper, copied);
         assertTrue(copied instanceof ScalarQuantizedFloatVectorValues);
-        assertNull(((ScalarQuantizedFloatVectorValues) copied).getSlice());
+        assertNull(((ScalarQuantizedFloatVectorValues) copied).getQuantizedVectorValues());
         verify(fvv).copy();
     }
 
@@ -90,27 +91,32 @@ public class ScalarQuantizedFloatVectorValuesTests extends KNNTestCase {
         verify(fvv).getEncoding();
     }
 
-    @SneakyThrows
-    public void testGetSlice_thenReturnsSliceFromQuantizedValues() {
+    public void testGetFloatVectorValues_thenReturnsConstructorArg() {
+        FloatVectorValues fvv = mock(FloatVectorValues.class);
         QuantizedByteVectorValues qbvv = mock(QuantizedByteVectorValues.class);
-        IndexInput expectedSlice = mock(IndexInput.class);
-        when(qbvv.getSlice()).thenReturn(expectedSlice);
-
-        var wrapper = new ScalarQuantizedFloatVectorValues(mock(FloatVectorValues.class), qbvv);
-        assertSame(expectedSlice, wrapper.getSlice());
-        verify(qbvv).getSlice();
+        var wrapper = new ScalarQuantizedFloatVectorValues(fvv, qbvv);
+        assertSame(fvv, wrapper.getFloatVectorValues());
     }
 
-    public void testGetSlice_whenQuantizedValuesAreNull_thenReturnsNull() {
+    public void testGetQuantizedVectorValues_thenReturnsConstructorArg() {
+        FloatVectorValues fvv = mock(FloatVectorValues.class);
+        QuantizedByteVectorValues qbvv = mock(QuantizedByteVectorValues.class);
+        var wrapper = new ScalarQuantizedFloatVectorValues(fvv, qbvv);
+        assertSame(qbvv, wrapper.getQuantizedVectorValues());
+    }
+
+    public void testGetQuantizedVectorValues_whenNull_thenReturnsNull() {
         var wrapper = new ScalarQuantizedFloatVectorValues(mock(FloatVectorValues.class), null);
-
-        assertNull(wrapper.getSlice());
+        assertNull(wrapper.getQuantizedVectorValues());
     }
 
-    @SneakyThrows
-    public void testImplementsHasIndexSlice() {
+    public void testDoesNotImplementHasIndexSlice() {
         var wrapper = new ScalarQuantizedFloatVectorValues(mock(FloatVectorValues.class), mock(QuantizedByteVectorValues.class));
-        assertTrue(wrapper instanceof HasIndexSlice);
+        assertFalse(
+            "Wrapper must not implement HasIndexSlice because its vectorValue() reads .vec while the quantized slice"
+                + " points at .veq — a mismatch that misleads generic prefetch consumers.",
+            wrapper instanceof HasIndexSlice
+        );
     }
 
     @SneakyThrows
@@ -125,14 +131,20 @@ public class ScalarQuantizedFloatVectorValuesTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testScorer_thenDelegatesToFloatVectorValues() {
-        FloatVectorValues fvv = mock(FloatVectorValues.class);
+    public void testScorer_thenDelegatesToQuantizedValues() {
+        QuantizedByteVectorValues qbvv = mock(QuantizedByteVectorValues.class);
         VectorScorer expectedScorer = mock(VectorScorer.class);
         float[] target = { 1.0f, 2.0f };
-        when(fvv.scorer(target)).thenReturn(expectedScorer);
+        when(qbvv.scorer(target)).thenReturn(expectedScorer);
 
-        var wrapper = new ScalarQuantizedFloatVectorValues(fvv, mock(QuantizedByteVectorValues.class));
+        var wrapper = new ScalarQuantizedFloatVectorValues(mock(FloatVectorValues.class), qbvv);
         assertSame(expectedScorer, wrapper.scorer(target));
-        verify(fvv).scorer(target);
+        verify(qbvv).scorer(target);
+    }
+
+    @SneakyThrows
+    public void testScorer_whenQuantizedValuesAreNull_thenReturnsNull() {
+        var wrapper = new ScalarQuantizedFloatVectorValues(mock(FloatVectorValues.class), null);
+        assertNull(wrapper.scorer(new float[] { 1.0f, 2.0f }));
     }
 }

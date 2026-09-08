@@ -23,7 +23,8 @@ public interface CodecFormatResolver {
      * @param params                the method component parameters; may be null
      * @param defaultMaxConnections default max connections for HNSW
      * @param defaultBeamWidth      default beam width for HNSW
-     * @param resolvedSpec          the resolved index spec
+     * @param resolvedSpec          the resolved index spec; implementations can derive
+     *                              {@code compressionLevel} from it via {@code resolvedSpec.getCompressionLevel()}
      * @return the resolved {@link KnnVectorsFormat}
      */
     KnnVectorsFormat resolve(

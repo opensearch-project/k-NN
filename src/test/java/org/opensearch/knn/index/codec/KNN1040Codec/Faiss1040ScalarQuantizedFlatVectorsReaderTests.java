@@ -8,7 +8,6 @@ package org.opensearch.knn.index.codec.KNN1040Codec;
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
-import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
@@ -67,7 +66,7 @@ public class Faiss1040ScalarQuantizedFlatVectorsReaderTests extends KNNTestCase 
     }
 
     @SneakyThrows
-    public void testGetFloatVectorValues_thenReturnsWrappedValuesWithHasIndexSlice() {
+    public void testGetFloatVectorValues_thenReturnsWrappedValuesWithBothDelegates() {
         FlatVectorsReader delegate = mock(FlatVectorsReader.class);
         FloatVectorValues mockFvv = mock(FloatVectorValues.class);
         QuantizedByteVectorValues mockQbvv = mock(QuantizedByteVectorValues.class);
@@ -80,8 +79,10 @@ public class Faiss1040ScalarQuantizedFlatVectorsReaderTests extends KNNTestCase 
             Faiss1040ScalarQuantizedFlatVectorsReader reader = new Faiss1040ScalarQuantizedFlatVectorsReader(delegate);
             FloatVectorValues result = reader.getFloatVectorValues("field");
 
-            assertTrue("Result should implement HasIndexSlice", result instanceof HasIndexSlice);
             assertTrue("Result should be ScalarQuantizedFloatVectorValues", result instanceof ScalarQuantizedFloatVectorValues);
+            ScalarQuantizedFloatVectorValues wrapper = (ScalarQuantizedFloatVectorValues) result;
+            assertSame(mockFvv, wrapper.getFloatVectorValues());
+            assertSame(mockQbvv, wrapper.getQuantizedVectorValues());
             verify(delegate).getFloatVectorValues("field");
             mockedUtils.verify(() -> KNN1040ScalarQuantizedUtils.extractQuantizedByteVectorValues(mockFvv));
         }
@@ -99,8 +100,9 @@ public class Faiss1040ScalarQuantizedFlatVectorsReaderTests extends KNNTestCase 
             FloatVectorValues result = reader.getFloatVectorValues("field");
 
             assertTrue(result instanceof ScalarQuantizedFloatVectorValues);
-            assertTrue(result instanceof HasIndexSlice);
-            assertNull(((HasIndexSlice) result).getSlice());
+            ScalarQuantizedFloatVectorValues wrapper = (ScalarQuantizedFloatVectorValues) result;
+            assertSame(emptyValues, wrapper.getFloatVectorValues());
+            assertNull(wrapper.getQuantizedVectorValues());
             assertEquals(0, result.size());
             verify(delegate).getFloatVectorValues("field");
             mockedUtils.verifyNoInteractions();

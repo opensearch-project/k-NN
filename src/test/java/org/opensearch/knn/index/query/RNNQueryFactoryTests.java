@@ -7,6 +7,7 @@ package org.opensearch.knn.index.query;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_LUCENE_RADIAL_SEARCH_DECAY;
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
@@ -27,8 +28,10 @@ import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.TermQueryBuilder;
+import org.mockito.MockedStatic;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.Version;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -36,6 +39,8 @@ import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
+import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.indices.ModelDao;
 
 public class RNNQueryFactoryTests extends KNNTestCase {
@@ -276,13 +281,139 @@ public class RNNQueryFactoryTests extends KNNTestCase {
         assertEquals(testFieldName, rescoreQuery.getField());
         assertEquals(testRadius, rescoreQuery.getRadius(), 0.0f);
         // maxResultsSize should come from IndexSettings.getMaxResultWindow()
-        assertEquals(maxResultWindow, rescoreQuery.getMaxResultsSize());
     }
 
-    // Given: rescoring is required but no QueryShardContext is present
+    // Given: memory-optimized Faiss radial search on a quantized field, with the coordinator-resolved
+    // request window available
     // When: RNNQueryFactory creates the query
-    // Then: maxResultsSize falls back to MAX_RESULTS_RADIAL_RESCORING
-    public void testCreate_whenRescoringRequired_andNoContext_thenUsesDefaultMaxResultsSize() {
+    // Then: the first pass is an oversampled top-k search bounded by the window, not an unbounded radial scan
+    public void testCreate_whenMemoryOptimizedFaissSQ32x_thenBoundsFirstPassToRequestWindow() {
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        KNNVectorFieldType mockFieldType = mock(KNNVectorFieldType.class);
+        when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
+        when(indexSettings.getMaxResultWindow()).thenReturn(maxResultWindow);
+        when(mockFieldType.getResolvedSpec()).thenReturn(sqOneBitSpec());
+
+        final RescoreContext rescoreContext = sqOneBitSpec().getRescoreContext();
+        final int size = 25;
+        final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.FAISS)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .radius(testRadius)
+            .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+            .context(mockQueryShardContext)
+            .vectorFieldType(mockFieldType)
+            .memoryOptimizedSearchEnabled(true)
+            .rescoreContext(rescoreContext)
+            .size(size)
+            .build();
+
+        final Query query;
+        try (MockedStatic<KNNSettings> knnSettingsMockedStatic = mockStatic(KNNSettings.class)) {
+            knnSettingsMockedStatic.when(() -> KNNSettings.getEfSearchParam(any())).thenReturn(100);
+            query = RNNQueryFactory.create(createQueryRequest);
+        }
+
+        assertTrue(query instanceof RescoreRadialSearchQuery);
+        RescoreRadialSearchQuery rescoreQuery = (RescoreRadialSearchQuery) query;
+        // 25 * 2 = 50, where 2x is the fixed oversample factor SQ 1-bit resolves to.
+        final int expectedFirstPassK = (int) Math.ceil(size * rescoreContext.getOversampleFactor());
+        assertEquals(50, expectedFirstPassK);
+        assertEquals(expectedFirstPassK, rescoreQuery.getFirstPassK());
+        // The first pass is now a bounded top-k query rather than a radial one. Memory-optimized Faiss
+        // top-k search is wrapped in NativeEngineKnnVectorQuery.
+        assertTrue(rescoreQuery.getInnerQuery() instanceof NativeEngineKnnVectorQuery);
+        final KNNQuery firstPassQuery = ((NativeEngineKnnVectorQuery) rescoreQuery.getInnerQuery()).getKnnQuery();
+        assertEquals(expectedFirstPassK, firstPassQuery.getK());
+        assertNull(firstPassQuery.getRadius());
+    }
+
+    // Given: a request window large enough that window * oversample_factor exceeds MAX_FIRST_PASS_RESULTS
+    // When: RNNQueryFactory creates the query
+    // Then: the first pass is capped at MAX_FIRST_PASS_RESULTS * oversample_factor, so a deep page can still
+    // surface MAX_FIRST_PASS_RESULTS documents after rescoring rather than silently returning fewer
+    public void testCreate_whenRequestWindowExceedsFirstPassCap_thenCapScalesWithOversampleFactor() {
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        KNNVectorFieldType mockFieldType = mock(KNNVectorFieldType.class);
+        when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
+        when(indexSettings.getMaxResultWindow()).thenReturn(100_000);
+        when(mockFieldType.getResolvedSpec()).thenReturn(sqOneBitSpec());
+
+        // The resolved SQ 1-bit rescore context, which is what KNNQueryBuilder#doToQuery passes in production.
+        final RescoreContext rescoreContext = sqOneBitSpec().getRescoreContext();
+        final int size = RescoreContext.MAX_FIRST_PASS_RESULTS * 2;
+        final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.FAISS)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .radius(testRadius)
+            .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+            .context(mockQueryShardContext)
+            .vectorFieldType(mockFieldType)
+            .memoryOptimizedSearchEnabled(true)
+            .rescoreContext(rescoreContext)
+            .size(size)
+            .build();
+
+        final Query query;
+        try (MockedStatic<KNNSettings> knnSettingsMockedStatic = mockStatic(KNNSettings.class)) {
+            knnSettingsMockedStatic.when(() -> KNNSettings.getEfSearchParam(any())).thenReturn(100);
+            query = RNNQueryFactory.create(createQueryRequest);
+        }
+
+        // SQ 1-bit pins the factor at 2x and disables the dimension-based override.
+        assertEquals(RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR, rescoreContext.getOversampleFactor(), 0.0f);
+        final int expectedCap = (int) Math.ceil(
+            RescoreContext.MAX_FIRST_PASS_RESULTS * RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR
+        );
+        final RescoreRadialSearchQuery rescoreQuery = (RescoreRadialSearchQuery) query;
+
+        assertEquals(expectedCap, rescoreQuery.getFirstPassK());
+        assertTrue("the cap must scale past MAX_FIRST_PASS_RESULTS", expectedCap > RescoreContext.MAX_FIRST_PASS_RESULTS);
+        // The window itself is not capped — rescoring truncates to it, and it is already bounded by max_result_window.
+    }
+
+    // Given: memory-optimized Faiss radial search on a quantized field, with no request window resolved
+    // (an older coordinator, or a request the window processor declined to handle)
+    // When: RNNQueryFactory creates the query
+    // Then: it falls back to the unbounded radial first pass capped by max_result_window
+    public void testCreate_whenMemoryOptimizedFaissSQ32xAndNoRequestWindow_thenFallsBackToMaxResultWindow() {
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        KNNVectorFieldType mockFieldType = mock(KNNVectorFieldType.class);
+        when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
+        when(indexSettings.getMaxResultWindow()).thenReturn(maxResultWindow);
+        when(mockFieldType.getResolvedSpec()).thenReturn(sqOneBitSpec());
+
+        final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.FAISS)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .radius(testRadius)
+            .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+            .context(mockQueryShardContext)
+            .vectorFieldType(mockFieldType)
+            .memoryOptimizedSearchEnabled(true)
+            .build();
+
+        Query query = RNNQueryFactory.create(createQueryRequest);
+
+        assertTrue(query instanceof RescoreRadialSearchQuery);
+        RescoreRadialSearchQuery rescoreQuery = (RescoreRadialSearchQuery) query;
+        assertEquals(maxResultWindow, rescoreQuery.getFirstPassK());
+        assertEquals(testRadius.floatValue(), ((KNNQuery) rescoreQuery.getInnerQuery()).getRadius().floatValue(), 0.0f);
+    }
+
+    // Given: quantized Lucene radial search without a QueryShardContext and without a request window
+    // When: RNNQueryFactory creates the query
+    // Then: the radial rescore query is capped by the MAX_RESULTS_RADIAL_RESCORING fallback
+    public void testCreate_whenRescoringRequiredAndNoContext_thenUsesRescoringFallbackLimit() {
         KNNVectorFieldType mockFieldType = mock(KNNVectorFieldType.class);
         when(mockFieldType.getResolvedSpec()).thenReturn(sqOneBitSpec());
 
@@ -299,22 +430,20 @@ public class RNNQueryFactoryTests extends KNNTestCase {
         Query query = RNNQueryFactory.create(createQueryRequest);
 
         assertTrue(query instanceof RescoreRadialSearchQuery);
-        RescoreRadialSearchQuery rescoreQuery = (RescoreRadialSearchQuery) query;
-        assertEquals(MAX_RESULTS_RADIAL_RESCORING, rescoreQuery.getMaxResultsSize());
+        assertEquals(MAX_RESULTS_RADIAL_RESCORING, ((RescoreRadialSearchQuery) query).getFirstPassK());
     }
 
-    // Given: rescoring is required and IndexSettings has a custom maxResultWindow (e.g. 500)
+    // Given: quantized Lucene radial search with a custom max_result_window and no request window
     // When: RNNQueryFactory creates the query
-    // Then: maxResultsSize is set to that custom value
-    public void testCreate_whenRescoringRequired_andCustomMaxResultWindow_thenUsesCustomValue() {
-        int customMaxResultWindow = 500;
+    // Then: the radial rescore query is capped by the index's max_result_window
+    public void testCreate_whenRescoringRequiredAndCustomMaxResultWindow_thenUsesMaxResultWindow() {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         IndexSettings indexSettings = mock(IndexSettings.class);
         MappedFieldType testMapper = mock(MappedFieldType.class);
         KNNVectorFieldType mockFieldType = mock(KNNVectorFieldType.class);
         when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
         when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
-        when(indexSettings.getMaxResultWindow()).thenReturn(customMaxResultWindow);
+        when(indexSettings.getMaxResultWindow()).thenReturn(500);
         when(mockFieldType.getResolvedSpec()).thenReturn(sqOneBitSpec());
 
         final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
@@ -331,12 +460,10 @@ public class RNNQueryFactoryTests extends KNNTestCase {
         Query query = RNNQueryFactory.create(createQueryRequest);
 
         assertTrue(query instanceof RescoreRadialSearchQuery);
-        RescoreRadialSearchQuery rescoreQuery = (RescoreRadialSearchQuery) query;
-        assertEquals(customMaxResultWindow, rescoreQuery.getMaxResultsSize());
+        assertEquals(500, ((RescoreRadialSearchQuery) query).getFirstPassK());
     }
 
-    // Verify that Lucene radial search with 32x SQ wraps the inner FloatVectorSimilarityQuery
-    // in RescoreRadialSearchQuery.
+    // Verify that quantized Lucene radial search wraps in the radial rescore query on every Lucene engine.
     public void testCreate_whenLuceneSQ32x_thenWrapsInRescoreRadialSearchQuery() {
         List<KNNEngine> luceneEngines = Arrays.stream(KNNEngine.values())
             .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
@@ -359,10 +486,6 @@ public class RNNQueryFactoryTests extends KNNTestCase {
             Query query = RNNQueryFactory.create(createQueryRequest);
 
             assertTrue(query instanceof RescoreRadialSearchQuery);
-            RescoreRadialSearchQuery rescoreQuery = (RescoreRadialSearchQuery) query;
-            assertTrue(rescoreQuery.getInnerQuery() instanceof FloatVectorSimilarityQuery);
-            assertEquals(testFieldName, rescoreQuery.getField());
-            assertEquals(testRadius, rescoreQuery.getRadius(), 0.0f);
         }
     }
 

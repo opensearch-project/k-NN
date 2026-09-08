@@ -1689,6 +1689,257 @@ public class FaissIT extends KNNCompressionRestTestCase {
     }
 
     @SneakyThrows
+    public void testFilteredExactSearch_withModelBasedInnerProduct_thenScoresUseInnerProduct() {
+        assertModelBasedFilteredExactSearchScores("innerproduct", SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
+    }
+
+    @SneakyThrows
+    public void testFilteredExactSearch_withModelBasedCosine_thenScoresUseCosine() {
+        assertModelBasedFilteredExactSearchScores("cosinesimil", SpaceType.COSINESIMIL, VectorDataType.FLOAT);
+    }
+
+    @SneakyThrows
+    public void testFilteredExactSearch_withModelBasedByteInnerProduct_thenScoresUseInnerProduct() {
+        assertModelBasedFilteredExactSearchScores("innerproduct", SpaceType.INNER_PRODUCT, VectorDataType.BYTE);
+    }
+
+    @SneakyThrows
+    public void testFilteredExactSearch_withModelBasedL2_thenScoresUseL2() {
+        assertModelBasedFilteredExactSearchScores("l2", SpaceType.L2, VectorDataType.FLOAT);
+    }
+
+    @SneakyThrows
+    public void testFilteredRadialSearch_withModelBasedInnerProduct_thenUsesInnerProductThreshold() {
+        String modelId = "test-model-radial-ip";
+        String trainingIndexName = "train-index-radial-ip";
+        String trainingFieldName = "train-field";
+        String indexName = "test-index-radial-ip";
+        String fieldName = "test-field-name";
+        String filterField = "color";
+        int dimension = 2;
+
+        // Same vectors, query and min_score expectation as the Faiss_IP case in RadialSearchIT, which
+        // only covers method based fields. Inner product scores are 2.0, 1.8, 1.3 and 1.0.
+        // A radius is set, so exact search is reached through KNNWeight#isMaxDistCompGreaterThanEstimatedDistComp
+        // rather than the filter count check.
+        float[][] vectors = { { 1.0f, 0.0f }, { 0.8f, 0.1f }, { 0.3f, 0.3f }, { 0.0f, 1.0f } };
+        float[] queryVector = { 1.0f, 0.0f };
+        float minScore = 1.4f;
+
+        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
+        bulkIngestRandomVectors(trainingIndexName, trainingFieldName, 1100, dimension);
+
+        XContentBuilder method = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, "ivf")
+            .field(KNN_ENGINE, "faiss")
+            .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, 1)
+            .endObject()
+            .endObject();
+        trainModel(modelId, trainingIndexName, trainingFieldName, dimension, xContentBuilderToMap(method), "faiss ivf innerproduct");
+        assertTrainingSucceeds(modelId, 30, 1000);
+
+        String indexMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field(MODEL_ID, modelId)
+            .endObject()
+            .startObject(filterField)
+            .field("type", "keyword")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+        createKnnIndex(indexName, getKNNDefaultIndexSettings(), indexMapping);
+
+        final List<KNNResult> results;
+        try {
+            for (int i = 0; i < vectors.length; i++) {
+                addKnnDocWithAttributes(indexName, Integer.toString(i), fieldName, vectors[i], ImmutableMap.of(filterField, "red"));
+            }
+
+            XContentBuilder query = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("query")
+                .startObject("knn")
+                .startObject(fieldName)
+                .field("vector", queryVector)
+                .field("min_score", minScore)
+                .startObject("filter")
+                .startObject("term")
+                .field(filterField, "red")
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+
+            Response radialResponse = searchKNNIndex(indexName, query, 10);
+            results = parseSearchResponse(EntityUtils.toString(radialResponse.getEntity()), fieldName);
+        } finally {
+            // The model cannot be deleted while an index still refers to it, so clean up before asserting.
+            deleteKNNIndex(indexName);
+            deleteKNNIndex(trainingIndexName);
+            deleteModel(modelId);
+        }
+
+        // The threshold is derived from the model's space type while the documents are scored by the exact
+        // searcher. Scoring with L2 caps every score at 1.0, so a threshold of 1.4 would match nothing.
+        assertEquals(2, results.size());
+        for (KNNResult result : results) {
+            float expected = SpaceType.INNER_PRODUCT.getKnnVectorSimilarityFunction().compare(queryVector, result.getVector());
+            assertTrue("returned doc " + result.getDocId() + " is below the min_score threshold", expected >= minScore);
+            assertEquals(expected, result.getScore(), 0.0001f);
+        }
+    }
+
+    /**
+     * Builds a model based faiss IVF index for the given space type and data type, then checks that a
+     * filtered query which falls back to exact search scores with that space type. A model based field
+     * records the default similarity function rather than the trained model's space type, so the exact
+     * search path has to score with the space type it resolves rather than the recorded function.
+     */
+    private void assertModelBasedFilteredExactSearchScores(String spaceTypeName, SpaceType spaceType, VectorDataType dataType)
+        throws Exception {
+        String suffix = spaceTypeName + "-" + dataType.getValue();
+        String modelId = "test-model-" + suffix;
+        String trainingIndexName = "train-index-" + suffix;
+        String trainingFieldName = "train-field";
+        String indexName = "test-index-" + suffix;
+        String fieldName = "test-field-name";
+        int dimension = 8;
+        int numDocs = 20;
+        int firstMatchingRating = 16;
+        // The filter matches 4 of the 20 docs, which satisfies KNNWeight#isFilterIdCountLessThanK and
+        // sends the query down the exact search path.
+        int k = 20;
+
+        String trainingMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(trainingFieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .field(VECTOR_DATA_TYPE_FIELD, dataType.getValue())
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceTypeName)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+        createKnnIndex(trainingIndexName, trainingMapping);
+        if (dataType == VectorDataType.BYTE) {
+            bulkIngestRandomByteVectors(trainingIndexName, trainingFieldName, 1100, dimension);
+        } else {
+            bulkIngestRandomVectors(trainingIndexName, trainingFieldName, 1100, dimension);
+        }
+
+        XContentBuilder trainRequest = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TRAIN_INDEX_PARAMETER, trainingIndexName)
+            .field(TRAIN_FIELD_PARAMETER, trainingFieldName)
+            .field(DIMENSION, dimension)
+            .field(MODEL_DESCRIPTION, "faiss ivf " + suffix)
+            .field(VECTOR_DATA_TYPE_FIELD, dataType.getValue())
+            .field(
+                KNN_METHOD,
+                Map.of(
+                    NAME,
+                    METHOD_IVF,
+                    KNN_ENGINE,
+                    FAISS_NAME,
+                    METHOD_PARAMETER_SPACE_TYPE,
+                    spaceTypeName,
+                    PARAMETERS,
+                    Map.of(METHOD_PARAMETER_NLIST, 1)
+                )
+            )
+            .endObject();
+        trainModel(modelId, trainRequest);
+        assertTrainingSucceeds(modelId, 30, 1000);
+
+        String indexMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field(MODEL_ID, modelId)
+            .endObject()
+            .startObject("rating")
+            .field("type", "integer")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+        createKnnIndex(indexName, getKNNDefaultIndexSettings(), indexMapping);
+
+        float[] queryVector = new float[dimension];
+        for (int j = 0; j < dimension; j++) {
+            queryVector[j] = dataType == VectorDataType.BYTE ? (j % 5) - 2 : ((j * 3) % 7) - 3.0f;
+        }
+
+        final List<KNNResult> results;
+        try {
+            for (int i = 0; i < numDocs; i++) {
+                float[] indexVector = new float[dimension];
+                for (int j = 0; j < dimension; j++) {
+                    int raw = (i * 7 + j * 3) % 11 - 5;
+                    indexVector[j] = dataType == VectorDataType.BYTE ? raw : raw / 10.0f;
+                }
+                addKnnDocWithAttributes(
+                    indexName,
+                    Integer.toString(i),
+                    fieldName,
+                    indexVector,
+                    ImmutableMap.of("rating", String.valueOf(i))
+                );
+            }
+
+            Response filteredResponse = searchKNNIndex(
+                indexName,
+                new KNNQueryBuilder(
+                    fieldName,
+                    queryVector,
+                    k,
+                    QueryBuilders.rangeQuery("rating").gte(firstMatchingRating).lte(numDocs - 1)
+                ),
+                k
+            );
+            results = parseSearchResponse(EntityUtils.toString(filteredResponse.getEntity()), fieldName);
+        } finally {
+            // The model cannot be deleted while an index still refers to it, so clean up before asserting.
+            deleteKNNIndex(indexName);
+            deleteKNNIndex(trainingIndexName);
+            deleteModel(modelId);
+        }
+
+        assertEquals(numDocs - firstMatchingRating, results.size());
+        for (KNNResult result : results) {
+            float expected = spaceType.getKnnVectorSimilarityFunction().compare(queryVector, result.getVector());
+            if (spaceType != SpaceType.L2) {
+                // The defect scored with the recorded default, L2. Guards against a fixture where the two
+                // metrics agree and the assertion below could not fail.
+                float asL2 = SpaceType.L2.getKnnVectorSimilarityFunction().compare(queryVector, result.getVector());
+                assertNotEquals("expected score for doc " + result.getDocId() + " coincides with its L2 score", expected, asL2, 0.0001f);
+            }
+            assertEquals(
+                "score for doc " + result.getDocId() + " does not use space type " + spaceTypeName,
+                expected,
+                result.getScore(),
+                0.0001f
+            );
+        }
+    }
+
+    @SneakyThrows
     public void testQueryWithFilter_withDifferentCombination_thenSuccess() {
         setupKNNIndexForFilterQuery();
         final float[] searchVector = { 6.0f, 6.0f, 4.1f };

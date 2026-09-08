@@ -331,14 +331,15 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
         assertFalse(fieldType.getResolvedSpec().supportsRadialSearch());
     }
 
-    public void testRadialSearchSupport_whenSQOneBit_thenNotSupported() {
-        // SQ 1-bit is a quantized index, so radial search is blocked (#3464) — no exception for 1-bit SQ
-        assertFalse(buildSQOneBitFieldType().getResolvedSpec().supportsRadialSearch());
+    public void testRadialSearchSupport_whenSQOneBit_thenSupported() {
+        // 1/2/4-bit SQ reaches the size-bounded rescoring path, so radial search is allowed again (#3491)
+        assertTrue(buildSQOneBitFieldType().getResolvedSpec().supportsRadialSearch());
     }
 
-    public void testRadialSearchSupport_whenModelBasedQuantized_thenSupported() {
-        // Model-derived specs skip the compression-level restriction (parity with the legacy model-path
-        // validation, which only blocked BQ via QuantizationConfig)
+    public void testRadialSearchSupport_whenQuantizedPQ_thenNotSupportedRegardlessOfProvenance() {
+        // PQ is quantized and has no full-precision rescoring path, so radial search is blocked whether the
+        // spec came from a model or from an explicit method mapping. Model-derived specs used to skip the
+        // compression-level restriction; that exemption is gone.
         ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
             .engine(KNNEngine.FAISS)
             .methodName(METHOD_HNSW)
@@ -349,13 +350,15 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
             .indexVersionCreated(Version.CURRENT)
             .modelBased(true)
             .build();
-        assertTrue(spec.supportsRadialSearch());
-        // The same configuration on a method-mapped field is blocked
+        assertFalse(spec.supportsRadialSearch());
         assertFalse(spec.toBuilder().modelBased(false).build().supportsRadialSearch());
     }
 
-    public void testRadialSearchSupport_whenModelBasedBQ_thenNotSupported() {
-        // BQ remains blocked even for model-derived specs
+    public void testRadialSearchSupport_whenModelBasedBQ_thenSupported() {
+        // BQ radial search is served by the size-bounded rescoring path (#3491). The modelBased flag makes
+        // no difference here because SQ/BQ model-based indices are not creatable: QFrameBitEncoder sets
+        // setRequiresTraining(false) and the mapping-resolved encoders are never trained, so no model
+        // carries a BQ or SQ encoder for the spec to inherit.
         ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
             .engine(KNNEngine.FAISS)
             .methodName(METHOD_HNSW)
@@ -367,6 +370,7 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
             .indexVersionCreated(Version.CURRENT)
             .modelBased(true)
             .build();
-        assertFalse(spec.supportsRadialSearch());
+        assertTrue(spec.supportsRadialSearch());
+        assertTrue(spec.toBuilder().modelBased(false).build().supportsRadialSearch());
     }
 }

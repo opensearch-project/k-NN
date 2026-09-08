@@ -178,4 +178,52 @@ public interface KNNLibrary extends MethodResolver {
     default VectorSearcherFactory getVectorSearcherFactory() {
         return null;
     }
+
+    /**
+     * Whether the library builds its native index incrementally (init + insert batches + write), as opposed to
+     * the one-shot {@code createIndex} path. Drives the build-strategy selection generically rather than by
+     * engine identity.
+     *
+     * @return true if the library supports the iterative (memory-optimized) build path; false otherwise
+     */
+    default boolean supportsIterativeBuild() {
+        return false;
+    }
+
+    /**
+     * Whether the library writes its own custom segment files (with this library's extension) that the codec
+     * must treat specially, as opposed to relying on Lucene's vector format.
+     *
+     * @return true if the library produces custom native segment files; false otherwise
+     */
+    default boolean createsCustomSegmentFiles() {
+        return false;
+    }
+
+    /**
+     * Whether the library supports filtered (pre-filter) k-NN search.
+     *
+     * @return true if the library supports filters; false otherwise
+     */
+    default boolean supportsFilters() {
+        return false;
+    }
+
+    /**
+     * Whether the library supports radial (distance/score threshold) search.
+     *
+     * @return true if the library supports radial search; false otherwise
+     */
+    default boolean supportsRadialSearch() {
+        return false;
+    }
+
+    /**
+     * Whether the library supports k-NN on nested fields.
+     *
+     * @return true if the library supports nested fields; false otherwise
+     */
+    default boolean supportsNestedFields() {
+        return false;
+    }
 }

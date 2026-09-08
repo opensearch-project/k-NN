@@ -42,7 +42,10 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
 
     /**
      * Resolves the format for a specific field. Returns {@link Faiss1040ScalarQuantizedKnnVectorsFormat} when
-     * the encoder is sq with bits=1, otherwise falls back to the default native format.
+     * the encoder is sq with bits in {1, 2, 4} (the multi-bit MOS path), otherwise falls back to the default
+     * native format. The document bit width is resolved per-field at write time by the format itself from
+     * {@code SQ_CONFIG}, so the format instance stays encoding-agnostic and SPI-instantiated instances
+     * cannot silently miswrite fields.
      */
     @Override
     public KnnVectorsFormat resolve(
@@ -53,7 +56,7 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
         int defaultBeamWidth,
         ResolvedIndexSpec resolvedSpec
     ) {
-        if (resolvedSpec.isFaissSQOneBit()) {
+        if (resolvedSpec.isFaissSQMultiBit()) {
             return new Faiss1040ScalarQuantizedKnnVectorsFormat(
                 KNNSettings.getApproximateThresholdValue(mapperService),
                 nativeIndexBuildStrategyFactory

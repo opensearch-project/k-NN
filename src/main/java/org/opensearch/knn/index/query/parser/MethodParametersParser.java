@@ -20,12 +20,15 @@ import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.request.MethodParameter;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -50,7 +53,8 @@ public class MethodParametersParser {
                 if (validationException != null) {
                     errors.add(validationException.getMessage());
                 }
-            } else { // Should never happen if used in the right sequence
+            } else if (!KNNEngine.isEngineContributedQueryParameter(methodParameter.getKey())) {
+                // Should never happen if used in the right sequence
                 errors.add(methodParameter.getKey() + " is not a valid method parameter");
             }
         }
@@ -79,6 +83,9 @@ public class MethodParametersParser {
                 }
             }
         }
+        if (minClusterVersionCheck.apply(KNNConstants.GENERIC_METHOD_PARAMETERS_FEATURE)) {
+            methodParameters.putAll(in.readMap(StreamInput::readString, StreamInput::readGenericValue));
+        }
 
         return !methodParameters.isEmpty() ? methodParameters : null;
     }
@@ -89,6 +96,20 @@ public class MethodParametersParser {
         if (methodParameters == null || methodParameters.isEmpty()) {
             out.writeBoolean(false);
         } else {
+            final Map<String, Object> engineParameters = engineContributedSubset(methodParameters);
+            final boolean appendixSupported = minClusterVersionCheck.apply(KNNConstants.GENERIC_METHOD_PARAMETERS_FEATURE);
+            if (appendixSupported == false && engineParameters.isEmpty() == false) {
+                // Fail loudly, before any bytes are written, rather than silently drop the parameter on the
+                // hop to a node that cannot receive it
+                throw new IllegalArgumentException(
+                    String.format(
+                        Locale.ROOT,
+                        "engine-specific method_parameters %s require every node in the cluster to support %s",
+                        engineParameters.keySet(),
+                        KNNConstants.GENERIC_METHOD_PARAMETERS_FEATURE
+                    )
+                );
+            }
             out.writeBoolean(true);
             // All values are written to deserialize without ambiguity
             for (final MethodParameter methodParameter : MethodParameter.values()) {
@@ -97,7 +118,21 @@ public class MethodParametersParser {
                     out.writeGenericValue(methodParameters.get(methodParameter.getName()));
                 }
             }
+            // Appendix for engine-contributed names; reader and writer must stay strictly symmetric on this version gate
+            if (appendixSupported) {
+                out.writeMap(engineParameters, StreamOutput::writeString, StreamOutput::writeGenericValue);
+            }
         }
+    }
+
+    private static Map<String, Object> engineContributedSubset(Map<String, ?> methodParameters) {
+        final Map<String, Object> engineParameters = new HashMap<>();
+        for (final Map.Entry<String, ?> entry : methodParameters.entrySet()) {
+            if (MethodParameter.enumOf(entry.getKey()) == null) {
+                engineParameters.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return engineParameters;
     }
 
     public static void doXContent(final XContentBuilder builder, final Map<String, ?> methodParameters) throws IOException {
@@ -119,12 +154,17 @@ public class MethodParametersParser {
             throw new ParsingException(parser.getTokenLocation(), METHOD_PARAMS_FIELD.getPreferredName() + " cannot be empty");
         }
 
-        final Map<String, ?> methodParameters = new HashMap<>();
+        final Map<String, Object> methodParameters = new HashMap<>();
         for (Map.Entry<String, Object> requestParameter : methodParametersJson.entrySet()) {
             final String name = requestParameter.getKey();
             final Object value = requestParameter.getValue();
             final MethodParameter parameter = MethodParameter.enumOf(name);
             if (parameter == null) {
+                if (KNNEngine.isEngineContributedQueryParameter(name)) {
+                    // Engine-declared name: pass the raw value through; engine-aware validation runs in KNNQueryBuilder#doToQuery
+                    methodParameters.put(name, value);
+                    continue;
+                }
                 throw new ParsingException(parser.getTokenLocation(), "[" + NAME + "] unknown method parameter found [" + name + "]");
             }
 

@@ -5,36 +5,42 @@
 
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
-import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.search.VectorScorer;
-import org.apache.lucene.store.IndexInput;
 
 import java.io.IOException;
 
 /**
- * A {@link FloatVectorValues} wrapper that implements {@link HasIndexSlice} to enable I/O prefetching
- * during HNSW graph traversal.
+ * A {@link FloatVectorValues} wrapper that holds both the full-precision float delegate (backed by
+ * the {@code .vec} file) and the underlying quantized byte delegate (backed by the {@code .veq} file).
  *
- * <p>Lucene's {@code ScalarQuantizedVectorValues} (returned by
- * {@code Lucene104ScalarQuantizedVectorsReader.getFloatVectorValues()}) does not implement
- * {@link HasIndexSlice}. Lucene's prefetch-enabled flat vector scorer
- * ({@link org.apache.lucene.codecs.hnsw.FlatVectorsScorer}) requires this interface to obtain the
- * underlying {@link IndexInput} for issuing prefetch hints ahead of scoring.
+ * <p>The wrapper exists so callers can reach either representation without reflection: the search
+ * scorer needs the quantized codes; warmup needs the full-precision bytes. Consumers pick via
+ * {@link #getFloatVectorValues()} or {@link #getQuantizedVectorValues()} rather than relying on a
+ * single ambiguous slice.
  *
- * <p>This class bridges the gap by delegating all {@link FloatVectorValues} operations to the original
- * instance, while implementing {@link HasIndexSlice#getSlice()} by returning the {@link IndexInput}
- * from the underlying {@link QuantizedByteVectorValues}. The quantized byte values hold the on-disk
- * slice that contains the quantized vector data and correction factors used during scoring. For an
- * empty vector segment, the quantized values may be {@code null}; in that case, this wrapper has no
- * index slice.
+ * <p>Historically this class implemented {@code HasIndexSlice#getSlice()}. It was removed because
+ * the delegating {@code vectorValue(ord)} reads full-precision floats from {@code .vec} while the
+ * quantized values expose the {@code .veq} slice — a generic prefetch caller trusting
+ * {@code HasIndexSlice} would warm the wrong file, defeating the fetch-phase prefetch entirely.
+ *
+ * <p>For an empty vector segment, the quantized delegate may be {@code null}.
  */
+@Getter
 @RequiredArgsConstructor
-class ScalarQuantizedFloatVectorValues extends FloatVectorValues implements HasIndexSlice {
+class ScalarQuantizedFloatVectorValues extends FloatVectorValues {
+    /**
+     * The full-precision float delegate (reads the {@code .vec} file).
+     */
     private final FloatVectorValues floatVectorValues;
+    /**
+     * The quantized byte delegate (reads the {@code .veq} file), or {@code null} for empty
+     * segments where Lucene does not expose one.
+     */
     private final QuantizedByteVectorValues quantizedVectorValues;
 
     @Override
@@ -66,18 +72,18 @@ class ScalarQuantizedFloatVectorValues extends FloatVectorValues implements HasI
     }
 
     @Override
-    public IndexInput getSlice() {
-        return quantizedVectorValues == null ? null : quantizedVectorValues.getSlice();
-    }
-
-    @Override
     public DocIndexIterator iterator() {
         return floatVectorValues.iterator();
     }
 
+    /**
+     * Returns a {@link VectorScorer} that scores the query against the quantized codes in
+     * {@code .veq}. Scoring is the quantized-vs-quantized path, not the full-precision one — the
+     * {@code .vec} floats are reserved for rescore/fetch via {@link #rescorer(float[])}.
+     */
     @Override
     public VectorScorer scorer(float[] target) throws IOException {
-        return floatVectorValues.scorer(target);
+        return quantizedVectorValues == null ? null : quantizedVectorValues.scorer(target);
     }
 
     /**

@@ -124,11 +124,20 @@ public class FaissFloatVectorValuesTests extends KNNTestCase {
         assertEquals(sparse.size(), copy.size());
     }
 
-    public void testSparseVectorsValues_whenNonHasIndexSlice_thenThrows() {
+    public void testSparseVectorsValues_whenNonHasIndexSlice_thenGetSliceReturnsNull() {
         final List<float[]> vectors = List.of(new float[] { 1.0f, 2.0f, 3.0f, 4.0f });
         final TestVectorValues.PreDefinedFloatVectorValues nonSliceValues = new TestVectorValues.PreDefinedFloatVectorValues(vectors);
 
-        expectThrows(IllegalArgumentException.class, () -> new FaissFloatVectorValues.SparseFloatVectorValuesImpl(nonSliceValues, null));
+        // Construction succeeds even when the wrapped values are not HasIndexSlice — required by
+        // consumers (e.g. two-slice wrappers like ScalarQuantizedFloatVectorValues) that build the
+        // sparse wrapper before touching the slice.
+        final FaissFloatVectorValues.SparseFloatVectorValuesImpl sparse = new FaissFloatVectorValues.SparseFloatVectorValuesImpl(
+            nonSliceValues,
+            null
+        );
+
+        // getSlice() returns null so consumers fall through to their non-slice path.
+        assertNull(sparse.getSlice());
     }
 
     private FaissFloatVectorValues createFaissFloatVectorValues() {

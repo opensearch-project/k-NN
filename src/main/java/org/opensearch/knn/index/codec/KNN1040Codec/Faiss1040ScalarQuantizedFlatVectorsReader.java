@@ -14,19 +14,15 @@ import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import java.io.IOException;
 
 /**
- * A {@link FlatVectorsReader} wrapper for Faiss SQ (1-bit) vector fields that ensures the
- * {@link FloatVectorValues} returned by {@link #getFloatVectorValues(String)} implement
- * {@link org.apache.lucene.codecs.lucene95.HasIndexSlice}.
+ * A {@link FlatVectorsReader} wrapper for Faiss SQ vector fields that exposes both the
+ * full-precision floats and the quantized codes on the {@link FloatVectorValues} returned by
+ * {@link #getFloatVectorValues(String)}.
  *
  * <p>Lucene's {@code Lucene104ScalarQuantizedVectorsReader} returns a {@code ScalarQuantizedVectorValues}
- * from {@link #getFloatVectorValues(String)}, which does not implement
- * {@link org.apache.lucene.codecs.lucene95.HasIndexSlice}. However, Lucene's HNSW
- * graph traversal requires all {@link FloatVectorValues} to implement {@code HasIndexSlice} so that
- * the underlying {@link org.apache.lucene.store.IndexInput} can be accessed for I/O prefetching.
- *
- * <p>This reader solves the problem by wrapping the delegate's {@link FloatVectorValues} with
- * {@link ScalarQuantizedFloatVectorValues}, which implements {@code HasIndexSlice}
- * by exposing the {@link org.apache.lucene.store.IndexInput} from the quantized byte vector values.
+ * that hides its quantized byte delegate behind a private field. Callers on the plugin side
+ * (warmup, native scoring) need both the full-precision {@code .vec} floats and the quantized
+ * {@code .veq} codes, so this reader wraps the delegate's values with
+ * {@link ScalarQuantizedFloatVectorValues}, which carries both delegates explicitly.
  *
  * <p>The resulting reader hierarchy is:
  * <pre>
@@ -65,9 +61,10 @@ public class Faiss1040ScalarQuantizedFlatVectorsReader extends FlatVectorsReader
     }
 
     /**
-     * Returns {@link FloatVectorValues} wrapped with {@link ScalarQuantizedFloatVectorValues}
-     * so that the result implements {@link org.apache.lucene.codecs.lucene95.HasIndexSlice}.
-     * Empty values are wrapped with no quantized backing because Lucene does not expose one.
+     * Returns {@link FloatVectorValues} wrapped with {@link ScalarQuantizedFloatVectorValues},
+     * which exposes both the full-precision float delegate and the quantized byte delegate via
+     * dedicated getters. Empty values are wrapped with no quantized backing because Lucene does
+     * not expose one.
      */
     @Override
     public FloatVectorValues getFloatVectorValues(String field) throws IOException {

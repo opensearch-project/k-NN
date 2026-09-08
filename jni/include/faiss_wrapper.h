@@ -28,7 +28,8 @@ namespace knn_jni {
                                 jobject parametersJ,
                                 BinaryIndexService *indexService,
                                 jfloat centroidDp,
-                                jint quantizedVecBytes);
+                                jint quantizedVecBytes,
+                                jint docBits);
 
         void InsertToIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jintArray idsJ, jlong vectorsAddressJ, jint dimJ, jlong indexAddr, jint threadCount, IndexService *indexService);
 

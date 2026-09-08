@@ -36,8 +36,11 @@ public class WarmupUtil {
      */
     public static void readAll(@NonNull final FloatVectorValues floatVectorValues) throws IOException {
         if (floatVectorValues instanceof HasIndexSlice hasIndexSlice) {
-            readAll(hasIndexSlice.getSlice());
-            return;
+            final IndexInput slice = hasIndexSlice.getSlice();
+            if (slice != null) {
+                readAll(slice);
+                return;
+            }
         }
         for (int i = 0; i < floatVectorValues.size(); ++i) {
             floatVectorValues.vectorValue(i);
@@ -56,8 +59,11 @@ public class WarmupUtil {
      */
     public static void readAll(@NonNull final ByteVectorValues byteVectorValues) throws IOException {
         if (byteVectorValues instanceof HasIndexSlice hasIndexSlice) {
-            readAll(hasIndexSlice.getSlice());
-            return;
+            final IndexInput slice = hasIndexSlice.getSlice();
+            if (slice != null) {
+                readAll(slice);
+                return;
+            }
         }
         for (int i = 0; i < byteVectorValues.size(); ++i) {
             byteVectorValues.vectorValue(i);

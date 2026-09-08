@@ -1,3 +1,8 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #ifndef __ARM_FEATURE_FP16_VECTOR_ARITHMETIC
 #define __ARM_FEATURE_FP16_VECTOR_ARITHMETIC 1
 #endif

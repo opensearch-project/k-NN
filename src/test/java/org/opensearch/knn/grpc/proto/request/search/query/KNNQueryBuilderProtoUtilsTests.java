@@ -298,7 +298,8 @@ public class KNNQueryBuilderProtoUtilsTests extends OpenSearchTestCase {
 
     @Test
     public void testFromProto_invalidMethodParameter() {
-        // Test with invalid method parameter
+        // No engine is registered in a default build, so an unknown name is rejected. The positive deferral
+        // path requires a registered engine and is expected to be covered by tenant integration tests.
         ObjectMap.Value invalidValue = ObjectMap.Value.newBuilder().setString("invalid_ef_search").build();
         ObjectMap methodParams = ObjectMap.newBuilder().putFields("invalid_param_name", invalidValue).build();
 

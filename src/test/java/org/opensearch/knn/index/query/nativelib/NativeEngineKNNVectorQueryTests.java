@@ -396,7 +396,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         // Given
         List<LeafReaderContext> leaves = reader.leaves();
         leaf1 = leaves.get(0);
-        when(knnWeight.searchLeaf(leaf1, 4)).thenReturn(PerLeafResult.EMPTY_RESULT);
+        when(knnWeight.searchLeaf(leaf1, 4)).thenReturn(PerLeafResult.empty());
         when(knnQuery.getK()).thenReturn(4);
 
         try (MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)) {

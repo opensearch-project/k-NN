@@ -59,6 +59,61 @@ public class KNN1040ScalarQuantizedVectorScorerTests extends KNNTestCase {
         }
     }
 
+    /**
+     * For multi-bit encodings (B=2, B=4) the scorer must route to Lucene's reference scorer without
+     * touching {@code MemorySegmentAddressExtractorUtil} — native bulk SIMD is not wired for
+     * multi-bit yet. Parameterizing over {@link ScalarEncoding#DIBIT_QUERY_NIBBLE} and
+     * {@link ScalarEncoding#PACKED_NIBBLE} verifies the gate for both widths.
+     */
+    @SneakyThrows
+    private void assertMultiBitFallback(final ScalarEncoding encoding) {
+        final FlatVectorsScorer mockDelegate = mock(FlatVectorsScorer.class);
+        final KNN1040ScalarQuantizedVectorScorer scorer = new KNN1040ScalarQuantizedVectorScorer(mockDelegate);
+
+        final int dimension = 8;
+        final QuantizedByteVectorValues mockQuantizedValues = mock(QuantizedByteVectorValues.class);
+        when(mockQuantizedValues.dimension()).thenReturn(dimension);
+        when(mockQuantizedValues.getScalarEncoding()).thenReturn(encoding);
+
+        // Parent Lucene104ScalarQuantizedVectorScorer's reference path also runs a quantization —
+        // supply the same mocks the null-address test uses so it can complete without NPEs.
+        final OptimizedScalarQuantizer mockQuantizer = mock(OptimizedScalarQuantizer.class);
+        when(mockQuantizedValues.getQuantizer()).thenReturn(mockQuantizer);
+        when(mockQuantizedValues.getCentroid()).thenReturn(new float[dimension]);
+        final OptimizedScalarQuantizer.QuantizationResult quantizationResult = new OptimizedScalarQuantizer.QuantizationResult(
+            0.0f,
+            1.0f,
+            0.0f,
+            0
+        );
+        when(mockQuantizer.scalarQuantize(any(float[].class), any(byte[].class), anyByte(), any(float[].class))).thenReturn(
+            quantizationResult
+        );
+
+        final StubVectorValues stub = new StubVectorValues();
+        final java.lang.reflect.Field field = StubVectorValues.class.getDeclaredField("quantizedVectorValues");
+        field.setAccessible(true);
+        field.set(stub, mockQuantizedValues);
+
+        try (MockedStatic<MemorySegmentAddressExtractorUtil> mockedStatic = Mockito.mockStatic(MemorySegmentAddressExtractorUtil.class)) {
+            final RandomVectorScorer result = scorer.getRandomVectorScorer(VectorSimilarityFunction.EUCLIDEAN, stub, new float[dimension]);
+
+            assertNotNull(result);
+            // The multi-bit gate must fire before we even ask about the address — no interaction.
+            mockedStatic.verifyNoInteractions();
+        }
+    }
+
+    @SneakyThrows
+    public void testGetRandomVectorScorer_whenTwoBitEncoding_thenRoutesToLuceneScorerWithoutAddressExtraction() {
+        assertMultiBitFallback(ScalarEncoding.DIBIT_QUERY_NIBBLE);
+    }
+
+    @SneakyThrows
+    public void testGetRandomVectorScorer_whenFourBitEncoding_thenRoutesToLuceneScorerWithoutAddressExtraction() {
+        assertMultiBitFallback(ScalarEncoding.PACKED_NIBBLE);
+    }
+
     @SneakyThrows
     public void testGetRandomVectorScorer_whenAddressExtractionReturnsNull_thenFallsBackToLuceneScorer() {
         // Arrange: set up the mock delegate scorer
@@ -74,9 +129,11 @@ public class KNN1040ScalarQuantizedVectorScorerTests extends KNNTestCase {
         when(mockQuantizedValues.getSlice()).thenReturn(mockIndexInput);
         when(mockIndexInput.length()).thenReturn(1024L);
 
-        // Set up quantization mocks needed by the parent Lucene104ScalarQuantizedVectorScorer
+        // Set up quantization mocks needed by the parent Lucene104ScalarQuantizedVectorScorer.
+        // Encoding is SINGLE_BIT_QUERY_NIBBLE (docBits == 1) so the multi-bit fallback gate does
+        // not fire — this test exercises the address-extractor null fallback specifically.
         when(mockQuantizedValues.dimension()).thenReturn(dimension);
-        when(mockQuantizedValues.getScalarEncoding()).thenReturn(ScalarEncoding.UNSIGNED_BYTE);
+        when(mockQuantizedValues.getScalarEncoding()).thenReturn(ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE);
 
         final OptimizedScalarQuantizer mockQuantizer = mock(OptimizedScalarQuantizer.class);
         when(mockQuantizedValues.getQuantizer()).thenReturn(mockQuantizer);

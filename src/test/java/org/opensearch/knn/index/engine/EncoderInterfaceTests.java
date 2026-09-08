@@ -23,9 +23,12 @@ public class EncoderInterfaceTests extends KNNTestCase {
     public void testFaissSQEncoderType() {
         FaissSQEncoder encoder = new FaissSQEncoder();
         assertEquals(Encoder.EncoderType.SQ, encoder.getEncoderType());
+        // Multi-bit MOS (bits ∈ {1, 2, 4}) and legacy fp16 (bits=16) are supported.
         assertTrue(encoder.getSupportedBits().contains(Encoder.QuantizationBits.ONE));
+        assertTrue(encoder.getSupportedBits().contains(Encoder.QuantizationBits.TWO));
+        assertTrue(encoder.getSupportedBits().contains(Encoder.QuantizationBits.FOUR));
         assertTrue(encoder.getSupportedBits().contains(Encoder.QuantizationBits.SIXTEEN));
-        assertEquals(2, encoder.getSupportedBits().size());
+        assertEquals(4, encoder.getSupportedBits().size());
     }
 
     public void testLuceneSQEncoderType() {

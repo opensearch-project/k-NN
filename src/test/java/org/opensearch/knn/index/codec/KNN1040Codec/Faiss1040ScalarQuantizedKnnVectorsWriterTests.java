@@ -23,10 +23,10 @@ import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
+import org.apache.lucene.index.Sorter;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat;
-import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.util.IOFunction;
@@ -94,10 +94,16 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
     public void setUp() throws Exception {
         super.setUp();
         MockitoAnnotations.openMocks(this);
+        // Stub flat format that returns the mocked writer/reader — bypasses per-field resolution
+        // so this test can focus on the wrapper writer's behavior.
+        final KNN1040ScalarQuantizedVectorsFormat stubFlatFormat = mock(KNN1040ScalarQuantizedVectorsFormat.class);
+        when(stubFlatFormat.fieldsWriter(any(SegmentWriteState.class))).thenReturn(flatVectorsWriter);
+        when(stubFlatFormat.fieldsReader(any(SegmentReadState.class))).thenAnswer(
+            invocation -> quantizedFlatVectorsReaderSupplier.apply(invocation.getArgument(0))
+        );
         objectUnderTest = new Faiss1040ScalarQuantizedKnnVectorsWriter(
             segmentWriteState,
-            flatVectorsWriter,
-            quantizedFlatVectorsReaderSupplier,
+            fieldInfo -> stubFlatFormat,
             new NativeIndexBuildStrategyFactory(),
             ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD
         );
@@ -145,23 +151,28 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
     // ===================== flush (mocked — tests that don't reach openFlatVectorsReader) =====================
 
     /**
-     * Test: flush with no field added delegates flush/finish/close to flat writer, skips native build.
+     * Test: flush before any addField() is a no-op — the flat writer is only lazily constructed
+     * on the first addField()/mergeOneField(), so nothing to flush and no native build to run.
      */
     @SneakyThrows
-    public void testFlush_whenNoFieldAdded_thenOnlyDelegatesFlat() {
+    public void testFlush_whenNoFieldAdded_thenNoOp() {
         objectUnderTest.flush(5, null);
-        verify(flatVectorsWriter).flush(5, null);
-        verify(flatVectorsWriter).finish();
-        verify(flatVectorsWriter).close();
+        verify(flatVectorsWriter, Mockito.never()).flush(anyInt(), any());
+        verify(flatVectorsWriter, Mockito.never()).finish();
+        verify(flatVectorsWriter, Mockito.never()).close();
     }
 
     /**
-     * Test: flush passes a non-null sortMap through to the flat writer.
+     * Test: flush passes a non-null sortMap through to the flat writer once a field has been added.
      */
     @SneakyThrows
     public void testFlush_withSortMap_passesThroughToFlatWriter() {
-        org.apache.lucene.index.Sorter.DocMap sortMap = mock(org.apache.lucene.index.Sorter.DocMap.class);
-        objectUnderTest.flush(10, sortMap);
+        final FieldInfo fi = mockFieldInfo(0);
+        objectUnderTest.addField(fi);
+        // Stub the flat reader open so flush() doesn't blow up trying to reflect real files.
+        doThrow(new IOException("stop after flat flush")).when(flatVectorsWriter).flush(anyInt(), any());
+        final Sorter.DocMap sortMap = mock(Sorter.DocMap.class);
+        expectThrows(IOException.class, () -> objectUnderTest.flush(10, sortMap));
         verify(flatVectorsWriter).flush(10, sortMap);
     }
 
@@ -224,28 +235,132 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
      * Test: close delegates to IOUtils.close(flatVectorsWriter).
      */
     @SneakyThrows
-    public void testClose_thenClosesFlatWriter() {
+    public void testClose_afterAddField_thenClosesFlatWriter() {
+        // Under lazy encoding resolution, close() only touches the flat writer if one exists —
+        // and one only exists after addField(). Seed a field first.
+        final FieldInfo fi = mockFieldInfo(0);
+        objectUnderTest.addField(fi);
         objectUnderTest.close();
         verify(flatVectorsWriter).close();
     }
 
     /**
-     * Test: IOException from flatVectorsWriter.close() propagates.
+     * Test: IOException from flatVectorsWriter.close() propagates once a field has been added.
      */
     @SneakyThrows
     public void testClose_whenFlatWriterThrows_thenPropagates() {
+        final FieldInfo fi = mockFieldInfo(0);
+        objectUnderTest.addField(fi);
         doThrow(new IOException("close failed")).when(flatVectorsWriter).close();
         expectThrows(IOException.class, () -> objectUnderTest.close());
+    }
+
+    /**
+     * Test: close() without any addField() is a no-op — the flat writer was never constructed.
+     */
+    @SneakyThrows
+    public void testClose_whenNoFieldAdded_thenNoOp() {
+        objectUnderTest.close();
+        verify(flatVectorsWriter, Mockito.never()).close();
+    }
+
+    /**
+     * Test: after flush() finished + closed the flat writer inline, a subsequent close() is a
+     * no-op — must NOT re-close the writer. Guards the "flat writer done" invariant.
+     */
+    @SneakyThrows
+    public void testClose_afterFlush_thenNoOp() {
+        final FieldInfo fi = mockFieldInfo(0);
+        objectUnderTest.addField(fi);
+        try {
+            objectUnderTest.flush(0, null);
+        } catch (Exception ignored) {
+            // The mocked FieldInfo doesn't wire indexOptions, so the native-build path inside
+            // flush() throws — but the flat-writer finish+close (and flatWriterDone flag) run
+            // BEFORE that, which is what this test exercises.
+        }
+        // flush() already closed the writer once — reset to distinguish the second call.
+        Mockito.reset(flatVectorsWriter);
+
+        objectUnderTest.close();
+        verify(flatVectorsWriter, Mockito.never()).close();
+    }
+
+    /**
+     * Test: after mergeOneField() finished + closed the flat writer inline, a subsequent
+     * close() is a no-op — must NOT re-close the writer.
+     */
+    @SneakyThrows
+    public void testClose_afterMergeOneField_thenNoOp() {
+        final FieldInfo fi = mockFieldInfo(0);
+        try {
+            objectUnderTest.mergeOneField(fi, mock(MergeState.class));
+        } catch (Exception ignored) {
+            // Mock plumbing may throw during native build — we only care that flatWriterDone
+            // is set by the finish+close block that precedes the native build.
+        }
+        Mockito.reset(flatVectorsWriter);
+
+        objectUnderTest.close();
+        verify(flatVectorsWriter, Mockito.never()).close();
+    }
+
+    /**
+     * Test: calling mergeOneField() after flush() has finished+closed the flat writer must fail
+     * loud rather than silently write to a closed writer. The flatWriterDone guard in
+     * getOrInitFlatVectorsWriter is the enforcement point.
+     */
+    @SneakyThrows
+    public void testMergeOneField_afterFlush_thenThrowsIllegalState() {
+        final FieldInfo fi1 = mockFieldInfo(0);
+        objectUnderTest.addField(fi1);
+        try {
+            objectUnderTest.flush(0, null);
+        } catch (Exception ignored) {
+            // The mocked FieldInfo doesn't wire indexOptions, so the native-build path inside
+            // flush() throws — but the flat-writer finish+close (and flatWriterDone flag) run
+            // BEFORE that, which is what this test exercises.
+        }
+
+        final FieldInfo fi2 = mockFieldInfo(1);
+        IllegalStateException ex = expectThrows(
+            IllegalStateException.class,
+            () -> objectUnderTest.mergeOneField(fi2, mock(MergeState.class))
+        );
+        assertTrue("Expected error to mention 'flat writer'; got: " + ex.getMessage(), ex.getMessage().contains("flat writer"));
+    }
+
+    /**
+     * Test: a second mergeOneField call on the same writer instance must fail loud — the writer
+     * only supports a single field, and the flat writer is closed inline after the first merge.
+     */
+    @SneakyThrows
+    public void testMergeOneField_calledTwice_thenThrowsIllegalState() {
+        final FieldInfo fi1 = mockFieldInfo(0);
+        try {
+            objectUnderTest.mergeOneField(fi1, mock(MergeState.class));
+        } catch (Exception ignored) {
+            // Mock plumbing may throw during native build — flatWriterDone is set beforehand.
+        }
+
+        final FieldInfo fi2 = mockFieldInfo(1);
+        IllegalStateException ex = expectThrows(
+            IllegalStateException.class,
+            () -> objectUnderTest.mergeOneField(fi2, mock(MergeState.class))
+        );
+        assertTrue("Expected error to mention 'flat writer'; got: " + ex.getMessage(), ex.getMessage().contains("flat writer"));
     }
 
     // ===================== ramBytesUsed =====================
 
     /**
-     * Test: ramBytesUsed without a field returns SHALLOW_SIZE + flat writer's usage.
+     * Test: ramBytesUsed without a field returns only SHALLOW_SIZE — no flat writer allocated yet.
      */
-    public void testRamBytesUsed_whenNoField_thenReturnsShallowPlusFlatWriter() {
-        when(flatVectorsWriter.ramBytesUsed()).thenReturn(100L);
-        assertTrue(objectUnderTest.ramBytesUsed() > 100L);
+    public void testRamBytesUsed_whenNoField_thenShallowOnly() {
+        // Sanity: mock is untouched, so the return value doesn't include the flat writer.
+        final long ramUsed = objectUnderTest.ramBytesUsed();
+        assertTrue("Expected only SHALLOW_SIZE (>0) with no field added, got " + ramUsed, ramUsed > 0);
+        verify(flatVectorsWriter, Mockito.never()).ramBytesUsed();
     }
 
     /**
@@ -436,10 +551,14 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
                 FIELD_NAME
             );
 
+            final KNN1040ScalarQuantizedVectorsFormat stubFlatFormat = mock(KNN1040ScalarQuantizedVectorsFormat.class);
+            when(stubFlatFormat.fieldsWriter(any(SegmentWriteState.class))).thenReturn(flatVectorsWriter);
+            when(stubFlatFormat.fieldsReader(any(SegmentReadState.class))).thenAnswer(
+                invocation -> quantizedFlatVectorsReaderSupplier.apply(invocation.getArgument(0))
+            );
             Faiss1040ScalarQuantizedKnnVectorsWriter writer = new Faiss1040ScalarQuantizedKnnVectorsWriter(
                 realWriteState,
-                flatVectorsWriter,
-                quantizedFlatVectorsReaderSupplier,
+                fieldInfo -> stubFlatFormat,
                 new NativeIndexBuildStrategyFactory(),
                 ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD
             );
@@ -509,8 +628,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsWriterTests extends KNNTestCase {
                 assertNotNull(emptyValues);
                 assertTrue(emptyValues instanceof ScalarQuantizedFloatVectorValues);
                 assertEquals(0, emptyValues.size());
-                assertTrue(emptyValues instanceof HasIndexSlice);
-                assertNull(((HasIndexSlice) emptyValues).getSlice());
+                assertNull(((ScalarQuantizedFloatVectorValues) emptyValues).getQuantizedVectorValues());
                 ((Faiss1040ScalarQuantizedKnnVectorsReader) emptySegmentReader).warmUp(FIELD_NAME);
             }
 

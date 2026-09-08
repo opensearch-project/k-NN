@@ -21,6 +21,7 @@ import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.apache.lucene.util.hnsw.RandomVectorScorerSupplier;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.common.FieldInfoExtractor;
+import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
 import org.opensearch.knn.memoryoptsearch.faiss.FlatVectorsScorerProvider;
@@ -36,9 +37,11 @@ import static org.opensearch.knn.index.query.MemoryOptimizedSearchScoreConverter
  * scoring strategy:
  * <ul>
  *   <li>{@link BinaryDocValues} → delegates to {@link KNNBinaryDocValuesScorer}</li>
- *   <li>{@link FloatVectorValues} → uses the provided {@link VectorScorerMode} (score or rescore)</li>
+ *   <li>{@link FloatVectorValues} → uses the provided {@link VectorScorerMode} (score or rescore),
+ *       unless the configured space type disagrees with the similarity function recorded on the field</li>
  *   <li>{@link ByteVectorValues} with float target → ADC (Asymmetric Distance Computation) scoring</li>
- *   <li>{@link ByteVectorValues} with byte target → uses the provided {@link VectorScorerMode}</li>
+ *   <li>{@link ByteVectorValues} with byte target → uses the provided {@link VectorScorerMode}, with the
+ *       same space type override as the float case</li>
  * </ul>
  */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
@@ -160,7 +163,11 @@ public final class VectorScorers {
 
         final KnnVectorValues knnVectorValues = docIdsIteratorValues.getKnnVectorValues();
         if (knnVectorValues instanceof FloatVectorValues floatVectorValues) {
-            return vectorScorerMode.createScorer(floatVectorValues, target);
+            final VectorSimilarityFunction configuredFunction = resolveSimilarityFunction(spaceType);
+            if (configuredFunction == null || configuredFunction == fieldInfo.getVectorSimilarityFunction()) {
+                return vectorScorerMode.createScorer(floatVectorValues, target);
+            }
+            return createSimilarityOverrideScorer(floatVectorValues, target, configuredFunction);
         }
         if (knnVectorValues instanceof ByteVectorValues byteVectorValues && FieldInfoExtractor.isAdc(fieldInfo)) {
             return createADCScorer(fieldInfo, byteVectorValues, target, spaceType);
@@ -184,9 +191,14 @@ public final class VectorScorers {
 
         final KnnVectorValues knnVectorValues = docIdsIteratorValues.getKnnVectorValues();
         if (knnVectorValues instanceof ByteVectorValues byteVectorValues) {
-            return spaceType == SpaceType.HAMMING
-                ? createHammingDistanceScorer(fieldInfo, byteVectorValues, target, spaceType)
-                : vectorScorerMode.createScorer(byteVectorValues, target);
+            if (spaceType == SpaceType.HAMMING) {
+                return createHammingDistanceScorer(fieldInfo, byteVectorValues, target, spaceType);
+            }
+            final VectorSimilarityFunction configuredFunction = resolveSimilarityFunction(spaceType);
+            if (configuredFunction == null || configuredFunction == fieldInfo.getVectorSimilarityFunction()) {
+                return vectorScorerMode.createScorer(byteVectorValues, target);
+            }
+            return createSimilarityOverrideScorer(byteVectorValues, target, configuredFunction);
         }
         throw new IllegalArgumentException("Byte target requires ByteVectorValues but got " + knnVectorValues.getClass().getSimpleName());
     }
@@ -200,6 +212,96 @@ public final class VectorScorers {
             return scorer;
         }
         return new NestedBestChildVectorScorer(acceptedChildrenIterator, parentBitSet, scorer);
+    }
+
+    /**
+     * Resolves the Lucene {@link VectorSimilarityFunction} for the given space type.
+     *
+     * @param spaceType the configured space type
+     * @return the matching similarity function, or {@code null} if the space type has no Lucene equivalent
+     */
+    // TODO: L1 and LINF have no Lucene similarity function, so they return null here and keep scoring with
+    // the function recorded on the field. Correcting them needs a dedicated scorer, the way HAMMING has one.
+    @Nullable
+    private static VectorSimilarityFunction resolveSimilarityFunction(final SpaceType spaceType) {
+        // L1, LINF and UNDEFINED report no similarity function, HAMMING throws when asked for one.
+        final KNNVectorSimilarityFunction knnVectorSimilarityFunction = spaceType.getKnnVectorSimilarityFunction();
+        if (knnVectorSimilarityFunction == null || knnVectorSimilarityFunction == KNNVectorSimilarityFunction.HAMMING) {
+            return null;
+        }
+        return knnVectorSimilarityFunction.getVectorSimilarityFunction();
+    }
+
+    /**
+     * Creates a {@link VectorScorer} that scores with the given similarity function instead of the one
+     * recorded on the field.
+     * <p>
+     * The two differ when a field does not carry its space type into the recorded function.
+     * {@code ModelFieldMapper} passes {@link SpaceType#DEFAULT} whatever the model was trained with, and
+     * {@code FaissFieldStrategy} does the same for indices created in 2.17 through 2.19. Correcting the
+     * recorded value is not an option for existing indices, since Lucene requires a field's vector
+     * similarity to be identical across the segments of one index. Recording it correctly for newly
+     * created indices, behind an index version gate, is left alone here.
+     * <p>
+     * This ignores {@link VectorScorerMode}, since neither a scorer nor a rescorer can be bound to a
+     * different similarity function.
+     * <p>
+     * The Lucene99 scorer is what the per field formats reachable here delegate to anyway, so going through
+     * {@code FlatVectorsScorerProvider#getFlatVectorsScorer} would select the same implementation.
+     *
+     * @param vectorValues the vector values for the segment
+     * @param target the float query vector
+     * @param similarityFunction the function to score with
+     * @return a scorer over the given values
+     * @throws IOException if an I/O error occurs
+     */
+    private static VectorScorer createSimilarityOverrideScorer(
+        final FloatVectorValues vectorValues,
+        final float[] target,
+        final VectorSimilarityFunction similarityFunction
+    ) throws IOException {
+        return toVectorScorer(
+            FlatVectorsScorerProvider.getLucene99FlatVectorsScorer().getRandomVectorScorer(similarityFunction, vectorValues, target),
+            vectorValues
+        );
+    }
+
+    /**
+     * Byte counterpart of {@link #createSimilarityOverrideScorer(FloatVectorValues, float[], VectorSimilarityFunction)}.
+     */
+    private static VectorScorer createSimilarityOverrideScorer(
+        final ByteVectorValues vectorValues,
+        final byte[] target,
+        final VectorSimilarityFunction similarityFunction
+    ) throws IOException {
+        return toVectorScorer(
+            FlatVectorsScorerProvider.getLucene99FlatVectorsScorer().getRandomVectorScorer(similarityFunction, vectorValues, target),
+            vectorValues
+        );
+    }
+
+    /**
+     * Adapts a {@link RandomVectorScorer} to the {@link VectorScorer} contract over the given values.
+     */
+    private static VectorScorer toVectorScorer(final RandomVectorScorer randomVectorScorer, final KnnVectorValues vectorValues) {
+        return new VectorScorer() {
+            final KnnVectorValues.DocIndexIterator iterator = vectorValues.iterator();
+
+            @Override
+            public float score() throws IOException {
+                return randomVectorScorer.score(iterator.index());
+            }
+
+            @Override
+            public DocIdSetIterator iterator() {
+                return iterator;
+            }
+
+            @Override
+            public Bulk bulk(final DocIdSetIterator matchingDocs) {
+                return Bulk.fromRandomScorerSparse(randomVectorScorer, iterator, matchingDocs);
+            }
+        };
     }
 
     /**

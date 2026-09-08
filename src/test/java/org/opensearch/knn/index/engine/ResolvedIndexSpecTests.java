@@ -86,22 +86,6 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
         assertFalse(spec.supportsRadialSearch());
     }
 
-    public void testRadialSearch_BQNotSupported() {
-        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.BQ)
-            .quantizationBits(Encoder.QuantizationBits.TWO)
-            .compressionLevel(CompressionLevel.x16)
-            .build();
-        assertFalse(spec.supportsRadialSearch());
-    }
-
-    public void testRadialSearch_QuantizedSQ4BitNotSupported() {
-        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.SQ)
-            .quantizationBits(Encoder.QuantizationBits.FOUR)
-            .compressionLevel(CompressionLevel.x8)
-            .build();
-        assertFalse(spec.supportsRadialSearch());
-    }
-
     public void testRadialSearch_QuantizedPQNotSupported() {
         ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.PQ)
             .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
@@ -110,10 +94,61 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
         assertFalse(spec.supportsRadialSearch());
     }
 
-    public void testRadialSearch_SQ1BitNotSupported() {
-        // Radial search is now blocked for all quantized indices, including 1-bit SQ (#3464).
+    public void testRadialSearch_SQ1BitSupported() {
+        // 1/2/4-bit SQ reaches the size-bounded rescoring path, so radial search is allowed again (#3491).
         ResolvedIndexSpec spec = baseFaissSQ1Bit().build();
+        assertTrue(spec.supportsRadialSearch());
+        assertTrue(spec.requiresFullPrecisionRadialRescore());
+    }
+
+    public void testRadialSearch_SQTwoAndFourBitSupported() {
+        // Multi-bit SQ (#3544) makes SQ bits ∈ {1, 2, 4} constructible, and all of them are lossy enough
+        // to need the full-precision rescoring pass.
+        for (Encoder.QuantizationBits bits : new Encoder.QuantizationBits[] {
+            Encoder.QuantizationBits.TWO,
+            Encoder.QuantizationBits.FOUR }) {
+            ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.SQ)
+                .quantizationBits(bits)
+                .compressionLevel(bits.getCompressionLevel())
+                .build();
+            assertTrue("expected radial support for SQ " + bits, spec.supportsRadialSearch());
+            assertTrue(spec.requiresFullPrecisionRadialRescore());
+            assertTrue("multi-bit SQ predicate should agree", spec.isSQMultiBit());
+        }
+    }
+
+    public void testRadialSearch_BQSupported() {
+        // BQ is the common non-memory-optimized case and now reaches the size-bounded path (#3491).
+        for (Encoder.QuantizationBits bits : new Encoder.QuantizationBits[] {
+            Encoder.QuantizationBits.ONE,
+            Encoder.QuantizationBits.TWO,
+            Encoder.QuantizationBits.FOUR }) {
+            ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.BQ)
+                .quantizationBits(bits)
+                .compressionLevel(bits.getCompressionLevel())
+                .build();
+            assertTrue("expected radial support for BQ " + bits, spec.supportsRadialSearch());
+            assertTrue(spec.requiresFullPrecisionRadialRescore());
+        }
+    }
+
+    public void testRadialSearch_BQResolvesToFiveTimesOversample() {
+        // BQ falls through to the dimension-based branch of getRescoreContext, not SQ 1-bit's fixed 2x.
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.BQ)
+            .quantizationBits(Encoder.QuantizationBits.ONE)
+            .compressionLevel(CompressionLevel.x32)
+            .build();
+        assertEquals(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD, spec.getRescoreContext().getOversampleFactor(), 0.0f);
+    }
+
+    public void testRadialSearch_SQSevenBitNotSupported() {
+        // 7-bit SQ (x4) is quantized but is not enabled for radial search.
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.SEVEN)
+            .compressionLevel(CompressionLevel.x4)
+            .build();
         assertFalse(spec.supportsRadialSearch());
+        assertFalse(spec.requiresFullPrecisionRadialRescore());
     }
 
     public void testRadialSearch_FlatMethodWithX32NotSupported() {
@@ -163,6 +198,65 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
         assertEquals(expected, spec.getRescoreContext());
     }
 
+    public void testRescoreContext_SQ2Bit_thenOversampleOne() {
+        // bits=2 (x16) uses SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR (=1) since 2-bit codes recover
+        // most recall on their own. Override disallowed, mirrors the SQ 1-bit contract.
+        ResolvedIndexSpec spec = baseFaissSQMultiBit(Encoder.QuantizationBits.TWO, CompressionLevel.x16).build();
+        RescoreContext expected = RescoreContext.builder()
+            .oversampleFactor(RescoreContext.SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR)
+            .allowOverrideOversampleFactor(false)
+            .userProvided(false)
+            .build();
+        assertEquals(expected, spec.getRescoreContext());
+    }
+
+    public void testRescoreContext_SQ4Bit_thenOversampleOne() {
+        // bits=4 (x8) uses SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR (=1) since 4-bit codes are
+        // near-lossless. Override disallowed, mirrors the SQ 1-bit contract.
+        ResolvedIndexSpec spec = baseFaissSQMultiBit(Encoder.QuantizationBits.FOUR, CompressionLevel.x8).build();
+        RescoreContext expected = RescoreContext.builder()
+            .oversampleFactor(RescoreContext.SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR)
+            .allowOverrideOversampleFactor(false)
+            .userProvided(false)
+            .build();
+        assertEquals(expected, spec.getRescoreContext());
+    }
+
+    public void testRescoreContext_FlatMethodX16_thenOversampleOne() {
+        // method=flat with x16 (Lucene 2-bit SQ) uses SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR (=1)
+        // for the same reason as the SQ encoder + bits=2 path — 2-bit codes recover most recall on
+        // their own. Overrides allowed (unlike the SQ encoder branch), matching the x32-flat pattern.
+        ResolvedIndexSpec spec = baseFaiss().methodName(METHOD_FLAT)
+            .encoderType(Encoder.EncoderType.FLAT)
+            .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
+            .compressionLevel(CompressionLevel.x16)
+            .mode(Mode.ON_DISK)
+            .dimension(1500)
+            .build();
+        RescoreContext expected = RescoreContext.builder()
+            .oversampleFactor(RescoreContext.SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR)
+            .userProvided(false)
+            .build();
+        assertEquals(expected, spec.getRescoreContext());
+    }
+
+    public void testRescoreContext_FlatMethodX8_thenOversampleOne() {
+        // method=flat with x8 (Lucene 4-bit SQ) uses SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR (=1)
+        // for the same reason as the SQ encoder + bits=4 path — 4-bit codes are near-lossless.
+        ResolvedIndexSpec spec = baseFaiss().methodName(METHOD_FLAT)
+            .encoderType(Encoder.EncoderType.FLAT)
+            .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
+            .compressionLevel(CompressionLevel.x8)
+            .mode(Mode.ON_DISK)
+            .dimension(1500)
+            .build();
+        RescoreContext expected = RescoreContext.builder()
+            .oversampleFactor(RescoreContext.SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR)
+            .userProvided(false)
+            .build();
+        assertEquals(expected, spec.getRescoreContext());
+    }
+
     public void testRescoreContext_x1ReturnsNull() {
         ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.FLAT)
             .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
@@ -173,7 +267,9 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
     }
 
     public void testRescoreContext_x32OnDiskAboveThreshold() {
-        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.SQ)
+        // BQ (binary quantization) at x32 — falls through to the compression-level default (3.0f).
+        // Uses BQ (not SQ) so the encoder-type gate on isSQMultiBit() is skipped.
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.BQ)
             .quantizationBits(Encoder.QuantizationBits.FOUR)
             .compressionLevel(CompressionLevel.x32)
             .mode(Mode.ON_DISK)
@@ -184,7 +280,8 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
     }
 
     public void testRescoreContext_x32OnDiskBelowThreshold() {
-        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.SQ)
+        // BQ at x32 with dim below threshold — uses OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD.
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.BQ)
             .quantizationBits(Encoder.QuantizationBits.FOUR)
             .compressionLevel(CompressionLevel.x32)
             .mode(Mode.ON_DISK)
@@ -253,11 +350,14 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
     }
 
     public void testRescoreContext_x32LuceneAfterV360_NonSQ1Bit() {
+        // Lucene SQ 7-bit at x32 after V360 — falls through to the Lucene scalar quantizer default.
+        // Uses bits=SEVEN (a real Lucene SQ width) rather than a multi-bit MOS width so the
+        // isSQMultiBit() gate is skipped and the Lucene-specific x32 branch fires.
         ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
             .engine(KNNEngine.LUCENE)
             .methodName(METHOD_HNSW)
             .encoderType(Encoder.EncoderType.SQ)
-            .quantizationBits(Encoder.QuantizationBits.FOUR)
+            .quantizationBits(Encoder.QuantizationBits.SEVEN)
             .compressionLevel(CompressionLevel.x32)
             .mode(Mode.ON_DISK)
             .vectorDataType(VectorDataType.FLOAT)
@@ -272,7 +372,8 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
     }
 
     public void testRescoreContext_NotOnDiskReturnsNull() {
-        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.SQ)
+        // BQ at x32 with mode=NOT_CONFIGURED — isModeValidForRescore returns false, so no rescore.
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.BQ)
             .quantizationBits(Encoder.QuantizationBits.FOUR)
             .compressionLevel(CompressionLevel.x32)
             .mode(Mode.NOT_CONFIGURED)
@@ -435,6 +536,72 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
         assertTrue(spec.supportsRemoteIndexBuild());
     }
 
+    public void testSupportsRemoteIndexBuild_FaissSQ2BitSupported() {
+        ResolvedIndexSpec spec = baseFaissSQMultiBit(Encoder.QuantizationBits.TWO, CompressionLevel.x16).build();
+        assertTrue(spec.supportsRemoteIndexBuild());
+    }
+
+    public void testSupportsRemoteIndexBuild_FaissSQ4BitSupported() {
+        ResolvedIndexSpec spec = baseFaissSQMultiBit(Encoder.QuantizationBits.FOUR, CompressionLevel.x8).build();
+        assertTrue(spec.supportsRemoteIndexBuild());
+    }
+
+    // --- Coverage: isSQMultiBit (bits ∈ {1, 2, 4}) ---
+
+    public void testIsSQMultiBit_true_forBits1() {
+        assertTrue(baseFaissSQ1Bit().build().isSQMultiBit());
+    }
+
+    public void testIsSQMultiBit_true_forBits2() {
+        assertTrue(baseFaissSQMultiBit(Encoder.QuantizationBits.TWO, CompressionLevel.x16).build().isSQMultiBit());
+    }
+
+    public void testIsSQMultiBit_true_forBits4() {
+        assertTrue(baseFaissSQMultiBit(Encoder.QuantizationBits.FOUR, CompressionLevel.x8).build().isSQMultiBit());
+    }
+
+    public void testIsSQMultiBit_false_forBits16() {
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.SIXTEEN)
+            .compressionLevel(CompressionLevel.x2)
+            .build();
+        assertFalse(spec.isSQMultiBit());
+    }
+
+    public void testIsSQMultiBit_false_forFlatEncoder() {
+        // FLAT encoder + bits=TWO (nonsense combination) still returns false — gate requires SQ encoder.
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.FLAT).quantizationBits(Encoder.QuantizationBits.TWO).build();
+        assertFalse(spec.isSQMultiBit());
+    }
+
+    // --- Coverage: isFaissSQMultiBit (Faiss engine + SQ multi-bit) ---
+
+    public void testIsFaissSQMultiBit_FaissSQ2Bit_true() {
+        assertTrue(baseFaissSQMultiBit(Encoder.QuantizationBits.TWO, CompressionLevel.x16).build().isFaissSQMultiBit());
+    }
+
+    public void testIsFaissSQMultiBit_LuceneSQ2Bit_false() {
+        // Same SQ config on Lucene engine — gate is Faiss-only, mirrors isFaissSQOneBit.
+        ResolvedIndexSpec spec = baseFaissSQMultiBit(Encoder.QuantizationBits.TWO, CompressionLevel.x16).engine(KNNEngine.LUCENE).build();
+        assertFalse(spec.isFaissSQMultiBit());
+    }
+
+    // --- Coverage: alwaysUseMemoryOptimizedSearch broadened to bits ∈ {1, 2, 4} ---
+
+    public void testAlwaysUseMemoryOptimizedSearch_forBits2() {
+        assertTrue(baseFaissSQMultiBit(Encoder.QuantizationBits.TWO, CompressionLevel.x16).build().alwaysUseMemoryOptimizedSearch());
+    }
+
+    public void testAlwaysUseMemoryOptimizedSearch_forBits4() {
+        assertTrue(baseFaissSQMultiBit(Encoder.QuantizationBits.FOUR, CompressionLevel.x8).build().alwaysUseMemoryOptimizedSearch());
+    }
+
+    public void testAlwaysUseMemoryOptimizedSearch_forBits2_IVFExcluded() {
+        // Same IVF exclusion applies to bits=2 as to bits=1 — multi-bit + IVF is not a supported combination.
+        ResolvedIndexSpec spec = baseFaissSQMultiBit(Encoder.QuantizationBits.TWO, CompressionLevel.x16).methodName(METHOD_IVF).build();
+        assertFalse(spec.alwaysUseMemoryOptimizedSearch());
+    }
+
     private ResolvedIndexSpec.ResolvedIndexSpecBuilder baseFaiss() {
         return ResolvedIndexSpec.builder()
             .engine(KNNEngine.FAISS)
@@ -449,5 +616,12 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
         return baseFaiss().encoderType(Encoder.EncoderType.SQ)
             .quantizationBits(Encoder.QuantizationBits.ONE)
             .compressionLevel(CompressionLevel.x32);
+    }
+
+    private ResolvedIndexSpec.ResolvedIndexSpecBuilder baseFaissSQMultiBit(
+        final Encoder.QuantizationBits bits,
+        final CompressionLevel compressionLevel
+    ) {
+        return baseFaiss().encoderType(Encoder.EncoderType.SQ).quantizationBits(bits).compressionLevel(compressionLevel);
     }
 }

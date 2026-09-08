@@ -85,6 +85,7 @@ public class KNNConstants {
     public static final String MINIMAL_MODE_AND_COMPRESSION_FEATURE = "mode_and_compression_feature";
     public static final String TOP_LEVEL_SPACE_TYPE_FEATURE = "top_level_space_type_feature";
     public static final String TOP_LEVEL_ENGINE_FEATURE = "top_level_engine_feature";
+    public static final String GENERIC_METHOD_PARAMETERS_FEATURE = "generic_method_parameters_feature";
 
     public static final String RADIAL_SEARCH_KEY = "radial_search";
     public static final int MAX_RESULTS_RADIAL_RESCORING = 10000;
@@ -123,6 +124,7 @@ public class KNNConstants {
 
     // Faiss specific constants
     public static final String FAISS_NAME = "faiss";
+    public static final String UNDEFINED_ENGINE_NAME = "undefined";
     public final static String FAISS_EXTENSION = ".faiss";
     public static final String INDEX_DESCRIPTION_PARAMETER = "index_description";
     public static final String METHOD_ENCODER_PARAMETER = "encoder";
@@ -228,4 +230,9 @@ public class KNNConstants {
     public static final int BYTE_ALIGNMENT_MASK = 7; // Used for rounding up to nearest byte (Byte.SIZE - 1)
     // Define here: https://github.com/opensearch-project/remote-vector-index-builder/blob/main/API.md#index-parameters
     public static final int MIN_DOCS_FOR_REMOTE_INDEX_BUILD = 4;
+
+    // Version gate for rejecting user-supplied engine on method=flat mappings. Indices created
+    // before this version may have engine=lucene persisted in their flat mapping — they must
+    // continue to load without error. New indices reject any engine setting on flat.
+    public static final Version FLAT_METHOD_ENGINE_AGNOSTIC_VERSION = Version.V_3_9_0;
 }

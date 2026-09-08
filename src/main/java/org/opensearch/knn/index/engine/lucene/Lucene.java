@@ -108,4 +108,19 @@ public class Lucene extends JVMLibrary {
         MethodResolver resolver = isFlatMethod ? flatMethodResolver : hnswMethodResolver;
         return resolver.resolveMethod(knnMethodContext, knnMethodConfigContext, shouldRequireTraining, spaceType);
     }
+
+    @Override
+    public boolean supportsFilters() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsRadialSearch() {
+        return true;
+    }
+
+    @Override
+    public boolean supportsNestedFields() {
+        return true;
+    }
 }

@@ -93,6 +93,10 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
         final QuantizedByteVectorValues quantizedByteVectorValues;
         if (vectorValues instanceof QuantizedByteVectorValues) {
             quantizedByteVectorValues = (QuantizedByteVectorValues) vectorValues;
+        } else if (vectorValues instanceof ScalarQuantizedFloatVectorValues) {
+            // Our wrapper exposes the quantized delegate via a public getter, so we don't
+            // need to fall back to the reflection path used for Lucene's private inner class.
+            quantizedByteVectorValues = ((ScalarQuantizedFloatVectorValues) vectorValues).getQuantizedVectorValues();
         } else {
             // Extract QuantizedByteVectorValues from `vectorValues`.
             // This should not be null, otherwise it can't get entroid + correction factors.
@@ -107,6 +111,19 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
         final QuantizedByteVectorValues quantizedByteVectorValues,
         final float[] target
     ) throws IOException {
+        // Native bulk-SIMD scoring is implemented for 1-bit documents only. Multi-bit docs
+        // (B=2, B=4) share the same .veq layout but need width-specific kernels that are not
+        // yet in the native SIMD path — route them to Lucene's pure-Java reference scorer,
+        // which scores the same codes correctly.
+        final ScalarEncoding scalarEncoding = quantizedByteVectorValues.getScalarEncoding();
+        if (ScalarEncodingResolver.docBits(scalarEncoding) != 1) {
+            return (RandomVectorScorer.AbstractRandomVectorScorer) super.getRandomVectorScorer(
+                similarityFunction,
+                quantizedByteVectorValues,
+                target
+            );
+        }
+
         final IndexInput indexInput = quantizedByteVectorValues.getSlice();
         final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(indexInput, 0, indexInput.length());
         if (addressAndSize != null) {

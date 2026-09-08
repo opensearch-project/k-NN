@@ -158,13 +158,9 @@ public class PerLeafResult {
         }
     };
 
-    // A statically defined empty {@code PerLeafResult} used as a lightweight placeholder when a segment produces no hits.
-    public static final PerLeafResult EMPTY_RESULT = new PerLeafResult(
-        MATCH_NO_BIT_SET,
-        0,
-        TopDocsCollector.EMPTY_TOPDOCS,
-        SearchMode.EXACT_SEARCH
-    );
+    public static PerLeafResult empty() {
+        return new PerLeafResult(MATCH_NO_BIT_SET, 0, TopDocsCollector.EMPTY_TOPDOCS, SearchMode.EXACT_SEARCH);
+    }
 
     /**
      * Indicates the search mode applied within a segment. Either exact or approximate nearest neighbor (ANN) search.
