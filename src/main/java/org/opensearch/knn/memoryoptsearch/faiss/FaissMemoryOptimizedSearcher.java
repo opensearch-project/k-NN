@@ -6,6 +6,7 @@
 package org.opensearch.knn.memoryoptsearch.faiss;
 
 import com.google.common.annotations.VisibleForTesting;
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
@@ -25,6 +26,7 @@ import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.RobustUniqueRandomIterator;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.WarmupUtil;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.faiss.cagra.FaissCagraHNSW;
@@ -32,10 +34,12 @@ import org.opensearch.knn.memoryoptsearch.faiss.cagra.FaissCagraHNSW;
 import java.io.IOException;
 
 import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsReader.EXHAUSTIVE_BULK_SCORE_ORDS;
+import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 
 /**
  * This searcher directly reads FAISS index file via the provided {@link IndexInput} then perform vector search on it.
  */
+@Log4j2
 public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     private final IndexInput indexInput;
     private final FaissIndex faissIndex;
@@ -56,7 +60,13 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     ) {
         this.indexInput = indexInput;
         this.faissIndex = faissIndex;
-        final KNNVectorSimilarityFunction knnVectorSimilarityFunction = faissIndex.getVectorSimilarityFunction();
+        // Faiss's on-disk format only stores METRIC_INNER_PRODUCT or METRIC_L2; there is no
+        // cosine metric. Cosinesimil indices are written as IP on L2-normalized vectors, so
+        // faissIndex.getVectorSimilarityFunction() reports MAXIMUM_INNER_PRODUCT for them.
+        // Recover the user-declared space type from FieldInfo so cosine routes to the
+        // dedicated FP16_COSINE / SQ_COSINE SIMD kernels in NativeEngines990KnnVectorsScorer
+        // and KNN1040ScalarQuantizedVectorScorer, which emit (1 + dot) / 2 directly.
+        final KNNVectorSimilarityFunction knnVectorSimilarityFunction = resolveKnnVectorSimilarityFunction(fieldInfo, faissIndex);
 
         if (knnVectorSimilarityFunction != KNNVectorSimilarityFunction.HAMMING) {
             vectorSimilarityFunction = knnVectorSimilarityFunction.getVectorSimilarityFunction();
@@ -67,6 +77,49 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         this.isAdc = FieldInfoExtractor.isAdc(fieldInfo);
         this.flatVectorsScorer = flatVectorsScorer;
         this.hnsw = extractFaissHnsw(faissIndex);
+    }
+
+    /**
+     * Resolve the similarity function for this field. For {@code cosinesimil} we prefer the
+     * user-declared space type recorded in FieldInfo over the metric derived from the Faiss
+     * header; for every other space we trust the Faiss header.
+     *
+     * <p>The override is intentionally limited to cosine. Faiss only knows
+     * {@code METRIC_INNER_PRODUCT} and {@code METRIC_L2}; cosine indices are written as IP on
+     * normalized vectors, so reading back from the header collapses cosine to IP and the
+     * FP16_COSINE / SQ_COSINE kernel arms in the downstream scorers never fire. Every other
+     * supported space maps to the same metric the header reports, so overriding them would only
+     * risk masking a genuine on-disk mismatch behind a stale declared attribute.
+     */
+    private static KNNVectorSimilarityFunction resolveKnnVectorSimilarityFunction(final FieldInfo fieldInfo, final FaissIndex faissIndex) {
+        final String spaceTypeString = fieldInfo.getAttribute(SPACE_TYPE);
+        if (spaceTypeString != null && spaceTypeString.isEmpty() == false) {
+            try {
+                final SpaceType declared = SpaceType.getSpace(spaceTypeString);
+                // Only cosine legitimately disagrees with the Faiss header: cosine indices are written as
+                // METRIC_INNER_PRODUCT on normalized vectors, so the header collapses cosine to IP and the
+                // COSINE kernel arms would never fire. For every other space the declared value and the
+                // Faiss-reported metric agree, so we keep trusting the on-disk header there rather than let
+                // a (possibly stale or mismatched) declared attribute silently override the real metric.
+                if (declared == SpaceType.COSINESIMIL) {
+                    final KNNVectorSimilarityFunction declaredFn = declared.getKnnVectorSimilarityFunction();
+                    if (declaredFn != null) {
+                        return declaredFn;
+                    }
+                }
+            } catch (IllegalArgumentException e) {
+                // SpaceType.getSpace throws on an unrecognized space string. The attribute is normally
+                // written by k-NN itself so this should not happen, but rather than fail searcher
+                // construction we fall back to the similarity reported by the Faiss header.
+                log.warn(
+                    "Unrecognized space type attribute [{}] for field [{}]; falling back to Faiss-reported similarity.",
+                    spaceTypeString,
+                    fieldInfo.name,
+                    e
+                );
+            }
+        }
+        return faissIndex.getVectorSimilarityFunction();
     }
 
     private static FaissHNSW extractFaissHnsw(final FaissIndex faissIndex) {

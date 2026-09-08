@@ -11,6 +11,7 @@ import com.google.common.collect.ImmutableList;
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.Test;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -34,14 +35,14 @@ import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.TYPE;
 import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
+import static org.opensearch.knn.index.KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_MODE;
 
 public class ADCIT extends KNNRestTestCase {
 
     private static final String TEST_FIELD_NAME = "test-field";
 
-    private void makeOnlyQBitIndex(String indexName, String name, int dimension, int bits, boolean isUnderTest, SpaceType spaceType)
-        throws IOException {
-        XContentBuilder builder = XContentFactory.jsonBuilder()
+    private XContentBuilder qBitMapping(String name, int dimension, int bits, boolean isUnderTest, SpaceType spaceType) throws IOException {
+        return XContentFactory.jsonBuilder()
             .startObject()
             .startObject(PROPERTIES_FIELD)
             .startObject(TEST_FIELD_NAME)
@@ -64,7 +65,29 @@ public class ADCIT extends KNNRestTestCase {
             .endObject()
             .endObject()
             .endObject();
-        createKnnIndex(indexName, builder.toString());
+    }
+
+    private void makeOnlyQBitIndex(String indexName, String name, int dimension, int bits, boolean isUnderTest, SpaceType spaceType)
+        throws IOException {
+        createKnnIndex(indexName, qBitMapping(name, dimension, bits, isUnderTest, spaceType).toString());
+    }
+
+    private void makeOnlyQBitIndex(
+        String indexName,
+        String name,
+        int dimension,
+        int bits,
+        boolean isUnderTest,
+        SpaceType spaceType,
+        boolean memoryOptimized
+    ) throws IOException {
+        final String mapping = qBitMapping(name, dimension, bits, isUnderTest, spaceType).toString();
+        if (memoryOptimized) {
+            final Settings settings = Settings.builder().put("index.knn", true).put(MEMORY_OPTIMIZED_KNN_SEARCH_MODE, true).build();
+            createKnnIndex(indexName, settings, mapping);
+        } else {
+            createKnnIndex(indexName, mapping);
+        }
     }
 
     @Test
@@ -80,6 +103,95 @@ public class ADCIT extends KNNRestTestCase {
     @Test
     public void testADCWithCosineSim() {
         adcTestSpaceType(SpaceType.COSINESIMIL);
+    }
+
+    /**
+     * ADC cosine scoring with memory-optimized search (MOS) enabled must agree with the standard
+     * (MOS-disabled, native Faiss) path.
+     *
+     * <p>Regression guard for the ADC cosine fix: the memory-optimized ADC path emits MaxIP-format
+     * scores and relies on a MaxIP -> cosine post-conversion in MemoryOptimizedKNNWeight. When that
+     * conversion was inadvertently removed, MOS returned roughly 2x the standard value. Neither ADCIT
+     * nor the MOS suite exercised ADC + cosine with MOS enabled, so no integration test covered this
+     * branch.</p>
+     */
+    @Test
+    @SneakyThrows
+    public void testADCWithCosineSim_whenMemoryOptimized_thenMatchesStandardScores() {
+        final int dimension = 8;
+        final int bits = 1;
+        final int k = 10;
+        final SpaceType spaceType = SpaceType.COSINESIMIL;
+
+        // Generate 10 random vectors that we'll reuse across both indices.
+        List<Float[]> vectors = new ArrayList<>();
+        Random random = new Random(42);
+        for (int i = 0; i < 10; i++) {
+            Float[] vector = new Float[dimension];
+            for (int j = 0; j < dimension; j++) {
+                vector[j] = random.nextFloat();
+            }
+            vectors.add(vector);
+        }
+
+        // Standard index: ADC enabled, MOS disabled -> native Faiss search path (DefaultKNNWeight).
+        String standardIndexName = "adc-cosine-standard";
+        makeOnlyQBitIndex(standardIndexName, QFrameBitEncoder.ENABLE_ADC_PARAM, dimension, bits, true, spaceType, false);
+
+        // Memory-optimized index: ADC enabled, MOS enabled -> MemoryOptimizedKNNWeight ADC branch.
+        String memoryOptimizedIndexName = "adc-cosine-memory-optimized";
+        makeOnlyQBitIndex(memoryOptimizedIndexName, QFrameBitEncoder.ENABLE_ADC_PARAM, dimension, bits, true, spaceType, true);
+
+        for (int i = 0; i < 10; i++) {
+            addKnnDoc(standardIndexName, String.valueOf(i + 1), ImmutableList.of(TEST_FIELD_NAME), ImmutableList.of(vectors.get(i)));
+            addKnnDoc(memoryOptimizedIndexName, String.valueOf(i + 1), ImmutableList.of(TEST_FIELD_NAME), ImmutableList.of(vectors.get(i)));
+        }
+        forceMergeKnnIndex(standardIndexName);
+        forceMergeKnnIndex(memoryOptimizedIndexName);
+
+        XContentBuilder queryBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("knn")
+            .startObject(TEST_FIELD_NAME)
+            .array("vector", vectors.get(0))
+            .field("k", k)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        String standardResponse = EntityUtils.toString(searchKNNIndex(standardIndexName, queryBuilder, k).getEntity());
+        List<Object> standardHits = parseSearchResponseHits(standardResponse);
+
+        String memoryOptimizedResponse = EntityUtils.toString(searchKNNIndex(memoryOptimizedIndexName, queryBuilder, k).getEntity());
+        List<Object> memoryOptimizedHits = parseSearchResponseHits(memoryOptimizedResponse);
+
+        assertEquals(10, standardHits.size());
+        assertEquals("MOS should return the same number of hits as standard search", standardHits.size(), memoryOptimizedHits.size());
+
+        for (int i = 0; i < standardHits.size(); i++) {
+            Map<String, Object> standardHit = (Map<String, Object>) standardHits.get(i);
+            Map<String, Object> memoryOptimizedHit = (Map<String, Object>) memoryOptimizedHits.get(i);
+
+            assertEquals("Doc order should match at position " + i, standardHit.get("_id"), memoryOptimizedHit.get("_id"));
+
+            double standardScore = (Double) standardHit.get("_score");
+            double memoryOptimizedScore = (Double) memoryOptimizedHit.get("_score");
+
+            // MOS must produce the same scores as the standard (native Faiss) path (documented invariant).
+            // This is the regression guard for the ADC cosine fix: without the MaxIP -> cosine post-conversion
+            // in MemoryOptimizedKNNWeight, MOS returned the raw MaxIP score (~2x the standard value).
+            //
+            // Note: 1-bit ADC reconstructs data vectors that are not unit-norm, so the asymmetric cosine
+            // score can legitimately exceed 1.0 on both the standard and MOS paths -- we therefore assert
+            // parity with the standard path rather than an absolute [0, 1] bound. The epsilon comfortably
+            // tolerates minor native-vs-Java float differences while still catching the 2x regression.
+            assertEquals("Scores should match at position " + i, standardScore, memoryOptimizedScore, 0.05);
+        }
+
+        deleteKNNIndex(standardIndexName);
+        deleteKNNIndex(memoryOptimizedIndexName);
     }
 
     @SneakyThrows

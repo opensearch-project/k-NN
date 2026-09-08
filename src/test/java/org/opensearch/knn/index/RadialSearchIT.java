@@ -25,6 +25,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import static org.opensearch.knn.index.KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_MODE;
+
 /**
  * Integration tests for radial search (max_distance and min_score) on Faiss and Lucene HNSW.
  * Covers both ANN path (no filter) and ExactSearcher path (with filter, Faiss only) across
@@ -51,7 +53,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
     private final float threshold;
     private final int expectedCount;
     private final boolean useFilter;
-    private final boolean mosEnabled;
+    private final boolean memoryOptimized;
 
     public RadialSearchIT(
         CompressionTestConfig compressionConfig,
@@ -64,7 +66,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
         float threshold,
         int expectedCount,
         boolean useFilter,
-        boolean mosEnabled
+        boolean memoryOptimized
     ) {
         super(compressionConfig);
         this.testName = testName;
@@ -76,7 +78,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
         this.threshold = threshold;
         this.expectedCount = expectedCount;
         this.useFilter = useFilter;
-        this.mosEnabled = mosEnabled;
+        this.memoryOptimized = memoryOptimized;
     }
 
     @ParametersFactory(argumentFormatting = "{1}_compression:{0}")
@@ -138,6 +140,25 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
             SpaceType.COSINESIMIL,
             cosVectors,
             cosQuery,
+            true,
+            new Object[] { "max_distance", 0.1f, 2 },
+            new Object[] { "max_distance", 0.5f, 3 },
+            new Object[] { "min_score", 0.99f, 1 },
+            new Object[] { "min_score", 0.8f, 3 }
+        );
+
+        // Faiss Cosine with memory-optimized search enabled. This exercises
+        // MemoryOptimizedSearchScoreConverter.distanceToRadialThreshold / scoreToRadialThreshold for cosine,
+        // which is otherwise untested with MOS: every other cosine + MOS radial test uses min_score only, so
+        // the cosine max_distance -> (2 - distance) / 2 threshold conversion had no integration coverage.
+        addRadialCases(
+            params,
+            "Faiss_COSINE_mos",
+            KNNEngine.FAISS,
+            SpaceType.COSINESIMIL,
+            cosVectors,
+            cosQuery,
+            true,
             true,
             new Object[] { "max_distance", 0.1f, 2 },
             new Object[] { "max_distance", 0.5f, 3 },
@@ -215,7 +236,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
     /**
      * Generates test cases for ANN, ExactSearcher, and optionally MOS paths for a given engine/space configuration.
      * Each threshold entry produces one test case; if exactSearcher is true, a mirror set with filter is added.
-     * If mosEnabled is true, generates MOS-specific test cases.
+     * If memoryOptimized is true, generates MOS-specific test cases.
      */
     private static void addRadialCases(
         List<Object[]> params,
@@ -225,7 +246,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
         float[][] vectors,
         float[] query,
         boolean includeExact,
-        boolean mosEnabled,
+        boolean memoryOptimized,
         Object[]... thresholds
     ) {
         for (Object[] t : thresholds) {
@@ -243,7 +264,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
                     threshold,
                     expected,
                     false,
-                    mosEnabled }
+                    memoryOptimized }
             );
             if (includeExact) {
                 params.add(
@@ -257,7 +278,7 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
                         threshold,
                         expected,
                         true,
-                        mosEnabled }
+                        memoryOptimized }
                 );
             }
         }
@@ -484,11 +505,10 @@ public class RadialSearchIT extends KNNCompressionRestTestCase {
         mapping.endObject().endObject().startObject(FILTER_FIELD).field("type", "keyword").endObject().endObject().endObject();
 
         Settings.Builder settingsBuilder = Settings.builder().put("index.knn", true);
-        if (mosEnabled) {
-            settingsBuilder.put("index.knn.memory_optimized_search", true);
+        if (memoryOptimized && engine == KNNEngine.FAISS) {
+            settingsBuilder.put(MEMORY_OPTIMIZED_KNN_SEARCH_MODE, true);
         }
-        Settings settings = settingsBuilder.build();
-        createKnnIndex(indexName, settings, mapping.toString());
+        createKnnIndex(indexName, settingsBuilder.build(), mapping.toString());
 
         for (int i = 0; i < testVectors.length; i++) {
             indexDocument(indexName, String.valueOf(i + 1), testVectors[i]);
