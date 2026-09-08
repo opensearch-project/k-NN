@@ -28,6 +28,7 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.store.Directory;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.indices.ModelDao;
 
@@ -79,7 +80,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                     QUERY_VECTOR,
                     RADIUS,
                     false,
-                    MAX_RESULTS_RADIAL_RESCORING
+                    MAX_RESULTS_RADIAL_RESCORING,
+                    null
                 )
             );
             assertTrue(e.getMessage().contains("Exact searcher was not initialized"));
@@ -106,7 +108,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             QUERY_VECTOR,
             RADIUS,
             false,
-            MAX_RESULTS_RADIAL_RESCORING
+            MAX_RESULTS_RADIAL_RESCORING,
+            null
         );
         Weight weight = query.createWeight(searcher, ScoreMode.COMPLETE, 1.0f);
         ScorerSupplier supplier = weight.scorerSupplier(leafContext);
@@ -141,7 +144,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             QUERY_VECTOR,
             RADIUS,
             false,
-            MAX_RESULTS_RADIAL_RESCORING
+            MAX_RESULTS_RADIAL_RESCORING,
+            null
         );
         Weight weight = query.createWeight(searcher, ScoreMode.COMPLETE, 1.0f);
         ScorerSupplier supplier = weight.scorerSupplier(leafContext);
@@ -162,7 +166,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             QUERY_VECTOR,
             RADIUS,
             false,
-            MAX_RESULTS_RADIAL_RESCORING
+            MAX_RESULTS_RADIAL_RESCORING,
+            null
         );
         RescoreRadialSearchQuery q2 = new RescoreRadialSearchQuery(
             innerQuery,
@@ -170,7 +175,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             QUERY_VECTOR,
             RADIUS,
             false,
-            MAX_RESULTS_RADIAL_RESCORING
+            MAX_RESULTS_RADIAL_RESCORING,
+            null
         );
 
         assertEquals(q1, q2);
@@ -183,7 +189,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             QUERY_VECTOR,
             0.9f,
             false,
-            MAX_RESULTS_RADIAL_RESCORING
+            MAX_RESULTS_RADIAL_RESCORING,
+            null
         );
         assertNotEquals(q1, q3);
 
@@ -194,7 +201,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             QUERY_VECTOR,
             RADIUS,
             false,
-            MAX_RESULTS_RADIAL_RESCORING
+            MAX_RESULTS_RADIAL_RESCORING,
+            null
         );
         assertNotEquals(q1, q4);
 
@@ -205,7 +213,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             new float[] { 9.0f },
             RADIUS,
             false,
-            MAX_RESULTS_RADIAL_RESCORING
+            MAX_RESULTS_RADIAL_RESCORING,
+            null
         );
         assertNotEquals(q1, q5);
     }
@@ -219,7 +228,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             QUERY_VECTOR,
             RADIUS,
             false,
-            MAX_RESULTS_RADIAL_RESCORING
+            MAX_RESULTS_RADIAL_RESCORING,
+            null
         );
         String str = query.toString(FIELD_NAME);
 
@@ -294,7 +304,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                     queryVector,
                     radiusThreshold,
                     false,
-                    vectors.length
+                    vectors.length,
+                    null
                 );
 
                 final TopDocs plain = searcher.search(rescoreQuery, vectors.length);
@@ -310,10 +321,76 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         }
     }
 
+    /**
+     * A leaf with no field attributes can only derive the space type from the Lucene similarity function
+     * recorded on the field, so rescoring has to prefer the one resolved from the mapping.
+     */
+    public void testRescore_whenSpaceTypeProvided_thenScoresWithIt() throws IOException {
+        final float[] queryVector = { 3.0f, 4.0f };
+        final float[] docVector = { 1.0f, 2.0f };
+        // Faiss turns the radius into a minimum score per space type, so this has to clear both:
+        // 1 / (1 + 10) for l2, against a document score of 0.111111, and 10 + 1 for innerproduct,
+        // against a document score of 12.
+        final float radius = 10.0f;
+
+        try (Directory directory = newDirectory()) {
+            try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
+                Document doc = new Document();
+                doc.add(new KnnFloatVectorField(FIELD_NAME, docVector, VectorSimilarityFunction.EUCLIDEAN));
+                w.addDocument(doc);
+                w.commit();
+            }
+
+            try (IndexReader reader = DirectoryReader.open(directory)) {
+                final IndexSearcher searcher = new IndexSearcher(reader);
+                // Inner product of [1, 2] and [3, 4] is 11, so 11 + 1.
+                assertEquals(12.0f, onlyScore(searcher, queryVector, radius, SpaceType.INNER_PRODUCT), 1e-5f);
+                // Without one, the field is scored with the EUCLIDEAN function it was indexed with,
+                // whose squared distance is 8, so 1 / (1 + 8).
+                assertEquals(0.111111f, onlyScore(searcher, queryVector, radius, null), 1e-5f);
+            }
+        }
+    }
+
+    public void testRewrite_preservesSpaceType() throws IOException {
+        Query originalInner = mock(Query.class);
+        IndexSearcher searcher = mock(IndexSearcher.class);
+        when(originalInner.rewrite(searcher)).thenReturn(new MatchAllDocsQuery());
+
+        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
+            originalInner,
+            FIELD_NAME,
+            QUERY_VECTOR,
+            RADIUS,
+            false,
+            6,
+            SpaceType.INNER_PRODUCT
+        );
+
+        RescoreRadialSearchQuery rewritten = (RescoreRadialSearchQuery) query.rewrite(searcher);
+        assertEquals(SpaceType.INNER_PRODUCT, rewritten.getSpaceType());
+    }
+
+    private float onlyScore(final IndexSearcher searcher, final float[] queryVector, final float radius, final SpaceType spaceType)
+        throws IOException {
+        final RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
+            new MatchAllDocsQuery(),
+            FIELD_NAME,
+            queryVector,
+            radius,
+            false,
+            10,
+            spaceType
+        );
+        final TopDocs topDocs = searcher.search(query, 10);
+        assertEquals(1, topDocs.scoreDocs.length);
+        return topDocs.scoreDocs[0].score;
+    }
+
     // Verify getters expose the fields correctly
     public void testGetters() {
         Query innerQuery = new MatchAllDocsQuery();
-        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(innerQuery, FIELD_NAME, QUERY_VECTOR, RADIUS, false, 25);
+        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(innerQuery, FIELD_NAME, QUERY_VECTOR, RADIUS, false, 25, null);
 
         assertSame(innerQuery, query.getInnerQuery());
         assertEquals(FIELD_NAME, query.getField());
@@ -340,7 +417,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             QUERY_VECTOR,
             RADIUS,
             false,
-            MAX_RESULTS_RADIAL_RESCORING
+            MAX_RESULTS_RADIAL_RESCORING,
+            null
         );
 
         // When: first rewrite — inner query changes, so a new wrapper is created
@@ -367,7 +445,7 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         IndexSearcher searcher = mock(IndexSearcher.class);
         when(originalInner.rewrite(searcher)).thenReturn(rewrittenInner);
 
-        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(originalInner, FIELD_NAME, QUERY_VECTOR, RADIUS, false, 6);
+        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(originalInner, FIELD_NAME, QUERY_VECTOR, RADIUS, false, 6, null);
 
         RescoreRadialSearchQuery rewrittenQuery = (RescoreRadialSearchQuery) query.rewrite(searcher);
 
@@ -388,7 +466,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             QUERY_VECTOR,
             RADIUS,
             false,
-            MAX_RESULTS_RADIAL_RESCORING
+            MAX_RESULTS_RADIAL_RESCORING,
+            null
         );
         Query rewritten = query.rewrite(searcher);
 
@@ -409,7 +488,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             QUERY_VECTOR,
             RADIUS,
             false,
-            MAX_RESULTS_RADIAL_RESCORING
+            MAX_RESULTS_RADIAL_RESCORING,
+            null
         );
         final boolean[] innerVisited = { false };
 
@@ -450,7 +530,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             QUERY_VECTOR,
             RADIUS,
             false,
-            MAX_RESULTS_RADIAL_RESCORING
+            MAX_RESULTS_RADIAL_RESCORING,
+            null
         );
         Weight weight = query.createWeight(searcher, ScoreMode.COMPLETE, 1.0f);
         Explanation explanation = weight.explain(leafContext, 42);
@@ -477,7 +558,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             QUERY_VECTOR,
             RADIUS,
             false,
-            MAX_RESULTS_RADIAL_RESCORING
+            MAX_RESULTS_RADIAL_RESCORING,
+            null
         );
         Weight weight = query.createWeight(searcher, ScoreMode.COMPLETE, 1.0f);
 
@@ -532,7 +614,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                         queryVector,
                         radiusThreshold,
                         false,
-                        MAX_RESULTS_RADIAL_RESCORING
+                        MAX_RESULTS_RADIAL_RESCORING,
+                        null
                     );
 
                     TopDocs results = searcher.search(rescoreQuery, 10);
@@ -593,7 +676,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                         queryVector,
                         radiusThreshold,
                         false,
-                        MAX_RESULTS_RADIAL_RESCORING
+                        MAX_RESULTS_RADIAL_RESCORING,
+                        null
                     );
 
                     TopDocs results = searcher.search(rescoreQuery, 10);
@@ -644,7 +728,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                         queryVector,
                         radiusThreshold,
                         false,
-                        MAX_RESULTS_RADIAL_RESCORING
+                        MAX_RESULTS_RADIAL_RESCORING,
+                        null
                     );
 
                     TopDocs results = searcher.search(rescoreQuery, 10);
@@ -696,7 +781,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                         queryVector,
                         radiusThreshold,
                         false,
-                        MAX_RESULTS_RADIAL_RESCORING
+                        MAX_RESULTS_RADIAL_RESCORING,
+                        null
                     );
 
                     TopDocs results = searcher.search(rescoreQuery, 10);
@@ -747,7 +833,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                     queryVector,
                     radiusThreshold,
                     false,
-                    maxResultsSize
+                    maxResultsSize,
+                    null
                 );
 
                 TopDocs results = searcher.search(rescoreQuery, 10);
@@ -815,7 +902,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                     queryVector,
                     radiusThreshold,
                     false,
-                    firstPassK
+                    firstPassK,
+                    null
                 );
 
                 assertEquals(firstPassK, rescoreQuery.getFirstPassK());
@@ -876,7 +964,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                         queryVector,
                         radiusThreshold,
                         false,
-                        MAX_RESULTS_RADIAL_RESCORING
+                        MAX_RESULTS_RADIAL_RESCORING,
+                        null
                     );
 
                     // Search with a large collector size to not limit from the collector side
@@ -932,7 +1021,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                         queryVector,
                         radiusThreshold,
                         false,
-                        MAX_RESULTS_RADIAL_RESCORING
+                        MAX_RESULTS_RADIAL_RESCORING,
+                        null
                     );
 
                     TopDocs results = searcher.search(rescoreQuery, totalDocs);
@@ -984,7 +1074,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                         queryVector,
                         radiusThreshold,
                         false,
-                        MAX_RESULTS_RADIAL_RESCORING
+                        MAX_RESULTS_RADIAL_RESCORING,
+                        null
                     );
 
                     TopDocs results = searcher.search(rescoreQuery, totalDocs);
@@ -1038,7 +1129,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                         queryVector,
                         radiusThreshold,
                         false,
-                        MAX_RESULTS_RADIAL_RESCORING
+                        MAX_RESULTS_RADIAL_RESCORING,
+                        null
                     );
 
                     TopDocs results = searcher.search(rescoreQuery, 10);

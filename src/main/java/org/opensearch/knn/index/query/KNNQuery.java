@@ -21,6 +21,7 @@ import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.common.StopWatch;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.memoryoptsearch.MemoryOptimizedKNNWeight;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
@@ -53,6 +54,12 @@ public class KNNQuery extends Query {
     private Map<String, ?> methodParameters;
     private final String indexName;
     private final VectorDataType vectorDataType;
+    /**
+     * Space type resolved from the field mapping when the query was built. Exact search and explain prefer
+     * it over the one derived from segment metadata, which is unreliable on leaves that carry no field
+     * attributes. Approximate search is unaffected, since it only runs on leaves that have them.
+     */
+    private final SpaceType spaceType;
     private final RescoreContext rescoreContext;
     @Setter
     private Query filterQuery;
@@ -141,6 +148,8 @@ public class KNNQuery extends Query {
         this.vectorDataType = vectorDataType;
         this.rescoreContext = rescoreContext;
         this.originalQueryVector = queryVector;
+        // This constructor predates spaceType. Callers resolve it from segment metadata instead.
+        this.spaceType = null;
     }
 
     /**

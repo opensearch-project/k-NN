@@ -268,6 +268,7 @@ public class ExplainTests extends KNNWeightTestCase {
             .floatQueryVector(queryVector)
             .field(FIELD_NAME)
             .isMemoryOptimizedSearchEnabled(false)
+            .vectorDataType(VectorDataType.FLOAT)
             .build();
         when(mockedExactSearcher.searchLeaf(leafReaderContext, exactSearchContext)).thenReturn(buildTopDocs(DOC_ID_TO_SCORES));
 
@@ -482,6 +483,7 @@ public class ExplainTests extends KNNWeightTestCase {
             .field(FIELD_NAME)
             .floatQueryVector(queryVector)
             .isMemoryOptimizedSearchEnabled(false)
+            .vectorDataType(VectorDataType.FLOAT)
             .build();
         when(mockedExactSearcher.searchLeaf(leafReaderContext, exactSearchContext)).thenReturn(buildTopDocs(DOC_ID_TO_SCORES));
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
@@ -903,6 +905,7 @@ public class ExplainTests extends KNNWeightTestCase {
             .radius(radius)
             .isMemoryOptimizedSearchEnabled(false)
             .maxResultWindow(maxResults)
+            .vectorDataType(VectorDataType.FLOAT)
             .build();
         when(mockedExactSearcher.searchLeaf(leafReaderContext, exactSearchContext)).thenReturn(buildTopDocs(DOC_ID_TO_SCORES));
 
