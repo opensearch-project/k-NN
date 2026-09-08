@@ -130,13 +130,13 @@ public class ResolvedIndexSpecConsumerTests extends KNNTestCase {
         assertNull(spec.getRescoreContext());
     }
 
-    public void testRadialSearch_SQ1BitNotSupported() {
-        // Radial search is now blocked for all quantized indices, including 1-bit SQ (#3464).
+    public void testRadialSearch_SQ1BitSupported() {
+        // 1/2/4-bit SQ reaches the size-bounded rescoring path, so radial search is allowed again (#3491).
         ResolvedIndexSpec spec = buildSQ1BitSpec();
-        assertFalse(spec.supportsRadialSearch());
+        assertTrue(spec.supportsRadialSearch());
     }
 
-    public void testRadialSearch_specMatchesOldBehavior_x32HNSWNotSupported() {
+    public void testRadialSearch_SQFourBitSupported() {
         ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
             .engine(KNNEngine.FAISS)
             .methodName(METHOD_HNSW)
@@ -148,7 +148,8 @@ public class ResolvedIndexSpecConsumerTests extends KNNTestCase {
             .dimension(128)
             .indexVersionCreated(Version.CURRENT)
             .build();
-        assertFalse(spec.supportsRadialSearch());
+        // Multi-bit SQ (#3544) supports bits ∈ {1, 2, 4}, all served by the size-bounded rescoring path.
+        assertTrue(spec.supportsRadialSearch());
     }
 
     public void testRadialSearch_specMatchesOldBehavior_binaryNotSupported() {

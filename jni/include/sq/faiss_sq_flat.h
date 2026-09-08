@@ -1,3 +1,8 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #ifndef KNNPLUGIN_JNI_FAISS_SQ_FLAT_H
 #define KNNPLUGIN_JNI_FAISS_SQ_FLAT_H
 

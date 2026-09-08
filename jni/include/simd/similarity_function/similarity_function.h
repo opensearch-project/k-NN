@@ -1,3 +1,8 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #ifndef OPENSEARCH_KNN_SIMD_SIMILARITY_FUNCTION_H
 #define OPENSEARCH_KNN_SIMD_SIMILARITY_FUNCTION_H
 
