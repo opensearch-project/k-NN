@@ -41,7 +41,7 @@ public class NativeEngines990KnnVectorsScorer implements FlatVectorsScorer {
         if (nativeType != null) {
             final FloatVectorValues bottomValues = WrappedFloatVectorValues.getBottomFloatVectorValues(vectorValues);
             if (bottomValues instanceof MMapVectorValues mmapValues) {
-                return new NativeRandomVectorScorer(target, vectorValues, mmapValues, nativeType);
+                return NativeRandomVectorScorer.create(target, vectorValues, mmapValues, nativeType);
             }
         }
         return delegate.getRandomVectorScorer(similarityFunction, vectorValues, target);
@@ -70,6 +70,10 @@ public class NativeEngines990KnnVectorsScorer implements FlatVectorsScorer {
         return switch (similarityFunction) {
             case MAXIMUM_INNER_PRODUCT -> SimdVectorComputeService.SimilarityFunctionType.FP16_MAXIMUM_INNER_PRODUCT;
             case EUCLIDEAN -> SimdVectorComputeService.SimilarityFunctionType.FP16_L2;
+            // COSINE binds to the FP16_COSINE kernel: on AVX-512-FP16-capable platforms this is the
+            // native AVX512NativeFP16IP kernel; elsewhere it falls back to the FP32-converted IP kernel.
+            // Either way the kernel emits a (1 + dot) / 2 Lucene score directly for L2-normalized vectors.
+            case COSINE -> SimdVectorComputeService.SimilarityFunctionType.FP16_COSINE;
             default -> null;
         };
     }

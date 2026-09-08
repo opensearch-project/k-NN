@@ -25,7 +25,11 @@ public class SimdVectorComputeService {
         // FP16 Maximum Inner Product. The result will be the same as we acquired from VectorSimilarityFunction.EUCLIDEAN.
         FP16_L2,
         SQ_IP,
-        SQ_L2
+        SQ_L2,
+        // FP16 Cosine. Vectors are guaranteed to be L2-normalized, so cosine = inner product with score = (1 + dot) / 2.
+        FP16_COSINE,
+        // SQ Cosine. Same IP math as SQ_IP but with cosine score transform.
+        SQ_COSINE
     }
 
     public static native void saveSQSearchContext(

@@ -14,7 +14,11 @@ namespace knn_jni::simd::similarity_function {
         // L2 for FP16
         FP16_L2,
         SQ_IP,
-        SQ_L2
+        SQ_L2,
+        // Cosine for FP16. Vectors are L2-normalized so cosine = inner product with score = (1 + dot) / 2.
+        FP16_COSINE,
+        // Cosine for SQ. Same IP intermediate math as SQ_IP but with cosine score transform.
+        SQ_COSINE
     };
 
     struct SimilarityFunction;
@@ -39,8 +43,13 @@ namespace knn_jni::simd::similarity_function {
         SimilarityFunction* similarityFunction;
         // Faiss distance computation function.
         std::unique_ptr<faiss::DistanceComputer> faissFunction;
-        // Temp buffer which is reset per search.
+        // Temp buffer which is reset per search. Also used by getVectorPointer() to reassemble a
+        // vector that straddles two mmap regions, so it may be resized (and reallocated) mid-scan.
         std::vector<uint8_t> tmpBuffer;
+        // Dedicated buffer holding the FP16-converted query for the native FP16 kernel. Kept
+        // separate from tmpBuffer so that a cross-region vector reassembly (which resizes
+        // tmpBuffer) can never invalidate the query pointer held by the kernel.
+        std::vector<uint8_t> queryFP16Buffer;
 
         ~SimdVectorSearchContext();
 
