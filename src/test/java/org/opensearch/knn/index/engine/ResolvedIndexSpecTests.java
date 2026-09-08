@@ -86,22 +86,6 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
         assertFalse(spec.supportsRadialSearch());
     }
 
-    public void testRadialSearch_BQNotSupported() {
-        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.BQ)
-            .quantizationBits(Encoder.QuantizationBits.TWO)
-            .compressionLevel(CompressionLevel.x16)
-            .build();
-        assertFalse(spec.supportsRadialSearch());
-    }
-
-    public void testRadialSearch_QuantizedSQ4BitNotSupported() {
-        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.SQ)
-            .quantizationBits(Encoder.QuantizationBits.FOUR)
-            .compressionLevel(CompressionLevel.x8)
-            .build();
-        assertFalse(spec.supportsRadialSearch());
-    }
-
     public void testRadialSearch_QuantizedPQNotSupported() {
         ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.PQ)
             .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
@@ -110,10 +94,61 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
         assertFalse(spec.supportsRadialSearch());
     }
 
-    public void testRadialSearch_SQ1BitNotSupported() {
-        // Radial search is now blocked for all quantized indices, including 1-bit SQ (#3464).
+    public void testRadialSearch_SQ1BitSupported() {
+        // 1/2/4-bit SQ reaches the size-bounded rescoring path, so radial search is allowed again (#3491).
         ResolvedIndexSpec spec = baseFaissSQ1Bit().build();
+        assertTrue(spec.supportsRadialSearch());
+        assertTrue(spec.requiresFullPrecisionRadialRescore());
+    }
+
+    public void testRadialSearch_SQTwoAndFourBitSupported() {
+        // Multi-bit SQ (#3544) makes SQ bits ∈ {1, 2, 4} constructible, and all of them are lossy enough
+        // to need the full-precision rescoring pass.
+        for (Encoder.QuantizationBits bits : new Encoder.QuantizationBits[] {
+            Encoder.QuantizationBits.TWO,
+            Encoder.QuantizationBits.FOUR }) {
+            ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.SQ)
+                .quantizationBits(bits)
+                .compressionLevel(bits.getCompressionLevel())
+                .build();
+            assertTrue("expected radial support for SQ " + bits, spec.supportsRadialSearch());
+            assertTrue(spec.requiresFullPrecisionRadialRescore());
+            assertTrue("multi-bit SQ predicate should agree", spec.isSQMultiBit());
+        }
+    }
+
+    public void testRadialSearch_BQSupported() {
+        // BQ is the common non-memory-optimized case and now reaches the size-bounded path (#3491).
+        for (Encoder.QuantizationBits bits : new Encoder.QuantizationBits[] {
+            Encoder.QuantizationBits.ONE,
+            Encoder.QuantizationBits.TWO,
+            Encoder.QuantizationBits.FOUR }) {
+            ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.BQ)
+                .quantizationBits(bits)
+                .compressionLevel(bits.getCompressionLevel())
+                .build();
+            assertTrue("expected radial support for BQ " + bits, spec.supportsRadialSearch());
+            assertTrue(spec.requiresFullPrecisionRadialRescore());
+        }
+    }
+
+    public void testRadialSearch_BQResolvesToFiveTimesOversample() {
+        // BQ falls through to the dimension-based branch of getRescoreContext, not SQ 1-bit's fixed 2x.
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.BQ)
+            .quantizationBits(Encoder.QuantizationBits.ONE)
+            .compressionLevel(CompressionLevel.x32)
+            .build();
+        assertEquals(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD, spec.getRescoreContext().getOversampleFactor(), 0.0f);
+    }
+
+    public void testRadialSearch_SQSevenBitNotSupported() {
+        // 7-bit SQ (x4) is quantized but is not enabled for radial search.
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.SEVEN)
+            .compressionLevel(CompressionLevel.x4)
+            .build();
         assertFalse(spec.supportsRadialSearch());
+        assertFalse(spec.requiresFullPrecisionRadialRescore());
     }
 
     public void testRadialSearch_FlatMethodWithX32NotSupported() {

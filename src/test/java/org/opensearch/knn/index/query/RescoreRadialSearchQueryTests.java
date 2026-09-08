@@ -15,6 +15,7 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Explanation;
+import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.QueryVisitor;
@@ -36,6 +37,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.MAX_RESULTS_RADIAL_RESCORING;
 
@@ -226,22 +228,98 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         assertTrue(str.contains(String.valueOf(RADIUS)));
     }
 
+    // Given: a boost other than 1.0
+    // When: the rescored scorer is wrapped in BoostedScorer
+    // Then: scores and max scores are scaled, iteration is delegated, and the competitive-score
+    // threshold is translated back into the delegate's own scale
+    @SneakyThrows
+    public void testBoostedScorer_scalesScoresAndDelegatesIteration() {
+        final Scorer delegate = mock(Scorer.class);
+        final DocIdSetIterator iterator = mock(DocIdSetIterator.class);
+        when(delegate.docID()).thenReturn(7);
+        when(delegate.iterator()).thenReturn(iterator);
+        when(delegate.score()).thenReturn(0.25f);
+        when(delegate.getMaxScore(100)).thenReturn(0.5f);
+        when(delegate.advanceShallow(42)).thenReturn(43);
+
+        final RescoreRadialSearchQuery.BoostedScorer boosted = new RescoreRadialSearchQuery.BoostedScorer(delegate, 4.0f);
+
+        assertEquals(7, boosted.docID());
+        assertSame(iterator, boosted.iterator());
+        assertEquals(1.0f, boosted.score(), 0.0f);
+        assertEquals(2.0f, boosted.getMaxScore(100), 0.0f);
+        assertEquals(43, boosted.advanceShallow(42));
+
+        // A boosted threshold of 2.0 corresponds to 0.5 in the delegate's scale.
+        boosted.setMinCompetitiveScore(2.0f);
+        verify(delegate).setMinCompetitiveScore(0.5f);
+    }
+
+    // Guards against divide-by-zero when translating the competitive score for a zero boost
+    @SneakyThrows
+    public void testBoostedScorer_whenBoostIsZero_thenMinCompetitiveScoreIsZero() {
+        final Scorer delegate = mock(Scorer.class);
+        final RescoreRadialSearchQuery.BoostedScorer boosted = new RescoreRadialSearchQuery.BoostedScorer(delegate, 0.0f);
+
+        boosted.setMinCompetitiveScore(5.0f);
+
+        verify(delegate).setMinCompetitiveScore(0.0f);
+    }
+
+    // Given: a radial query wrapped in a BoostQuery
+    // When: searched over a real index
+    // Then: every score is the unboosted score scaled by the boost, proving BoostedScorer is wired in
+    @SneakyThrows
+    public void testRescore_withBoost_thenScoresAreScaled() {
+        final float[] queryVector = { 1.0f, 0.0f, 0.0f };
+        final float[][] vectors = { { 1.0f, 0.0f, 0.0f }, { 0.99f, 0.01f, 0.0f }, { 0.95f, 0.05f, 0.0f } };
+        final float radiusThreshold = 1.0f;
+        final float boost = 3.0f;
+
+        try (Directory directory = newDirectory()) {
+            try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
+                for (float[] vector : vectors) {
+                    Document doc = new Document();
+                    doc.add(new KnnFloatVectorField(FIELD_NAME, vector, VectorSimilarityFunction.EUCLIDEAN));
+                    w.addDocument(doc);
+                }
+                w.commit();
+            }
+
+            try (IndexReader reader = DirectoryReader.open(directory)) {
+                final IndexSearcher searcher = new IndexSearcher(reader);
+                final RescoreRadialSearchQuery rescoreQuery = new RescoreRadialSearchQuery(
+                    new MatchAllDocsQuery(),
+                    FIELD_NAME,
+                    queryVector,
+                    radiusThreshold,
+                    false,
+                    vectors.length
+                );
+
+                final TopDocs plain = searcher.search(rescoreQuery, vectors.length);
+                final TopDocs boosted = searcher.search(new BoostQuery(rescoreQuery, boost), vectors.length);
+
+                assertEquals(plain.scoreDocs.length, boosted.scoreDocs.length);
+                assertTrue("expected at least one hit", plain.scoreDocs.length > 0);
+                for (int i = 0; i < plain.scoreDocs.length; i++) {
+                    assertEquals(plain.scoreDocs[i].doc, boosted.scoreDocs[i].doc);
+                    assertEquals(plain.scoreDocs[i].score * boost, boosted.scoreDocs[i].score, 1e-5f);
+                }
+            }
+        }
+    }
+
     // Verify getters expose the fields correctly
     public void testGetters() {
         Query innerQuery = new MatchAllDocsQuery();
-        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
-            innerQuery,
-            FIELD_NAME,
-            QUERY_VECTOR,
-            RADIUS,
-            false,
-            MAX_RESULTS_RADIAL_RESCORING
-        );
+        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(innerQuery, FIELD_NAME, QUERY_VECTOR, RADIUS, false, 25);
 
         assertSame(innerQuery, query.getInnerQuery());
         assertEquals(FIELD_NAME, query.getField());
         assertArrayEquals(QUERY_VECTOR, query.getQueryVector(), 0.0f);
         assertEquals(RADIUS, query.getRadius(), 0.0f);
+        assertEquals(25, query.getFirstPassK());
     }
 
     // Given: a RescoreRadialSearchQuery with an inner query that rewrites to a different query
@@ -281,6 +359,20 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
 
         // Then: converges — returns the same instance since inner didn't change
         assertSame(firstRewrite, secondRewrite);
+    }
+
+    public void testRewrite_preservesIndependentCandidateAndFinalResultLimits() throws IOException {
+        Query originalInner = mock(Query.class);
+        Query rewrittenInner = new MatchAllDocsQuery();
+        IndexSearcher searcher = mock(IndexSearcher.class);
+        when(originalInner.rewrite(searcher)).thenReturn(rewrittenInner);
+
+        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(originalInner, FIELD_NAME, QUERY_VECTOR, RADIUS, false, 6);
+
+        RescoreRadialSearchQuery rewrittenQuery = (RescoreRadialSearchQuery) query.rewrite(searcher);
+
+        assertSame(rewrittenInner, rewrittenQuery.getInnerQuery());
+        assertEquals(6, rewrittenQuery.getFirstPassK());
     }
 
     // Given: a RescoreRadialSearchQuery whose inner query already rewrites to itself
@@ -670,12 +762,12 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         }
     }
 
-    // Given: inner query returns more docs than maxResultsSize
-    // When: RescoreRadialSearchQuery rescores
-    // Then: only top-maxResultsSize candidates (by score) are collected before rescoring,
-    // meaning the highest-scoring vectors are retained and low-scoring ones are dropped
+    // Given: inner query returns more docs than the first-pass candidate limit
+    // When: fewer results are requested than there are in-radius candidates
+    // Then: firstPassK bounds the candidates rescored and the collector bounds the results returned,
+    // which are the highest scoring ones
     @SneakyThrows
-    public void testRescore_whenCostExceedsMaxResultsSize_thenCollectsTopCandidatesByScore() {
+    public void testRescore_whenFewerResultsRequestedThanCandidates_thenCollectorBoundsResults() {
         final float[] queryVector = { 1.0f, 0.0f, 0.0f };
         // 6 vectors with clearly different similarities to query.
         // Euclidean similarity = 1/(1+dist^2).
@@ -691,10 +783,12 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             { 0.5f, 0.5f, 0.0f },    // doc4: lower score
             { 0.3f, 0.7f, 0.0f },    // doc5: lowest score
         };
-        // Loose radius so all vectors pass the rescore filter
-        final float radiusThreshold = 0.1f;
-        // Only top 3 by score should be collected for rescoring
-        final int maxResultsSize = 3;
+        // Radius loose enough that every vector clears the filter: minScore = 1/(1+1.0) = 0.5, and the
+        // farthest doc (doc5) scores 1/(1+0.98) ~= 0.505.
+        final float radiusThreshold = 1.0f;
+        // Retain five first-pass candidates; ask the collector for only three results.
+        final int firstPassK = 5;
+        final int requestedResults = 3;
 
         try (Directory directory = newDirectory()) {
             try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
@@ -703,12 +797,17 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                     doc.add(new KnnFloatVectorField(FIELD_NAME, vector, VectorSimilarityFunction.EUCLIDEAN));
                     w.addDocument(doc);
                 }
+                // firstPassK bounds candidates per leaf, so a multi-segment index would trim nothing when
+                // each leaf holds fewer than firstPassK docs. Force a single segment to make the per-leaf
+                // bound observable as a per-query one.
+                w.forceMerge(1);
                 w.commit();
             }
 
             try (IndexReader reader = DirectoryReader.open(directory)) {
                 IndexSearcher searcher = new IndexSearcher(reader);
                 Query innerQuery = new MatchAllDocsQuery();
+                assertEquals("test assumes a single segment", 1, reader.leaves().size());
 
                 RescoreRadialSearchQuery rescoreQuery = new RescoreRadialSearchQuery(
                     innerQuery,
@@ -716,30 +815,28 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                     queryVector,
                     radiusThreshold,
                     false,
-                    maxResultsSize
+                    firstPassK
                 );
 
-                TopDocs results = searcher.search(rescoreQuery, vectors.length);
+                assertEquals(firstPassK, rescoreQuery.getFirstPassK());
 
-                // Exactly maxResultsSize results since all pass the radius filter
-                assertEquals("Should return exactly maxResultsSize results", maxResultsSize, results.scoreDocs.length);
+                // Asking for everything yields the firstPassK candidates that pass the radius filter.
+                assertEquals(firstPassK, searcher.search(rescoreQuery, vectors.length).scoreDocs.length);
 
-                // The returned docs should be the top-3 by score (doc0, doc1, doc2)
-                // Verify that the minimum score in the result set is higher than
-                // the maximum score of the excluded docs (doc3-5)
-                float minReturnedScore = Float.MAX_VALUE;
+                TopDocs results = searcher.search(rescoreQuery, requestedResults);
+
+                assertEquals("Should return exactly the requested number of results", requestedResults, results.scoreDocs.length);
+
+                // Results are the highest scoring of the rescored candidates, and every one clears the
+                // radius. Which candidates survive the first-pass trim is not asserted: the inner
+                // MatchAllDocsQuery scores every doc identically, so that selection is arbitrary.
+                final float minScore = 1.0f / (1.0f + radiusThreshold);
+                float previousScore = Float.MAX_VALUE;
                 for (ScoreDoc scoreDoc : results.scoreDocs) {
-                    minReturnedScore = Math.min(minReturnedScore, scoreDoc.score);
+                    assertTrue("score " + scoreDoc.score + " should clear the radius (" + minScore + ")", scoreDoc.score >= minScore);
+                    assertTrue("results should be in descending score order", scoreDoc.score <= previousScore);
+                    previousScore = scoreDoc.score;
                 }
-
-                // Compute the max score of vectors that should NOT be in the result
-                // doc3 ({0.7, 0.3, 0}) has dist^2 = (0.3)^2 + (0.3)^2 = 0.18, score = 1/(1+0.18) ≈ 0.847
-                // The minimum returned score (from doc2) should be higher than doc3's score
-                float doc3Score = 1.0f / (1.0f + (0.3f * 0.3f + 0.3f * 0.3f));
-                assertTrue(
-                    "Top-k by score: min returned score (" + minReturnedScore + ") should exceed excluded doc score (" + doc3Score + ")",
-                    minReturnedScore > doc3Score
-                );
             }
         }
     }

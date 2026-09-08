@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.query.parser;
 
 import lombok.extern.log4j.Log4j2;
+import org.opensearch.Version;
 import org.opensearch.core.common.ParsingException;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -58,6 +59,12 @@ public final class KNNQueryBuilderParser {
     private static final ObjectParser<KNNQueryBuilder.Builder, Void> INTERNAL_PARSER = createInternalObjectParser();
 
     /**
+     * Minimum version that understands the internal {@code size} field. Gated per stream, i.e. on the
+     * version negotiated with the peer actually being written to.
+     */
+    private static final Version RADIAL_SIZE_MIN_VERSION = Version.V_3_9_0;
+
+    /**
      * For a k-NN query, we need to parse roughly the following structure into a KNNQueryBuilder:
      *  "my_vector2": {
      *      "vector": [2, 3, 5, 6],
@@ -108,9 +115,8 @@ public final class KNNQueryBuilderParser {
 
         internalParser.declareBoolean(KNNQueryBuilder.Builder::expandNested, EXPAND_NESTED_FIELD);
 
-        // Declare fields that cannot be set at the same time. Right now, rescore and radial is not supported
-        internalParser.declareExclusiveFieldSet(RESCORE_FIELD.getPreferredName(), MAX_DISTANCE_FIELD.getPreferredName());
-        internalParser.declareExclusiveFieldSet(RESCORE_FIELD.getPreferredName(), MIN_SCORE_FIELD.getPreferredName());
+        // rescore is intentionally not exclusive with max_distance / min_score: oversample_factor sizes the
+        // first pass of quantized radial search, so users need to be able to set it.
 
         return internalParser;
     }
@@ -155,6 +161,10 @@ public final class KNNQueryBuilderParser {
             builder.expandNested(in.readOptionalBoolean());
         }
 
+        if (in.getVersion().onOrAfter(RADIAL_SIZE_MIN_VERSION)) {
+            builder.size(in.readOptionalVInt());
+        }
+
         return builder;
     }
 
@@ -193,6 +203,9 @@ public final class KNNQueryBuilderParser {
         }
         if (minClusterVersionCheck.apply(EXPAND_NESTED)) {
             out.writeOptionalBoolean(builder.getExpandNested());
+        }
+        if (out.getVersion().onOrAfter(RADIAL_SIZE_MIN_VERSION)) {
+            out.writeOptionalVInt(builder.getSize());
         }
     }
 
