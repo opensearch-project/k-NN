@@ -293,6 +293,11 @@ public class KNNRestTestCase extends ODFERestTestCase {
         putMappingRequest(index, mapping);
     }
 
+    protected void createTrainingIndex(String index, String mapping) throws IOException {
+        createIndex(index, Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put(KNN_INDEX, false).build());
+        putMappingRequest(index, mapping);
+    }
+
     /**
      * Create KNN Index with custom shard num
      */
