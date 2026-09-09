@@ -46,7 +46,7 @@ public class DimensionBasedOversamplingIT extends KNNRestTestCase {
     public void testOversamplingFactor_whenDimAbove1000_thenFirstPassKEqualsMinPassResults() {
         int dimension = 1024;
         try {
-            createDiskBased16xIndex(dimension);
+            createDiskBased16xBQIndex(dimension);
             bulkIngestRandomVectors(INDEX_NAME, FIELD_NAME, NUM_DOCS, dimension);
             refreshIndex(INDEX_NAME);
 
@@ -65,7 +65,7 @@ public class DimensionBasedOversamplingIT extends KNNRestTestCase {
     public void testOversamplingFactor_whenDim768to999_thenFirstPassKUses2xFactor() {
         int dimension = 800;
         try {
-            createDiskBased16xIndex(dimension);
+            createDiskBased16xBQIndex(dimension);
             bulkIngestRandomVectors(INDEX_NAME, FIELD_NAME, NUM_DOCS, dimension);
             refreshIndex(INDEX_NAME);
 
@@ -84,7 +84,7 @@ public class DimensionBasedOversamplingIT extends KNNRestTestCase {
     public void testOversamplingFactor_whenDimBelow768_thenFirstPassKUses3xFactor() {
         int dimension = 128;
         try {
-            createDiskBased16xIndex(dimension);
+            createDiskBased16xBQIndex(dimension);
             bulkIngestRandomVectors(INDEX_NAME, FIELD_NAME, NUM_DOCS, dimension);
             refreshIndex(INDEX_NAME);
 
@@ -104,7 +104,7 @@ public class DimensionBasedOversamplingIT extends KNNRestTestCase {
         int dimension = 1024;
         float userOversample = 5.0f;
         try {
-            createDiskBased16xIndex(dimension);
+            createDiskBased16xBQIndex(dimension);
             bulkIngestRandomVectors(INDEX_NAME, FIELD_NAME, NUM_DOCS, dimension);
             refreshIndex(INDEX_NAME);
 
@@ -172,7 +172,7 @@ public class DimensionBasedOversamplingIT extends KNNRestTestCase {
         }
     }
 
-    private void createDiskBased16xIndex(int dimension) throws IOException {
+    private void createDiskBased16xBQIndex(int dimension) throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
@@ -185,6 +185,14 @@ public class DimensionBasedOversamplingIT extends KNNRestTestCase {
             .field(NAME, METHOD_HNSW)
             .field(KNN_ENGINE, FAISS_NAME)
             .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
+            .startObject(PARAMETERS)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, "binary")
+            .startObject(PARAMETERS)
+            .field("bits", 2)
+            .endObject()
+            .endObject()
+            .endObject()
             .endObject()
             .endObject()
             .endObject()

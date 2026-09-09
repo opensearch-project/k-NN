@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.index.engine.faiss;
 
-import org.opensearch.knn.index.engine.Encoder.QuantizationBits;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.mapper.PerDimensionProcessor;
 import org.opensearch.knn.index.mapper.PerDimensionValidator;
@@ -102,7 +101,7 @@ public class FaissFP16Util {
         }
 
         Object bitsObj = encoderContext.getParameters().get(SQ_BITS);
-        if (bitsObj instanceof Integer && (Integer) bitsObj == QuantizationBits.ONE.getValue()) {
+        if (bitsObj instanceof Integer && FaissSQEncoder.isSQCodedBits((Integer) bitsObj)) {
             return false;
         }
 
