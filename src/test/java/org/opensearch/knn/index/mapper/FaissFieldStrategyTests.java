@@ -136,7 +136,16 @@ public class FaissFieldStrategyTests extends KNNTestCase {
     public void testFaissFieldStrategyDoesNotProvideFieldOverrides() {
         EngineFieldStrategy strategy = FaissFieldStrategy.INSTANCE;
         assertTrue(
-            strategy.getFloatFieldOverrides("test_field", new float[] { 1.0f, 2.0f, 3.0f }, null, null, false, false, false).isEmpty()
+            strategy.getFloatFieldOverrides(
+                "test_field",
+                new float[] { 1.0f, 2.0f, 3.0f },
+                null,
+                null,
+                false,
+                false,
+                false,
+                VectorDataType.FLOAT
+            ).isEmpty()
         );
         assertTrue(strategy.getByteFieldOverrides("test_field", new byte[] { 1, 2, 3 }, null, null, false, false, false).isEmpty());
     }

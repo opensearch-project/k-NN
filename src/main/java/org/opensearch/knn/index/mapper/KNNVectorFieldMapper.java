@@ -305,8 +305,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
 
             // return FlatVectorFieldMapper only for indices that are created on or after 2.17.0, for others, use
-            // EngineFieldMapper to maintain backwards compatibility
-            if (originalParameters.getResolvedKnnMethodContext() == null && indexCreatedVersion.onOrAfter(Version.V_2_17_0)) {
+            // EngineFieldMapper to maintain backwards compatibility.
+            // HALF_FLOAT is excluded because FlatVectorFieldMapper relies on binary DocValues storage.
+            final VectorDataType resolvedDataType = vectorDataType.getValue();
+            if (originalParameters.getResolvedKnnMethodContext() == null
+                && indexCreatedVersion.onOrAfter(Version.V_2_17_0)
+                && resolvedDataType != VectorDataType.HALF_FLOAT) {
                 // Prior to 3.0.0, hasDocValues defaulted to false. However, FlatVectorFieldMapper requires
                 // hasDocValues to be true to maintain proper functionality for vector search operations.
                 // For indices created on or after 3.0.0, we automatically set hasDocValues to true if not
@@ -415,8 +419,21 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
 
+            final boolean isKNNDisabled = isKNNDisabled(parserContext.getSettings());
+            final VectorDataType parsedDataType = builder.vectorDataType.getValue();
+
+            // half_float needs the Lucene FP16 codec, which is only wired up when index.knn is true.
+            // Checked here rather than in validateFromFlat below so it is independent of the version
+            // gate, which exists only to preserve pre-2.17 flat-mapper behavior.
+            if (isKNNDisabled && parsedDataType == VectorDataType.HALF_FLOAT) {
+                throw new IllegalArgumentException(
+                    "HALF_FLOAT vector data type is not supported when index.knn is disabled. "
+                        + "Use method 'flat' with engine 'lucene' and index.knn enabled instead."
+                );
+            }
+
             // Check for flat configuration and validate only if index is created after 2.17
-            if (isKNNDisabled(parserContext.getSettings()) && parserContext.indexVersionCreated().onOrAfter(Version.V_2_17_0)) {
+            if (isKNNDisabled && parserContext.indexVersionCreated().onOrAfter(Version.V_2_17_0)) {
                 validateFromFlat(builder);
             } else if (builder.modelId.get() != null) {
                 validateFromModel(builder);
@@ -468,13 +485,25 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         }
 
         private void validateModeAndCompression(KNNVectorFieldMapper.Builder builder, Version indexCreatedVersion) {
-            boolean isModeOrCompressionConfigured = builder.mode.isConfigured() || builder.compressionLevel.isConfigured();
-            if (isModeOrCompressionConfigured && builder.vectorDataType.getValue() != VectorDataType.FLOAT) {
+            VectorDataType vectorDataType = builder.vectorDataType.getValue();
+            // TODO: Revisit half_float here once Lucene SQ on top of FP16 lands. Mode resolves to an
+            // engine plus a compression level, and neither value means anything for half_float yet:
+            // on_disk implies Faiss (half_float is Lucene-only) and in_memory implies x1, which is
+            // already the default. It only becomes meaningful once x16 gives half_float a second tier.
+            if (builder.mode.isConfigured() && vectorDataType != VectorDataType.FLOAT) {
                 throw new MapperParsingException(
-                    String.format(Locale.ROOT, "Compression and mode cannot be used for non-float32 data type for field %s", builder.name)
+                    String.format(Locale.ROOT, "Mode cannot be used for non-float32 data type for field %s", builder.name)
+                );
+            }
+            if (builder.compressionLevel.isConfigured()
+                && vectorDataType != VectorDataType.FLOAT
+                && vectorDataType != VectorDataType.HALF_FLOAT) {
+                throw new MapperParsingException(
+                    String.format(Locale.ROOT, "Compression cannot be used for non-float data type for field %s", builder.name)
                 );
             }
 
+            boolean isModeOrCompressionConfigured = builder.mode.isConfigured() || builder.compressionLevel.isConfigured();
             if (isModeOrCompressionConfigured && indexCreatedVersion.before(Version.V_2_17_0)) {
                 throw new MapperParsingException("Compression and mode can only be used on indices created on or after version 2.17.0");
             }
@@ -519,6 +548,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             // ensure model and top level spaceType is not defined
             if (builder.modelId.get() != null && SpaceType.getSpace(builder.topLevelSpaceType.get()) != SpaceType.UNDEFINED) {
                 throw new IllegalArgumentException("TopLevel Space type and model can not be both specified in the " + "mapping");
+            }
+            // Training runs on Faiss, which does not support HALF_FLOAT, so no model can carry it.
+            // TODO: Revisit once FP16 support lands for Faiss -- a trained model could then carry
+            // half_float and this restriction goes away.
+            if (builder.modelId.get() != null && builder.vectorDataType.getValue() == VectorDataType.HALF_FLOAT) {
+                throw new IllegalArgumentException("HALF_FLOAT vector data type is not supported with model_id");
             }
 
             validateCompressionAndModeNotSet(builder, builder.name(), "model");
@@ -785,7 +820,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             getVectorValidator().validateVector(array);
             getVectorTransformer().transform(array);
             context.doc().addAll(getFieldsForByteVector(array, isDerivedEnabled(context)));
-        } else if (VectorDataType.FLOAT == vectorDataType) {
+        } else if (VectorDataType.FLOAT == vectorDataType || VectorDataType.HALF_FLOAT == vectorDataType) {
             Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
 
             if (floatsArrayOptional.isEmpty()) {

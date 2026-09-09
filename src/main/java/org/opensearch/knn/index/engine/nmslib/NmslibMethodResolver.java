@@ -58,6 +58,7 @@ public class NmslibMethodResolver extends AbstractMethodResolver {
             compressionLevel,
             SUPPORTED_COMPRESSION_LEVELS,
             KNNEngine.NMSLIB,
+            knnMethodConfigContext.getVectorDataType(),
             validationException
         );
 
