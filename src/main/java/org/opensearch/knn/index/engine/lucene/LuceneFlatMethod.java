@@ -22,7 +22,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
  */
 public class LuceneFlatMethod extends AbstractKNNMethod {
 
-    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
+    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT, VectorDataType.HALF_FLOAT);
 
     public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
         SpaceType.UNDEFINED,

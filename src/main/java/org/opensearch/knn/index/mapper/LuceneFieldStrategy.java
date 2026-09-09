@@ -23,6 +23,7 @@ import java.util.Optional;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.buildDocValuesFieldType;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForByteVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForFloatVector;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForHalfFloatVector;
 
 /**
  * Lucene engine implementation of {@link EngineFieldStrategy}.
@@ -66,15 +67,20 @@ public final class LuceneFieldStrategy implements EngineFieldStrategy {
         FieldType vectorFieldType,
         boolean stored,
         boolean hasDocValues,
-        boolean isDerivedSourceEnabled
+        boolean isDerivedSourceEnabled,
+        VectorDataType vectorDataType
     ) {
         final List<Field> fields = new ArrayList<>();
         fields.add(new DerivedKnnFloatVectorField(name, array, fieldType, isDerivedSourceEnabled));
-        if (hasDocValues && vectorFieldType != null) {
+        if (hasDocValues && vectorFieldType != null && vectorDataType != VectorDataType.HALF_FLOAT) {
             fields.add(new VectorField(name, array, vectorFieldType));
         }
         if (stored) {
-            fields.add(createStoredFieldForFloatVector(name, array));
+            if (vectorDataType == VectorDataType.HALF_FLOAT) {
+                fields.add(createStoredFieldForHalfFloatVector(name, array));
+            } else {
+                fields.add(createStoredFieldForFloatVector(name, array));
+            }
         }
         return Optional.of(fields);
     }

@@ -162,6 +162,32 @@ public class KNNVectorScriptDocValuesTests extends KNNTestCase {
         assertEquals(0, values.size());
     }
 
+    /** Test that HALF_FLOAT emptyValues returns float-typed doc values */
+    @Test
+    public void testEmptyValues_whenHalfFloat_thenReturnsFloatDocValues() {
+        KNNVectorScriptDocValues<?> values = KNNVectorScriptDocValues.emptyValues(MOCK_INDEX_FIELD_NAME, VectorDataType.HALF_FLOAT);
+        assertEquals(0, values.size());
+        assertEquals(VectorDataType.HALF_FLOAT, values.getVectorDataType());
+    }
+
+    /** Test that HALF_FLOAT uses FloatVectorValues path (same as FLOAT) */
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testHalfFloatVectorValues() throws IOException {
+        createKNNVectorDocument(directory, FloatVectorValues.class);
+        reader = DirectoryReader.open(directory);
+        LeafReader leafReader = reader.leaves().get(0).reader();
+
+        KNNVectorScriptDocValues<?> scriptDocValues = KNNVectorScriptDocValues.create(
+            leafReader.getFloatVectorValues(MOCK_INDEX_FIELD_NAME),
+            MOCK_INDEX_FIELD_NAME,
+            VectorDataType.HALF_FLOAT
+        );
+
+        scriptDocValues.setNextDocId(0);
+        Assert.assertArrayEquals(SAMPLE_VECTOR_DATA, ((KNNVectorScriptDocValues<float[]>) scriptDocValues).getValue(), 0.1f);
+    }
+
     private void createKNNVectorDocument(Directory directory, Class<?> valuesClass) throws IOException {
         IndexWriterConfig conf = newIndexWriterConfig(new MockAnalyzer(random()));
         IndexWriter writer = new IndexWriter(directory, conf);

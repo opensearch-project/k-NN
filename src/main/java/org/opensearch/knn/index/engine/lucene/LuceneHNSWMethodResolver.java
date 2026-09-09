@@ -8,6 +8,7 @@ package org.opensearch.knn.index.engine.lucene;
 import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.AbstractMethodResolver;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.Encoder.QuantizationBits;
@@ -42,6 +43,13 @@ import static org.opensearch.knn.index.engine.lucene.LuceneHNSWMethod.SUPPORTED_
  * {@link org.opensearch.knn.index.mapper.CompressionLevel#x32} (SQ 1-bit). The 1-bit path
  * requires indices created on or after 3.6.0; the 2/4-bit paths require indices created on or
  * after {@link org.opensearch.knn.common.KNNConstants#LUCENE_HNSW_SQ_2BIT_4BIT_MIN_VERSION}.
+ *
+ * <p>HALF_FLOAT vectors don't go through an encoder - compression is expressed purely via {@link
+ * org.opensearch.knn.index.mapper.CompressionLevel}, currently supporting only {@link
+ * org.opensearch.knn.index.mapper.CompressionLevel#x1} (raw FP16, no further reduction), which is also
+ * the default (mirrors {@link LuceneFlatMethodResolver}). {@link
+ * org.opensearch.knn.index.mapper.CompressionLevel#x16} (an actual quantization scheme on top of FP16)
+ * is added in a follow-up.
  */
 public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
 
@@ -52,6 +60,8 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
         CompressionLevel.x16,
         CompressionLevel.x32
     );
+    static final CompressionLevel DEFAULT_COMPRESSION_HALF_FLOAT = CompressionLevel.x1;
+    static final Set<CompressionLevel> SUPPORTED_COMPRESSION_HALF_FLOAT = Set.of(CompressionLevel.x1);
 
     @Override
     public ResolvedMethodContext resolveMethod(
@@ -60,6 +70,10 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
         boolean shouldRequireTraining,
         final SpaceType spaceType
     ) {
+        if (VectorDataType.HALF_FLOAT == knnMethodConfigContext.getVectorDataType()) {
+            return resolveHalfFloatMethod(knnMethodContext, knnMethodConfigContext, shouldRequireTraining, spaceType);
+        }
+
         validateConfig(knnMethodConfigContext, shouldRequireTraining);
         KNNMethodContext resolvedKNNMethodContext = initResolvedKNNMethodContext(
             knnMethodContext,
@@ -76,6 +90,42 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
             LuceneHNSWMethod.SUPPORTED_ENCODERS
         );
         validateCompressionConflicts(knnMethodConfigContext.getCompressionLevel(), resolvedCompressionLevel);
+        return ResolvedMethodContext.builder()
+            .knnMethodContext(resolvedKNNMethodContext)
+            .compressionLevel(resolvedCompressionLevel)
+            .build();
+    }
+
+    private ResolvedMethodContext resolveHalfFloatMethod(
+        KNNMethodContext knnMethodContext,
+        KNNMethodConfigContext knnMethodConfigContext,
+        boolean shouldRequireTraining,
+        SpaceType spaceType
+    ) {
+        ValidationException validationException = validateNotTrainingContext(shouldRequireTraining, KNNEngine.LUCENE, null);
+        CompressionLevel compressionLevel = knnMethodConfigContext.getCompressionLevel();
+        validationException = validateCompressionSupported(
+            compressionLevel,
+            SUPPORTED_COMPRESSION_HALF_FLOAT,
+            KNNEngine.LUCENE,
+            knnMethodConfigContext.getVectorDataType(),
+            validationException
+        );
+        if (validationException != null) {
+            throw validationException;
+        }
+
+        KNNMethodContext resolvedKNNMethodContext = initResolvedKNNMethodContext(
+            knnMethodContext,
+            KNNEngine.LUCENE,
+            spaceType,
+            METHOD_HNSW
+        );
+        resolveMethodParams(resolvedKNNMethodContext.getMethodComponentContext(), knnMethodConfigContext, HNSW_METHOD_COMPONENT);
+
+        CompressionLevel resolvedCompressionLevel = CompressionLevel.isConfigured(compressionLevel)
+            ? compressionLevel
+            : DEFAULT_COMPRESSION_HALF_FLOAT;
         return ResolvedMethodContext.builder()
             .knnMethodContext(resolvedKNNMethodContext)
             .compressionLevel(resolvedCompressionLevel)
@@ -157,6 +207,7 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
             knnMethodConfigContext.getCompressionLevel(),
             SUPPORTED_COMPRESSION_LEVELS,
             KNNEngine.LUCENE,
+            knnMethodConfigContext.getVectorDataType(),
             validationException
         );
         validationException = validateMultiBitCompressionVersion(knnMethodConfigContext, validationException);

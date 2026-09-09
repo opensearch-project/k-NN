@@ -63,6 +63,56 @@ public class MMRRerankProcessorTests extends KNNTestCase {
         runProcessResponseRerankHappyCase(SpaceType.L2, VectorDataType.FLOAT);
     }
 
+    public void testProcessResponse_whenHappyCaseHalfFloatWithL2_thenRerank() throws IOException {
+        SearchResponse searchResponse = createFractionalSearchResponse();
+
+        MMRRerankContext mmrRerankContext = new MMRRerankContext();
+        mmrRerankContext.setDiversity(0.5f);
+        mmrRerankContext.setOriginalQuerySize(3);
+        mmrRerankContext.setSpaceType(SpaceType.L2);
+        mmrRerankContext.setVectorDataType(VectorDataType.HALF_FLOAT);
+        mmrRerankContext.setVectorFieldPath("knn_vector");
+        mmrRerankContext.setOriginalFetchSourceContext(new FetchSourceContext(true, new String[] {}, new String[] { "knn_vector" }));
+        PipelineProcessingContext ctx = new PipelineProcessingContext();
+        ctx.setAttribute(MMR_RERANK_CONTEXT, mmrRerankContext);
+
+        SearchResponse result = processor.processResponse(searchRequest, searchResponse, ctx);
+
+        assertEquals(3, result.getInternalResponse().hits().getHits().length);
+        assertEquals(0, result.getInternalResponse().hits().getHits()[0].docId());
+        assertEquals("Should pick the hit with diversity.", 8, result.getInternalResponse().hits().getHits()[1].docId());
+        assertEquals("Should pick the hit with diversity.", 9, result.getInternalResponse().hits().getHits()[2].docId());
+    }
+
+    private SearchResponse createFractionalSearchResponse() throws IOException {
+        SearchHit[] hits = new SearchHit[10];
+
+        // 8 similar hits, high score - fractional part 0.1
+        float[] similarVector = new float[] { 1.1f, 1.1f };
+        for (int i = 0; i < 8; i++) {
+            XContentBuilder sourceBuilder = JsonXContent.contentBuilder().startObject().array("knn_vector", similarVector).endObject();
+            SearchHit hit = new SearchHit(i, String.valueOf(i), Map.of(), Map.of());
+            hit.sourceRef(BytesReference.bytes(sourceBuilder));
+            hit.score(1f);
+            hits[i] = hit;
+        }
+
+        // 2 diverse hits, slightly lower score - same integer part (1), fractional part 0.9
+        float[][] diverseVectors = new float[][] { { 1.1f, 1.9f }, { 1.9f, 1.1f } };
+        for (int i = 0; i < 2; i++) {
+            int idx = i + 8;
+            XContentBuilder sourceBuilder = JsonXContent.contentBuilder()
+                .startObject()
+                .array("knn_vector", diverseVectors[i])
+                .endObject();
+            SearchHit hit = new SearchHit(idx, String.valueOf(idx), Map.of(), Map.of());
+            hit.sourceRef(BytesReference.bytes(sourceBuilder));
+            hit.score(0.8f);
+            hits[idx] = hit;
+        }
+        return createSearchResponse(hits);
+    }
+
     public void testProcessResponse_whenHappyCaseBinaryWithHammingSpaceType_thenRerank() throws IOException {
         runProcessResponseRerankHappyCase(SpaceType.HAMMING, VectorDataType.BINARY);
     }
