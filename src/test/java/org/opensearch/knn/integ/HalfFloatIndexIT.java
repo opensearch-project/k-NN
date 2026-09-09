@@ -500,7 +500,7 @@ public class HalfFloatIndexIT extends KNNRestTestCase {
             .fieldName(FIELD_NAME)
             .dimension(DIMENSION)
             .vectorDataType("half_float")
-            .method(KNNJsonIndexMappingsBuilder.Method.builder().methodName("flat").engine("lucene").spaceType(spaceType).build())
+            .method(KNNJsonIndexMappingsBuilder.Method.builder().methodName("flat").spaceType(spaceType).build())
             .build()
             .getIndexMapping();
     }
@@ -534,7 +534,7 @@ public class HalfFloatIndexIT extends KNNRestTestCase {
             + DIMENSION
             + ","
             + "\"data_type\":\"half_float\","
-            + "\"method\":{\"name\":\"flat\",\"engine\":\"lucene\",\"space_type\":\"l2\"}"
+            + "\"method\":{\"name\":\"flat\",\"space_type\":\"l2\"}"
             + "},"
             + "\""
             + extraFieldName

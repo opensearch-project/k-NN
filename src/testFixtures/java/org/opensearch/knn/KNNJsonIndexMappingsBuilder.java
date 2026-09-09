@@ -91,16 +91,23 @@ public class KNNJsonIndexMappingsBuilder {
     public static class Method {
         @NonNull
         private String methodName;
-        @NonNull
         private String engine;
         private String spaceType;
         private Parameters parameters;
 
         private void addTo(final XContentBuilder xContentBuilder) throws IOException {
-            xContentBuilder.startObject("method").field("name", methodName).field("engine", engine);
+            xContentBuilder.startObject("method").field("name", methodName);
+            addEngine(xContentBuilder);
             addSpaceType(xContentBuilder);
             addParameters(xContentBuilder);
             xContentBuilder.endObject();
+        }
+
+        private void addEngine(final XContentBuilder xContentBuilder) throws IOException {
+            if (engine == null) {
+                return;
+            }
+            xContentBuilder.field("engine", engine);
         }
 
         private void addSpaceType(final XContentBuilder xContentBuilder) throws IOException {
