@@ -61,3 +61,81 @@ function(knn_sandbox_add_jni_library target)
     list(APPEND TARGET_LIBS ${target})
     set(TARGET_LIBS "${TARGET_LIBS}" PARENT_SCOPE)
 endfunction()
+
+# ---------------------------------------------------------------------------------------------------------
+# knn_sandbox_vendor_faiss(<prefix>
+#     GIT_TAG <sha>
+#     [GIT_REPOSITORY <url>]              # default: upstream facebookresearch/faiss
+#     [CMAKE_ARGS <-DFAISS_...=...>...]   # tenant-specific extras, e.g. an optional faiss feature flag
+# )
+# Builds the tenant its own upstream faiss (static, PIC, at the pinned commit, no k-NN patches) for the
+# tenant to embed privately via knn_sandbox_add_jni_library. Exports to the caller:
+#   <prefix>_INCLUDE_DIR   - include dir for <faiss/...> headers
+#   <prefix>_LINK_LIB      - IMPORTED static lib target (BLAS/LAPACK/OpenMP supplied on its INTERFACE)
+#   <prefix>_EP_TARGET     - the ExternalProject target to pass as DEPENDS
+# ---------------------------------------------------------------------------------------------------------
+function(knn_sandbox_vendor_faiss prefix)
+    include(ExternalProject)
+    cmake_parse_arguments(VENDOR "" "GIT_TAG;GIT_REPOSITORY" "CMAKE_ARGS" ${ARGN})
+    if(NOT VENDOR_GIT_TAG)
+        message(FATAL_ERROR "knn_sandbox_vendor_faiss(${prefix}): GIT_TAG (a pinned commit) is required")
+    endif()
+    if(NOT VENDOR_GIT_REPOSITORY)
+        set(VENDOR_GIT_REPOSITORY "https://github.com/facebookresearch/faiss.git")
+    endif()
+
+    if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "(aarch64|arm64|ARM64)")
+        set(_vendor_opt_level generic)
+        set(_vendor_variant faiss)
+    elseif(AVX512_SPR_ENABLED)
+        set(_vendor_opt_level avx512_spr)
+        set(_vendor_variant faiss_avx512_spr)
+    elseif(AVX512_ENABLED)
+        set(_vendor_opt_level avx512)
+        set(_vendor_variant faiss_avx512)
+    elseif(AVX2_ENABLED)
+        set(_vendor_opt_level avx2)
+        set(_vendor_variant faiss_avx2)
+    else()
+        set(_vendor_opt_level generic)
+        set(_vendor_variant faiss)
+    endif()
+
+    set(_vendor_prefix   "${CMAKE_BINARY_DIR}/${prefix}")
+    set(_vendor_src      "${_vendor_prefix}/src/${prefix}_ep")
+    set(_vendor_build    "${_vendor_prefix}/src/${prefix}_ep-build")
+    set(_vendor_lib_path "${_vendor_build}/faiss/${CMAKE_STATIC_LIBRARY_PREFIX}${_vendor_variant}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+    ExternalProject_Add(${prefix}_ep
+        GIT_REPOSITORY    "${VENDOR_GIT_REPOSITORY}"
+        GIT_TAG           "${VENDOR_GIT_TAG}"
+        GIT_SHALLOW       FALSE
+        PREFIX            "${_vendor_prefix}"
+        CMAKE_ARGS
+            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+            -DBUILD_SHARED_LIBS=OFF
+            -DBUILD_TESTING=OFF
+            -DFAISS_ENABLE_GPU=OFF
+            -DFAISS_ENABLE_PYTHON=OFF
+            -DFAISS_ENABLE_C_API=OFF
+            -DFAISS_OPT_LEVEL=${_vendor_opt_level}
+            ${VENDOR_CMAKE_ARGS}
+        INSTALL_COMMAND   ""
+        BUILD_BYPRODUCTS  "${_vendor_lib_path}"
+    )
+
+    # Embedding the static faiss means re-supplying BLAS/LAPACK/OpenMP on the tenant's link line.
+    find_package(BLAS REQUIRED)
+    find_package(LAPACK REQUIRED)
+    find_package(OpenMP REQUIRED)
+
+    add_library(${prefix}_imported STATIC IMPORTED)
+    set_target_properties(${prefix}_imported PROPERTIES
+        IMPORTED_LOCATION "${_vendor_lib_path}"
+        INTERFACE_LINK_LIBRARIES "${BLAS_LIBRARIES};${LAPACK_LIBRARIES};OpenMP::OpenMP_CXX")
+
+    set(${prefix}_INCLUDE_DIR "${_vendor_src}" PARENT_SCOPE)
+    set(${prefix}_LINK_LIB "${prefix}_imported" PARENT_SCOPE)
+    set(${prefix}_EP_TARGET "${prefix}_ep" PARENT_SCOPE)
+endfunction()

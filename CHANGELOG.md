@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Enable remote vector index build for multi-bit SQ - bits ∈ {2, 4} [#3459](https://github.com/opensearch-project/k-NN/pull/3459)
 * Set default oversample factor to 1 for SQ 2-bit and 4-bit encoders (x16 / x8 compression) [#3463](https://github.com/opensearch-project/k-NN/pull/3463)
 * Support flat with x8 and x16 compression and make `method=flat` engine-agnostic [#3471](https://github.com/opensearch-project/k-NN/pull/3471)
+* Add Intel SVS (Scalable Vector Search) as a sandbox tenant engine: `svs_vamana` with flat/sq/lvq/leanvec encoders [#XXXX](https://github.com/opensearch-project/k-NN/pull/XXXX)
 * Added new radial search method that acts as a postfilter on size * oversample_factor topK on quantized indices [#3491](https://github.com/opensearch-project/k-NN/pull/3491)
 
 ### Maintenance
@@ -37,3 +38,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Convert document vectors to primitive arrays once per document in lateInteractionScore, instead of once per query-vector/document-vector pair [#3453](https://github.com/opensearch-project/k-NN/pull/3453)
 * Terminate remote index build early when the merge has been aborted [#3488](https://github.com/opensearch-project/k-NN/pull/3488)
 * Add NEON SIMD kernel for FP16 L2 similarity [#3512](https://github.com/opensearch-project/k-NN/pull/3512)
+* Add native SIMD cosine scoring for FP16 and SQ formats, removing post-hoc score conversion [#3386](https://github.com/opensearch-project/k-NN/pull/3386)
