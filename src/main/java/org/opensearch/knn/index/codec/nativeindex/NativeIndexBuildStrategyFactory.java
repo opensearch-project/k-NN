@@ -79,7 +79,7 @@ public final class NativeIndexBuildStrategyFactory {
         if (totalLiveDocs > MIN_DOCS_FOR_REMOTE_INDEX_BUILD
             && isKNNRemoteVectorBuildEnabled()
             && knnEngine.supportsRemoteIndexBuild(knnLibraryIndexingContext)
-            && RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, vectorBlobLength)) {
+            && RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, vectorBlobLength, knnVectorValues.dimension())) {
             return new RemoteIndexBuildStrategy(repositoriesServiceSupplier, strategy, indexSettings, knnLibraryIndexingContext);
         } else {
             return strategy;
