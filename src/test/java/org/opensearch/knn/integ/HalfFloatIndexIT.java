@@ -282,6 +282,461 @@ public class HalfFloatIndexIT extends KNNRestTestCase {
     }
 
     // ────────────────────────────────────────────────────────────────────────────
+    // SQ 1-bit (16x compression) — flat method, FP16 rescoring copy instead of FP32
+    // ────────────────────────────────────────────────────────────────────────────
+
+    @SneakyThrows
+    public void testHalfFloatFlatSq1BitIndex_indexAndSearch() {
+        String mapping = buildHalfFloatSq1BitMapping("l2");
+        createKnnIndex(INDEX_NAME, mapping);
+
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, new Float[] { 1.0f, 2.0f, 3.0f, 4.0f });
+        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, new Float[] { 5.0f, 6.0f, 7.0f, 8.0f });
+        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, new Float[] { 0.1f, 0.2f, 0.3f, 0.4f });
+
+        float[] queryVector = { 0.0f, 0.0f, 0.0f, 0.0f };
+        Response response = searchKNNIndex(INDEX_NAME, buildSearchQuery(FIELD_NAME, 3, queryVector, null), 3);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> results = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(3, results.size());
+        // Closest to origin should be doc 3
+        assertEquals("3", results.get(0).getDocId());
+    }
+
+    @SneakyThrows
+    public void testHalfFloatFlatSq1BitIndex_innerProductSpace() {
+        String mapping = buildHalfFloatSq1BitMapping("innerproduct");
+        createKnnIndex(INDEX_NAME, mapping);
+
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, new Float[] { 1.0f, 0.0f, 0.0f, 0.0f });
+        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, new Float[] { 0.0f, 1.0f, 0.0f, 0.0f });
+
+        float[] queryVector = { 1.0f, 0.0f, 0.0f, 0.0f };
+        Response response = searchKNNIndex(INDEX_NAME, buildSearchQuery(FIELD_NAME, 2, queryVector, null), 2);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        assertEquals(2, parseHits(responseBody));
+    }
+
+    @SneakyThrows
+    public void testHalfFloatFlatSq1BitIndex_cosineSpace() {
+        String mapping = buildHalfFloatSq1BitMapping("cosinesimil");
+        createKnnIndex(INDEX_NAME, mapping);
+
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, new Float[] { 1.0f, 0.0f, 0.0f, 0.0f });
+        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, new Float[] { 0.0f, 1.0f, 0.0f, 0.0f });
+        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, new Float[] { 1.0f, 1.0f, 0.0f, 0.0f });
+
+        float[] queryVector = { 1.0f, 0.0f, 0.0f, 0.0f };
+        Response response = searchKNNIndex(INDEX_NAME, buildSearchQuery(FIELD_NAME, 3, queryVector, null), 3);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> results = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(3, results.size());
+        // Doc 1 is identical direction to query, should be the top result
+        assertEquals("1", results.get(0).getDocId());
+    }
+
+    @SneakyThrows
+    public void testHalfFloatFlatSq1BitIndex_forceMerge() {
+        String mapping = buildHalfFloatSq1BitMapping("l2");
+        createKnnIndex(INDEX_NAME, mapping);
+
+        // Index docs one by one to create multiple segments
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, new Float[] { 1.0f, 2.0f, 3.0f, 4.0f });
+        flushIndex(INDEX_NAME, true);
+        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, new Float[] { 5.0f, 6.0f, 7.0f, 8.0f });
+        flushIndex(INDEX_NAME, true);
+        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, new Float[] { 0.1f, 0.2f, 0.3f, 0.4f });
+        flushIndex(INDEX_NAME, true);
+
+        // Force merge into 1 segment — recomputes .veq from the merged (FP16-decoded) source
+        forceMergeKnnIndex(INDEX_NAME, 1);
+
+        float[] queryVector = { 0.0f, 0.0f, 0.0f, 0.0f };
+        Response response = searchKNNIndex(INDEX_NAME, buildSearchQuery(FIELD_NAME, 3, queryVector, null), 3);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> results = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(3, results.size());
+        // Closest to origin should be doc 3
+        assertEquals("3", results.get(0).getDocId());
+    }
+
+    @SneakyThrows
+    public void testHalfFloatFlatSq1BitIndex_indexSortedForceMerge() {
+        final String sortFieldName = "sort_key";
+
+        Settings settings = Settings.builder()
+            .put("number_of_shards", 1)
+            .put("number_of_replicas", 0)
+            .put("index.knn", true)
+            .put("index.sort.field", sortFieldName)
+            .put("index.sort.order", "desc")
+            .build();
+        String mapping = buildHalfFloatSq1BitMappingWithSortField(sortFieldName);
+        createIndex(INDEX_NAME, settings, mapping.substring(1, mapping.length() - 1));
+
+        Float[][] vectors = {
+            { 1.0f, 2.0f, 3.0f, 4.0f },
+            { 5.0f, 6.0f, 7.0f, 8.0f },
+            { 0.1f, 0.2f, 0.3f, 0.4f },
+            { 10.0f, 10.0f, 10.0f, 10.0f } };
+        for (int i = 0; i < vectors.length; i++) {
+            addKnnDocWithAttributes(INDEX_NAME, String.valueOf(i + 1), FIELD_NAME, vectors[i], Map.of(sortFieldName, String.valueOf(i)));
+        }
+
+        forceMergeKnnIndex(INDEX_NAME, 1);
+
+        float[] queryVector = { 0.0f, 0.0f, 0.0f, 0.0f };
+        Response response = searchKNNIndex(INDEX_NAME, buildSearchQuery(FIELD_NAME, 4, queryVector, null), 4);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
+
+        assertEquals(4, results.size());
+        assertEquals("3", results.get(0).getDocId());
+        assertEquals("1", results.get(1).getDocId());
+        assertEquals("2", results.get(2).getDocId());
+        assertEquals("4", results.get(3).getDocId());
+    }
+
+    @SneakyThrows
+    public void testHalfFloatFlatSq1BitIndex_deleteAndSearch() {
+        String mapping = buildHalfFloatSq1BitMapping("l2");
+        createKnnIndex(INDEX_NAME, mapping);
+
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, new Float[] { 1.0f, 2.0f, 3.0f, 4.0f });
+        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, new Float[] { 5.0f, 6.0f, 7.0f, 8.0f });
+        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, new Float[] { 0.1f, 0.2f, 0.3f, 0.4f });
+        addKnnDoc(INDEX_NAME, "4", FIELD_NAME, new Float[] { 10.0f, 10.0f, 10.0f, 10.0f });
+
+        // Delete doc 2 (creates sparse segment)
+        deleteKnnDoc(INDEX_NAME, "2");
+
+        float[] queryVector = { 0.0f, 0.0f, 0.0f, 0.0f };
+        Response response = searchKNNIndex(INDEX_NAME, buildSearchQuery(FIELD_NAME, 3, queryVector, null), 3);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> results = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(3, results.size());
+        assertTrue(results.stream().noneMatch(r -> "2".equals(r.getDocId())));
+        assertEquals("3", results.get(0).getDocId());
+    }
+
+    @SneakyThrows
+    public void testHalfFloatFlatSq1BitIndex_multipleSegments() {
+        String mapping = buildHalfFloatSq1BitMapping("l2");
+        Settings settings = Settings.builder()
+            .put("number_of_shards", 1)
+            .put("number_of_replicas", 0)
+            .put("index.knn", true)
+            .put("index.refresh_interval", "-1")
+            .build();
+        createKnnIndex(INDEX_NAME, settings, mapping);
+
+        int totalDocs = 20;
+        for (int i = 0; i < totalDocs; i++) {
+            Float[] vec = { (float) i, (float) (i + 1), (float) (i + 2), (float) (i + 3) };
+            addKnnDoc(INDEX_NAME, String.valueOf(i), FIELD_NAME, vec);
+            if (i % 5 == 4) {
+                flushIndex(INDEX_NAME, true);
+            }
+        }
+        refreshIndex(INDEX_NAME);
+
+        float[] queryVector = { 0.0f, 0.0f, 0.0f, 0.0f };
+        Response response = searchKNNIndex(INDEX_NAME, buildSearchQuery(FIELD_NAME, 5, queryVector, null), 5);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> results = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(5, results.size());
+        assertEquals("0", results.get(0).getDocId());
+    }
+
+    // Any compression level other than 1x (default) or 16x (this feature) must still be rejected.
+    @SneakyThrows
+    public void testHalfFloatFlat_withUnsupportedCompression_shouldFail() {
+        // half_float supports only 1x and 16x - every level defined against FLOAT's 32 bits is rejected.
+        for (String compression : new String[] { "2x", "4x", "8x", "32x" }) {
+            String mapping = KNNJsonIndexMappingsBuilder.builder()
+                .fieldName(FIELD_NAME)
+                .dimension(DIMENSION)
+                .vectorDataType("half_float")
+                .compressionLevel(compression)
+                .method(KNNJsonIndexMappingsBuilder.Method.builder().methodName("flat").spaceType("l2").build())
+                .build()
+                .getIndexMapping();
+
+            // A distinct index per case, so a create that unexpectedly succeeds cannot make the next
+            // iteration fail with "already exists" and hide which level was accepted.
+            final String indexName = INDEX_NAME + "_" + compression;
+            ResponseException ex = expectThrows(ResponseException.class, () -> createKnnIndex(indexName, mapping));
+            assertTrue(compression + " -> " + ex.getMessage(), ex.getMessage().contains("compression"));
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // SQ 1-bit (16x compression) — hnsw method, FP16 rescoring copy instead of FP32
+    // ────────────────────────────────────────────────────────────────────────────
+
+    @SneakyThrows
+    public void testHalfFloatHnswSq1BitIndex_indexAndSearch() {
+        String mapping = buildHalfFloatHnswSq1BitMapping("l2");
+        createKnnIndex(INDEX_NAME, mapping);
+
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, new Float[] { 1.0f, 2.0f, 3.0f, 4.0f });
+        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, new Float[] { 5.0f, 6.0f, 7.0f, 8.0f });
+        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, new Float[] { 0.1f, 0.2f, 0.3f, 0.4f });
+
+        float[] queryVector = { 0.0f, 0.0f, 0.0f, 0.0f };
+        Response response = searchKNNIndex(INDEX_NAME, buildSearchQuery(FIELD_NAME, 3, queryVector, null), 3);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> results = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(3, results.size());
+        // Closest to origin should be doc 3
+        assertEquals("3", results.get(0).getDocId());
+    }
+
+    @SneakyThrows
+    public void testHalfFloatHnswSq1BitIndex_innerProductSpace() {
+        String mapping = buildHalfFloatHnswSq1BitMapping("innerproduct");
+        createKnnIndex(INDEX_NAME, mapping);
+
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, new Float[] { 1.0f, 0.0f, 0.0f, 0.0f });
+        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, new Float[] { 0.0f, 1.0f, 0.0f, 0.0f });
+
+        float[] queryVector = { 1.0f, 0.0f, 0.0f, 0.0f };
+        Response response = searchKNNIndex(INDEX_NAME, buildSearchQuery(FIELD_NAME, 2, queryVector, null), 2);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        assertEquals(2, parseHits(responseBody));
+    }
+
+    @SneakyThrows
+    public void testHalfFloatHnswSq1BitIndex_cosineSpace() {
+        String mapping = buildHalfFloatHnswSq1BitMapping("cosinesimil");
+        createKnnIndex(INDEX_NAME, mapping);
+
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, new Float[] { 1.0f, 0.0f, 0.0f, 0.0f });
+        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, new Float[] { 0.0f, 1.0f, 0.0f, 0.0f });
+        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, new Float[] { 1.0f, 1.0f, 0.0f, 0.0f });
+
+        float[] queryVector = { 1.0f, 0.0f, 0.0f, 0.0f };
+        Response response = searchKNNIndex(INDEX_NAME, buildSearchQuery(FIELD_NAME, 3, queryVector, null), 3);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> results = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(3, results.size());
+        // Doc 1 is identical direction to query, should be the top result
+        assertEquals("1", results.get(0).getDocId());
+    }
+
+    @SneakyThrows
+    public void testHalfFloatHnswSq1BitIndex_forceMerge() {
+        String mapping = buildHalfFloatHnswSq1BitMapping("l2");
+        createKnnIndex(INDEX_NAME, mapping);
+
+        // Index docs one by one to create multiple segments, each with its own HNSW graph
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, new Float[] { 1.0f, 2.0f, 3.0f, 4.0f });
+        flushIndex(INDEX_NAME, true);
+        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, new Float[] { 5.0f, 6.0f, 7.0f, 8.0f });
+        flushIndex(INDEX_NAME, true);
+        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, new Float[] { 0.1f, 0.2f, 0.3f, 0.4f });
+        flushIndex(INDEX_NAME, true);
+
+        // Force merge into 1 segment — rebuilds the HNSW graph and recomputes .veq from the merged
+        // (FP16-decoded) source
+        forceMergeKnnIndex(INDEX_NAME, 1);
+
+        float[] queryVector = { 0.0f, 0.0f, 0.0f, 0.0f };
+        Response response = searchKNNIndex(INDEX_NAME, buildSearchQuery(FIELD_NAME, 3, queryVector, null), 3);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> results = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(3, results.size());
+        // Closest to origin should be doc 3
+        assertEquals("3", results.get(0).getDocId());
+    }
+
+    /**
+     * Force merges an index-sorted index. Same rationale as
+     * {@link #testHalfFloatFlatSq1BitIndex_indexSortedForceMerge}, but for the HNSW graph wrapper:
+     * the merge must interleave segments while also rebuilding the graph and recomputing .veq codes
+     * from the reordered source.
+     */
+    @SneakyThrows
+    public void testHalfFloatHnswSq1BitIndex_indexSortedForceMerge() {
+        final String sortFieldName = "sort_key";
+
+        Settings settings = Settings.builder()
+            .put("number_of_shards", 1)
+            .put("number_of_replicas", 0)
+            .put("index.knn", true)
+            .put("index.sort.field", sortFieldName)
+            .put("index.sort.order", "desc")
+            .build();
+        String mapping = buildHalfFloatHnswSq1BitMappingWithSortField(sortFieldName);
+        createIndex(INDEX_NAME, settings, mapping.substring(1, mapping.length() - 1));
+
+        Float[][] vectors = {
+            { 1.0f, 2.0f, 3.0f, 4.0f },
+            { 5.0f, 6.0f, 7.0f, 8.0f },
+            { 0.1f, 0.2f, 0.3f, 0.4f },
+            { 10.0f, 10.0f, 10.0f, 10.0f } };
+        for (int i = 0; i < vectors.length; i++) {
+            addKnnDocWithAttributes(INDEX_NAME, String.valueOf(i + 1), FIELD_NAME, vectors[i], Map.of(sortFieldName, String.valueOf(i)));
+        }
+
+        forceMergeKnnIndex(INDEX_NAME, 1);
+
+        float[] queryVector = { 0.0f, 0.0f, 0.0f, 0.0f };
+        Response response = searchKNNIndex(INDEX_NAME, buildSearchQuery(FIELD_NAME, 4, queryVector, null), 4);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
+
+        assertEquals(4, results.size());
+        assertEquals("3", results.get(0).getDocId());
+        assertEquals("1", results.get(1).getDocId());
+        assertEquals("2", results.get(2).getDocId());
+        assertEquals("4", results.get(3).getDocId());
+    }
+
+    @SneakyThrows
+    public void testHalfFloatHnswSq1BitIndex_deleteAndSearch() {
+        String mapping = buildHalfFloatHnswSq1BitMapping("l2");
+        createKnnIndex(INDEX_NAME, mapping);
+
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, new Float[] { 1.0f, 2.0f, 3.0f, 4.0f });
+        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, new Float[] { 5.0f, 6.0f, 7.0f, 8.0f });
+        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, new Float[] { 0.1f, 0.2f, 0.3f, 0.4f });
+        addKnnDoc(INDEX_NAME, "4", FIELD_NAME, new Float[] { 10.0f, 10.0f, 10.0f, 10.0f });
+
+        // Delete doc 2 (creates sparse segment)
+        deleteKnnDoc(INDEX_NAME, "2");
+
+        float[] queryVector = { 0.0f, 0.0f, 0.0f, 0.0f };
+        Response response = searchKNNIndex(INDEX_NAME, buildSearchQuery(FIELD_NAME, 3, queryVector, null), 3);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> results = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(3, results.size());
+        assertTrue(results.stream().noneMatch(r -> "2".equals(r.getDocId())));
+        assertEquals("3", results.get(0).getDocId());
+    }
+
+    @SneakyThrows
+    public void testHalfFloatHnswSq1BitIndex_multipleSegments() {
+        String mapping = buildHalfFloatHnswSq1BitMapping("l2");
+        Settings settings = Settings.builder()
+            .put("number_of_shards", 1)
+            .put("number_of_replicas", 0)
+            .put("index.knn", true)
+            .put("index.refresh_interval", "-1")
+            .build();
+        createKnnIndex(INDEX_NAME, settings, mapping);
+
+        int totalDocs = 20;
+        for (int i = 0; i < totalDocs; i++) {
+            Float[] vec = { (float) i, (float) (i + 1), (float) (i + 2), (float) (i + 3) };
+            addKnnDoc(INDEX_NAME, String.valueOf(i), FIELD_NAME, vec);
+            if (i % 5 == 4) {
+                flushIndex(INDEX_NAME, true);
+            }
+        }
+        refreshIndex(INDEX_NAME);
+
+        float[] queryVector = { 0.0f, 0.0f, 0.0f, 0.0f };
+        Response response = searchKNNIndex(INDEX_NAME, buildSearchQuery(FIELD_NAME, 5, queryVector, null), 5);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> results = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(5, results.size());
+        assertEquals("0", results.get(0).getDocId());
+    }
+
+    @SneakyThrows
+    public void testHalfFloatHnsw_withExplicitEncoder_shouldFail() {
+        String mapping = buildHalfFloatHnswSqMapping("l2", 7);
+        ResponseException ex = expectThrows(ResponseException.class, () -> createKnnIndex(INDEX_NAME, mapping));
+        assertTrue(ex.getMessage().contains("encoder"));
+        assertTrue(ex.getMessage().contains("compression_level"));
+    }
+
+    @SneakyThrows
+    public void testHalfFloatHnsw_withUnsupportedCompression_shouldFail() {
+        // half_float supports only 1x and 16x - every level defined against FLOAT's 32 bits is rejected.
+        for (String compression : new String[] { "2x", "4x", "8x", "32x" }) {
+            String mapping = KNNJsonIndexMappingsBuilder.builder()
+                .fieldName(FIELD_NAME)
+                .dimension(DIMENSION)
+                .vectorDataType("half_float")
+                .compressionLevel(compression)
+                .method(KNNJsonIndexMappingsBuilder.Method.builder().methodName("hnsw").engine("lucene").spaceType("l2").build())
+                .build()
+                .getIndexMapping();
+
+            final String indexName = INDEX_NAME + "_" + compression;
+            ResponseException ex = expectThrows(ResponseException.class, () -> createKnnIndex(indexName, mapping));
+            assertTrue(compression + " -> " + ex.getMessage(), ex.getMessage().contains("compression"));
+        }
+    }
+
+    @SneakyThrows
+    public void testHalfFloatHnswOnDisk_indexAndSearch() {
+        // ON_DISK now resolves half_float to x16 (SQ 1-bit), the counterpart of FLOAT's ON_DISK -> x32.
+        String mapping = "{"
+            + "\"properties\":{"
+            + "\""
+            + FIELD_NAME
+            + "\":{"
+            + "\"type\":\"knn_vector\","
+            + "\"dimension\":"
+            + DIMENSION
+            + ","
+            + "\"data_type\":\"half_float\","
+            + "\"mode\":\"on_disk\","
+            + "\"method\":{"
+            + "\"name\":\"hnsw\","
+            + "\"engine\":\"lucene\","
+            + "\"space_type\":\"l2\""
+            + "}}}}";
+        createKnnIndex(INDEX_NAME, mapping);
+
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, new Float[] { 1.0f, 2.0f, 3.0f, 4.0f });
+        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, new Float[] { 5.0f, 6.0f, 7.0f, 8.0f });
+        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, new Float[] { 0.1f, 0.2f, 0.3f, 0.4f });
+
+        float[] queryVector = { 0.0f, 0.0f, 0.0f, 0.0f };
+        Response response = searchKNNIndex(INDEX_NAME, buildSearchQuery(FIELD_NAME, 3, queryVector, null), 3);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
+
+        assertEquals(3, results.size());
+    }
+
+    @SneakyThrows
+    public void testHalfFloatHnswOnDiskWithX1_shouldFail() {
+        String mapping = "{"
+            + "\"properties\":{"
+            + "\""
+            + FIELD_NAME
+            + "\":{"
+            + "\"type\":\"knn_vector\","
+            + "\"dimension\":"
+            + DIMENSION
+            + ","
+            + "\"data_type\":\"half_float\","
+            + "\"mode\":\"on_disk\","
+            + "\"compression_level\":\"1x\","
+            + "\"method\":{"
+            + "\"name\":\"hnsw\","
+            + "\"engine\":\"lucene\","
+            + "\"space_type\":\"l2\""
+            + "}}}}";
+
+        ResponseException ex = expectThrows(ResponseException.class, () -> createKnnIndex(INDEX_NAME, mapping));
+        assertTrue(ex.getMessage(), ex.getMessage().contains("x1"));
+        assertTrue(ex.getMessage(), ex.getMessage().contains("on_disk"));
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
     // HNSW (Lucene engine)
     // ────────────────────────────────────────────────────────────────────────────
 
@@ -616,6 +1071,17 @@ public class HalfFloatIndexIT extends KNNRestTestCase {
             .getIndexMapping();
     }
 
+    private String buildHalfFloatSq1BitMapping(String spaceType) throws Exception {
+        return KNNJsonIndexMappingsBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .dimension(DIMENSION)
+            .vectorDataType("half_float")
+            .compressionLevel("16x")
+            .method(KNNJsonIndexMappingsBuilder.Method.builder().methodName("flat").spaceType(spaceType).build())
+            .build()
+            .getIndexMapping();
+    }
+
     private String buildHalfFloatHnswMapping(String spaceType) throws Exception {
         return KNNJsonIndexMappingsBuilder.builder()
             .fieldName(FIELD_NAME)
@@ -624,6 +1090,80 @@ public class HalfFloatIndexIT extends KNNRestTestCase {
             .method(KNNJsonIndexMappingsBuilder.Method.builder().methodName("hnsw").engine("lucene").spaceType(spaceType).build())
             .build()
             .getIndexMapping();
+    }
+
+    private String buildHalfFloatHnswSq1BitMapping(String spaceType) {
+        return "{"
+            + "\"properties\":{"
+            + "\""
+            + FIELD_NAME
+            + "\":{"
+            + "\"type\":\"knn_vector\","
+            + "\"dimension\":"
+            + DIMENSION
+            + ","
+            + "\"data_type\":\"half_float\","
+            + "\"compression_level\":\"16x\","
+            + "\"method\":{"
+            + "\"name\":\"hnsw\","
+            + "\"engine\":\"lucene\","
+            + "\"space_type\":\""
+            + spaceType
+            + "\""
+            + "}"
+            + "}"
+            + "}}";
+    }
+
+    private String buildHalfFloatHnswSqMapping(String spaceType, int bits) {
+        return "{"
+            + "\"properties\":{"
+            + "\""
+            + FIELD_NAME
+            + "\":{"
+            + "\"type\":\"knn_vector\","
+            + "\"dimension\":"
+            + DIMENSION
+            + ","
+            + "\"data_type\":\"half_float\","
+            + "\"method\":{"
+            + "\"name\":\"hnsw\","
+            + "\"engine\":\"lucene\","
+            + "\"space_type\":\""
+            + spaceType
+            + "\","
+            + "\"parameters\":{"
+            + "\"encoder\":{\"name\":\"sq\",\"parameters\":{\"bits\":"
+            + bits
+            + "}}"
+            + "}"
+            + "}"
+            + "}"
+            + "}}";
+    }
+
+    private String buildHalfFloatHnswSq1BitMappingWithSortField(String sortFieldName) {
+        return "{"
+            + "\"properties\":{"
+            + "\""
+            + FIELD_NAME
+            + "\":{"
+            + "\"type\":\"knn_vector\","
+            + "\"dimension\":"
+            + DIMENSION
+            + ","
+            + "\"data_type\":\"half_float\","
+            + "\"compression_level\":\"16x\","
+            + "\"method\":{"
+            + "\"name\":\"hnsw\","
+            + "\"engine\":\"lucene\","
+            + "\"space_type\":\"l2\""
+            + "}"
+            + "},"
+            + "\""
+            + sortFieldName
+            + "\":{\"type\":\"long\"}"
+            + "}}";
     }
 
     private String buildHalfFloatMappingWithSortField(String sortFieldName) {
@@ -652,6 +1192,26 @@ public class HalfFloatIndexIT extends KNNRestTestCase {
             + "\":{\"type\":\""
             + extraFieldType
             + "\"}"
+            + "}}";
+    }
+
+    private String buildHalfFloatSq1BitMappingWithSortField(String sortFieldName) {
+        return "{"
+            + "\"properties\":{"
+            + "\""
+            + FIELD_NAME
+            + "\":{"
+            + "\"type\":\"knn_vector\","
+            + "\"dimension\":"
+            + DIMENSION
+            + ","
+            + "\"data_type\":\"half_float\","
+            + "\"compression_level\":\"16x\","
+            + "\"method\":{\"name\":\"flat\",\"space_type\":\"l2\"}"
+            + "},"
+            + "\""
+            + sortFieldName
+            + "\":{\"type\":\"long\"}"
             + "}}";
     }
 

@@ -16,6 +16,7 @@ import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsWriter;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.search.TaskExecutor;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
@@ -62,13 +63,27 @@ public class KNN1040HnswScalarQuantizedVectorsFormat extends Lucene104HnswScalar
         ExecutorService mergeExec,
         int tinySegmentsThreshold
     ) {
+        this(encoding, maxConn, beamWidth, numMergeWorkers, mergeExec, tinySegmentsThreshold, VectorDataType.FLOAT);
+    }
+
+    KNN1040HnswScalarQuantizedVectorsFormat(
+        ScalarEncoding encoding,
+        int maxConn,
+        int beamWidth,
+        int numMergeWorkers,
+        ExecutorService mergeExec,
+        int tinySegmentsThreshold,
+        VectorDataType rawVectorDataType
+    ) {
         super(encoding, maxConn, beamWidth, numMergeWorkers, mergeExec, tinySegmentsThreshold);
         this.maxConn = maxConn;
         this.beamWidth = beamWidth;
         this.tinySegmentsThreshold = tinySegmentsThreshold;
         this.numMergeWorkers = numMergeWorkers;
         this.mergeExec = mergeExec != null ? new TaskExecutor(mergeExec) : null;
-        this.flatVectorsFormat = new KNN1040ScalarQuantizedVectorsFormat(encoding);
+        this.flatVectorsFormat = VectorDataType.HALF_FLOAT == rawVectorDataType
+            ? new KNN1040HalfFloatScalarQuantizedVectorsFormat(encoding)
+            : new KNN1040ScalarQuantizedVectorsFormat(encoding);
     }
 
     @Override

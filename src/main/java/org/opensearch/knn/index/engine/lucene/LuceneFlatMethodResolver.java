@@ -26,13 +26,14 @@ import static org.opensearch.knn.index.engine.lucene.LuceneFlatMethod.FLAT_METHO
 
 /**
  * Resolves method configuration for the Lucene flat method. For FLOAT vectors, the flat method uses scalar
- * quantization without an HNSW graph (brute-force scan). Supported compression levels are
+ * quantization without an HNSW graph (brute-force scan). Supported compression levels for FLOAT are
  * {@link org.opensearch.knn.index.mapper.CompressionLevel#x32} (SQ 1-bit),
  * {@link org.opensearch.knn.index.mapper.CompressionLevel#x16} (SQ 2-bit), and
  * {@link org.opensearch.knn.index.mapper.CompressionLevel#x8} (SQ 4-bit).
  * HALF_FLOAT vectors don't go through an encoder - compression is expressed purely via
- * {@link org.opensearch.knn.index.mapper.CompressionLevel}, currently supporting only {@link
- * org.opensearch.knn.index.mapper.CompressionLevel#x1} (raw FP16, no further reduction).
+ * {@link org.opensearch.knn.index.mapper.CompressionLevel}, currently supported compression levels
+ * for HALF_FLOAT are {@link org.opensearch.knn.index.mapper.CompressionLevel#x16} (SQ 1-bit),
+ * and {@link org.opensearch.knn.index.mapper.CompressionLevel#x1} (raw FP16, no further reduction).
  */
 public class LuceneFlatMethodResolver extends AbstractMethodResolver {
 
@@ -41,9 +42,9 @@ public class LuceneFlatMethodResolver extends AbstractMethodResolver {
         CompressionLevel.x16,
         CompressionLevel.x8
     );
-    static final Set<CompressionLevel> SUPPORTED_COMPRESSION_HALF_FLOAT = Set.of(CompressionLevel.x1);
+    static final Set<CompressionLevel> SUPPORTED_COMPRESSION_LEVELS_HALF_FLOAT = Set.of(CompressionLevel.x1, CompressionLevel.x16);
     static final CompressionLevel DEFAULT_COMPRESSION = CompressionLevel.x32;
-    static final CompressionLevel DEFAULT_COMPRESSION_HALF_FLOAT = CompressionLevel.x1;
+    static final CompressionLevel DEFAULT_COMPRESSION_HALF_FLOAT = CompressionLevel.x16;
 
     @Override
     public ResolvedMethodContext resolveMethod(
@@ -99,7 +100,7 @@ public class LuceneFlatMethodResolver extends AbstractMethodResolver {
     }
 
     private CompressionLevel validateAndResolveCompressionLevel(KNNMethodConfigContext knnMethodConfigContext) {
-        boolean isHalfFloat = VectorDataType.HALF_FLOAT == knnMethodConfigContext.getVectorDataType();
+        final boolean isHalfFloat = VectorDataType.HALF_FLOAT == knnMethodConfigContext.getVectorDataType();
         final CompressionLevel defaultCompression = isHalfFloat ? DEFAULT_COMPRESSION_HALF_FLOAT : DEFAULT_COMPRESSION;
 
         CompressionLevel compressionLevel = knnMethodConfigContext.getCompressionLevel();
@@ -107,7 +108,7 @@ public class LuceneFlatMethodResolver extends AbstractMethodResolver {
             if (isHalfFloat) {
                 ValidationException validationException = validateCompressionSupported(
                     compressionLevel,
-                    SUPPORTED_COMPRESSION_HALF_FLOAT,
+                    SUPPORTED_COMPRESSION_LEVELS_HALF_FLOAT,
                     KNNEngine.LUCENE,
                     knnMethodConfigContext.getVectorDataType(),
                     null

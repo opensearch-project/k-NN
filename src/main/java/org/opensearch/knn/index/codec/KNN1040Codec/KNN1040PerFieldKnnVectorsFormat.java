@@ -108,6 +108,16 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
             final Tuple<Integer, ExecutorService> merge = getMergeThreadCountAndExecutorService();
             final int threshold = toTinySegmentsThreshold(ctx.getApproximateThreshold());
             if (p.getBits() == LuceneSQEncoder.Bits.ONE.getValue()) {
+                if (ctx.getVectorDataType() == VectorDataType.HALF_FLOAT) {
+                    return new KNN1040HnswHalfFloatScalarQuantizedVectorsFormat(
+                        p.getBitEncoding(),
+                        p.getMaxConnections(),
+                        p.getBeamWidth(),
+                        merge.v1(),
+                        merge.v2(),
+                        threshold
+                    );
+                }
                 return new KNN1040HnswScalarQuantizedVectorsFormat(
                     p.getBitEncoding(),
                     p.getMaxConnections(),
@@ -128,9 +138,10 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
                 threshold
             );
         }, LuceneVectorsFormatType.FLAT, ctx -> {
-            // TODO: This branches on data type alone. Once x16 (SQ over FP16) lands, half_float will
-            // also need to select a quantized format, so this must additionally gate on compression level.
             if (ctx.getVectorDataType() == VectorDataType.HALF_FLOAT) {
+                if (ctx.getCompressionLevel() == CompressionLevel.x16) {
+                    return new KNN1040HalfFloatScalarQuantizedVectorsFormat(ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE);
+                }
                 return new KNN1040HalfFloatFlatVectorsFormat();
             }
             return new KNN1040ScalarQuantizedVectorsFormat(ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE);
