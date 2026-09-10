@@ -12,6 +12,10 @@ import org.apache.lucene.index.DocsWithFieldSet;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.index.VectorEncoding;
+import org.apache.lucene.index.memory.MemoryIndex;
+import org.apache.lucene.index.VectorSimilarityFunction;
+import org.apache.lucene.index.LeafReader;
+import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.junit.Assert;
 import org.mockito.Mockito;
@@ -233,4 +237,23 @@ public class KNNVectorValuesFactoryTests extends KNNTestCase {
         assert (vectorValues.nextDoc() == DocIdSetIterator.NO_MORE_DOCS);
     }
 
+    /**
+     * Quantized vectors come from the codec, which only a segment backed reader exposes. A leaf without one,
+     * such as the {@code MemoryIndex} percolation builds, has to fail with a clear message instead of a
+     * ClassCastException.
+     */
+    @SneakyThrows
+    public void testGetVectorValues_whenQuantizedAndReaderHasNoSegment_thenThrows() {
+        final MemoryIndex memoryIndex = new MemoryIndex(true, true);
+        memoryIndex.addField(new KnnFloatVectorField("target_field", new float[] { 1.0f, 2.0f }, VectorSimilarityFunction.EUCLIDEAN), null);
+        final LeafReader leafReader = memoryIndex.createSearcher().getIndexReader().leaves().get(0).reader();
+        final FieldInfo fieldInfo = leafReader.getFieldInfos().fieldInfo("target_field");
+
+        final IllegalStateException e = expectThrows(
+            IllegalStateException.class,
+            () -> KNNVectorValuesFactory.getVectorValues(fieldInfo, leafReader, true)
+        );
+        Assert.assertTrue(e.getMessage(), e.getMessage().contains("require a codec backed reader"));
+        Assert.assertTrue(e.getMessage(), e.getMessage().contains("target_field"));
+    }
 }

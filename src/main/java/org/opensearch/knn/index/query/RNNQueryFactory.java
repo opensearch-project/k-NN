@@ -96,7 +96,8 @@ public class RNNQueryFactory extends BaseQueryFactory {
                 vector,
                 radius,
                 createQueryRequest.isMemoryOptimizedSearchEnabled(),
-                fallbackFirstPassK
+                fallbackFirstPassK,
+                createQueryRequest.getSpaceType()
             );
         }
         return innerQuery;
@@ -133,6 +134,7 @@ public class RNNQueryFactory extends BaseQueryFactory {
                 .originalVector(request.getOriginalVector())
                 .byteVector(request.getByteVector())
                 .vectorDataType(request.getVectorDataType())
+                .spaceType(request.getSpaceType())
                 .k(firstPassK)
                 .methodParameters(request.getMethodParameters())
                 .filter(request.getFilter().orElse(null))
@@ -148,7 +150,8 @@ public class RNNQueryFactory extends BaseQueryFactory {
             request.getVector(),
             request.getRadius(),
             request.isMemoryOptimizedSearchEnabled(),
-            firstPassK
+            firstPassK,
+            request.getSpaceType()
         );
     }
 
@@ -181,6 +184,7 @@ public class RNNQueryFactory extends BaseQueryFactory {
             .parentsFilter(parentFilter)
             .radius(request.getRadius())
             .vectorDataType(request.getVectorDataType())
+            .spaceType(request.getSpaceType())
             .methodParameters(request.getMethodParameters())
             .context(knnQueryContext)
             .isMemoryOptimizedSearch(request.isMemoryOptimizedSearchEnabled())
