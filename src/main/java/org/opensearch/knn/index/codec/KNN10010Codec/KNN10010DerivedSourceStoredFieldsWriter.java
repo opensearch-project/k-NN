@@ -277,10 +277,15 @@ public class KNN10010DerivedSourceStoredFieldsWriter extends StoredFieldsWriter 
         // merge). This may be overly cautious and we can remove/optimize it in the future. For now, its a safety net.
         Tuple<? extends MediaType, Map<String, Object>> mapTuple;
         try {
+            // Auto-detect the media type from the stored _source bytes rather than assuming JSON. Documents
+            // ingested as CBOR/SMILE (e.g. via the gRPC bulk transport) store a non-JSON _source; forcing a
+            // JSON parser here would fail with "Failed to parse content to map". Passing a null media type
+            // makes XContentHelper detect it from the bytes. The re-serialization below uses the detected
+            // type (mapTuple.v1()), so the masked _source is rewritten in its original format.
             mapTuple = XContentHelper.convertToMap(
                 BytesReference.fromByteBuffer(ByteBuffer.wrap(bytesRef.bytes, bytesRef.offset, bytesRef.length)),
                 true,
-                MediaTypeRegistry.JSON
+                (MediaType) null
             );
         } catch (NotXContentException e) {
             // Some OpenSearch internal documents, such as no-op tombstones, store _source as raw bytes rather than XContent.
