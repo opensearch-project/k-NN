@@ -217,39 +217,37 @@ SimdVectorSearchContext* SimilarityFunction::saveSearchContext(
     // Copy query bytes
     std::memcpy(THREAD_LOCAL_SIMD_VEC_SRCH_CTX.queryVectorSimdAligned, queryPtr, queryByteSize);
 
+    // FP16 and BF16 share the same setup: they are 2-byte-per-component quantized
+    // formats whose per-vector similarity is offloaded to a Faiss SQDistanceComputer.
+    // Only the similarity function, the Faiss quantizer type and the metric differ.
+    auto setupFaissQuantizedFunction = [&](NativeSimilarityFunctionType functionType,
+                                           faiss::ScalarQuantizer::QuantizerType quantizerType,
+                                           faiss::MetricType metric) {
+        // Set similarity function to offload similarity calculation
+        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.similarityFunction = selectSimilarityFunction(functionType);
+
+        // FP16/BF16 vector bytes = 2bytes * dimension
+        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.oneVectorByteSize = 2 * dimension;
+
+        // Reset Faiss function for single vector similarity calculation
+        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction.reset(
+            faiss::ScalarQuantizer {static_cast<size_t>(dimension), quantizerType}
+                                   .get_distance_computer(metric));
+
+        // Assign query to Faiss function
+        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction->set_query(
+            reinterpret_cast<float*>(THREAD_LOCAL_SIMD_VEC_SRCH_CTX.queryVectorSimdAligned));
+    };
+
     // Set similarity function
     if (nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::FP16_MAXIMUM_INNER_PRODUCT)) {
-        // Set similarity function to offload similarity calculation
-        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.similarityFunction = selectSimilarityFunction(
-            NativeSimilarityFunctionType::FP16_MAXIMUM_INNER_PRODUCT);
-
-        // FP16 vector bytes = 2bytes * dimension
-        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.oneVectorByteSize = 2 * dimension;
-
-        // Reset Faiss function for single vector similarity calculation
-        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction.reset(
-             faiss::ScalarQuantizer {static_cast<size_t>(dimension), faiss::ScalarQuantizer::QuantizerType::QT_fp16}
-                                    .get_distance_computer(faiss::MetricType::METRIC_INNER_PRODUCT));
-
-        // Assign query to Faiss function
-        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction->set_query(
-            reinterpret_cast<float*>(THREAD_LOCAL_SIMD_VEC_SRCH_CTX.queryVectorSimdAligned));
+        setupFaissQuantizedFunction(NativeSimilarityFunctionType::FP16_MAXIMUM_INNER_PRODUCT,
+                                    faiss::ScalarQuantizer::QuantizerType::QT_fp16,
+                                    faiss::MetricType::METRIC_INNER_PRODUCT);
     } else if (nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::FP16_L2)) {
-        // Set similarity function to offload similarity calculation
-        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.similarityFunction = selectSimilarityFunction(
-            NativeSimilarityFunctionType::FP16_L2);
-
-        // FP16 vector bytes = 2bytes * dimension
-        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.oneVectorByteSize = 2 * dimension;
-
-        // Reset Faiss function for single vector similarity calculation
-        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction.reset(
-            faiss::ScalarQuantizer {static_cast<size_t>(dimension), faiss::ScalarQuantizer::QuantizerType::QT_fp16}
-                                   .get_distance_computer(faiss::MetricType::METRIC_L2));
-
-        // Assign query to Faiss function
-        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction->set_query(
-            reinterpret_cast<float*>(THREAD_LOCAL_SIMD_VEC_SRCH_CTX.queryVectorSimdAligned));
+        setupFaissQuantizedFunction(NativeSimilarityFunctionType::FP16_L2,
+                                    faiss::ScalarQuantizer::QuantizerType::QT_fp16,
+                                    faiss::MetricType::METRIC_L2);
     } else if (nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::FP16_COSINE)) {
         // FP16_COSINE shares the on-disk FP16 layout with FP16_MAX_INNER_PRODUCT. Vectors are
         // L2-normalized at index time, so cosine equals the inner product, and the kernel emits
@@ -258,22 +256,19 @@ SimdVectorSearchContext* SimilarityFunction::saveSearchContext(
         // elements per 512-bit register); elsewhere it falls back to the FP32-converted IP
         // kernel used by FP16_MAX_INNER_PRODUCT. The single-vector calculateSimilarity path
         // goes through BaseSimilarityFunction, which calls the Faiss IP distance computer
-        // below and applies cosineTransform on top of the raw IP result.
-        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.similarityFunction = selectSimilarityFunction(
-            NativeSimilarityFunctionType::FP16_COSINE);
-
-        // FP16 vector bytes = 2 bytes * dimension
-        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.oneVectorByteSize = 2 * dimension;
-
-        // Faiss FP16 IP distance computer for the single-vector path; cosineTransform is
-        // applied on top of the raw IP result by BaseSimilarityFunction.
-        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction.reset(
-            faiss::ScalarQuantizer {static_cast<size_t>(dimension), faiss::ScalarQuantizer::QuantizerType::QT_fp16}
-                                   .get_distance_computer(faiss::MetricType::METRIC_INNER_PRODUCT));
-
-        // Assign query to Faiss function
-        THREAD_LOCAL_SIMD_VEC_SRCH_CTX.faissFunction->set_query(
-            reinterpret_cast<float*>(THREAD_LOCAL_SIMD_VEC_SRCH_CTX.queryVectorSimdAligned));
+        // (set up here with METRIC_INNER_PRODUCT) and applies cosineTransform on top of the raw
+        // IP result.
+        setupFaissQuantizedFunction(NativeSimilarityFunctionType::FP16_COSINE,
+                                    faiss::ScalarQuantizer::QuantizerType::QT_fp16,
+                                    faiss::MetricType::METRIC_INNER_PRODUCT);
+    } else if (nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::BF16_MAXIMUM_INNER_PRODUCT)) {
+        setupFaissQuantizedFunction(NativeSimilarityFunctionType::BF16_MAXIMUM_INNER_PRODUCT,
+                                    faiss::ScalarQuantizer::QuantizerType::QT_bf16,
+                                    faiss::MetricType::METRIC_INNER_PRODUCT);
+    } else if (nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::BF16_L2)) {
+        setupFaissQuantizedFunction(NativeSimilarityFunctionType::BF16_L2,
+                                    faiss::ScalarQuantizer::QuantizerType::QT_bf16,
+                                    faiss::MetricType::METRIC_L2);
     } else if (nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ_IP)
                || nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ_L2)
                || nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ_COSINE)) {

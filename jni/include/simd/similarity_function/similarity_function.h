@@ -20,10 +20,15 @@ namespace knn_jni::simd::similarity_function {
         FP16_L2,
         SQ_IP,
         SQ_L2,
+        // Max inner product for BF16.
+        BF16_MAXIMUM_INNER_PRODUCT,
+        // L2 for BF16
+        BF16_L2,
         // Cosine for FP16. Vectors are L2-normalized so cosine = inner product with score = (1 + dot) / 2.
         FP16_COSINE,
         // Cosine for SQ. Same IP intermediate math as SQ_IP but with cosine score transform.
         SQ_COSINE
+
     };
 
     struct SimilarityFunction;

@@ -176,4 +176,56 @@ public class KNN1040ScalarQuantizedVectorScorerTests extends KNNTestCase {
             assertNotNull(result);
         }
     }
+
+    /**
+     * Exercises the encoding guard in {@code getScorer}: the scalar encoding is resolved via
+     * {@link ScalarEncodingResolver#docBits} to decide the scoring path (1-bit → native SIMD,
+     * 2/4-bit → Lucene fallback). An encoding whose bit width is outside the supported set
+     * (here {@code UNSIGNED_BYTE}, 8 bits) is rejected up front with an
+     * {@link IllegalArgumentException} before any scorer is built.
+     */
+    @SneakyThrows
+    public void testGetRandomVectorScorer_whenScalarEncodingBitWidthUnsupported_thenThrowsIllegalArgumentException() {
+        final FlatVectorsScorer mockDelegate = mock(FlatVectorsScorer.class);
+        final KNN1040ScalarQuantizedVectorScorer scorer = new KNN1040ScalarQuantizedVectorScorer(mockDelegate);
+
+        final int dimension = 8;
+        final QuantizedByteVectorValues mockQuantizedValues = mock(QuantizedByteVectorValues.class);
+        final IndexInput mockIndexInput = mock(IndexInput.class);
+        when(mockQuantizedValues.getSlice()).thenReturn(mockIndexInput);
+        when(mockIndexInput.length()).thenReturn(1024L);
+        when(mockQuantizedValues.dimension()).thenReturn(dimension);
+        // Use an encoding whose bit width (8) is not one of the supported FAISS SQ widths (1, 2, 4)
+        // to trigger the ScalarEncodingResolver#docBits guard.
+        when(mockQuantizedValues.getScalarEncoding()).thenReturn(ScalarEncoding.UNSIGNED_BYTE);
+
+        final StubVectorValues stub = new StubVectorValues();
+        final java.lang.reflect.Field field = StubVectorValues.class.getDeclaredField("quantizedVectorValues");
+        field.setAccessible(true);
+        field.set(stub, mockQuantizedValues);
+
+        final float[] target = new float[dimension];
+        final VectorSimilarityFunction similarityFunction = VectorSimilarityFunction.EUCLIDEAN;
+
+        // Mock the extractor to return a non-null addressAndSize so, absent the encoding guard,
+        // the SIMD path would be entered.
+        try (MockedStatic<MemorySegmentAddressExtractorUtil> mockedStatic = Mockito.mockStatic(MemorySegmentAddressExtractorUtil.class)) {
+            mockedStatic.when(
+                () -> MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(
+                    any(IndexInput.class),
+                    Mockito.anyLong(),
+                    Mockito.anyLong()
+                )
+            ).thenReturn(new long[] { 0L, 1024L });
+
+            final IllegalArgumentException ex = expectThrows(
+                IllegalArgumentException.class,
+                () -> scorer.getRandomVectorScorer(similarityFunction, stub, target)
+            );
+            assertTrue(
+                "Exception message should mention the unsupported encoding, was: " + ex.getMessage(),
+                ex.getMessage().contains("Unsupported SQ scalar encoding") && ex.getMessage().contains("UNSIGNED_BYTE")
+            );
+        }
+    }
 }
