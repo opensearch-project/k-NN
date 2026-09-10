@@ -17,7 +17,6 @@ import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.join.BitSetProducer;
-import org.mockito.MockedStatic;
 import org.opensearch.Version;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
@@ -246,53 +245,42 @@ public class KNNCodecTestCase extends KNNTestCase {
             KNNEngine.FAISS
         );
 
-        // Set the mocked OpenSearchKNNModelDao to INSTANCE.
-        // Mockito’s static mocking is unreliable when multiple threads call the mocked static method concurrently.
-        // Lucene’s test framework uses a random seed to decide whether to create a real FSDirectory instance,
-        // which rarely happens. In most cases, it creates a mocked Directory and never calls the mocked static method.
-        // However, when a real FSDirectory is created, it can spawn multiple threads to perform index checks.
-        // In such cases, a thread may end up calling the actual static method instead of the mocked one.
-        // To prevent this, we explicitly assign the mocked DAO to INSTANCE so that even if the real method is invoked,
-        // the mocked DAO will still be returned.
+        // mockStatic(getInstance) is thread-local. Lucene CheckIndex can run on another
+        // thread when the directory closes, so the stub never applies there and the test
+        // flakes with "Model ID is not created". Point the singleton at the mock instead.
         final ModelDao.OpenSearchKNNModelDao modelDao = mock(ModelDao.OpenSearchKNNModelDao.class);
-
-        // Access private static field
         final Field instanceField = ModelDao.OpenSearchKNNModelDao.class.getDeclaredField("INSTANCE");
         instanceField.setAccessible(true);
 
-        // Set mock instance
-        instanceField.set(null, modelDao);
+        // Set model state to created
+        ModelMetadata modelMetadata1 = new ModelMetadata(
+            knnEngine,
+            spaceType,
+            dimension,
+            ModelState.CREATED,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(),
+            "",
+            "",
+            "",
+            MethodComponentContext.EMPTY,
+            VectorDataType.FLOAT,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED,
+            Version.V_EMPTY
+        );
+
+        Model mockModel = new Model(modelMetadata1, modelBlob, modelId);
+        when(modelDao.get(modelId)).thenReturn(mockModel);
+        when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata1);
+
+        final Object previousInstance;
+        synchronized (ModelDao.OpenSearchKNNModelDao.class) {
+            previousInstance = instanceField.get(null);
+            instanceField.set(null, modelDao);
+        }
 
         // Setup model cache
-        try (
-            MockedStatic<ModelDao.OpenSearchKNNModelDao> modelDaoMockedStatic = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class);
-            AutoCloseable resetModelDao = () -> {
-                instanceField.set(null, null);
-            }
-        ) {
-            modelDaoMockedStatic.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(modelDao);
-
-            // Set model state to created
-            ModelMetadata modelMetadata1 = new ModelMetadata(
-                knnEngine,
-                spaceType,
-                dimension,
-                ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(),
-                "",
-                "",
-                "",
-                MethodComponentContext.EMPTY,
-                VectorDataType.FLOAT,
-                Mode.NOT_CONFIGURED,
-                CompressionLevel.NOT_CONFIGURED,
-                Version.V_EMPTY
-            );
-
-            Model mockModel = new Model(modelMetadata1, modelBlob, modelId);
-            when(modelDao.get(modelId)).thenReturn(mockModel);
-            when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata1);
-
+        try {
             Settings settings = settings(CURRENT).put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), "10%").build();
             ClusterSettings clusterSettings = new ClusterSettings(settings, ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
 
@@ -344,8 +332,10 @@ public class KNNCodecTestCase extends KNNTestCase {
             reader.close();
             dir.close();
             NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
-
-            Thread.sleep(10000);
+        } finally {
+            synchronized (ModelDao.OpenSearchKNNModelDao.class) {
+                instanceField.set(null, previousInstance);
+            }
         }
     }
 
