@@ -235,4 +235,5 @@ public class KNNConstants {
     // before this version may have engine=lucene persisted in their flat mapping — they must
     // continue to load without error. New indices reject any engine setting on flat.
     public static final Version FLAT_METHOD_ENGINE_AGNOSTIC_VERSION = Version.V_3_9_0;
+    public static final int MIN_DIMENSIONS_FOR_REMOTE_INDEX_BUILD = 64;
 }

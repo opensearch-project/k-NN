@@ -18,6 +18,7 @@ import org.opensearch.common.annotation.ExperimentalApi;
 import org.opensearch.common.blobstore.BlobPath;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.index.IndexSettings;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.common.exception.TerminalIOException;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
@@ -98,7 +99,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
      * @param vectorBlobLength      The size of the vector blob, used to determine if the size threshold is met
      * @return true if remote index build should be used, else false
      */
-    public static boolean shouldBuildIndexRemotely(IndexSettings indexSettings, long vectorBlobLength) {
+    public static boolean shouldBuildIndexRemotely(IndexSettings indexSettings, long vectorBlobLength, int vectorDimension) {
         if (indexSettings == null) {
             return false;
         }
@@ -135,6 +136,15 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
                 vectorBlobLength,
                 upperBound.getBytes(),
                 indexSettings.getIndex().getName()
+            );
+            return false;
+        }
+
+        if (vectorDimension < KNNConstants.MIN_DIMENSIONS_FOR_REMOTE_INDEX_BUILD) {
+            log.debug(
+                "Vector dimension {} is less than the min dimension threshold {} for remote index build",
+                vectorDimension,
+                KNNConstants.MIN_DIMENSIONS_FOR_REMOTE_INDEX_BUILD
             );
             return false;
         }

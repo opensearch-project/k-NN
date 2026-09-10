@@ -38,12 +38,9 @@ public class NonNestedDocumentsGenerator extends DocumentsGenerator {
             if (indexingType == IndexingType.DENSE || ThreadLocalRandom.current().nextFloat() < DENSE_RATIO) {
                 // Vector field
                 if (dataType == VectorDataType.FLOAT) {
-                    final float[] vector = SearchTestHelper.generateOneSingleFloatVector(
-                        DIMENSIONS,
-                        MIN_VECTOR_ELEMENT_VALUE,
-                        MAX_VECTOR_ELEMENT_VALUE,
-                        false
-                    );
+                    // Pull clustered, graph-friendly vectors from the fixture instead of i.i.d. uniform noise so
+                    // remote GPU (CAGRA) builds succeed. See SearchTestHelper#loadClusteredFloatVectors.
+                    final float[] vector = SearchTestHelper.getClusteredFloatVector(clusteredFloatVectorCursor++, DIMENSIONS);
                     vectors.add(vector);
                     builder.field(KNN_FIELD_NAME, vector);
                 } else if (dataType == VectorDataType.BYTE) {

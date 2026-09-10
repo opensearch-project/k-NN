@@ -49,6 +49,10 @@ public abstract class DocumentsGenerator {
     protected final IndexingType indexingType;
     protected final VectorDataType dataType;
 
+    // Sequential cursor into the clustered float-vector fixture. Incremented once per float vector emitted so every
+    // document (and nested child) gets a distinct, graph-friendly vector. Reset per generator instance (one per test).
+    protected int clusteredFloatVectorCursor = 0;
+
     public static DocumentsGenerator create(final IndexingType indexingType, final VectorDataType dataType, final int numDocuments) {
 
         if (indexingType.isNested()) {
