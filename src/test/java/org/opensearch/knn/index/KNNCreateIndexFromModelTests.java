@@ -24,6 +24,7 @@ import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -45,7 +46,7 @@ public class KNNCreateIndexFromModelTests extends KNNSingleNodeTestCase {
 
         // Create a model offline
         String modelId = "test-model";
-        KNNEngine knnEngine = KNNEngine.FAISS;
+        VectorSearchEngine knnEngine = KNNEngine.FAISS;
         SpaceType spaceType = SpaceType.L2;
         int dimension = 3;
 

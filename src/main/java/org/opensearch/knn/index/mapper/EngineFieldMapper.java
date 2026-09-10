@@ -10,7 +10,7 @@ import org.apache.lucene.document.FieldType;
 import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -139,7 +139,7 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
         KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
         VectorDataType vectorDataType = mappedFieldType.getVectorDataType();
         KNNMethodContext resolvedKnnMethodContext = originalMappingParameters.getResolvedKnnMethodContext();
-        KNNEngine knnEngine = resolvedKnnMethodContext.getKnnEngine();
+        VectorSearchEngine knnEngine = resolvedKnnMethodContext.getKnnEngine();
 
         this.fieldStrategy = knnEngine.getFieldStrategy();
         FieldTypeConfig config = fieldStrategy.buildFieldTypeConfig(

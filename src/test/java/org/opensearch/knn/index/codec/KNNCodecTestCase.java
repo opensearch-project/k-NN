@@ -55,6 +55,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
@@ -226,7 +227,7 @@ public class KNNCodecTestCase extends KNNTestCase {
     public void testBuildFromModelTemplate(Codec codec) {
         // Setup model params
         String modelId = "test-model";
-        KNNEngine knnEngine = KNNEngine.FAISS;
+        VectorSearchEngine knnEngine = KNNEngine.FAISS;
         SpaceType spaceType = SpaceType.L2;
         int dimension = 3;
 

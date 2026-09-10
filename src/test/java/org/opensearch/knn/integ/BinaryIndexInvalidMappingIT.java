@@ -12,6 +12,7 @@ import org.opensearch.knn.KNNJsonIndexMappingsBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -51,7 +52,7 @@ public class BinaryIndexInvalidMappingIT extends KNNRestTestCase {
     }
 
     private static String createKnnHnswBinaryIndexMapping(
-        final KNNEngine knnEngine,
+        final VectorSearchEngine knnEngine,
         final String fieldName,
         final int dimension,
         final String encoderName

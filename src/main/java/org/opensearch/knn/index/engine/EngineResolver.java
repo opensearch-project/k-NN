@@ -23,7 +23,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 import static org.opensearch.knn.index.engine.KNNEngine.DEPRECATED_ENGINES;
 
 /**
- * Figures out what {@link KNNEngine} to use based on configuration details
+ * Figures out what {@link VectorSearchEngine} to use based on configuration details
  */
 public final class EngineResolver {
 
@@ -33,7 +33,7 @@ public final class EngineResolver {
     private EngineResolver() {}
 
     @VisibleForTesting
-    KNNEngine resolveEngine(
+    VectorSearchEngine resolveEngine(
         KNNMethodConfigContext knnMethodConfigContext,
         KNNMethodContext knnMethodContext,
         String topLevelString,
@@ -53,7 +53,7 @@ public final class EngineResolver {
      * @param topLevelEngineString Alternative top-level engine
      * @return {@link SpaceType} for the method
      */
-    public KNNEngine resolveEngine(
+    public VectorSearchEngine resolveEngine(
         KNNMethodConfigContext knnMethodConfigContext,
         KNNMethodContext knnMethodContext,
         String topLevelEngineString,
@@ -66,16 +66,16 @@ public final class EngineResolver {
     }
 
     /**
-     * Based on the provided {@link Mode} and {@link CompressionLevel}, resolve to a {@link KNNEngine}.
+     * Based on the provided {@link Mode} and {@link CompressionLevel}, resolve to a {@link VectorSearchEngine}.
      *
      * @param knnMethodConfigContext configuration context
      * @param knnMethodContext KNNMethodContext
      * @param topLevelEngineString Alternative top-level engine
      * @param requiresTraining whether config requires training
      * @param version opensearch index version
-     * @return {@link KNNEngine}
+     * @return {@link VectorSearchEngine}
      */
-    private KNNEngine resolveKNNEngine(
+    private VectorSearchEngine resolveKNNEngine(
         KNNMethodConfigContext knnMethodConfigContext,
         KNNMethodContext knnMethodContext,
         String topLevelEngineString,
@@ -89,13 +89,13 @@ public final class EngineResolver {
         // continue to load without error.
         rejectEngineForMethodFlat(knnMethodContext, topLevelEngineString, version);
 
-        KNNEngine userConfiguredEngine = resolveAndValidateUserConfiguredEngine(
+        VectorSearchEngine userConfiguredEngine = resolveAndValidateUserConfiguredEngine(
             knnMethodContext,
             topLevelEngineString,
             knnMethodConfigContext,
             requiresTraining
         );
-        if (userConfiguredEngine != KNNEngine.UNDEFINED) {
+        if (userConfiguredEngine != VectorSearchEngine.UNDEFINED) {
             return userConfiguredEngine;
         }
 
@@ -164,19 +164,19 @@ public final class EngineResolver {
     }
 
     private boolean hasUserConfiguredTopLevelEngine(String topLevelEngineString) {
-        KNNEngine topLevelEngine = getEngineFromString(topLevelEngineString);
-        return topLevelEngine != null && topLevelEngine != KNNEngine.UNDEFINED;
+        VectorSearchEngine topLevelEngine = getEngineFromString(topLevelEngineString);
+        return topLevelEngine != null && topLevelEngine != VectorSearchEngine.UNDEFINED;
     }
 
-    private KNNEngine resolveAndValidateUserConfiguredEngine(
+    private VectorSearchEngine resolveAndValidateUserConfiguredEngine(
         KNNMethodContext knnMethodContext,
         String topLevelEngineString,
         KNNMethodConfigContext knnMethodConfigContext,
         boolean requiresTraining
     ) {
         if (hasUserConfiguredMethodEngine(knnMethodContext) && hasUserConfiguredTopLevelEngine(topLevelEngineString)) {
-            KNNEngine methodEngine = knnMethodContext.getKnnEngine();
-            KNNEngine topLevelEngine = validateTopLevelEngine(topLevelEngineString, knnMethodConfigContext, requiresTraining);
+            VectorSearchEngine methodEngine = knnMethodContext.getKnnEngine();
+            VectorSearchEngine topLevelEngine = validateTopLevelEngine(topLevelEngineString, knnMethodConfigContext, requiresTraining);
             if (methodEngine == topLevelEngine) {
                 return topLevelEngine;
             }
@@ -195,17 +195,17 @@ public final class EngineResolver {
         if (hasUserConfiguredTopLevelEngine(topLevelEngineString)) {
             return validateTopLevelEngine(topLevelEngineString, knnMethodConfigContext, requiresTraining);
         }
-        return KNNEngine.UNDEFINED;
+        return VectorSearchEngine.UNDEFINED;
     }
 
-    private KNNEngine resolveEngineForX1OrNoCompression(Mode mode, Version version) {
+    private VectorSearchEngine resolveEngineForX1OrNoCompression(Mode mode, Version version) {
         if (version != null && version.onOrAfter(Version.V_2_19_0)) {
             return KNNEngine.FAISS;
         }
         return mode == Mode.ON_DISK ? KNNEngine.FAISS : KNNEngine.NMSLIB;
     }
 
-    private KNNEngine logAndReturnEngine(KNNEngine knnEngine) {
+    private VectorSearchEngine logAndReturnEngine(VectorSearchEngine knnEngine) {
         if (DEPRECATED_ENGINES.contains(knnEngine)) {
             deprecationLogger.deprecate(
                 "knn_engine_deprecated",
@@ -216,20 +216,20 @@ public final class EngineResolver {
         return knnEngine;
     }
 
-    private KNNEngine getEngineFromString(String knnEngineString) {
+    private VectorSearchEngine getEngineFromString(String knnEngineString) {
         if (Strings.isEmpty(knnEngineString)) {
-            return KNNEngine.UNDEFINED;
+            return VectorSearchEngine.UNDEFINED;
         }
 
         return KNNEngine.getEngine(knnEngineString);
     }
 
-    private KNNEngine validateTopLevelEngine(
+    private VectorSearchEngine validateTopLevelEngine(
         String topLevelEngineString,
         KNNMethodConfigContext knnMethodConfigContext,
         boolean requiresTraining
     ) {
-        KNNEngine topLevelEngine = getEngineFromString(topLevelEngineString);
+        VectorSearchEngine topLevelEngine = getEngineFromString(topLevelEngineString);
         if (requiresTraining && topLevelEngine != KNNEngine.FAISS) {
             throw new MapperParsingException(String.format(Locale.ROOT, "Cannot specify engine other than FAISS for training"));
         }

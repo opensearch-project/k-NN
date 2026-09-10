@@ -16,6 +16,7 @@ import org.opensearch.common.Nullable;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.EngineParameters;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.NativeIndexBuildParams;
 import org.opensearch.knn.index.engine.NativeSearchParams;
 import org.opensearch.knn.index.query.KNNQueryResult;
@@ -42,7 +43,7 @@ public class JNIService {
      * @param knnEngine  knn engine
      * @return address of the index in memory
      */
-    public static long initIndex(long numDocs, int dim, Map<String, Object> parameters, KNNEngine knnEngine) {
+    public static long initIndex(long numDocs, int dim, Map<String, Object> parameters, VectorSearchEngine knnEngine) {
         if (knnEngine.getNativeService() != null) {
             return knnEngine.getNativeService().initIndex(NativeIndexBuildParams.forInit(numDocs, dim, EngineParameters.of(parameters)));
         }
@@ -78,7 +79,7 @@ public class JNIService {
         int dimension,
         Map<String, Object> parameters,
         long indexAddress,
-        KNNEngine knnEngine
+        VectorSearchEngine knnEngine
     ) {
         if (knnEngine.getNativeService() != null) {
             knnEngine.getNativeService()
@@ -119,7 +120,7 @@ public class JNIService {
     public static void writeIndex(
         IndexOutputWithBuffer output,
         long indexAddress,
-        KNNEngine knnEngine,
+        VectorSearchEngine knnEngine,
         Map<String, Object> parameters,
         boolean skipFlat
     ) {
@@ -163,7 +164,7 @@ public class JNIService {
         int dim,
         IndexOutputWithBuffer output,
         Map<String, Object> parameters,
-        KNNEngine knnEngine
+        VectorSearchEngine knnEngine
     ) {
         if (KNNEngine.NMSLIB == knnEngine) {
             NmslibService.createIndex(ids, vectorsAddress, dim, output, parameters);
@@ -193,7 +194,7 @@ public class JNIService {
         IndexOutputWithBuffer output,
         byte[] templateIndex,
         Map<String, Object> parameters,
-        KNNEngine knnEngine
+        VectorSearchEngine knnEngine
     ) {
         if (knnEngine.getNativeService() != null) {
             knnEngine.getNativeService()
@@ -233,7 +234,7 @@ public class JNIService {
      * @param knnEngine  Engine to load index
      * @return Pointer to location in memory the index resides in
      */
-    public static long loadIndex(IndexInputWithBuffer readStream, Map<String, Object> parameters, KNNEngine knnEngine) {
+    public static long loadIndex(IndexInputWithBuffer readStream, Map<String, Object> parameters, VectorSearchEngine knnEngine) {
         if (knnEngine.getNativeService() != null) {
             return knnEngine.getNativeService().loadIndex(readStream, NativeIndexBuildParams.forLoad(EngineParameters.of(parameters)));
         }
@@ -265,7 +266,7 @@ public class JNIService {
      * @param knnEngine engine
      * @return true if index requires shared index state; false otherwise
      */
-    public static boolean isSharedIndexStateRequired(long indexAddr, KNNEngine knnEngine) {
+    public static boolean isSharedIndexStateRequired(long indexAddr, VectorSearchEngine knnEngine) {
         if (KNNEngine.FAISS == knnEngine) {
             return FaissService.isSharedIndexStateRequired(indexAddr);
         }
@@ -280,7 +281,7 @@ public class JNIService {
      * @param knnEngine engine
      * @return Address of shared index state address
      */
-    public static long initSharedIndexState(long indexAddr, KNNEngine knnEngine) {
+    public static long initSharedIndexState(long indexAddr, VectorSearchEngine knnEngine) {
         if (KNNEngine.FAISS == knnEngine) {
             return FaissService.initSharedIndexState(indexAddr);
         }
@@ -296,7 +297,7 @@ public class JNIService {
      * @param shareIndexStateAddr address of shared state to be set
      * @param knnEngine           engine
      */
-    public static void setSharedIndexState(long indexAddr, long shareIndexStateAddr, KNNEngine knnEngine) {
+    public static void setSharedIndexState(long indexAddr, long shareIndexStateAddr, VectorSearchEngine knnEngine) {
         if (KNNEngine.FAISS == knnEngine) {
             FaissService.setSharedIndexState(indexAddr, shareIndexStateAddr);
             return;
@@ -324,7 +325,7 @@ public class JNIService {
         float[] queryVector,
         int k,
         @Nullable Map<String, ?> methodParameters,
-        KNNEngine knnEngine,
+        VectorSearchEngine knnEngine,
         long[] filteredIds,
         int filterIdsType,
         int[] parentIds
@@ -380,7 +381,7 @@ public class JNIService {
         byte[] queryVector,
         int k,
         @Nullable Map<String, ?> methodParameters,
-        KNNEngine knnEngine,
+        VectorSearchEngine knnEngine,
         long[] filteredIds,
         int filterIdsType,
         int[] parentIds
@@ -407,7 +408,7 @@ public class JNIService {
      * @param indexPointer location to be freed
      * @param knnEngine    engine to perform free
      */
-    public static void free(final long indexPointer, final KNNEngine knnEngine) {
+    public static void free(final long indexPointer, final VectorSearchEngine knnEngine) {
         free(indexPointer, knnEngine, false);
     }
 
@@ -418,7 +419,7 @@ public class JNIService {
      * @param knnEngine     engine to perform free
      * @param isBinaryIndex indicate if it is binary index or not
      */
-    public static void free(final long indexPointer, final KNNEngine knnEngine, final boolean isBinaryIndex) {
+    public static void free(final long indexPointer, final VectorSearchEngine knnEngine, final boolean isBinaryIndex) {
         if (knnEngine.getNativeService() != null) {
             knnEngine.getNativeService().free(indexPointer);
             return;
@@ -442,7 +443,7 @@ public class JNIService {
      * @param shareIndexStateAddr address of shared state
      * @param knnEngine           engine
      */
-    public static void freeSharedIndexState(long shareIndexStateAddr, KNNEngine knnEngine) {
+    public static void freeSharedIndexState(long shareIndexStateAddr, VectorSearchEngine knnEngine) {
         if (KNNEngine.FAISS == knnEngine) {
             FaissService.freeSharedIndexState(shareIndexStateAddr);
             return;
@@ -461,7 +462,12 @@ public class JNIService {
      * @param knnEngine           engine to perform the training
      * @return bytes array of trained template index
      */
-    public static byte[] trainIndex(Map<String, Object> indexParameters, int dimension, long trainVectorsPointer, KNNEngine knnEngine) {
+    public static byte[] trainIndex(
+        Map<String, Object> indexParameters,
+        int dimension,
+        long trainVectorsPointer,
+        VectorSearchEngine knnEngine
+    ) {
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, indexParameters)) {
                 return FaissService.trainBinaryIndex(indexParameters, dimension, trainVectorsPointer);
@@ -496,7 +502,7 @@ public class JNIService {
         float[] queryVector,
         float radius,
         @Nullable Map<String, ?> methodParameters,
-        KNNEngine knnEngine,
+        VectorSearchEngine knnEngine,
         int indexMaxResultWindow,
         long[] filteredIds,
         int filterIdsType,
@@ -547,7 +553,7 @@ public class JNIService {
         final float centroidDp,
         final int quantizedVecBytes,
         final int docBits,
-        final KNNEngine knnEngine
+        final VectorSearchEngine knnEngine
     ) {
         if (KNNEngine.FAISS == knnEngine) {
             return FaissService.initFaissSQIndex(totalLiveDocs, dimension, indexParameters, centroidDp, quantizedVecBytes, docBits);
@@ -563,7 +569,7 @@ public class JNIService {
         final int[] docIds,
         final int numDocs,
         final int numAdded,
-        final KNNEngine knnEngine
+        final VectorSearchEngine knnEngine
     ) {
 
         if (KNNEngine.FAISS == knnEngine) {
@@ -580,7 +586,7 @@ public class JNIService {
         final long indexMemoryAddress,
         final byte[] buffer,
         final int loopSize,
-        final KNNEngine knnEngine
+        final VectorSearchEngine knnEngine
     ) {
 
         Objects.requireNonNull(buffer);
@@ -595,7 +601,7 @@ public class JNIService {
         );
     }
 
-    public static void releaseSQIndex(final long indexMemoryAddress, final KNNEngine knnEngine) {
+    public static void releaseSQIndex(final long indexMemoryAddress, final VectorSearchEngine knnEngine) {
         if (KNNEngine.FAISS == knnEngine) {
             FaissService.releaseFaissSQIndex(indexMemoryAddress);
             return;

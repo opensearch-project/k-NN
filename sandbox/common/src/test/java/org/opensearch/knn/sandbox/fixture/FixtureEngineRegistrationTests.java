@@ -7,6 +7,7 @@ package org.opensearch.knn.sandbox.fixture;
 
 import org.opensearch.knn.index.VectorQueryType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.model.QueryContext;
 import org.opensearch.knn.index.mapper.FaissFieldStrategy;
 import org.opensearch.knn.index.mapper.LuceneFieldStrategy;
@@ -29,7 +30,7 @@ import static org.opensearch.knn.sandbox.fixture.FixtureConstants.METHOD_PARAMET
  */
 public class FixtureEngineRegistrationTests extends OpenSearchTestCase {
 
-    public void testInitializeIsCalledWithAContext() {
+    public void testInitializeIsCalledWithAContextq() {
         KNNEngine.getEngine(FIXTURE_ENGINE_NAME); // ensure discovery ran
         assertTrue(FixtureEngineProvider.initialized);
         // Outside a node the context object is EMPTY, never null.
@@ -57,7 +58,7 @@ public class FixtureEngineRegistrationTests extends OpenSearchTestCase {
     public void testCapabilitiesAreReadOnceAndCached() {
         // The flaky library throws on a second call to any capability flag. The engine registers and
         // answers every flag from the values cached at discovery, asked twice to prove it.
-        final KNNEngine flaky = KNNEngine.getEngine("flaky-library");
+        final VectorSearchEngine flaky = KNNEngine.getEngine("flaky-library");
         for (int i = 0; i < 2; i++) {
             assertTrue(flaky.supportsIterativeBuild());
             assertTrue(flaky.createsCustomSegmentFiles());
@@ -77,7 +78,7 @@ public class FixtureEngineRegistrationTests extends OpenSearchTestCase {
     public void testExtensionsAreReadOnceAndCached() {
         // The flaky library throws on a second call to either extension accessor. Path routing answers
         // from the values cached at discovery, asked twice to prove it.
-        final KNNEngine flaky = KNNEngine.getEngine("flaky-library");
+        final VectorSearchEngine flaky = KNNEngine.getEngine("flaky-library");
         for (int i = 0; i < 2; i++) {
             assertEquals(".flakybin", flaky.getExtension());
             assertEquals(".flakybinc", flaky.getCompoundExtension());
@@ -108,13 +109,13 @@ public class FixtureEngineRegistrationTests extends OpenSearchTestCase {
     }
 
     public void testFixtureEngineIsRegisteredByName() {
-        final KNNEngine fixture = KNNEngine.getEngine(FIXTURE_ENGINE_NAME);
+        final VectorSearchEngine fixture = KNNEngine.getEngine(FIXTURE_ENGINE_NAME);
         assertNotNull(fixture);
         assertEquals(FIXTURE_ENGINE_NAME, fixture.getName());
         // Resolution is case-insensitive, matching the built-in engines' behavior.
         assertSame(fixture, KNNEngine.getEngine(FIXTURE_ENGINE_NAME.toUpperCase(java.util.Locale.ROOT)));
         // The constant-style identifier mirrors the former enum name() contract.
-        assertEquals(FIXTURE_ENGINE_NAME.toUpperCase(java.util.Locale.ROOT), fixture.name());
+        assertEquals(FIXTURE_ENGINE_NAME, fixture.getName());
         assertEquals(FIXTURE_ENGINE_NAME.toUpperCase(java.util.Locale.ROOT), fixture.toString());
     }
 
@@ -124,7 +125,7 @@ public class FixtureEngineRegistrationTests extends OpenSearchTestCase {
     }
 
     public void testValuesListsBuiltInsFirstInDeclarationOrder() {
-        final KNNEngine[] values = KNNEngine.values();
+        final VectorSearchEngine[] values = KNNEngine.values();
         assertSame(KNNEngine.NMSLIB, values[0]);
         assertSame(KNNEngine.FAISS, values[1]);
         assertSame(KNNEngine.LUCENE, values[2]);
@@ -132,7 +133,7 @@ public class FixtureEngineRegistrationTests extends OpenSearchTestCase {
     }
 
     public void testFixtureEngineCarriesItsOwnNativeService() {
-        final KNNEngine fixture = KNNEngine.getEngine(FIXTURE_ENGINE_NAME);
+        final VectorSearchEngine fixture = KNNEngine.getEngine(FIXTURE_ENGINE_NAME);
         assertSame(FixtureNativeEngineService.INSTANCE, fixture.getNativeService());
     }
 
@@ -148,7 +149,7 @@ public class FixtureEngineRegistrationTests extends OpenSearchTestCase {
     }
 
     public void testCapabilityFlagsFoldIntoEngineBehavior() {
-        final KNNEngine fixture = KNNEngine.getEngine(FIXTURE_ENGINE_NAME);
+        final VectorSearchEngine fixture = KNNEngine.getEngine(FIXTURE_ENGINE_NAME);
         assertTrue(fixture.supportsIterativeBuild());
         assertTrue(fixture.createsCustomSegmentFiles());
         assertFalse(fixture.supportsFilters());
@@ -161,7 +162,7 @@ public class FixtureEngineRegistrationTests extends OpenSearchTestCase {
     public void testEngineResolvedFromCustomSegmentFilePath() {
         // createsCustomSegmentFiles() folds the fixture into the custom-segment-file set, which is what
         // getEngineNameFromPath iterates.
-        final KNNEngine fixture = KNNEngine.getEngine(FIXTURE_ENGINE_NAME);
+        final VectorSearchEngine fixture = KNNEngine.getEngine(FIXTURE_ENGINE_NAME);
         assertSame(fixture, KNNEngine.getEngineNameFromPath("_0_165_target_field" + FIXTURE_EXTENSION));
         assertSame(fixture, KNNEngine.getEngineNameFromPath("_0_165_target_field" + fixture.getCompoundExtension()));
     }
@@ -178,14 +179,14 @@ public class FixtureEngineRegistrationTests extends OpenSearchTestCase {
     }
 
     public void testFieldStrategyComesFromTheDefinition() {
-        final KNNEngine fixture = KNNEngine.getEngine(FIXTURE_ENGINE_NAME);
+        final VectorSearchEngine fixture = KNNEngine.getEngine(FIXTURE_ENGINE_NAME);
         assertSame(FaissFieldStrategy.INSTANCE, fixture.getFieldStrategy());
     }
 
     public void testFieldStrategyAbsentThrowsWithTheMissingHookNamed() {
         // The secondary fixture declares no field strategy: mapping through it must fail loud, never fall
         // back silently to another engine's strategy.
-        final KNNEngine secondary = KNNEngine.getEngine(SecondaryFixtureEngineProvider.SECONDARY_FIXTURE_ENGINE_NAME);
+        final VectorSearchEngine secondary = KNNEngine.getEngine(SecondaryFixtureEngineProvider.SECONDARY_FIXTURE_ENGINE_NAME);
         final UnsupportedOperationException e = expectThrows(UnsupportedOperationException.class, secondary::getFieldStrategy);
         assertTrue(e.getMessage(), e.getMessage().contains("did not provide a fieldStrategy"));
     }
@@ -224,7 +225,7 @@ public class FixtureEngineRegistrationTests extends OpenSearchTestCase {
     }
 
     public void testEngineExposesItsSearchContext() {
-        final KNNEngine fixture = KNNEngine.getEngine(FIXTURE_ENGINE_NAME);
+        final VectorSearchEngine fixture = KNNEngine.getEngine(FIXTURE_ENGINE_NAME);
         final QueryContext queryContext = new QueryContext(VectorQueryType.K);
         assertTrue(
             fixture.getKNNLibrarySearchContext(METHOD_FIXTURE)

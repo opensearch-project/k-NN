@@ -13,6 +13,7 @@ import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.ResolvedIndexSpec;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.test.OpenSearchTestCase;
 
 import java.util.HashMap;
@@ -29,7 +30,7 @@ import static org.opensearch.knn.sandbox.fixture.FixtureConstants.METHOD_FIXTURE
 public class FixtureMethodTests extends OpenSearchTestCase {
 
     public void testIndexingContextCarriesAResolvedSpec() {
-        final KNNEngine fixture = KNNEngine.getEngine(FIXTURE_ENGINE_NAME);
+        final VectorSearchEngine fixture = KNNEngine.getEngine(FIXTURE_ENGINE_NAME);
         final KNNMethodContext methodContext = new KNNMethodContext(
             fixture,
             SpaceType.L2,

@@ -17,10 +17,10 @@ import org.opensearch.Version;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.ResolvedIndexSpec;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.faiss.SQConfig;
 import org.opensearch.knn.index.engine.faiss.SQConfigParser;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
@@ -58,7 +58,7 @@ public final class FaissFieldStrategy implements EngineFieldStrategy {
         boolean hasDocValues
     ) {
         boolean useLuceneBasedVectorField = KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(indexCreatedVersion);
-        KNNEngine knnEngine = resolvedKnnMethodContext.getKnnEngine();
+        VectorSearchEngine knnEngine = resolvedKnnMethodContext.getKnnEngine();
         QuantizationConfig quantizationConfig = knnLibraryIndexingContext.getQuantizationConfig();
 
         FieldType fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);

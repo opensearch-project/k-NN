@@ -12,7 +12,7 @@ import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
 /**
  * This class encapsulates a determination logic for memory optimized search.
- * Memory-optimized-search may not be applied to a certain type of index even {@link KNNEngine} returns a non-null
+ * Memory-optimized-search may not be applied to a certain type of index even {@link VectorSearchEngine} returns a non-null
  * {@link org.opensearch.knn.memoryoptsearch.VectorSearcherFactory}.
  * The overall logic will be made based on the given method context and quantization configuration.
  */

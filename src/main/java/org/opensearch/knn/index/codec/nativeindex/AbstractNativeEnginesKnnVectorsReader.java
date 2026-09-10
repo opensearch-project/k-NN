@@ -21,7 +21,7 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.util.IOSupplier;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.warmup.WarmableReader;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
@@ -145,7 +145,7 @@ public abstract class AbstractNativeEnginesKnnVectorsReader extends KnnVectorsRe
             return null;
         }
         // Try to get KNN engine from fieldInfo.
-        final KNNEngine knnEngine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
+        final VectorSearchEngine knnEngine = FieldInfoExtractor.extractKNNEngine(fieldInfo);
 
         // No KNNEngine is available
         if (knnEngine == null) {

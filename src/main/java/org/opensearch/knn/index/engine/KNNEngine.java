@@ -32,7 +32,6 @@ import java.util.Set;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
-import static org.opensearch.knn.common.KNNConstants.UNDEFINED_ENGINE_NAME;
 
 /**
  * KNNEngine provides the functionality to validate and transform user defined indices into information that can be
@@ -58,29 +57,34 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
         Version.V_3_0_0,
         FaissFieldStrategy.INSTANCE
     );
-    public static final KNNEngine FAISS = new KNNEngine("FAISS", FAISS_NAME, Faiss.INSTANCE, null, FaissFieldStrategy.INSTANCE);
-    public static final KNNEngine LUCENE = new KNNEngine("LUCENE", LUCENE_NAME, Lucene.INSTANCE, null, LuceneFieldStrategy.INSTANCE);
-    public static final KNNEngine UNDEFINED = new KNNEngine("UNDEFINED", UNDEFINED_ENGINE_NAME, null, null, null);
+    public static final VectorSearchEngine FAISS = new KNNEngine("FAISS", FAISS_NAME, Faiss.INSTANCE, null, FaissFieldStrategy.INSTANCE);
+    public static final VectorSearchEngine LUCENE = new KNNEngine(
+        "LUCENE",
+        LUCENE_NAME,
+        Lucene.INSTANCE,
+        null,
+        LuceneFieldStrategy.INSTANCE
+    );
 
-    public static final KNNEngine DEFAULT = FAISS;
+    public static final VectorSearchEngine DEFAULT = FAISS;
 
     // Built-in engines in declaration order. Registered engines are appended when discovery runs.
-    private static final List<KNNEngine> BUILT_INS = List.of(NMSLIB, FAISS, LUCENE, UNDEFINED);
+    private static final List<VectorSearchEngine> BUILT_INS = List.of(NMSLIB, FAISS, LUCENE, UNDEFINED);
 
     /** One immutable snapshot of built-ins plus every registered engine, swapped once when discovery runs. */
-    private record EngineTable(Map<String, KNNEngine> byName, KNNEngine[] all, Set<KNNEngine> customSegmentFileEngines, Set<
-        String> engineContributedQueryParameters) {
+    private record EngineTable(Map<String, VectorSearchEngine> byName, VectorSearchEngine[] all, Set<
+        VectorSearchEngine> customSegmentFileEngines, Set<String> engineContributedQueryParameters) {
 
-        static EngineTable of(Map<String, KNNEngine> byName, Set<String> engineContributedQueryParameters) {
-            final ImmutableSet.Builder<KNNEngine> customFiles = ImmutableSet.builder();
-            for (KNNEngine engine : byName.values()) {
+        static EngineTable of(Map<String, VectorSearchEngine> byName, Set<String> engineContributedQueryParameters) {
+            final ImmutableSet.Builder<VectorSearchEngine> customFiles = ImmutableSet.builder();
+            for (VectorSearchEngine engine : byName.values()) {
                 if (engine.createsCustomSegmentFiles()) {
                     customFiles.add(engine);
                 }
             }
             return new EngineTable(
                 java.util.Collections.unmodifiableMap(byName),
-                byName.values().toArray(new KNNEngine[0]),
+                byName.values().toArray(new VectorSearchEngine[0]),
                 customFiles.build(),
                 Set.copyOf(engineContributedQueryParameters)
             );
@@ -122,7 +126,7 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
             // initialize stays once only.
             try {
                 final KNNEngineRegistry.DiscoveryResult discovery = KNNEngineRegistry.discover(context);
-                final Map<String, KNNEngine> byName = builtInsByName();
+                final Map<String, VectorSearchEngine> byName = builtInsByName();
                 for (KNNEngineRegistry.RegisteredEngine registered : discovery.engines()) {
                     byName.put(registered.engineName().toLowerCase(Locale.ROOT), new KNNEngine(registered));
                 }
@@ -163,10 +167,10 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
         }
     }
 
-    private static Map<String, KNNEngine> builtInsByName() {
-        final Map<String, KNNEngine> byName = new LinkedHashMap<>();
-        for (KNNEngine engine : BUILT_INS) {
-            byName.put(engine.name.toLowerCase(Locale.ROOT), engine);
+    private static Map<String, VectorSearchEngine> builtInsByName() {
+        final Map<String, VectorSearchEngine> byName = new LinkedHashMap<>();
+        for (VectorSearchEngine engine : BUILT_INS) {
+            byName.put(engine.getName().toLowerCase(Locale.ROOT), engine);
         }
         return byName;
     }
@@ -180,9 +184,9 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
     }
 
     // Deprecation is core release policy, not an engine capability, so this set stays literal.
-    public static final Set<KNNEngine> DEPRECATED_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB);
+    public static final Set<VectorSearchEngine> DEPRECATED_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB);
 
-    private static Map<KNNEngine, Integer> MAX_DIMENSIONS_BY_ENGINE = Map.of(
+    private static Map<VectorSearchEngine, Integer> MAX_DIMENSIONS_BY_ENGINE = Map.of(
         KNNEngine.NMSLIB,
         16_000,
         KNNEngine.FAISS,
@@ -282,7 +286,7 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
      *
      * @return array of all engines
      */
-    public static KNNEngine[] values() {
+    public static VectorSearchEngine[] values() {
         return table().all().clone();
     }
 
@@ -292,8 +296,8 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
      * @param name of engine to be fetched
      * @return KNNEngine corresponding to name
      */
-    public static KNNEngine getEngine(String name) {
-        final KNNEngine engine = table().byName().get(name == null ? null : name.toLowerCase(Locale.ROOT));
+    public static VectorSearchEngine getEngine(String name) {
+        final VectorSearchEngine engine = table().byName().get(name == null ? null : name.toLowerCase(Locale.ROOT));
         if (engine != null) {
             return engine;
         }
@@ -339,9 +343,9 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
      * @param path to be checked
      * @return KNNEngine corresponding to path
      */
-    public static KNNEngine getEngineNameFromPath(String path) {
+    public static VectorSearchEngine getEngineNameFromPath(String path) {
         // Only custom-segment-file engines have a file extension; Lucene's getExtension() throws.
-        for (KNNEngine engine : table().customSegmentFileEngines()) {
+        for (VectorSearchEngine engine : table().customSegmentFileEngines()) {
             if (path.endsWith(engine.getExtension()) || path.endsWith(engine.getCompoundExtension())) {
                 return engine;
             }
@@ -355,7 +359,7 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
      *
      * @return Set of all engines that create custom segment files.
      */
-    public static Set<KNNEngine> getEnginesThatCreateCustomSegmentFiles() {
+    public static Set<VectorSearchEngine> getEnginesThatCreateCustomSegmentFiles() {
         return table().customSegmentFileEngines();
     }
 
@@ -364,7 +368,7 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
      * @param knnEngine knn engine to check max dimensions value
      * @return
      */
-    public static int getMaxDimensionByEngine(KNNEngine knnEngine) {
+    public static int getMaxDimensionByEngine(VectorSearchEngine knnEngine) {
         return MAX_DIMENSIONS_BY_ENGINE.getOrDefault(knnEngine, MAX_DIMENSIONS_BY_ENGINE.get(KNNEngine.DEFAULT));
     }
 
@@ -566,6 +570,7 @@ public final class KNNEngine implements KNNLibrary, VectorSearchEngine {
      * @return the engine's field strategy
      * @throws UnsupportedOperationException if this engine does not support field strategies
      */
+    @Override
     public EngineFieldStrategy getFieldStrategy() {
         if (fieldStrategy != null) {
             return fieldStrategy;

@@ -24,6 +24,7 @@ import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
@@ -482,7 +483,7 @@ public class IndexIT extends KNNCompressionRestTestCase {
         assertEquals(testData.indexData.docs.length, getDocCount(indexName));
     }
 
-    private void createKnnHnswIndex(final KNNEngine knnEngine, final String indexName, final String fieldName, final int dimension)
+    private void createKnnHnswIndex(final VectorSearchEngine knnEngine, final String indexName, final String fieldName, final int dimension)
         throws IOException {
         KNNJsonIndexMappingsBuilder.Method method = KNNJsonIndexMappingsBuilder.Method.builder()
             .methodName(METHOD_HNSW)

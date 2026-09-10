@@ -13,6 +13,7 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.common.annotation.ExperimentalApi;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.EngineFieldStrategy;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
@@ -24,6 +25,12 @@ import org.opensearch.remoteindexbuild.model.RemoteIndexParameters;
  */
 @ExperimentalApi
 public interface VectorSearchEngine {
+    /**
+     * The placeholder for undefined engine
+     */
+    final VectorSearchEngine UNDEFINED = new AbstractKNNEngineBase("undefined") {
+    };
+
     /**
      * Validates that the KNN method is compatible with the KNN engine.
      * @param knnMethodContext KNN method context
@@ -224,4 +231,33 @@ public interface VectorSearchEngine {
         boolean isFlatMethod,
         boolean isSQOneBit
     );
+
+    /**
+     * Returns the field strategy for this engine, used to construct field types
+     * and create vector fields during indexing.
+     *
+     * @return the engine's field strategy
+     * @throws UnsupportedOperationException if this engine does not support field strategies
+     */
+    EngineFieldStrategy getFieldStrategy();
+
+    /**
+     * The native index lifecycle for this engine, or {@code null} for a built-in engine whose native ops are
+     * served by the core {@code FaissService}/{@code NmslibService}. A runtime-registered engine returns its own
+     * {@link NativeEngineService}, which {@code JNIService} dispatches to generically.
+     *
+     * @return the engine's native service, or {@code null} if it is a built-in handled by the core services
+     */
+    @ExperimentalApi
+    NativeEngineService getNativeService();
+
+    boolean createsCustomSegmentFiles();
+
+    boolean supportsRadialSearch();
+
+    boolean supportsFilters();
+
+    boolean supportsNestedFields();
+
+    boolean supportsIterativeBuild();
 }

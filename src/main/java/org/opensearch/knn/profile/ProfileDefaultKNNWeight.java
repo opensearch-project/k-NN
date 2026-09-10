@@ -12,7 +12,7 @@ import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.BitSet;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.query.DefaultKNNWeight;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
@@ -85,7 +85,7 @@ public class ProfileDefaultKNNWeight extends DefaultKNNWeight {
         final SegmentReader reader,
         String cacheKey,
         final SpaceType spaceType,
-        final KNNEngine knnEngine,
+        final VectorSearchEngine knnEngine,
         final KNNQuery knnQuery,
         final VectorDataType vectorDataType,
         final byte[] quantizedVector,

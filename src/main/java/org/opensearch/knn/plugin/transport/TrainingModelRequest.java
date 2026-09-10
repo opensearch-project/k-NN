@@ -25,6 +25,7 @@ import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
 import org.opensearch.knn.index.mapper.CompressionLevel;
@@ -111,7 +112,7 @@ public class TrainingModelRequest extends ActionRequest {
         Mode mode,
         CompressionLevel compressionLevel,
         SpaceType spaceType,
-        KNNEngine knnEngine
+        VectorSearchEngine knnEngine
     ) {
         super();
         this.modelId = modelId;

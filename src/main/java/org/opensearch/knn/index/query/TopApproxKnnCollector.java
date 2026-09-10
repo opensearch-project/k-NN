@@ -7,7 +7,7 @@ package org.opensearch.knn.index.query;
 
 import org.apache.lucene.search.TopKnnCollector;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 /**
  * A specialized collector for approximate k-nearest neighbor search results.
@@ -16,10 +16,10 @@ import org.opensearch.knn.index.engine.KNNEngine;
  */
 public class TopApproxKnnCollector extends TopKnnCollector {
 
-    private final KNNEngine engine;
+    private final VectorSearchEngine engine;
     private final SpaceType spaceType;
 
-    public TopApproxKnnCollector(int k, KNNEngine engine, SpaceType spaceType) {
+    public TopApproxKnnCollector(int k, VectorSearchEngine engine, SpaceType spaceType) {
         super(k, Integer.MAX_VALUE);
         this.spaceType = spaceType;
         this.engine = engine;

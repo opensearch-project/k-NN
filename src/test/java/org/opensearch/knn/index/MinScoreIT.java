@@ -19,6 +19,7 @@ import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,7 +35,7 @@ import static org.opensearch.knn.index.KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_M
 public class MinScoreIT extends KNNCompressionRestTestCase {
 
     private final boolean memoryOptimized;
-    private final KNNEngine knnEngine;
+    private final VectorSearchEngine knnEngine;
     private final SpaceType spaceType;
     private final float[][] testVectors;
     private final float[] queryVector;
@@ -44,7 +45,7 @@ public class MinScoreIT extends KNNCompressionRestTestCase {
     public MinScoreIT(
         CompressionTestConfig compressionConfig,
         boolean memoryOptimized,
-        KNNEngine knnEngine,
+        VectorSearchEngine knnEngine,
         SpaceType spaceType,
         float[][] testVectors,
         float[] queryVector,

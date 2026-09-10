@@ -20,7 +20,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.jni.JNIService;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
@@ -111,7 +111,7 @@ public interface NativeMemoryAllocation {
         private final int sizeKb;
         private volatile boolean closed;
         @Getter
-        private final KNNEngine knnEngine;
+        private final VectorSearchEngine knnEngine;
         @Getter
         private final String vectorFileName;
         @Getter
@@ -136,7 +136,7 @@ public interface NativeMemoryAllocation {
             ExecutorService executorService,
             long memoryAddress,
             int sizeKb,
-            KNNEngine knnEngine,
+            VectorSearchEngine knnEngine,
             String vectorFileName,
             String openSearchIndexName
         ) {
@@ -158,7 +158,7 @@ public interface NativeMemoryAllocation {
             ExecutorService executorService,
             long memoryAddress,
             int sizeKb,
-            KNNEngine knnEngine,
+            VectorSearchEngine knnEngine,
             String vectorFileName,
             String openSearchIndexName,
             SharedIndexState sharedIndexState,

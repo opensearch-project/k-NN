@@ -18,6 +18,7 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -30,7 +31,7 @@ import java.time.ZonedDateTime;
 public class UpdateModelMetadataRequestTests extends KNNTestCase {
 
     public void testStreams() throws IOException {
-        KNNEngine knnEngine = KNNEngine.DEFAULT;
+        VectorSearchEngine knnEngine = KNNEngine.DEFAULT;
         SpaceType spaceType = SpaceType.L2;
         int dimension = 128;
 

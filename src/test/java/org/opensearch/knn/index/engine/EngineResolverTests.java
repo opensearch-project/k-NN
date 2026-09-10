@@ -290,7 +290,7 @@ public class EngineResolverTests extends KNNTestCase {
 
     public void testResolveEngine_whenFlatMethodWithNoEngine_thenLucene() {
         KNNMethodContext flatMethodContext = new KNNMethodContext(
-            KNNEngine.UNDEFINED,
+            VectorSearchEngine.UNDEFINED,
             SpaceType.L2,
             new MethodComponentContext(METHOD_FLAT, Map.of()),
             false
@@ -341,7 +341,7 @@ public class EngineResolverTests extends KNNTestCase {
             new MethodComponentContext(METHOD_FLAT, Map.of()),
             false
         );
-        for (KNNEngine topLevel : new KNNEngine[] { KNNEngine.LUCENE, KNNEngine.FAISS }) {
+        for (VectorSearchEngine topLevel : new VectorSearchEngine[] { KNNEngine.LUCENE, KNNEngine.FAISS }) {
             MapperParsingException ex = expectThrows(
                 MapperParsingException.class,
                 () -> ENGINE_RESOLVER.resolveEngine(KNNMethodConfigContext.builder().build(), flatMethodContext, topLevel.getName(), false)

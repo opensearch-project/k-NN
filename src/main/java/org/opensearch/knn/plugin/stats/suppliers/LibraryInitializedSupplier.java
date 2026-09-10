@@ -11,27 +11,25 @@
 
 package org.opensearch.knn.plugin.stats.suppliers;
 
-import org.opensearch.knn.index.engine.KNNLibrary;
-
 import java.util.function.Supplier;
 
 /**
  * Supplier to determine whether library has been initialized
  */
 public class LibraryInitializedSupplier implements Supplier<Boolean> {
-    private KNNLibrary knnLibrary;
+    private Supplier<Boolean> knnLibrary;
 
     /**
      * Constructor
      *
      * @param knnLibrary to check if initialized
      */
-    public LibraryInitializedSupplier(KNNLibrary knnLibrary) {
+    public LibraryInitializedSupplier(Supplier<Boolean> knnLibrary) {
         this.knnLibrary = knnLibrary;
     }
 
     @Override
     public Boolean get() {
-        return knnLibrary.isInitialized();
+        return knnLibrary.get();
     }
 }

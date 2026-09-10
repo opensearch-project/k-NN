@@ -8,7 +8,7 @@ package org.opensearch.knn.index.memory;
 import com.google.common.annotations.VisibleForTesting;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.jni.JNIService;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -54,13 +54,13 @@ class SharedIndexStateManager {
      * called after it is done using it.
      *
      * In order to create the shared state, it will use the indexAddress passed in to create the shared state from
-     * using {@link org.opensearch.knn.jni.JNIService#initSharedIndexState(long, KNNEngine)}.
+     * using {@link org.opensearch.knn.jni.JNIService#initSharedIndexState(long, VectorSearchEngine)}.
      *
      * @param indexAddress Address of index to initialize the shared state from
      * @param knnEngine engine index belongs to
      * @return ShareModelContext
      */
-    public SharedIndexState get(long indexAddress, String modelId, KNNEngine knnEngine) {
+    public SharedIndexState get(long indexAddress, String modelId, VectorSearchEngine knnEngine) {
         this.readWriteLock.readLock().lock();
         try {
             // This can be done safely with readLock because the ConcurrentHasMap.computeIfAbsent guarantees:
