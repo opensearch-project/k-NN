@@ -62,6 +62,12 @@ buildscript {
 
     dependencies {
         classpath "${opensearch_group}.gradle:build-tools:${opensearch_version}"
+        // Spotless 8.10.x requires a Java 17+ runtime to resolve its plugin. Only put it on the
+        // buildscript classpath on Java 17+ so the Java 11 CI matrix doesn't fail resolving it.
+        // formatting.gradle applies it (also gated to Java 17+) only when it is available.
+        if (JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_17)) {
+            classpath "com.diffplug.spotless:spotless-plugin-gradle:8.10.1"
+        }
         configurations.all {
             resolutionStrategy {
                 force("org.eclipse.platform:org.eclipse.core.runtime:4.29.0") // CVE for < 4.29
@@ -79,7 +85,6 @@ plugins {
     id 'java-library'
     id 'java-test-fixtures'
     id 'idea'
-    id "com.diffplug.spotless" version "6.25.0" apply false
     id 'io.freefair.lombok' version '8.4'
     id "de.undercouch.download" version "5.3.0"
 }
@@ -268,7 +273,11 @@ if (!usingRemoteCluster) {
     }
 }
 
-check.dependsOn spotlessCheck
+// spotless is only applied on Java 17+ (see gradle/formatting.gradle), so only wire the
+// dependency when the task actually exists to avoid failing configuration on Java 11.
+if (JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_17)) {
+    check.dependsOn spotlessCheck
+}
 check.dependsOn jacocoTestReport
 
 opensearchplugin {

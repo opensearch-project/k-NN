@@ -37,6 +37,7 @@ jobs:
 
   Build-k-NN-Linux:
     strategy:
+      fail-fast: false
       matrix:
         java: [11, 17, 21]
 
@@ -105,6 +106,7 @@ jobs:
 
   Build-k-NN-MacOS:
     strategy:
+      fail-fast: false
       matrix:
         java: [ 11, 17, 21 ]
 
@@ -148,6 +150,7 @@ jobs:
 
   Build-k-NN-Windows:
     strategy:
+      fail-fast: false
       matrix:
         java: [ 11, 17, 21 ]
 
