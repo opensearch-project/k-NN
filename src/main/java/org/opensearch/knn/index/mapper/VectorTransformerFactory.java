@@ -38,8 +38,9 @@ public final class VectorTransformerFactory {
      * Returns a NormalizeVectorTransformer for:
      * <ul>
      *   <li>Faiss engine with cosine similarity (Faiss doesn't natively support cosine)</li>
-     *   <li>Lucene engine with cosine similarity when using SQ 1-bit encoding or flat method
-     *       (these paths use {@code KNN1040ScalarQuantizedVectorScorer} which requires a unit vector)</li>
+     *   <li>Lucene engine with cosine similarity when using SQ multi-bit (bits ∈ {1, 2, 4})
+     *       encoding or flat method — these paths use {@code KNN1040ScalarQuantizedVectorScorer}
+     *       which requires a unit vector.</li>
      * </ul>
      *
      * @param knnEngine The KNN engine type
@@ -80,13 +81,18 @@ public final class VectorTransformerFactory {
         if (METHOD_FLAT.equals(methodComponentContext.getName())) {
             return true;
         }
-        if (isLuceneSQOneBit(methodComponentContext.getParameters())) {
+        if (isLuceneSQMultiBit(methodComponentContext.getParameters())) {
             return true;
         }
         return false;
     }
 
-    private static boolean isLuceneSQOneBit(final Map<String, Object> params) {
+    /**
+     * True when the Lucene SQ encoder is configured with a multi-bit MOS bit width
+     * (bits ∈ {1, 2, 4}). All three widths route through {@code KNN1040ScalarQuantizedVectorScorer}
+     * which requires a unit-normalized query vector for cosine similarity.
+     */
+    private static boolean isLuceneSQMultiBit(final Map<String, Object> params) {
         if (params == null) {
             return false;
         }
@@ -99,6 +105,10 @@ public final class VectorTransformerFactory {
             return false;
         }
         Object bits = encoderCtx.getParameters().get(LUCENE_SQ_BITS);
-        return bits instanceof Integer && (Integer) bits == 1;
+        if (bits instanceof Integer == false) {
+            return false;
+        }
+        int b = (Integer) bits;
+        return b == 1 || b == 2 || b == 4;
     }
 }

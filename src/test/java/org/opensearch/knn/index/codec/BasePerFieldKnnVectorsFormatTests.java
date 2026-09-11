@@ -12,7 +12,9 @@ import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
+import org.apache.lucene.backward_codecs.lucene99.Lucene99RWHnswScalarQuantizedVectorsFormat;
 import org.opensearch.knn.index.codec.KNN1040Codec.Faiss1040ScalarQuantizedKnnVectorsFormat;
+import org.opensearch.knn.index.codec.KNN1040Codec.KNN1040HnswScalarQuantizedVectorsFormat;
 import org.opensearch.knn.index.codec.KNN1040Codec.KNN1040PerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.backward_codecs.BasePerFieldKnnVectorsFormat;
@@ -670,6 +672,43 @@ public class BasePerFieldKnnVectorsFormatTests extends KNNTestCase {
         KNN1040PerFieldKnnVectorsFormat perFieldFormat = new KNN1040PerFieldKnnVectorsFormat(Optional.of(mapperService));
         KnnVectorsFormat format = perFieldFormat.getKnnVectorsFormatForField(TEST_FIELD);
         assertTrue(format instanceof NativeEngines990KnnVectorsFormat);
+    }
+
+    // --- Lucene HNSW SQ multi-bit format routing (KNN1040PerFieldKnnVectorsFormat) ---
+
+    public void testGetKnnVectorsFormatForField_whenLuceneHnswSQOneBit_thenReturnKNN1040HnswSQFormat() {
+        assertLuceneHnswSQFormatType(1, KNN1040HnswScalarQuantizedVectorsFormat.class);
+    }
+
+    public void testGetKnnVectorsFormatForField_whenLuceneHnswSQTwoBit_thenReturnKNN1040HnswSQFormat() {
+        // bits=2 (x16) must route to the Lucene 10.4 SIMD path — NOT the legacy Lucene99 RW format.
+        assertLuceneHnswSQFormatType(2, KNN1040HnswScalarQuantizedVectorsFormat.class);
+    }
+
+    public void testGetKnnVectorsFormatForField_whenLuceneHnswSQFourBit_thenReturnKNN1040HnswSQFormat() {
+        // bits=4 (x8) must route to the Lucene 10.4 SIMD path — NOT the legacy Lucene99 RW format.
+        assertLuceneHnswSQFormatType(4, KNN1040HnswScalarQuantizedVectorsFormat.class);
+    }
+
+    public void testGetKnnVectorsFormatForField_whenLuceneHnswSQSevenBit_thenReturnLuceneRWHnswFormat() {
+        // bits=7 stays on the legacy Lucene99 RW format so confidenceInterval is preserved.
+        assertLuceneHnswSQFormatType(7, Lucene99RWHnswScalarQuantizedVectorsFormat.class);
+    }
+
+    private void assertLuceneHnswSQFormatType(int bits, Class<? extends KnnVectorsFormat> expectedFormatClass) {
+        KNNMethodContext sqMethodContext = createSQMethodContext(16, 100, Map.of(LUCENE_SQ_BITS, bits));
+        MapperService mapperService = mockMapperService(TEST_FIELD, sqMethodContext);
+        KNN1040PerFieldKnnVectorsFormat perFieldFormat = new KNN1040PerFieldKnnVectorsFormat(Optional.of(mapperService));
+        KnnVectorsFormat format = perFieldFormat.getKnnVectorsFormatForField(TEST_FIELD);
+        assertTrue(
+            "Lucene HNSW SQ bits="
+                + bits
+                + " should route to "
+                + expectedFormatClass.getSimpleName()
+                + ", got "
+                + format.getClass().getSimpleName(),
+            expectedFormatClass.isInstance(format)
+        );
     }
 
     public void testGetKnnVectorsFormatForField_legacySQWithOneBit_thenReturnSQFormat() {
