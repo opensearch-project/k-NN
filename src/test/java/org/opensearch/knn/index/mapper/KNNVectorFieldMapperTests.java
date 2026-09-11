@@ -9,6 +9,7 @@ import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.document.KnnByteVectorField;
 import org.apache.lucene.document.KnnFloatVectorField;
+import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
@@ -2156,8 +2157,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertTrue(knnVectorFieldMapper instanceof FlatVectorFieldMapper);
     }
 
-    public void testBuilder_whenHalfFloatWithLegacyKNNDisabled_thenThrows() {
-        // HALF_FLOAT is not supported when index.knn is disabled (DocValues path)
+    public void testTypeParser_whenHalfFloatWithLegacyKNNDisabled_thenFlatMapper() throws IOException {
+        // HALF_FLOAT with index.knn disabled stores vectors as binary DocValues, same as the other data types
         ModelDao modelDao = mock(ModelDao.class);
         KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
 
@@ -2166,23 +2167,175 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         String fieldName = "test-field-name-1";
         String indexName = "test-index";
 
-        XContentBuilder xContentBuilder;
-        try {
-            xContentBuilder = XContentFactory.jsonBuilder()
-                .startObject()
-                .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-                .field(DIMENSION_FIELD_NAME, 4)
-                .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.HALF_FLOAT.getValue())
-                .endObject();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 4)
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.HALF_FLOAT.getValue())
+            .endObject();
 
-        IllegalArgumentException ex = expectThrows(
-            IllegalArgumentException.class,
-            () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder), buildParserContext(indexName, settings))
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(xContentBuilder),
+            buildParserContext(indexName, settings)
         );
-        assertTrue("Should reject HALF_FLOAT when index.knn is disabled", ex.getMessage().contains("HALF_FLOAT"));
+
+        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
+        assertTrue(knnVectorFieldMapper instanceof FlatVectorFieldMapper);
+        assertEquals(VectorDataType.HALF_FLOAT, knnVectorFieldMapper.fieldType().getVectorDataType());
+    }
+
+    @SneakyThrows
+    public void testFlatFieldMapperParseCreateField_whenHalfFloat_thenStoresFp16DocValues() {
+        final int dimension = TEST_VECTOR.length;
+        final KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.HALF_FLOAT)
+            .versionCreated(CURRENT)
+            .dimension(dimension)
+            .build();
+
+        final IndexSettings indexSettingsMock = mock(IndexSettings.class);
+        when(indexSettingsMock.getSettings()).thenReturn(Settings.EMPTY);
+        final ParseContext.Document document = new ParseContext.Document();
+        final ParseContext parseContext = mock(ParseContext.class);
+        when(parseContext.doc()).thenReturn(document);
+        when(parseContext.path()).thenReturn(new ContentPath());
+        when(parseContext.parser()).thenReturn(createXContentParserForFloatVector(TEST_VECTOR));
+        when(parseContext.indexSettings()).thenReturn(indexSettingsMock);
+
+        final KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder(TEST_FIELD_NAME, null, CURRENT, null, null);
+        builder.vectorDataType.setValue(VectorDataType.HALF_FLOAT);
+        builder.dimension.setValue(dimension);
+        final FlatVectorFieldMapper flatFieldMapper = FlatVectorFieldMapper.createFieldMapper(
+            TEST_FIELD_NAME,
+            TEST_FIELD_NAME,
+            Collections.emptyMap(),
+            knnMethodConfigContext,
+            FieldMapper.MultiFields.empty(),
+            FieldMapper.CopyTo.empty(),
+            new Explicit<>(true, true),
+            false,
+            true,
+            new OriginalMappingParameters(builder)
+        );
+
+        flatFieldMapper.parseCreateField(parseContext, dimension, VectorDataType.HALF_FLOAT);
+
+        final List<IndexableField> fields = document.getFields();
+        assertEquals(1, fields.size());
+        final IndexableField field = fields.get(0);
+        assertTrue(field instanceof VectorField);
+        assertEquals(DocValuesType.BINARY, field.fieldType().docValuesType());
+        // Without this attribute readers that resolve the data type from FieldInfo decode the FP16 bytes as FP32
+        assertEquals(VectorDataType.HALF_FLOAT.getValue(), field.fieldType().getAttributes().get(VECTOR_DATA_TYPE_FIELD));
+
+        // FP16 is 2 bytes per dimension, and must round-trip through the same deserializer the read paths use
+        final BytesRef storedBytes = field.binaryValue();
+        assertEquals(dimension * 2, storedBytes.length);
+        final float[] deserialized = VectorDataType.HALF_FLOAT.getVectorFromBytesRef(storedBytes);
+        assertArrayEquals(TEST_VECTOR, deserialized, 0.01f);
+    }
+
+    @SneakyThrows
+    public void testFlatFieldMapperParseCreateField_whenHalfFloatStored_thenStoresFp16StoredField() {
+        final int dimension = TEST_VECTOR.length;
+        final KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.HALF_FLOAT)
+            .versionCreated(CURRENT)
+            .dimension(dimension)
+            .build();
+
+        final IndexSettings indexSettingsMock = mock(IndexSettings.class);
+        when(indexSettingsMock.getSettings()).thenReturn(Settings.EMPTY);
+        final ParseContext.Document document = new ParseContext.Document();
+        final ParseContext parseContext = mock(ParseContext.class);
+        when(parseContext.doc()).thenReturn(document);
+        when(parseContext.path()).thenReturn(new ContentPath());
+        when(parseContext.parser()).thenReturn(createXContentParserForFloatVector(TEST_VECTOR));
+        when(parseContext.indexSettings()).thenReturn(indexSettingsMock);
+
+        final KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder(TEST_FIELD_NAME, null, CURRENT, null, null);
+        builder.vectorDataType.setValue(VectorDataType.HALF_FLOAT);
+        builder.dimension.setValue(dimension);
+        final FlatVectorFieldMapper flatFieldMapper = FlatVectorFieldMapper.createFieldMapper(
+            TEST_FIELD_NAME,
+            TEST_FIELD_NAME,
+            Collections.emptyMap(),
+            knnMethodConfigContext,
+            FieldMapper.MultiFields.empty(),
+            FieldMapper.CopyTo.empty(),
+            new Explicit<>(true, true),
+            true,
+            true,
+            new OriginalMappingParameters(builder)
+        );
+
+        flatFieldMapper.parseCreateField(parseContext, dimension, VectorDataType.HALF_FLOAT);
+
+        final List<IndexableField> fields = document.getFields();
+        assertEquals(2, fields.size());
+
+        // The stored field must be FP16 too, otherwise _source recovery would read it back at the wrong width
+        final IndexableField storedField = fields.get(1);
+        final BytesRef storedBytes = storedField.binaryValue();
+        assertEquals(dimension * 2, storedBytes.length);
+        final Object deserialized = KNNVectorFieldMapperUtil.deserializeStoredVector(storedBytes, VectorDataType.HALF_FLOAT);
+        assertTrue(deserialized instanceof float[]);
+        assertArrayEquals(TEST_VECTOR, (float[]) deserialized, 0.01f);
+    }
+
+    public void testFlatFieldMapper_whenHalfFloatValueOutOfRange_thenThrows() {
+        final int dimension = 2;
+        final KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.HALF_FLOAT)
+            .versionCreated(CURRENT)
+            .dimension(dimension)
+            .build();
+
+        final IndexSettings indexSettingsMock = mock(IndexSettings.class);
+        when(indexSettingsMock.getSettings()).thenReturn(Settings.EMPTY);
+        final ParseContext parseContext = mock(ParseContext.class);
+        when(parseContext.doc()).thenReturn(new ParseContext.Document());
+        when(parseContext.path()).thenReturn(new ContentPath());
+        when(parseContext.indexSettings()).thenReturn(indexSettingsMock);
+
+        final KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder(TEST_FIELD_NAME, null, CURRENT, null, null);
+        builder.vectorDataType.setValue(VectorDataType.HALF_FLOAT);
+        builder.dimension.setValue(dimension);
+        final FlatVectorFieldMapper flatFieldMapper = FlatVectorFieldMapper.createFieldMapper(
+            TEST_FIELD_NAME,
+            TEST_FIELD_NAME,
+            Collections.emptyMap(),
+            knnMethodConfigContext,
+            FieldMapper.MultiFields.empty(),
+            FieldMapper.CopyTo.empty(),
+            new Explicit<>(true, true),
+            false,
+            true,
+            new OriginalMappingParameters(builder)
+        );
+
+        final IllegalArgumentException ex = expectThrows(IllegalArgumentException.class, () -> {
+            when(parseContext.parser()).thenReturn(createXContentParserForFloatVector(new float[] { 70000.0f, 1.0f }));
+            flatFieldMapper.parseCreateField(parseContext, dimension, VectorDataType.HALF_FLOAT);
+        });
+        assertTrue(ex.getMessage(), ex.getMessage().contains("half_float"));
+    }
+
+    public void testBuilder_whenHalfFloatWithLegacyKNNDisabled_thenValid() {
+        // Mirrors testBuilder_whenBinaryWithLegacyKNNDisabled_thenValid for the HALF_FLOAT data type
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT, null, null);
+        builder.vectorDataType.setValue(VectorDataType.HALF_FLOAT);
+        builder.dimension.setValue(4);
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, false).build();
+
+        builder.setOriginalParameters(new OriginalMappingParameters(builder));
+        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
+        assertTrue(knnVectorFieldMapper instanceof FlatVectorFieldMapper);
     }
 
     public void testTypeParser_whenBinaryWithLegacyKNNEnabled_thenValid() throws IOException {
@@ -3284,6 +3437,19 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         byte[] array = new byte[dimension];
         Arrays.fill(array, value);
         return array;
+    }
+
+    private XContentParser createXContentParserForFloatVector(final float[] vector) throws IOException {
+        XContentParser parser = XContentHelper.createParser(
+            NamedXContentRegistry.EMPTY,
+            LoggingDeprecationHandler.INSTANCE,
+            new BytesArray("{\"" + TEST_FIELD_NAME + "\":" + Arrays.toString(vector) + "}"),
+            MediaTypeRegistry.JSON
+        );
+        parser.nextToken();
+        parser.nextToken();
+        parser.nextToken();
+        return parser;
     }
 
     private XContentParser createXContentParser(final VectorDataType dataType) throws IOException {

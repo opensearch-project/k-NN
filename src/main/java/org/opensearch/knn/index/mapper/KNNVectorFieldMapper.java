@@ -63,6 +63,7 @@ import static org.opensearch.knn.common.KNNValidationUtil.validateVectorDimensio
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createKNNMethodContextFromLegacy;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForByteVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForFloatVector;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForHalfFloatVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.useFullFieldNameValidation;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateIfCircuitBreakerIsNotTriggered;
 import static org.opensearch.knn.index.mapper.ModelFieldMapper.UNSET_MODEL_DIMENSION_IDENTIFIER;
@@ -306,11 +307,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
             // return FlatVectorFieldMapper only for indices that are created on or after 2.17.0, for others, use
             // EngineFieldMapper to maintain backwards compatibility.
-            // HALF_FLOAT is excluded because FlatVectorFieldMapper relies on binary DocValues storage.
-            final VectorDataType resolvedDataType = vectorDataType.getValue();
-            if (originalParameters.getResolvedKnnMethodContext() == null
-                && indexCreatedVersion.onOrAfter(Version.V_2_17_0)
-                && resolvedDataType != VectorDataType.HALF_FLOAT) {
+            if (originalParameters.getResolvedKnnMethodContext() == null && indexCreatedVersion.onOrAfter(Version.V_2_17_0)) {
                 // Prior to 3.0.0, hasDocValues defaulted to false. However, FlatVectorFieldMapper requires
                 // hasDocValues to be true to maintain proper functionality for vector search operations.
                 // For indices created on or after 3.0.0, we automatically set hasDocValues to true if not
@@ -420,17 +417,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
 
             final boolean isKNNDisabled = isKNNDisabled(parserContext.getSettings());
-            final VectorDataType parsedDataType = builder.vectorDataType.getValue();
-
-            // half_float needs the Lucene FP16 codec, which is only wired up when index.knn is true.
-            // Checked here rather than in validateFromFlat below so it is independent of the version
-            // gate, which exists only to preserve pre-2.17 flat-mapper behavior.
-            if (isKNNDisabled && parsedDataType == VectorDataType.HALF_FLOAT) {
-                throw new IllegalArgumentException(
-                    "HALF_FLOAT vector data type is not supported when index.knn is disabled. "
-                        + "Use method 'flat' with engine 'lucene' and index.knn enabled instead."
-                );
-            }
 
             // Check for flat configuration and validate only if index is created after 2.17
             if (isKNNDisabled && parserContext.indexVersionCreated().onOrAfter(Version.V_2_17_0)) {
@@ -723,7 +709,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         if (useLuceneBasedVectorField) {
             return new DerivedKnnFloatVectorField(name(), vectorValue, fieldType, isDerivedEnabled);
         }
-        return new VectorField(name(), vectorValue, fieldType);
+        return new VectorField(name(), vectorValue, fieldType, vectorDataType);
     }
 
     private Field createVectorField(byte[] vectorValue, boolean isDerivedEnabled) {
@@ -743,7 +729,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         final List<Field> fields = new ArrayList<>();
         fields.add(createVectorField(array, isDerivedEnabled));
         if (this.stored) {
-            fields.add(createStoredFieldForFloatVector(name(), array));
+            fields.add(
+                VectorDataType.HALF_FLOAT == vectorDataType
+                    ? createStoredFieldForHalfFloatVector(name(), array)
+                    : createStoredFieldForFloatVector(name(), array)
+            );
         }
         return fields;
     }

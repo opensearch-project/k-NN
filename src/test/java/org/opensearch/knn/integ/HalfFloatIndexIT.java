@@ -388,12 +388,104 @@ public class HalfFloatIndexIT extends KNNRestTestCase {
     }
 
     // ────────────────────────────────────────────────────────────────────────────
-    // Negative tests - blocked configurations
+    // Binary DocValues (index.knn=false). No ANN structure is built, so the supported
+    // access paths are script scoring, docvalue_fields and _source - same as every other
+    // data type on this path.
     // ────────────────────────────────────────────────────────────────────────────
 
     @SneakyThrows
-    public void testHalfFloatWithoutMethod_indexKnnFalse_shouldFail() {
-        // HALF_FLOAT is not supported for the binary DocValues (index.knn=false) path
+    public void testHalfFloatWithoutMethod_indexKnnFalse_scriptScore() {
+        createHalfFloatFlatIndex();
+
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, new Float[] { 1.0f, 2.0f, 3.0f, 4.0f });
+        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, new Float[] { 5.0f, 6.0f, 7.0f, 8.0f });
+        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, new Float[] { 0.1f, 0.2f, 0.3f, 0.4f });
+        refreshIndex(INDEX_NAME);
+
+        String query = buildKnnScoreScriptQuery(new float[] { 0.0f, 0.0f, 0.0f, 0.0f });
+        Response response = searchKNNIndex(INDEX_NAME, query, 3);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
+
+        assertEquals(3, results.size());
+        assertEquals("3", results.get(0).getDocId());
+        assertEquals("1", results.get(1).getDocId());
+        assertEquals("2", results.get(2).getDocId());
+    }
+
+    /**
+     * The DocValues bytes are FP16, so a reader that resolved the data type incorrectly would decode them as FP32
+     * and hand back a vector of the wrong length. Reading the vectors back through the script doc values catches that.
+     */
+    @SneakyThrows
+    public void testHalfFloatWithoutMethod_indexKnnFalse_vectorRoundTripsThroughDocValues() {
+        createHalfFloatFlatIndex();
+
+        Float[] vector = { 1.5f, -2.25f, 3.125f, 4.0f };
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);
+        refreshIndex(INDEX_NAME);
+
+        String query = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("script_score")
+            .startObject("query")
+            .startObject("match_all")
+            .endObject()
+            .endObject()
+            .startObject("script")
+            .field("source", "doc['" + FIELD_NAME + "'].value.length")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        Response response = searchKNNIndex(INDEX_NAME, query, 1);
+        List<Float> scores = parseSearchResponseScore(EntityUtils.toString(response.getEntity()), FIELD_NAME);
+        assertEquals(1, scores.size());
+        assertEquals("Vector read back from DocValues should have the mapped dimension", (float) DIMENSION, scores.get(0), 0.0f);
+    }
+
+    /**
+     * Binary DocValues are merged by the default Lucene codec here, since no k-NN codec is installed when
+     * index.knn is false. Force merging exercises that path for the FP16 encoding.
+     */
+    @SneakyThrows
+    public void testHalfFloatWithoutMethod_indexKnnFalse_forceMerge() {
+        createHalfFloatFlatIndex();
+
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, new Float[] { 1.0f, 2.0f, 3.0f, 4.0f });
+        flushIndex(INDEX_NAME, true);
+        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, new Float[] { 5.0f, 6.0f, 7.0f, 8.0f });
+        flushIndex(INDEX_NAME, true);
+        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, new Float[] { 0.1f, 0.2f, 0.3f, 0.4f });
+        flushIndex(INDEX_NAME, true);
+
+        forceMergeKnnIndex(INDEX_NAME, 1);
+
+        String query = buildKnnScoreScriptQuery(new float[] { 0.0f, 0.0f, 0.0f, 0.0f });
+        Response response = searchKNNIndex(INDEX_NAME, query, 3);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
+
+        assertEquals(3, results.size());
+        assertEquals("3", results.get(0).getDocId());
+        assertEquals("1", results.get(1).getDocId());
+        assertEquals("2", results.get(2).getDocId());
+    }
+
+    @SneakyThrows
+    public void testHalfFloatWithoutMethod_indexKnnFalse_rejectsOutOfRangeValue() {
+        createHalfFloatFlatIndex();
+
+        // 70000 exceeds the half_float maximum (65504), so it must be rejected rather than silently stored as Inf
+        ResponseException ex = expectThrows(
+            ResponseException.class,
+            () -> addKnnDoc(INDEX_NAME, "1", FIELD_NAME, new Float[] { 70000.0f, 1.0f, 2.0f, 3.0f })
+        );
+        assertTrue(ex.getMessage(), ex.getMessage().contains("half_float"));
+    }
+
+    private void createHalfFloatFlatIndex() throws IOException {
         String mapping = KNNJsonIndexMappingsBuilder.builder()
             .fieldName(FIELD_NAME)
             .dimension(DIMENSION)
@@ -402,12 +494,31 @@ public class HalfFloatIndexIT extends KNNRestTestCase {
             .getIndexMapping();
 
         Settings settings = Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put("index.knn", false).build();
+        createKnnIndex(INDEX_NAME, settings, mapping);
+    }
 
-        ResponseException ex = expectThrows(ResponseException.class, () -> createKnnIndex(INDEX_NAME, settings, mapping));
-        assertTrue(
-            "Should reject half_float when index.knn is disabled",
-            ex.getMessage().contains("HALF_FLOAT") || ex.getMessage().contains("half_float")
-        );
+    private String buildKnnScoreScriptQuery(final float[] queryVector) throws IOException {
+        return XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("script_score")
+            .startObject("query")
+            .startObject("match_all")
+            .endObject()
+            .endObject()
+            .startObject("script")
+            .field("source", "knn_score")
+            .field("lang", "knn")
+            .startObject("params")
+            .field("field", FIELD_NAME)
+            .field("query_value", queryVector)
+            .field("space_type", SpaceType.L2.getValue())
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
     }
 
     @SneakyThrows
