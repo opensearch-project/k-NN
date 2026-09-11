@@ -472,13 +472,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         private void validateModeAndCompression(KNNVectorFieldMapper.Builder builder, Version indexCreatedVersion) {
             VectorDataType vectorDataType = builder.vectorDataType.getValue();
-            // TODO: Revisit half_float here once Lucene SQ on top of FP16 lands. Mode resolves to an
-            // engine plus a compression level, and neither value means anything for half_float yet:
-            // on_disk implies Faiss (half_float is Lucene-only) and in_memory implies x1, which is
-            // already the default. It only becomes meaningful once x16 gives half_float a second tier.
-            if (builder.mode.isConfigured() && vectorDataType != VectorDataType.FLOAT) {
+            // half_float resolves mode the same way float32 does - on_disk quantizes as far as the data
+            // type goes (x16, SQ 1-bit on 16-bit storage, the counterpart of float32's x32 on 32-bit) and
+            // in_memory stays uncompressed. byte and binary have no compression levels to select, so mode
+            // stays rejected for them.
+            if (builder.mode.isConfigured() && vectorDataType != VectorDataType.FLOAT && vectorDataType != VectorDataType.HALF_FLOAT) {
                 throw new MapperParsingException(
-                    String.format(Locale.ROOT, "Mode cannot be used for non-float32 data type for field %s", builder.name)
+                    String.format(Locale.ROOT, "Mode cannot be used for non-float data type for field %s", builder.name)
                 );
             }
             if (builder.compressionLevel.isConfigured()

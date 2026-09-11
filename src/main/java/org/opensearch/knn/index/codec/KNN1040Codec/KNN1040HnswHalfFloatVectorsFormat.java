@@ -41,7 +41,7 @@ public class KNN1040HnswHalfFloatVectorsFormat extends KnnVectorsFormat {
     private final TaskExecutor mergeExec;
     private static final FlatVectorsFormat flatVectorsFormat = new KNN1040HalfFloatFlatVectorsFormat();
 
-    private static final String NAME = "KNN1040HnswHalfFloatVectorsFormat";
+    private static final String FORMAT_NAME = "KNN1040HnswHalfFloatVectorsFormat";
 
     public KNN1040HnswHalfFloatVectorsFormat() {
         this(DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, DEFAULT_NUM_MERGE_WORKER, null, HNSW_GRAPH_THRESHOLD);
@@ -58,7 +58,7 @@ public class KNN1040HnswHalfFloatVectorsFormat extends KnnVectorsFormat {
         ExecutorService mergeExec,
         int tinySegmentsThreshold
     ) {
-        super(NAME);
+        super(FORMAT_NAME);
         if (maxConn <= 0 || maxConn > MAXIMUM_MAX_CONN) {
             throw new IllegalArgumentException(
                 "maxConn must be positive and less than or equal to " + MAXIMUM_MAX_CONN + "; maxConn=" + maxConn

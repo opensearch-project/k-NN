@@ -515,6 +515,51 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
         );
     }
 
+    public void testResolveMethod_whenHalfFloatExplicitCompression16x_thenResolvesToSQOneBit() {
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            null,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.HALF_FLOAT)
+                .compressionLevel(CompressionLevel.x16)
+                .versionCreated(Version.CURRENT)
+                .build(),
+            false,
+            SpaceType.L2
+        );
+        assertEquals(CompressionLevel.x16, resolvedMethodContext.getCompressionLevel());
+        assertEquals(
+            ENCODER_SQ,
+            ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER)).getName()
+        );
+        assertEquals(
+            1,
+            ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER)).getParameters().get(LUCENE_SQ_BITS)
+        );
+    }
+
+    // half_float only supports the SQ 1-bit path; x4 (bits=7) has no valid encoder to auto-resolve to.
+    public void testResolveMethod_whenHalfFloatExplicitCompression4x_thenThrows() {
+        expectThrows(
+            ValidationException.class,
+            () -> TEST_RESOLVER.resolveMethod(
+                null,
+                KNNMethodConfigContext.builder()
+                    .vectorDataType(VectorDataType.HALF_FLOAT)
+                    .compressionLevel(CompressionLevel.x4)
+                    .versionCreated(Version.CURRENT)
+                    .build(),
+                false,
+                SpaceType.L2
+            )
+        );
+    }
+
     public void testResolveMethod_whenExplicitCompression4x_thenResolvesToSQSevenBit() {
         ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             null,
@@ -690,6 +735,95 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
         }
     }
 
+    public void testResolveMethod_whenHalfFloatOnDisk_thenResolvesToX16WithSQOneBit() {
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            null,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.HALF_FLOAT)
+                .mode(Mode.ON_DISK)
+                .versionCreated(Version.CURRENT)
+                .build(),
+            false,
+            SpaceType.L2
+        );
+
+        assertEquals(CompressionLevel.x16, resolvedMethodContext.getCompressionLevel());
+        MethodComponentContext encoder = (MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+            .getMethodComponentContext()
+            .getParameters()
+            .get(METHOD_ENCODER_PARAMETER);
+        assertEquals(ENCODER_SQ, encoder.getName());
+        // Without the data-type-aware default this resolves x32, which picks bits=7 - rejected for half_float.
+        assertEquals(1, encoder.getParameters().get(LUCENE_SQ_BITS));
+    }
+
+    public void testResolveMethod_whenHalfFloatOnDiskWithX16_thenResolvesToX16() {
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            null,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.HALF_FLOAT)
+                .mode(Mode.ON_DISK)
+                .compressionLevel(CompressionLevel.x16)
+                .versionCreated(Version.CURRENT)
+                .build(),
+            false,
+            SpaceType.L2
+        );
+
+        assertEquals(CompressionLevel.x16, resolvedMethodContext.getCompressionLevel());
+    }
+
+    public void testResolveMethod_whenHalfFloatOnDiskWithX1_thenThrows() {
+        expectThrows(
+            ValidationException.class,
+            () -> TEST_RESOLVER.resolveMethod(
+                null,
+                KNNMethodConfigContext.builder()
+                    .vectorDataType(VectorDataType.HALF_FLOAT)
+                    .mode(Mode.ON_DISK)
+                    .compressionLevel(CompressionLevel.x1)
+                    .versionCreated(Version.CURRENT)
+                    .build(),
+                false,
+                SpaceType.L2
+            )
+        );
+    }
+
+    public void testResolveMethod_whenHalfFloatInMemory_thenStillResolvesToX1() {
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            null,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.HALF_FLOAT)
+                .mode(Mode.IN_MEMORY)
+                .versionCreated(Version.CURRENT)
+                .build(),
+            false,
+            SpaceType.L2
+        );
+
+        assertEquals(CompressionLevel.x1, resolvedMethodContext.getCompressionLevel());
+    }
+
+    public void testResolveMethod_whenHalfFloatOnDiskWithFloatOnlyCompression_thenThrows() {
+        for (CompressionLevel unsupported : java.util.List.of(CompressionLevel.x2, CompressionLevel.x4, CompressionLevel.x32)) {
+            expectThrows(
+                ValidationException.class,
+                () -> TEST_RESOLVER.resolveMethod(
+                    null,
+                    KNNMethodConfigContext.builder()
+                        .vectorDataType(VectorDataType.HALF_FLOAT)
+                        .mode(Mode.ON_DISK)
+                        .compressionLevel(unsupported)
+                        .versionCreated(Version.CURRENT)
+                        .build(),
+                    false,
+                    SpaceType.L2
+                )
+            );
+        }
+    }
+
     public void testResolveMethod_whenHalfFloat_thenResolvesToX1WithoutEncoder() {
         ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             null,
@@ -702,7 +836,7 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
         assertEquals(SpaceType.L2, resolvedMethodContext.getKnnMethodContext().getSpaceType());
         assertEquals(CompressionLevel.x1, resolvedMethodContext.getCompressionLevel());
         assertFalse(
-            "half_float must not go through an encoder",
+            "half_float must not go through the SQ encoder",
             resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getParameters().containsKey(METHOD_ENCODER_PARAMETER)
         );
     }
@@ -725,31 +859,23 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
         );
     }
 
-    /**
-     * Every compression level outside {@link LuceneHNSWMethodResolver#SUPPORTED_COMPRESSION_HALF_FLOAT}
-     * must be rejected, not silently ignored or conflated with an encoder. Driving the loop off that
-     * set rather than a hardcoded level keeps this honest as levels are added: a newly supported
-     * level drops out of the loop, the rest still have to fail.
-     */
-    public void testResolveMethod_whenHalfFloatWithUnsupportedCompression_thenThrow() {
-        for (CompressionLevel level : CompressionLevel.values()) {
-            if (level == CompressionLevel.NOT_CONFIGURED || LuceneHNSWMethodResolver.SUPPORTED_COMPRESSION_HALF_FLOAT.contains(level)) {
-                continue;
-            }
-            expectThrows(
-                ValidationException.class,
-                () -> TEST_RESOLVER.resolveMethod(
-                    null,
-                    KNNMethodConfigContext.builder()
-                        .vectorDataType(VectorDataType.HALF_FLOAT)
-                        .compressionLevel(level)
-                        .versionCreated(Version.CURRENT)
-                        .build(),
-                    false,
-                    SpaceType.L2
-                )
-            );
-        }
+    /** x16 now resolves to SQ 1-bit for half_float too - see testResolveMethod_whenHalfFloatExplicitCompression16x_thenResolvesToSQOneBit.
+     *  Any level other than x1/x16 must still be rejected, not silently ignored - see
+     *  testResolveMethod_whenHalfFloatExplicitCompression4x_thenThrows. */
+    public void testResolveMethod_whenHalfFloatWithExplicitX8_thenThrow() {
+        expectThrows(
+            ValidationException.class,
+            () -> TEST_RESOLVER.resolveMethod(
+                null,
+                KNNMethodConfigContext.builder()
+                    .vectorDataType(VectorDataType.HALF_FLOAT)
+                    .compressionLevel(CompressionLevel.x8)
+                    .versionCreated(Version.CURRENT)
+                    .build(),
+                false,
+                SpaceType.L2
+            )
+        );
     }
 
     public void testResolveMethod_whenHalfFloatWithTraining_thenThrow() {
@@ -762,6 +888,30 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
                 SpaceType.L2
             )
         );
+    }
+
+    // half_float's SQ 1-bit is fully determined by compression_level and auto-resolved internally -
+    // users must not be able to configure it by writing an encoder block themselves.
+    public void testResolveMethod_whenHalfFloatWithExplicitEncoder_thenThrow() {
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(
+                METHOD_HNSW,
+                Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 1)))
+            )
+        );
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> TEST_RESOLVER.resolveMethod(
+                knnMethodContext,
+                KNNMethodConfigContext.builder().vectorDataType(VectorDataType.HALF_FLOAT).versionCreated(Version.CURRENT).build(),
+                false,
+                SpaceType.L2
+            )
+        );
+        assertTrue(e.getMessage().contains(METHOD_ENCODER_PARAMETER));
+        assertTrue(e.getMessage().contains("half_float"));
     }
 
 }
