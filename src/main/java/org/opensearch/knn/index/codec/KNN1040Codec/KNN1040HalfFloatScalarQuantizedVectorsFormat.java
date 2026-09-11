@@ -16,11 +16,18 @@ import org.opensearch.knn.index.VectorDataType;
  */
 public class KNN1040HalfFloatScalarQuantizedVectorsFormat extends KNN1040ScalarQuantizedVectorsFormat {
 
+    private static final String FORMAT_NAME = "KNN1040HalfFloatScalarQuantizedVectorsFormat";
+
     public KNN1040HalfFloatScalarQuantizedVectorsFormat() {
         this(ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE);
     }
 
     public KNN1040HalfFloatScalarQuantizedVectorsFormat(final ScalarEncoding encoding) {
         super(encoding, VectorDataType.HALF_FLOAT);
+    }
+
+    @Override
+    public String getName() {
+        return FORMAT_NAME;
     }
 }

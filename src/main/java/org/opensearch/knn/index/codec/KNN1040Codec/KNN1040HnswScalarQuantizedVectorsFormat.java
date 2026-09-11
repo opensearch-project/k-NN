@@ -34,6 +34,8 @@ import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.HNSW_G
  */
 public class KNN1040HnswScalarQuantizedVectorsFormat extends Lucene104HnswScalarQuantizedVectorsFormat {
 
+    private static final String FORMAT_NAME = "KNN1040HnswScalarQuantizedVectorsFormat";
+
     private final int maxConn;
     private final int beamWidth;
     private final int tinySegmentsThreshold;
@@ -112,7 +114,7 @@ public class KNN1040HnswScalarQuantizedVectorsFormat extends Lucene104HnswScalar
 
     @Override
     public String getName() {
-        return getClass().getSimpleName();
+        return FORMAT_NAME;
     }
 
     @Override

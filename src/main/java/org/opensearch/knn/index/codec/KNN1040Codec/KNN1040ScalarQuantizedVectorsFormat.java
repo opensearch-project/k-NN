@@ -29,6 +29,8 @@ import java.io.IOException;
  */
 public class KNN1040ScalarQuantizedVectorsFormat extends Lucene104ScalarQuantizedVectorsFormat {
 
+    private static final String FORMAT_NAME = "KNN1040ScalarQuantizedVectorsFormat";
+
     private static final KNN1040ScalarQuantizedVectorScorer KNN_1040_SCALAR_QUANTIZED_VECTOR_SCORER = FlatVectorsScorerProvider
         .getKNN1040ScalarQuantizedVectorScorer(FlatVectorsScorerProvider.getLucene99FlatVectorsScorer());
 
@@ -96,6 +98,6 @@ public class KNN1040ScalarQuantizedVectorsFormat extends Lucene104ScalarQuantize
 
     @Override
     public String getName() {
-        return getClass().getSimpleName();
+        return FORMAT_NAME;
     }
 }

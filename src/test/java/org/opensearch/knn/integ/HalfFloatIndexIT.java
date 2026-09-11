@@ -364,6 +364,33 @@ public class HalfFloatIndexIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testHalfFloatFlatSq1BitIndex_closeAndReopen() {
+        String mapping = buildHalfFloatSq1BitMapping("l2");
+        createKnnIndex(INDEX_NAME, mapping);
+
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, new Float[] { 1.0f, 2.0f, 3.0f, 4.0f });
+        flushIndex(INDEX_NAME, true);
+        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, new Float[] { 5.0f, 6.0f, 7.0f, 8.0f });
+        flushIndex(INDEX_NAME, true);
+        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, new Float[] { 0.1f, 0.2f, 0.3f, 0.4f });
+        flushIndex(INDEX_NAME, true);
+        forceMergeKnnIndex(INDEX_NAME, 1);
+
+        closeKNNIndex(INDEX_NAME);
+        openIndex(INDEX_NAME);
+        ensureGreen(INDEX_NAME);
+
+        float[] queryVector = { 0.0f, 0.0f, 0.0f, 0.0f };
+        Response response = searchKNNIndex(INDEX_NAME, buildSearchQuery(FIELD_NAME, 3, queryVector, null), 3);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> results = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(3, results.size());
+        // Closest to origin should be doc 3
+        assertEquals("3", results.get(0).getDocId());
+    }
+
+    @SneakyThrows
     public void testHalfFloatFlatSq1BitIndex_indexSortedForceMerge() {
         final String sortFieldName = "sort_key";
 
@@ -557,12 +584,33 @@ public class HalfFloatIndexIT extends KNNRestTestCase {
         assertEquals("3", results.get(0).getDocId());
     }
 
-    /**
-     * Force merges an index-sorted index. Same rationale as
-     * {@link #testHalfFloatFlatSq1BitIndex_indexSortedForceMerge}, but for the HNSW graph wrapper:
-     * the merge must interleave segments while also rebuilding the graph and recomputing .veq codes
-     * from the reordered source.
-     */
+    @SneakyThrows
+    public void testHalfFloatHnswSq1BitIndex_closeAndReopen() {
+        String mapping = buildHalfFloatHnswSq1BitMapping("l2");
+        createKnnIndex(INDEX_NAME, mapping);
+
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, new Float[] { 1.0f, 2.0f, 3.0f, 4.0f });
+        flushIndex(INDEX_NAME, true);
+        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, new Float[] { 5.0f, 6.0f, 7.0f, 8.0f });
+        flushIndex(INDEX_NAME, true);
+        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, new Float[] { 0.1f, 0.2f, 0.3f, 0.4f });
+        flushIndex(INDEX_NAME, true);
+        forceMergeKnnIndex(INDEX_NAME, 1);
+
+        closeKNNIndex(INDEX_NAME);
+        openIndex(INDEX_NAME);
+        ensureGreen(INDEX_NAME);
+
+        float[] queryVector = { 0.0f, 0.0f, 0.0f, 0.0f };
+        Response response = searchKNNIndex(INDEX_NAME, buildSearchQuery(FIELD_NAME, 3, queryVector, null), 3);
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> results = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(3, results.size());
+        // Closest to origin should be doc 3
+        assertEquals("3", results.get(0).getDocId());
+    }
+
     @SneakyThrows
     public void testHalfFloatHnswSq1BitIndex_indexSortedForceMerge() {
         final String sortFieldName = "sort_key";

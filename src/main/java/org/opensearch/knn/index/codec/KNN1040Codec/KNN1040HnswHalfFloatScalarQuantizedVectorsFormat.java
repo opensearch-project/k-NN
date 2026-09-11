@@ -23,6 +23,8 @@ import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.HNSW_G
  */
 public class KNN1040HnswHalfFloatScalarQuantizedVectorsFormat extends KNN1040HnswScalarQuantizedVectorsFormat {
 
+    private static final String FORMAT_NAME = "KNN1040HnswHalfFloatScalarQuantizedVectorsFormat";
+
     public KNN1040HnswHalfFloatScalarQuantizedVectorsFormat() {
         this(ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE, DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, DEFAULT_NUM_MERGE_WORKER, null);
     }
@@ -46,5 +48,10 @@ public class KNN1040HnswHalfFloatScalarQuantizedVectorsFormat extends KNN1040Hns
         int tinySegmentsThreshold
     ) {
         super(encoding, maxConn, beamWidth, numMergeWorkers, mergeExec, tinySegmentsThreshold, VectorDataType.HALF_FLOAT);
+    }
+
+    @Override
+    public String getName() {
+        return FORMAT_NAME;
     }
 }
