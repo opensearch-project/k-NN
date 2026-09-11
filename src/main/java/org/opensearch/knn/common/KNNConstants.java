@@ -226,6 +226,12 @@ public class KNNConstants {
     public static final String VECTOR_FIELD_SPACE_TYPE = "vector_field_space_type";
     public static final String MMR_RERANK_CONTEXT = "mmr.rerank_context";
 
+    // SegmentInfo attribute key set when a segment's KNN vector index was built remotely. Persisted to
+    // the segment's .si and therefore observable per-index via the OpenSearch GET <index>/_segments API.
+    // Provides a deterministic, per-index signal that a specific index was built remotely, as opposed to
+    // the node-global remote_vector_index_build_stats counter which reflects cumulative node activity.
+    public static final String KNN_REMOTE_INDEX_BUILD_SEGMENT_ATTRIBUTE = "knn_remote_index_build";
+
     // Bit manipulation constants for quantization
     public static final int BYTE_ALIGNMENT_MASK = 7; // Used for rounding up to nearest byte (Byte.SIZE - 1)
     // Define here: https://github.com/opensearch-project/remote-vector-index-builder/blob/main/API.md#index-parameters

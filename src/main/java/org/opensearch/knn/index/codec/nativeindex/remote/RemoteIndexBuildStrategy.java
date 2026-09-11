@@ -30,6 +30,7 @@ import org.opensearch.knn.index.remote.RemoteIndexWaiter;
 import org.opensearch.knn.index.remote.RemoteIndexWaiterFactory;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.QuantizedKNNBinaryVectorValues;
+import org.opensearch.knn.plugin.stats.RemoteIndexBuildPerIndexStats;
 import org.opensearch.remoteindexbuild.client.RemoteIndexClient;
 import org.opensearch.remoteindexbuild.client.RemoteIndexClientFactory;
 import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
@@ -52,6 +53,7 @@ import static org.opensearch.knn.common.KNNConstants.VECTORS_PATH;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_BLOB_FILE_EXTENSION;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN_SETTING;
+import static org.opensearch.knn.common.KNNConstants.KNN_REMOTE_INDEX_BUILD_SEGMENT_ATTRIBUTE;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_BUILD_SIZE_MAX_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_REPOSITORY_SETTING;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
@@ -189,6 +191,23 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
 
             // 4. Download index file and write to indexOutput
             readFromRepository(indexInfo, repositoryContext, remoteBuildStatusResponse);
+            // Mark this segment as remotely built. Persisted to the segment's .si (both flush and merge
+            // operate on this same SegmentInfo), so an integration test can deterministically confirm a
+            // specific index was built remotely via GET <index>/_segments, instead of relying on the
+            // node-global success counter which reflects cumulative activity across all tests.
+            indexInfo.getSegmentWriteState().segmentInfo.putAttribute(KNN_REMOTE_INDEX_BUILD_SEGMENT_ATTRIBUTE, "true");
+            // Also record a per-index, merge-surviving success count. Segment attributes are erased when
+            // segments merge; this cumulative counter is not, so a test can assert every remote build for
+            // the index succeeded (success > 0 and failure == 0), including builds on merged-away segments.
+            final String successIndexName = indexNameOrNull();
+            RemoteIndexBuildPerIndexStats.incrementSuccess(successIndexName);
+            log.info(
+                "Remote index build SUCCEEDED for index [{}] field [{}] segment [{}]; per-index success count now {}",
+                successIndexName,
+                indexInfo.getField(),
+                indexInfo.getSegmentWriteState().segmentInfo.name,
+                RemoteIndexBuildPerIndexStats.getSuccessCount(successIndexName)
+            );
             buildResult = BuildResult.SUCCESS;
             return;
         } catch (TerminalIOException e) {
@@ -205,6 +224,18 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             throw e;
         } catch (Exception e) {
             log.error("Failed to build index remotely: " + indexInfo, e);
+            // Record a per-index, merge-surviving failure count so an intermediate segment's failed remote
+            // build (which falls back to local) is counted permanently, even if that segment is later
+            // merged away. This cumulative counter -- not a per-segment attribute -- is the source of truth
+            // for per-index remote-build validation (exposed via remote_vector_index_build_stats.per_index).
+            RemoteIndexBuildPerIndexStats.incrementFailure(indexNameOrNull());
+            log.warn(
+                "Remote index build FAILED for index [{}] field [{}] segment [{}], falling back to local; per-index failure count now {}",
+                indexNameOrNull(),
+                indexInfo.getField(),
+                indexInfo.getSegmentWriteState().segmentInfo.name,
+                RemoteIndexBuildPerIndexStats.getFailureCount(indexNameOrNull())
+            );
         } finally {
             // Metric emission is centralized here so that benign terminations (merge aborts, terminal IO) are not
             // counted as build failures. The exact counter incremented is determined by buildResult.
@@ -222,6 +253,18 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
                 .reset(indexInfo.getSegmentWriteState().directory, indexInfo.getSegmentWriteState().context);
         }
         fallbackStrategy.buildAndWriteIndex(indexInfo);
+    }
+
+    /**
+     * Returns the OpenSearch index name for per-index stats, or null if unavailable. Null-tolerant so the
+     * stats increment never throws (e.g. under unit tests with a mocked IndexSettings whose getIndex() is
+     * null); RemoteIndexBuildPerIndexStats ignores a null key.
+     */
+    private String indexNameOrNull() {
+        if (indexSettings == null || indexSettings.getIndex() == null) {
+            return null;
+        }
+        return indexSettings.getIndex().getName();
     }
 
     /**

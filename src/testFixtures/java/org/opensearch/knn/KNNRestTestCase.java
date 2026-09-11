@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -79,6 +80,7 @@ import static org.opensearch.knn.TestUtils.VECTOR_TYPE;
 import static org.opensearch.knn.TestUtils.computeGroundTruthValues;
 import org.opensearch.knn.common.KNNConstants;
 import static org.opensearch.knn.common.KNNConstants.CLEAR_CACHE;
+import static org.opensearch.knn.common.KNNConstants.KNN_REMOTE_INDEX_BUILD_SEGMENT_ATTRIBUTE;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
@@ -155,8 +157,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
     private static final String SYSTEM_INDEX_PREFIX = ".opendistro";
     public static final int MIN_CODE_UNITS = 4;
     public static final int MAX_CODE_UNITS = 10;
-    private int BEFORE_INDEX_BUILD_SUCCESS_COUNT;
-    private int AFTER_INDEX_BUILD_SUCCESS_COUNT;
 
     @AfterClass
     public static void dumpCoverage() throws IOException, MalformedObjectNameException {
@@ -189,6 +189,17 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
     }
 
+    // Set by deleteKNNIndex when an index carrying the remote-build segment attribute is about to be
+    // deleted, so verifyRemoteIndexBuild can still confirm a remote build for tests that delete their
+    // index within the test body. Reset per-test in setupRemoteIndexBuildSettings.
+    private boolean remoteBuildObserved = false;
+
+    // Names of the KNN indices this test created (captured in createKnnIndex). verifyRemoteIndexBuild
+    // asserts on THESE indices' per-index remote-build counters directly -- truly per-index, not a
+    // sum-over-all-indices window delta -- so it is fully isolated from any other test's activity.
+    // Reset per-test in setupRemoteIndexBuildSettings.
+    private final Set<String> testCreatedKnnIndices = ConcurrentHashMap.newKeySet();
+
     @Before
     public void cleanUpCache() throws Exception {
         clearCache();
@@ -196,6 +207,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
     @Before
     public void setupRemoteIndexBuildSettings() throws Exception {
+        remoteBuildObserved = false;
+        testCreatedKnnIndices.clear();
         final String remoteBuild = System.getProperty("test.remoteBuild", null);
         if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
             updateClusterSettings(KNN_REMOTE_VECTOR_BUILD_SETTING.getKey(), true);
@@ -203,7 +216,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
             updateClusterSettings(KNNSettings.KNN_REMOTE_BUILD_SERVICE_ENDPOINT, "http://0.0.0.0:80");
             updateClusterSettings(KNNSettings.KNN_REMOTE_BUILD_POLL_INTERVAL, TimeValue.timeValueSeconds(0));
             setupRepository("integ-test-repo");
-            BEFORE_INDEX_BUILD_SUCCESS_COUNT = getRemoteIndexBuildSuccessCount();
         } else if (isRemoteIndexBuildSupported(getBWCVersion()) && randomBoolean()) {
             // Set up cluster settings for remote index build feature. We do this for all tests to ensure the fallback mechanisms are
             // working correctly.
@@ -219,19 +231,141 @@ public class KNNRestTestCase extends ODFERestTestCase {
     public void verifyRemoteIndexBuild() throws Exception {
         final String remoteBuild = System.getProperty("test.remoteBuild", null);
         if (hasExpectRemoteBuildValidation() && isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
-            AFTER_INDEX_BUILD_SUCCESS_COUNT = getRemoteIndexBuildSuccessCount();
-            assertTrue(AFTER_INDEX_BUILD_SUCCESS_COUNT > BEFORE_INDEX_BUILD_SUCCESS_COUNT);
+            // Validate remote build TRULY PER-INDEX using the merge-surviving counters
+            // (remote_vector_index_build_stats.per_index.<index>.{index_build_success_count,
+            // index_build_failure_count}), maintained by RemoteIndexBuildStrategy on every build (flush AND
+            // every merge). Unlike the per-segment attribute -- which GET <index>/_segments only reports for
+            // CURRENTLY-SURVIVING segments, so an intermediate segment whose remote build failed and was
+            // then merged away becomes invisible -- these cumulative counters are never erased by a merge.
+            //
+            // For EACH index this test created, require: successCount > 0 AND failureCount == 0. This is
+            // scoped to the test's own indices (not a sum across all indices), so it is completely isolated
+            // from any other test's builds. A failed build -- even on a segment later merged away -- is
+            // caught because its per-index failure counter is permanent. Builds are async relative to
+            // indexing, so poll within a bounded window.
+            assertBusy(() -> {
+                Map<String, long[]> perIndex = getPerIndexRemoteBuildCounts(); // index -> [success, failure]
+                long totalSuccess = 0;
+                long totalFailure = 0;
+                StringBuilder detail = new StringBuilder();
+                for (String index : testCreatedKnnIndices) {
+                    long[] c = perIndex.getOrDefault(index, new long[] { 0L, 0L });
+                    totalSuccess += c[0];
+                    totalFailure += c[1];
+                    detail.append(String.format(Locale.ROOT, " [%s: success=%d failure=%d]", index, c[0], c[1]));
+                }
+                logger.info(
+                    "verifyRemoteIndexBuild [{}]: per-index counts across {} test index(es):{}",
+                    testName.getMethodName(),
+                    testCreatedKnnIndices.size(),
+                    detail.length() == 0 ? " <none>" : detail.toString()
+                );
+
+                // Any failed remote build on one of this test's indices (even one later merged away) fails
+                // the test.
+                if (totalFailure > 0) {
+                    assertTrue(
+                        "Remote index build FAILED "
+                            + totalFailure
+                            + " time(s) for an index created by this test and fell back to a local build"
+                            + ". Every remote build for an @ExpectRemoteBuildValidation test must succeed; a fallback "
+                            + "indicates a remote-build regression (full stack trace in node log: "
+                            + "'Failed to build index remotely'). Detected via the merge-surviving per-index failure "
+                            + "counter, so it catches failures on segments that were merged away. Per-index:"
+                            + detail,
+                        false
+                    );
+                    return;
+                }
+
+                // No failures: require that at least one remote build actually happened for this test's
+                // indices. Fall back to remoteBuildObserved (index deleted in-body before stats settled).
+                if (totalSuccess <= 0) {
+                    assertTrue(
+                        "Expected at least one remote index build for an index created by this test, but the "
+                            + "per-index remote_vector_index_build success counter did not increase for any of: "
+                            + testCreatedKnnIndices
+                            + ". If this test does not build a remote index, it should not carry "
+                            + "@ExpectRemoteBuildValidation.",
+                        remoteBuildObserved
+                    );
+                }
+            }, 30, TimeUnit.SECONDS);
         }
     }
 
-    private boolean hasExpectRemoteBuildValidation() {
-        try {
-            Method method = this.getClass().getMethod(testName.getMethodName());
-            return method.isAnnotationPresent(ExpectRemoteBuildValidation.class);
-        } catch (NoSuchMethodException e) {
-            // Tests parameterized by @ParametersFactory will throw NoSuchMethodException
+    /**
+     * Returns true if any non-system index currently has at least one segment carrying the
+     * {@link org.opensearch.knn.common.KNNConstants#KNN_REMOTE_INDEX_BUILD_SEGMENT_ATTRIBUTE} SegmentInfo
+     * attribute (surfaced per-index/per-segment by the OpenSearch GET &lt;index&gt;/_segments API). This is a
+     * deterministic per-index signal that a remote index build occurred, replacing the order-sensitive
+     * node-global success counter.
+     */
+    @SuppressWarnings("unchecked")
+    protected boolean anyNonSystemIndexHasRemoteBuiltSegment() throws Exception {
+        Response catResponse = adminClient().performRequest(new Request("GET", "/_cat/indices?format=json&expand_wildcards=all&h=index"));
+        List<Map<String, Object>> indicesList = createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            EntityUtils.toString(catResponse.getEntity())
+        ).listOrderedMap().stream().map(o -> (Map<String, Object>) o).collect(Collectors.toList());
+
+        for (Map<String, Object> indexEntry : indicesList) {
+            String index = (String) indexEntry.get("index");
+            if (index == null || index.startsWith(".")) {
+                // Skip system/hidden indices (e.g. .opensearch-knn-models).
+                continue;
+            }
+            if (indexHasRemoteBuiltSegment(index)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean indexHasRemoteBuiltSegment(final String index) throws Exception {
+        Request request = new Request("GET", "/" + index + "/_segments");
+        Response response = client().performRequest(request);
+        if (RestStatus.fromCode(response.getStatusLine().getStatusCode()) != RestStatus.OK) {
             return false;
         }
+        Map<String, Object> body = createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            EntityUtils.toString(response.getEntity())
+        ).map();
+        Map<String, Object> indices = (Map<String, Object>) body.get("indices");
+        if (indices == null) return false;
+        Map<String, Object> indexData = (Map<String, Object>) indices.get(index);
+        if (indexData == null) return false;
+        Map<String, Object> shards = (Map<String, Object>) indexData.get("shards");
+        if (shards == null) return false;
+        for (Object shardListObj : shards.values()) {
+            for (Map<String, Object> shard : (List<Map<String, Object>>) shardListObj) {
+                Map<String, Object> segments = (Map<String, Object>) shard.get("segments");
+                if (segments == null) continue;
+                for (Object segObj : segments.values()) {
+                    Map<String, Object> segment = (Map<String, Object>) segObj;
+                    Map<String, Object> attributes = (Map<String, Object>) segment.get("attributes");
+                    if (attributes != null && "true".equals(String.valueOf(attributes.get(KNN_REMOTE_INDEX_BUILD_SEGMENT_ATTRIBUTE)))) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean hasExpectRemoteBuildValidation() {
+        // testName.getMethodName() includes any @ParametersFactory suffix, e.g. "testFoo {compression:X1}".
+        // Strip it to resolve the declared method, then check the annotation on any matching overload.
+        String rawName = testName.getMethodName();
+        String baseName = rawName.contains(" ") ? rawName.substring(0, rawName.indexOf(' ')) : rawName;
+        for (Method method : this.getClass().getMethods()) {
+            if (method.getName().equals(baseName) && method.isAnnotationPresent(ExpectRemoteBuildValidation.class)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @SneakyThrows
@@ -252,6 +386,15 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
     @SneakyThrows
     protected int getRemoteIndexBuildSuccessCount() {
+        return getRemoteIndexBuildClientStat(KNNRemoteIndexBuildValue.INDEX_BUILD_SUCCESS_COUNT.getName());
+    }
+
+    /**
+     * Reads a single node-level remote-build client stat (e.g. index_build_success_count,
+     * index_build_failure_count) from the KNN stats API. Returns 0 if the value is absent.
+     */
+    @SneakyThrows
+    protected int getRemoteIndexBuildClientStat(String statName) {
         Response response = getKnnStats(
             Collections.emptyList(),
             Collections.singletonList(StatNames.REMOTE_VECTOR_INDEX_BUILD_STATS.getName())
@@ -264,9 +407,59 @@ public class KNNRestTestCase extends ODFERestTestCase {
             "%s.%s.%s",
             StatNames.REMOTE_VECTOR_INDEX_BUILD_STATS.getName(),
             StatNames.CLIENT_STATS.getName(),
-            KNNRemoteIndexBuildValue.INDEX_BUILD_SUCCESS_COUNT.getName()
+            statName
         );
-        return (Integer) XContentMapValues.extractValue(path, node);
+        Object value = XContentMapValues.extractValue(path, node);
+        return value == null ? 0 : (Integer) value;
+    }
+
+    /**
+     * Reads the merge-surviving per-index remote-build counters from the KNN stats API and returns them as
+     * a map of index name -&gt; {successCount, failureCount}, summed across all nodes. Path:
+     * remote_vector_index_build_stats.per_index.&lt;index&gt;.{index_build_success_count,
+     * index_build_failure_count}. Because the counters are cumulative and not erased by segment merges,
+     * they reflect every remote build for an index -- including builds on segments later merged away.
+     */
+    @SneakyThrows
+    @SuppressWarnings("unchecked")
+    protected Map<String, long[]> getPerIndexRemoteBuildCounts() {
+        Response response = getKnnStats(
+            Collections.emptyList(),
+            Collections.singletonList(StatNames.REMOTE_VECTOR_INDEX_BUILD_STATS.getName())
+        );
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<Map<String, Object>> nodesStats = parseNodeStatsResponse(responseBody);
+        Map<String, long[]> result = new HashMap<>();
+        String perIndexPath = String.format(
+            Locale.ROOT,
+            "%s.%s",
+            StatNames.REMOTE_VECTOR_INDEX_BUILD_STATS.getName(),
+            StatNames.PER_INDEX_STATS.getName()
+        );
+        String successKey = KNNRemoteIndexBuildValue.INDEX_BUILD_SUCCESS_COUNT.getName();
+        String failureKey = KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT.getName();
+        for (Map<String, Object> node : nodesStats) {
+            Object perIndexObj = XContentMapValues.extractValue(perIndexPath, node);
+            if (!(perIndexObj instanceof Map)) {
+                continue;
+            }
+            for (Map.Entry<String, Object> e : ((Map<String, Object>) perIndexObj).entrySet()) {
+                if (!(e.getValue() instanceof Map)) {
+                    continue;
+                }
+                Map<String, Object> counts = (Map<String, Object>) e.getValue();
+                long[] agg = result.computeIfAbsent(e.getKey(), k -> new long[] { 0L, 0L });
+                Object s = counts.get(successKey);
+                Object f = counts.get(failureKey);
+                if (s instanceof Number) {
+                    agg[0] += ((Number) s).longValue();
+                }
+                if (f instanceof Number) {
+                    agg[1] += ((Number) f).longValue();
+                }
+            }
+        }
+        return result;
     }
 
     /**
@@ -289,14 +482,18 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Create KNN Index with default settings
      */
     protected void createKnnIndex(String index, String mapping) throws IOException {
-        createIndex(index, getKNNDefaultIndexSettings());
-        putMappingRequest(index, mapping);
+        // Delegate to the (settings, mapping) overload so remote-build settings (incl. size.min=0kb,
+        // which forces remote build regardless of data size) are applied consistently. Previously this
+        // 2-arg form bypassed them, so small-data tests silently fell back to LOCAL build and could not
+        // satisfy @ExpectRemoteBuildValidation when run in isolation.
+        createKnnIndex(index, getKNNDefaultIndexSettings(), mapping);
     }
 
     /**
      * Create KNN Index with custom shard num
      */
     protected void createKnnIndex(String index, String mapping, int shardNum) throws IOException {
+        recordCreatedKnnIndex(index);
         Settings defaultSettings = getKNNDefaultIndexSettings();
         Settings settings = Settings.builder().put(defaultSettings).put("number_of_shards", shardNum).build();
         createIndex(index, settings);
@@ -307,6 +504,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Builds a KNN Index for dimension and index, with on_disk mode
      */
     protected void createOnDiskIndex(String index, Integer dimensions, SpaceType spaceType) throws IOException {
+        recordCreatedKnnIndex(index);
         createIndex(index, getKNNDefaultIndexSettings());
         String mappings = XContentFactory.jsonBuilder()
             .startObject()
@@ -327,7 +525,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Create KNN Index
      */
     protected void createKnnIndex(String index, Settings settings, String mapping) throws IOException {
-
+        recordCreatedKnnIndex(index);
         Settings.Builder builder = Settings.builder().put(settings);
         final String remoteBuild = System.getProperty("test.remoteBuild", null);
         if (isRemoteIndexBuildSupported(getBWCVersion()) && remoteBuild != null) {
@@ -336,6 +534,13 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
         createIndex(index, builder.build());
         putMappingRequest(index, mapping);
+    }
+
+    /** Records a KNN index this test created, so verifyRemoteIndexBuild can assert its per-index counters. */
+    private void recordCreatedKnnIndex(String index) {
+        if (index != null) {
+            testCreatedKnnIndices.add(index);
+        }
     }
 
     protected void createBasicKnnIndex(String index, String fieldName, int dimension) throws IOException {
@@ -576,6 +781,18 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Delete KNN index
      */
     protected void deleteKNNIndex(String index) throws IOException {
+        // Before the index is removed, capture whether it had a remotely-built segment. Many tests delete
+        // their index inside the test body, which would otherwise leave verifyRemoteIndexBuild (an @After)
+        // nothing to inspect. Recording here makes the per-index remote-build signal survive deletion.
+        try {
+            if (indexHasRemoteBuiltSegment(index)) {
+                remoteBuildObserved = true;
+            }
+        } catch (Exception e) {
+            // Best-effort capture; never fail deletion because of the probe.
+            logger.debug("Remote-build segment probe failed for index [{}] before delete: {}", index, e.getMessage());
+        }
+
         Request request = new Request("DELETE", "/" + index);
 
         Response response = client().performRequest(request);
@@ -869,16 +1086,18 @@ public class KNNRestTestCase extends ODFERestTestCase {
     /**
      * Add a single KNN Doc to an index
      */
+    private static void assertDocWriteSucceeded(Request request, Response response) {
+        RestStatus status = RestStatus.fromCode(response.getStatusLine().getStatusCode());
+        assertTrue(request.getEndpoint() + ": failed with status " + status, status == RestStatus.OK || status == RestStatus.CREATED);
+    }
+
     protected <T> void addKnnDoc(String index, String docId, String fieldName, T vector) throws IOException {
         Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, vector).endObject();
         request.setJsonEntity(builder.toString());
-        client().performRequest(request);
-
-        request = new Request("POST", "/" + index + "/_refresh");
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertDocWriteSucceeded(request, response);
     }
 
     protected <T> void addNonKNNDoc(String index, String docId, String fieldName, String text) throws IOException {
@@ -886,11 +1105,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, text).endObject();
         request.setJsonEntity(builder.toString());
-        client().performRequest(request);
-
-        request = new Request("POST", "/" + index + "/_refresh");
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertDocWriteSucceeded(request, response);
     }
 
     /**
@@ -917,11 +1133,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
         request.setJsonEntity(builder.toString());
-        client().performRequest(request);
-
-        request = new Request("POST", "/" + index + "/_refresh");
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertDocWriteSucceeded(request, response);
     }
 
     /**
@@ -943,11 +1156,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .field(numericFieldName, val)
             .endObject();
         request.setJsonEntity(builder.toString());
-        client().performRequest(request);
-
-        request = new Request("POST", "/" + index + "/_refresh");
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertDocWriteSucceeded(request, response);
     }
 
     protected void addDocWithNestedNumericField(String index, String docId, String nestedFieldPath, long val) throws IOException {
@@ -965,11 +1175,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
         request.setJsonEntity(builder.toString());
-        client().performRequest(request);
-
-        request = new Request("POST", "/" + index + "/_refresh");
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertDocWriteSucceeded(request, response);
     }
 
     /**
@@ -2012,6 +2219,35 @@ public class KNNRestTestCase extends ODFERestTestCase {
         assertEquals(response.getStatusLine().getStatusCode(), 200);
     }
 
+    /**
+     * Bulk-index KNN docs using explicit document ids (preserving the caller's id scheme, e.g. the ids
+     * from a test dataset). Use this instead of the sequential-id overload when a test later references
+     * documents by their original id (update/delete/get).
+     */
+    public void bulkAddKnnDocs(String index, String fieldName, int[] docIds, float[][] indexVectors, int docCount) throws IOException {
+        Request request = new Request("POST", "/_bulk");
+        request.addParameter("refresh", "true");
+        StringBuilder sb = new StringBuilder();
+
+        for (int i = 0; i < docCount; i++) {
+            sb.append("{ \"index\" : { \"_index\" : \"")
+                .append(index)
+                .append("\", \"_id\" : \"")
+                .append(docIds[i])
+                .append("\" } }\n")
+                .append("{ \"")
+                .append(fieldName)
+                .append("\" : ")
+                .append(Arrays.toString(indexVectors[i]))
+                .append(" }\n");
+        }
+
+        request.setJsonEntity(sb.toString());
+
+        Response response = client().performRequest(request);
+        assertEquals(200, response.getStatusLine().getStatusCode());
+    }
+
     // Method that returns index vectors of the documents that were added before into the index
     public float[][] getIndexVectorsFromIndex(String testIndex, String testField, int docCount, int dimensions) throws Exception {
         float[][] vectors = new float[docCount][dimensions];
@@ -2752,11 +2988,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
         builder.endObject();
         request.setJsonEntity(builder.toString());
-        client().performRequest(request);
-
-        request = new Request("POST", "/" + INDEX_NAME + "/_refresh");
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertDocWriteSucceeded(request, response);
     }
 
     protected <T> void addKnnDocWithAttributes(
@@ -2774,11 +3007,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
         builder.endObject();
         request.setJsonEntity(builder.toString());
-        client().performRequest(request);
-
-        request = new Request("POST", "/" + indexName + "/_refresh");
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertDocWriteSucceeded(request, response);
     }
 
     @SneakyThrows

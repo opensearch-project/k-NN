@@ -18,8 +18,6 @@ import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.protobufs.MatchAllQuery;
 
-import com.google.common.primitives.Floats;
-
 import lombok.SneakyThrows;
 
 public class CustomCodecsIT extends KNNRestTestCase {
@@ -57,14 +55,7 @@ public class CustomCodecsIT extends KNNRestTestCase {
         createKnnIndex(INDEX_NAME, getKNNDefaultIndexSettings(), createKnnIndexMapping(fieldName, dimension));
 
         // Index the test data
-        for (int i = 0; i < testData.indexData.docs.length; i++) {
-            addKnnDoc(
-                INDEX_NAME,
-                Integer.toString(testData.indexData.docs[i]),
-                fieldName,
-                Floats.asList(testData.indexData.vectors[i]).toArray()
-            );
-        }
+        bulkAddKnnDocs(INDEX_NAME, fieldName, testData.indexData.docs, testData.indexData.vectors, testData.indexData.docs.length);
 
         // Refresh
         refreshAllNonSystemIndices();
@@ -92,14 +83,7 @@ public class CustomCodecsIT extends KNNRestTestCase {
         createKnnIndex(INDEX_NAME, getKNNDefaultIndexSettings(), createKnnIndexMapping(fieldName, dimension));
 
         // Index the test data
-        for (int i = 0; i < testData.indexData.docs.length; i++) {
-            addKnnDoc(
-                INDEX_NAME,
-                Integer.toString(testData.indexData.docs[i]),
-                fieldName,
-                Floats.asList(testData.indexData.vectors[i]).toArray()
-            );
-        }
+        bulkAddKnnDocs(INDEX_NAME, fieldName, testData.indexData.docs, testData.indexData.vectors, testData.indexData.docs.length);
 
         // Refresh
         refreshAllNonSystemIndices();

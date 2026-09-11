@@ -36,10 +36,11 @@ public class KNNStatsTests extends KNNTestCase {
         assertTrue(remoteStatsValue instanceof Map);
         Map<String, Map<String, Object>> remoteStats = (Map<String, Map<String, Object>>) remoteStatsValue;
 
-        // The three sub-maps must all be present.
+        // The sub-maps must all be present.
         assertTrue(remoteStats.containsKey(StatNames.CLIENT_STATS.getName()));
         assertTrue(remoteStats.containsKey(StatNames.REPOSITORY_STATS.getName()));
         assertTrue(remoteStats.containsKey(StatNames.BUILD_STATS.getName()));
+        assertTrue(remoteStats.containsKey(StatNames.PER_INDEX_STATS.getName()));
 
         Map<String, Object> clientStats = remoteStats.get(StatNames.CLIENT_STATS.getName());
         assertTrue(clientStats.containsKey(KNNRemoteIndexBuildValue.INDEX_BUILD_SUCCESS_COUNT.getName()));
@@ -47,6 +48,30 @@ public class KNNStatsTests extends KNNTestCase {
         // Benign-termination counters added for the early merge-abort feature.
         assertTrue(clientStats.containsKey(KNNRemoteIndexBuildValue.INDEX_BUILD_MERGE_ABORT_EXCEPTION.getName()));
         assertTrue(clientStats.containsKey(KNNRemoteIndexBuildValue.INDEX_BUILD_TERMINAL_EXCEPTION.getName()));
+    }
+
+    /**
+     * The per_index sub-map surfaces the merge-surviving per-index build counters
+     * (remote_vector_index_build_stats.per_index.&lt;index&gt;.{index_build_success_count,index_build_failure_count}).
+     */
+    @SuppressWarnings("unchecked")
+    public void testRemoteIndexBuildStatsMapExposesPerIndexCounts() {
+        String index = "knnstats-per-index-" + randomAlphaOfLength(8).toLowerCase(java.util.Locale.ROOT);
+        RemoteIndexBuildPerIndexStats.incrementSuccess(index);
+        RemoteIndexBuildPerIndexStats.incrementSuccess(index);
+        RemoteIndexBuildPerIndexStats.incrementFailure(index);
+
+        KNNStats knnStats = new KNNStats();
+        Map<String, Map<String, Object>> remoteStats = (Map<String, Map<String, Object>>) knnStats.getStats()
+            .get(StatNames.REMOTE_VECTOR_INDEX_BUILD_STATS.getName())
+            .getValue();
+        Map<String, Object> perIndex = remoteStats.get(StatNames.PER_INDEX_STATS.getName());
+        assertNotNull(perIndex);
+        assertTrue("per_index must contain the index just built", perIndex.containsKey(index));
+
+        Map<String, Object> counts = (Map<String, Object>) perIndex.get(index);
+        assertEquals(2L, counts.get(KNNRemoteIndexBuildValue.INDEX_BUILD_SUCCESS_COUNT.getName()));
+        assertEquals(1L, counts.get(KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT.getName()));
     }
 
     /**

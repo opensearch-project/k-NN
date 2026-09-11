@@ -78,7 +78,11 @@ jobs:
 
       - name: Pull Remote Index Build Docker Image from Docker Hub
         run: |
-          docker pull opensearchstaging/remote-vector-index-builder:api-snapshot
+          # Pin to an immutable digest instead of the mutable 'api-latest' tag so CI cannot silently pull a
+          # replaced image (the container runs with --gpus and receives AWS credentials). This digest is
+          # opensearchstaging/remote-vector-index-builder:api-latest as of pinning; update it deliberately
+          # when a newer builder is required (docker manifest inspect ...:api-latest).
+          docker pull opensearchstaging/remote-vector-index-builder@sha256:8aeeb92a97fc7b7b726ca6b3fd88bcdb7bef491923d273eae4fe77334c1084d4
 
       - name: Pull LocalStack Docker image
         run: |
@@ -101,7 +105,7 @@ jobs:
 
       - name: Run Docker container
         run: |
-          docker run --rm -d --name remote-index-builder-container --gpus all -p 80:1025 -e S3_ENDPOINT_URL=http://172.17.0.1:4566 -e AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }} -e AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }} -e AWS_DEFAULT_REGION=${{env.AWS_DEFAULT_REGION}} -e AWS_SESSION_TOKEN=${{env.AWS_SESSION_TOKEN}} opensearchstaging/remote-vector-index-builder:api-snapshot
+          docker run --rm -d --name remote-index-builder-container --gpus all -p 80:1025 -e S3_ENDPOINT_URL=http://172.17.0.1:4566 -e AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }} -e AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }} -e AWS_DEFAULT_REGION=${{env.AWS_DEFAULT_REGION}} -e AWS_SESSION_TOKEN=${{env.AWS_SESSION_TOKEN}} opensearchstaging/remote-vector-index-builder@sha256:8aeeb92a97fc7b7b726ca6b3fd88bcdb7bef491923d273eae4fe77334c1084d4
           sleep 5
 
       - name: Run tests
@@ -114,18 +118,18 @@ jobs:
             if lscpu | grep -q "GenuineIntel" && lscpu | grep -i avx512_fp16 | grep -i avx512_bf16 | grep -i avx512_vpopcntdq
             then
               echo "the system is an Intel(R) Sapphire Rapids or a newer-generation processor"
-              ./gradlew :integTestRemoteIndexBuild --refresh-dependencies --no-build-cache -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=remote-index-build-bucket -Dtest.base_path=vectors -Daccess_key=${{ env.AWS_ACCESS_KEY_ID }} -Dsecret_key=${{ env.AWS_SECRET_ACCESS_KEY }} -Dsession_token=${{ env.AWS_SESSION_TOKEN}} -Davx512_spr.enabled=true -Dnproc.count=`nproc`
+              ./gradlew :integTestRemoteIndexBuild --refresh-dependencies --no-build-cache -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=remote-index-build-bucket -Dtest.base_path=vectors -Daccess_key=${{ env.AWS_ACCESS_KEY_ID }} -Dsecret_key=${{ env.AWS_SECRET_ACCESS_KEY }} -Dsession_token=${{ env.AWS_SESSION_TOKEN}} -Davx512_spr.enabled=true -Dnproc.count=`nproc` -Dtest.remoteBuildSanity=true
             else
               echo "avx512 available on system"
-              ./gradlew :integTestRemoteIndexBuild --refresh-dependencies --no-build-cache -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=remote-index-build-bucket -Dtest.base_path=vectors -Daccess_key=${{ env.AWS_ACCESS_KEY_ID }} -Dsecret_key=${{ env.AWS_SECRET_ACCESS_KEY }} -Dsession_token=${{ env.AWS_SESSION_TOKEN}} -Davx512_spr.enabled=false -Dnproc.count=`nproc`
+              ./gradlew :integTestRemoteIndexBuild --refresh-dependencies --no-build-cache -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=remote-index-build-bucket -Dtest.base_path=vectors -Daccess_key=${{ env.AWS_ACCESS_KEY_ID }} -Dsecret_key=${{ env.AWS_SECRET_ACCESS_KEY }} -Dsession_token=${{ env.AWS_SESSION_TOKEN}} -Davx512_spr.enabled=false -Dnproc.count=`nproc` -Dtest.remoteBuildSanity=true
             fi
           elif lscpu  | grep -i avx2
           then
             echo "avx2 available on system"
-            ./gradlew :integTestRemoteIndexBuild --refresh-dependencies --no-build-cache -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=remote-index-build-bucket -Dtest.base_path=vectors -Daccess_key=${{ env.AWS_ACCESS_KEY_ID }} -Dsecret_key=${{ env.AWS_SECRET_ACCESS_KEY }} -Dsession_token=${{ env.AWS_SESSION_TOKEN}} -Davx512.enabled=false -Davx512_spr.enabled=false -Dnproc.count=`nproc`
+            ./gradlew :integTestRemoteIndexBuild --refresh-dependencies --no-build-cache -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=remote-index-build-bucket -Dtest.base_path=vectors -Daccess_key=${{ env.AWS_ACCESS_KEY_ID }} -Dsecret_key=${{ env.AWS_SECRET_ACCESS_KEY }} -Dsession_token=${{ env.AWS_SESSION_TOKEN}} -Davx512.enabled=false -Davx512_spr.enabled=false -Dnproc.count=`nproc` -Dtest.remoteBuildSanity=true
           else
             echo "avx512 and avx2 not available on system"
-            ./gradlew :integTestRemoteIndexBuild --refresh-dependencies --no-build-cache -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=remote-index-build-bucket -Dtest.base_path=vectors -Daccess_key=${{ env.AWS_ACCESS_KEY_ID }} -Dsecret_key=${{ env.AWS_SECRET_ACCESS_KEY }} -Dsession_token=${{ env.AWS_SESSION_TOKEN}} -Davx2.enabled=false -Davx512.enabled=false -Davx512_spr.enabled=false -Dnproc.count=`nproc`
+            ./gradlew :integTestRemoteIndexBuild --refresh-dependencies --no-build-cache -Ds3.enabled=true -Dtest.remoteBuild=s3.localStack -Dtest.bucket=remote-index-build-bucket -Dtest.base_path=vectors -Daccess_key=${{ env.AWS_ACCESS_KEY_ID }} -Dsecret_key=${{ env.AWS_SECRET_ACCESS_KEY }} -Dsession_token=${{ env.AWS_SESSION_TOKEN}} -Davx2.enabled=false -Davx512.enabled=false -Davx512_spr.enabled=false -Dnproc.count=`nproc` -Dtest.remoteBuildSanity=true
           fi
 
       - name: Verify Remote Index Builder logs

@@ -31,6 +31,7 @@ import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
+import org.opensearch.knn.plugin.stats.RemoteIndexBuildPerIndexStats;
 import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.RepositoryMissingException;
@@ -84,15 +85,26 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         RepositoriesService repositoriesService = mock(RepositoriesService.class);
         when(repositoriesService.repository(any())).thenThrow(new RepositoryMissingException("Fallback"));
 
+        // Give the IndexSettings a real index name so the per-index, merge-surviving build counters are
+        // exercised (and asserted) on the failure/local-fallback path.
+        final String testIndexName = "remote-build-fallback-" + randomAlphaOfLength(8).toLowerCase(java.util.Locale.ROOT);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(indexSettings.getIndex()).thenReturn(new org.opensearch.core.index.Index(testIndexName, "_na_"));
+        long beforeFailure = RemoteIndexBuildPerIndexStats.getFailureCount(testIndexName);
+        long beforeSuccess = RemoteIndexBuildPerIndexStats.getSuccessCount(testIndexName);
+
         final SetOnce<Boolean> fallback = new SetOnce<>();
         RemoteIndexBuildStrategy objectUnderTest = new RemoteIndexBuildStrategy(
             () -> repositoriesService,
             new TestIndexBuildStrategy(fallback),
-            mock(IndexSettings.class),
+            indexSettings,
             null
         );
         objectUnderTest.buildAndWriteIndex(buildIndexParams);
         assertTrue(fallback.get());
+        // Per-index counters: this index recorded exactly one failure and no success.
+        assertEquals(beforeFailure + 1, RemoteIndexBuildPerIndexStats.getFailureCount(testIndexName));
+        assertEquals(beforeSuccess, RemoteIndexBuildPerIndexStats.getSuccessCount(testIndexName));
         for (KNNRemoteIndexBuildValue value : KNNRemoteIndexBuildValue.values()) {
             if (value == REMOTE_INDEX_BUILD_FLUSH_TIME && buildIndexParams.isFlush()) {
                 assertTrue(value.getValue() >= 0L);
