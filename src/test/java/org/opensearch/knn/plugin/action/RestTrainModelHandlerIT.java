@@ -20,7 +20,6 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.core.rest.RestStatus;
-import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.util.Map;
 
@@ -396,7 +395,6 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
     }
 
     // Test to checks when user tries to train a model with nested fields
-    @ExpectRemoteBuildValidation
     public void testTrainModel_success_nestedField() throws Exception {
         String modelId = "test-model-id";
         String trainingIndexName = "train-index";
@@ -467,7 +465,6 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
     }
 
     // Test to checks when user tries to train a model compression/mode and method
-    @ExpectRemoteBuildValidation
     public void testTrainModel_success_methodOverrideWithCompressionMode() throws Exception {
         String modelId = "test-model-id";
         String trainingIndexName = "train-index";

@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.integ.search;
 
-import com.google.common.primitives.Floats;
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.BeforeClass;
@@ -69,14 +68,7 @@ public class ConcurrentSegmentSearchIT extends KNNCompressionRestTestCase {
             assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
         }
 
-        for (int i = 0; i < testData.indexData.docs.length; i++) {
-            addKnnDoc(
-                indexName,
-                Integer.toString(testData.indexData.docs[i]),
-                fieldName,
-                Floats.asList(testData.indexData.vectors[i]).toArray()
-            );
-        }
+        bulkAddKnnDocs(indexName, fieldName, testData.indexData.docs, testData.indexData.vectors, testData.indexData.docs.length);
         refreshAllNonSystemIndices();
         updateIndexSettings(indexName, Settings.builder().put("index.search.concurrent_segment_search.mode", "auto"));
 

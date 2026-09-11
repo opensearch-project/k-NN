@@ -40,7 +40,6 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
-import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -88,6 +87,7 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 public class FaissIT extends KNNCompressionRestTestCase {
 
@@ -170,14 +170,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(INDEX_NAME)));
 
         // Index the test data
-        for (int i = 0; i < testData.indexData.docs.length; i++) {
-            addKnnDoc(
-                INDEX_NAME,
-                Integer.toString(testData.indexData.docs[i]),
-                FIELD_NAME,
-                Floats.asList(testData.indexData.vectors[i]).toArray()
-            );
-        }
+        bulkAddKnnDocs(INDEX_NAME, FIELD_NAME, testData.indexData.docs, testData.indexData.vectors, testData.indexData.docs.length);
 
         // Assert we have the right number of documents
         refreshAllNonSystemIndices();
@@ -229,14 +222,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(INDEX_NAME)));
 
         // Index the test data
-        for (int i = 0; i < testData.indexData.docs.length; i++) {
-            addKnnDoc(
-                INDEX_NAME,
-                Integer.toString(testData.indexData.docs[i]),
-                FIELD_NAME,
-                Floats.asList(testData.indexData.vectors[i]).toArray()
-            );
-        }
+        bulkAddKnnDocs(INDEX_NAME, FIELD_NAME, testData.indexData.docs, testData.indexData.vectors, testData.indexData.docs.length);
 
         // Assert we have the right number of documents
         refreshAllNonSystemIndices();
@@ -369,14 +355,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(INDEX_NAME)));
 
         // Index the test data
-        for (int i = 0; i < testData.indexData.docs.length; i++) {
-            addKnnDoc(
-                INDEX_NAME,
-                Integer.toString(testData.indexData.docs[i]),
-                FIELD_NAME,
-                Floats.asList(testData.indexData.vectors[i]).toArray()
-            );
-        }
+        bulkAddKnnDocs(INDEX_NAME, FIELD_NAME, testData.indexData.docs, testData.indexData.vectors, testData.indexData.docs.length);
 
         // Assert we have the right number of documents
         refreshAllNonSystemIndices();
@@ -454,14 +433,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
 
         // Index the test data
-        for (int i = 0; i < testData.indexData.docs.length; i++) {
-            addKnnDoc(
-                indexName,
-                Integer.toString(testData.indexData.docs[i]),
-                fieldName,
-                Floats.asList(testData.indexData.vectors[i]).toArray()
-            );
-        }
+        bulkAddKnnDocs(indexName, fieldName, testData.indexData.docs, testData.indexData.vectors, testData.indexData.docs.length);
 
         // Assert we have the right number of documents in the index
         refreshAllNonSystemIndices();
@@ -665,14 +637,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
 
         // Index the test data
-        for (int i = 0; i < testData.indexData.docs.length; i++) {
-            addKnnDoc(
-                indexName,
-                Integer.toString(testData.indexData.docs[i]),
-                fieldName,
-                Floats.asList(testData.indexData.vectors[i]).toArray()
-            );
-        }
+        bulkAddKnnDocs(indexName, fieldName, testData.indexData.docs, testData.indexData.vectors, testData.indexData.docs.length);
 
         // Assert we have the right number of documents in the index
         refreshAllNonSystemIndices();
@@ -1377,14 +1342,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
 
         // Index the test data
-        for (int i = 0; i < testData.indexData.docs.length; i++) {
-            addKnnDoc(
-                indexName,
-                Integer.toString(testData.indexData.docs[i]),
-                fieldName,
-                Floats.asList(testData.indexData.vectors[i]).toArray()
-            );
-        }
+        bulkAddKnnDocs(indexName, fieldName, testData.indexData.docs, testData.indexData.vectors, testData.indexData.docs.length);
 
         // Assert we have the right number of documents in the index
         refreshAllNonSystemIndices();
@@ -2382,14 +2340,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
         createKnnIndex(INDEX_NAME, knnIndexSettings, builder.toString());
 
         // Index the test data
-        for (int i = 0; i < testData.indexData.docs.length; i++) {
-            addKnnDoc(
-                INDEX_NAME,
-                Integer.toString(testData.indexData.docs[i]),
-                FIELD_NAME,
-                Floats.asList(testData.indexData.vectors[i]).toArray()
-            );
-        }
+        bulkAddKnnDocs(INDEX_NAME, FIELD_NAME, testData.indexData.docs, testData.indexData.vectors, testData.indexData.docs.length);
 
         // Assert we have the right number of documents
         refreshAllNonSystemIndices();
@@ -2921,14 +2872,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
         createKnnIndex(indexName, buildKNNIndexSettings(approximateThreshold), mapping);
 
         // Index the test data
-        for (int i = 0; i < testData.indexData.docs.length; i++) {
-            addKnnDoc(
-                indexName,
-                Integer.toString(testData.indexData.docs[i]),
-                fieldName,
-                Floats.asList(testData.indexData.vectors[i]).toArray()
-            );
-        }
+        bulkAddKnnDocs(indexName, fieldName, testData.indexData.docs, testData.indexData.vectors, testData.indexData.docs.length);
 
         refreshAllIndices();
         // Assert we have the right number of documents in the index

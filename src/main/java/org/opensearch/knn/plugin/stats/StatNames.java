@@ -57,6 +57,7 @@ public enum StatNames {
     CLIENT_STATS("client_stats"),
     REPOSITORY_STATS("repository_stats"),
     BUILD_STATS("build_stats"),
+    PER_INDEX_STATS("per_index"),
 
     // KNN Query Stats
     KNN_QUERY_REQUESTS(KNNCounter.KNN_QUERY_REQUESTS.getName()),

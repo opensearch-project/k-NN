@@ -290,6 +290,10 @@ public class KNNStats {
         remoteIndexBuildStatsMap.put(StatNames.BUILD_STATS.getName(), buildStatsMap);
         remoteIndexBuildStatsMap.put(StatNames.CLIENT_STATS.getName(), clientStatsMap);
         remoteIndexBuildStatsMap.put(StatNames.REPOSITORY_STATS.getName(), repoStatsMap);
+        // Per-index, merge-surviving build outcome counts. Exposed so tests (and operators) can verify that
+        // every remote build for a specific index succeeded, including builds on segments that were later
+        // merged away (whose per-segment attributes no longer appear in GET <index>/_segments).
+        remoteIndexBuildStatsMap.put(StatNames.PER_INDEX_STATS.getName(), new HashMap<>(RemoteIndexBuildPerIndexStats.asMap()));
         return remoteIndexBuildStatsMap;
     }
 
