@@ -38,6 +38,19 @@ public interface InternalNestedKnnVectorQuery {
     TopDocs knnExactSearch(final LeafReaderContext leafReaderContext, final DocIdSetIterator iterator) throws IOException;
 
     /**
+     * Return a diversified, full-precision exact knn search that selects the best child per parent.
+     * This is used to rescore the oversampled parent candidates before expanding their nested documents.
+     *
+     * @param leafReaderContext segment context
+     * @param iterator filtered doc ids
+     * @return diversified top docs (best child per parent)
+     * @throws IOException
+     */
+    default TopDocs knnRescoreSearch(final LeafReaderContext leafReaderContext, final DocIdSetIterator iterator) throws IOException {
+        throw new UnsupportedOperationException("Rescore search is not supported for this query type");
+    }
+
+    /**
      * Return a field name
      * @return field name
      */

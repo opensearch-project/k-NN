@@ -565,7 +565,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
         testExpandNestedDocsQuery(KNNEngine.LUCENE, OSDiversifyingChildrenFloatKnnVectorQuery.class, VectorDataType.FLOAT, false);
     }
 
-    public void testCreate_whenRescoreWithExpandNested_thenSkipRescoreWrapper() {
+    public void testCreate_whenRescoreWithExpandNested_thenRescoreInsideExpandNestedDocsQuery() {
         QueryShardContext queryShardContext = mock(QueryShardContext.class);
         BitSetProducer parentFilter = mock(BitSetProducer.class);
         when(queryShardContext.getParentFilter()).thenReturn(parentFilter);
@@ -586,9 +586,12 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .build();
         Query query = KNNQueryFactory.create(createQueryRequest);
 
-        // Should return LuceneEngineKnnVectorQuery without RescoreKNNVectorQuery wrapper
+        // Rescoring is performed inside ExpandNestedDocsQuery, so the query is NOT wrapped with
+        // RescoreKNNVectorQuery (which would truncate the expanded child set back to k).
         assertEquals(LuceneEngineKnnVectorQuery.class, query.getClass());
         assertFalse(query instanceof RescoreKNNVectorQuery);
+        Query inner = ((LuceneEngineKnnVectorQuery) query).getLuceneQuery();
+        assertEquals(ExpandNestedDocsQuery.class, inner.getClass());
     }
 
     public void testCreate_whenRescoreWithoutExpandNested_thenWrapWithRescoreQuery() {

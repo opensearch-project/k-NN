@@ -211,6 +211,44 @@ public class ExpandNestedDocsIT extends KNNCompressionRestTestCase {
         }
     }
 
+    /**
+     * Regression test for https://github.com/opensearch-project/k-NN/issues/3125.
+     *
+     * When rescoring is enabled (auto-enabled for the Lucene engine in on_disk / 4x mode) together with
+     * expand_nested_docs, the query must still return the top k parents with ALL of their child documents.
+     * Previously rescoring was silently skipped for this combination and child documents were dropped.
+     */
+    @SneakyThrows
+    public void testExpandNestedDocs_whenRescoreEnabled_thenReturnAllNestedDocs() {
+        // Rescoring for the Lucene engine is auto-enabled only in on_disk (4x) float mode. Other params do not
+        // exercise the rescore path, so skip them here (the base expand-nested behavior is covered elsewhere).
+        if (engine != KNNEngine.LUCENE || mode != Mode.ON_DISK || dataType != VectorDataType.FLOAT) {
+            return;
+        }
+
+        int numberOfNestedFields = 3;
+        int numberOfDocuments = 5;
+        int k = numberOfDocuments - 2; // request fewer parents than exist to prove reduction to top k parents
+        createKnnIndex(engine, mode, dimension, dataType);
+        for (int i = 1; i <= numberOfDocuments; i++) {
+            addSingleRandomVectors(i, numberOfNestedFields);
+        }
+        forceMergeKnnIndex(INDEX_NAME);
+
+        // Run
+        Float[] queryVector = createVector();
+        Response response = queryNestedFieldWithExpandNestedDocs(INDEX_NAME, k, queryVector);
+
+        // Verify: exactly k parents are returned (rescore reduced to top k parents), and each returned parent
+        // has all of its child documents expanded (no truncation of the expanded child set to k).
+        String entity = EntityUtils.toString(response.getEntity());
+        Multimap<String, Integer> docIdToOffsets = parseInnerHits(entity, FIELD_NAME_NESTED);
+        assertEquals(k, docIdToOffsets.keySet().size());
+        for (String key : docIdToOffsets.keySet()) {
+            assertEquals(numberOfNestedFields, docIdToOffsets.get(key).size());
+        }
+    }
+
     @SneakyThrows
     public void testExpandNestedDocs_whenFewChildHasNoVectors_thenReturnCorrectResult() {
         if (engine == KNNEngine.NMSLIB) {

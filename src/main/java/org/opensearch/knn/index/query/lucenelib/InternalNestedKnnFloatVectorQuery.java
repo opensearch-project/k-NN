@@ -66,4 +66,9 @@ public class InternalNestedKnnFloatVectorQuery extends KnnFloatVectorQuery imple
     public TopDocs knnExactSearch(LeafReaderContext context, DocIdSetIterator acceptIterator) throws IOException {
         return super.exactSearch(context, acceptIterator, null);
     }
+
+    @Override
+    public TopDocs knnRescoreSearch(LeafReaderContext context, DocIdSetIterator acceptIterator) throws IOException {
+        return osDiversifyingChildrenFloatKnnVectorQuery.diversifyingExactSearch(context, acceptIterator);
+    }
 }
