@@ -26,6 +26,7 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
+import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 
 public class FaissMethodResolverTests extends KNNTestCase {
 
@@ -52,6 +53,7 @@ public class FaissMethodResolverTests extends KNNTestCase {
         );
         validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x32, SpaceType.INNER_PRODUCT, ENCODER_SQ, true);
 
+        // On V_3_9_0+, x16 without a user-provided encoder auto-resolves to SQ 2-bit (not BQ).
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             null,
             KNNMethodConfigContext.builder()
@@ -63,7 +65,7 @@ public class FaissMethodResolverTests extends KNNTestCase {
             false,
             SpaceType.INNER_PRODUCT
         );
-        validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x16, SpaceType.INNER_PRODUCT, QFrameBitEncoder.NAME, true);
+        validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x16, SpaceType.INNER_PRODUCT, ENCODER_SQ, true);
 
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             null,
@@ -75,7 +77,7 @@ public class FaissMethodResolverTests extends KNNTestCase {
             false,
             SpaceType.INNER_PRODUCT
         );
-        validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x16, SpaceType.INNER_PRODUCT, QFrameBitEncoder.NAME, true);
+        validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x16, SpaceType.INNER_PRODUCT, ENCODER_SQ, true);
 
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             new KNNMethodContext(
@@ -185,13 +187,17 @@ public class FaissMethodResolverTests extends KNNTestCase {
                 .get(METHOD_ENCODER_PARAMETER)).getName()
         );
         if (checkBitsEncoderParam) {
-            assertEquals(
-                expectedCompression.numBitsForFloat32(),
-                ((MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
-                    .getMethodComponentContext()
-                    .getParameters()
-                    .get(METHOD_ENCODER_PARAMETER)).getParameters().get(QFrameBitEncoder.BITCOUNT_PARAM)
-            );
+            MethodComponentContext encoderCtx = (MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER);
+            if (ENCODER_SQ.equals(expectedEncoderName)) {
+                // Faiss SQ writes bits under SQ_BITS; validate it matches the expected compression.
+                assertEquals(expectedCompression.numBitsForFloat32(), encoderCtx.getParameters().get(SQ_BITS));
+            } else {
+                // Faiss BQ (QFrame) writes bits under BITCOUNT_PARAM.
+                assertEquals(expectedCompression.numBitsForFloat32(), encoderCtx.getParameters().get(QFrameBitEncoder.BITCOUNT_PARAM));
+            }
         }
 
     }
