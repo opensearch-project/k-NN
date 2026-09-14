@@ -18,7 +18,6 @@ import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.KNNJsonQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import java.util.List;
-import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -31,7 +30,6 @@ public class FilteredSearchANNSearchIT extends KNNCompressionRestTestCase {
     }
 
     @SneakyThrows
-    @ExpectRemoteBuildValidation
     public void testFilteredSearchWithFaissHnsw_whenFiltersMatchAllDocs_thenReturnCorrectResults() {
         String filterFieldName = "color";
         final int expectResultSize = randomIntBetween(1, 3);
