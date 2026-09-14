@@ -224,10 +224,31 @@ public class LuceneSQEncoderTests extends KNNTestCase {
         encoder.validate(null, null);
     }
 
+    public void testValidate_whenHalfFloatWithBits1_thenOk() {
+        callValidateEncoderParams(Version.CURRENT, VectorDataType.HALF_FLOAT, CompressionLevel.x16, Map.of(LUCENE_SQ_BITS, 1));
+    }
+
+    public void testValidate_whenHalfFloatWithBits7_thenError() {
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> callValidateEncoderParams(Version.CURRENT, VectorDataType.HALF_FLOAT, CompressionLevel.x4, Map.of(LUCENE_SQ_BITS, 7))
+        );
+        assertTrue(e.getMessage().contains("half_float"));
+    }
+
     private void callValidateEncoderParams(Version version, CompressionLevel compressionLevel, Map<String, Object> encoderParams) {
+        callValidateEncoderParams(version, VectorDataType.FLOAT, compressionLevel, encoderParams);
+    }
+
+    private void callValidateEncoderParams(
+        Version version,
+        VectorDataType vectorDataType,
+        CompressionLevel compressionLevel,
+        Map<String, Object> encoderParams
+    ) {
         KNNMethodConfigContext configContext = KNNMethodConfigContext.builder()
             .versionCreated(version)
-            .vectorDataType(VectorDataType.FLOAT)
+            .vectorDataType(vectorDataType)
             .dimension(128)
             .compressionLevel(compressionLevel)
             .build();

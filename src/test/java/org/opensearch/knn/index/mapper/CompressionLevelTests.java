@@ -8,6 +8,7 @@ package org.opensearch.knn.index.mapper;
 import org.opensearch.Version;
 import org.opensearch.core.common.Strings;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.Encoder.QuantizationBits;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -265,7 +266,7 @@ public class CompressionLevelTests extends KNNTestCase {
         assertEquals(CompressionLevel.x32, QuantizationBits.ONE.getCompressionLevel());
         assertEquals(1, QuantizationBits.ONE.getValue());
 
-        assertEquals(CompressionLevel.x32, LuceneSQEncoder.Bits.ONE.getCompressionLevel());
+        assertEquals(CompressionLevel.x32, LuceneSQEncoder.Bits.ONE.getCompressionLevel(VectorDataType.FLOAT));
         assertEquals(1, LuceneSQEncoder.Bits.ONE.getValue());
 
         assertEquals(1, ScalarQuantizationType.ONE_BIT.getId());
@@ -324,9 +325,9 @@ public class CompressionLevelTests extends KNNTestCase {
         QuantizationBits faissBits1 = QuantizationBits.fromValue(1);
         LuceneSQEncoder.Bits luceneBits1 = LuceneSQEncoder.Bits.fromValue(1);
 
-        assertEquals(faissBits1.getCompressionLevel(), luceneBits1.getCompressionLevel());
+        assertEquals(faissBits1.getCompressionLevel(), luceneBits1.getCompressionLevel(VectorDataType.FLOAT));
         assertEquals(CompressionLevel.x32, faissBits1.getCompressionLevel());
-        assertEquals(CompressionLevel.x32, luceneBits1.getCompressionLevel());
+        assertEquals(CompressionLevel.x32, luceneBits1.getCompressionLevel(VectorDataType.FLOAT));
     }
 
     private ResolvedIndexSpec buildSpec(CompressionLevel compression, Mode mode, int dimension, KNNEngine engine) {
