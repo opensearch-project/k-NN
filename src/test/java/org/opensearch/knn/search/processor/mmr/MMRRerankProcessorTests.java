@@ -101,10 +101,7 @@ public class MMRRerankProcessorTests extends KNNTestCase {
         float[][] diverseVectors = new float[][] { { 1.1f, 1.9f }, { 1.9f, 1.1f } };
         for (int i = 0; i < 2; i++) {
             int idx = i + 8;
-            XContentBuilder sourceBuilder = JsonXContent.contentBuilder()
-                .startObject()
-                .array("knn_vector", diverseVectors[i])
-                .endObject();
+            XContentBuilder sourceBuilder = JsonXContent.contentBuilder().startObject().array("knn_vector", diverseVectors[i]).endObject();
             SearchHit hit = new SearchHit(idx, String.valueOf(idx), Map.of(), Map.of());
             hit.sourceRef(BytesReference.bytes(sourceBuilder));
             hit.score(0.8f);

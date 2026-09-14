@@ -26,7 +26,7 @@ import java.util.Locale;
  */
 public class KNN1040HalfFloatFlatVectorsFormat extends FlatVectorsFormat {
 
-    static final String NAME = "KNN1040HalfFloatFlatVectorsFormat";
+    static final String FORMAT_NAME = "KNN1040HalfFloatFlatVectorsFormat";
     static final String META_CODEC_NAME = "KNN1040HalfFloatFlatVectorsFormatMeta";
     static final String VECTOR_DATA_CODEC_NAME = "KNN1040HalfFloatFlatVectorsFormatData";
     static final String META_EXTENSION = "vemf";
@@ -41,7 +41,7 @@ public class KNN1040HalfFloatFlatVectorsFormat extends FlatVectorsFormat {
     );
 
     public KNN1040HalfFloatFlatVectorsFormat() {
-        super(NAME);
+        super(FORMAT_NAME);
     }
 
     @Override
