@@ -395,6 +395,22 @@ public class KNNMethodContextTests extends KNNTestCase {
         validateValidateVectorDataType(KNNEngine.LUCENE, KNNConstants.METHOD_HNSW, VectorDataType.HALF_FLOAT, SpaceType.L2, null);
     }
 
+    public void testValidateVectorDataType_whenHalfFloatFaissHnsw_thenValid() {
+        validateValidateVectorDataType(KNNEngine.FAISS, KNNConstants.METHOD_HNSW, VectorDataType.HALF_FLOAT, SpaceType.L2, null);
+    }
+
+    // IVF is the one Faiss method that still rejects half_float - FaissIVFMethod's supported data types
+    // are FLOAT, BINARY and BYTE.
+    public void testValidateVectorDataType_whenHalfFloatFaissIvf_thenException() {
+        validateValidateVectorDataType(
+            KNNEngine.FAISS,
+            KNNConstants.METHOD_IVF,
+            VectorDataType.HALF_FLOAT,
+            SpaceType.L2,
+            "UnsupportedMethod"
+        );
+    }
+
     public void testWriteTo_withNullParameters() throws IOException {
         MethodComponentContext methodComponent = new MethodComponentContext("test-method", null);
 

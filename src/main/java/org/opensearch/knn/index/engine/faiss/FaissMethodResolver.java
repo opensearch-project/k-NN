@@ -16,9 +16,12 @@ import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -28,6 +31,7 @@ import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
+import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
@@ -44,6 +48,8 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         CompressionLevel.x32
     );
 
+    private static final Set<CompressionLevel> SUPPORTED_COMPRESSION_LEVELS_HALF_FLOAT = Set.of(CompressionLevel.x1, CompressionLevel.x16);
+
     @Override
     public ResolvedMethodContext resolveMethod(
         KNNMethodContext knnMethodContext,
@@ -52,6 +58,7 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         final SpaceType spaceType
     ) {
         // Initial validation to ensure that there are no contradictions in provided parameters
+        validateEncoderNotSpecifiedForHalfFloat(knnMethodContext, knnMethodConfigContext);
         validateConfig(knnMethodConfigContext);
 
         KNNMethodContext resolvedKNNMethodContext = initResolvedKNNMethodContext(
@@ -89,6 +96,23 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             .build();
     }
 
+    @Override
+    protected boolean shouldEncoderBeResolved(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
+        if (isEncoderSpecified(knnMethodContext)) {
+            return false;
+        }
+
+        if (knnMethodConfigContext.getVectorDataType() == VectorDataType.HALF_FLOAT) {
+            if (knnMethodConfigContext.getCompressionLevel() == CompressionLevel.x16) {
+                return true;
+            }
+            return Mode.ON_DISK == knnMethodConfigContext.getMode()
+                && CompressionLevel.isConfigured(knnMethodConfigContext.getCompressionLevel()) == false;
+        }
+
+        return super.shouldEncoderBeResolved(knnMethodContext, knnMethodConfigContext);
+    }
+
     private void resolveEncoder(
         KNNMethodContext resolvedKNNMethodContext,
         KNNMethodConfigContext knnMethodConfigContext,
@@ -109,6 +133,13 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         // would make it easier to add new compression level resolutions.
         MethodComponentContext encoderComponentContext = new MethodComponentContext(ENCODER_FLAT, new HashMap<>());
         Encoder encoder = encoderMap.get(ENCODER_FLAT);
+        if (knnMethodConfigContext.getVectorDataType() == VectorDataType.HALF_FLOAT) {
+            encoderComponentContext = new MethodComponentContext(ENCODER_SQ, new HashMap<>());
+            encoder = encoderMap.get(ENCODER_SQ);
+            encoderComponentContext.getParameters().put(SQ_BITS, Encoder.QuantizationBits.ONE.getValue());
+            applyEncoder(resolvedKNNMethodContext, knnMethodConfigContext, encoderComponentContext, encoder);
+            return;
+        }
         if (CompressionLevel.x2 == resolvedCompressionLevel) {
             encoderComponentContext = new MethodComponentContext(ENCODER_SQ, new HashMap<>());
             encoder = encoderMap.get(ENCODER_SQ);
@@ -144,6 +175,15 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             }
         }
 
+        applyEncoder(resolvedKNNMethodContext, knnMethodConfigContext, encoderComponentContext, encoder);
+    }
+
+    private static void applyEncoder(
+        KNNMethodContext resolvedKNNMethodContext,
+        KNNMethodConfigContext knnMethodConfigContext,
+        MethodComponentContext encoderComponentContext,
+        Encoder encoder
+    ) {
         Map<String, Object> resolvedParams = MethodComponent.getParameterMapWithDefaultsAdded(
             encoderComponentContext,
             encoder.getMethodComponent(),
@@ -162,12 +202,35 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         resolvedKNNMethodContext.getMethodComponentContext().getParameters().put(METHOD_ENCODER_PARAMETER, encoderComponentContext);
     }
 
+    /**
+     * half_float exposes exactly one knob - {@code compression_level}, x1 or x16 - so naming an encoder
+     * is rejected rather than silently accepted. Checked against the user's own method context, before
+     * resolution injects {@code sq bits=1} for x16: that injected encoder is internal and must still
+     * work.
+     */
+    private void validateEncoderNotSpecifiedForHalfFloat(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
+        if (knnMethodConfigContext.getVectorDataType() != VectorDataType.HALF_FLOAT || isEncoderSpecified(knnMethodContext) == false) {
+            return;
+        }
+        ValidationException validationException = new ValidationException();
+        validationException.addValidationError(
+            String.format(
+                Locale.ROOT,
+                "\"%s\" parameter is not supported for \"%s\" data type; use \"%s\" instead.",
+                METHOD_ENCODER_PARAMETER,
+                VectorDataType.HALF_FLOAT.getValue(),
+                COMPRESSION_LEVEL_PARAMETER
+            )
+        );
+        throw validationException;
+    }
+
     // Method validates for explicit contradictions in the config
     private void validateConfig(KNNMethodConfigContext knnMethodConfigContext) {
         CompressionLevel compressionLevel = knnMethodConfigContext.getCompressionLevel();
         ValidationException validationException = validateCompressionSupported(
             compressionLevel,
-            SUPPORTED_COMPRESSION_LEVELS,
+            supportedCompressionLevels(knnMethodConfigContext),
             KNNEngine.FAISS,
             knnMethodConfigContext.getVectorDataType(),
             null
@@ -175,6 +238,12 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         if (validationException != null) {
             throw validationException;
         }
+    }
+
+    private static Set<CompressionLevel> supportedCompressionLevels(KNNMethodConfigContext knnMethodConfigContext) {
+        return knnMethodConfigContext.getVectorDataType() == VectorDataType.HALF_FLOAT
+            ? SUPPORTED_COMPRESSION_LEVELS_HALF_FLOAT
+            : SUPPORTED_COMPRESSION_LEVELS;
     }
 
     protected void validateEncoderConfig(

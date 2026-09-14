@@ -272,11 +272,17 @@ public final class ResolvedIndexSpec {
      *   <li>FLOAT with SQ encoder at intermediate bit widths (2, 4, 7 bits)</li>
      * </ul>
      *
-     * <p>Everything else (e.g. PQ encoder, non-FLAT binary/byte configs) returns false. New encoder
-     * types must be validated against the remote build service before being added here.</p>
+     * <p>Everything else returns false — notably every {@code half_float} configuration, whose fp16
+     * flat storage the remote build service would misread as fp32, plus e.g. the PQ encoder and
+     * non-FLAT binary/byte configs. New encoder types and data types must be validated against the
+     * remote build service before being added here.</p>
      */
     public boolean supportsRemoteIndexBuild() {
         if (engine != KNNEngine.FAISS || !METHOD_HNSW.equals(methodName)) {
+            return false;
+        }
+
+        if (vectorDataType == VectorDataType.HALF_FLOAT) {
             return false;
         }
 
