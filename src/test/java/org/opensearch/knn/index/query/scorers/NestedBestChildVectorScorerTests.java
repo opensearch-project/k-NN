@@ -16,6 +16,10 @@ import org.apache.lucene.util.FixedBitSet;
 import java.io.IOException;
 import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+
 /**
  * Tests for {@link NestedBestChildVectorScorer}.
  * <p>
@@ -126,15 +130,11 @@ public class NestedBestChildVectorScorerTests extends TestCase {
 
     @SneakyThrows
     public void testWithFilter_cost() {
-        FixedBitSet filter = filterBitSet();
         FixedBitSet vectors = vectorBitSet();
-        // Conjunction cost is the minimum of the two iterator costs
-        long expectedCost = Math.min(
-            new BitSetIterator(filter, filter.length()).cost(),
-            new BitSetIterator(vectors, vectors.length()).cost()
-        );
+        // Cost now comes from the underlying vector scorer's iterator, not the conjunction
+        long expectedCost = new BitSetIterator(vectors, vectors.length()).cost();
 
-        NestedBestChildVectorScorer scorer = createScorer(filter);
+        NestedBestChildVectorScorer scorer = createScorer(filterBitSet());
         assertEquals(expectedCost, scorer.iterator().cost());
     }
 
@@ -255,6 +255,43 @@ public class NestedBestChildVectorScorerTests extends TestCase {
     }
 
     // ──────────────────────────────────────────────
+    // Section 3: Bulk scoring verification
+    // ──────────────────────────────────────────────
+
+    @SneakyThrows
+    public void testBulkScoringPathIsUsed() {
+        FixedBitSet vectorBits = vectorBitSet();
+        DocIdSetIterator vectorIter = new BitSetIterator(vectorBits, vectorBits.length());
+
+        VectorScorer baseScorer = spy(new VectorScorer() {
+            @Override
+            public float score() throws IOException {
+                return SCORES.getOrDefault(vectorIter.docID(), 0f);
+            }
+
+            @Override
+            public DocIdSetIterator iterator() {
+                return vectorIter;
+            }
+        });
+
+        NestedBestChildVectorScorer scorer = new NestedBestChildVectorScorer(null, PARENT_BIT_SET, baseScorer);
+
+        // Verify bulk() was called during construction
+        verify(baseScorer).bulk(any());
+
+        // Exhaust the iterator and verify results are still correct
+        DocIdSetIterator iterator = scorer.iterator();
+        assertEquals(2, iterator.nextDoc());
+        assertEquals(0.95f, scorer.score(), 0.001f);
+        assertEquals(7, iterator.nextDoc());
+        assertEquals(0.85f, scorer.score(), 0.001f);
+        assertEquals(10, iterator.nextDoc());
+        assertEquals(0.5f, scorer.score(), 0.001f);
+        assertEquals(DocIdSetIterator.NO_MORE_DOCS, iterator.nextDoc());
+    }
+
+    // ──────────────────────────────────────────────
     // Helpers
     // ──────────────────────────────────────────────
 
@@ -278,7 +315,7 @@ public class NestedBestChildVectorScorerTests extends TestCase {
      *
      * @param filterBits if non-null, used as the accepted children filter
      */
-    private static NestedBestChildVectorScorer createScorer(FixedBitSet filterBits) {
+    private static NestedBestChildVectorScorer createScorer(FixedBitSet filterBits) throws IOException {
         FixedBitSet vectorBits = vectorBitSet();
         DocIdSetIterator vectorIter = new BitSetIterator(vectorBits, vectorBits.length());
 
