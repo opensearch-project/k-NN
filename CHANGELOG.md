@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Maintenance
 * Fixed multiple forbidden api warnings from the code []()
+* Docs: branching/CI behaviour test note (first change)
 
 ### Bug Fixes
 * Fix native thread leak in Lucene HNSW merge executor when index_thread_qty > 1 [#3102](https://github.com/opensearch-project/k-NN/issues/3102)
