@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_BF16;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
@@ -551,6 +552,39 @@ public class VectorDataTypeIT extends KNNRestTestCase {
             .field(NAME, ENCODER_SQ)
             .startObject(PARAMETERS)
             .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        String mapping = builder.toString();
+        expectThrows(ResponseException.class, () -> createKnnIndex(INDEX_NAME, mapping));
+    }
+
+    // Create an index with byte vector data_type using faiss engine with a bf16 encoder which should throw an exception
+    @SneakyThrows
+    public void testByteVectorDataTypeWithFaissEngineUsingBF16EncoderThrowsException() {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES_FIELD)
+            .startObject(FIELD_NAME)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION, 2)
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.BYTE.getValue())
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, METHOD_HNSW)
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
+            .field(KNNConstants.METHOD_PARAMETER_M, M)
+            .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, EF_CONSTRUCTION)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_BF16)
             .endObject()
             .endObject()
             .endObject()
