@@ -119,11 +119,19 @@ public class FaissSQEncoder implements Encoder {
     /**
      * Compression {@code bits} achieves for {@code vectorDataType}. {@link QuantizationBits} maps a bit
      * width to one compression level measured against FLOAT's 32 bits, so bits=1 is x32 there. Taking
-     * HALF_FLOAT's 16 bits down to 1 saves 16x, not 32x.
+     * HALF_FLOAT's 16 bits down to 1 saves 16x, not 32x. HALF_FLOAT only supports bits=1 (see
+     * {@link FaissHNSWMethod#validate}) — bits=2/4/16 for HALF_FLOAT would otherwise silently fall through
+     * to {@code bits.getCompressionLevel()}, which is computed against FLOAT's 32-bit baseline and would
+     * be wrong for HALF_FLOAT's 16-bit baseline, so reject defensively rather than return a wrong value.
      */
     private static CompressionLevel compressionLevelFor(QuantizationBits bits, VectorDataType vectorDataType) {
-        if (bits == QuantizationBits.ONE && vectorDataType == VectorDataType.HALF_FLOAT) {
-            return CompressionLevel.x16;
+        if (vectorDataType == VectorDataType.HALF_FLOAT) {
+            if (bits == QuantizationBits.ONE) {
+                return CompressionLevel.x16;
+            }
+            throw new IllegalArgumentException(
+                String.format(Locale.ROOT, "half_float only supports bits=1 for SQ quantization, got bits=%d", bits.getValue())
+            );
         }
         return bits.getCompressionLevel();
     }
@@ -178,6 +186,22 @@ public class FaissSQEncoder implements Encoder {
                         + "half_float does not accept an encoder at all; use \"%s\": \"16x\" for SQ 1-bit, "
                         + "or \"1x\" for unquantized fp16 storage, instead.",
                     SQ_BITS,
+                    SQ_BITS,
+                    ENCODER_SQ,
+                    COMPRESSION_LEVEL_PARAMETER
+                )
+            );
+            throw validationException;
+        }
+
+        if (configContext.getVectorDataType() == VectorDataType.HALF_FLOAT
+            && bitsObj instanceof Integer
+            && (Integer) bitsObj != QuantizationBits.ONE.getValue()) {
+            validationException.addValidationError(
+                String.format(
+                    Locale.ROOT,
+                    "half_float only supports [%s]=1 for encoder [%s]; use \"%s\": \"16x\" for SQ 1-bit, "
+                        + "or \"1x\" for unquantized fp16 storage, instead.",
                     SQ_BITS,
                     ENCODER_SQ,
                     COMPRESSION_LEVEL_PARAMETER

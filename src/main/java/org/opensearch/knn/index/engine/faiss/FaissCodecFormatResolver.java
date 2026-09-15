@@ -61,14 +61,14 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
         VectorDataType vectorDataType
     ) {
         final int approximateThreshold = KNNSettings.getApproximateThresholdValue(mapperService);
-        if (resolvedSpec.isFaissSQMultiBit()) {
-            return vectorDataType == VectorDataType.HALF_FLOAT
+        if (vectorDataType == VectorDataType.HALF_FLOAT) {
+            return resolvedSpec.isFaissSQMultiBit()
                 ? new Faiss1040HalfFloatScalarQuantizedKnnVectorsFormat(approximateThreshold, nativeIndexBuildStrategyFactory)
-                : new Faiss1040ScalarQuantizedKnnVectorsFormat(approximateThreshold, nativeIndexBuildStrategyFactory);
+                : new NativeEngines990HalfFloatKnnVectorsFormat(approximateThreshold, nativeIndexBuildStrategyFactory);
         }
 
-        return vectorDataType == VectorDataType.HALF_FLOAT
-            ? new NativeEngines990HalfFloatKnnVectorsFormat(approximateThreshold, nativeIndexBuildStrategyFactory)
+        return resolvedSpec.isFaissSQMultiBit()
+            ? new Faiss1040ScalarQuantizedKnnVectorsFormat(approximateThreshold, nativeIndexBuildStrategyFactory)
             : resolve();
     }
 

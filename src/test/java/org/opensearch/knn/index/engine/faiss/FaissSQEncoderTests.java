@@ -407,6 +407,41 @@ public class FaissSQEncoderTests extends KNNTestCase {
         assertTrue(e.getMessage().contains("half_float"));
     }
 
+    public void testValidateDirectly_whenBits2WithHalfFloat_thenThrows() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> encoder.validate(
+                buildMethodContext(Map.of(SQ_BITS, 2)),
+                buildConfigContext(Version.CURRENT, CompressionLevel.NOT_CONFIGURED, VectorDataType.HALF_FLOAT)
+            )
+        );
+        assertTrue(e.getMessage().contains("half_float"));
+    }
+
+    public void testValidateDirectly_whenBits4WithHalfFloat_thenThrows() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> encoder.validate(
+                buildMethodContext(Map.of(SQ_BITS, 4)),
+                buildConfigContext(Version.CURRENT, CompressionLevel.NOT_CONFIGURED, VectorDataType.HALF_FLOAT)
+            )
+        );
+        assertTrue(e.getMessage().contains("half_float"));
+    }
+
+    public void testCalculateCompressionLevel_whenBits2WithHalfFloat_thenThrows() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> encoder.calculateCompressionLevel(
+                new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 2)),
+                buildConfigContext(Version.CURRENT, CompressionLevel.NOT_CONFIGURED, VectorDataType.HALF_FLOAT)
+            )
+        );
+    }
+
     private KNNMethodContext buildMethodContext(Map<String, Object> encoderParams) {
         MethodComponentContext encoderCtx = new MethodComponentContext(ENCODER_SQ, new HashMap<>(encoderParams));
         return new KNNMethodContext(
