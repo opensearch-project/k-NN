@@ -67,17 +67,47 @@ public class FaissMethodResolverTests extends KNNTestCase {
         );
         validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x16, SpaceType.INNER_PRODUCT, ENCODER_SQ, true);
 
+        // Pre-3.9 index (BWC path): x16 without a user-provided encoder still auto-resolves to BQ.
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             null,
             KNNMethodConfigContext.builder()
                 .vectorDataType(VectorDataType.FLOAT)
+                .mode(Mode.ON_DISK)
                 .compressionLevel(CompressionLevel.x16)
+                .versionCreated(Version.V_3_8_0)
+                .build(),
+            false,
+            SpaceType.INNER_PRODUCT
+        );
+        validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x16, SpaceType.INNER_PRODUCT, QFrameBitEncoder.NAME, true);
+
+        // On V_3_9_0+, x8 without a user-provided encoder auto-resolves to SQ 4-bit (not BQ).
+        resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            null,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.FLOAT)
+                .mode(Mode.ON_DISK)
+                .compressionLevel(CompressionLevel.x8)
                 .versionCreated(Version.CURRENT)
                 .build(),
             false,
             SpaceType.INNER_PRODUCT
         );
-        validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x16, SpaceType.INNER_PRODUCT, ENCODER_SQ, true);
+        validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x8, SpaceType.INNER_PRODUCT, ENCODER_SQ, true);
+
+        // Pre-3.9 index (BWC path): x8 without a user-provided encoder still auto-resolves to BQ.
+        resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            null,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.FLOAT)
+                .mode(Mode.ON_DISK)
+                .compressionLevel(CompressionLevel.x8)
+                .versionCreated(Version.V_3_8_0)
+                .build(),
+            false,
+            SpaceType.INNER_PRODUCT
+        );
+        validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x8, SpaceType.INNER_PRODUCT, QFrameBitEncoder.NAME, true);
 
         resolvedMethodContext = TEST_RESOLVER.resolveMethod(
             new KNNMethodContext(
