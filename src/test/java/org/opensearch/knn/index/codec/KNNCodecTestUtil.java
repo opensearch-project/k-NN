@@ -23,7 +23,7 @@ import java.util.Set;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.jni.JNIService;
 
@@ -204,7 +204,7 @@ public class KNNCodecTestUtil {
         Map<String, ?> methodParameters,
         SegmentWriteState state,
         String fileName,
-        KNNEngine knnEngine,
+        VectorSearchEngine knnEngine,
         SpaceType spaceType,
         int dimension
     ) {
@@ -228,7 +228,7 @@ public class KNNCodecTestUtil {
     public static void assertBinaryIndexLoadableByEngine(
         SegmentWriteState state,
         String fileName,
-        KNNEngine knnEngine,
+        VectorSearchEngine knnEngine,
         SpaceType spaceType,
         int dimension,
         VectorDataType vectorDataType

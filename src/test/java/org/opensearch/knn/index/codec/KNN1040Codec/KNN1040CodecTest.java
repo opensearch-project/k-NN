@@ -18,6 +18,7 @@ import org.opensearch.knn.index.codec.CustomCodec;
 import org.opensearch.knn.index.codec.CustomCodecNoStoredFields;
 import org.opensearch.knn.index.codec.KNNCodecTestCase;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
@@ -118,7 +119,7 @@ public class KNN1040CodecTest extends KNNCodecTestCase {
         MethodComponentContext encoderContext = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 1));
         MethodComponentContext hnswContext = new MethodComponentContext("hnsw", Map.of(METHOD_ENCODER_PARAMETER, encoderContext));
         KNNMethodContext methodContext = mock(KNNMethodContext.class);
-        when(methodContext.getKnnEngine()).thenReturn(org.opensearch.knn.index.engine.KNNEngine.FAISS);
+        when(methodContext.getKnnEngine()).thenReturn(KNNEngine.FAISS);
         when(methodContext.getMethodComponentContext()).thenReturn(hnswContext);
 
         assertThat(resolveFormat(methodContext), instanceOf(Faiss1040ScalarQuantizedKnnVectorsFormat.class));

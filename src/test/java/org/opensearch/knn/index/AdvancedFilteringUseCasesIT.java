@@ -23,6 +23,7 @@ import org.opensearch.knn.CompressionTestConfig;
 import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -77,8 +78,8 @@ public class AdvancedFilteringUseCasesIT extends KNNCompressionRestTestCase {
     private static final Float[] QUERY_VECTOR = { 5f };
 
     private static final List<String> enginesToTest = Arrays.stream(KNNEngine.values())
-        .filter(KNNEngine::supportsFilters)
-        .map(KNNEngine::getName)
+        .filter(VectorSearchEngine::supportsFilters)
+        .map(VectorSearchEngine::getName)
         .collect(Collectors.toList());
 
     /**

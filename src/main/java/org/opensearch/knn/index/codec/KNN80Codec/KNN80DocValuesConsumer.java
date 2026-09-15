@@ -19,7 +19,7 @@ import org.apache.lucene.index.SegmentWriteState;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
@@ -61,7 +61,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer {
     }
 
     private boolean isKNNBinaryFieldRequired(FieldInfo field) {
-        final KNNEngine knnEngine = extractKNNEngine(field);
+        final VectorSearchEngine knnEngine = extractKNNEngine(field);
         log.debug(String.format(Locale.ROOT, "Read engine [%s] for field [%s]", knnEngine.getName(), field.getName()));
         return field.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD) && knnEngine.createsCustomSegmentFiles();
     }

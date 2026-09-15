@@ -58,6 +58,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorQueryType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -77,7 +78,7 @@ import java.util.stream.Collectors;
 import static java.util.Collections.emptyMap;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.anyString;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -1398,11 +1399,11 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     }
 
     public void testRadialSearch_whenUnsupportedEngine_thenThrowException() {
-        List<KNNEngine> unsupportedEngines = Arrays.stream(KNNEngine.values())
+        List<VectorSearchEngine> unsupportedEngines = Arrays.stream(KNNEngine.values())
             .filter(knnEngine -> !knnEngine.supportsRadialSearch())
             .filter(knnEngine -> knnEngine != KNNEngine.UNDEFINED)
             .collect(Collectors.toList());
-        for (KNNEngine knnEngine : unsupportedEngines) {
+        for (VectorSearchEngine knnEngine : unsupportedEngines) {
             KNNMethodContext knnMethodContext = new KNNMethodContext(
                 knnEngine,
                 SpaceType.L2,
@@ -1422,6 +1423,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             when(mockQueryShardContext.index()).thenReturn(dummyIndex);
             when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
             when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+
             ResolvedIndexSpec spec = ResolvedIndexSpec.builder()
                 .engine(knnEngine)
                 .methodName("hnsw")

@@ -17,6 +17,7 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
 import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
 import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 
@@ -41,7 +42,7 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
  */
 public class SvsMethodResolver extends AbstractMethodResolver {
 
-    private static KNNEngine svsEngine() {
+    private static VectorSearchEngine svsEngine() {
         return KNNEngine.getEngine(SVSConstants.SVS_ENGINE_NAME);
     }
 

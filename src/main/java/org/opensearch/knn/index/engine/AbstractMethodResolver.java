@@ -63,7 +63,7 @@ public abstract class AbstractMethodResolver implements MethodResolver {
 
     protected KNNMethodContext initResolvedKNNMethodContext(
         KNNMethodContext originalMethodContext,
-        KNNEngine knnEngine,
+        VectorSearchEngine knnEngine,
         SpaceType spaceType,
         String methodName
     ) {
@@ -133,7 +133,7 @@ public abstract class AbstractMethodResolver implements MethodResolver {
 
     protected ValidationException validateNotTrainingContext(
         boolean shouldRequireTraining,
-        KNNEngine knnEngine,
+        VectorSearchEngine knnEngine,
         ValidationException validationException
     ) {
         if (shouldRequireTraining) {
@@ -149,7 +149,7 @@ public abstract class AbstractMethodResolver implements MethodResolver {
     protected ValidationException validateCompressionSupported(
         CompressionLevel compressionLevel,
         Set<CompressionLevel> supportedCompressionLevels,
-        KNNEngine knnEngine,
+        VectorSearchEngine knnEngine,
         ValidationException validationException
     ) {
         if (CompressionLevel.isConfigured(compressionLevel) && supportedCompressionLevels.contains(compressionLevel) == false) {

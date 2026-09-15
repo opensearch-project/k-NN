@@ -12,6 +12,7 @@ import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.Encoder.QuantizationBits;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.ResolvedIndexSpec;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.engine.lucene.LuceneSQEncoder;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
@@ -329,7 +330,7 @@ public class CompressionLevelTests extends KNNTestCase {
         assertEquals(CompressionLevel.x32, luceneBits1.getCompressionLevel());
     }
 
-    private ResolvedIndexSpec buildSpec(CompressionLevel compression, Mode mode, int dimension, KNNEngine engine) {
+    private ResolvedIndexSpec buildSpec(CompressionLevel compression, Mode mode, int dimension, VectorSearchEngine engine) {
         return ResolvedIndexSpec.builder()
             .engine(engine != null ? engine : KNNEngine.FAISS)
             .methodName(METHOD_HNSW)

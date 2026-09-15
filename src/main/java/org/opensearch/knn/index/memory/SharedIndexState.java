@@ -7,7 +7,7 @@ package org.opensearch.knn.index.memory;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 /**
  * Class stores information about the shared memory allocations between loaded native indices.
@@ -17,5 +17,5 @@ import org.opensearch.knn.index.engine.KNNEngine;
 public class SharedIndexState {
     private final long sharedIndexStateAddress;
     private final String modelId;
-    private final KNNEngine knnEngine;
+    private final VectorSearchEngine knnEngine;
 }

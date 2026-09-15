@@ -18,6 +18,7 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -27,9 +28,9 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
 @Log4j2
 public class FilteredSearchBinaryIT extends KNNRestTestCase {
-    private final KNNEngine engine;
+    private final VectorSearchEngine engine;
 
-    public FilteredSearchBinaryIT(KNNEngine engine) {
+    public FilteredSearchBinaryIT(VectorSearchEngine engine) {
         this.engine = engine;
     }
 
@@ -88,8 +89,12 @@ public class FilteredSearchBinaryIT extends KNNRestTestCase {
         assertEquals(2, parseTotalSearchHits(entity));
     }
 
-    private void createKnnBinaryIndex(final String indexName, final String fieldName, final int dimension, final KNNEngine knnEngine)
-        throws Exception {
+    private void createKnnBinaryIndex(
+        final String indexName,
+        final String fieldName,
+        final int dimension,
+        final VectorSearchEngine knnEngine
+    ) throws Exception {
         KNNJsonIndexMappingsBuilder.Method method = KNNJsonIndexMappingsBuilder.Method.builder()
             .methodName(METHOD_HNSW)
             .engine(knnEngine.getName())

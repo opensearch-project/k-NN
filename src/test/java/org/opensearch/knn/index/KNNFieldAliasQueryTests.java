@@ -14,6 +14,7 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.test.hamcrest.OpenSearchAssertions;
 
@@ -46,7 +47,7 @@ public class KNNFieldAliasQueryTests extends KNNSingleNodeTestCase {
     /**
      * Creates a mapping with a concrete knn_vector field plus an alias pointing at it.
      */
-    private void createKnnMappingWithAlias(final String indexName, final KNNEngine engine) throws IOException {
+    private void createKnnMappingWithAlias(final String indexName, final VectorSearchEngine engine) throws IOException {
         final PutMappingRequest request = new PutMappingRequest(indexName);
         final XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
@@ -70,7 +71,7 @@ public class KNNFieldAliasQueryTests extends KNNSingleNodeTestCase {
         OpenSearchAssertions.assertAcked(client().admin().indices().putMapping(request).actionGet());
     }
 
-    private void setUpIndex(final KNNEngine engine) throws IOException, InterruptedException, ExecutionException {
+    private void setUpIndex(final VectorSearchEngine engine) throws IOException, InterruptedException, ExecutionException {
         createKNNIndex(INDEX_NAME);
         createKnnMappingWithAlias(INDEX_NAME, engine);
         addKnnDoc(INDEX_NAME, "1", CONCRETE_FIELD, VECTOR_1);

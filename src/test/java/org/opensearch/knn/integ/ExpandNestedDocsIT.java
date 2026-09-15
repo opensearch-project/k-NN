@@ -25,6 +25,7 @@ import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.mapper.Mode;
 
 import java.io.IOException;
@@ -68,12 +69,12 @@ public class ExpandNestedDocsIT extends KNNCompressionRestTestCase {
     private static final String PROPERTIES_FIELD = "properties";
     private static final String INNER_HITS = "inner_hits";
 
-    private final KNNEngine engine;
+    private final VectorSearchEngine engine;
     private final VectorDataType dataType;
     private final Mode mode;
     private final Integer dimension;
 
-    public ExpandNestedDocsIT(String description, KNNEngine engine, VectorDataType dataType, Mode mode, Integer dimension) {
+    public ExpandNestedDocsIT(String description, VectorSearchEngine engine, VectorDataType dataType, Mode mode, Integer dimension) {
         super(deriveCompressionConfig(dataType, mode));
         this.engine = engine;
         this.dataType = dataType;
@@ -414,13 +415,13 @@ public class ExpandNestedDocsIT extends KNNCompressionRestTestCase {
         refreshIndex(INDEX_NAME);
     }
 
-    private void createKnnIndex(final KNNEngine engine, final Mode mode, final int dimension, final VectorDataType vectorDataType)
+    private void createKnnIndex(final VectorSearchEngine engine, final Mode mode, final int dimension, final VectorDataType vectorDataType)
         throws Exception {
         createKnnIndex(engine, mode, dimension, vectorDataType, 1);
     }
 
     private void createKnnIndex(
-        final KNNEngine engine,
+        final VectorSearchEngine engine,
         final Mode mode,
         final int dimension,
         final VectorDataType vectorDataType,

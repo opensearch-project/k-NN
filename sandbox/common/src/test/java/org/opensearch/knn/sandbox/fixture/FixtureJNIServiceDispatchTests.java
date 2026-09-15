@@ -11,6 +11,7 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.VectorSearchEngine;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.store.IndexInputWithBuffer;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
@@ -31,7 +32,7 @@ import static org.opensearch.knn.sandbox.fixture.FixtureConstants.METHOD_PARAMET
  */
 public class FixtureJNIServiceDispatchTests extends OpenSearchTestCase {
 
-    private final KNNEngine fixtureEngine = KNNEngine.getEngine(FIXTURE_ENGINE_NAME);
+    private final VectorSearchEngine fixtureEngine = KNNEngine.getEngine(FIXTURE_ENGINE_NAME);
     private final FixtureNativeEngineService fixtureService = FixtureNativeEngineService.INSTANCE;
 
     @Override
@@ -87,7 +88,7 @@ public class FixtureJNIServiceDispatchTests extends OpenSearchTestCase {
     public void testDispatchIsIsolatedPerEngine() {
         // A call to one registered engine must reach that engine's service only.
         SecondaryFixtureEngineProvider.OP_LOG.clear();
-        final KNNEngine secondary = KNNEngine.getEngine(SecondaryFixtureEngineProvider.SECONDARY_FIXTURE_ENGINE_NAME);
+        final VectorSearchEngine secondary = KNNEngine.getEngine(SecondaryFixtureEngineProvider.SECONDARY_FIXTURE_ENGINE_NAME);
         assertEquals(4242L, JNIService.initIndex(10, 4, Map.of(), secondary));
         assertEquals(List.of("initIndex"), SecondaryFixtureEngineProvider.OP_LOG);
         assertTrue(fixtureService.opLog().isEmpty());
@@ -127,7 +128,7 @@ public class FixtureJNIServiceDispatchTests extends OpenSearchTestCase {
     public void testRadialDispatchReachesAnEngineThatClaimsIt() {
         // flaky-library claims supportsRadialSearch, so the call passes the JNIService guard and reaches
         // its service, whose default declines it.
-        final KNNEngine flaky = KNNEngine.getEngine("flaky-library");
+        final VectorSearchEngine flaky = KNNEngine.getEngine("flaky-library");
         expectThrows(
             UnsupportedOperationException.class,
             () -> JNIService.radiusQueryIndex(42L, new float[] { 1f }, 1.0f, Map.of(), flaky, 10, null, 0, null)
