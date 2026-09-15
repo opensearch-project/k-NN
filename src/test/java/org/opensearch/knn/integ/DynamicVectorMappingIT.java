@@ -12,6 +12,8 @@ import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.index.KNNSettings;
+import org.junit.Before;
 
 import java.io.IOException;
 import java.util.List;
@@ -28,6 +30,13 @@ import static org.hamcrest.Matchers.containsString;
  * including a dimension sweep across the ≥128-and-multiple-of-8 gate.
  */
 public class DynamicVectorMappingIT extends KNNRestTestCase {
+
+    @Before
+    public void enableDynamicMappingFeature() throws Exception {
+        // Cluster setting is off by default (see KNNSettings.KNN_DYNAMIC_MAPPING_ENABLED_SETTING);
+        // this test suite exercises the feature, so opt in here.
+        updateClusterSettings(KNNSettings.KNN_DYNAMIC_MAPPING_ENABLED, true);
+    }
 
     /** A JSON array of {@code n} floats. */
     private static String numericArray(int n) {
@@ -199,6 +208,45 @@ public class DynamicVectorMappingIT extends KNNRestTestCase {
         assertEquals("auto-mapped knn_vector field must be searchable", 1, hits);
 
         deleteKNNIndex("dv_e2e_infer");
+    }
+
+    // ---- Cluster-setting off: feature must be inert on both paths, and re-enabling takes effect at once ----
+
+    /**
+     * With the cluster setting disabled, the auto-inference path must not claim a numeric array as
+     * knn_vector — the field falls through to core's default type (float). Flipping the setting back on
+     * without restart must resume inference on the next ingest into a fresh field.
+     */
+    public void testAutoInferenceRespectsDisabledFlag() throws Exception {
+        updateClusterSettings(KNNSettings.KNN_DYNAMIC_MAPPING_ENABLED, false);
+        createIndex("dv_off", getKNNDefaultIndexSettings());
+        indexDoc("dv_off", "emb_off", numericArray(128));
+        String offType = fieldType("dv_off", "emb_off");
+        assertNotEquals("with feature disabled, 128-dim array must not be inferred as knn_vector", "knn_vector", offType);
+
+        // Flip on and ingest into a NEW field on the same index — the inferencer polls the setting per call,
+        // so the new field must be claimed as knn_vector without a restart.
+        updateClusterSettings(KNNSettings.KNN_DYNAMIC_MAPPING_ENABLED, true);
+        indexDoc("dv_off", "emb_on", numericArray(128));
+        assertEquals("after flag flip to on, new field must be inferred as knn_vector", "knn_vector", fieldType("dv_off", "emb_on"));
+
+        deleteKNNIndex("dv_off");
+    }
+
+    /**
+     * With the cluster setting disabled, the template handler must be a strict no-op: a
+     * {@code match_mapping_type: knn_vector} template that omits {@code dimension} normally has the
+     * handler inject it from the doc's array length — with the feature off, that injection must not
+     * happen, so the mapper build fails with "Dimension value missing".
+     */
+    public void testTemplatePathRespectsDisabledFlag() throws Exception {
+        updateClusterSettings(KNNSettings.KNN_DYNAMIC_MAPPING_ENABLED, false);
+        // Template omits dimension; index creation is accepted (deferred validation).
+        putIndexWithKnnTemplate("dv_off_tmpl", "{\"type\": \"knn_vector\"}");
+        // Ingest must fail — the handler no-ops, so TypeParser sees no dimension.
+        ResponseException e = expectThrows(ResponseException.class, () -> indexDoc("dv_off_tmpl", "emb", numericArray(128)));
+        assertThat(EntityUtils.toString(e.getResponse().getEntity()), containsString("Dimension"));
+        deleteKNNIndex("dv_off_tmpl");
     }
 
     public void testTemplateEndToEndValidateIngestSearch() throws IOException, ParseException {

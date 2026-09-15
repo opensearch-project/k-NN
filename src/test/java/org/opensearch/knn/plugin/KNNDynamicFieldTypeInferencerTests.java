@@ -5,22 +5,45 @@
 
 package org.opensearch.knn.plugin;
 
+import org.junit.After;
+import org.junit.Before;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.index.mapper.FieldValueParserSupplier;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class KNNDynamicFieldTypeInferencerTests extends KNNTestCase {
 
     private final KNNDynamicFieldTypeInferencer inferencer = new KNNDynamicFieldTypeInferencer();
+    // Existing tests cover heuristic behavior when the feature is enabled; the disabled-path is exercised
+    // in testDisabledReturnsNull below. testFlagFlipTakesEffectWithoutRebuildingInstance manages its own
+    // mock and stubs KNNSettings::isDynamicMappingEnabled itself.
+    private MockedStatic<KNNSettings> mockedSettings;
+
+    @Before
+    public void enableDynamicMappingByDefault() {
+        mockedSettings = Mockito.mockStatic(KNNSettings.class);
+        mockedSettings.when(KNNSettings::isDynamicMappingEnabled).thenReturn(true);
+    }
+
+    @After
+    public void closeMock() {
+        if (mockedSettings != null) {
+            mockedSettings.close();
+        }
+    }
 
     /** A supplier over a flat numeric array of the given length. */
     private FieldValueParserSupplier numericArray(int length) {
@@ -174,5 +197,36 @@ public class KNNDynamicFieldTypeInferencerTests extends KNNTestCase {
         }
         sb.append("[1,2]]"); // 128th element is a nested array
         assertNull(inferencer.inferFieldType(supplierOver(sb.toString())));
+    }
+
+    /**
+     * When the cluster-level feature flag is disabled, the inferencer must decline every input regardless
+     * of shape — same-shape arrays that would otherwise be claimed must fall through to the default float path.
+     */
+    public void testDisabledReturnsNull() throws IOException {
+        mockedSettings.when(KNNSettings::isDynamicMappingEnabled).thenReturn(false);
+        for (int dim : new int[] { 128, 256, 384, 512, 768, 1024 }) {
+            assertNull("dim " + dim + " must not be claimed when feature is disabled", inferencer.inferFieldType(numericArray(dim)));
+        }
+    }
+
+    /**
+     * The inferencer reads {@code KNNSettings::isDynamicMappingEnabled} on every call, not once at
+     * construction, so a cluster-settings flip after node bootup takes effect on the very next call
+     * — no restart, no inferencer rebuild. This test pins that contract on a single instance.
+     */
+    public void testFlagFlipTakesEffectWithoutRebuildingInstance() throws IOException {
+        AtomicBoolean enabled = new AtomicBoolean(false);
+        mockedSettings.when(KNNSettings::isDynamicMappingEnabled).thenAnswer(inv -> enabled.get());
+
+        assertNull("must decline while flag is off", inferencer.inferFieldType(numericArray(128)));
+
+        enabled.set(true);
+        Map<String, Object> config = inferencer.inferFieldType(numericArray(128));
+        assertNotNull("must claim after flag flips to on, without recreating the inferencer", config);
+        assertEquals(128, config.get("dimension"));
+
+        enabled.set(false);
+        assertNull("must decline again after flag flips back off", inferencer.inferFieldType(numericArray(128)));
     }
 }

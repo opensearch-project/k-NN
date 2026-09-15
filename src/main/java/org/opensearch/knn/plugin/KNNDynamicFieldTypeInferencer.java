@@ -17,6 +17,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import static org.opensearch.knn.index.KNNSettings.isDynamicMappingEnabled;
+
 /**
  * k-NN implementation of {@link DynamicFieldTypeInferencer}.
  *
@@ -77,6 +79,9 @@ public class KNNDynamicFieldTypeInferencer implements DynamicFieldTypeInferencer
      */
     @Override
     public Map<String, Object> inferFieldType(FieldValueParserSupplier fieldValueParser) throws IOException {
+        if (isDynamicMappingEnabled() == false) {
+            return null;
+        }
         int count;
         try (XContentParser parser = fieldValueParser.get()) {
             if (parser.currentToken() != XContentParser.Token.START_ARRAY) {

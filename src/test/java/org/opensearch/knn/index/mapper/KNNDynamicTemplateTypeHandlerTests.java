@@ -5,11 +5,16 @@
 
 package org.opensearch.knn.index.mapper;
 
+import org.junit.After;
+import org.junit.Before;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.index.mapper.FieldValueParserSupplier;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.KNNSettings;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -18,6 +23,22 @@ import java.util.Map;
 public class KNNDynamicTemplateTypeHandlerTests extends KNNTestCase {
 
     private final KNNDynamicTemplateTypeHandler handler = new KNNDynamicTemplateTypeHandler();
+    // Existing tests cover template-path behavior when the feature is enabled; the disabled-path is
+    // exercised in testDisabledIsNoop below.
+    private MockedStatic<KNNSettings> mockedSettings;
+
+    @Before
+    public void enableDynamicMappingByDefault() {
+        mockedSettings = Mockito.mockStatic(KNNSettings.class);
+        mockedSettings.when(KNNSettings::isDynamicMappingEnabled).thenReturn(true);
+    }
+
+    @After
+    public void closeMock() {
+        if (mockedSettings != null) {
+            mockedSettings.close();
+        }
+    }
 
     /** A supplier over a flat numeric array of the given length — get() yields a parser at START_ARRAY. */
     private FieldValueParserSupplier arraySupplier(int dimension) {
@@ -111,5 +132,19 @@ public class KNNDynamicTemplateTypeHandlerTests extends KNNTestCase {
         // Field value is a string, not an array — handler must not infer a dimension.
         handler.adjustMappingConfig(config, supplierOver("\"not-an-array\""));
         assertFalse(config.containsKey(KNNConstants.DIMENSION));
+    }
+
+    /**
+     * When the cluster-level feature flag is disabled, the handler must be a strict no-op — it must not
+     * inject type, must not inject dimension, and must not open the parser (so the config passes through
+     * to core untouched and is validated as-is by TypeParser).
+     */
+    public void testDisabledIsNoop() throws IOException {
+        mockedSettings.when(KNNSettings::isDynamicMappingEnabled).thenReturn(false);
+        Map<String, Object> config = new HashMap<>();
+        // failingSupplier() throws on get(), so if adjustMappingConfig opens the parser this test fails.
+        handler.adjustMappingConfig(config, failingSupplier());
+        assertFalse("type must not be injected when disabled", config.containsKey("type"));
+        assertFalse("dimension must not be injected when disabled", config.containsKey(KNNConstants.DIMENSION));
     }
 }

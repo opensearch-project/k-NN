@@ -15,6 +15,8 @@ import org.opensearch.client.ResponseException;
 import org.opensearch.client.RestClient;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.index.KNNSettings;
+import org.junit.Before;
 
 import java.io.IOException;
 import java.util.List;
@@ -37,6 +39,13 @@ import static org.opensearch.knn.common.KNNConstants.TYPE;
  */
 @Log4j2
 public class DynamicVectorMappingMultiNodeIT extends KNNRestTestCase {
+
+    @Before
+    public void enableDynamicMappingFeature() throws Exception {
+        // Cluster setting is off by default (see KNNSettings.KNN_DYNAMIC_MAPPING_ENABLED_SETTING);
+        // this test exercises the feature, so opt in here.
+        updateClusterSettings(KNNSettings.KNN_DYNAMIC_MAPPING_ENABLED, true);
+    }
 
     private static String numericArray(int n) {
         return "[" + IntStream.range(0, n).mapToObj(i -> "0.1").collect(Collectors.joining(",")) + "]";

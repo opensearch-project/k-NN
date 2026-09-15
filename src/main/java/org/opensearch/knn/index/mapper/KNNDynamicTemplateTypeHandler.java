@@ -13,6 +13,8 @@ import org.opensearch.knn.common.KNNConstants;
 import java.io.IOException;
 import java.util.Map;
 
+import static org.opensearch.knn.index.KNNSettings.isDynamicMappingEnabled;
+
 /**
  * k-NN implementation of {@link DynamicTemplateTypeHandler}.
  *
@@ -44,6 +46,9 @@ public class KNNDynamicTemplateTypeHandler implements DynamicTemplateTypeHandler
      */
     @Override
     public void adjustMappingConfig(Map<String, Object> mappingConfig, FieldValueParserSupplier fieldValueParser) throws IOException {
+        if (isDynamicMappingEnabled() == false) {
+            return;
+        }
         // A complete config only means the dimension is known, not that "type" is present: users omit
         // it since it is implied by match_mapping_type: "knn_vector". Always inject it first.
         // Example: mapping { "dimension": 128 } -> { "type": "knn_vector", "dimension": 128 }.
