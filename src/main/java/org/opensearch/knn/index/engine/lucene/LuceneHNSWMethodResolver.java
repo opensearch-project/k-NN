@@ -136,7 +136,9 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
                 ? knnMethodConfigContext.getCompressionLevel()
                 : getDefaultCompressionLevel(knnMethodConfigContext);
             // pre-3.6.0 → only the legacy 7-bit path (x4). 3.6.0+ → derive from compression.
-            int resolvedBits = isV360OrLater ? resolveBitsFromCompressionLevel(effectiveCompression) : LUCENE_SQ_DEFAULT_BITS;
+            int resolvedBits = isV360OrLater
+                ? QuantizationBits.fromCompressionLevel(effectiveCompression).getValue()
+                : LUCENE_SQ_DEFAULT_BITS;
             encoderComponentContext.getParameters().put(LUCENE_SQ_BITS, resolvedBits);
         }
         String encoderName = encoderComponentContext.getName();
@@ -201,19 +203,4 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
         return getDefaultCompressionLevel(knnMethodConfigContext, CompressionLevel.x4);
     }
 
-    /**
-     * Maps an effective compression level to the Lucene SQ bit width on 3.6.0+ indices.
-     * x32→1, x16→2, x8→4, x4→7. Anything else falls back to 1-bit (the 3.6.0+ default).
-     * validateMultiBitCompressionVersion rejects x8/x16 pre-3.9.0, so those two branches
-     * are only reachable on indices that meet the 2/4-bit gate.
-     */
-    private static int resolveBitsFromCompressionLevel(CompressionLevel compressionLevel) {
-        return switch (compressionLevel) {
-            case x32 -> QuantizationBits.ONE.getValue();
-            case x16 -> QuantizationBits.TWO.getValue();
-            case x8 -> QuantizationBits.FOUR.getValue();
-            case x4 -> QuantizationBits.SEVEN.getValue();
-            default -> QuantizationBits.ONE.getValue();
-        };
-    }
 }
