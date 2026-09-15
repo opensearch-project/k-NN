@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Add Intel SVS (Scalable Vector Search) as a sandbox tenant engine: `svs_vamana` with flat/sq/lvq/leanvec encoders [#XXXX](https://github.com/opensearch-project/k-NN/pull/XXXX)
 * Added new radial search method that acts as a postfilter on size * oversample_factor topK on quantized indices [#3491](https://github.com/opensearch-project/k-NN/pull/3491)
 * Added validation to ensure Remote Index build gets triggered for dimensions > 64. [#3557](https://github.com/opensearch-project/k-NN/pull/3557)
+* Flip defaults of 16x and 8x compression to SQ 2 bits and 4 bits [#3561](https://github.com/opensearch-project/k-NN/pull/3561)
 
 ### Maintenance
 * Fixed multiple forbidden api warnings from the code []()
