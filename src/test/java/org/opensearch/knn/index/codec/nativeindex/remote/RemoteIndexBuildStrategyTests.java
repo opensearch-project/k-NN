@@ -71,6 +71,8 @@ import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.VECTO
 
 public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
     private static final String TEST_INDEX = "test-index";
+    // A dimension at/above the remote-build threshold, so it is never the reason shouldBuildIndexRemotely returns false.
+    private static final int VALID_DIMENSION = KNNConstants.MIN_DIMENSIONS_FOR_REMOTE_INDEX_BUILD;
     public static final String MOCK_BASE_PATH = "vectors/1_1_25";
     public static final String MOCK_UUID = "SIRKos4rOWlMA62PX2p75m";
     public static final String VECTORS_PATH = "_vectors";
@@ -296,13 +298,13 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         Index index = mock(Index.class);
         when(index.getName()).thenReturn(TEST_INDEX);
         // Check index settings null
-        assertFalse(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(null, 0));
+        assertFalse(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(null, 0, VALID_DIMENSION));
 
         // Check index setting disabled
         indexSettings = mock(IndexSettings.class);
         when(indexSettings.getValue(KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING)).thenReturn(false);
         when(indexSettings.getIndex()).thenReturn(index);
-        assertFalse(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, 0));
+        assertFalse(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, 0, VALID_DIMENSION));
 
         // Check repo not configured
         indexSettings = mock(IndexSettings.class);
@@ -312,12 +314,12 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         when(clusterSettings.get(KNN_REMOTE_VECTOR_REPOSITORY_SETTING)).thenReturn("");
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         KNNSettings.state().setClusterService(clusterService);
-        assertFalse(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, 0));
+        assertFalse(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, 0, VALID_DIMENSION));
 
         // Check size threshold
         int BYTE_SIZE = randomIntBetween(50, 1000);
         when(indexSettings.getValue(KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN_SETTING)).thenReturn(new ByteSizeValue(BYTE_SIZE));
-        assertFalse(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, randomInt(BYTE_SIZE - 1)));
+        assertFalse(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, randomInt(BYTE_SIZE - 1), VALID_DIMENSION));
 
         // Check happy path
         clusterSettings = mock(ClusterSettings.class);
@@ -325,8 +327,33 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         KNNSettings.state().setClusterService(clusterService);
         when(clusterSettings.get(KNN_REMOTE_VECTOR_BUILD_SIZE_MAX_SETTING)).thenReturn(new ByteSizeValue(BYTE_SIZE * 3L));
-        assertTrue(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, randomIntBetween(BYTE_SIZE, BYTE_SIZE * 2)));
-        assertFalse(RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, randomIntBetween(BYTE_SIZE * 3 + 1, BYTE_SIZE * 4)));
+        assertTrue(
+            RemoteIndexBuildStrategy.shouldBuildIndexRemotely(indexSettings, randomIntBetween(BYTE_SIZE, BYTE_SIZE * 2), VALID_DIMENSION)
+        );
+        assertFalse(
+            RemoteIndexBuildStrategy.shouldBuildIndexRemotely(
+                indexSettings,
+                randomIntBetween(BYTE_SIZE * 3 + 1, BYTE_SIZE * 4),
+                VALID_DIMENSION
+            )
+        );
+
+        // Check dimension threshold: below MIN_DIMENSIONS_FOR_REMOTE_INDEX_BUILD -> false, at/above -> true
+        int validBlobLength = randomIntBetween(BYTE_SIZE, BYTE_SIZE * 2);
+        assertFalse(
+            RemoteIndexBuildStrategy.shouldBuildIndexRemotely(
+                indexSettings,
+                validBlobLength,
+                KNNConstants.MIN_DIMENSIONS_FOR_REMOTE_INDEX_BUILD - 1
+            )
+        );
+        assertTrue(
+            RemoteIndexBuildStrategy.shouldBuildIndexRemotely(
+                indexSettings,
+                validBlobLength,
+                KNNConstants.MIN_DIMENSIONS_FOR_REMOTE_INDEX_BUILD
+            )
+        );
     }
 
     public void testFilePathConstruction() {

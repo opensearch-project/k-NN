@@ -24,7 +24,6 @@ import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.VectorSearchEngine;
-import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -113,7 +112,6 @@ public class AdvancedFilteringUseCasesIT extends KNNCompressionRestTestCase {
      * }
      */
     @SneakyThrows
-    @ExpectRemoteBuildValidation
     public void testFiltering_whenNestedKNNAndFilterFieldWithNestedQueries_thenSuccess() {
         for (final String engine : enginesToTest) {
             // Set up the index with nested k-nn and metadata fields
@@ -180,7 +178,6 @@ public class AdvancedFilteringUseCasesIT extends KNNCompressionRestTestCase {
      * }
      */
     @SneakyThrows
-    @ExpectRemoteBuildValidation
     public void testFiltering_whenNestedKNNAndFilterFieldWithNoNestedContextInFilterQuery_thenFailure() {
         for (final String engine : enginesToTest) {
             // Set up the index with nested k-nn and metadata fields
@@ -245,7 +242,6 @@ public class AdvancedFilteringUseCasesIT extends KNNCompressionRestTestCase {
      *
      */
     @SneakyThrows
-    @ExpectRemoteBuildValidation
     public void testFiltering_whenNestedKNNAndNonNestedFilterFieldWithNonNestedFilterQuery_thenSuccess() {
         for (final String engine : enginesToTest) {
             // Set up the index with nested k-nn and metadata fields
@@ -313,7 +309,6 @@ public class AdvancedFilteringUseCasesIT extends KNNCompressionRestTestCase {
      * }
      */
     @SneakyThrows
-    @ExpectRemoteBuildValidation
     public void testFiltering_whenNonNestedKNNAndNestedFilterFieldWithNestedFilterQuery_thenSuccess() {
         for (final String engine : enginesToTest) {
             // Set up the index with nested k-nn and metadata fields
@@ -401,7 +396,6 @@ public class AdvancedFilteringUseCasesIT extends KNNCompressionRestTestCase {
      * }
      */
     @SneakyThrows
-    @ExpectRemoteBuildValidation
     public void testFiltering_whenNonNestedKNNAndNestedFilterAndNonNestedFieldWithNestedAndNonNestedFilterQuery_thenSuccess() {
         for (final String engine : enginesToTest) {
             // Set up the index with nested k-nn and metadata fields
