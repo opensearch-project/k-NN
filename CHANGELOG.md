@@ -40,3 +40,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Terminate remote index build early when the merge has been aborted [#3488](https://github.com/opensearch-project/k-NN/pull/3488)
 * Add NEON SIMD kernel for FP16 L2 similarity [#3512](https://github.com/opensearch-project/k-NN/pull/3512)
 * Add native SIMD cosine scoring for FP16 and SQ formats, removing post-hoc score conversion [#3386](https://github.com/opensearch-project/k-NN/pull/3386)
+* Skip warmup for warm-tier indices to avoid unnecessary graph loading from remote store [#3565](https://github.com/opensearch-project/k-NN/pull/3565)
