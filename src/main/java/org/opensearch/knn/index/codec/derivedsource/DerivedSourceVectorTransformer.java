@@ -146,7 +146,9 @@ public class DerivedSourceVectorTransformer {
             mapTuple = XContentHelper.convertToMap(
                 BytesReference.fromByteBuffer(ByteBuffer.wrap(sourceAsBytes)),
                 true,
-                MediaTypeRegistry.getDefaultMediaType()
+                // Auto-detect: a _source stored as CBOR/SMILE must be read back in its own format, not
+                // forced to the default (JSON). Re-serialization below uses the detected type.
+                (MediaType) null
             );
         } catch (NotXContentException e) {
             // Some OpenSearch internal documents, such as no-op tombstones, store _source as raw bytes rather than XContent.
