@@ -224,4 +224,61 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         // Since mem_opt_src is enabled, expected that no cache is loaded. (e.g. no off-heap index is loaded)
         assertTrue(NativeMemoryCacheManager.getInstance().getIndicesCacheStats().isEmpty());
     }
+
+    @SneakyThrows
+    public void testWarmup_warmIndex_skipsWarmup() {
+        // Create a k-NN index with index.warm=true to simulate a warm-tier index
+        Settings warmIndexSettings = Settings.builder()
+            .put("number_of_shards", 1)
+            .put("number_of_replicas", 0)
+            .put("index.knn", true)
+            .put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0)
+            .put("index.warm", true)
+            .build();
+
+        IndexService indexService = createIndex(testIndexName, warmIndexSettings);
+        createKnnIndexMapping(testIndexName, testFieldName, dimensions);
+
+        // Add a doc and flush to create segments
+        addKnnDoc(testIndexName, "1", testFieldName, new Float[] { 2.5F, 3.5F });
+        client().admin().indices().prepareFlush(testIndexName).execute().actionGet();
+
+        // Get index shard and verify it is recognized as warm
+        IndexShard indexShard = indexService.iterator().next();
+        assertTrue("Index should be recognized as warm", indexShard.indexSettings().isWarmIndex());
+
+        KNNIndexShard knnIndexShard = new KNNIndexShard(indexShard);
+
+        // Trigger warmup - should be skipped for warm index
+        knnIndexShard.warmup();
+
+        // Verify no graphs were loaded into cache since warmup should have been skipped
+        assertNull(
+            "No cache entries should exist for warm index after warmup",
+            NativeMemoryCacheManager.getInstance().getIndicesCacheStats().get(testIndexName)
+        );
+    }
+
+    @SneakyThrows
+    public void testWarmup_nonWarmIndex_proceedsWithWarmup() {
+        // Create a regular (non-warm) k-NN index — this is the control case
+        IndexService indexService = createKNNIndex(testIndexName);
+        createKnnIndexMapping(testIndexName, testFieldName, dimensions);
+        updateIndexSetting(testIndexName, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0).build());
+
+        // Add a doc and flush to create segments
+        addKnnDoc(testIndexName, "1", testFieldName, new Float[] { 2.5F, 3.5F });
+        client().admin().indices().prepareFlush(testIndexName).execute().actionGet();
+
+        IndexShard indexShard = indexService.iterator().next();
+        assertFalse("Index should NOT be recognized as warm", indexShard.indexSettings().isWarmIndex());
+
+        KNNIndexShard knnIndexShard = new KNNIndexShard(indexShard);
+
+        // Trigger warmup - should proceed normally for non-warm index
+        knnIndexShard.warmup();
+
+        // Verify graphs were loaded into cache
+        assertEquals(1, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().get(testIndexName).get(GRAPH_COUNT));
+    }
 }

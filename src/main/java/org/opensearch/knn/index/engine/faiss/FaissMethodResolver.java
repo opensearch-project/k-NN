@@ -121,15 +121,27 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         }
 
         if (CompressionLevel.x8 == resolvedCompressionLevel) {
-            encoderComponentContext = new MethodComponentContext(QFrameBitEncoder.NAME, new HashMap<>());
-            encoder = encoderMap.get(QFrameBitEncoder.NAME);
-            encoderComponentContext.getParameters().put(QFrameBitEncoder.BITCOUNT_PARAM, CompressionLevel.x8.numBitsForFloat32());
+            if (shouldUseSQForX8X16(knnMethodConfigContext, encoderMap)) {
+                encoderComponentContext = new MethodComponentContext(ENCODER_SQ, new HashMap<>());
+                encoder = encoderMap.get(ENCODER_SQ);
+                encoderComponentContext.getParameters().put(SQ_BITS, Encoder.QuantizationBits.FOUR.getValue());
+            } else {
+                encoderComponentContext = new MethodComponentContext(QFrameBitEncoder.NAME, new HashMap<>());
+                encoder = encoderMap.get(QFrameBitEncoder.NAME);
+                encoderComponentContext.getParameters().put(QFrameBitEncoder.BITCOUNT_PARAM, CompressionLevel.x8.numBitsForFloat32());
+            }
         }
 
         if (CompressionLevel.x16 == resolvedCompressionLevel) {
-            encoderComponentContext = new MethodComponentContext(QFrameBitEncoder.NAME, new HashMap<>());
-            encoder = encoderMap.get(QFrameBitEncoder.NAME);
-            encoderComponentContext.getParameters().put(QFrameBitEncoder.BITCOUNT_PARAM, CompressionLevel.x16.numBitsForFloat32());
+            if (shouldUseSQForX8X16(knnMethodConfigContext, encoderMap)) {
+                encoderComponentContext = new MethodComponentContext(ENCODER_SQ, new HashMap<>());
+                encoder = encoderMap.get(ENCODER_SQ);
+                encoderComponentContext.getParameters().put(SQ_BITS, Encoder.QuantizationBits.TWO.getValue());
+            } else {
+                encoderComponentContext = new MethodComponentContext(QFrameBitEncoder.NAME, new HashMap<>());
+                encoder = encoderMap.get(QFrameBitEncoder.NAME);
+                encoderComponentContext.getParameters().put(QFrameBitEncoder.BITCOUNT_PARAM, CompressionLevel.x16.numBitsForFloat32());
+            }
         }
 
         if (CompressionLevel.x32 == resolvedCompressionLevel) {
@@ -151,10 +163,10 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         );
         encoderComponentContext.getParameters().putAll(resolvedParams);
 
-        // When auto-resolved to bits=1, remove the type and clip defaults that were injected —
-        // the 1-bit quantization path doesn't use them, and validateEncoderConfig would reject them.
-        if (encoderComponentContext.getParameters().get(SQ_BITS) instanceof Integer bitsVal
-            && bitsVal == Encoder.QuantizationBits.ONE.getValue()) {
+        // When auto-resolved to a coded SQ bit width (bits ∈ {1, 2, 4}), remove the type and clip
+        // defaults that were injected — those parameters are only applicable to fp16 (bits=16),
+        // and validateEncoderConfig would reject them for the coded-bit paths.
+        if (encoderComponentContext.getParameters().get(SQ_BITS) instanceof Integer bitsVal && FaissSQEncoder.isSQCodedBits(bitsVal)) {
             encoderComponentContext.getParameters().remove(FAISS_SQ_TYPE);
             encoderComponentContext.getParameters().remove(FAISS_SQ_CLIP);
         }
@@ -210,6 +222,18 @@ public class FaissMethodResolver extends AbstractMethodResolver {
     private static boolean shouldUseSQOneBitForX32(KNNMethodConfigContext knnMethodConfigContext, Map<String, Encoder> encoderMap) {
         return knnMethodConfigContext.getVersionCreated() != null
             && knnMethodConfigContext.getVersionCreated().onOrAfter(Version.V_3_6_0)
+            && encoderMap.containsKey(ENCODER_SQ);
+    }
+
+    /**
+     * Switch the auto-resolved encoder for x8 / x16 from Faiss BQ (QFrame) to Faiss SQ starting
+     * with indices created on/after 3.9. x8 defaults to SQ 4-bit; x16 defaults to SQ 2-bit.
+     * Older indices keep the BQ default so persisted mappings continue to resolve identically
+     * after upgrade.
+     */
+    private static boolean shouldUseSQForX8X16(KNNMethodConfigContext knnMethodConfigContext, Map<String, Encoder> encoderMap) {
+        return knnMethodConfigContext.getVersionCreated() != null
+            && knnMethodConfigContext.getVersionCreated().onOrAfter(Version.V_3_9_0)
             && encoderMap.containsKey(ENCODER_SQ);
     }
 }
