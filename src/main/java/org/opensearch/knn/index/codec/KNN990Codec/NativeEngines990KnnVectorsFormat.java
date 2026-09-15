@@ -28,6 +28,8 @@ import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
+import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * This is a Vector format that will be used for Native engines like Faiss and Nmslib for reading and writing vector
@@ -35,10 +37,10 @@ import java.io.IOException;
  */
 @Log4j2
 public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
-    private static final FlatVectorsFormat FLAT_VECTORS_FORMAT_FLOAT = new Lucene99FlatVectorsFormat(
+    static final FlatVectorsFormat FLAT_VECTORS_FORMAT_FLOAT = new Lucene99FlatVectorsFormat(
         new PrefetchableFlatVectorScorer(new NativeEngines990KnnVectorsScorer(FlatVectorScorerUtil.getLucene99FlatVectorsScorer()))
     );
-    private static final FlatVectorsFormat FLAT_VECTORS_FORMAT_HALF_FLOAT = new KNN1040HalfFloatFlatVectorsFormat();
+    static final FlatVectorsFormat FLAT_VECTORS_FORMAT_HALF_FLOAT = new KNN1040HalfFloatFlatVectorsFormat();
     private static final String FORMAT_NAME = "NativeEngines990KnnVectorsFormat";
     private final int approximateThreshold;
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
@@ -56,19 +58,19 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
         int approximateThreshold,
         final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
     ) {
-        this(FORMAT_NAME, approximateThreshold, nativeIndexBuildStrategyFactory, false);
+        this(FORMAT_NAME, approximateThreshold, nativeIndexBuildStrategyFactory, () -> FLAT_VECTORS_FORMAT_FLOAT);
     }
 
     protected NativeEngines990KnnVectorsFormat(
         final String formatName,
         int approximateThreshold,
         final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory,
-        final boolean useHalfFloatVectorFormat
+        final Supplier<FlatVectorsFormat> flatFormatSupplier
     ) {
         super(formatName);
         this.approximateThreshold = approximateThreshold;
         this.nativeIndexBuildStrategyFactory = nativeIndexBuildStrategyFactory;
-        this.flatVectorsFormat = useHalfFloatVectorFormat ? FLAT_VECTORS_FORMAT_HALF_FLOAT : FLAT_VECTORS_FORMAT_FLOAT;
+        this.flatVectorsFormat = Objects.requireNonNull(flatFormatSupplier.get(), "flatFormatSupplier must not supply a null format");
     }
 
     /**

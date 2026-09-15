@@ -115,27 +115,6 @@ public class FaissFlatIndexFactory {
             cagraIndex.setFlatVectors(flatIndex);
             // No space type override needed — float CAGRA reads the correct metric type
             // from readCommonHeader() in doLoad().
-            return;
-        }
-
-        // Plain (non-CAGRA) HNSW path: e.g. SQ 1-bit skips native flat storage via
-        // IO_FLAG_SKIP_STORAGE, so the graph's storage slot is an empty index that we wire here.
-        if (nested instanceof FaissHNSWIndex hnswIndex && FaissEmptyIndex.isEmptyIndex(hnswIndex.getFlatVectors())) {
-            final FaissIndex flatIndex = createFlatIndex(fieldInfo, flatVectorsReader);
-            if (flatIndex == null) {
-                throw new IllegalStateException(
-                    String.format(
-                        Locale.ROOT,
-                        "%s found for field [%s] but %s returned null — cannot wire flat storage for HNSW index.",
-                        FaissEmptyIndex.class.getName(),
-                        fieldInfo.getName(),
-                        FaissFlatIndexFactory.class.getName()
-                    )
-                );
-            }
-            hnswIndex.setFlatVectors(flatIndex);
-            // No space type override needed - FaissHNSWIndex reads the correct metric type
-            // from readCommonHeader() in doLoad(), same as the CAGRA case above.
         }
     }
 }

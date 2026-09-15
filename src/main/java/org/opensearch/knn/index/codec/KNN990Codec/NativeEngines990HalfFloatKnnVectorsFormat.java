@@ -23,13 +23,18 @@ public class NativeEngines990HalfFloatKnnVectorsFormat extends NativeEngines990K
     private static final String FORMAT_NAME = "NativeEngines990HalfFloatKnnVectorsFormat";
 
     public NativeEngines990HalfFloatKnnVectorsFormat() {
-        super(FORMAT_NAME, KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE, new NativeIndexBuildStrategyFactory(), true);
+        super(
+            FORMAT_NAME,
+            KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_DEFAULT_VALUE,
+            new NativeIndexBuildStrategyFactory(),
+            () -> FLAT_VECTORS_FORMAT_HALF_FLOAT
+        );
     }
 
     public NativeEngines990HalfFloatKnnVectorsFormat(
         int approximateThreshold,
         final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
     ) {
-        super(FORMAT_NAME, approximateThreshold, nativeIndexBuildStrategyFactory, true);
+        super(FORMAT_NAME, approximateThreshold, nativeIndexBuildStrategyFactory, () -> FLAT_VECTORS_FORMAT_HALF_FLOAT);
     }
 }

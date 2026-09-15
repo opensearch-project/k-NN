@@ -282,6 +282,7 @@ public final class ResolvedIndexSpec {
             return false;
         }
 
+        // TODO: turn this on once half_float is supported for remote index build.
         if (vectorDataType == VectorDataType.HALF_FLOAT) {
             return false;
         }
