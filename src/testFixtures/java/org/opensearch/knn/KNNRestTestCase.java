@@ -225,13 +225,16 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     private boolean hasExpectRemoteBuildValidation() {
-        try {
-            Method method = this.getClass().getMethod(testName.getMethodName());
-            return method.isAnnotationPresent(ExpectRemoteBuildValidation.class);
-        } catch (NoSuchMethodException e) {
-            // Tests parameterized by @ParametersFactory will throw NoSuchMethodException
-            return false;
+        // testName.getMethodName() includes the @ParametersFactory suffix, e.g. "testCbTripped {compression:X1}".
+        // Strip it to resolve the declared method, then check the annotation on any matching overload.
+        final String rawName = testName.getMethodName();
+        final String baseName = rawName.contains(" ") ? rawName.substring(0, rawName.indexOf(' ')) : rawName;
+        for (Method method : this.getClass().getMethods()) {
+            if (method.getName().equals(baseName) && method.isAnnotationPresent(ExpectRemoteBuildValidation.class)) {
+                return true;
+            }
         }
+        return false;
     }
 
     @SneakyThrows
@@ -1487,20 +1490,29 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     @SuppressWarnings("unchecked")
     protected int getTotalGraphsInCache() throws Exception {
+        return getTotalGraphsInCache(null);
+    }
+
+    /**
+     * Total graphs loaded in the native memory cache. When {@code indexName} is non-null, counts only the graphs
+     * for that index; when null, counts graphs across all indices.
+     */
+    protected int getTotalGraphsInCache(final String indexName) throws Exception {
         Response response = getKnnStats(Collections.emptyList(), Collections.emptyList());
         String responseBody = EntityUtils.toString(response.getEntity());
 
         List<Map<String, Object>> nodesStats = parseNodeStatsResponse(responseBody);
 
-        logger.info("[KNN] Node stats:  " + nodesStats);
+        logger.debug("[KNN] Node stats:  " + nodesStats);
 
         return nodesStats.stream()
             .filter(nodeStats -> nodeStats.get(INDICES_IN_CACHE.getName()) != null)
-            .map(nodeStats -> nodeStats.get(INDICES_IN_CACHE.getName()))
+            .map(nodeStats -> (Map<String, Map<String, Object>>) nodeStats.get(INDICES_IN_CACHE.getName()))
             .mapToInt(
-                nodeIndicesStats -> ((Map<String, Map<String, Object>>) nodeIndicesStats).values()
+                nodeIndicesStats -> nodeIndicesStats.entrySet()
                     .stream()
-                    .mapToInt(nodeIndexStats -> (int) nodeIndexStats.get(GRAPH_COUNT))
+                    .filter(entry -> indexName == null || indexName.equals(entry.getKey()))
+                    .mapToInt(entry -> (int) entry.getValue().get(GRAPH_COUNT))
                     .sum()
             )
             .sum();

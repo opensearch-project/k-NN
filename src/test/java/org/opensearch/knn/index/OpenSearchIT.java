@@ -16,7 +16,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Floats;
 
 import lombok.SneakyThrows;
+import lombok.extern.log4j.Log4j2;
 import org.apache.hc.core5.http.ParseException;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.opensearch.knn.CompressionTestConfig;
@@ -32,6 +34,7 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
@@ -55,6 +58,7 @@ import static org.opensearch.knn.index.KNNSettings.ADVANCED_FILTERED_EXACT_SEARC
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MAX;
 import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD_MIN;
 
+@Log4j2
 public class OpenSearchIT extends KNNCompressionRestTestCase {
 
     static TestUtils.TestData testData;
@@ -671,10 +675,7 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
 
         createKnnIndex(indexName, knnIndexSettings, builder.toString());
 
-        // Index the test data
-        bulkAddKnnDocs(indexName, fieldName, testData.indexData.docs, testData.indexData.vectors, testData.indexData.docs.length);
-
-        refreshAllIndices();
+        bulkIngestTestDataInTwoSegments(indexName, fieldName);
 
         // Assert we have the right number of documents in the index
         assertEquals(testData.indexData.docs.length, getDocCount(indexName));
@@ -695,9 +696,41 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
             final List<KNNResult> faissValidNeighbors = parseSearchResponse(responseBody, fieldName);
             assertEquals(k, faissValidNeighbors.size());
         }
-
+        // Since we are playing with approximate graph threshold we should validate if really graphs were created or not
+        // Keep in mind this works non MOS based searches
+        if (compressionConfig.getCompressionLevel() == CompressionLevel.x1) {
+            final int graphCount = getTotalGraphsInCache(indexName);
+            Assert.assertTrue("Expected at least one graph in cache for " + indexName + " but found " + graphCount, graphCount > 0);
+        }
         // Delete index
         deleteKNNIndex(indexName);
+    }
+
+    /**
+     * Ingests {@link #testData} into {@code indexName} across two flushed segments (half the docs, refresh, then the
+     * remaining docs, refresh). Guarantees at least two segments so that a subsequent {@code forceMerge(1)} actually
+     * merges and re-runs the codec (e.g. to build the graph under the current approximate-threshold setting), instead
+     * of being a no-op on a single already-merged segment.
+     */
+    private void bulkIngestTestDataInTwoSegments(final String indexName, final String fieldName) throws Exception {
+        final int total = testData.indexData.docs.length;
+        final int half = total / 2;
+        bulkAddKnnDocs(
+            indexName,
+            fieldName,
+            Arrays.copyOfRange(testData.indexData.docs, 0, half),
+            Arrays.copyOfRange(testData.indexData.vectors, 0, half),
+            half
+        );
+        refreshIndex(indexName);
+        bulkAddKnnDocs(
+            indexName,
+            fieldName,
+            Arrays.copyOfRange(testData.indexData.docs, half, total),
+            Arrays.copyOfRange(testData.indexData.vectors, half, total),
+            total - half
+        );
+        refreshIndex(indexName);
     }
 
     /*
@@ -872,7 +905,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
         deleteKNNIndex(indexName);
     }
 
-    @ExpectRemoteBuildValidation
     public void testKNNIndexSearchFieldsParameter() throws Exception {
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(Arrays.asList("vector1", "vector2", "vector3"), Arrays.asList(2, 3, 5)));
         // Add docs with knn_vector fields
@@ -954,7 +986,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
         assertEquals(0, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "vector3"));
     }
 
-    @ExpectRemoteBuildValidation
     public void testKNNIndexSearchFieldsParameterWithOtherFields() throws Exception {
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
@@ -1060,7 +1091,6 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
         assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "float2"));
     }
 
-    @ExpectRemoteBuildValidation
     public void testKNNIndexSearchFieldsParameterDocsWithOnlyOtherFields() throws Exception {
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
