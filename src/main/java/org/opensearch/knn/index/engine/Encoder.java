@@ -95,6 +95,20 @@ public interface Encoder {
             }
             return FULL_PRECISION;
         }
+
+        /**
+         * Reverse of {@link #getCompressionLevel()}: maps a {@link CompressionLevel} back to the bit
+         * width used to achieve it (x32→1, x16→2, x8→4, x4→7, x2→16, x1→32). Falls back to
+         * {@link #FULL_PRECISION} for {@link CompressionLevel#NOT_CONFIGURED} and any unmapped value.
+         */
+        public static QuantizationBits fromCompressionLevel(CompressionLevel compressionLevel) {
+            for (QuantizationBits bits : values()) {
+                if (bits.compressionLevel == compressionLevel) {
+                    return bits;
+                }
+            }
+            return FULL_PRECISION;
+        }
     }
 
     /**

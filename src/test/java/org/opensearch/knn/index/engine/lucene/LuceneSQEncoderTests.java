@@ -99,8 +99,71 @@ public class LuceneSQEncoderTests extends KNNTestCase {
             .dimension(128)
             .build();
 
-        MethodComponentContext mcc = new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 2));
+        // bits=3 is not a supported width; supported are {1, 2, 4, 7}.
+        MethodComponentContext mcc = new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 3));
         assertNotNull(methodComponent.validate(mcc, context));
+    }
+
+    public void testValidate_whenBits2WithX16Compression_thenOk() {
+        callValidateEncoderParams(Version.CURRENT, CompressionLevel.x16, Map.of(LUCENE_SQ_BITS, 2));
+    }
+
+    public void testValidate_whenBits4WithX8Compression_thenOk() {
+        callValidateEncoderParams(Version.CURRENT, CompressionLevel.x8, Map.of(LUCENE_SQ_BITS, 4));
+    }
+
+    public void testValidate_whenBits2WithX8Compression_thenError() {
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> callValidateEncoderParams(Version.CURRENT, CompressionLevel.x8, Map.of(LUCENE_SQ_BITS, 2))
+        );
+        assertTrue(e.getMessage().contains("incompatible"));
+        assertTrue(e.getMessage().contains("16x"));
+    }
+
+    public void testValidate_whenBits2WithConfidenceInterval_thenError() {
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> callValidateEncoderParams(
+                Version.CURRENT,
+                CompressionLevel.NOT_CONFIGURED,
+                Map.of(LUCENE_SQ_BITS, 2, LUCENE_SQ_CONFIDENCE_INTERVAL, 1.0f)
+            )
+        );
+        assertTrue(e.getMessage().contains("confidence_interval"));
+        assertTrue(e.getMessage().contains("does not use additional parameter"));
+    }
+
+    public void testValidate_whenBits4WithConfidenceInterval_thenError() {
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> callValidateEncoderParams(
+                Version.CURRENT,
+                CompressionLevel.NOT_CONFIGURED,
+                Map.of(LUCENE_SQ_BITS, 4, LUCENE_SQ_CONFIDENCE_INTERVAL, 1.0f)
+            )
+        );
+        assertTrue(e.getMessage().contains("confidence_interval"));
+        assertTrue(e.getMessage().contains("does not use additional parameter"));
+    }
+
+    public void testValidate_whenBits1OnV370_thenOk() {
+        // The new-version gate is 2/4-bit only — bits=1 must keep working on 3.6.0-3.7.x indices.
+        callValidateEncoderParams(Version.V_3_7_0, CompressionLevel.x32, Map.of(LUCENE_SQ_BITS, 1));
+    }
+
+    public void testCalculateCompressionLevel_whenBits2InMethodComponentContext_thenX16() {
+        LuceneSQEncoder encoder = new LuceneSQEncoder();
+        MethodComponentContext mcc = new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 2));
+        KNNMethodConfigContext context = KNNMethodConfigContext.builder().versionCreated(Version.CURRENT).build();
+        assertEquals(CompressionLevel.x16, encoder.calculateCompressionLevel(mcc, context));
+    }
+
+    public void testCalculateCompressionLevel_whenBits4InMethodComponentContext_thenX8() {
+        LuceneSQEncoder encoder = new LuceneSQEncoder();
+        MethodComponentContext mcc = new MethodComponentContext(ENCODER_SQ, Map.of(LUCENE_SQ_BITS, 4));
+        KNNMethodConfigContext context = KNNMethodConfigContext.builder().versionCreated(Version.CURRENT).build();
+        assertEquals(CompressionLevel.x8, encoder.calculateCompressionLevel(mcc, context));
     }
 
     public void testValidate_whenBits1WithX2Compression_thenError() {
@@ -222,6 +285,14 @@ public class LuceneSQEncoderTests extends KNNTestCase {
             }
         };
         encoder.validate(null, null);
+    }
+
+    public void testValidate_whenBits2WithX16Compression_explicitOnDisk_thenOk() {
+        callValidateEncoderParams(Version.CURRENT, CompressionLevel.x16, Map.of(LUCENE_SQ_BITS, 2));
+    }
+
+    public void testValidate_whenBits4WithX8Compression_explicitOnDisk_thenOk() {
+        callValidateEncoderParams(Version.CURRENT, CompressionLevel.x8, Map.of(LUCENE_SQ_BITS, 4));
     }
 
     private void callValidateEncoderParams(Version version, CompressionLevel compressionLevel, Map<String, Object> encoderParams) {
