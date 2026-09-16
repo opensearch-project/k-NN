@@ -236,4 +236,9 @@ public class KNNConstants {
     // continue to load without error. New indices reject any engine setting on flat.
     public static final Version FLAT_METHOD_ENGINE_AGNOSTIC_VERSION = Version.V_3_9_0;
     public static final int MIN_DIMENSIONS_FOR_REMOTE_INDEX_BUILD = 64;
+
+    // Version gate for accepting SQ 2-bit / 4-bit (x16 / x8) on the Lucene HNSW method. Indices
+    // created before this version only support SQ 1-bit (x32) and 7-bit (x4) on Lucene HNSW.
+    // 1-bit was introduced in 3.6.0 and stays gated there; 2/4-bit require the newer version.
+    public static final Version LUCENE_HNSW_SQ_2BIT_4BIT_MIN_VERSION = Version.V_3_9_0;
 }

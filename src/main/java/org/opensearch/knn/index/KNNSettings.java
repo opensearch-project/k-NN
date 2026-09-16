@@ -122,6 +122,10 @@ public class KNNSettings {
     public static final String KNN_REMOTE_BUILD_SERVICE_PASSWORD = "knn.remote_index_build.service.password";
     public static final String INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH =
         "index.knn.faiss.efficient_filter.disable_exact_search";
+    // Cluster-level opt-in flag for the dynamic knn_vector mapping feature (auto-inference and the
+    // match_mapping_type: knn_vector template handler). Off by default because the auto-inference
+    // heuristic is shape-based and can misclaim non-vector numeric arrays; operators must opt in.
+    public static final String KNN_DYNAMIC_MAPPING_ENABLED = "knn.dynamic_mapping.enabled";
 
     /**
      * For more details on supported engines, refer to {@link MemoryOptimizedSearchSupportSpec}
@@ -492,6 +496,21 @@ public class KNNSettings {
         Dynamic
     );
 
+    /**
+     * Cluster-level toggle for the dynamic knn_vector mapping feature. When {@code false} (default),
+     * both the auto-inference path ({@link org.opensearch.knn.plugin.KNNDynamicFieldTypeInferencer})
+     * and the {@code match_mapping_type: knn_vector} dynamic-template handler
+     * ({@link org.opensearch.knn.index.mapper.KNNDynamicTemplateTypeHandler}) short-circuit and defer
+     * to core's default mapping behavior. Operators opt in per cluster to trade shape-based inference
+     * risk for zero-config vector fields.
+     */
+    public static final Setting<Boolean> KNN_DYNAMIC_MAPPING_ENABLED_SETTING = Setting.boolSetting(
+        KNN_DYNAMIC_MAPPING_ENABLED,
+        false,
+        NodeScope,
+        Dynamic
+    );
+
     public static final Setting<Boolean> INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH_SETTING = Setting.boolSetting(
         INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH,
         false,
@@ -735,6 +754,10 @@ public class KNNSettings {
             return INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH_SETTING;
         }
 
+        if (KNN_DYNAMIC_MAPPING_ENABLED.equals(key)) {
+            return KNN_DYNAMIC_MAPPING_ENABLED_SETTING;
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -771,7 +794,8 @@ public class KNNSettings {
             KNN_REMOTE_BUILD_CLIENT_TIMEOUT_SETTING,
             KNN_REMOTE_BUILD_SERVER_USERNAME_SETTING,
             KNN_REMOTE_BUILD_SERVER_PASSWORD_SETTING,
-            INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH_SETTING
+            INDEX_KNN_FAISS_EFFICIENT_FILTER_DISABLE_EXACT_SEARCH_SETTING,
+            KNN_DYNAMIC_MAPPING_ENABLED_SETTING
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
             .collect(Collectors.toList());
@@ -900,6 +924,13 @@ public class KNNSettings {
      */
     public static boolean isKNNRemoteVectorBuildEnabled() {
         return Booleans.parseBooleanStrict(KNNSettings.state().getSettingValue(KNN_REMOTE_VECTOR_BUILD).toString(), false);
+    }
+
+    /**
+     * @return true if the dynamic knn_vector mapping feature is enabled cluster-wide.
+     */
+    public static boolean isDynamicMappingEnabled() {
+        return Booleans.parseBooleanStrict(KNNSettings.state().getSettingValue(KNN_DYNAMIC_MAPPING_ENABLED).toString(), false);
     }
 
     /**
