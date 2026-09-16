@@ -117,14 +117,7 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
         }
 
         // Index the test data
-        for (int i = 0; i < testData.indexData.docs.length; i++) {
-            addKnnDoc(
-                indexName,
-                Integer.toString(testData.indexData.docs[i]),
-                ImmutableList.of(fieldName), // Only one field
-                ImmutableList.of(Floats.asList(testData.indexData.vectors[i]).toArray())
-            );
-        }
+        bulkAddKnnDocs(indexName, fieldName, testData.indexData.docs, testData.indexData.vectors, testData.indexData.docs.length);
 
         // Assert we have the right number of documents in the index
         refreshAllIndices();
@@ -679,14 +672,7 @@ public class OpenSearchIT extends KNNCompressionRestTestCase {
         createKnnIndex(indexName, knnIndexSettings, builder.toString());
 
         // Index the test data
-        for (int i = 0; i < testData.indexData.docs.length; i++) {
-            addKnnDoc(
-                indexName,
-                Integer.toString(testData.indexData.docs[i]),
-                ImmutableList.of(fieldName), // Only one field
-                ImmutableList.of(Floats.asList(testData.indexData.vectors[i]).toArray())
-            );
-        }
+        bulkAddKnnDocs(indexName, fieldName, testData.indexData.docs, testData.indexData.vectors, testData.indexData.docs.length);
 
         refreshAllIndices();
 

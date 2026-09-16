@@ -2960,4 +2960,33 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return docMap;
     }
 
+    /**
+     * Bulk-index KNN docs using explicit document ids (preserving the caller's id scheme, e.g. the ids
+     * from a test dataset). Use this instead of the sequential-id overload when a test later references
+     * documents by their original id (update/delete/get).
+     */
+    public void bulkAddKnnDocs(String index, String fieldName, int[] docIds, float[][] indexVectors, int docCount) throws IOException {
+        Request request = new Request("POST", "/_bulk");
+        request.addParameter("refresh", "true");
+        StringBuilder sb = new StringBuilder();
+
+        for (int i = 0; i < docCount; i++) {
+            sb.append("{ \"index\" : { \"_index\" : \"")
+                .append(index)
+                .append("\", \"_id\" : \"")
+                .append(docIds[i])
+                .append("\" } }\n")
+                .append("{ \"")
+                .append(fieldName)
+                .append("\" : ")
+                .append(Arrays.toString(indexVectors[i]))
+                .append(" }\n");
+        }
+
+        request.setJsonEntity(sb.toString());
+
+        Response response = client().performRequest(request);
+        assertEquals(200, response.getStatusLine().getStatusCode());
+    }
+
 }

@@ -163,14 +163,7 @@ public class NmslibIT extends KNNRestTestCase {
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
 
         // Index the test data
-        for (int i = 0; i < testData.indexData.docs.length; i++) {
-            addKnnDoc(
-                indexName,
-                Integer.toString(testData.indexData.docs[i]),
-                fieldName,
-                Floats.asList(testData.indexData.vectors[i]).toArray()
-            );
-        }
+        bulkAddKnnDocs(indexName, fieldName, testData.indexData.docs, testData.indexData.vectors, testData.indexData.docs.length);
 
         // Assert we have the right number of documents in the index
         refreshAllIndices();
