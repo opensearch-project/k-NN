@@ -92,7 +92,9 @@ public final class FaissFieldStrategy implements EngineFieldStrategy {
             int adjustedDimension = vectorDataType == VectorDataType.BINARY
                 ? knnMappingConfig.getDimension() / 8
                 : knnMappingConfig.getDimension();
-            final VectorEncoding encoding = vectorDataType == VectorDataType.FLOAT ? VectorEncoding.FLOAT32 : VectorEncoding.BYTE;
+            final VectorEncoding encoding = (vectorDataType == VectorDataType.FLOAT || vectorDataType == VectorDataType.HALF_FLOAT)
+                ? VectorEncoding.FLOAT32
+                : VectorEncoding.BYTE;
             final VectorSimilarityFunction similarityFunction = findBestMatchingVectorSimilarityFunction(
                 resolvedKnnMethodContext.getSpaceType(),
                 indexCreatedVersion
