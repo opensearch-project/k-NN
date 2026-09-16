@@ -269,21 +269,16 @@ public final class ResolvedIndexSpec {
      *   <li>FLOAT with FLAT encoder (full precision float32)</li>
      *   <li>BINARY with FLAT encoder (user-provided binary vectors)</li>
      *   <li>BYTE with FLAT encoder</li>
+     *   <li>HALF_FLOAT with FLAT encoder (native fp16 storage)</li>
      *   <li>FLOAT with SQ encoder at intermediate bit widths (2, 4, 7 bits)</li>
      * </ul>
      *
-     * <p>Everything else returns false — notably every {@code half_float} configuration, whose fp16
-     * flat storage the remote build service would misread as fp32, plus e.g. the PQ encoder and
-     * non-FLAT binary/byte configs. New encoder types and data types must be validated against the
-     * remote build service before being added here.</p>
+     * <p>Everything else returns false — e.g. the PQ encoder and non-FLAT binary/byte configs. New
+     * encoder types and data types must be validated against the remote build service before being
+     * added here.</p>
      */
     public boolean supportsRemoteIndexBuild() {
         if (engine != KNNEngine.FAISS || !METHOD_HNSW.equals(methodName)) {
-            return false;
-        }
-
-        // TODO: turn this on once half_float is supported for remote index build.
-        if (vectorDataType == VectorDataType.HALF_FLOAT) {
             return false;
         }
 
@@ -294,7 +289,8 @@ public final class ResolvedIndexSpec {
         if (encoderType == Encoder.EncoderType.FLAT) {
             return vectorDataType == VectorDataType.FLOAT
                 || vectorDataType == VectorDataType.BINARY
-                || vectorDataType == VectorDataType.BYTE;
+                || vectorDataType == VectorDataType.BYTE
+                || vectorDataType == VectorDataType.HALF_FLOAT;
         }
 
         return false;
