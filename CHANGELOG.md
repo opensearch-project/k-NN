@@ -22,7 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Maintenance
 * Fixed multiple forbidden api warnings from the code []()
 * Speed up the Remote Index Build IT job via round-robin test sharding and bulk document indexing, and cancel in-progress CI/GPU runs on newer commits [#3554](https://github.com/opensearch-project/k-NN/pull/3554)
-* Disable the gRPC transport ITs for the distribution-level (external-cluster) integ test run, where the release distribution's k-NN cluster does not enable the transport-grpc aux transport [#3529](https://github.com/opensearch-project/k-NN/pull/3529)
+* Disable the gRPC transport ITs for the distribution-level (external-cluster) integ test run, where the release distribution's k-NN cluster does not enable the transport-grpc aux transport [#3576](https://github.com/opensearch-project/k-NN/pull/3576)
 
 ### Bug Fixes
 * Fix native thread leak in Lucene HNSW merge executor when index_thread_qty > 1 [#3102](https://github.com/opensearch-project/k-NN/issues/3102)
