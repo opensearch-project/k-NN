@@ -30,6 +30,7 @@ import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopKnnCollector;
 import org.apache.lucene.store.ByteBuffersDirectory;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.util.VectorUtil;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.store.MMapDirectory;
@@ -394,13 +395,15 @@ public class KNN1040HalfFloatFlatVectorsReaderTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testGetRandomVectorScorer_cosineSimilarity_usesPureJavaFallbackAndMatchesExpected() {
+    public void testGetRandomVectorScorer_cosineSimilarity_matchesExpected() {
         try (Directory dir = new ByteBuffersDirectory()) {
-            float[][] vectors = { { 1.5f, -2.5f, 3.25f, 0.0f }, { -1.0f, 2.0f, -3.0f, 4.0f } };
+            float[][] vectors = {
+                VectorUtil.l2normalize(new float[] { 1.5f, -2.5f, 3.25f, 0.0f }),
+                VectorUtil.l2normalize(new float[] { -1.0f, 2.0f, -3.0f, 4.0f }) };
             SegmentReadState readState = writeRawSegment(dir, vectors, VectorSimilarityFunction.COSINE);
 
             try (FlatVectorsReader reader = newReader(readState)) {
-                float[] query = { 1f, 1f, 1f, 1f };
+                float[] query = VectorUtil.l2normalize(new float[] { 1f, 1f, 1f, 1f });
                 RandomVectorScorer scorer = reader.getRandomVectorScorer(FIELD_NAME, query);
                 assertNotNull(scorer);
 

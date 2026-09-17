@@ -123,7 +123,7 @@ public abstract class AbstractKNNMethod implements KNNMethod {
         };
     }
 
-    protected VectorTransformer getVectorTransformer(SpaceType spaceType) {
+    protected VectorTransformer getVectorTransformer(SpaceType spaceType, VectorDataType vectorDataType) {
         return VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER;
     }
 
@@ -145,7 +145,7 @@ public abstract class AbstractKNNMethod implements KNNMethod {
             .vectorValidator(doGetVectorValidator(knnMethodContext, knnMethodConfigContext))
             .perDimensionValidator(doGetPerDimensionValidator(knnMethodContext, knnMethodConfigContext))
             .perDimensionProcessor(doGetPerDimensionProcessor(knnMethodContext, knnMethodConfigContext))
-            .vectorTransformer(getVectorTransformer(knnMethodContext.getSpaceType()))
+            .vectorTransformer(getVectorTransformer(knnMethodContext.getSpaceType(), knnMethodConfigContext.getVectorDataType()))
             .trainingConfigValidationSetup(doGetTrainingConfigValidationSetup())
             .resolvedSpec(buildResolvedIndexSpec(knnMethodContext, knnMethodConfigContext))
             .build();

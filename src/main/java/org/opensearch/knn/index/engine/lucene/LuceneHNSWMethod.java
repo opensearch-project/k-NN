@@ -9,7 +9,6 @@ import com.google.common.collect.ImmutableSet;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.AbstractKNNMethod;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.Parameter;
@@ -28,7 +27,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 /**
  * Lucene HNSW implementation
  */
-public class LuceneHNSWMethod extends AbstractKNNMethod {
+public class LuceneHNSWMethod extends AbstractLuceneMethod {
 
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(
         VectorDataType.FLOAT,
@@ -53,7 +52,7 @@ public class LuceneHNSWMethod extends AbstractKNNMethod {
     /**
      * Constructor for LuceneHNSWMethod
      *
-     * @see AbstractKNNMethod
+     * @see AbstractLuceneMethod
      */
     public LuceneHNSWMethod() {
         super(HNSW_METHOD_COMPONENT, Set.copyOf(SUPPORTED_SPACES), new LuceneHNSWSearchContext());

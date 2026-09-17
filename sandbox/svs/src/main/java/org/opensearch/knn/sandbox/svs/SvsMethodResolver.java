@@ -128,6 +128,7 @@ public class SvsMethodResolver extends AbstractMethodResolver {
             knnMethodConfigContext.getCompressionLevel(),
             SUPPORTED_COMPRESSION_LEVELS,
             svsEngine(),
+            knnMethodConfigContext.getVectorDataType(),
             validationException
         );
         if (knnMethodConfigContext.getMode() == Mode.ON_DISK) {
