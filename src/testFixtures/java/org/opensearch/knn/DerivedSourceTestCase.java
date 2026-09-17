@@ -35,6 +35,8 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
         super(compressionConfig);
     }
 
+    private static final int DIMENSIONS = 64;
+
     private static final List<Pair<String, Boolean>> INDEX_PREFIX_TO_ENABLED = List.of(
         new Pair<>("original-enable-", true),
         new Pair<>("original-disable-", false),
@@ -43,9 +45,6 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
         new Pair<>("d2e-", true),
         new Pair<>("d2d-", false)
     );
-
-    private static final int MIN_DIMENSION = 4;
-    private static final int MAX_DIMENSION = 32;
     private static final int MIN_DOCS = 50;
     private static final int MAX_DOCS = 200;
 
@@ -109,8 +108,6 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
         List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = new ArrayList<>();
         long consistentRandomSeed = random().nextLong();
         for (Pair<String, Boolean> index : INDEX_PREFIX_TO_ENABLED) {
-            Supplier<Integer> dimensionSupplier = randomIntegerSupplier(consistentRandomSeed, MIN_DIMENSION, MAX_DIMENSION);
-            Supplier<Integer> binaryDimensionSupplier = randomIntegerSupplier(consistentRandomSeed, MIN_DIMENSION, MAX_DIMENSION, 8);
             Supplier<Integer> randomDocCountSupplier = randomIntegerSupplier(consistentRandomSeed, MIN_DOCS, MAX_DOCS);
             DerivedSourceUtils.IndexConfigContext.IndexConfigContextBuilder<?, ?> builder = DerivedSourceUtils.IndexConfigContext.builder();
             if (coreEnabled) {
@@ -126,12 +123,12 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
                 .fields(
                     List.of(
                         DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                            .dimension(dimensionSupplier.get())
+                            .dimension(DIMENSIONS)
                             .nullProb(addNull ? DerivedSourceUtils.DEFAULT_NULL_PROB : 0)
                             .fieldPath("test_float_vector")
                             .build(),
                         DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                            .dimension(dimensionSupplier.get())
+                            .dimension(DIMENSIONS)
                             .nullProb(addNull ? DerivedSourceUtils.DEFAULT_NULL_PROB : 0)
                             .fieldPath("update_float_vector")
                             .isUpdate(true)
@@ -144,20 +141,20 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
                         DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
                             .fieldPath("update_byte_vector")
                             .vectorDataType(VectorDataType.BYTE)
-                            .dimension(dimensionSupplier.get())
+                            .dimension(DIMENSIONS)
                             .nullProb(addNull ? DerivedSourceUtils.DEFAULT_NULL_PROB : 0)
                             .isUpdate(true)
                             .build(),
                         DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
                             .fieldPath("test_binary_vector")
                             .vectorDataType(VectorDataType.BINARY)
-                            .dimension(binaryDimensionSupplier.get())
+                            .dimension(DIMENSIONS)
                             .nullProb(addNull ? DerivedSourceUtils.DEFAULT_NULL_PROB : 0)
                             .build(),
                         DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
                             .fieldPath("update_binary_vector")
                             .vectorDataType(VectorDataType.BINARY)
-                            .dimension(binaryDimensionSupplier.get())
+                            .dimension(DIMENSIONS)
                             .nullProb(addNull ? DerivedSourceUtils.DEFAULT_NULL_PROB : 0)
                             .isUpdate(true)
                             .build(),
@@ -256,7 +253,6 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
         List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = new ArrayList<>();
         long consistentRandomSeed = random().nextLong();
         for (Pair<String, Boolean> index : INDEX_PREFIX_TO_ENABLED) {
-            Supplier<Integer> dimensionSupplier = randomIntegerSupplier(consistentRandomSeed, MIN_DIMENSION, MAX_DIMENSION);
             Supplier<Integer> randomDocCountSupplier = randomIntegerSupplier(consistentRandomSeed, MIN_DOCS, MAX_DOCS);
             DerivedSourceUtils.IndexConfigContext indexConfigContext = DerivedSourceUtils.IndexConfigContext.builder()
                 .indexName(getIndexName(testSuitePrefix, index.getFirst(), addRandom))
@@ -270,11 +266,11 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
                             .children(
                                 List.of(
                                     DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                                        .dimension(dimensionSupplier.get())
+                                        .dimension(DIMENSIONS)
                                         .fieldPath("path_1.test_vector")
                                         .build(),
                                     DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                                        .dimension(dimensionSupplier.get())
+                                        .dimension(DIMENSIONS)
                                         .fieldPath("path_1.update_vector")
                                         .isUpdate(true)
                                         .build()
@@ -287,11 +283,11 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
                                 List.of(
                                     DerivedSourceUtils.TextFieldType.builder().fieldPath("path_2.test-text").build(),
                                     DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                                        .dimension(dimensionSupplier.get())
+                                        .dimension(DIMENSIONS)
                                         .fieldPath("path_2.test_vector")
                                         .build(),
                                     DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                                        .dimension(dimensionSupplier.get())
+                                        .dimension(DIMENSIONS)
                                         .fieldPath("path_2.update_vector")
                                         .isUpdate(true)
                                         .build(),
@@ -300,11 +296,11 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
                                         .children(
                                             List.of(
                                                 DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                                                    .dimension(dimensionSupplier.get())
+                                                    .dimension(DIMENSIONS)
                                                     .fieldPath("path_2.path_3.test_vector")
                                                     .build(),
                                                 DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                                                    .dimension(dimensionSupplier.get())
+                                                    .dimension(DIMENSIONS)
                                                     .fieldPath("path_2.path_3.update_vector")
                                                     .isUpdate(true)
                                                     .build(),
@@ -315,12 +311,9 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
                                 )
                             )
                             .build(),
+                        DerivedSourceUtils.KNNVectorFieldTypeContext.builder().dimension(DIMENSIONS).fieldPath("test_vector").build(),
                         DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                            .dimension(dimensionSupplier.get())
-                            .fieldPath("test_vector")
-                            .build(),
-                        DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                            .dimension(dimensionSupplier.get())
+                            .dimension(DIMENSIONS)
                             .fieldPath("update_vector")
                             .isUpdate(true)
                             .build(),
@@ -380,7 +373,6 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
         List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = new ArrayList<>();
         long consistentRandomSeed = random().nextLong();
         for (Pair<String, Boolean> index : INDEX_PREFIX_TO_ENABLED) {
-            Supplier<Integer> dimensionSupplier = randomIntegerSupplier(consistentRandomSeed, MIN_DIMENSION, MAX_DIMENSION);
             Supplier<Integer> randomDocCountSupplier = randomIntegerSupplier(consistentRandomSeed, MIN_DOCS, MAX_DOCS);
             Settings settingsWithAnalyzer = Settings.builder()
                 .put(
@@ -406,7 +398,7 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
                 .fields(
                     List.of(
                         DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                            .dimension(dimensionSupplier.get())
+                            .dimension(DIMENSIONS)
                             .nullProb(addNull ? DerivedSourceUtils.DEFAULT_NULL_PROB : 0)
                             .fieldPath("test_float_vector")
                             .build(),
@@ -529,7 +521,6 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
         List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = new ArrayList<>();
         long consistentRandomSeed = random().nextLong();
         for (Pair<String, Boolean> index : INDEX_PREFIX_TO_ENABLED) {
-            Supplier<Integer> dimensionSupplier = randomIntegerSupplier(consistentRandomSeed, MIN_DIMENSION, MAX_DIMENSION);
             Supplier<Integer> randomDocCountSupplier = randomIntegerSupplier(consistentRandomSeed, MIN_DOCS, MAX_DOCS);
             DerivedSourceUtils.IndexConfigContext.IndexConfigContextBuilder<?, ?> builder = DerivedSourceUtils.IndexConfigContext.builder();
             if (coreEnabled) {
@@ -550,7 +541,7 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
                             .children(
                                 List.of(
                                     DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                                        .dimension(dimensionSupplier.get())
+                                        .dimension(DIMENSIONS)
                                         .fieldPath("object_1.test_vector")
                                         .build(),
                                     DerivedSourceUtils.NestedFieldContext.builder()
@@ -558,7 +549,7 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
                                         .children(
                                             List.of(
                                                 DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                                                    .dimension(dimensionSupplier.get())
+                                                    .dimension(DIMENSIONS)
                                                     .fieldPath("object_1.nested_1.test_vector")
                                                     .build()
                                             )
@@ -572,11 +563,11 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
                             .children(
                                 List.of(
                                     DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                                        .dimension(dimensionSupplier.get())
+                                        .dimension(DIMENSIONS)
                                         .fieldPath("nested_1.test_vector")
                                         .build(),
                                     DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                                        .dimension(dimensionSupplier.get())
+                                        .dimension(DIMENSIONS)
                                         .fieldPath("nested_1.update_vector")
                                         .isUpdate(true)
                                         .build(),
@@ -585,7 +576,7 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
                                         .children(
                                             List.of(
                                                 DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                                                    .dimension(dimensionSupplier.get())
+                                                    .dimension(DIMENSIONS)
                                                     .fieldPath("nested_1.object_1.test_vector")
                                                     .build(),
                                                 DerivedSourceUtils.IntFieldType.builder().fieldPath("nested_1.object_1.test-int").build()
@@ -601,24 +592,24 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
                                 List.of(
                                     DerivedSourceUtils.TextFieldType.builder().fieldPath("nested_2.test-text").build(),
                                     DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                                        .dimension(dimensionSupplier.get())
+                                        .dimension(DIMENSIONS)
                                         .fieldPath("nested_2.test_vector")
                                         .build(),
                                     DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
                                         .fieldPath("nested_2.update_vector")
                                         .isUpdate(true)
-                                        .dimension(dimensionSupplier.get())
+                                        .dimension(DIMENSIONS)
                                         .build(),
                                     DerivedSourceUtils.NestedFieldContext.builder()
                                         .fieldPath("nested_2.nested_3")
                                         .children(
                                             List.of(
                                                 DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                                                    .dimension(dimensionSupplier.get())
+                                                    .dimension(DIMENSIONS)
                                                     .fieldPath("nested_2.nested_3.test_vector")
                                                     .build(),
                                                 DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                                                    .dimension(dimensionSupplier.get())
+                                                    .dimension(DIMENSIONS)
                                                     .fieldPath("nested_2.nested_3.update_vector")
                                                     .isUpdate(true)
                                                     .build(),
@@ -629,12 +620,9 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
                                 )
                             )
                             .build(),
+                        DerivedSourceUtils.KNNVectorFieldTypeContext.builder().dimension(DIMENSIONS).fieldPath("test_vector").build(),
                         DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                            .dimension(dimensionSupplier.get())
-                            .fieldPath("test_vector")
-                            .build(),
-                        DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                            .dimension(dimensionSupplier.get())
+                            .dimension(DIMENSIONS)
                             .fieldPath("update_vector")
                             .isUpdate(true)
                             .build(),
@@ -689,7 +677,6 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
         List<DerivedSourceUtils.IndexConfigContext> indexConfigContexts = new ArrayList<>();
         long consistentRandomSeed = random().nextLong();
         for (Pair<String, Boolean> index : INDEX_PREFIX_TO_ENABLED) {
-            Supplier<Integer> dimensionSupplier = randomIntegerSupplier(consistentRandomSeed, MIN_DIMENSION, MAX_DIMENSION);
             Supplier<Integer> randomDocCountSupplier = randomIntegerSupplier(consistentRandomSeed, MIN_DOCS, MAX_DOCS);
             DerivedSourceUtils.IndexConfigContext.IndexConfigContextBuilder<?, ?> builder = DerivedSourceUtils.IndexConfigContext.builder();
             if (coreEnabled) {
@@ -705,7 +692,7 @@ public class DerivedSourceTestCase extends KNNCompressionRestTestCase {
                 .fields(
                     List.of(
                         DerivedSourceUtils.KNNVectorFieldTypeContext.builder()
-                            .dimension(dimensionSupplier.get())
+                            .dimension(DIMENSIONS)
                             .nullProb(addNull ? DerivedSourceUtils.DEFAULT_NULL_PROB : 0)
                             .fieldPath("test_float_vector")
                             .build(),

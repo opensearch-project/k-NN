@@ -86,7 +86,7 @@ public class RecallTestsIT extends KNNCompressionRestTestCase {
     private final static String TRAIN_INDEX_NAME = "train_index";
     private final static String TRAIN_FIELD_NAME = "train_field";
     private final static String TEST_MODEL_ID = "test_model_id";
-    private final static int TEST_DIMENSION = 32;
+    private final static int TEST_DIMENSION = 64;
     private final static int DOC_COUNT = 1100;
     private final static int QUERY_COUNT = 100;
     private final static int TEST_K = 100;

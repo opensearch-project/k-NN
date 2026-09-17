@@ -16,7 +16,6 @@ import org.opensearch.knn.CompressionTestConfig;
 import org.opensearch.knn.KNNCompressionRestTestCase;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.plugin.stats.StatNames;
-import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -173,7 +172,6 @@ public class KNNCircuitBreakerIT extends KNNCompressionRestTestCase {
         return Boolean.parseBoolean(clusterStats.get("circuit_breaker_triggered").toString());
     }
 
-    @ExpectRemoteBuildValidation
     public void testCbTripped() throws Exception {
         setupIndices();
         testClusterLevelCircuitBreaker();
