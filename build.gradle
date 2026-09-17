@@ -857,6 +857,11 @@ integTest {
     filter {
         excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
         excludeTestsMatching "org.opensearch.knn.integ.DynamicVectorMappingMultiNodeIT"
+        // The gRPC transport ITs are temporarily disabled for the distribution-level ITs: the release
+        // distribution's k-NN test cluster does not enable the transport-grpc aux transport
+        if (System.getProperty("tests.rest.cluster") != null) {
+            excludeTestsMatching "org.opensearch.knn.integ.grpc.*"
+        }
     }
     mustRunAfter test
 }
