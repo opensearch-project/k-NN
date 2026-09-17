@@ -27,7 +27,6 @@ public final class OSDiversifyingChildrenFloatKnnVectorQuery extends Diversifyin
 
     private final int k;
     private final int rescoreK;
-    private final boolean expandNestedDocs;
     private final BitSetProducer parentFilter;
 
     public OSDiversifyingChildrenFloatKnnVectorQuery(
@@ -39,23 +38,9 @@ public final class OSDiversifyingChildrenFloatKnnVectorQuery extends Diversifyin
         final int k,
         final int rescoreK
     ) {
-        this(fieldName, vector, filterQuery, luceneK, parentFilter, k, rescoreK, false);
-    }
-
-    public OSDiversifyingChildrenFloatKnnVectorQuery(
-        final String fieldName,
-        final float[] vector,
-        final Query filterQuery,
-        final int luceneK,
-        final BitSetProducer parentFilter,
-        final int k,
-        final int rescoreK,
-        final boolean expandNestedDocs
-    ) {
         super(fieldName, vector, filterQuery, luceneK, parentFilter);
         this.k = k;
         this.rescoreK = rescoreK;
-        this.expandNestedDocs = expandNestedDocs;
         this.parentFilter = parentFilter;
     }
 
@@ -74,8 +59,7 @@ public final class OSDiversifyingChildrenFloatKnnVectorQuery extends Diversifyin
 
     @Override
     protected TopDocs mergeLeafResults(TopDocs[] perLeafResults) {
-        // TODO: Fix this if condition after adding rescoring logic inside ExpandNestedDocsQuery when rescoring is enabled
-        if (rescoreK != RescoreContext.NO_RESCORE_NEEDED && !expandNestedDocs) {
+        if (rescoreK != RescoreContext.NO_RESCORE_NEEDED) {
             // When rescoring is enabled, merge to oversampled k (rescore budget) rather than the
             // full luceneK which may have been expanded by ef_search.
             return TopDocs.merge(rescoreK, perLeafResults);

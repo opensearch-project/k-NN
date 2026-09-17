@@ -12,6 +12,7 @@ import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
 import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
+import static org.junit.Assert.assertNotEquals;
 import static org.mockito.Mockito.mock;
 
 public class NestedKnnVectorQueryFactoryTests extends TestCase {
@@ -61,6 +62,43 @@ public class NestedKnnVectorQueryFactoryTests extends TestCase {
                 queryFilter,
                 parentFilter,
                 expandNestedDocs,
+                k,
+                RescoreContext.NO_RESCORE_NEEDED
+            )
+        );
+    }
+
+    public void testCreate_whenExpandNestedDocsWithRescore_thenExpandNestedDocsQueryOwnsRescore() {
+        String fieldName = "field";
+        float[] floatVectors = new float[3];
+        int luceneK = 10;
+        int k = 3;
+        int rescoreK = 6;
+        Query queryFilter = mock(Query.class);
+        BitSetProducer parentFilter = mock(BitSetProducer.class);
+
+        Query query = NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
+            fieldName,
+            floatVectors,
+            luceneK,
+            queryFilter,
+            parentFilter,
+            true,
+            k,
+            rescoreK
+        );
+
+        assertEquals(ExpandNestedDocsQuery.class, query.getClass());
+        // rescoreK is part of the query's identity, so it must not compare equal to the no-rescore variant
+        assertNotEquals(
+            query,
+            NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
+                fieldName,
+                floatVectors,
+                luceneK,
+                queryFilter,
+                parentFilter,
+                true,
                 k,
                 RescoreContext.NO_RESCORE_NEEDED
             )

@@ -151,16 +151,18 @@ public class KNNQueryFactory extends BaseQueryFactory {
             )
         );
 
-        // Skip wrapping with RescoreKNNVectorQuery for expandNested as it will reduce the results to k after rescoring
-        // which will not return all the child documents
-        // TODO: Skip retrieving child docs in ExpandNestedDocsQuery if rescoring is enabled and instead retrieve them after rescoring and
-        // reducing to top K.
-        if (needsRescore && expandNested) {
-            log.warn("Rescoring is not supported when [{}] is set to true", EXPAND_NESTED);
+        if (needsRescore == false) {
             return luceneKnnQuery;
         }
-        return needsRescore ? new RescoreKNNVectorQuery(luceneKnnQuery, fieldName, k, vector, shardId) : luceneKnnQuery;
 
+        // ExpandNestedDocsQuery owns the rescore stage itself, because rescoring has to happen before the child
+        // documents are expanded. Wrapping it here would instead cut to k after the expansion, which counts child
+        // documents rather than parent documents and drops parents that belong in the result.
+        if (expandNested) {
+            return luceneKnnQuery;
+        }
+
+        return new RescoreKNNVectorQuery(luceneKnnQuery, fieldName, k, vector, shardId);
     }
 
     private static int getDimension(float[] floatQueryVector, byte[] byteQueryVector) {
