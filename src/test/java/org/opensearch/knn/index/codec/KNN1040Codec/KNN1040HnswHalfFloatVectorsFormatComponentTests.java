@@ -20,6 +20,7 @@ import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.util.VectorUtil;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfHalfFloatsSerializer;
@@ -133,7 +134,12 @@ public class KNN1040HnswHalfFloatVectorsFormatComponentTests extends KNNTestCase
     private float[][] indexFloatDocs(final Directory dir, final VectorSimilarityFunction similarity) throws Exception {
         final Codec codec = new UnitTestCodec(KNN1040HnswHalfFloatVectorsFormat::new);
         final IndexWriterConfig iwc = newIndexWriterConfig().setCodec(codec);
-        final float[][] vectors = generateVectors(NUM_DOCS);
+        float[][] vectors = generateVectors(NUM_DOCS);
+        if (similarity == VectorSimilarityFunction.COSINE) {
+            for (int i = 0; i < vectors.length; i++) {
+                vectors[i] = VectorUtil.l2normalize(vectors[i]);
+            }
+        }
         try (IndexWriter writer = new IndexWriter(dir, iwc)) {
             for (int i = 0; i < NUM_DOCS; i++) {
                 final Document doc = new Document();

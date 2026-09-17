@@ -92,6 +92,59 @@ public class HalfFloatIndexIT extends KNNRestTestCase {
         assertEquals("1", results.get(0).getDocId());
     }
 
+    @SneakyThrows
+    public void testHalfFloatFlatIndex_cosineSpace_scoresMatchCosine() {
+        assertCosineScoresMatch(buildHalfFloatMapping("cosinesimil"));
+    }
+
+    /** Same contract for Lucene HNSW, which reaches FP16_COSINE through its flat delegate. */
+    @SneakyThrows
+    public void testHalfFloatHnswIndex_cosineSpace_scoresMatchCosine() {
+        assertCosineScoresMatch(buildHalfFloatHnswMapping("cosinesimil"));
+    }
+
+    @SneakyThrows
+    private void assertCosineScoresMatch(final String mapping) {
+        createKnnIndex(INDEX_NAME, mapping);
+
+        final float[][] vectors = { { 1.0f, 2.0f, 3.0f, 4.0f }, { 5.0f, 6.0f, 7.0f, 8.0f }, { 0.4f, 0.3f, 0.2f, 0.1f } };
+        for (int i = 0; i < vectors.length; i++) {
+            final Float[] boxed = new Float[vectors[i].length];
+            for (int d = 0; d < vectors[i].length; d++) {
+                boxed[d] = vectors[i][d];
+            }
+            addKnnDoc(INDEX_NAME, String.valueOf(i + 1), FIELD_NAME, boxed);
+        }
+        refreshIndex(INDEX_NAME);
+
+        final float[] queryVector = { 2.0f, 1.0f, 0.5f, 0.25f };
+        final Response response = searchKNNIndex(INDEX_NAME, buildSearchQuery(FIELD_NAME, 3, queryVector, null), 3);
+        final List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
+        assertEquals(3, results.size());
+
+        // True cosine ranks doc 3 first; unnormalized (1 + dot) / 2 would rank docs 1 and 2 first, tied at 1.0.
+        assertEquals("doc 3 has the smallest angle to the query", "3", results.get(0).getDocId());
+
+        float previous = Float.MAX_VALUE;
+        for (KNNResult result : results) {
+            final float expected = expectedCosineScore(queryVector, vectors[Integer.parseInt(result.getDocId()) - 1]);
+            assertEquals("score mismatch for doc " + result.getDocId(), expected, result.getScore(), 1e-2f);
+            assertTrue("scores must be in descending order", result.getScore() <= previous);
+            previous = result.getScore();
+        }
+    }
+
+    private float expectedCosineScore(final float[] query, final float[] vector) {
+        double dot = 0, queryNorm = 0, vectorNorm = 0;
+        for (int d = 0; d < query.length; d++) {
+            final float stored = Float.float16ToFloat(Float.floatToFloat16(vector[d]));
+            dot += query[d] * stored;
+            queryNorm += query[d] * query[d];
+            vectorNorm += stored * stored;
+        }
+        return (float) ((1 + dot / (Math.sqrt(queryNorm) * Math.sqrt(vectorNorm))) / 2);
+    }
+
     // ────────────────────────────────────────────────────────────────────────────
     // Force merge - exercises mergeOneFlatVectorField path
     // ────────────────────────────────────────────────────────────────────────────

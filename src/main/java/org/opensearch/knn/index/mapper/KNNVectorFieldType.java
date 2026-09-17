@@ -277,14 +277,15 @@ public class KNNVectorFieldType extends MappedFieldType {
             return VectorTransformerFactory.getVectorTransformer(
                 context.getKnnEngine(),
                 context.getSpaceType(),
-                context.getMethodComponentContext()
+                context.getMethodComponentContext(),
+                vectorDataType
             ).transform(vector, false);
         }
         final Optional<String> modelId = knnMappingConfig.getModelId();
         if (modelId.isPresent()) {
             ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
             final ModelMetadata metadata = modelDao.getMetadata(modelId.get());
-            return VectorTransformerFactory.getVectorTransformer(metadata.getKnnEngine(), metadata.getSpaceType(), null)
+            return VectorTransformerFactory.getVectorTransformer(metadata.getKnnEngine(), metadata.getSpaceType(), null, vectorDataType)
                 .transform(vector, false);
         }
         throw new IllegalStateException("Either KNN method context or Model Id should be configured");

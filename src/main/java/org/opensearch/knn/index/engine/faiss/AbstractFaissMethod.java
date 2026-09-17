@@ -176,7 +176,7 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
     }
 
     @Override
-    protected VectorTransformer getVectorTransformer(SpaceType spaceType) {
-        return VectorTransformerFactory.getVectorTransformer(KNNEngine.FAISS, spaceType, null);
+    protected VectorTransformer getVectorTransformer(SpaceType spaceType, VectorDataType vectorDataType) {
+        return VectorTransformerFactory.getVectorTransformer(KNNEngine.FAISS, spaceType, null, vectorDataType);
     }
 }

@@ -7,6 +7,7 @@ package org.opensearch.knn.index.codec.KNN1040Codec;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.Codec;
+import org.apache.lucene.util.VectorUtil;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
@@ -269,7 +270,12 @@ public class KNN1040HalfFloatFlatVectorsFormatComponentTests extends KNNTestCase
     private float[][] indexFloatDocs(final Directory dir, final VectorSimilarityFunction similarity) throws Exception {
         final Codec codec = new UnitTestCodec(KNN1040HalfFloatFlatVectorsFormat::new);
         final IndexWriterConfig iwc = newIndexWriterConfig().setCodec(codec);
-        final float[][] vectors = generateVectors(NUM_DOCS);
+        float[][] vectors = generateVectors(NUM_DOCS);
+        if (similarity == VectorSimilarityFunction.COSINE) {
+            for (int i = 0; i < vectors.length; i++) {
+                vectors[i] = VectorUtil.l2normalize(vectors[i]);
+            }
+        }
         try (IndexWriter writer = new IndexWriter(dir, iwc)) {
             for (int i = 0; i < NUM_DOCS; i++) {
                 final Document doc = new Document();

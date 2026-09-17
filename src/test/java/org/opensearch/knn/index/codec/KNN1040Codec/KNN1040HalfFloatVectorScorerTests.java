@@ -51,9 +51,12 @@ public class KNN1040HalfFloatVectorScorerTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testGetRandomVectorScorerSupplier_cosine_neverUsesNativeTierRegardlessOfSimd() {
-        // No native FP16 kernel exists for COSINE yet so must fall back even when SIMD is available.
-        assertFallbackTierUsed(VectorSimilarityFunction.COSINE, true);
+    public void testGetRandomVectorScorerSupplier_cosineWithSimdSupported_usesNativeTier() {
+        assertNativeTierUsed(VectorSimilarityFunction.COSINE, true);
+    }
+
+    @SneakyThrows
+    public void testGetRandomVectorScorerSupplier_cosineWithoutSimdSupported_usesFallbackTier() {
         assertFallbackTierUsed(VectorSimilarityFunction.COSINE, false);
     }
 

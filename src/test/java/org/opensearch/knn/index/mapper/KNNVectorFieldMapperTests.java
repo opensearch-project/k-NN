@@ -1691,6 +1691,185 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         }
     }
 
+    /**
+     * Builds a Lucene {@code method: flat} mapper for the given data type and space, parses TEST_VECTOR
+     * through it, and returns the vector as it was actually written to the document. Used to verify which
+     * combinations normalize on write.
+     */
+    @SneakyThrows
+    private float[] parseLuceneVector(final VectorDataType vectorDataType, final SpaceType spaceType, final String methodName) {
+        return parseEngineVector(KNNEngine.LUCENE, vectorDataType, spaceType, methodName);
+    }
+
+    /**
+     * Builds a mapper for the given engine, data type, space and method, parses TEST_VECTOR through it and
+     * returns the vector as it was actually written to the document. Used to verify which combinations
+     * normalize on write.
+     */
+    @SneakyThrows
+    private float[] parseEngineVector(
+        final KNNEngine knnEngine,
+        final VectorDataType vectorDataType,
+        final SpaceType spaceType,
+        final String methodName
+    ) {
+        try (MockedStatic<KNNVectorFieldMapperUtil> utilMockedStatic = Mockito.mockStatic(KNNVectorFieldMapperUtil.class)) {
+            utilMockedStatic.when(() -> KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Mockito.any())).thenReturn(true);
+            utilMockedStatic.when(() -> KNNVectorFieldMapperUtil.useFullFieldNameValidation(Mockito.any())).thenReturn(true);
+
+            KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+                .vectorDataType(vectorDataType)
+                .versionCreated(CURRENT)
+                .dimension(TEST_DIMENSION)
+                .build();
+            final MethodComponentContext methodComponentContext = new MethodComponentContext(methodName, Collections.emptyMap());
+            final KNNMethodContext knnMethodContext = new KNNMethodContext(knnEngine, spaceType, methodComponentContext);
+
+            OriginalMappingParameters originalMappingParameters = new OriginalMappingParameters(
+                vectorDataType,
+                TEST_DIMENSION,
+                knnMethodContext,
+                Mode.NOT_CONFIGURED.getName(),
+                CompressionLevel.NOT_CONFIGURED.getName(),
+                null,
+                SpaceType.UNDEFINED.getValue(),
+                KNNEngine.UNDEFINED.getName()
+            );
+            originalMappingParameters.setResolvedKnnMethodContext(knnMethodContext);
+
+            EngineFieldMapper fieldMapper = EngineFieldMapper.createFieldMapper(
+                TEST_FIELD_NAME,
+                TEST_FIELD_NAME,
+                Collections.emptyMap(),
+                knnMethodConfigContext,
+                FieldMapper.MultiFields.empty(),
+                FieldMapper.CopyTo.empty(),
+                new Explicit<>(true, true),
+                false,
+                false,
+                originalMappingParameters,
+                CURRENT
+            );
+
+            IndexSettings indexSettingsMock = mock(IndexSettings.class);
+            when(indexSettingsMock.getSettings()).thenReturn(Settings.EMPTY);
+            ParseContext.Document document = new ParseContext.Document();
+            ContentPath contentPath = new ContentPath();
+            ParseContext parseContext = mock(ParseContext.class);
+            when(parseContext.doc()).thenReturn(document);
+            when(parseContext.path()).thenReturn(contentPath);
+            when(parseContext.parser()).thenReturn(createXContentParser(VectorDataType.FLOAT));
+            when(parseContext.indexSettings()).thenReturn(indexSettingsMock);
+
+            fieldMapper.parseCreateField(parseContext, TEST_DIMENSION, vectorDataType);
+
+            KnnFloatVectorField field = (KnnFloatVectorField) document.getFields().get(0);
+            return field.vectorValue();
+        }
+    }
+
+    @SneakyThrows
+    private float[] parseLuceneFlatVector(final VectorDataType vectorDataType, final SpaceType spaceType) {
+        return parseLuceneVector(vectorDataType, spaceType, KNNConstants.METHOD_FLAT);
+    }
+
+    @SneakyThrows
+    public void testParseCreateField_whenHalfFloatLuceneHnswCosine_thenNormalizesOnWrite() {
+        float[] written = parseLuceneVector(VectorDataType.HALF_FLOAT, SpaceType.COSINESIMIL, KNNConstants.METHOD_HNSW);
+        final float expected = 1.0f / (float) Math.sqrt(TEST_DIMENSION);
+        for (float value : written) {
+            assertEquals(expected, value, 1e-5f);
+        }
+    }
+
+    /** Only cosine normalizes; L2 measures magnitude so normalizing would change what it computes. */
+    @SneakyThrows
+    public void testParseCreateField_whenHalfFloatLuceneHnswL2_thenDoesNotNormalize() {
+        float[] written = parseLuceneVector(VectorDataType.HALF_FLOAT, SpaceType.L2, KNNConstants.METHOD_HNSW);
+        for (float value : written) {
+            assertEquals(TEST_VECTOR_VALUE, value, 0.0f);
+        }
+    }
+
+    /** float32 hnsw uses Lucene's own formats, which handle cosine themselves - must stay unnormalized here. */
+    /**
+     * Faiss has no native cosine metric and emulates it with inner product, so it normalizes every cosine
+     * field on write regardless of data type - long predating the FP16_COSINE kernel. Guards that
+     * half_float inherits it, since the Faiss half_float formats rely on it and add nothing of their own.
+     */
+    @SneakyThrows
+    public void testParseCreateField_whenHalfFloatFaissHnswCosine_thenNormalizesOnWrite() {
+        float[] written = parseEngineVector(KNNEngine.FAISS, VectorDataType.HALF_FLOAT, SpaceType.COSINESIMIL, METHOD_HNSW);
+        final float expected = 1.0f / (float) Math.sqrt(TEST_DIMENSION);
+        for (float value : written) {
+            assertEquals(expected, value, 1e-5f);
+        }
+    }
+
+    /** float32 Faiss cosine normalizes too - the rule is data-type blind, unlike Lucene's. */
+    @SneakyThrows
+    public void testParseCreateField_whenFloatFaissHnswCosine_thenNormalizesOnWrite() {
+        float[] written = parseEngineVector(KNNEngine.FAISS, VectorDataType.FLOAT, SpaceType.COSINESIMIL, METHOD_HNSW);
+        final float expected = 1.0f / (float) Math.sqrt(TEST_DIMENSION);
+        for (float value : written) {
+            assertEquals(expected, value, 1e-5f);
+        }
+    }
+
+    /** Only cosine normalizes; L2 measures magnitude, so Faiss must leave it alone. */
+    @SneakyThrows
+    public void testParseCreateField_whenHalfFloatFaissHnswL2_thenDoesNotNormalize() {
+        float[] written = parseEngineVector(KNNEngine.FAISS, VectorDataType.HALF_FLOAT, SpaceType.L2, METHOD_HNSW);
+        for (float value : written) {
+            assertEquals(TEST_VECTOR_VALUE, value, 0.0f);
+        }
+    }
+
+    @SneakyThrows
+    public void testParseCreateField_whenFloatLuceneHnswCosine_thenDoesNotNormalize() {
+        float[] written = parseLuceneVector(VectorDataType.FLOAT, SpaceType.COSINESIMIL, KNNConstants.METHOD_HNSW);
+        for (float value : written) {
+            assertEquals(TEST_VECTOR_VALUE, value, 0.0f);
+        }
+    }
+
+    /**
+     * half_float + flat + cosine is scored by the native FP16_COSINE kernel, which computes
+     * (1 + dot) / 2 and is only equal to cosine for unit-length vectors, so the write path must
+     * normalize. Every component of TEST_VECTOR is identical, so each normalizes to 1/sqrt(dimension).
+     */
+    @SneakyThrows
+    public void testParseCreateField_whenHalfFloatLuceneFlatCosine_thenNormalizesOnWrite() {
+        float[] written = parseLuceneFlatVector(VectorDataType.HALF_FLOAT, SpaceType.COSINESIMIL);
+        final float expected = 1.0f / (float) Math.sqrt(TEST_DIMENSION);
+        for (float value : written) {
+            assertEquals(expected, value, 1e-5f);
+        }
+    }
+
+    /**
+     * Only cosine normalizes. L2 measures magnitude, so normalizing would change what it computes.
+     */
+    @SneakyThrows
+    public void testParseCreateField_whenHalfFloatLuceneFlatL2_thenDoesNotNormalize() {
+        float[] written = parseLuceneFlatVector(VectorDataType.HALF_FLOAT, SpaceType.L2);
+        for (float value : written) {
+            assertEquals(TEST_VECTOR_VALUE, value, 0.0f);
+        }
+    }
+
+    /**
+     * The normalize-on-write path is gated to half_float. float32 + flat resolves to the scalar-quantized
+     * format instead, and must keep its existing unnormalized behavior.
+     */
+    @SneakyThrows
+    public void testParseCreateField_whenFloatLuceneFlatCosine_thenDoesNotNormalize() {
+        float[] written = parseLuceneFlatVector(VectorDataType.FLOAT, SpaceType.COSINESIMIL);
+        for (float value : written) {
+            assertEquals(TEST_VECTOR_VALUE, value, 0.0f);
+        }
+    }
+
     @SneakyThrows
     public void testModelFieldMapperParseCreateField_validInput_thenDifferentFieldTypes() {
         ModelDao modelDao = mock(ModelDao.class);

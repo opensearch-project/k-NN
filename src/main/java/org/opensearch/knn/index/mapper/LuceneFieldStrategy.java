@@ -56,7 +56,7 @@ public final class LuceneFieldStrategy implements EngineFieldStrategy {
             vectorFieldType = null;
         }
 
-        return new FieldTypeConfig(fieldType, vectorFieldType, null, false);
+        return new FieldTypeConfig(fieldType, vectorFieldType, knnLibraryIndexingContext.getVectorTransformer(), false);
     }
 
     @Override
