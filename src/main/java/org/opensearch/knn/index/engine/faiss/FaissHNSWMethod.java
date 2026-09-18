@@ -226,11 +226,21 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
             final VectorDataType vectorDataType = extractVectorDataType(parameters);
             final Map<String, Object> encoderMap = extractEncoderMap(parameters);
 
-            // TODO: turn this on once half_float is supported for remote index build. Each of the
-            // checks below already requires FLOAT/BINARY/BYTE, so this is stating the existing
-            // behavior rather than changing it.
+            // half_float rides the existing remote build paths (opensearch-project#3575):
+            // x16 resolves internally to sq bits=1, whose 1-bit codes upload unchanged; x1 resolves
+            // to no encoder and writes native fp16 flat storage, uploaded as raw fp32 with the
+            // remote build service converting to fp16 (FP32ToFP16ConvertingBytesIO) - the same
+            // conversion the FLOAT + sq fp16 path already relies on.
             if (vectorDataType == VectorDataType.HALF_FLOAT) {
-                return false;
+                // x1: the resolver adds no encoder, but the HNSW method's encoder parameter defaults
+                // to flat and MethodAsMapBuilder always writes that default into the parameter map -
+                // so on a real node encoderMap is {name: flat}, never null. Both spellings mean the
+                // same thing: native fp16 flat storage (SQfp16), remote-eligible.
+                if (encoderMap == null || ENCODER_FLAT.equals(encoderMap.get(NAME))) {
+                    return true;
+                }
+                // x16: resolves internally to sq bits=1.
+                return isSQOneBitIndex(vectorDataType, parameters);
             }
 
             if (isSQOneBitIndex(vectorDataType, parameters)) {
@@ -370,7 +380,10 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
      */
     public static boolean isSQOneBitIndex(final VectorDataType vectorDataType, final Map<String, Object> parameters) {
         try {
-            if (vectorDataType != VectorDataType.FLOAT) {
+            // Data-type check mirrors main's data-type-agnostic isSQMultiBit: half_float's x16
+            // resolves internally to sq bits=1, and its remote build must also skip stored vectors
+            // (graph-only .faiss stitched with the local .veq at search time).
+            if (vectorDataType != VectorDataType.FLOAT && vectorDataType != VectorDataType.HALF_FLOAT) {
                 return false;
             }
             final Map<String, Object> encoderMap = extractEncoderMap(parameters);

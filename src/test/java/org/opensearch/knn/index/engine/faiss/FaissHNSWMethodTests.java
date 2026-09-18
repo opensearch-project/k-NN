@@ -138,6 +138,10 @@ public class FaissHNSWMethodTests extends KNNTestCase {
     }
 
     public void testIsSQOneBitIndex_whenSQWithBits1Binary_thenFalse() {
+        // half_float x16 resolves internally to sq bits=1 and must be recognized (skip-stored-vectors
+        // on the remote build path depends on it); other widths stay rejected.
+        assertSQOneBitIndex(VectorDataType.HALF_FLOAT, ENCODER_SQ, Map.of(SQ_BITS, 1), true);
+        assertSQOneBitIndex(VectorDataType.HALF_FLOAT, ENCODER_SQ, Map.of(SQ_BITS, 16), false);
         assertSQOneBitIndex(VectorDataType.BINARY, ENCODER_SQ, Map.of(SQ_BITS, 1), false);
     }
 
@@ -271,6 +275,50 @@ public class FaissHNSWMethodTests extends KNNTestCase {
         @SuppressWarnings("unchecked")
         Map<String, Object> encoderParams = (Map<String, Object>) innerParams.get(METHOD_ENCODER_PARAMETER);
         assertEquals(ENCODER_FLAT, encoderParams.get(NAME));
+    }
+
+    // --- supportsRemoteIndexBuild: half_float (#3575) ---
+
+    public void testSupportsRemoteIndexBuild_whenHalfFloatDefaultFlatEncoder_thenSupported() {
+        // x1 as a real node produces it: the resolver adds no encoder, but the HNSW method's encoder
+        // parameter defaults to flat and MethodAsMapBuilder always writes that default - the map
+        // carries encoder={name: flat}. Native fp16 flat storage, remote-eligible.
+        Map<String, Object> params = buildLibraryParametersMap(VectorDataType.HALF_FLOAT, ENCODER_FLAT, Map.of());
+        assertTrue(FaissHNSWMethod.supportsRemoteIndexBuild(params));
+    }
+
+    public void testSupportsRemoteIndexBuild_whenHalfFloatNoEncoder_thenSupported() {
+        // Defensive: same verdict if the encoder entry is ever absent entirely
+        Map<String, Object> params = Map.of(
+            NAME,
+            METHOD_HNSW,
+            VECTOR_DATA_TYPE_FIELD,
+            VectorDataType.HALF_FLOAT.getValue(),
+            PARAMETERS,
+            Map.of()
+        );
+        assertTrue(FaissHNSWMethod.supportsRemoteIndexBuild(params));
+    }
+
+    public void testSupportsRemoteIndexBuild_whenHalfFloatSQOneBit_thenSupported() {
+        // x16 resolves internally to sq bits=1 - the 1-bit codes upload unchanged
+        Map<String, Object> params = buildLibraryParametersMap(VectorDataType.HALF_FLOAT, ENCODER_SQ, Map.of(SQ_BITS, 1));
+        assertTrue(FaissHNSWMethod.supportsRemoteIndexBuild(params));
+    }
+
+    public void testSupportsRemoteIndexBuild_whenHalfFloatSQSixteenBit_thenNotSupported() {
+        // fp16 SQ on half_float is not a valid mapping; the gate must not admit it either
+        Map<String, Object> params = buildLibraryParametersMap(VectorDataType.HALF_FLOAT, ENCODER_SQ, Map.of(SQ_BITS, 16));
+        assertFalse(FaissHNSWMethod.supportsRemoteIndexBuild(params));
+    }
+
+    public void testSupportsRemoteIndexBuild_whenFloatConfigs_thenUnchanged() {
+        // Regression guard: FLOAT eligibility unchanged by the half_float gate
+        assertTrue(FaissHNSWMethod.supportsRemoteIndexBuild(buildLibraryParametersMap(VectorDataType.FLOAT, ENCODER_FLAT, Map.of())));
+        assertTrue(
+            FaissHNSWMethod.supportsRemoteIndexBuild(buildLibraryParametersMap(VectorDataType.FLOAT, ENCODER_SQ, Map.of(SQ_BITS, 1)))
+        );
+        assertFalse(FaissHNSWMethod.supportsRemoteIndexBuild(buildLibraryParametersMap(VectorDataType.FLOAT, ENCODER_PQ, Map.of())));
     }
 
     private void assertSQOneBitIndex(VectorDataType dataType, String encoderName, Map<String, Object> encoderParams, boolean expected) {

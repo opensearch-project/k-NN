@@ -17,6 +17,8 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.common.exception.TerminalIOException;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
 import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
 import org.opensearch.repositories.RepositoriesService;
@@ -210,6 +212,51 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         );
         assertEquals(VectorDataType.FLOAT.getValue(), request.getVectorDataType());
         assertTrue(request.isSkipStoredVectors());
+    }
+
+    /**
+     * half_float x16 resolves internally to sq bits=1. Like FLOAT SQ 1-bit, the remote builder must
+     * skip flat vector storage (graph-only .faiss, stitched with the local .veq at search time) -
+     * without this the GPU-built .faiss carries full fp16 vectors that memory-optimized search
+     * cannot read. Mirrors main's data-type-agnostic resolvedSpec.isFaissSQMultiBit() gate.
+     */
+    public void testBuildRequestHalfFloatSQOneBit() throws IOException {
+        RemoteBuildRequest request = RemoteIndexBuildStrategy.buildRemoteBuildRequest(
+            createTestIndexSettings(),
+            halfFloatBuildIndexParams(),
+            createTestRepositoryMetadata(),
+            MOCK_FULL_PATH,
+            getMockSQOneBitParameterMap()
+        );
+        assertEquals(VectorDataType.HALF_FLOAT.getValue(), request.getVectorDataType());
+        assertTrue("half_float sq bits=1 must skip stored vectors", request.isSkipStoredVectors());
+    }
+
+    /** half_float x1 (flat, no encoder) keeps stored vectors - the .faiss must carry the fp16 flat storage. */
+    public void testBuildRequestHalfFloatFlat() throws IOException {
+        RemoteBuildRequest request = RemoteIndexBuildStrategy.buildRemoteBuildRequest(
+            createTestIndexSettings(),
+            halfFloatBuildIndexParams(),
+            createTestRepositoryMetadata(),
+            MOCK_FULL_PATH,
+            getMockParameterMap()
+        );
+        assertEquals(VectorDataType.HALF_FLOAT.getValue(), request.getVectorDataType());
+        assertFalse(request.isSkipStoredVectors());
+    }
+
+    private BuildIndexParams halfFloatBuildIndexParams() {
+        return BuildIndexParams.builder()
+            .indexOutputWithBuffer(indexOutputWithBuffer)
+            .knnEngine(KNNEngine.FAISS)
+            .field(buildIndexParams.getField())
+            .vectorDataType(VectorDataType.HALF_FLOAT)
+            .indexParameters(buildIndexParams.getIndexParameters())
+            .knnVectorValuesSupplier(knnVectorValuesSupplier)
+            .totalLiveDocs(buildIndexParams.getTotalLiveDocs())
+            .segmentWriteState(buildIndexParams.getSegmentWriteState())
+            .isFlush(buildIndexParams.isFlush())
+            .build();
     }
 
     public void testBuildRequestFP16() throws IOException {
