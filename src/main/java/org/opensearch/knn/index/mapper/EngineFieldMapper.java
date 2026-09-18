@@ -48,6 +48,7 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.buildDocValuesFieldType;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForByteVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForFloatVector;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForHalfFloatVector;
 
 /**
  *  Field mapper for all supported engines.
@@ -181,7 +182,10 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
             } else {
                 this.vectorFieldType = null;
             }
-            this.vectorTransformer = null;
+            // Lucene half_float cosine needs its vectors normalized on write (see AbstractLuceneMethod);
+            // for every other Lucene configuration the library context still carries the no-op transformer,
+            // so this is the same behavior as passing null was.
+            this.vectorTransformer = knnLibraryIndexingContext.getVectorTransformer();
         } else {
             // MethodFieldMapper attributes
             this.vectorFieldType = null;
@@ -220,9 +224,8 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
                 int adjustedDimension = mappedFieldType.vectorDataType == VectorDataType.BINARY
                     ? knnMappingConfig.getDimension() / 8
                     : knnMappingConfig.getDimension();
-                final VectorEncoding encoding = mappedFieldType.vectorDataType == VectorDataType.FLOAT
-                    ? VectorEncoding.FLOAT32
-                    : VectorEncoding.BYTE;
+                final VectorEncoding encoding = (mappedFieldType.vectorDataType == VectorDataType.FLOAT
+                    || mappedFieldType.vectorDataType == VectorDataType.HALF_FLOAT) ? VectorEncoding.FLOAT32 : VectorEncoding.BYTE;
                 final VectorSimilarityFunction similarityFunction = findBestMatchingVectorSimilarityFunction(
                     resolvedKnnMethodContext.getSpaceType()
                 );
@@ -262,12 +265,19 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
     protected List<Field> getFieldsForFloatVector(final float[] array, boolean isDerivedSourceEnabled) {
         if (this.isLuceneEngine) {
             final List<Field> fields = new ArrayList<>();
+            final VectorDataType vectorDataType = fieldType().getVectorDataType();
             fields.add(new DerivedKnnFloatVectorField(name(), array, fieldType, isDerivedSourceEnabled));
-            if (hasDocValues && vectorFieldType != null) {
+            // half_float has no binary doc-values representation on the Lucene engine - the KnnFloatVectorField
+            // above is the only on-disk copy, and the stored field carries the fp16 encoding.
+            if (hasDocValues && vectorFieldType != null && vectorDataType != VectorDataType.HALF_FLOAT) {
                 fields.add(new VectorField(name(), array, vectorFieldType));
             }
             if (stored) {
-                fields.add(createStoredFieldForFloatVector(name(), array));
+                if (vectorDataType == VectorDataType.HALF_FLOAT) {
+                    fields.add(createStoredFieldForHalfFloatVector(name(), array));
+                } else {
+                    fields.add(createStoredFieldForFloatVector(name(), array));
+                }
             }
             return fields;
         }
@@ -307,9 +317,6 @@ public class EngineFieldMapper extends KNNVectorFieldMapper {
 
     @Override
     protected VectorTransformer getVectorTransformer() {
-        if (isLuceneEngine) {
-            return super.getVectorTransformer();
-        }
         return vectorTransformer;
     }
 

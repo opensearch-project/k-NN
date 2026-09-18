@@ -13,6 +13,7 @@ import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorsFormat.
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import com.google.common.annotations.VisibleForTesting;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
 
@@ -37,16 +38,21 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
 
     private static final String FORMAT_NAME = "Faiss1040ScalarQuantizedKnnVectorsFormat";
 
-    // Shared across all format instances; KNN1040ScalarQuantizedVectorsFormat is stateless.
+    // KNN1040(HalfFloat)ScalarQuantizedVectorsFormat is stateless per (encoding, vector data type), so
+    // we cache one instance per combination and share it across all format instances.
     // TODO : We have to make it scalable for other encoding types, not limit this on `ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE`.
-    private static final KNN1040ScalarQuantizedVectorsFormat faissSqFlatFormat = new KNN1040ScalarQuantizedVectorsFormat(
+    private static final KNN1040ScalarQuantizedVectorsFormat FLAT_FORMAT_FLOAT = new KNN1040ScalarQuantizedVectorsFormat(
         ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE
     );
 
+    private static final KNN1040HalfFloatScalarQuantizedVectorsFormat FLAT_FORMAT_HALF_FLOAT =
+        new KNN1040HalfFloatScalarQuantizedVectorsFormat(ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE);
+
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
+    private final KNN1040ScalarQuantizedVectorsFormat faissSqFlatFormat;
 
     @VisibleForTesting
-    static KNN1040ScalarQuantizedVectorsFormat getFaissSqFlatFormat() {
+    KNN1040ScalarQuantizedVectorsFormat getFaissSqFlatFormat() {
         return faissSqFlatFormat;
     }
 
@@ -55,8 +61,17 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
     }
 
     public Faiss1040ScalarQuantizedKnnVectorsFormat(final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory) {
-        super(FORMAT_NAME);
+        this(FORMAT_NAME, nativeIndexBuildStrategyFactory, VectorDataType.FLOAT);
+    }
+
+    protected Faiss1040ScalarQuantizedKnnVectorsFormat(
+        final String formatName,
+        final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory,
+        final VectorDataType vectorDataType
+    ) {
+        super(formatName);
         this.nativeIndexBuildStrategyFactory = nativeIndexBuildStrategyFactory;
+        this.faissSqFlatFormat = VectorDataType.HALF_FLOAT == vectorDataType ? FLAT_FORMAT_HALF_FLOAT : FLAT_FORMAT_FLOAT;
     }
 
     @Override
@@ -94,6 +109,6 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
 
     @Override
     public String toString() {
-        return this.getClass().getSimpleName() + "(name=" + this.getClass().getSimpleName() + ")";
+        return this.getClass().getSimpleName() + "(name=" + getName() + ")";
     }
 }

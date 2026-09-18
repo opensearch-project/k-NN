@@ -35,7 +35,9 @@ import static org.opensearch.knn.common.KNNConstants.MINIMUM_CONFIDENCE_INTERVAL
  * Lucene scalar quantization encoder
  */
 public class LuceneSQEncoder implements Encoder {
-    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
+    // HALF_FLOAT reaches this encoder through compression_level x16, which resolves to bits=1; it has
+    // no other supported width (rejected in LuceneHNSWMethodResolver#validateEncoderParams).
+    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT, VectorDataType.HALF_FLOAT);
     static final Set<Integer> LUCENE_SQ_BITS_SUPPORTED = Arrays.stream(Bits.values())
         .map(Bits::getValue)
         .collect(Collectors.toUnmodifiableSet());
@@ -59,6 +61,27 @@ public class LuceneSQEncoder implements Encoder {
                 if (b.value == value) return b;
             }
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Unsupported bits value: %d", value));
+        }
+
+        /**
+         * Compression this bit width achieves for {@code vectorDataType}. The levels attached to the constants
+         * above are measured against FLOAT's 32 bits, so {@link #ONE} is x32 there; taking HALF_FLOAT's 16 bits
+         * down to 1 saves 16x instead.
+         *
+         * <p>HALF_FLOAT supports only bits=1. Any other width is rejected rather than falling through to
+         * {@link #getCompressionLevel()}, which is computed against FLOAT's 32-bit baseline and would report a
+         * level that is wrong for HALF_FLOAT.
+         */
+        public CompressionLevel getCompressionLevel(VectorDataType vectorDataType) {
+            if (vectorDataType == VectorDataType.HALF_FLOAT) {
+                if (this == ONE) {
+                    return CompressionLevel.x16;
+                }
+                throw new IllegalArgumentException(
+                    String.format(Locale.ROOT, "half_float only supports bits=1 for SQ quantization, got bits=%d", value)
+                );
+            }
+            return compressionLevel;
         }
     }
 
@@ -102,13 +125,13 @@ public class LuceneSQEncoder implements Encoder {
         if (methodComponentContext != null && methodComponentContext.getParameters() != null) {
             Object bitsObj = methodComponentContext.getParameters().get(LUCENE_SQ_BITS);
             if (bitsObj instanceof Integer) {
-                return Bits.fromValue((Integer) bitsObj).getCompressionLevel();
+                return Bits.fromValue((Integer) bitsObj).getCompressionLevel(knnMethodConfigContext.getVectorDataType());
             }
         }
 
-        // For indices after version 3.6.0, we want to default to 32x compression
+        // For indices after version 3.6.0, we want to default to 1-bit SQ's compression level.
         if (knnMethodConfigContext.getVersionCreated().onOrAfter(Version.V_3_6_0)) {
-            return CompressionLevel.x32;
+            return Bits.ONE.getCompressionLevel(knnMethodConfigContext.getVectorDataType());
         }
         return CompressionLevel.x4;
     }

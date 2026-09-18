@@ -9,11 +9,15 @@ import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.KNN1040Codec.Faiss1040HalfFloatScalarQuantizedKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN1040Codec.Faiss1040ScalarQuantizedKnnVectorsFormat;
+import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990HalfFloatKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.CodecFormatResolver;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import java.util.Map;
 import java.util.Optional;
@@ -49,8 +53,16 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
         KNNMethodContext methodContext,
         Map<String, Object> params,
         int defaultMaxConnections,
-        int defaultBeamWidth
+        int defaultBeamWidth,
+        VectorDataType vectorDataType,
+        CompressionLevel compressionLevel
     ) {
+        if (vectorDataType == VectorDataType.HALF_FLOAT) {
+            return isSQOneBitEncoder(params)
+                ? new Faiss1040HalfFloatScalarQuantizedKnnVectorsFormat(nativeIndexBuildStrategyFactory)
+                : new NativeEngines990HalfFloatKnnVectorsFormat(getApproximateThresholdValue(), nativeIndexBuildStrategyFactory);
+        }
+
         if (isSQOneBitEncoder(params)) {
             return new Faiss1040ScalarQuantizedKnnVectorsFormat(nativeIndexBuildStrategyFactory);
         }

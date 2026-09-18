@@ -197,13 +197,14 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormatTests extends KNNTestCase {
     @SneakyThrows
     public void testFieldsReader_scorerIsPrefetchable() {
         try (MMapDirectory dir = new MMapDirectory(createTempDir())) {
+            final Faiss1040ScalarQuantizedKnnVectorsFormat format = new Faiss1040ScalarQuantizedKnnVectorsFormat();
             SegmentReadState readState = KNN1040ScalarQuantizedTestUtils.writeQuantizedVectors(
                 dir,
-                Faiss1040ScalarQuantizedKnnVectorsFormat.getFaissSqFlatFormat(),
+                format.getFaissSqFlatFormat(),
                 random()
             );
 
-            try (KnnVectorsReader rawReader = new Faiss1040ScalarQuantizedKnnVectorsFormat().fieldsReader(readState)) {
+            try (KnnVectorsReader rawReader = format.fieldsReader(readState)) {
                 assertTrue(
                     "Expected Faiss1040ScalarQuantizedKnnVectorsReader but was: " + rawReader.getClass().getSimpleName(),
                     rawReader instanceof Faiss1040ScalarQuantizedKnnVectorsReader

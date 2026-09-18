@@ -7,12 +7,14 @@ package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableSet;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.AbstractKNNMethod;
 import org.opensearch.knn.index.engine.DefaultHnswSearchContext;
 import org.opensearch.knn.index.engine.Encoder;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -53,7 +55,8 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(
         VectorDataType.FLOAT,
         VectorDataType.BINARY,
-        VectorDataType.BYTE
+        VectorDataType.BYTE,
+        VectorDataType.HALF_FLOAT
     );
 
     public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
@@ -90,6 +93,29 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
      */
     public FaissHNSWMethod() {
         super(HNSW_COMPONENT, Set.copyOf(SUPPORTED_SPACES), new DefaultHnswSearchContext());
+    }
+
+    @Override
+    public ValidationException validate(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
+        if (knnMethodConfigContext.getVectorDataType() == VectorDataType.HALF_FLOAT && resolvesToSqFp16(knnMethodContext)) {
+            ValidationException validationException = new ValidationException();
+            validationException.addValidationError(
+                "half_float is not supported with fp16 quantization (encoder: sq, bits: 16, or no bits specified) for Faiss HNSW. "
+                    + "half_float does not accept an encoder at all; use \"compression_level\": \"16x\" for SQ 1-bit, "
+                    + "or \"1x\" for unquantized fp16 storage, instead."
+            );
+            return validationException;
+        }
+        return super.validate(knnMethodContext, knnMethodConfigContext);
+    }
+
+    private boolean resolvesToSqFp16(KNNMethodContext knnMethodContext) {
+        MethodComponentContext encoderContext = getEncoderComponentContext(knnMethodContext);
+        if (encoderContext == null || !ENCODER_SQ.equals(encoderContext.getName())) {
+            return false;
+        }
+        Object bitsObj = encoderContext.getParameters().get(SQ_BITS);
+        return bitsObj == null || (bitsObj instanceof Integer && (Integer) bitsObj == 16);
     }
 
     private static MethodComponent initMethodComponent() {
@@ -199,6 +225,13 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
         try {
             final VectorDataType vectorDataType = extractVectorDataType(parameters);
             final Map<String, Object> encoderMap = extractEncoderMap(parameters);
+
+            // TODO: turn this on once half_float is supported for remote index build. Each of the
+            // checks below already requires FLOAT/BINARY/BYTE, so this is stating the existing
+            // behavior rather than changing it.
+            if (vectorDataType == VectorDataType.HALF_FLOAT) {
+                return false;
+            }
 
             if (isSQOneBitIndex(vectorDataType, parameters)) {
                 return true;
