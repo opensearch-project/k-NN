@@ -32,7 +32,14 @@ import java.util.Map;
 @Getter
 public class FaissIndexScalarQuantizedFlat extends FaissIndex {
     private static EnumMap<FaissQuantizerType, VectorEncoding> VECTOR_DATA_TYPES = new EnumMap<>(
-        Map.of(FaissQuantizerType.QT_8BIT_DIRECT_SIGNED, VectorEncoding.BYTE, FaissQuantizerType.QT_FP16, VectorEncoding.FLOAT32)
+        Map.of(
+            FaissQuantizerType.QT_8BIT_DIRECT_SIGNED,
+            VectorEncoding.BYTE,
+            FaissQuantizerType.QT_FP16,
+            VectorEncoding.FLOAT32,
+            FaissQuantizerType.QT_BF16,
+            VectorEncoding.FLOAT32
+        )
     );
 
     public static final String IXSQ = "IxSQ";
@@ -100,8 +107,8 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
 
     @Override
     public FloatVectorValues getFloatValues(IndexInput indexInput) throws IOException {
-        if (quantizerType == FaissQuantizerType.QT_FP16) {
-            // Faiss SIMD bulk only supported for FP16 for now.
+        if (quantizerType == FaissQuantizerType.QT_FP16 || quantizerType == FaissQuantizerType.QT_BF16) {
+            // Faiss SIMD bulk supported for FP16 and BF16.
             final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(
                 indexInput,
                 flatVectors.getBaseOffset(),
@@ -111,7 +118,8 @@ public class FaissIndexScalarQuantizedFlat extends FaissIndex {
                 // Return MMapByteVectorValues having pointers pointing to mmap regions.
                 return new MMapFloatVectorValues(
                     new FloatVectorValuesImpl(flatVectors.slice(indexInput, FLOAT_VECTOR_VALUES_SLICE)),
-                    addressAndSize
+                    addressAndSize,
+                    quantizerType
                 );
             } else {
                 log.debug("Failed to extract mapped pointers from IndexInput, falling back to FloatVectorValuesImpl.");

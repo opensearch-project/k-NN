@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 
 /**
@@ -154,6 +155,7 @@ public abstract class AbstractKNNMethod implements KNNMethod {
     private ResolvedIndexSpec buildResolvedIndexSpec(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
         Encoder.EncoderType encoderType = Encoder.EncoderType.FLAT;
         Encoder.QuantizationBits quantizationBits = Encoder.QuantizationBits.FULL_PRECISION;
+        String sqType = null;
 
         Map<String, Object> methodParams = knnMethodContext.getMethodComponentContext().getParameters();
         if (methodParams != null && methodParams.containsKey(METHOD_ENCODER_PARAMETER)) {
@@ -168,6 +170,14 @@ public abstract class AbstractKNNMethod implements KNNMethod {
                 } else if (encoderType == Encoder.EncoderType.BQ) {
                     quantizationBits = Encoder.QuantizationBits.ONE;
                 }
+                // Capture the SQ encoder subtype (fp16/bf16) so the spec can distinguish bf16 from fp16, since both
+                // resolve to SQ with bits=16. Only meaningful for the SQ encoder.
+                if (encoderType == Encoder.EncoderType.SQ) {
+                    Object sqTypeObj = encoderCtx.getParameters().get(FAISS_SQ_TYPE);
+                    if (sqTypeObj instanceof String sqTypeStr) {
+                        sqType = sqTypeStr;
+                    }
+                }
             }
         }
 
@@ -178,6 +188,7 @@ public abstract class AbstractKNNMethod implements KNNMethod {
             .methodName(knnMethodContext.getMethodComponentContext().getName())
             .encoderType(encoderType)
             .quantizationBits(quantizationBits)
+            .sqType(sqType)
             .compressionLevel(knnMethodConfigContext.getCompressionLevel())
             .mode(resolveEffectiveMode(knnMethodConfigContext))
             .vectorDataType(knnMethodConfigContext.getVectorDataType())
