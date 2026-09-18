@@ -13,6 +13,7 @@ import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_BF16;
 import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
@@ -29,6 +30,12 @@ public final class ResolvedIndexSpec {
     private final String methodName;
     private final Encoder.EncoderType encoderType;
     private final Encoder.QuantizationBits quantizationBits;
+    /**
+     * The Faiss SQ encoder subtype ({@code fp16}/{@code bf16}) captured from the {@code type} encoder param when
+     * {@code encoderType == SQ}. Null for non-SQ encoders and for the pre-3.6.0 legacy path with no explicit type
+     * (which is fp16 by convention). Used to distinguish bf16 from fp16, since both resolve to SQ with bits=16.
+     */
+    private final String sqType;
     @Builder.Default
     private final CompressionLevel compressionLevel = CompressionLevel.NOT_CONFIGURED;
     @Builder.Default
@@ -259,6 +266,14 @@ public final class ResolvedIndexSpec {
     }
 
     /**
+     * Whether this is an SQ encoder producing bf16 quantized output. Like {@link #isFP16QuantizedIndex()} this
+     * resolves to SQ with bits=16, but the {@code type} encoder param is {@code bf16} rather than {@code fp16}.
+     */
+    public boolean isBF16QuantizedIndex() {
+        return vectorDataType == VectorDataType.FLOAT && encoderType == Encoder.EncoderType.SQ && FAISS_SQ_ENCODER_BF16.equals(sqType);
+    }
+
+    /**
      * Whether this configuration supports remote index build.
      *
      * <p>Remote build requires the Faiss engine and the HNSW method. Within that, the following
@@ -279,6 +294,14 @@ public final class ResolvedIndexSpec {
      */
     public boolean supportsRemoteIndexBuild() {
         if (engine != KNNEngine.FAISS || !METHOD_HNSW.equals(methodName)) {
+            return false;
+        }
+
+        // Block bf16 remote index build: the remote builder uses fp16 (half_float) as its build-time data type, so a
+        // bf16 vector with a value outside the fp16 range (bf16 shares float32's exponent range) would be silently
+        // truncated into a graph that is hard to debug. Keep bf16 on the local build path until the remote builder
+        // natively supports bf16. Checked before isFP16QuantizedIndex(), which also matches bf16 (SQ + bits=16).
+        if (isBF16QuantizedIndex()) {
             return false;
         }
 
