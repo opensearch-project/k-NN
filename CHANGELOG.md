@@ -39,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix native memory leak in MemOptimizedNativeIndexBuildStrategy on failed merges [#3593](https://github.com/opensearch-project/k-NN/pull/3593)
 
 ### Refactoring
+* Share two-phase rescoring between top-k and radial queries [#3584](https://github.com/opensearch-project/k-NN/pull/3584)
 * Wire ResolvedIndexSpec consumers through spec-driven resolution flow [#3421](https://github.com/opensearch-project/k-NN/pull/3421)
 * Refactor engine field mapper, deprecate mode parameter, add encoder validation [#3436](https://github.com/opensearch-project/k-NN/pull/3436)
 * Centralize rescore and MOS logic in ResolvedIndexSpec [#3466](https://github.com/opensearch-project/k-NN/pull/3466)
