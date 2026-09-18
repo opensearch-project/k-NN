@@ -15,6 +15,7 @@ import org.opensearch.common.collect.Tuple;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNN1040BasePerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KnnVectorsFormatContext;
 import org.opensearch.knn.index.codec.LuceneVectorsFormatType;
@@ -95,6 +96,11 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
             if (p.getSpaceType() == SpaceType.HAMMING) {
                 return new KNN9120HnswBinaryVectorsFormat(p.getMaxConnections(), p.getBeamWidth(), merge.v1(), merge.v2(), threshold);
             }
+            // TODO: This branches on data type alone. Once x16 (SQ over FP16) lands, half_float will
+            // also need to select a quantized format, so this must additionally gate on compression level.
+            if (ctx.getVectorDataType() == VectorDataType.HALF_FLOAT) {
+                return new KNN1040HnswHalfFloatVectorsFormat(p.getMaxConnections(), p.getBeamWidth(), merge.v1(), merge.v2(), threshold);
+            }
             return new Lucene99HnswVectorsFormat(p.getMaxConnections(), p.getBeamWidth(), merge.v1(), merge.v2(), threshold);
         }, LuceneVectorsFormatType.SCALAR_QUANTIZED, ctx -> {
             final KNNScalarQuantizedVectorsFormatParams p = new KNNScalarQuantizedVectorsFormatParams(
@@ -111,6 +117,17 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
             if (p.getBits() == QuantizationBits.ONE.getValue()
                 || p.getBits() == QuantizationBits.TWO.getValue()
                 || p.getBits() == QuantizationBits.FOUR.getValue()) {
+                // half_float only ever reaches bits=1 — LuceneHNSWMethodResolver caps it at {x1, x16}.
+                if (ctx.getVectorDataType() == VectorDataType.HALF_FLOAT) {
+                    return new KNN1040HnswHalfFloatScalarQuantizedVectorsFormat(
+                        p.getBitEncoding(),
+                        p.getMaxConnections(),
+                        p.getBeamWidth(),
+                        merge.v1(),
+                        merge.v2(),
+                        threshold
+                    );
+                }
                 return new KNN1040HnswScalarQuantizedVectorsFormat(
                     p.getBitEncoding(),
                     p.getMaxConnections(),
@@ -130,10 +147,15 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
                 merge.v2(),
                 threshold
             );
-        },
-            LuceneVectorsFormatType.FLAT,
-            ctx -> new KNN1040ScalarQuantizedVectorsFormat(resolveFlatScalarEncoding(ctx.getCompressionLevel()))
-        );
+        }, LuceneVectorsFormatType.FLAT, ctx -> {
+            if (ctx.getVectorDataType() == VectorDataType.HALF_FLOAT) {
+                if (ctx.getCompressionLevel() == CompressionLevel.x16) {
+                    return new KNN1040HalfFloatScalarQuantizedVectorsFormat(ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE);
+                }
+                return new KNN1040HalfFloatFlatVectorsFormat();
+            }
+            return new KNN1040ScalarQuantizedVectorsFormat(resolveFlatScalarEncoding(ctx.getCompressionLevel()));
+        });
     }
 
     @Override

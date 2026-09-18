@@ -1342,6 +1342,70 @@ public class DocValueFieldsIT extends KNNCompressionRestTestCase {
     }
 
     /**
+     * Same as {@link #testDocValueFields_scriptScoreQuery_indexKnnFalse()} but for the half_float data type, whose
+     * DocValues are FP16 (2 bytes per dimension) rather than FP32. The read path resolves the data type from
+     * FieldInfo, so a field that failed to record it would decode these bytes as FP32 and return a vector of half
+     * the mapped dimension.
+     */
+    @SneakyThrows
+    public void testDocValueFields_halfFloat_indexKnnFalse() {
+        String indexName = TEST_INDEX + "_half_float_flat";
+
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(VECTOR_FIELD)
+            .field("type", "knn_vector")
+            .field("dimension", DIMENSION)
+            .field("data_type", VectorDataType.HALF_FLOAT.getValue())
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        Settings settings = Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put("index.knn", false).build();
+
+        createKnnIndex(indexName, settings, mapping);
+        addKnnDoc(indexName, "1", VECTOR_FIELD, Floats.asList(VECTOR_1).toArray());
+        addKnnDoc(indexName, "2", VECTOR_FIELD, Floats.asList(VECTOR_2).toArray());
+        refreshIndex(indexName);
+
+        String query = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("match_all")
+            .endObject()
+            .endObject()
+            .startArray("docvalue_fields")
+            .startObject()
+            .field("field", VECTOR_FIELD)
+            .field("format", "array")
+            .endObject()
+            .endArray()
+            .field("_source", false)
+            .endObject()
+            .toString();
+
+        Response response = searchKNNIndex(indexName, query, 10);
+        List<Map<String, Object>> hits = parseSearchHits(EntityUtils.toString(response.getEntity()));
+        assertEquals(2, hits.size());
+
+        for (Map<String, Object> hit : hits) {
+            List<List<Double>> vectorField = getDocValueField(hit, VECTOR_FIELD);
+            assertNotNull("Expected vector in docvalue_fields", vectorField);
+            assertEquals("Expected single vector value", 1, vectorField.size());
+            assertEquals("FP16 DocValues decoded at the wrong width", DIMENSION, vectorField.get(0).size());
+
+            float[] expected = "1".equals(hit.get("_id")) ? VECTOR_1 : VECTOR_2;
+            for (int i = 0; i < DIMENSION; i++) {
+                assertEquals("Vector component mismatch at index " + i, expected[i], vectorField.get(0).get(i).floatValue(), 0.01f);
+            }
+        }
+
+        deleteKNNIndex(indexName);
+    }
+
+    /**
      * Verifies that when a segment contains documents without the vector field,
      * docvalue_fields gracefully returns no vector for those documents instead of failing.
      * This exercises the EMPTY_DOCVALUE_FETCHER_LEAF path in KNNVectorDVLeafFieldData.

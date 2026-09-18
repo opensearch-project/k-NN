@@ -82,6 +82,29 @@ public class QuantizationIndexUtilsTests extends KNNTestCase {
         assertEquals(knnVectorValues.dimension(), setup.getDimensions());
     }
 
+    public void testPrepareIndexBuild_withoutQuantization_halfFloat_usesFloatTransferSize() throws IOException {
+        // HALF_FLOAT is transferred off-heap as float[] (Faiss's native add() only accepts fp32), so
+        // bytesPerVector here must reflect that 4-byte transfer size, not knnVectorValues.bytesPerVector()'s
+        // 2-byte on-disk/native storage size - otherwise the off-heap streaming memory limit gets silently
+        // doubled.
+        List<float[]> floatVectors = List.of(new float[] { 1.0f, 2.0f, 3.0f }, new float[] { 4.0f, 5.0f, 6.0f });
+        KNNVectorValues<float[]> halfFloatVectorValues = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.HALF_FLOAT,
+            new TestVectorValues.PreDefinedFloatVectorValues(floatVectors)
+        );
+        halfFloatVectorValues.nextDoc();
+        halfFloatVectorValues.getVector();
+
+        when(buildIndexParams.getQuantizationState()).thenReturn(null);
+        when(buildIndexParams.getVectorDataType()).thenReturn(VectorDataType.HALF_FLOAT);
+
+        IndexBuildSetup setup = QuantizationIndexUtils.prepareIndexBuild(halfFloatVectorValues, buildIndexParams);
+
+        assertNull(setup.getQuantizationState());
+        assertEquals(halfFloatVectorValues.dimension() * Float.BYTES, setup.getBytesPerVector());
+        assertEquals(halfFloatVectorValues.dimension() * 2, halfFloatVectorValues.bytesPerVector());
+    }
+
     public void testProcessAndReturnVector_withoutQuantization_success() throws IOException {
         // Set up the BuildIndexParams to return no quantization
         when(buildIndexParams.getQuantizationState()).thenReturn(null);

@@ -146,16 +146,38 @@ public abstract class AbstractMethodResolver implements MethodResolver {
         return validationException;
     }
 
+    /**
+     * Rejects a compression level that is not in the supported set for the given engine.
+     *
+     * <p>{@code vectorDataType} is named in the error when known, because an engine can support a level for
+     * one data type and not another -- lucene supports x4 for float but not for half_float -- and an
+     * engine-only message would be misleading there. It may be null (see {@link KNNMethodConfigContext#EMPTY}),
+     * in which case the message names only the engine.
+     */
     protected ValidationException validateCompressionSupported(
         CompressionLevel compressionLevel,
         Set<CompressionLevel> supportedCompressionLevels,
         KNNEngine knnEngine,
+        VectorDataType vectorDataType,
         ValidationException validationException
     ) {
         if (CompressionLevel.isConfigured(compressionLevel) && supportedCompressionLevels.contains(compressionLevel) == false) {
             validationException = validationException == null ? new ValidationException() : validationException;
             validationException.addValidationError(
-                String.format(Locale.ROOT, "\"%s\" does not support \"%s\" compression", knnEngine.getName(), compressionLevel.getName())
+                vectorDataType == null
+                    ? String.format(
+                        Locale.ROOT,
+                        "\"%s\" does not support \"%s\" compression",
+                        knnEngine.getName(),
+                        compressionLevel.getName()
+                    )
+                    : String.format(
+                        Locale.ROOT,
+                        "\"%s\" with \"%s\" data type does not support \"%s\" compression",
+                        knnEngine.getName(),
+                        vectorDataType.getValue(),
+                        compressionLevel.getName()
+                    )
             );
         }
         return validationException;
