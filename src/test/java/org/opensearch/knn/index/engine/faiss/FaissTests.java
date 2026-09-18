@@ -74,6 +74,37 @@ public class FaissTests extends KNNTestCase {
         assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
     }
 
+    public void testGetKNNLibraryIndexingContext_whenMethodIsHNSWFlatAndHalfFloat_thenBuildsSQfp16Description() throws IOException {
+        // half_float's native type is already fp16, so flat (x1, no explicit encoder) builds
+        // IndexScalarQuantizer(QT_fp16) instead of IndexFlat - full, unconditional native storage on
+        // both .vec and .faiss, matching FLOAT's own flat, just fp16 instead of fp32 on both sides.
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(4)
+            .vectorDataType(VectorDataType.HALF_FLOAT)
+            .build();
+
+        int mParam = 65;
+        String expectedIndexDescription = String.format(Locale.ROOT, "HNSW%d,SQfp16", mParam);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, mParam)
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+
+        Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .getLibraryParameters();
+
+        assertTrue(map.containsKey(INDEX_DESCRIPTION_PARAMETER));
+        assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
+    }
+
     public void testGetKNNLibraryIndexingContext_whenMethodIsHNSWPQ_thenCreateCorrectIndexDescription() throws IOException {
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
             .versionCreated(org.opensearch.Version.CURRENT)

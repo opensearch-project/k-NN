@@ -179,16 +179,104 @@ public class FaissSQEncoderTests extends KNNTestCase {
         assertNotNull(methodComponent.validate(mcc, context));
     }
 
+    // --- Validation: half_float ---
+
+    // bits=1 on half_float takes 16 bits down to 1, so it pairs with x16. x32 is what the same encoder
+    // achieves on FLOAT's 32 bits and is not a valid pairing here.
+    public void testValidate_whenBits1WithHalfFloat_thenOk() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        TrainingConfigValidationOutput output = encoder.validateEncoderConfig(
+            buildValidationInput(Version.CURRENT, VectorDataType.HALF_FLOAT, CompressionLevel.x16, Map.of(SQ_BITS, 1))
+        );
+        assertNull(output.getValid());
+    }
+
+    public void testValidate_whenBits1WithHalfFloatAndX32_thenError() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        TrainingConfigValidationOutput output = encoder.validateEncoderConfig(
+            buildValidationInput(Version.CURRENT, VectorDataType.HALF_FLOAT, CompressionLevel.x32, Map.of(SQ_BITS, 1))
+        );
+        assertNotNull(output.getValid());
+        assertFalse(output.getValid());
+        assertTrue(output.getErrorMessage().contains("16x"));
+    }
+
+    public void testValidate_whenBits16WithHalfFloat_thenError() {
+        assertHalfFloatValidationError(CompressionLevel.x2, Map.of(SQ_BITS, 16));
+    }
+
+    public void testValidate_whenNoBitsWithHalfFloat_thenError() {
+        assertHalfFloatValidationError(CompressionLevel.NOT_CONFIGURED, Map.of());
+    }
+
+    public void testValidate_whenBits2WithHalfFloat_thenError() {
+        assertHalfFloatValidationError(CompressionLevel.NOT_CONFIGURED, Map.of(SQ_BITS, 2));
+    }
+
+    public void testValidate_whenBits4WithHalfFloat_thenError() {
+        assertHalfFloatValidationError(CompressionLevel.NOT_CONFIGURED, Map.of(SQ_BITS, 4));
+    }
+
+    public void testCalculateCompressionLevel_whenBits1_thenX16ForHalfFloatAndX32ForFloat() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        MethodComponentContext mcc = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 1));
+        assertEquals(
+            CompressionLevel.x16,
+            encoder.calculateCompressionLevel(mcc, buildConfigContext(Version.CURRENT, VectorDataType.HALF_FLOAT))
+        );
+        assertEquals(
+            CompressionLevel.x32,
+            encoder.calculateCompressionLevel(mcc, buildConfigContext(Version.CURRENT, VectorDataType.FLOAT))
+        );
+    }
+
+    public void testCalculateCompressionLevel_whenBits2WithHalfFloat_thenThrows() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        MethodComponentContext mcc = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 2));
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> encoder.calculateCompressionLevel(mcc, buildConfigContext(Version.CURRENT, VectorDataType.HALF_FLOAT))
+        );
+    }
+
     // --- Helper ---
+
+    private void assertHalfFloatValidationError(CompressionLevel compressionLevel, Map<String, Object> encoderParams) {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        TrainingConfigValidationOutput output = encoder.validateEncoderConfig(
+            buildValidationInput(Version.CURRENT, VectorDataType.HALF_FLOAT, compressionLevel, encoderParams)
+        );
+        assertNotNull(output.getValid());
+        assertFalse(output.getValid());
+        assertTrue(output.getErrorMessage().contains("half_float"));
+    }
+
+    private KNNMethodConfigContext buildConfigContext(Version version, VectorDataType vectorDataType) {
+        return KNNMethodConfigContext.builder()
+            .versionCreated(version)
+            .vectorDataType(vectorDataType)
+            .dimension(128)
+            .compressionLevel(CompressionLevel.NOT_CONFIGURED)
+            .build();
+    }
 
     private TrainingConfigValidationInput buildValidationInput(
         Version version,
         CompressionLevel compressionLevel,
         Map<String, Object> encoderParams
     ) {
+        return buildValidationInput(version, VectorDataType.FLOAT, compressionLevel, encoderParams);
+    }
+
+    private TrainingConfigValidationInput buildValidationInput(
+        Version version,
+        VectorDataType vectorDataType,
+        CompressionLevel compressionLevel,
+        Map<String, Object> encoderParams
+    ) {
         KNNMethodConfigContext configContext = KNNMethodConfigContext.builder()
             .versionCreated(version)
-            .vectorDataType(VectorDataType.FLOAT)
+            .vectorDataType(vectorDataType)
             .dimension(128)
             .compressionLevel(compressionLevel)
             .build();

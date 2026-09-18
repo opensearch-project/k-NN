@@ -162,10 +162,58 @@ public class LuceneSQEncoderTests extends KNNTestCase {
         callValidateEncoderParams(Version.CURRENT, CompressionLevel.x32, Map.of(LUCENE_SQ_BITS, 1));
     }
 
+    /**
+     * Compression levels are measured against FLOAT's 32 bits, so half_float's 16-bit baseline makes
+     * bits=1 a 16x saving rather than 32x.
+     */
+    public void testBits_dataTypeAwareCompressionMapping() {
+        assertEquals(CompressionLevel.x32, LuceneSQEncoder.Bits.ONE.getCompressionLevel(VectorDataType.FLOAT));
+        assertEquals(CompressionLevel.x16, LuceneSQEncoder.Bits.ONE.getCompressionLevel(VectorDataType.HALF_FLOAT));
+    }
+
+    public void testBits_halfFloatRejectsWidthsOtherThanOne() {
+        for (LuceneSQEncoder.Bits bits : LuceneSQEncoder.Bits.values()) {
+            if (bits == LuceneSQEncoder.Bits.ONE) {
+                continue;
+            }
+            expectThrows(IllegalArgumentException.class, () -> bits.getCompressionLevel(VectorDataType.HALF_FLOAT));
+        }
+    }
+
+    public void testValidate_whenHalfFloatWithBits1_thenOk() {
+        callValidateEncoderParams(Version.CURRENT, VectorDataType.HALF_FLOAT, CompressionLevel.x16, Map.of(LUCENE_SQ_BITS, 1));
+    }
+
+    public void testValidate_whenHalfFloatWithBits7_thenError() {
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> callValidateEncoderParams(Version.CURRENT, VectorDataType.HALF_FLOAT, CompressionLevel.x4, Map.of(LUCENE_SQ_BITS, 7))
+        );
+        assertTrue(e.getMessage().contains("half_float"));
+    }
+
+    // 2 and 4 are FLOAT-only widths; half_float rejects them the same way it rejects 7.
+    public void testValidate_whenHalfFloatWithBits2_thenError() {
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> callValidateEncoderParams(Version.CURRENT, VectorDataType.HALF_FLOAT, CompressionLevel.x16, Map.of(LUCENE_SQ_BITS, 2))
+        );
+        assertTrue(e.getMessage().contains("half_float"));
+    }
+
     private void callValidateEncoderParams(Version version, CompressionLevel compressionLevel, Map<String, Object> encoderParams) {
+        callValidateEncoderParams(version, VectorDataType.FLOAT, compressionLevel, encoderParams);
+    }
+
+    private void callValidateEncoderParams(
+        Version version,
+        VectorDataType vectorDataType,
+        CompressionLevel compressionLevel,
+        Map<String, Object> encoderParams
+    ) {
         KNNMethodConfigContext configContext = KNNMethodConfigContext.builder()
             .versionCreated(version)
-            .vectorDataType(VectorDataType.FLOAT)
+            .vectorDataType(vectorDataType)
             .dimension(128)
             .compressionLevel(compressionLevel)
             .build();

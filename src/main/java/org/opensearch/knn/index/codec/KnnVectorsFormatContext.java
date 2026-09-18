@@ -6,7 +6,9 @@
 package org.opensearch.knn.index.codec;
 
 import lombok.Value;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import java.util.Map;
 
@@ -43,4 +45,16 @@ public class KnnVectorsFormatContext {
      * Default beam width if not specified in params.
      */
     int defaultBeamWidth;
+
+    /**
+     * The vector data type for the field (FLOAT, BYTE, BINARY, HALF_FLOAT).
+     */
+    VectorDataType vectorDataType;
+
+    /**
+     * Resolved compression level for the field (may be {@link CompressionLevel#NOT_CONFIGURED}).
+     * Used by the FLAT format factory to distinguish raw half-float storage (x1) from
+     * scalar-quantized half-float storage (x16).
+     */
+    CompressionLevel compressionLevel;
 }

@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_FLAT_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
@@ -60,7 +61,7 @@ import static org.opensearch.knn.common.KNNConstants.NAME;
  */
 public class FaissSQEncoder implements Encoder {
 
-    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
+    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT, VectorDataType.HALF_FLOAT);
     private static final Set<Integer> VALID_BITS = Arrays.stream(Bits.values()).map(Bits::getValue).collect(Collectors.toUnmodifiableSet());
 
     /**
@@ -81,6 +82,27 @@ public class FaissSQEncoder implements Encoder {
                 if (b.value == value) return b;
             }
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Unsupported bits value: %d", value));
+        }
+
+        /**
+         * Compression this bit width achieves for {@code vectorDataType}. The levels attached to the constants
+         * above are measured against FLOAT's 32 bits, so {@link #ONE} is x32 there; taking HALF_FLOAT's 16 bits
+         * down to 1 saves 16x instead.
+         *
+         * <p>HALF_FLOAT supports only bits=1. Any other width is rejected rather than falling through to
+         * {@link #getCompressionLevel()}, which is computed against FLOAT's 32-bit baseline and would report a
+         * level that is wrong for HALF_FLOAT.
+         */
+        public CompressionLevel getCompressionLevel(VectorDataType vectorDataType) {
+            if (vectorDataType == VectorDataType.HALF_FLOAT) {
+                if (this == ONE) {
+                    return CompressionLevel.x16;
+                }
+                throw new IllegalArgumentException(
+                    String.format(Locale.ROOT, "half_float only supports bits=1 for SQ quantization, got bits=%d", value)
+                );
+            }
+            return compressionLevel;
         }
     }
 
@@ -134,7 +156,8 @@ public class FaissSQEncoder implements Encoder {
         if (methodComponentContext != null && methodComponentContext.getParameters().containsKey(SQ_BITS)) {
             Object bitsObj = methodComponentContext.getParameters().get(SQ_BITS);
             if (bitsObj instanceof Integer) {
-                return Bits.fromValue((Integer) bitsObj).getCompressionLevel();
+                return Bits.fromValue((Integer) bitsObj)
+                    .getCompressionLevel(knnMethodConfigContext == null ? null : knnMethodConfigContext.getVectorDataType());
             }
         }
         // Legacy path — type=fp16 is x2
@@ -169,6 +192,43 @@ public class FaissSQEncoder implements Encoder {
         Object bitsObj = encoderParams.get(SQ_BITS);
         boolean hasType = encoderParams.containsKey(FAISS_SQ_TYPE);
         boolean hasClip = encoderParams.containsKey(FAISS_SQ_CLIP);
+
+        // half_float's storage is already fp16, so fp16 quantization (bits=16, or the legacy no-bits default)
+        // would be a no-op that also mis-reports its compression level. Reject it outright.
+        boolean resolvesToFp16 = bitsObj == null || (bitsObj instanceof Integer && (Integer) bitsObj == Bits.SIXTEEN.getValue());
+        if (configContext.getVectorDataType() == VectorDataType.HALF_FLOAT && resolvesToFp16) {
+            return builder.valid(false)
+                .errorMessage(
+                    String.format(
+                        Locale.ROOT,
+                        "half_float is not supported with fp16 quantization (%s=16, or no %s specified) for encoder [%s]. "
+                            + "half_float does not accept an encoder at all; use \"%s\": \"16x\" for SQ 1-bit, "
+                            + "or \"1x\" for unquantized fp16 storage, instead.",
+                        SQ_BITS,
+                        SQ_BITS,
+                        ENCODER_SQ,
+                        COMPRESSION_LEVEL_PARAMETER
+                    )
+                )
+                .build();
+        }
+
+        if (configContext.getVectorDataType() == VectorDataType.HALF_FLOAT
+            && bitsObj instanceof Integer
+            && (Integer) bitsObj != Bits.ONE.getValue()) {
+            return builder.valid(false)
+                .errorMessage(
+                    String.format(
+                        Locale.ROOT,
+                        "half_float only supports [%s]=1 for encoder [%s]; use \"%s\": \"16x\" for SQ 1-bit, "
+                            + "or \"1x\" for unquantized fp16 storage, instead.",
+                        SQ_BITS,
+                        ENCODER_SQ,
+                        COMPRESSION_LEVEL_PARAMETER
+                    )
+                )
+                .build();
+        }
 
         // On 3.6.0+, bits is required when the user explicitly specifies the sq encoder for FLOAT data
         if (isV360OrLater && bitsObj == null && configContext.getVectorDataType() == VectorDataType.FLOAT) {
@@ -228,7 +288,7 @@ public class FaissSQEncoder implements Encoder {
             // Validate compression level compatibility if explicitly set
             CompressionLevel configuredCompression = configContext.getCompressionLevel();
             if (CompressionLevel.isConfigured(configuredCompression)) {
-                CompressionLevel expectedCompression = Bits.fromValue(bits).getCompressionLevel();
+                CompressionLevel expectedCompression = Bits.fromValue(bits).getCompressionLevel(configContext.getVectorDataType());
                 if (configuredCompression != expectedCompression) {
                     return builder.valid(false)
                         .errorMessage(
