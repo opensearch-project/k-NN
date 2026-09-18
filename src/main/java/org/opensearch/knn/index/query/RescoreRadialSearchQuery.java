@@ -24,7 +24,10 @@ import org.apache.lucene.search.Weight;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.Callable;
 
 /**
  * A wrapper {@link Query} that adds full-precision rescoring to radial search on quantized indices
@@ -49,6 +52,9 @@ import java.util.Objects;
  * The inner query performs the first-pass radial search on quantized vectors with the user's
  * radius. The wrapper then rescores the first-pass candidates using full-precision vectors
  * and filters out any results that fall outside the true radius.</p>
+ *
+ * <p>The {@code firstPassK} budget is applied across the shard, not per segment: see
+ * {@link #createWeight}.</p>
  *
  * @see RescoreKNNVectorQuery similar pattern for Lucene engine top-K rescoring
  * @see org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery similar pattern for Faiss engine top-K rescoring
@@ -133,7 +139,50 @@ public class RescoreRadialSearchQuery extends Query {
     @Override
     public Weight createWeight(final IndexSearcher searcher, final ScoreMode scoreMode, final float boost) throws IOException {
         final Weight innerWeight = searcher.createWeight(innerQuery, scoreMode, boost);
-        return new RescoreWeight(this, innerWeight, boost);
+        return new RescoreWeight(this, innerWeight, boost, collectFirstPassCandidates(searcher, innerWeight));
+    }
+
+    /**
+     * Runs the first pass on every leaf and reduces the union of per-leaf candidates to the globally
+     * highest-scoring {@link #firstPassK}, so the budget bounds the shard rather than each segment:
+     * a shard with {@code S} segments rescores {@code firstPassK} vectors instead of
+     * {@code S * firstPassK}, and the survivors are the ones competitive across the whole shard.
+     *
+     * <p>{@link ResultUtil#reduceToTopK} trims by min-competitive-score rather than by a hard count,
+     * so candidates tied at that score are all kept and the total can exceed {@code firstPassK}.</p>
+     *
+     * @return per-leaf survivors, indexed by {@link LeafReaderContext#ord}
+     */
+    private List<PerLeafResult> collectFirstPassCandidates(final IndexSearcher searcher, final Weight innerWeight) throws IOException {
+        final List<Callable<PerLeafResult>> tasks = new ArrayList<>();
+        for (final LeafReaderContext leaf : searcher.getIndexReader().leaves()) {
+            tasks.add(() -> collectLeafCandidates(innerWeight, leaf));
+        }
+        final List<PerLeafResult> perLeafResults = searcher.getTaskExecutor().invokeAll(tasks);
+        ResultUtil.reduceToTopK(perLeafResults, firstPassK);
+        return perLeafResults;
+    }
+
+    /**
+     * Runs the inner (quantized) first pass on a single leaf, retaining at most {@link #firstPassK}
+     * candidates by score.
+     */
+    private PerLeafResult collectLeafCandidates(final Weight innerWeight, final LeafReaderContext leaf) throws IOException {
+        final ScorerSupplier innerScorerSupplier = innerWeight.scorerSupplier(leaf);
+        if (innerScorerSupplier == null) {
+            return PerLeafResult.empty();
+        }
+        final Scorer innerScorer = innerScorerSupplier.get(Long.MAX_VALUE);
+        if (innerScorer == null) {
+            return PerLeafResult.empty();
+        }
+        final TopKnnCollector collector = new TopKnnCollector(firstPassK, Integer.MAX_VALUE);
+        final DocIdSetIterator iterator = innerScorer.iterator();
+        int docId;
+        while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
+            collector.collect(docId, innerScorer.score());
+        }
+        return new PerLeafResult(null, 0, collector.topDocs(), PerLeafResult.SearchMode.APPROXIMATE_SEARCH);
     }
 
     @Override
@@ -164,17 +213,9 @@ public class RescoreRadialSearchQuery extends Query {
     }
 
     /**
-     * Weight implementation that wraps the inner weight and provides per-leaf scorer suppliers.
-     *
-     * <p>The {@link #scorerSupplier(LeafReaderContext)} method returns a {@link ScorerSupplier}
-     * whose {@code get()} method executes the full per-leaf pipeline:</p>
-     * <ol>
-     *   <li>Run the inner weight's scorer (quantized radial search on this leaf)</li>
-     *   <li>Collect first-pass candidate doc IDs</li>
-     *   <li>Rescore candidates with {@code ExactSearcher} using full-precision vectors</li>
-     *   <li>Filter out docs whose true score falls outside the radius</li>
-     *   <li>Return a {@link KNNScorer} over the final results</li>
-     * </ol>
+     * Weight implementation that rescores each leaf's share of the shard-wide first-pass candidates
+     * collected in {@link #createWeight}, dropping docs whose full-precision score falls outside the
+     * radius.
      *
      * <p>The {@code boost} factor is stored for use when constructing the final {@link KNNScorer},
      * which multiplies each document's score by the boost value.</p>
@@ -186,23 +227,26 @@ public class RescoreRadialSearchQuery extends Query {
         private final float[] queryVector;
         private final float radius;
         private final boolean memoryOptimizedSearchEnabled;
-        private final int firstPassK;
+
+        /** First-pass survivors indexed by {@link LeafReaderContext#ord}. */
+        private final List<PerLeafResult> candidatesByLeaf;
 
         /**
-         * @param query       the parent query (for Lucene's Weight contract)
-         * @param innerWeight the inner weight from the quantized radial search query
-         * @param boost       the score boost factor to apply to rescored results
+         * @param query            the parent query (for Lucene's Weight contract)
+         * @param innerWeight      the inner weight from the quantized radial search query
+         * @param boost            the score boost factor to apply to rescored results
+         * @param candidatesByLeaf first-pass survivors, indexed by leaf ordinal
          */
-        RescoreWeight(Query query, Weight innerWeight, float boost) {
+        RescoreWeight(Query query, Weight innerWeight, float boost, List<PerLeafResult> candidatesByLeaf) {
             super(query);
             this.innerWeight = innerWeight;
             this.boost = boost;
+            this.candidatesByLeaf = candidatesByLeaf;
             RescoreRadialSearchQuery rescoreQuery = (RescoreRadialSearchQuery) query;
             this.field = rescoreQuery.field;
             this.queryVector = rescoreQuery.queryVector;
             this.radius = rescoreQuery.radius;
             this.memoryOptimizedSearchEnabled = rescoreQuery.memoryOptimizedSearchEnabled;
-            this.firstPassK = rescoreQuery.firstPassK;
         }
 
         @Override
@@ -211,57 +255,29 @@ public class RescoreRadialSearchQuery extends Query {
         }
 
         /**
-         * Returns a {@link ScorerSupplier} for the given leaf context.
-         *
-         * <p>Returns {@code null} if the inner weight has no scorer for this leaf (e.g., no
-         * vectors indexed in this segment), following Lucene's convention.</p>
+         * Returns a {@link ScorerSupplier} that rescores this leaf's first-pass survivors, or
+         * {@code null} if the leaf has none (e.g., no vectors indexed in this segment, or none of its
+         * candidates survived the shard-wide trim), following Lucene's convention.
          *
          * @param context the leaf reader context for a single segment
          * @return a scorer supplier, or {@code null} if this segment has no candidates
-         * @throws IOException if an I/O error occurs
          */
         @Override
-        public ScorerSupplier scorerSupplier(final LeafReaderContext context) throws IOException {
-            final ScorerSupplier innerScorerSupplier = innerWeight.scorerSupplier(context);
-            if (innerScorerSupplier == null) {
+        public ScorerSupplier scorerSupplier(final LeafReaderContext context) {
+            if (context.ord >= candidatesByLeaf.size()) {
+                return null;
+            }
+            final TopDocs candidates = candidatesByLeaf.get(context.ord).getResult();
+            if (candidates.scoreDocs.length == 0) {
                 return null;
             }
             return new ScorerSupplier() {
-                long cost = -1;
-
                 @Override
                 public Scorer get(long leadCost) throws IOException {
-                    // 1. Run inner scorer (quantized radial search on this leaf)
-                    final Scorer innerScorer = innerScorerSupplier.get(leadCost);
-                    if (innerScorer == null) {
-                        return KNNScorer.emptyScorer();
-                    }
-
-                    // 2. Get matched docs from inner scorer
-                    final DocIdSetIterator matchedDocs = innerScorer.iterator();
-                    if (matchedDocs.cost() == 0) {
-                        return KNNScorer.emptyScorer();
-                    }
-
-                    // 3. Retain at most the configured first-pass candidate count before exact rescoring.
-                    // The inner scorer can exceed firstPassK: memory-optimized search widens the search
-                    // to max(firstPassK, ef_search) and, when effectiveK == k, NativeEngineKnnVectorQuery
-                    // merges the union of per-leaf results rather than trimming to k.
-                    final DocIdSetIterator docsToRescore;
-                    final long numDocsToRescore;
-                    if (matchedDocs.cost() > firstPassK) {
-                        final TopDocs topCandidates = collectTopDocs(innerScorer, firstPassK);
-                        docsToRescore = new TopDocsDISI(topCandidates);
-                        numDocsToRescore = topCandidates.scoreDocs.length;
-                    } else {
-                        docsToRescore = matchedDocs;
-                        numDocsToRescore = matchedDocs.cost();
-                    }
-
-                    // 4. Build ExactSearcherContext — rescore with full-precision vectors
+                    // Rescore with full-precision vectors, dropping anything outside the true radius.
                     final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
-                        .matchedDocsIterator(docsToRescore)
-                        .numberOfMatchedDocs(numDocsToRescore)
+                        .matchedDocsIterator(new TopDocsDISI(candidates))
+                        .numberOfMatchedDocs(candidates.scoreDocs.length)
                         .useQuantizedVectorsForSearch(false)
                         .radius(radius)
                         .field(field)
@@ -269,7 +285,7 @@ public class RescoreRadialSearchQuery extends Query {
                         .isMemoryOptimizedSearchEnabled(memoryOptimizedSearchEnabled)
                         .build();
 
-                    // 5. Return a lazy scorer over the candidates. exactSearchScorer hands back the
+                    // Return a lazy scorer over the candidates. exactSearchScorer hands back the
                     // BulkVectorScorer itself rather than draining it into TopDocs, so the
                     // full-precision vector reads happen only for the docs a conjunction actually
                     // advances to, instead of for every candidate up front.
@@ -282,10 +298,7 @@ public class RescoreRadialSearchQuery extends Query {
 
                 @Override
                 public long cost() {
-                    if (cost == -1) {
-                        cost = innerScorerSupplier.cost();
-                    }
-                    return cost;
+                    return candidates.scoreDocs.length;
                 }
             };
         }
@@ -297,20 +310,6 @@ public class RescoreRadialSearchQuery extends Query {
         @Override
         public boolean isCacheable(final LeafReaderContext ctx) {
             return true;
-        }
-
-        /**
-         * Collects the top candidateLimit documents by score from the scorer.
-         */
-        private TopDocs collectTopDocs(final Scorer scorer, final int candidateLimit) throws IOException {
-            final TopKnnCollector collector = new TopKnnCollector(candidateLimit, Integer.MAX_VALUE);
-            final DocIdSetIterator iterator = scorer.iterator();
-            assert iterator.cost() > candidateLimit;
-            int docId;
-            while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
-                collector.collect(docId, scorer.score());
-            }
-            return collector.topDocs();
         }
     }
 

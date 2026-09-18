@@ -17,13 +17,14 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.MatchAllDocsQuery;
+import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Scorer;
-import org.apache.lucene.search.ScorerSupplier;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.store.Directory;
@@ -33,9 +34,6 @@ import org.opensearch.knn.indices.ModelDao;
 
 import java.io.IOException;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyFloat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -51,6 +49,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
     private static final String FIELD_NAME = "test-field";
     private static final float[] QUERY_VECTOR = { 1.0f, 2.0f, 3.0f };
     private static final float RADIUS = 0.5f;
+    // Query vector for tests that index 3-dimensional unit-ish vectors.
+    private static final float[] QUERY_TARGET = { 1.0f, 0.0f, 0.0f };
 
     @Override
     public void setUp() throws Exception {
@@ -89,68 +89,30 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         }
     }
 
-    // Verify that when inner scorer supplier is null, our supplier returns null
-    public void testScorerSupplier_whenInnerReturnsNull_thenReturnsNull() throws IOException {
-        Weight innerWeight = mock(Weight.class);
-        LeafReaderContext leafContext = mock(LeafReaderContext.class);
-        when(innerWeight.scorerSupplier(leafContext)).thenReturn(null);
+    // Given: an inner query that matches nothing, so the first pass yields no candidates
+    // When: a scorer supplier is requested for the leaf
+    // Then: null is returned, per Lucene's convention for a leaf with no matches
+    @SneakyThrows
+    public void testScorerSupplier_whenLeafHasNoCandidates_thenReturnsNull() {
+        try (Directory directory = newDirectory()) {
+            indexVectors(directory, new float[][] { { 1.0f, 0.0f, 0.0f } });
 
-        Query innerQuery = mock(Query.class);
-        IndexSearcher searcher = mock(IndexSearcher.class);
-        when(searcher.rewrite(innerQuery)).thenReturn(innerQuery);
-        when(searcher.createWeight(eq(innerQuery), any(ScoreMode.class), anyFloat())).thenReturn(innerWeight);
+            try (IndexReader reader = DirectoryReader.open(directory)) {
+                IndexSearcher searcher = new IndexSearcher(reader);
+                RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
+                    new MatchNoDocsQuery(),
+                    FIELD_NAME,
+                    QUERY_VECTOR,
+                    RADIUS,
+                    false,
+                    MAX_RESULTS_RADIAL_RESCORING
+                );
 
-        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
-            innerQuery,
-            FIELD_NAME,
-            QUERY_VECTOR,
-            RADIUS,
-            false,
-            MAX_RESULTS_RADIAL_RESCORING
-        );
-        Weight weight = query.createWeight(searcher, ScoreMode.COMPLETE, 1.0f);
-        ScorerSupplier supplier = weight.scorerSupplier(leafContext);
+                Weight weight = query.createWeight(searcher, ScoreMode.COMPLETE, 1.0f);
 
-        assertNull(supplier);
-    }
-
-    // Verify that when inner scorer returns empty TopDocs, we get an empty scorer
-    public void testScorerSupplier_whenInnerReturnsEmpty_thenEmptyScorer() throws IOException {
-        // Inner query returns an empty scorer
-        Scorer innerScorer = KNNScorer.emptyScorer();
-
-        ScorerSupplier innerScorerSupplier = mock(ScorerSupplier.class);
-        when(innerScorerSupplier.get(any(Long.class))).thenReturn(innerScorer);
-        when(innerScorerSupplier.cost()).thenReturn(0L);
-
-        // Mocking inner weight
-        Weight innerWeight = mock(Weight.class);
-        LeafReaderContext leafContext = mock(LeafReaderContext.class);
-        when(innerWeight.scorerSupplier(leafContext)).thenReturn(innerScorerSupplier);
-
-        // IndexSearcher
-        Query innerQuery = mock(Query.class);
-        IndexSearcher searcher = mock(IndexSearcher.class);
-        when(searcher.rewrite(innerQuery)).thenReturn(innerQuery);
-        when(searcher.createWeight(eq(innerQuery), any(ScoreMode.class), anyFloat())).thenReturn(innerWeight);
-
-        // Set up RescoreRadialSearchQuery
-        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
-            innerQuery,
-            FIELD_NAME,
-            QUERY_VECTOR,
-            RADIUS,
-            false,
-            MAX_RESULTS_RADIAL_RESCORING
-        );
-        Weight weight = query.createWeight(searcher, ScoreMode.COMPLETE, 1.0f);
-        ScorerSupplier supplier = weight.scorerSupplier(leafContext);
-
-        // Validate empty iterator
-        assertNotNull(supplier);
-        Scorer scorer = supplier.get(0);
-        assertNotNull(scorer);
-        assertEquals(DocIdSetIterator.NO_MORE_DOCS, scorer.iterator().nextDoc());
+                assertNull(weight.scorerSupplier(reader.leaves().get(0)));
+            }
+        }
     }
 
     // Verify equals/hashCode contract
@@ -431,58 +393,128 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
     // RescoreWeight.explain() delegates to the inner weight's explain because the explanation
     // should reflect the inner query's scoring logic (quantized radial search). Once rescoring
     // is added, this may be enhanced to include rescore details.
-    public void testExplain() throws IOException {
-        // Given: an inner weight that returns a known explanation for doc 42
-        Weight innerWeight = mock(Weight.class);
-        LeafReaderContext leafContext = mock(LeafReaderContext.class);
-        Explanation expectedExplanation = Explanation.noMatch("test explanation");
-        when(innerWeight.explain(leafContext, 42)).thenReturn(expectedExplanation);
+    @SneakyThrows
+    public void testExplain() {
+        Query innerQuery = new MatchAllDocsQuery();
 
-        Query innerQuery = mock(Query.class);
-        IndexSearcher searcher = mock(IndexSearcher.class);
-        when(searcher.rewrite(innerQuery)).thenReturn(innerQuery);
-        when(searcher.createWeight(eq(innerQuery), any(ScoreMode.class), anyFloat())).thenReturn(innerWeight);
+        try (Directory directory = newDirectory()) {
+            indexVectors(directory, new float[][] { { 1.0f, 0.0f, 0.0f } });
 
-        // When: explain is called on the RescoreWeight for doc 42
-        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
-            innerQuery,
-            FIELD_NAME,
-            QUERY_VECTOR,
-            RADIUS,
-            false,
-            MAX_RESULTS_RADIAL_RESCORING
-        );
-        Weight weight = query.createWeight(searcher, ScoreMode.COMPLETE, 1.0f);
-        Explanation explanation = weight.explain(leafContext, 42);
+            try (IndexReader reader = DirectoryReader.open(directory)) {
+                IndexSearcher searcher = new IndexSearcher(reader);
+                LeafReaderContext leafContext = reader.leaves().get(0);
 
-        // Then: the explanation is the same object returned by the inner weight (pass-through)
-        assertSame(expectedExplanation, explanation);
+                // When: explain is called on the RescoreWeight
+                Weight weight = new RescoreRadialSearchQuery(
+                    innerQuery,
+                    FIELD_NAME,
+                    QUERY_VECTOR,
+                    RADIUS,
+                    false,
+                    MAX_RESULTS_RADIAL_RESCORING
+                ).createWeight(searcher, ScoreMode.COMPLETE, 1.0f);
+                Explanation explanation = weight.explain(leafContext, 0);
+
+                // Then: it is the inner weight's explanation (pass-through), not a rescore one
+                Explanation expected = searcher.createWeight(innerQuery, ScoreMode.COMPLETE, 1.0f).explain(leafContext, 0);
+                assertEquals(expected.toString(), explanation.toString());
+            }
+        }
     }
 
     // The rescore result is deterministic for the same query parameters and segment state,
     // so it is safe for Lucene's query cache to cache the results.
-    public void testIsCacheable() throws IOException {
-        // Given: a RescoreWeight created from a mock inner weight
-        Weight innerWeight = mock(Weight.class);
-        LeafReaderContext leafContext = mock(LeafReaderContext.class);
+    @SneakyThrows
+    public void testIsCacheable() {
+        try (Directory directory = newDirectory()) {
+            indexVectors(directory, new float[][] { { 1.0f, 0.0f, 0.0f } });
 
-        Query innerQuery = mock(Query.class);
-        IndexSearcher searcher = mock(IndexSearcher.class);
-        when(searcher.rewrite(innerQuery)).thenReturn(innerQuery);
-        when(searcher.createWeight(eq(innerQuery), any(ScoreMode.class), anyFloat())).thenReturn(innerWeight);
+            try (IndexReader reader = DirectoryReader.open(directory)) {
+                IndexSearcher searcher = new IndexSearcher(reader);
+                Weight weight = new RescoreRadialSearchQuery(
+                    new MatchAllDocsQuery(),
+                    FIELD_NAME,
+                    QUERY_VECTOR,
+                    RADIUS,
+                    false,
+                    MAX_RESULTS_RADIAL_RESCORING
+                ).createWeight(searcher, ScoreMode.COMPLETE, 1.0f);
 
-        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
-            innerQuery,
-            FIELD_NAME,
-            QUERY_VECTOR,
-            RADIUS,
-            false,
-            MAX_RESULTS_RADIAL_RESCORING
-        );
-        Weight weight = query.createWeight(searcher, ScoreMode.COMPLETE, 1.0f);
+                assertTrue("RescoreWeight should be cacheable", weight.isCacheable(reader.leaves().get(0)));
+            }
+        }
+    }
 
-        // When/Then: isCacheable returns true for any leaf context
-        assertTrue("RescoreWeight should be cacheable", weight.isCacheable(leafContext));
+    // Given: a multi-segment index where every doc clears the radius, and a firstPassK smaller than
+    // the total doc count but larger than any single segment's doc count
+    // When: RescoreRadialSearchQuery rescores
+    // Then: firstPassK bounds the whole shard, not each segment — a per-segment bound would have
+    // trimmed nothing and rescored every doc
+    @SneakyThrows
+    public void testRescore_whenMultipleSegments_thenFirstPassKBoundsWholeShard() {
+        final int segments = 4;
+        final int docsPerSegment = 5;
+        final int totalDocs = segments * docsPerSegment;
+        // Between docsPerSegment and totalDocs, so the bound is only observable across leaves.
+        final int firstPassK = 7;
+        // Loose enough that every vector clears the full-precision filter, leaving the first-pass
+        // trim as the only thing that removes candidates.
+        final float looseRadius = 100.0f;
+
+        try (Directory directory = newDirectory()) {
+            try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
+                for (int segment = 0; segment < segments; segment++) {
+                    for (int i = 0; i < docsPerSegment; i++) {
+                        // Distinct scores: reduceToTopK trims by min-competitive-score, so ties would
+                        // all be retained and nothing would be trimmed.
+                        final float offset = 0.01f * (segment * docsPerSegment + i);
+                        Document doc = new Document();
+                        doc.add(
+                            new KnnFloatVectorField(
+                                FIELD_NAME,
+                                new float[] { 1.0f - offset, offset, 0.0f },
+                                VectorSimilarityFunction.EUCLIDEAN
+                            )
+                        );
+                        w.addDocument(doc);
+                    }
+                    // One segment per batch.
+                    w.commit();
+                }
+            }
+
+            try (IndexReader reader = DirectoryReader.open(directory)) {
+                assertEquals("test assumes one leaf per batch", segments, reader.leaves().size());
+                IndexSearcher searcher = new IndexSearcher(reader);
+
+                // The first pass must produce real per-candidate scores for the shard-wide trim to be
+                // meaningful, so use a scoring vector query rather than MatchAllDocsQuery.
+                Query innerQuery = new KnnFloatVectorQuery(FIELD_NAME, QUERY_TARGET, totalDocs);
+                RescoreRadialSearchQuery rescoreQuery = new RescoreRadialSearchQuery(
+                    innerQuery,
+                    FIELD_NAME,
+                    QUERY_TARGET,
+                    looseRadius,
+                    false,
+                    firstPassK
+                );
+
+                TopDocs results = searcher.search(rescoreQuery, totalDocs);
+
+                assertEquals("firstPassK should bound the shard, not each segment", firstPassK, results.scoreDocs.length);
+            }
+        }
+    }
+
+    private void indexVectors(final Directory directory, final float[][] vectors) throws IOException {
+        try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
+            for (float[] vector : vectors) {
+                Document doc = new Document();
+                doc.add(new KnnFloatVectorField(FIELD_NAME, vector, VectorSimilarityFunction.EUCLIDEAN));
+                w.addDocument(doc);
+            }
+            w.commit();
+        }
     }
 
     // --- Full rescoring flow tests using real Lucene index ---
@@ -797,9 +829,9 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                     doc.add(new KnnFloatVectorField(FIELD_NAME, vector, VectorSimilarityFunction.EUCLIDEAN));
                     w.addDocument(doc);
                 }
-                // firstPassK bounds candidates per leaf, so a multi-segment index would trim nothing when
-                // each leaf holds fewer than firstPassK docs. Force a single segment to make the per-leaf
-                // bound observable as a per-query one.
+                // Force a single segment so this test isolates the collector bound from the first-pass
+                // trim. The shard-wide trim across multiple leaves is covered by
+                // testRescore_whenMultipleSegments_thenFirstPassKBoundsWholeShard.
                 w.forceMerge(1);
                 w.commit();
             }
