@@ -287,6 +287,27 @@ public class LuceneSQEncoderTests extends KNNTestCase {
         encoder.validate(null, null);
     }
 
+    public void testValidate_whenHalfFloatWithBits1_thenOk() {
+        callValidateEncoderParams(Version.CURRENT, VectorDataType.HALF_FLOAT, CompressionLevel.x16, Map.of(LUCENE_SQ_BITS, 1));
+    }
+
+    public void testValidate_whenHalfFloatWithBits7_thenError() {
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> callValidateEncoderParams(Version.CURRENT, VectorDataType.HALF_FLOAT, CompressionLevel.x4, Map.of(LUCENE_SQ_BITS, 7))
+        );
+        assertTrue(e.getMessage().contains("half_float"));
+    }
+
+    // 2 and 4 are FLOAT-only widths; half_float rejects them the same way it rejects 7.
+    public void testValidate_whenHalfFloatWithBits2_thenError() {
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> callValidateEncoderParams(Version.CURRENT, VectorDataType.HALF_FLOAT, CompressionLevel.x16, Map.of(LUCENE_SQ_BITS, 2))
+        );
+        assertTrue(e.getMessage().contains("half_float"));
+    }
+
     public void testValidate_whenBits2WithX16Compression_explicitOnDisk_thenOk() {
         callValidateEncoderParams(Version.CURRENT, CompressionLevel.x16, Map.of(LUCENE_SQ_BITS, 2));
     }
@@ -296,9 +317,18 @@ public class LuceneSQEncoderTests extends KNNTestCase {
     }
 
     private void callValidateEncoderParams(Version version, CompressionLevel compressionLevel, Map<String, Object> encoderParams) {
+        callValidateEncoderParams(version, VectorDataType.FLOAT, compressionLevel, encoderParams);
+    }
+
+    private void callValidateEncoderParams(
+        Version version,
+        VectorDataType vectorDataType,
+        CompressionLevel compressionLevel,
+        Map<String, Object> encoderParams
+    ) {
         KNNMethodConfigContext configContext = KNNMethodConfigContext.builder()
             .versionCreated(version)
-            .vectorDataType(VectorDataType.FLOAT)
+            .vectorDataType(vectorDataType)
             .dimension(128)
             .compressionLevel(compressionLevel)
             .build();

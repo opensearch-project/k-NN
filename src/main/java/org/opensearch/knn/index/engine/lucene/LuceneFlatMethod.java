@@ -8,7 +8,6 @@ package org.opensearch.knn.index.engine.lucene;
 import com.google.common.collect.ImmutableSet;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.AbstractKNNMethod;
 import org.opensearch.knn.index.engine.MethodComponent;
 
 import java.util.Arrays;
@@ -20,9 +19,9 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 /**
  * Lucene Flat implementation
  */
-public class LuceneFlatMethod extends AbstractKNNMethod {
+public class LuceneFlatMethod extends AbstractLuceneMethod {
 
-    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
+    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT, VectorDataType.HALF_FLOAT);
 
     public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
         SpaceType.UNDEFINED,
@@ -36,7 +35,7 @@ public class LuceneFlatMethod extends AbstractKNNMethod {
     /**
      * Constructor for LuceneFlatMethod
      *
-     * @see AbstractKNNMethod
+     * @see AbstractLuceneMethod
      */
     public LuceneFlatMethod() {
         super(FLAT_METHOD_COMPONENT, Set.copyOf(SUPPORTED_SPACES), new LuceneFlatSearchContext());

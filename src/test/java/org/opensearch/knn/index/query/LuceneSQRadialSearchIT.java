@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.query;
 
+import lombok.SneakyThrows;
+import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 
@@ -71,5 +73,54 @@ public class LuceneSQRadialSearchIT extends AbstractRadialSearchOnQuantizedIndex
             .put("index.max_result_window", maxResultWindow)
             .build();
         createKnnIndex(INDEX_NAME, settings, mapping);
+    }
+
+    private void createHalfFloatQuantizedIndex() throws Exception {
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", DIMENSION)
+            .field("data_type", "half_float")
+            .field("compression_level", "16x")
+            .field("mode", "on_disk")
+            .startObject("method")
+            .field("name", "hnsw")
+            .field("engine", "lucene")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        Settings settings = Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put(KNN_INDEX, true).build();
+        createKnnIndex(INDEX_NAME, settings, mapping);
+    }
+
+    @SneakyThrows
+    public void testRadialSearch_whenHalfFloatSQ_withMaxDistance() {
+        createHalfFloatQuantizedIndex();
+        indexDocuments();
+        refreshIndex(getIndexName());
+
+        Response response = executeRadialSearch("max_distance", LARGE_MAX_DISTANCE);
+        assertEquals(200, response.getStatusLine().getStatusCode());
+        assertTrue(getHitCount(response) > 0);
+
+        deleteKNNIndex(getIndexName());
+    }
+
+    @SneakyThrows
+    public void testRadialSearch_whenHalfFloatSQ_withMinScore() {
+        createHalfFloatQuantizedIndex();
+        indexDocuments();
+        refreshIndex(getIndexName());
+
+        Response response = executeRadialSearch("min_score", SMALL_MIN_SCORE);
+        assertEquals(200, response.getStatusLine().getStatusCode());
+        assertTrue(getHitCount(response) > 0);
+
+        deleteKNNIndex(getIndexName());
     }
 }

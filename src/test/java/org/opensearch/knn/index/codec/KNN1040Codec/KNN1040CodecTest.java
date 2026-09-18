@@ -140,12 +140,34 @@ public class KNN1040CodecTest extends KNNCodecTestCase {
         return new KNNMethodContext(LUCENE, SpaceType.L2, new MethodComponentContext(METHOD_HNSW, params));
     }
 
+    public void testHalfFloatFlatFormatResolver_returnsKNN1040HalfFloatFlatVectorsFormat() {
+        KNNMethodContext flatMethodContext = new KNNMethodContext(
+            LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_FLAT, Collections.emptyMap())
+        );
+        assertThat(resolveFormat(flatMethodContext, VectorDataType.HALF_FLOAT), instanceOf(KNN1040HalfFloatFlatVectorsFormat.class));
+    }
+
+    public void testFloatFlatFormatResolver_doesNotReturnHalfFloatFormat() {
+        KNNMethodContext flatMethodContext = new KNNMethodContext(
+            LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_FLAT, Collections.emptyMap())
+        );
+        assertThat(resolveFormat(flatMethodContext, VectorDataType.FLOAT), instanceOf(KNN1040ScalarQuantizedVectorsFormat.class));
+    }
+
     private KnnVectorsFormat resolveFormat(KNNMethodContext methodContext) {
+        return resolveFormat(methodContext, VectorDataType.FLOAT);
+    }
+
+    private KnnVectorsFormat resolveFormat(KNNMethodContext methodContext, VectorDataType vectorDataType) {
         MapperService mapperService = mock(MapperService.class);
         KNNVectorFieldType fieldType = new KNNVectorFieldType(
             "test_field",
             Collections.emptyMap(),
-            VectorDataType.FLOAT,
+            vectorDataType,
             getMappingConfigForMethodMapping(methodContext, 3)
         );
         when(mapperService.fieldType(eq("test_field"))).thenReturn(fieldType);
