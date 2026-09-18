@@ -57,6 +57,10 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
             return PerDimensionValidator.DEFAULT_FLOAT_VALIDATOR;
         }
 
+        if (VectorDataType.HALF_FLOAT == vectorDataType) {
+            return PerDimensionValidator.DEFAULT_HALF_FLOAT_VALIDATOR;
+        }
+
         throw new IllegalStateException("Unsupported vector data type " + vectorDataType);
     }
 
@@ -79,6 +83,10 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
             if (isFaissSQClipToFP16RangeEnabled(knnMethodContext.getMethodComponentContext())) {
                 return FaissFP16Util.CLIP_TO_FP16_PROCESSOR;
             }
+            return PerDimensionProcessor.NOOP_PROCESSOR;
+        }
+
+        if (VectorDataType.HALF_FLOAT == vectorDataType) {
             return PerDimensionProcessor.NOOP_PROCESSOR;
         }
 
@@ -168,7 +176,7 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
     }
 
     @Override
-    protected VectorTransformer getVectorTransformer(SpaceType spaceType) {
-        return VectorTransformerFactory.getVectorTransformer(KNNEngine.FAISS, spaceType, null);
+    protected VectorTransformer getVectorTransformer(SpaceType spaceType, VectorDataType vectorDataType) {
+        return VectorTransformerFactory.getVectorTransformer(KNNEngine.FAISS, spaceType, null, vectorDataType);
     }
 }

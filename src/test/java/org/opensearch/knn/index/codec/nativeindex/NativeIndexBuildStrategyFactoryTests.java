@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -145,12 +146,13 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
             mockedCodecUtil.when(() -> KNNCodecUtil.initializeVectorValues(any())).thenAnswer(i -> null);
             mockedSettings.when(KNNSettings::isKNNRemoteVectorBuildEnabled).thenReturn(true);
             when(knnVectorValues.bytesPerVector()).thenReturn(32);
+            when(knnVectorValues.dimension()).thenReturn(128);
 
             // totalLiveDocs = 10 > MIN_DOCS_FOR_REMOTE_INDEX_BUILD (4)
             int totalLiveDocs = 10;
             long vectorBlobLength = 32L * totalLiveDocs;
 
-            mockedRemote.when(() -> RemoteIndexBuildStrategy.shouldBuildIndexRemotely(any(IndexSettings.class), anyLong()))
+            mockedRemote.when(() -> RemoteIndexBuildStrategy.shouldBuildIndexRemotely(any(IndexSettings.class), anyLong(), anyInt()))
                 .thenReturn(true);
 
             NativeIndexBuildStrategyFactory factory = new NativeIndexBuildStrategyFactory(repositoriesServiceSupplier, indexSettings);

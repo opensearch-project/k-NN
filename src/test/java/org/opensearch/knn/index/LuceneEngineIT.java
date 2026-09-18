@@ -868,7 +868,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
 
     @SneakyThrows
     public void testAddDocWith1bitScalarQuantizer() {
-        createKnnIndexMappingWithLuceneEngineAnd1bitScalarQuantizer(DIMENSION, SpaceType.L2, VectorDataType.FLOAT);
+        createKnnIndexMappingWithLuceneEngineAndMultiBitSQ(DIMENSION, SpaceType.L2, VectorDataType.FLOAT);
         Float[] vector = new Float[] { 2.0f, 4.5f, 6.5f };
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
 
@@ -878,7 +878,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
 
     @SneakyThrows
     public void testUpdateDocWith1bitScalarQuantizer() {
-        createKnnIndexMappingWithLuceneEngineAnd1bitScalarQuantizer(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
+        createKnnIndexMappingWithLuceneEngineAndMultiBitSQ(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
         Float[] vector = { 6.0f, 6.0f, 7.0f };
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
 
@@ -891,7 +891,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
 
     @SneakyThrows
     public void testDeleteDocWith1bitScalarQuantizer() {
-        createKnnIndexMappingWithLuceneEngineAnd1bitScalarQuantizer(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
+        createKnnIndexMappingWithLuceneEngineAndMultiBitSQ(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
         Float[] vector = { 6.0f, 6.0f, 7.0f };
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
 
@@ -903,7 +903,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
 
     @SneakyThrows
     public void testIndexingAndQueryingWith1bitScalarQuantizer() {
-        createKnnIndexMappingWithLuceneEngineAnd1bitScalarQuantizer(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
+        createKnnIndexMappingWithLuceneEngineAndMultiBitSQ(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
 
         int numDocs = 10;
         for (int i = 0; i < numDocs; i++) {
@@ -928,7 +928,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
     }
 
     public void testQueryWithFilterUsing1bitScalarQuantizer() throws Exception {
-        createKnnIndexMappingWithLuceneEngineAnd1bitScalarQuantizer(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
+        createKnnIndexMappingWithLuceneEngineAndMultiBitSQ(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
 
         addKnnDocWithAttributes(
             DOC_ID,
@@ -946,12 +946,99 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         validateQueryResultsWithFilters(searchVector, 5, 1, expectedDocIdsKGreaterThanFilterResult, expectedDocIdsKLimitsFilterResult);
     }
 
-    public void testInvalidParameters_with1bitScalarQuantizer() throws Exception {
-        int bits = 2;
+    public void testInvalidParameters_withMultiBitScalarQuantizer() throws Exception {
+        // bits ∈ {1, 2, 4, 7} are supported; bits=3 is invalid.
+        int bits = 3;
         expectThrows(
             ResponseException.class,
-            () -> createKnnIndexMappingWithLuceneEngineAnd1bitScalarQuantizer(DIMENSION, SpaceType.L2, VectorDataType.FLOAT, bits)
+            () -> createKnnIndexMappingWithLuceneEngineAndMultiBitSQ(DIMENSION, SpaceType.L2, VectorDataType.FLOAT, bits)
         );
+    }
+
+    // ---------- SQ 2-bit / 4-bit HNSW (Lucene 10.4 OSQ integer-quantization path) ----------
+
+    @SneakyThrows
+    public void testAddDocWithSQEncoder_twoBit() {
+        createKnnIndexMappingWithLuceneEngineAndMultiBitSQ(DIMENSION, SpaceType.L2, VectorDataType.FLOAT, 2);
+        addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, new Float[] { 2.0f, 4.5f, 6.5f });
+        refreshIndex(INDEX_NAME);
+        assertEquals(1, getDocCount(INDEX_NAME));
+    }
+
+    @SneakyThrows
+    public void testAddDocWithSQEncoder_fourBit() {
+        createKnnIndexMappingWithLuceneEngineAndMultiBitSQ(DIMENSION, SpaceType.L2, VectorDataType.FLOAT, 4);
+        addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, new Float[] { 2.0f, 4.5f, 6.5f });
+        refreshIndex(INDEX_NAME);
+        assertEquals(1, getDocCount(INDEX_NAME));
+    }
+
+    @SneakyThrows
+    public void testIndexingAndQueryingWithSQEncoder_twoBit() {
+        indexAndQueryWithSQEncoderMultiBit(2);
+    }
+
+    @SneakyThrows
+    public void testIndexingAndQueryingWithSQEncoder_fourBit() {
+        indexAndQueryWithSQEncoderMultiBit(4);
+    }
+
+    // Exercises the VectorTransformerFactory cosine normalization for the 2/4-bit OSQ path
+    // (bits ∈ {1, 2, 4} route through KNN1040ScalarQuantizedVectorScorer, which requires a unit query).
+    @SneakyThrows
+    public void testCosineWithSQEncoder_twoBit() {
+        cosineWithSQEncoderMultiBit(2);
+    }
+
+    @SneakyThrows
+    public void testCosineWithSQEncoder_fourBit() {
+        cosineWithSQEncoderMultiBit(4);
+    }
+
+    private void indexAndQueryWithSQEncoderMultiBit(int bits) throws Exception {
+        createKnnIndexMappingWithLuceneEngineAndMultiBitSQ(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT, bits);
+
+        int numDocs = 10;
+        float[][] indexVectors = new float[numDocs][DIMENSION];
+        for (int i = 0; i < numDocs; i++) {
+            Arrays.fill(indexVectors[i], (float) i);
+        }
+        bulkAddKnnDocs(INDEX_NAME, FIELD_NAME, indexVectors, numDocs);
+        assertEquals(numDocs, getDocCount(INDEX_NAME));
+
+        float[] queryVector = new float[DIMENSION];
+        Arrays.fill(queryVector, (float) numDocs);
+        int k = 10;
+        Response searchResponse = searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, queryVector, k), k);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), FIELD_NAME);
+        assertEquals(k, results.size());
+        for (int i = 0; i < k; i++) {
+            assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
+        }
+    }
+
+    private void cosineWithSQEncoderMultiBit(int bits) throws Exception {
+        createKnnIndexMappingWithLuceneEngineAndMultiBitSQ(DIMENSION, SpaceType.COSINESIMIL, VectorDataType.FLOAT, bits);
+
+        int numDocs = 5;
+        float[][] indexVectors = new float[numDocs][DIMENSION];
+        for (int i = 0; i < numDocs; i++) {
+            Arrays.fill(indexVectors[i], (float) (i + 1));
+        }
+        bulkAddKnnDocs(INDEX_NAME, FIELD_NAME, indexVectors, numDocs);
+        assertEquals(numDocs, getDocCount(INDEX_NAME));
+
+        float[] queryVector = new float[DIMENSION];
+        Arrays.fill(queryVector, 1.0f);
+        Response response = searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, queryVector, 3), 3);
+        String body = EntityUtils.toString(response.getEntity());
+        List<KNNResult> results = parseSearchResponse(body, FIELD_NAME);
+        assertEquals(3, results.size());
+        // All docs point in the same direction as the query, so every cosine score should be positive.
+        // A failing normalizer path would either reject the query or yield non-positive scores.
+        for (Float score : parseSearchResponseScore(body, FIELD_NAME)) {
+            assertTrue("Cosine score should be positive", score > 0);
+        }
     }
 
     private void createKnnIndexMappingWithLuceneEngineWithModeAndCompression(CompressionLevel compressionLevel, int dimension, Mode mode)
@@ -975,7 +1062,7 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         createKnnIndex(INDEX_NAME, mapping);
     }
 
-    private void createKnnIndexMappingWithLuceneEngineAnd1bitScalarQuantizer(
+    private void createKnnIndexMappingWithLuceneEngineAndMultiBitSQ(
         int dimension,
         SpaceType spaceType,
         VectorDataType vectorDataType,
@@ -1012,12 +1099,9 @@ public class LuceneEngineIT extends KNNCompressionRestTestCase {
         createKnnIndex(INDEX_NAME, mapping);
     }
 
-    private void createKnnIndexMappingWithLuceneEngineAnd1bitScalarQuantizer(
-        int dimension,
-        SpaceType spaceType,
-        VectorDataType vectorDataType
-    ) throws Exception {
-        createKnnIndexMappingWithLuceneEngineAnd1bitScalarQuantizer(dimension, spaceType, vectorDataType, 1);
+    private void createKnnIndexMappingWithLuceneEngineAndMultiBitSQ(int dimension, SpaceType spaceType, VectorDataType vectorDataType)
+        throws Exception {
+        createKnnIndexMappingWithLuceneEngineAndMultiBitSQ(dimension, spaceType, vectorDataType, 1);
     }
 
     private void createKnnIndexMappingWithLuceneEngine(int dimension, SpaceType spaceType, VectorDataType vectorDataType) throws Exception {

@@ -94,7 +94,7 @@ public class FaissSVSVamanaMethod extends AbstractFaissMethod {
             .vectorValidator(doGetVectorValidator(knnMethodContext, knnMethodConfigContext))
             .perDimensionValidator(doGetPerDimensionValidator(knnMethodContext, knnMethodConfigContext))
             .perDimensionProcessor(doGetPerDimensionProcessor(knnMethodContext, knnMethodConfigContext))
-            .vectorTransformer(getVectorTransformer(knnMethodContext.getSpaceType()))
+            .vectorTransformer(getVectorTransformer(knnMethodContext.getSpaceType(), knnMethodConfigContext.getVectorDataType()))
             .trainingConfigValidationSetup(doGetTrainingConfigValidationSetup())
             .resolvedSpec(buildSvsResolvedSpec(knnMethodContext, knnMethodConfigContext))
             .build();

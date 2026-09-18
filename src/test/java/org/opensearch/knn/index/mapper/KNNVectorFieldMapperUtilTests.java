@@ -73,6 +73,15 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
         assertArrayEquals(TEST_FLOAT_VECTOR, (float[]) vector, 0.001f);
     }
 
+    public void testStoredFields_whenVectorIsHalfFloatType_thenSucceed() {
+        StoredField storedField = KNNVectorFieldMapperUtil.createStoredFieldForHalfFloatVector(TEST_FIELD_NAME, TEST_FLOAT_VECTOR);
+        assertEquals(TEST_FIELD_NAME, storedField.name());
+
+        Object vector = KNNVectorFieldMapperUtil.deserializeStoredVector(storedField.binaryValue(), VectorDataType.HALF_FLOAT);
+        assertTrue(vector instanceof float[]);
+        assertArrayEquals(TEST_FLOAT_VECTOR, (float[]) vector, 0.1f);
+    }
+
     public void testGetExpectedVectorLengthSuccess() {
         KNNVectorFieldType knnVectorFieldType = mock(KNNVectorFieldType.class);
         when(knnVectorFieldType.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultKNNMethodContext(), 3));

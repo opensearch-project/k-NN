@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import static org.opensearch.knn.common.KNNConstants.COMPRESSION_LEVEL_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_FLAT_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
@@ -63,7 +64,7 @@ import static org.opensearch.knn.common.KNNConstants.NAME;
  */
 public class FaissSQEncoder implements Encoder {
 
-    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
+    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT, VectorDataType.HALF_FLOAT);
 
     private static final Set<Integer> VALID_BITS = Set.of(
         QuantizationBits.ONE.getValue(),
@@ -71,7 +72,6 @@ public class FaissSQEncoder implements Encoder {
         QuantizationBits.FOUR.getValue(),
         QuantizationBits.SIXTEEN.getValue()
     );
-
     private final static MethodComponent METHOD_COMPONENT = MethodComponent.Builder.builder(ENCODER_SQ)
         .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
         .addParameter(
@@ -124,7 +124,8 @@ public class FaissSQEncoder implements Encoder {
         if (methodComponentContext != null && methodComponentContext.getParameters().containsKey(SQ_BITS)) {
             Object bitsObj = methodComponentContext.getParameters().get(SQ_BITS);
             if (bitsObj instanceof Integer) {
-                return QuantizationBits.fromValue((Integer) bitsObj).getCompressionLevel();
+                return QuantizationBits.fromValue((Integer) bitsObj)
+                    .getCompressionLevel(knnMethodConfigContext == null ? null : knnMethodConfigContext.getVectorDataType());
             }
         }
         // Legacy path — type=fp16 is x2
@@ -152,6 +153,40 @@ public class FaissSQEncoder implements Encoder {
         boolean hasClip = encoderParams.containsKey(FAISS_SQ_CLIP);
 
         ValidationException validationException = new ValidationException();
+
+        boolean resolvesToFp16 = bitsObj == null
+            || (bitsObj instanceof Integer && (Integer) bitsObj == QuantizationBits.SIXTEEN.getValue());
+        if (configContext.getVectorDataType() == VectorDataType.HALF_FLOAT && resolvesToFp16) {
+            validationException.addValidationError(
+                String.format(
+                    Locale.ROOT,
+                    "half_float is not supported with fp16 quantization (%s=16, or no %s specified) for encoder [%s]. "
+                        + "half_float does not accept an encoder at all; use \"%s\": \"16x\" for SQ 1-bit, "
+                        + "or \"1x\" for unquantized fp16 storage, instead.",
+                    SQ_BITS,
+                    SQ_BITS,
+                    ENCODER_SQ,
+                    COMPRESSION_LEVEL_PARAMETER
+                )
+            );
+            throw validationException;
+        }
+
+        if (configContext.getVectorDataType() == VectorDataType.HALF_FLOAT
+            && bitsObj instanceof Integer
+            && (Integer) bitsObj != QuantizationBits.ONE.getValue()) {
+            validationException.addValidationError(
+                String.format(
+                    Locale.ROOT,
+                    "half_float only supports [%s]=1 for encoder [%s]; use \"%s\": \"16x\" for SQ 1-bit, "
+                        + "or \"1x\" for unquantized fp16 storage, instead.",
+                    SQ_BITS,
+                    ENCODER_SQ,
+                    COMPRESSION_LEVEL_PARAMETER
+                )
+            );
+            throw validationException;
+        }
 
         if (isV360OrLater && bitsObj == null && configContext.getVectorDataType() == VectorDataType.FLOAT) {
             validationException.addValidationError(
@@ -210,7 +245,8 @@ public class FaissSQEncoder implements Encoder {
 
             CompressionLevel configuredCompression = configContext.getCompressionLevel();
             if (CompressionLevel.isConfigured(configuredCompression)) {
-                CompressionLevel expectedCompression = QuantizationBits.fromValue(bits).getCompressionLevel();
+                CompressionLevel expectedCompression = QuantizationBits.fromValue(bits)
+                    .getCompressionLevel(configContext.getVectorDataType());
                 if (configuredCompression != expectedCompression) {
                     validationException.addValidationError(
                         String.format(

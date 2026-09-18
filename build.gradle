@@ -497,6 +497,20 @@ dependencies {
     // Declare guava as compile time since guava will come from OpenSearch transport-grpc module.
     compileOnly group: 'com.google.guava', name: 'guava', version: "${versions.guava}"
 
+    // gRPC transport integration tests (see org.opensearch.knn.integ.grpc.*IT) dial the node's gRPC
+    // aux transport directly. The test code needs a real gRPC client on the test classpath: the
+    // protobuf stubs (DocumentServiceGrpc etc.), the Netty channel, and stub/protobuf glue. On the node
+    // these are provided by the installed transport-grpc module; the in-test client brings its own copies.
+    testImplementation "org.opensearch:protobufs:${versions.opensearchprotobufs}"
+    testImplementation "io.grpc:grpc-api:${versions.grpc}"
+    testImplementation "io.grpc:grpc-core:${versions.grpc}"
+    testImplementation "io.grpc:grpc-stub:${versions.grpc}"
+    testImplementation "io.grpc:grpc-protobuf:${versions.grpc}"
+    testImplementation "io.grpc:grpc-protobuf-lite:${versions.grpc}"
+    testImplementation "io.grpc:grpc-netty-shaded:${versions.grpc}"
+    testImplementation "com.google.protobuf:protobuf-java:${versions.protobuf}"
+    testImplementation "io.perfmark:perfmark-api:0.27.0"
+
     api "org.apache.commons:commons-lang3:${versions.commonslang}"
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: "${versions.bytebuddy}"
@@ -648,6 +662,21 @@ test {
 }
 
 def _numNodes = findProperty('numNodes') as Integer ?: 1
+// Naive byte-array search: index of the first occurrence of needle in haystack, or -1.
+// Used to detect a runtime-retained annotation's descriptor in a compiled .class file without
+// classloading or charset conversion.
+def indexOfBytes(byte[] haystack, byte[] needle) {
+    if (needle.length == 0) return 0
+    for (int i = 0; i <= haystack.length - needle.length; i++) {
+        boolean match = true
+        for (int j = 0; j < needle.length; j++) {
+            if (haystack[i + j] != needle[j]) { match = false; break }
+        }
+        if (match) return i
+    }
+    return -1
+}
+
 def commonIntegTest(RestIntegTestTask task, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes){
     if (integTestDependOnJniLib) {
         task.dependsOn buildJniLib
@@ -695,12 +724,144 @@ def commonIntegTest(RestIntegTestTask task, project, integTestDependOnJniLib, op
         task.jvmArgs '-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=8000'
     }
     task.systemProperty propertyKeys.breaker.useRealMemory, getBreakerSetting()
+
+    // Opt-in per-test timing (enable with -Dtest.timing=true). Emits "TEST_TIME <class>#<method> <ms>"
+    // lines so suite/method durations can be aggregated to measure runtime-reduction work. No-op by default.
+    if (System.getProperty("test.timing") != null) {
+        task.afterTest { descriptor, result ->
+            logger.lifecycle("TEST_TIME ${descriptor.className}#${descriptor.name} ${result.endTime - result.startTime}")
+        }
+    }
+
+    // Opt-in remote-build sanity mode (enable with -Dtest.remoteBuildSanity=true). Restricts the run to
+    // the test classes that contain at least one @ExpectRemoteBuildValidation method, so the
+    // remote-index-build job validates the remote path with a minimal subset instead of the whole integ
+    // suite. Selection happens here at task configuration (via include patterns), NOT a runtime JUnit
+    // assume: untagged classes are never instantiated, so their @After teardown never runs (a runtime
+    // skip in @Before collides with subclass cleanup that assumes setup completed).
+    //
+    // Note: RandomizedRunner @TestGroup is intentionally NOT used here -- its semantics are the inverse
+    // of what we need (a @TestGroup with enabled=false SKIPS tagged tests by default and RUNS them when
+    // toggled; it does not restrict the run to only tagged tests). An include-filter is the correct
+    // "run only these" mechanism.
+    if (Boolean.parseBoolean(System.getProperty("test.remoteBuildSanity", "false"))) {
+        // Runtime-retained annotation => its descriptor bytes appear in the class file's constant pool
+        // iff a method in that class is annotated with it. Use the raw-byte scan (no charset conversion)
+        // to cheaply find candidate CLASSES, then reflectively enumerate the annotated METHODS in each so
+        // the filter runs only the tagged methods -- not every method of the containing class. Class-level
+        // filtering still ran dozens of unrelated methods per class (e.g. FaissIT), which kept the job
+        // slow; method-level selection is what actually shrinks the run.
+        byte[] marker = "org/opensearch/knn/common/annotation/ExpectRemoteBuildValidation".getBytes("US-ASCII")
+        task.filter {
+            setFailOnNoMatchingTests(false)
+        }
+        task.doFirst {
+            // Build a classloader over the test output dirs + full test runtime classpath so we can
+            // reflectively read the annotation's methods. Config-time is safe: classes are compiled.
+            def urls = []
+            task.testClassesDirs.each { urls << it.toURI().toURL() }
+            task.classpath.files.each { urls << it.toURI().toURL() }
+            def loader = new java.net.URLClassLoader(urls as java.net.URL[], this.getClass().getClassLoader())
+            def annClass = Class.forName("org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation", false, loader)
+
+            def selected = []
+            task.candidateClassFiles.files.each { f ->
+                def path = f.absolutePath
+                task.testClassesDirs.each { dir ->
+                    def base = dir.absolutePath
+                    if (path.startsWith(base) && path.endsWith(".class") && !path.contains('$')) {
+                        if (indexOfBytes(f.bytes, marker) >= 0) {
+                            def rel = path.substring(base.length() + 1)
+                            def className = rel.substring(0, rel.length() - ".class".length()).replace(File.separator, ".")
+                            try {
+                                def clazz = Class.forName(className, false, loader)
+                                def names = new java.util.TreeSet<String>()
+                                clazz.getMethods().each { m ->
+                                    if (m.isAnnotationPresent(annClass)) {
+                                        names << m.getName()
+                                    }
+                                }
+                                names.each { selected << (className + "." + it) }
+                            } catch (Throwable t) {
+                                // If a class fails to load reflectively, fall back to selecting the whole
+                                // class so we never silently drop remote-build coverage.
+                                logger.warn("TEST_REMOTE_BUILD_SANITY: could not reflect ${className} (${t.getClass().getSimpleName()}); selecting whole class")
+                                selected << className
+                            }
+                        }
+                    }
+                }
+            }
+            logger.lifecycle("TEST_REMOTE_BUILD_SANITY: selected ${selected.size()} test methods")
+            if (!selected.isEmpty()) {
+                task.filter.setIncludePatterns(*selected)
+            }
+        }
+    }
+
+    // Opt-in test sharding for parallel CI jobs. Enable with:
+    //   -Dtest.shard.total=<N> -Dtest.shard.index=<0..N-1>
+    // Each shard runs a disjoint subset of IT classes so that N independent invocations
+    // (each with its OWN cluster) can run in parallel safely. No test-code changes required;
+    // isolation stays at the cluster boundary exactly as in serial runs.
+    def shardTotalProp = System.getProperty("test.shard.total")
+    if (shardTotalProp != null) {
+        int shardTotal = shardTotalProp as int
+        int shardIndex = (System.getProperty("test.shard.index") ?: "0") as int
+        if (shardTotal < 1 || shardIndex < 0 || shardIndex >= shardTotal) {
+            throw new GradleException("Invalid sharding: test.shard.total=${shardTotal}, test.shard.index=${shardIndex}")
+        }
+        task.filter {
+            setFailOnNoMatchingTests(false)
+        }
+        task.doFirst {
+            // Assign classes to shards dynamically by round-robin over the SORTED list of discovered test
+            // classes. This needs no maintained map: every compiled test class (including newly added ones)
+            // is discovered from candidateClassFiles, sorted for determinism (so the same class always lands
+            // on the same shard and no class is run twice or skipped), then dealt across shards. Round-robin
+            // over a sorted list guarantees shard sizes differ by at most one class -- near-perfect
+            // count-balance without any hardcoded, drift-prone assignment.
+            def allClasses = []
+            task.candidateClassFiles.files.each { f ->
+                def path = f.absolutePath
+                task.testClassesDirs.each { dir ->
+                    def base = dir.absolutePath
+                    if (path.startsWith(base) && path.endsWith(".class") && !path.contains('$')) {
+                        def rel = path.substring(base.length() + 1)
+                        allClasses << rel.substring(0, rel.length() - ".class".length()).replace(File.separator, ".")
+                    }
+                }
+            }
+            allClasses = allClasses.unique().sort()
+            def selected = []
+            allClasses.eachWithIndex { fqcn, i ->
+                if (i % shardTotal == shardIndex) {
+                    selected << fqcn
+                }
+            }
+            logger.lifecycle(
+                "TEST_SHARD ${shardIndex}/${shardTotal}: selected ${selected.size()} of ${allClasses.size()} test classes (round-robin)"
+            )
+            if (!selected.isEmpty()) {
+                task.filter.setIncludePatterns(*selected)
+            }
+        }
+    }
 }
 
 integTest {
     commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes)
+    // gRPC aux transport port the test cluster binds (see testClusters.integTest). gRPC ITs read this to
+    // build a channel to the node. Keep in sync with the 'aux.transport.transport-grpc.port' cluster setting.
+    systemProperty 'tests.grpc.port', System.getProperty('tests.grpc.port', '9400')
     filter {
         excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
+        excludeTestsMatching "org.opensearch.knn.integ.DynamicVectorMappingMultiNodeIT"
+        // The gRPC transport ITs are temporarily disabled for the distribution-level ITs: the release
+        // distribution's k-NN test cluster does not enable the transport-grpc aux transport
+        if (System.getProperty("tests.rest.cluster") != null) {
+            excludeTestsMatching "org.opensearch.knn.integ.grpc.*"
+        }
     }
     mustRunAfter test
 }
@@ -711,8 +872,13 @@ task integTestRemoteIndexBuild(type: RestIntegTestTask) {
         // Temporarily skipping this test class, see: https://github.com/opensearch-project/k-NN/issues/2726
         excludeTestsMatching "org.opensearch.knn.index.SegmentReplicationIT"
         excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
+        excludeTestsMatching "org.opensearch.knn.integ.DynamicVectorMappingMultiNodeIT"
         // Flaky with remote index build, see: https://github.com/opensearch-project/k-NN/issues/3383
         excludeTestsMatching "org.opensearch.knn.memoryoptsearch.MOSFaissFloatIndexIT.testFilteredSearch_whenVisitBudgetExhausted_thenFallbackToExactSearch"
+        // gRPC transport ITs need the transport-grpc aux transport, which is only wired into the
+        // testClusters.integTest cluster (not this remote-index-build cluster). They are unrelated to
+        // remote index build, so run them under :integTest only.
+        excludeTestsMatching "org.opensearch.knn.integ.grpc.*"
     }
     systemProperty("test.remoteBuild", System.getProperty("test.remoteBuild"))
     systemProperty("test.bucket", System.getProperty("test.bucket"))
@@ -723,6 +889,7 @@ task integTestMultiNode(type: RestIntegTestTask) {
     commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, 2)
     filter {
         includeTestsMatching "org.opensearch.knn.index.RelocationIT"
+        includeTestsMatching "org.opensearch.knn.integ.DynamicVectorMappingMultiNodeIT"
     }
 }
 
@@ -788,6 +955,12 @@ testClusters.integTest {
     commonIntegTestClusters(it, _numNodes)
     // Forcing optimistic search for testing
     systemProperty 'mem_opt_srch.force_reenter', 'true'
+    // Enable the gRPC aux transport (transport-grpc module ships in the ARCHIVE distribution) on a fixed
+    // port so gRPC integration tests (org.opensearch.knn.integ.grpc.*IT) can dial 127.0.0.1:<port> without
+    // needing to discover it from transport-grpc module internals (that module is not a resolvable test
+    // dependency). Single-node integTest makes a fixed port safe.
+    setting 'aux.transport.types', '[transport-grpc]'
+    setting 'aux.transport.transport-grpc.port', System.getProperty('tests.grpc.port', '9400-9400')
 }
 
 testClusters.integTestRemoteIndexBuild {
@@ -826,6 +999,9 @@ task integTestRemote(type: RestIntegTestTask) {
     if (System.getProperty("tests.rest.cluster") != null) {
         filter {
             includeTestsMatching "org.opensearch.knn.*IT"
+            // gRPC transport ITs require the transport-grpc aux transport on a known port, which is only
+            // guaranteed on the gradle-managed :integTest cluster. Skip them against an external cluster.
+            excludeTestsMatching "org.opensearch.knn.integ.grpc.*"
         }
     }
 }

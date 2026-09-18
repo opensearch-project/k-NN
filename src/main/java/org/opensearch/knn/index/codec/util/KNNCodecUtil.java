@@ -29,6 +29,8 @@ import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
 public class KNNCodecUtil {
     // Floats are 4 bytes in size
     public static final int FLOAT_BYTE_SIZE = 4;
+    // Half floats are 2 bytes in size
+    public static final int HALF_FLOAT_BYTE_SIZE = 2;
 
     /**
      * This method provides a rough estimate of the number of bytes used for storing an array with the given parameters.
@@ -39,12 +41,14 @@ public class KNNCodecUtil {
      */
     public static long calculateArraySize(int numVectors, int vectorLength, VectorDataType vectorDataType) {
         if (vectorDataType == VectorDataType.FLOAT) {
-            return numVectors * vectorLength * FLOAT_BYTE_SIZE;
+            return (long) numVectors * vectorLength * FLOAT_BYTE_SIZE;
+        } else if (vectorDataType == VectorDataType.HALF_FLOAT) {
+            return (long) numVectors * vectorLength * HALF_FLOAT_BYTE_SIZE;
         } else if (vectorDataType == VectorDataType.BINARY || vectorDataType == VectorDataType.BYTE) {
-            return numVectors * vectorLength;
+            return (long) numVectors * vectorLength;
         } else {
             throw new IllegalArgumentException(
-                "Float, binary, and byte are the only supported vector data types for array size calculation."
+                "Float, half_float, binary, and byte are the only supported vector data types for array size calculation."
             );
         }
     }

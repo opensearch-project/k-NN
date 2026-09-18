@@ -34,7 +34,7 @@ import static org.opensearch.knn.KNNRestTestCase.ROUTING_FIELD;
 import static org.opensearch.knn.TestUtils.BWC_VERSION;
 
 public class DerivedSourceUtils {
-    public static final int TEST_DIMENSION = 16;
+    public static final int TEST_DIMENSION = 64;
     protected static final int DOCS = 500;
 
     public static final float DEFAULT_NULL_PROB = 0.03f;

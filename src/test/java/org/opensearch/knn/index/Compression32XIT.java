@@ -42,6 +42,7 @@ import static org.opensearch.knn.common.KNNConstants.EXACT_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
@@ -977,6 +978,9 @@ public class Compression32XIT extends KNNCompressionRestTestCase {
 
     @SneakyThrows
     private void createX8OnDiskIndex(String indexName, SpaceType spaceType, Settings settings) {
+        // Pin BQ 4-bit explicitly. The auto-resolved default flipped from BQ to Faiss SQ at 3.9.0;
+        // this test asserts the "always-build-graph via non-null quantization state" behavior that
+        // only the BQ writer path provides (the SQ writer honors approximate_threshold and skips).
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
@@ -984,9 +988,26 @@ public class Compression32XIT extends KNNCompressionRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", DIMENSION)
             .field(MODE_PARAMETER, "on_disk")
-            .field(COMPRESSION_LEVEL_PARAMETER, "8x");
-        addMethodParams(builder, spaceType);
-        builder.endObject().endObject().endObject();
+            .field(COMPRESSION_LEVEL_PARAMETER, "8x")
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, engineName)
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, HNSW_M)
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, HNSW_EF_CONSTRUCTION)
+            .field(METHOD_PARAMETER_EF_SEARCH, HNSW_EF_SEARCH)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, "binary")
+            .startObject(PARAMETERS)
+            .field("bits", 4)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
         createKnnIndex(indexName, settings, builder.toString());
     }
 

@@ -9,7 +9,14 @@ import org.apache.lucene.util.VectorUtil;
 import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.VectorDataType;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -20,6 +27,84 @@ import java.util.stream.LongStream;
 import org.opensearch.common.Randomness;
 
 public class SearchTestHelper {
+
+    /**
+     * Checked-in pool of clustered, positive-mean 128-dim float vectors.
+     * <p>
+     * i.i.d. uniform random vectors (the old {@link #generateOneSingleFloatVector} default) have no neighbor
+     * structure, so in high dimensions the initial kNN graph is full of near-ties. GPU CAGRA (remote index build)
+     * rejects that with "initial kNN graph contains too many invalid or duplicated neighbor nodes", and it is worst
+     * for inner-product on zero-mean data. This fixture is a Gaussian mixture (positive-mean centroids, tight
+     * clusters), which builds cleanly on CAGRA and yields meaningful recall.
+     * <p>
+     * Regenerate with a fixed seed if it needs to change; keep it deterministic so runs are reproducible.
+     */
+    private static final String CLUSTERED_FLOAT_VECTORS_RESOURCE = "data/mos_clustered_vectors_128.json";
+    private static volatile List<float[]> CLUSTERED_FLOAT_VECTORS;
+
+    /**
+     * Loads (once) the clustered float-vector fixture from the classpath.
+     */
+    public static List<float[]> loadClusteredFloatVectors() {
+        List<float[]> pool = CLUSTERED_FLOAT_VECTORS;
+        if (pool != null) {
+            return pool;
+        }
+        synchronized (SearchTestHelper.class) {
+            if (CLUSTERED_FLOAT_VECTORS != null) {
+                return CLUSTERED_FLOAT_VECTORS;
+            }
+            final List<float[]> loaded = new ArrayList<>();
+            try (InputStream is = SearchTestHelper.class.getClassLoader().getResourceAsStream(CLUSTERED_FLOAT_VECTORS_RESOURCE)) {
+                if (is == null) {
+                    throw new IllegalStateException("Missing clustered vector fixture on classpath: " + CLUSTERED_FLOAT_VECTORS_RESOURCE);
+                }
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        if (line.isBlank()) {
+                            continue;
+                        }
+                        // Each line is {"vector":[f0,...,fN]}; parse the array between the brackets.
+                        final int start = line.indexOf('[');
+                        final int end = line.indexOf(']', start);
+                        final String[] parts = line.substring(start + 1, end).split(",");
+                        final float[] vec = new float[parts.length];
+                        for (int i = 0; i < parts.length; i++) {
+                            vec[i] = Float.parseFloat(parts[i].trim());
+                        }
+                        loaded.add(vec);
+                    }
+                }
+            } catch (IOException e) {
+                throw new UncheckedIOException("Failed to load clustered vector fixture: " + CLUSTERED_FLOAT_VECTORS_RESOURCE, e);
+            }
+            if (loaded.isEmpty()) {
+                throw new IllegalStateException("Clustered vector fixture is empty: " + CLUSTERED_FLOAT_VECTORS_RESOURCE);
+            }
+            CLUSTERED_FLOAT_VECTORS = loaded;
+            return loaded;
+        }
+    }
+
+    /**
+     * Returns a defensive copy of the {@code index}-th clustered fixture vector (wrapping if index exceeds the pool).
+     *
+     * @param index    sequential index of the vector to fetch
+     * @param dimension expected dimension; asserts the fixture matches
+     * @return a fresh float[] the caller may mutate freely
+     */
+    public static float[] getClusteredFloatVector(final int index, final int dimension) {
+        final List<float[]> pool = loadClusteredFloatVectors();
+        final float[] src = pool.get(index % pool.size());
+        if (src.length != dimension) {
+            throw new IllegalStateException(
+                "Clustered fixture dimension " + src.length + " does not match requested dimension " + dimension
+            );
+        }
+        return Arrays.copyOf(src, src.length);
+    }
+
     public static class Vectors {
         public final VectorDataType dataType;
         public final List<float[]> floatVectors;

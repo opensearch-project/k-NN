@@ -88,6 +88,16 @@ public class KNNIndexShard {
      */
     public void warmup() throws IOException {
         final String indexName = indexShard.shardId().getIndexName();
+
+        // Skip warmup for warm-tier indices. Warm indices use FileCache-backed storage
+        // with data on remote store (S3). Loading graphs into native memory cache or
+        // page cache is wasteful because the data will be fetched on-demand from remote
+        // store through FileCache.
+        if (indexShard.indexSettings().isWarmIndex()) {
+            log.info("[KNN] Skipping warmup for warm index: [{}]", indexName);
+            return;
+        }
+
         log.info("[KNN] Warming up index: [{}]", indexName);
 
         final MapperService mapperService = indexShard.mapperService();

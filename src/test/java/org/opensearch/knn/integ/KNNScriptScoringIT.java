@@ -39,7 +39,6 @@ import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.opensearch.knn.plugin.script.KNNScoringSpace;
 import org.opensearch.knn.plugin.script.KNNScoringSpaceFactory;
 import org.opensearch.script.Script;
-import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -79,7 +78,6 @@ public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
         return List.<Object[]>of(new Object[] { CompressionTestConfig.X1 });
     }
 
-    @ExpectRemoteBuildValidation
     public void testKNNL2ScriptScore() throws Exception {
         testKNNScriptScore(SpaceType.L2);
     }
@@ -88,7 +86,6 @@ public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
         testKNNByteScriptScore(SpaceType.L2);
     }
 
-    @ExpectRemoteBuildValidation
     public void testKNNL1ScriptScore() throws Exception {
         testKNNScriptScore(SpaceType.L1);
     }
@@ -97,7 +94,6 @@ public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
         testKNNByteScriptScore(SpaceType.L1);
     }
 
-    @ExpectRemoteBuildValidation
     public void testKNNLInfScriptScore() throws Exception {
         testKNNScriptScore(SpaceType.LINF);
     }
@@ -106,7 +102,6 @@ public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
         testKNNByteScriptScore(SpaceType.LINF);
     }
 
-    @ExpectRemoteBuildValidation
     public void testKNNCosineScriptScore() throws Exception {
         testKNNScriptScore(SpaceType.COSINESIMIL);
     }
@@ -559,7 +554,6 @@ public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
         assertArrayEquals(correctScores2, scores2, 0.001);
     }
 
-    @ExpectRemoteBuildValidation
     public void testKNNInnerProdScriptScore() throws Exception {
         testKNNScriptScore(SpaceType.INNER_PRODUCT);
     }
@@ -712,7 +706,6 @@ public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
     }
 
     @SuppressWarnings("unchecked")
-    @ExpectRemoteBuildValidation
     public void testKNNScriptScoreOnModelBasedIndex() throws Exception {
         int dimensions = randomIntBetween(2, 10);
         String trainMapping = createKnnIndexMapping(TRAIN_FIELD_PARAMETER, dimensions);
@@ -1064,9 +1057,5 @@ public class KNNScriptScoringIT extends KNNCompressionRestTestCase {
             bytes[i] = (byte) vector[i];
         }
         return bytes;
-    }
-
-    private float[] dummyFloatArrayBasedOnDimension(int dimesion) {
-        return new float[dimesion];
     }
 }

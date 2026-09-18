@@ -9,7 +9,10 @@ import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.opensearch.common.Nullable;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.KNN1040Codec.Faiss1040HalfFloatScalarQuantizedKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN1040Codec.Faiss1040ScalarQuantizedKnnVectorsFormat;
+import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990HalfFloatKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsFormat;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.CodecFormatResolver;
@@ -54,15 +57,19 @@ public class FaissCodecFormatResolver implements CodecFormatResolver {
         Map<String, Object> params,
         int defaultMaxConnections,
         int defaultBeamWidth,
-        ResolvedIndexSpec resolvedSpec
+        ResolvedIndexSpec resolvedSpec,
+        VectorDataType vectorDataType
     ) {
-        if (resolvedSpec.isFaissSQMultiBit()) {
-            return new Faiss1040ScalarQuantizedKnnVectorsFormat(
-                KNNSettings.getApproximateThresholdValue(mapperService),
-                nativeIndexBuildStrategyFactory
-            );
+        final int approximateThreshold = KNNSettings.getApproximateThresholdValue(mapperService);
+        if (vectorDataType == VectorDataType.HALF_FLOAT) {
+            return resolvedSpec.isFaissSQMultiBit()
+                ? new Faiss1040HalfFloatScalarQuantizedKnnVectorsFormat(approximateThreshold, nativeIndexBuildStrategyFactory)
+                : new NativeEngines990HalfFloatKnnVectorsFormat(approximateThreshold, nativeIndexBuildStrategyFactory);
         }
-        return resolve();
+
+        return resolvedSpec.isFaissSQMultiBit()
+            ? new Faiss1040ScalarQuantizedKnnVectorsFormat(approximateThreshold, nativeIndexBuildStrategyFactory)
+            : resolve();
     }
 
     @Override

@@ -63,6 +63,7 @@ import static org.opensearch.knn.common.KNNValidationUtil.validateVectorDimensio
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createKNNMethodContextFromLegacy;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForByteVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForFloatVector;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForHalfFloatVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.useFullFieldNameValidation;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateIfCircuitBreakerIsNotTriggered;
 import static org.opensearch.knn.index.mapper.ModelFieldMapper.UNSET_MODEL_DIMENSION_IDENTIFIER;
@@ -305,7 +306,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
 
             // return FlatVectorFieldMapper only for indices that are created on or after 2.17.0, for others, use
-            // EngineFieldMapper to maintain backwards compatibility
+            // EngineFieldMapper to maintain backwards compatibility.
             if (originalParameters.getResolvedKnnMethodContext() == null && indexCreatedVersion.onOrAfter(Version.V_2_17_0)) {
                 // Prior to 3.0.0, hasDocValues defaulted to false. However, FlatVectorFieldMapper requires
                 // hasDocValues to be true to maintain proper functionality for vector search operations.
@@ -415,8 +416,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
 
+            final boolean isKNNDisabled = isKNNDisabled(parserContext.getSettings());
+
             // Check for flat configuration and validate only if index is created after 2.17
-            if (isKNNDisabled(parserContext.getSettings()) && parserContext.indexVersionCreated().onOrAfter(Version.V_2_17_0)) {
+            if (isKNNDisabled && parserContext.indexVersionCreated().onOrAfter(Version.V_2_17_0)) {
                 validateFromFlat(builder);
             } else if (builder.modelId.get() != null) {
                 validateFromModel(builder);
@@ -468,13 +471,25 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         }
 
         private void validateModeAndCompression(KNNVectorFieldMapper.Builder builder, Version indexCreatedVersion) {
-            boolean isModeOrCompressionConfigured = builder.mode.isConfigured() || builder.compressionLevel.isConfigured();
-            if (isModeOrCompressionConfigured && builder.vectorDataType.getValue() != VectorDataType.FLOAT) {
+            VectorDataType vectorDataType = builder.vectorDataType.getValue();
+            // half_float resolves mode the same way float32 does - on_disk quantizes as far as the data
+            // type goes (x16, SQ 1-bit on 16-bit storage, the counterpart of float32's x32 on 32-bit) and
+            // in_memory stays uncompressed. byte and binary have no compression levels to select, so mode
+            // stays rejected for them.
+            if (builder.mode.isConfigured() && vectorDataType != VectorDataType.FLOAT && vectorDataType != VectorDataType.HALF_FLOAT) {
                 throw new MapperParsingException(
-                    String.format(Locale.ROOT, "Compression and mode cannot be used for non-float32 data type for field %s", builder.name)
+                    String.format(Locale.ROOT, "Mode cannot be used for non-float data type for field %s", builder.name)
+                );
+            }
+            if (builder.compressionLevel.isConfigured()
+                && vectorDataType != VectorDataType.FLOAT
+                && vectorDataType != VectorDataType.HALF_FLOAT) {
+                throw new MapperParsingException(
+                    String.format(Locale.ROOT, "Compression cannot be used for non-float data type for field %s", builder.name)
                 );
             }
 
+            boolean isModeOrCompressionConfigured = builder.mode.isConfigured() || builder.compressionLevel.isConfigured();
             if (isModeOrCompressionConfigured && indexCreatedVersion.before(Version.V_2_17_0)) {
                 throw new MapperParsingException("Compression and mode can only be used on indices created on or after version 2.17.0");
             }
@@ -519,6 +534,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             // ensure model and top level spaceType is not defined
             if (builder.modelId.get() != null && SpaceType.getSpace(builder.topLevelSpaceType.get()) != SpaceType.UNDEFINED) {
                 throw new IllegalArgumentException("TopLevel Space type and model can not be both specified in the " + "mapping");
+            }
+            // Training runs on Faiss, which does not support HALF_FLOAT, so no model can carry it.
+            // TODO: Revisit once FP16 support lands for Faiss -- a trained model could then carry
+            // half_float and this restriction goes away.
+            if (builder.modelId.get() != null && builder.vectorDataType.getValue() == VectorDataType.HALF_FLOAT) {
+                throw new IllegalArgumentException("HALF_FLOAT vector data type is not supported with model_id");
             }
 
             validateCompressionAndModeNotSet(builder, builder.name(), "model");
@@ -688,7 +709,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         if (useLuceneBasedVectorField) {
             return new DerivedKnnFloatVectorField(name(), vectorValue, fieldType, isDerivedEnabled);
         }
-        return new VectorField(name(), vectorValue, fieldType);
+        return new VectorField(name(), vectorValue, fieldType, vectorDataType);
     }
 
     private Field createVectorField(byte[] vectorValue, boolean isDerivedEnabled) {
@@ -708,7 +729,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         final List<Field> fields = new ArrayList<>();
         fields.add(createVectorField(array, isDerivedEnabled));
         if (this.stored) {
-            fields.add(createStoredFieldForFloatVector(name(), array));
+            fields.add(
+                VectorDataType.HALF_FLOAT == vectorDataType
+                    ? createStoredFieldForHalfFloatVector(name(), array)
+                    : createStoredFieldForFloatVector(name(), array)
+            );
         }
         return fields;
     }
@@ -785,7 +810,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             getVectorValidator().validateVector(array);
             getVectorTransformer().transform(array);
             context.doc().addAll(getFieldsForByteVector(array, isDerivedEnabled(context)));
-        } else if (VectorDataType.FLOAT == vectorDataType) {
+        } else if (VectorDataType.FLOAT == vectorDataType || VectorDataType.HALF_FLOAT == vectorDataType) {
             Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
 
             if (floatsArrayOptional.isEmpty()) {

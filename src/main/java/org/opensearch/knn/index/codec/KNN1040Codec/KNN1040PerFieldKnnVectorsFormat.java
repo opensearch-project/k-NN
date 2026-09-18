@@ -15,6 +15,7 @@ import org.opensearch.common.collect.Tuple;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNN1040BasePerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KnnVectorsFormatContext;
 import org.opensearch.knn.index.codec.LuceneVectorsFormatType;
@@ -25,13 +26,16 @@ import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.faiss.FaissCodecFormatResolver;
 import org.opensearch.knn.index.engine.lucene.LuceneCodecFormatResolver;
-import org.opensearch.knn.index.engine.lucene.LuceneSQEncoder;
+import org.opensearch.knn.index.engine.lucene.LuceneFlatMethodResolver;
+import org.opensearch.knn.index.engine.Encoder.QuantizationBits;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 /**
@@ -92,6 +96,11 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
             if (p.getSpaceType() == SpaceType.HAMMING) {
                 return new KNN9120HnswBinaryVectorsFormat(p.getMaxConnections(), p.getBeamWidth(), merge.v1(), merge.v2(), threshold);
             }
+            // TODO: This branches on data type alone. Once x16 (SQ over FP16) lands, half_float will
+            // also need to select a quantized format, so this must additionally gate on compression level.
+            if (ctx.getVectorDataType() == VectorDataType.HALF_FLOAT) {
+                return new KNN1040HnswHalfFloatVectorsFormat(p.getMaxConnections(), p.getBeamWidth(), merge.v1(), merge.v2(), threshold);
+            }
             return new Lucene99HnswVectorsFormat(p.getMaxConnections(), p.getBeamWidth(), merge.v1(), merge.v2(), threshold);
         }, LuceneVectorsFormatType.SCALAR_QUANTIZED, ctx -> {
             final KNNScalarQuantizedVectorsFormatParams p = new KNNScalarQuantizedVectorsFormatParams(
@@ -101,7 +110,24 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
             );
             final Tuple<Integer, ExecutorService> merge = getMergeThreadCountAndExecutorService();
             final int threshold = toTinySegmentsThreshold(ctx.getApproximateThreshold());
-            if (p.getBits() == LuceneSQEncoder.Bits.ONE.getValue()) {
+
+            // bits ∈ {1, 2, 4} — Lucene 10.4 integer-coded SQ path (x32 / x16 / x8) with SIMD
+            // flat scorer. bits == 7 falls through to the legacy Lucene99 RW format so the
+            // {@code confidenceInterval} parameter is preserved for pre-3.6.0 mappings.
+            if (p.getBits() == QuantizationBits.ONE.getValue()
+                || p.getBits() == QuantizationBits.TWO.getValue()
+                || p.getBits() == QuantizationBits.FOUR.getValue()) {
+                // half_float only ever reaches bits=1 — LuceneHNSWMethodResolver caps it at {x1, x16}.
+                if (ctx.getVectorDataType() == VectorDataType.HALF_FLOAT) {
+                    return new KNN1040HnswHalfFloatScalarQuantizedVectorsFormat(
+                        p.getBitEncoding(),
+                        p.getMaxConnections(),
+                        p.getBeamWidth(),
+                        merge.v1(),
+                        merge.v2(),
+                        threshold
+                    );
+                }
                 return new KNN1040HnswScalarQuantizedVectorsFormat(
                     p.getBitEncoding(),
                     p.getMaxConnections(),
@@ -121,10 +147,15 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
                 merge.v2(),
                 threshold
             );
-        },
-            LuceneVectorsFormatType.FLAT,
-            ctx -> new KNN1040ScalarQuantizedVectorsFormat(resolveFlatScalarEncoding(ctx.getCompressionLevel()))
-        );
+        }, LuceneVectorsFormatType.FLAT, ctx -> {
+            if (ctx.getVectorDataType() == VectorDataType.HALF_FLOAT) {
+                if (ctx.getCompressionLevel() == CompressionLevel.x16) {
+                    return new KNN1040HalfFloatScalarQuantizedVectorsFormat(ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE);
+                }
+                return new KNN1040HalfFloatFlatVectorsFormat();
+            }
+            return new KNN1040ScalarQuantizedVectorsFormat(resolveFlatScalarEncoding(ctx.getCompressionLevel()));
+        });
     }
 
     @Override
@@ -134,10 +165,25 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
 
     private static Tuple<Integer, ExecutorService> getMergeThreadCountAndExecutorService() {
         int mergeThreadCount = KNNSettings.getIndexThreadQty();
+        return buildMergeThreadCountAndExecutorService(mergeThreadCount);
+    }
+
+    static Tuple<Integer, ExecutorService> buildMergeThreadCountAndExecutorService(int mergeThreadCount) {
+        return buildMergeThreadCountAndExecutorService(mergeThreadCount, 1L, TimeUnit.MILLISECONDS);
+    }
+
+    static Tuple<Integer, ExecutorService> buildMergeThreadCountAndExecutorService(
+        int mergeThreadCount,
+        long keepAliveTime,
+        TimeUnit keepAliveUnit
+    ) {
         if (mergeThreadCount <= 1) {
             return DEFAULT_MERGE_THREAD_COUNT_AND_EXECUTOR_SERVICE;
         }
-        return Tuple.tuple(mergeThreadCount, Executors.newFixedThreadPool(mergeThreadCount));
+        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(mergeThreadCount);
+        executor.setKeepAliveTime(keepAliveTime, keepAliveUnit);
+        executor.allowCoreThreadTimeOut(true);
+        return Tuple.tuple(mergeThreadCount, executor);
     }
 
     /**

@@ -75,7 +75,9 @@ public class DerivedSourceVectorInjector {
         Tuple<? extends MediaType, Map<String, Object>> mapTuple = XContentHelper.convertToMap(
             BytesReference.fromByteBuffer(ByteBuffer.wrap(sourceAsBytes)),
             true,
-            MediaTypeRegistry.getDefaultMediaType()
+            // Auto-detect: a _source stored as CBOR/SMILE must be read back in its own format, not
+            // forced to the default (JSON). Re-serialization below uses the detected type.
+            (MediaType) null
         );
         // Have to create a copy of the map here to ensure that is mutable
         Map<String, Object> sourceAsMap = new HashMap<>(mapTuple.v2());
