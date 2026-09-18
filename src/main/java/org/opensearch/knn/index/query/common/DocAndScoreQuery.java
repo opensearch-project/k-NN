@@ -67,6 +67,9 @@ final class DocAndScoreQuery extends Query {
                     throw new RuntimeException(e);
                 }
 
+                if (knnWeight == null) {
+                    return Explanation.match(score, "vector similarity score");
+                }
                 return knnWeight.explain(context, doc, score);
             }
 

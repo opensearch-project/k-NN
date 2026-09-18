@@ -260,6 +260,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
         when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
         when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
         when(indexSettings.getMaxResultWindow()).thenReturn(maxResultWindow);
+        when(indexSettings.getValue(KNNSettings.KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING)).thenReturn(true);
         when(mockFieldType.getResolvedSpec()).thenReturn(sqOneBitSpec());
 
         final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
@@ -280,7 +281,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
         assertTrue(rescoreQuery.getInnerQuery() instanceof KNNQuery);
         assertEquals(testFieldName, rescoreQuery.getField());
         assertEquals(testRadius, rescoreQuery.getRadius(), 0.0f);
-        // maxResultsSize should come from IndexSettings.getMaxResultWindow()
+        assertTrue(rescoreQuery.isShardLevelRescoringDisabled());
     }
 
     // Given: memory-optimized Faiss radial search on a quantized field, with the coordinator-resolved
