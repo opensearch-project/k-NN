@@ -226,10 +226,21 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
             final VectorDataType vectorDataType = extractVectorDataType(parameters);
             final Map<String, Object> encoderMap = extractEncoderMap(parameters);
 
-            // TODO: turn this on once half_float is supported for remote index build. Each of the
-            // checks below already requires FLOAT/BINARY/BYTE, so this is stating the existing
-            // behavior rather than changing it.
+            // half_float rides the existing remote build paths (opensearch-project#3575):
+            // x16 resolves internally to sq bits=1, whose 1-bit codes upload unchanged; x1 resolves
+            // to no encoder and writes native fp16 flat storage, uploaded as raw fp32 with the
+            // remote build service converting to fp16 (FP32ToFP16ConvertingBytesIO) - the same
+            // conversion the FLOAT + sq fp16 path already relies on.
             if (vectorDataType == VectorDataType.HALF_FLOAT) {
+                if (encoderMap == null) {
+                    // x1: flat fp16 native storage, no encoder resolved.
+                    return true;
+                }
+                final String encoder = getStringFromMap(encoderMap, NAME);
+                if (ENCODER_SQ.equals(encoder)) {
+                    final Object bits = encoderMap.get(SQ_BITS);
+                    return bits instanceof Integer && (Integer) bits == FaissSQEncoder.Bits.ONE.getValue();
+                }
                 return false;
             }
 

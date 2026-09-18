@@ -67,10 +67,18 @@ public class DefaultVectorRepositoryAccessor implements VectorRepositoryAccessor
         assert blobContainer != null;
         KNNVectorValues<?> knnVectorValues = knnVectorValuesSupplier.get();
         initializeVectorValues(knnVectorValues);
-        long vectorBlobLength = (long) knnVectorValues.bytesPerVector() * totalLiveDocs;
+        // HALF_FLOAT is uploaded as raw fp32 (see VectorValuesInputStream#reloadBuffer) - bytesPerVector()
+        // reports the 2-byte on-disk size, which does not match the actual upload size here.
+        long bytesPerVectorForUpload = vectorDataType == VectorDataType.HALF_FLOAT
+            ? (long) knnVectorValues.dimension() * Float.BYTES
+            : knnVectorValues.bytesPerVector();
+        long vectorBlobLength = bytesPerVectorForUpload * totalLiveDocs;
 
         // TODO : Once Lucene patch https://github.com/apache/lucene/issues/14992 is merged, remove vector data type check in condition.
-        if (vectorDataType == VectorDataType.FLOAT && blobContainer instanceof AsyncMultiStreamBlobContainer asyncBlobContainer) {
+        // That issue is specific to MergedByteVectorValues (BYTE/BINARY); HALF_FLOAT rides on Lucene's
+        // FloatVectorValues under the hood (see KNNHalfFloatVectorValues), same as FLOAT, so it isn't affected.
+        if ((vectorDataType == VectorDataType.FLOAT || vectorDataType == VectorDataType.HALF_FLOAT)
+            && blobContainer instanceof AsyncMultiStreamBlobContainer asyncBlobContainer) {
             // First initiate vectors upload
             log.debug("Container {} Supports Parallel Blob Upload", blobContainer);
             // WriteContext is the main entry point into asyncBlobUpload. It stores all of our upload configurations, analogous to
