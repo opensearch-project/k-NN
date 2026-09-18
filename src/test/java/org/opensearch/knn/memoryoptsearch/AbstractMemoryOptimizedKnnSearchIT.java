@@ -90,7 +90,7 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
         // Compression is only valid for float32 without an explicit encoder. Pin to 1x there so the plugin's
         // default compression flip does not silently change these ANN assertions. Byte, binary and encoder-based
         // configurations reject compression, so leave them unconfigured.
-        if (dataType == VectorDataType.FLOAT && EMPTY_PARAMS.equals(methodParams)) {
+        if ((dataType == VectorDataType.FLOAT || dataType == VectorDataType.HALF_FLOAT) && EMPTY_PARAMS.equals(methodParams)) {
             return CompressionLevel.x1;
         }
         return CompressionLevel.NOT_CONFIGURED;
@@ -261,7 +261,9 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
         final int topK = doExhaustiveSearch ? 0 : TOP_K;
 
         // Prepare a query, and do search.
-        if (schema.vectorDataType == VectorDataType.FLOAT) {
+        if (schema.vectorDataType == VectorDataType.FLOAT || schema.vectorDataType == VectorDataType.HALF_FLOAT) {
+            // half_float queries are submitted as fp32 and scored against fp16 storage, so the query
+            // path is identical to FLOAT here; the document side is rounded in the generators.
             final float[] queryVector = SearchTestHelper.generateOneSingleFloatVector(
                 DIMENSIONS,
                 MIN_VECTOR_ELEMENT_VALUE,
