@@ -13,17 +13,16 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.VectorSimilarityFunction;
-import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.MatchAllDocsQuery;
+import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.ScoreMode;
-import org.apache.lucene.search.Scorer;
-import org.apache.lucene.search.ScorerSupplier;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.store.Directory;
@@ -33,42 +32,23 @@ import org.opensearch.knn.indices.ModelDao;
 
 import java.io.IOException;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyFloat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.MAX_RESULTS_RADIAL_RESCORING;
 
-// Tests for RescoreRadialSearchQuery — the pass-through skeleton.
-// At this stage the wrapper delegates entirely to the inner query without rescoring.
-// These tests verify the wrapper structure and delegation, not rescoring correctness.
-// The quantized radial feature is disabled (#3452), so no production query path constructs this
-// query today; these unit tests keep the retained implementation from silently rotting until
-// the feature is re-enabled.
 public class RescoreRadialSearchQueryTests extends KNNTestCase {
     private static final String FIELD_NAME = "test-field";
     private static final float[] QUERY_VECTOR = { 1.0f, 2.0f, 3.0f };
     private static final float RADIUS = 0.5f;
+    private static final float[] QUERY_TARGET = { 1.0f, 0.0f, 0.0f };
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        // Initialize the singleton ExactSearcher used by RescoreRadialSearchQuery
         RescoreRadialSearchQuery.initialize(new ExactSearcher(mock(ModelDao.OpenSearchKNNModelDao.class)));
     }
 
-    // Note: the full rescoring flow (inner scorer → collectTopDocs → ExactSearcher → KNNScorer)
-    // requires a real SegmentReader and cannot be unit-tested with mocks alone.
-    // The rescoring-correctness integration tests (FaissSQRadialSearchIT, LuceneSQRadialSearchIT)
-    // are @AwaitsFix'd while quantized radial search is disabled (#3452).
-
-    // Given: ExactSearcher singleton is not initialized (null)
-    // When: RescoreRadialSearchQuery is constructed
-    // Then: NullPointerException is thrown with message about initialization
     public void testConstructor_whenExactSearcherNotInitialized_thenThrows() {
-        // Temporarily set singleton to null
         RescoreRadialSearchQuery.initialize(null);
         try {
             NullPointerException e = expectThrows(
@@ -84,76 +64,29 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             );
             assertTrue(e.getMessage().contains("Exact searcher was not initialized"));
         } finally {
-            // Restore for other tests
             RescoreRadialSearchQuery.initialize(new ExactSearcher(mock(ModelDao.OpenSearchKNNModelDao.class)));
         }
     }
 
-    // Verify that when inner scorer supplier is null, our supplier returns null
-    public void testScorerSupplier_whenInnerReturnsNull_thenReturnsNull() throws IOException {
-        Weight innerWeight = mock(Weight.class);
-        LeafReaderContext leafContext = mock(LeafReaderContext.class);
-        when(innerWeight.scorerSupplier(leafContext)).thenReturn(null);
+    @SneakyThrows
+    public void testScorerSupplier_whenLeafHasNoCandidates_thenReturnsNull() {
+        try (Directory directory = newDirectory()) {
+            try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
+                addVectors(w, new float[][] { { 1.0f, 0.0f, 0.0f } });
+                w.commit();
+            }
 
-        Query innerQuery = mock(Query.class);
-        IndexSearcher searcher = mock(IndexSearcher.class);
-        when(searcher.rewrite(innerQuery)).thenReturn(innerQuery);
-        when(searcher.createWeight(eq(innerQuery), any(ScoreMode.class), anyFloat())).thenReturn(innerWeight);
+            try (IndexReader reader = DirectoryReader.open(directory)) {
+                final IndexSearcher searcher = new IndexSearcher(reader);
+                final RescoreRadialSearchQuery query = newRescoreQuery(new MatchNoDocsQuery(), MAX_RESULTS_RADIAL_RESCORING, false);
 
-        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
-            innerQuery,
-            FIELD_NAME,
-            QUERY_VECTOR,
-            RADIUS,
-            false,
-            MAX_RESULTS_RADIAL_RESCORING
-        );
-        Weight weight = query.createWeight(searcher, ScoreMode.COMPLETE, 1.0f);
-        ScorerSupplier supplier = weight.scorerSupplier(leafContext);
+                final Weight weight = query.createWeight(searcher, ScoreMode.COMPLETE, 1.0f);
 
-        assertNull(supplier);
+                assertNull(weight.scorerSupplier(reader.leaves().get(0)));
+            }
+        }
     }
 
-    // Verify that when inner scorer returns empty TopDocs, we get an empty scorer
-    public void testScorerSupplier_whenInnerReturnsEmpty_thenEmptyScorer() throws IOException {
-        // Inner query returns an empty scorer
-        Scorer innerScorer = KNNScorer.emptyScorer();
-
-        ScorerSupplier innerScorerSupplier = mock(ScorerSupplier.class);
-        when(innerScorerSupplier.get(any(Long.class))).thenReturn(innerScorer);
-        when(innerScorerSupplier.cost()).thenReturn(0L);
-
-        // Mocking inner weight
-        Weight innerWeight = mock(Weight.class);
-        LeafReaderContext leafContext = mock(LeafReaderContext.class);
-        when(innerWeight.scorerSupplier(leafContext)).thenReturn(innerScorerSupplier);
-
-        // IndexSearcher
-        Query innerQuery = mock(Query.class);
-        IndexSearcher searcher = mock(IndexSearcher.class);
-        when(searcher.rewrite(innerQuery)).thenReturn(innerQuery);
-        when(searcher.createWeight(eq(innerQuery), any(ScoreMode.class), anyFloat())).thenReturn(innerWeight);
-
-        // Set up RescoreRadialSearchQuery
-        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
-            innerQuery,
-            FIELD_NAME,
-            QUERY_VECTOR,
-            RADIUS,
-            false,
-            MAX_RESULTS_RADIAL_RESCORING
-        );
-        Weight weight = query.createWeight(searcher, ScoreMode.COMPLETE, 1.0f);
-        ScorerSupplier supplier = weight.scorerSupplier(leafContext);
-
-        // Validate empty iterator
-        assertNotNull(supplier);
-        Scorer scorer = supplier.get(0);
-        assertNotNull(scorer);
-        assertEquals(DocIdSetIterator.NO_MORE_DOCS, scorer.iterator().nextDoc());
-    }
-
-    // Verify equals/hashCode contract
     public void testEqualsAndHashCode() {
         Query innerQuery = new MatchAllDocsQuery();
         RescoreRadialSearchQuery q1 = new RescoreRadialSearchQuery(
@@ -208,9 +141,9 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             MAX_RESULTS_RADIAL_RESCORING
         );
         assertNotEquals(q1, q5);
+
     }
 
-    // Verify toString contains useful information
     public void testToString() {
         Query innerQuery = new MatchAllDocsQuery();
         RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
@@ -228,47 +161,6 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         assertTrue(str.contains(String.valueOf(RADIUS)));
     }
 
-    // Given: a boost other than 1.0
-    // When: the rescored scorer is wrapped in BoostedScorer
-    // Then: scores and max scores are scaled, iteration is delegated, and the competitive-score
-    // threshold is translated back into the delegate's own scale
-    @SneakyThrows
-    public void testBoostedScorer_scalesScoresAndDelegatesIteration() {
-        final Scorer delegate = mock(Scorer.class);
-        final DocIdSetIterator iterator = mock(DocIdSetIterator.class);
-        when(delegate.docID()).thenReturn(7);
-        when(delegate.iterator()).thenReturn(iterator);
-        when(delegate.score()).thenReturn(0.25f);
-        when(delegate.getMaxScore(100)).thenReturn(0.5f);
-        when(delegate.advanceShallow(42)).thenReturn(43);
-
-        final RescoreRadialSearchQuery.BoostedScorer boosted = new RescoreRadialSearchQuery.BoostedScorer(delegate, 4.0f);
-
-        assertEquals(7, boosted.docID());
-        assertSame(iterator, boosted.iterator());
-        assertEquals(1.0f, boosted.score(), 0.0f);
-        assertEquals(2.0f, boosted.getMaxScore(100), 0.0f);
-        assertEquals(43, boosted.advanceShallow(42));
-
-        // A boosted threshold of 2.0 corresponds to 0.5 in the delegate's scale.
-        boosted.setMinCompetitiveScore(2.0f);
-        verify(delegate).setMinCompetitiveScore(0.5f);
-    }
-
-    // Guards against divide-by-zero when translating the competitive score for a zero boost
-    @SneakyThrows
-    public void testBoostedScorer_whenBoostIsZero_thenMinCompetitiveScoreIsZero() {
-        final Scorer delegate = mock(Scorer.class);
-        final RescoreRadialSearchQuery.BoostedScorer boosted = new RescoreRadialSearchQuery.BoostedScorer(delegate, 0.0f);
-
-        boosted.setMinCompetitiveScore(5.0f);
-
-        verify(delegate).setMinCompetitiveScore(0.0f);
-    }
-
-    // Given: a radial query wrapped in a BoostQuery
-    // When: searched over a real index
-    // Then: every score is the unboosted score scaled by the boost, proving BoostedScorer is wired in
     @SneakyThrows
     public void testRescore_withBoost_thenScoresAreScaled() {
         final float[] queryVector = { 1.0f, 0.0f, 0.0f };
@@ -310,7 +202,6 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         }
     }
 
-    // Verify getters expose the fields correctly
     public void testGetters() {
         Query innerQuery = new MatchAllDocsQuery();
         RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(innerQuery, FIELD_NAME, QUERY_VECTOR, RADIUS, false, 25);
@@ -322,13 +213,7 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         assertEquals(25, query.getFirstPassK());
     }
 
-    // Given: a RescoreRadialSearchQuery with an inner query that rewrites to a different query
-    // When: rewrite() is called
-    // Then: a new RescoreRadialSearchQuery is returned wrapping the rewritten inner query
-    // When: rewrite() is called again on the result
-    // Then: it converges — returns the same instance (this) since inner query no longer changes
     public void testRewrite_converges() throws IOException {
-        // Given: inner query that rewrites to a different query on first call
         Query originalInner = mock(Query.class);
         Query rewrittenInner = new MatchAllDocsQuery();
         IndexSearcher searcher = mock(IndexSearcher.class);
@@ -343,10 +228,8 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             MAX_RESULTS_RADIAL_RESCORING
         );
 
-        // When: first rewrite — inner query changes, so a new wrapper is created
         Query firstRewrite = query.rewrite(searcher);
 
-        // Then: result is a different instance wrapping the rewritten inner query
         assertTrue(firstRewrite instanceof RescoreRadialSearchQuery);
         assertNotSame(query, firstRewrite);
         RescoreRadialSearchQuery rewrittenQuery = (RescoreRadialSearchQuery) firstRewrite;
@@ -354,14 +237,12 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         assertEquals(FIELD_NAME, rewrittenQuery.getField());
         assertEquals(RADIUS, rewrittenQuery.getRadius(), 0.0f);
 
-        // When: second rewrite — inner query (MatchAllDocsQuery) rewrites to itself
         Query secondRewrite = firstRewrite.rewrite(searcher);
 
-        // Then: converges — returns the same instance since inner didn't change
         assertSame(firstRewrite, secondRewrite);
     }
 
-    public void testRewrite_preservesIndependentCandidateAndFinalResultLimits() throws IOException {
+    public void testRewrite_preservesFirstPassK() throws IOException {
         Query originalInner = mock(Query.class);
         Query rewrittenInner = new MatchAllDocsQuery();
         IndexSearcher searcher = mock(IndexSearcher.class);
@@ -375,9 +256,6 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         assertEquals(6, rewrittenQuery.getFirstPassK());
     }
 
-    // Given: a RescoreRadialSearchQuery whose inner query already rewrites to itself
-    // When: rewrite() is called
-    // Then: returns the same instance (this) immediately — no new object created
     public void testRewrite_whenInnerAlreadyRewritten_thenReturnsSameInstance() throws IOException {
         Query innerQuery = new MatchAllDocsQuery();
         IndexSearcher searcher = mock(IndexSearcher.class);
@@ -392,16 +270,10 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         );
         Query rewritten = query.rewrite(searcher);
 
-        // Returns this — same instance, not just equal
         assertSame(query, rewritten);
     }
 
-    // Given: a RescoreRadialSearchQuery wrapping an inner query
-    // When: visit() is called
-    // Then: the visitor is propagated to the inner query via getSubVisitor(MUST),
-    // allowing tools (highlighting, field analysis) to discover the inner query
     public void testVisit() {
-        // Given: a RescoreRadialSearchQuery wrapping a MatchAllDocsQuery
         Query innerQuery = new MatchAllDocsQuery();
         RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
             innerQuery,
@@ -413,76 +285,171 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         );
         final boolean[] innerVisited = { false };
 
-        // When: visit() is called — it propagates to the inner query via getSubVisitor(MUST)
         query.visit(new QueryVisitor() {
             @Override
             public void visitLeaf(Query q) {
                 innerVisited[0] = true;
-                // MatchAllDocsQuery.visit() calls visitLeaf(this) on the sub-visitor,
-                // which reaches our visitor since the default getSubVisitor returns itself
                 assertSame(innerQuery, q);
             }
         });
 
-        // Then: the inner query was visited through the sub-visitor chain
         assertTrue("visit() should propagate to the inner query via getSubVisitor", innerVisited[0]);
     }
 
-    // RescoreWeight.explain() delegates to the inner weight's explain because the explanation
-    // should reflect the inner query's scoring logic (quantized radial search). Once rescoring
-    // is added, this may be enhanced to include rescore details.
-    public void testExplain() throws IOException {
-        // Given: an inner weight that returns a known explanation for doc 42
-        Weight innerWeight = mock(Weight.class);
-        LeafReaderContext leafContext = mock(LeafReaderContext.class);
-        Explanation expectedExplanation = Explanation.noMatch("test explanation");
-        when(innerWeight.explain(leafContext, 42)).thenReturn(expectedExplanation);
+    @SneakyThrows
+    public void testExplain() {
+        try (Directory directory = newDirectory()) {
+            try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
+                addVectors(w, new float[][] { QUERY_TARGET });
+                w.commit();
+            }
 
-        Query innerQuery = mock(Query.class);
-        IndexSearcher searcher = mock(IndexSearcher.class);
-        when(searcher.rewrite(innerQuery)).thenReturn(innerQuery);
-        when(searcher.createWeight(eq(innerQuery), any(ScoreMode.class), anyFloat())).thenReturn(innerWeight);
+            try (IndexReader reader = DirectoryReader.open(directory)) {
+                final IndexSearcher searcher = new IndexSearcher(reader);
+                final LeafReaderContext leafContext = reader.leaves().get(0);
+                final Weight weight = newRescoreQuery(new MatchAllDocsQuery(), MAX_RESULTS_RADIAL_RESCORING, false).createWeight(
+                    searcher,
+                    ScoreMode.COMPLETE,
+                    1.0f
+                );
 
-        // When: explain is called on the RescoreWeight for doc 42
-        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
-            innerQuery,
-            FIELD_NAME,
-            QUERY_VECTOR,
-            RADIUS,
-            false,
-            MAX_RESULTS_RADIAL_RESCORING
-        );
-        Weight weight = query.createWeight(searcher, ScoreMode.COMPLETE, 1.0f);
-        Explanation explanation = weight.explain(leafContext, 42);
+                final Explanation match = weight.explain(leafContext, 0);
+                assertTrue(match.isMatch());
+                assertEquals(1.0f, match.getValue().floatValue(), 0.0f);
 
-        // Then: the explanation is the same object returned by the inner weight (pass-through)
-        assertSame(expectedExplanation, explanation);
+                final Explanation noMatch = weight.explain(leafContext, 1);
+                assertFalse(noMatch.isMatch());
+            }
+        }
     }
 
-    // The rescore result is deterministic for the same query parameters and segment state,
-    // so it is safe for Lucene's query cache to cache the results.
-    public void testIsCacheable() throws IOException {
-        // Given: a RescoreWeight created from a mock inner weight
-        Weight innerWeight = mock(Weight.class);
-        LeafReaderContext leafContext = mock(LeafReaderContext.class);
+    @SneakyThrows
+    public void testIsCacheable() {
+        try (Directory directory = newDirectory()) {
+            try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
+                addVectors(w, new float[][] { { 1.0f, 0.0f, 0.0f } });
+                w.commit();
+            }
 
-        Query innerQuery = mock(Query.class);
-        IndexSearcher searcher = mock(IndexSearcher.class);
-        when(searcher.rewrite(innerQuery)).thenReturn(innerQuery);
-        when(searcher.createWeight(eq(innerQuery), any(ScoreMode.class), anyFloat())).thenReturn(innerWeight);
+            try (IndexReader reader = DirectoryReader.open(directory)) {
+                final IndexSearcher searcher = new IndexSearcher(reader);
+                final Weight weight = newRescoreQuery(new MatchAllDocsQuery(), MAX_RESULTS_RADIAL_RESCORING, false).createWeight(
+                    searcher,
+                    ScoreMode.COMPLETE,
+                    1.0f
+                );
 
-        RescoreRadialSearchQuery query = new RescoreRadialSearchQuery(
+                assertTrue("rescored result weight should be cacheable", weight.isCacheable(reader.leaves().get(0)));
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testRescore_whenShardLevel_thenFirstPassKBoundsWholeShard() {
+        final int segments = 4;
+        final int docsPerSegment = 5;
+        // The limit exceeds each segment size but is smaller than the shard total.
+        final int firstPassK = 7;
+
+        try (Directory directory = newDirectory()) {
+            indexOneSegmentPerBatch(directory, segments, docsPerSegment);
+
+            try (IndexReader reader = DirectoryReader.open(directory)) {
+                assertEquals("test assumes one leaf per batch", segments, reader.leaves().size());
+                final IndexSearcher searcher = new IndexSearcher(reader);
+                final int totalDocs = segments * docsPerSegment;
+
+                // The trim is by min-competitive-score, so the first pass must produce distinct
+                // scores. MatchAllDocsQuery scores every doc 1.0, which ties across the whole shard
+                // and trims nothing.
+                final Query innerQuery = new KnnFloatVectorQuery(FIELD_NAME, QUERY_TARGET, totalDocs);
+
+                final TopDocs shardLevel = searcher.search(newRescoreQuery(innerQuery, firstPassK, false), totalDocs);
+                assertEquals("shard-level rescoring should bound the shard at firstPassK", firstPassK, shardLevel.scoreDocs.length);
+
+                final TopDocs segmentLevel = searcher.search(newRescoreQuery(innerQuery, firstPassK, true), totalDocs);
+                assertEquals("segment-level rescoring should bound each leaf independently", totalDocs, segmentLevel.scoreDocs.length);
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testRescore_whenShardLevel_thenSurvivorsAreGloballyBest() {
+        // Segment 0 holds the three closest vectors to the query; segment 1 holds three far ones.
+        // All clear the loose radius, so only the first-pass trim decides what survives.
+        final float[][] nearSegment = { { 1.0f, 0.0f, 0.0f }, { 0.99f, 0.01f, 0.0f }, { 0.98f, 0.02f, 0.0f } };
+        final float[][] farSegment = { { 0.6f, 0.4f, 0.0f }, { 0.55f, 0.45f, 0.0f }, { 0.5f, 0.5f, 0.0f } };
+        final int firstPassK = 3;
+
+        try (Directory directory = newDirectory()) {
+            try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
+                addVectors(w, nearSegment);
+                w.commit();
+                addVectors(w, farSegment);
+                w.commit();
+            }
+
+            try (IndexReader reader = DirectoryReader.open(directory)) {
+                assertEquals("test assumes two segments", 2, reader.leaves().size());
+                final IndexSearcher searcher = new IndexSearcher(reader);
+
+                // The inner query must produce real per-candidate scores for the global trim to be
+                // meaningful — MatchAllDocsQuery scores every doc 1.0, which would make the trim
+                // arbitrary. KnnFloatVectorQuery scores by vector similarity.
+                final Query innerQuery = new KnnFloatVectorQuery(FIELD_NAME, QUERY_TARGET, nearSegment.length + farSegment.length);
+                final TopDocs results = searcher.search(newRescoreQuery(innerQuery, firstPassK, false), 10);
+
+                assertEquals(firstPassK, results.scoreDocs.length);
+                // Euclidean similarity 1/(1+d^2): the three near vectors all score above 0.99, the
+                // far ones below 0.8. A per-segment trim would have kept far-segment docs too.
+                for (ScoreDoc scoreDoc : results.scoreDocs) {
+                    assertTrue(
+                        "shard-level survivors should be the globally closest vectors, got " + scoreDoc.score,
+                        scoreDoc.score > 0.9f
+                    );
+                }
+            }
+        }
+    }
+
+    private RescoreRadialSearchQuery newRescoreQuery(
+        final Query innerQuery,
+        final int firstPassK,
+        final boolean shardLevelRescoringDisabled
+    ) {
+        // Keep every rescored vector so only first-pass budgeting affects the result.
+        final float looseRadius = 100.0f;
+        return new RescoreRadialSearchQuery(
             innerQuery,
             FIELD_NAME,
-            QUERY_VECTOR,
-            RADIUS,
+            QUERY_TARGET,
+            looseRadius,
             false,
-            MAX_RESULTS_RADIAL_RESCORING
+            firstPassK,
+            shardLevelRescoringDisabled
         );
-        Weight weight = query.createWeight(searcher, ScoreMode.COMPLETE, 1.0f);
+    }
 
-        // When/Then: isCacheable returns true for any leaf context
-        assertTrue("RescoreWeight should be cacheable", weight.isCacheable(leafContext));
+    private void indexOneSegmentPerBatch(final Directory directory, final int segments, final int docsPerSegment) throws IOException {
+        try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
+            for (int segment = 0; segment < segments; segment++) {
+                final float[][] vectors = new float[docsPerSegment][];
+                for (int i = 0; i < docsPerSegment; i++) {
+                    final float offset = 0.01f * (segment * docsPerSegment + i);
+                    vectors[i] = new float[] { 1.0f - offset, offset, 0.0f };
+                }
+                addVectors(w, vectors);
+                w.commit();
+            }
+        }
+    }
+
+    private void addVectors(final IndexWriter w, final float[][] vectors) throws IOException {
+        for (float[] vector : vectors) {
+            final Document doc = new Document();
+            doc.add(new KnnFloatVectorField(FIELD_NAME, vector, VectorSimilarityFunction.EUCLIDEAN));
+            w.addDocument(doc);
+        }
     }
 
     // --- Full rescoring flow tests using real Lucene index ---
@@ -712,11 +679,9 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
         }
     }
 
-    // Given: inner query returns fewer docs than maxResultsSize
-    // When: RescoreRadialSearchQuery rescores
-    // Then: iterator is used directly (no collectTopDocs), all valid results returned
+    // All candidates are rescored when the first-pass budget is larger than the candidate set.
     @SneakyThrows
-    public void testRescore_whenCostBelowMaxResultsSize_thenUsesIteratorDirectly() {
+    public void testRescore_whenCandidatesBelowFirstPassK_thenRescoresAllCandidates() {
         final float[] queryVector = { 1.0f, 0.0f, 0.0f };
         final float[][] vectors = {
             { 1.0f, 0.0f, 0.0f },   // identical, similarity = 1.0
@@ -724,8 +689,7 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
             { 0.0f, 1.0f, 0.0f },   // orthogonal, fails radius — FALSE POSITIVE
         };
         final float radiusThreshold = 0.9f;
-        // maxResultsSize = 10 > 3 docs, so direct iterator path is taken
-        final int maxResultsSize = 10;
+        final int firstPassK = 10;
 
         try (Directory directory = newDirectory()) {
             try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
@@ -747,7 +711,7 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                     queryVector,
                     radiusThreshold,
                     false,
-                    maxResultsSize
+                    firstPassK
                 );
 
                 TopDocs results = searcher.search(rescoreQuery, 10);
@@ -797,9 +761,9 @@ public class RescoreRadialSearchQueryTests extends KNNTestCase {
                     doc.add(new KnnFloatVectorField(FIELD_NAME, vector, VectorSimilarityFunction.EUCLIDEAN));
                     w.addDocument(doc);
                 }
-                // firstPassK bounds candidates per leaf, so a multi-segment index would trim nothing when
-                // each leaf holds fewer than firstPassK docs. Force a single segment to make the per-leaf
-                // bound observable as a per-query one.
+                // Force a single segment so this test isolates the collector bound from the first-pass
+                // trim. Shard-level bounding across multiple leaves is covered by
+                // testRescore_whenShardLevel_thenFirstPassKBoundsWholeShard.
                 w.forceMerge(1);
                 w.commit();
             }
