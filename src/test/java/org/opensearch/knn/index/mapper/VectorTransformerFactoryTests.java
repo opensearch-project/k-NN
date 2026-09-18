@@ -7,8 +7,11 @@ package org.opensearch.knn.index.mapper;
 
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.MethodComponentContext;
+import java.util.Collections;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -23,21 +26,36 @@ public class VectorTransformerFactoryTests extends KNNTestCase {
 
     public void testAllSpaceTypes_withFaiss() {
         for (SpaceType spaceType : SpaceType.values()) {
-            VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(KNNEngine.FAISS, spaceType, null);
+            VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(
+                KNNEngine.FAISS,
+                spaceType,
+                null,
+                VectorDataType.FLOAT
+            );
             validateTransformer(spaceType, KNNEngine.FAISS, transformer);
         }
     }
 
     public void testAllEngines_withCosine() {
         for (KNNEngine engine : KNNEngine.values()) {
-            VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(engine, SpaceType.COSINESIMIL, null);
+            VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(
+                engine,
+                SpaceType.COSINESIMIL,
+                null,
+                VectorDataType.FLOAT
+            );
             validateTransformer(SpaceType.COSINESIMIL, engine, transformer);
         }
     }
 
     public void testLuceneCosine_withFlatMethod_returnsNormalizer() {
         MethodComponentContext flatContext = new MethodComponentContext(METHOD_FLAT, new HashMap<>());
-        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(KNNEngine.LUCENE, SpaceType.COSINESIMIL, flatContext);
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(
+            KNNEngine.LUCENE,
+            SpaceType.COSINESIMIL,
+            flatContext,
+            VectorDataType.FLOAT
+        );
         assertTrue(transformer instanceof NormalizeVectorTransformer);
     }
 
@@ -47,7 +65,12 @@ public class VectorTransformerFactoryTests extends KNNTestCase {
             METHOD_HNSW,
             new HashMap<>(Map.of(METHOD_ENCODER_PARAMETER, encoderCtx))
         );
-        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(KNNEngine.LUCENE, SpaceType.COSINESIMIL, hnswCtx);
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(
+            KNNEngine.LUCENE,
+            SpaceType.COSINESIMIL,
+            hnswCtx,
+            VectorDataType.FLOAT
+        );
         assertTrue(transformer instanceof NormalizeVectorTransformer);
     }
 
@@ -57,7 +80,12 @@ public class VectorTransformerFactoryTests extends KNNTestCase {
             METHOD_HNSW,
             new HashMap<>(Map.of(METHOD_ENCODER_PARAMETER, encoderCtx))
         );
-        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(KNNEngine.LUCENE, SpaceType.COSINESIMIL, hnswCtx);
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(
+            KNNEngine.LUCENE,
+            SpaceType.COSINESIMIL,
+            hnswCtx,
+            VectorDataType.FLOAT
+        );
         assertTrue(transformer instanceof NormalizeVectorTransformer);
     }
 
@@ -67,7 +95,12 @@ public class VectorTransformerFactoryTests extends KNNTestCase {
             METHOD_HNSW,
             new HashMap<>(Map.of(METHOD_ENCODER_PARAMETER, encoderCtx))
         );
-        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(KNNEngine.LUCENE, SpaceType.COSINESIMIL, hnswCtx);
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(
+            KNNEngine.LUCENE,
+            SpaceType.COSINESIMIL,
+            hnswCtx,
+            VectorDataType.FLOAT
+        );
         assertTrue(transformer instanceof NormalizeVectorTransformer);
     }
 
@@ -77,7 +110,12 @@ public class VectorTransformerFactoryTests extends KNNTestCase {
             METHOD_HNSW,
             new HashMap<>(Map.of(METHOD_ENCODER_PARAMETER, encoderCtx))
         );
-        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(KNNEngine.LUCENE, SpaceType.L2, hnswCtx);
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            hnswCtx,
+            VectorDataType.FLOAT
+        );
         assertSame(VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER, transformer);
     }
 
@@ -87,7 +125,12 @@ public class VectorTransformerFactoryTests extends KNNTestCase {
             METHOD_HNSW,
             new HashMap<>(Map.of(METHOD_ENCODER_PARAMETER, encoderCtx))
         );
-        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(KNNEngine.LUCENE, SpaceType.COSINESIMIL, hnswCtx);
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(
+            KNNEngine.LUCENE,
+            SpaceType.COSINESIMIL,
+            hnswCtx,
+            VectorDataType.FLOAT
+        );
         assertSame(VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER, transformer);
     }
 
@@ -97,30 +140,55 @@ public class VectorTransformerFactoryTests extends KNNTestCase {
             METHOD_HNSW,
             new HashMap<>(Map.of(METHOD_ENCODER_PARAMETER, encoderCtx))
         );
-        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(KNNEngine.LUCENE, SpaceType.COSINESIMIL, hnswCtx);
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(
+            KNNEngine.LUCENE,
+            SpaceType.COSINESIMIL,
+            hnswCtx,
+            VectorDataType.FLOAT
+        );
         assertSame(VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER, transformer);
     }
 
     public void testLuceneCosine_withHnswNoEncoder_returnsNoop() {
         MethodComponentContext hnswCtx = new MethodComponentContext(METHOD_HNSW, new HashMap<>());
-        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(KNNEngine.LUCENE, SpaceType.COSINESIMIL, hnswCtx);
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(
+            KNNEngine.LUCENE,
+            SpaceType.COSINESIMIL,
+            hnswCtx,
+            VectorDataType.FLOAT
+        );
         assertSame(VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER, transformer);
     }
 
     public void testLuceneNonCosine_withFlatMethod_returnsNoop() {
         MethodComponentContext flatContext = new MethodComponentContext(METHOD_FLAT, new HashMap<>());
-        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(KNNEngine.LUCENE, SpaceType.L2, flatContext);
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            flatContext,
+            VectorDataType.FLOAT
+        );
         assertSame(VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER, transformer);
     }
 
     public void testLuceneCosine_withNullMethodComponentContext_returnsNoop() {
-        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(KNNEngine.LUCENE, SpaceType.COSINESIMIL, null);
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(
+            KNNEngine.LUCENE,
+            SpaceType.COSINESIMIL,
+            null,
+            VectorDataType.FLOAT
+        );
         assertSame(VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER, transformer);
     }
 
     public void testFaissCosine_withMethodComponentContext_returnsNormalizer() {
         MethodComponentContext hnswCtx = new MethodComponentContext(METHOD_HNSW, new HashMap<>());
-        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(KNNEngine.FAISS, SpaceType.COSINESIMIL, hnswCtx);
+        VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(
+            KNNEngine.FAISS,
+            SpaceType.COSINESIMIL,
+            hnswCtx,
+            VectorDataType.FLOAT
+        );
         assertTrue(transformer instanceof NormalizeVectorTransformer);
     }
 
@@ -137,5 +205,42 @@ public class VectorTransformerFactoryTests extends KNNTestCase {
                 transformer
             );
         }
+    }
+
+    public void testLuceneCosine_withHalfFloat_returnsNormalizerForAnyMethod() {
+        for (String method : new String[] { KNNConstants.METHOD_HNSW, KNNConstants.METHOD_FLAT }) {
+            MethodComponentContext ctx = new MethodComponentContext(method, Collections.emptyMap());
+            assertTrue(
+                "expected normalizer for half_float cosine with method " + method,
+                VectorTransformerFactory.getVectorTransformer(
+                    KNNEngine.LUCENE,
+                    SpaceType.COSINESIMIL,
+                    ctx,
+                    VectorDataType.HALF_FLOAT
+                ) instanceof NormalizeVectorTransformer
+            );
+        }
+        assertTrue(
+            "half_float cosine decides on the data type alone, so a null context still normalizes",
+            VectorTransformerFactory.getVectorTransformer(
+                KNNEngine.LUCENE,
+                SpaceType.COSINESIMIL,
+                null,
+                VectorDataType.HALF_FLOAT
+            ) instanceof NormalizeVectorTransformer
+        );
+    }
+
+    /** Non-cosine half_float must keep the no-op: L2 measures magnitude. */
+    public void testLuceneNonCosine_withHalfFloat_returnsNoop() {
+        assertSame(
+            VectorTransformerFactory.NOOP_VECTOR_TRANSFORMER,
+            VectorTransformerFactory.getVectorTransformer(
+                KNNEngine.LUCENE,
+                SpaceType.L2,
+                new MethodComponentContext(KNNConstants.METHOD_HNSW, Collections.emptyMap()),
+                VectorDataType.HALF_FLOAT
+            )
+        );
     }
 }

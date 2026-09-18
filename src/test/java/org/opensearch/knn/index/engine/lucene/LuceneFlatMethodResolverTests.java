@@ -206,4 +206,155 @@ public class LuceneFlatMethodResolverTests extends KNNTestCase {
             )
         );
     }
+
+    public void testResolveMethod_whenFlatMethodWithHalfFloat_thenResolve() {
+        KNNMethodContext flatMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_FLAT, Map.of())
+        );
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            flatMethodContext,
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.HALF_FLOAT).versionCreated(Version.CURRENT).build(),
+            false,
+            SpaceType.L2
+        );
+        assertEquals(METHOD_FLAT, resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getName());
+        assertEquals(KNNEngine.LUCENE, resolvedMethodContext.getKnnMethodContext().getKnnEngine());
+        assertEquals(SpaceType.L2, resolvedMethodContext.getKnnMethodContext().getSpaceType());
+    }
+
+    /**
+     * HALF_FLOAT must not inherit FLOAT's x32 default: absent an explicit choice, it defaults to x16
+     * (SQ 1-bit on 16-bit storage) - unlike {@link LuceneHNSWMethodResolver}, which defaults HALF_FLOAT
+     * to x1 (exact FP16, no SQ) instead.
+     */
+    public void testResolveMethod_whenFlatMethodWithHalfFloat_thenCompressionX16() {
+        KNNMethodContext flatMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_FLAT, Map.of())
+        );
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            flatMethodContext,
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.HALF_FLOAT).versionCreated(Version.CURRENT).build(),
+            false,
+            SpaceType.L2
+        );
+
+        assertEquals(CompressionLevel.x16, resolvedMethodContext.getCompressionLevel());
+
+        // FLOAT keeps the existing x32 default and its rescore behaviour.
+        ResolvedMethodContext floatContext = TEST_RESOLVER.resolveMethod(
+            flatMethodContext,
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build(),
+            false,
+            SpaceType.L2
+        );
+        assertEquals(CompressionLevel.x32, floatContext.getCompressionLevel());
+    }
+
+    /**
+     * HALF_FLOAT may opt into x1 explicitly: exact FP16 storage, no further reduction (the flat
+     * method's default is x16, so this only applies when x1 is explicitly requested).
+     */
+    public void testResolveMethod_whenFlatMethodWithHalfFloatAndExplicitX1_thenResolve() {
+        KNNMethodContext flatMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_FLAT, Map.of())
+        );
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            flatMethodContext,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.HALF_FLOAT)
+                .compressionLevel(CompressionLevel.x1)
+                .versionCreated(Version.CURRENT)
+                .build(),
+            false,
+            SpaceType.L2
+        );
+        assertEquals(CompressionLevel.x1, resolvedMethodContext.getCompressionLevel());
+    }
+
+    public void testResolveMethod_whenFlatMethodWithHalfFloatAndExplicitX16_thenResolve() {
+        KNNMethodContext flatMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_FLAT, Map.of())
+        );
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            flatMethodContext,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.HALF_FLOAT)
+                .compressionLevel(CompressionLevel.x16)
+                .versionCreated(Version.CURRENT)
+                .build(),
+            false,
+            SpaceType.L2
+        );
+        assertEquals(CompressionLevel.x16, resolvedMethodContext.getCompressionLevel());
+    }
+
+    /** Every compression level besides x1 (opt-in exact FP16) and x16 (default, SQ 1-bit) must still be rejected for HALF_FLOAT. */
+    public void testResolveMethod_whenFlatMethodWithHalfFloatAndUnsupportedCompression_thenThrow() {
+        for (CompressionLevel level : CompressionLevel.values()) {
+            if (level == CompressionLevel.NOT_CONFIGURED
+                || LuceneFlatMethodResolver.SUPPORTED_COMPRESSION_LEVELS_HALF_FLOAT.contains(level)) {
+                continue;
+            }
+            KNNMethodContext flatMethodContext = new KNNMethodContext(
+                KNNEngine.LUCENE,
+                SpaceType.L2,
+                new MethodComponentContext(METHOD_FLAT, Map.of())
+            );
+            expectThrows(
+                ValidationException.class,
+                () -> TEST_RESOLVER.resolveMethod(
+                    flatMethodContext,
+                    KNNMethodConfigContext.builder()
+                        .vectorDataType(VectorDataType.HALF_FLOAT)
+                        .compressionLevel(level)
+                        .versionCreated(Version.CURRENT)
+                        .build(),
+                    false,
+                    SpaceType.L2
+                )
+            );
+        }
+    }
+
+    public void testResolveMethod_whenFlatMethodWithHalfFloatAndInnerProduct_thenResolve() {
+        KNNMethodContext flatMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.INNER_PRODUCT,
+            new MethodComponentContext(METHOD_FLAT, Map.of())
+        );
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            flatMethodContext,
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.HALF_FLOAT).versionCreated(Version.CURRENT).build(),
+            false,
+            SpaceType.INNER_PRODUCT
+        );
+        assertEquals(METHOD_FLAT, resolvedMethodContext.getKnnMethodContext().getMethodComponentContext().getName());
+        assertEquals(SpaceType.INNER_PRODUCT, resolvedMethodContext.getKnnMethodContext().getSpaceType());
+    }
+
+    public void testResolveMethod_whenHalfFloatWithMode_thenThrows() {
+        for (Mode mode : new Mode[] { Mode.ON_DISK, Mode.IN_MEMORY }) {
+            expectThrows(
+                ValidationException.class,
+                () -> TEST_RESOLVER.resolveMethod(
+                    new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, new MethodComponentContext(METHOD_FLAT, java.util.Map.of())),
+                    KNNMethodConfigContext.builder()
+                        .vectorDataType(VectorDataType.HALF_FLOAT)
+                        .mode(mode)
+                        .versionCreated(Version.CURRENT)
+                        .build(),
+                    false,
+                    SpaceType.L2
+                )
+            );
+        }
+    }
 }

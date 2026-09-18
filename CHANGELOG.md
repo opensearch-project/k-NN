@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Added validation to ensure Remote Index build gets triggered for dimensions > 64. [#3557](https://github.com/opensearch-project/k-NN/pull/3557)
 * Flip defaults of 16x and 8x compression to SQ 2 bits and 4 bits [#3561](https://github.com/opensearch-project/k-NN/pull/3561)
 * Add dynamic mapping for knn_vector fields via plugin inferencer and knn_vector dynamic templates [#3490](https://github.com/opensearch-project/k-NN/pull/3490)
+* Add `half_float` as a vector data type for Flat and HNSW [#3578](https://github.com/opensearch-project/k-NN/pull/3578)
 
 ### Maintenance
 * Fixed multiple forbidden api warnings from the code []()

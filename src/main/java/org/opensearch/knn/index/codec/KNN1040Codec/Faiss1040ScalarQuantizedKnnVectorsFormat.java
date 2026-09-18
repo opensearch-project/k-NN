@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.KnnVectorsReader;
@@ -15,6 +16,7 @@ import org.apache.lucene.index.SegmentWriteState;
 import org.opensearch.knn.index.KNNSettings;
 import org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding;
 import org.opensearch.knn.common.FieldInfoExtractor;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
 
@@ -47,8 +49,9 @@ import static org.opensearch.knn.common.KNNConstants.SQ_CONFIG;
  * {@code Lucene104ScalarQuantizedVectorsReader} — the reader resolves per-field encoding by
  * reading the wire number from each field's {@code .vemq} meta sidecar (scoped by
  * {@code SegmentReadState.segmentSuffix} at the Lucene layer). So the encoding we pass to
- * {@link KNN1040ScalarQuantizedVectorsFormat} on the read path is unused — we intentionally use
- * a default-encoding instance rather than pretend to resolve it.
+ * {@link KNN1040ScalarQuantizedVectorsFormat} on the read path is unused for that purpose - but the
+ * raw vector delegate it carries (FLOAT vs {@code HALF_FLOAT}) still must match what was written,
+ * so the read-path lookup stays keyed by this instance's {@link #vectorDataType} too.
  *
  * @see Faiss1040ScalarQuantizedKnnVectorsWriter
  * @see Faiss1040ScalarQuantizedKnnVectorsReader
@@ -58,23 +61,34 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
 
     private static final String FORMAT_NAME = "Faiss1040ScalarQuantizedKnnVectorsFormat";
 
-    // KNN1040ScalarQuantizedVectorsFormat is stateless per encoding, so we cache one instance per
-    // encoding and share it across all format instances.
-    private static final Map<ScalarEncoding, KNN1040ScalarQuantizedVectorsFormat> FLAT_FORMAT_CACHE = new ConcurrentHashMap<>();
+    // KNN1040(HalfFloat)ScalarQuantizedVectorsFormat is stateless per (encoding, vector data type), so
+    // we cache one instance per combination and share it across all format instances.
+    private static final Map<ScalarEncoding, KNN1040ScalarQuantizedVectorsFormat> FLAT_FORMAT_CACHE_FLOAT = new ConcurrentHashMap<>();
+    private static final Map<ScalarEncoding, KNN1040HalfFloatScalarQuantizedVectorsFormat> FLAT_FORMAT_CACHE_HALF_FLOAT =
+        new ConcurrentHashMap<>();
 
     private final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory;
     private final int approximateThreshold;
+    private final VectorDataType vectorDataType;
 
-    private static KNN1040ScalarQuantizedVectorsFormat flatFormatFor(final ScalarEncoding encoding) {
-        return FLAT_FORMAT_CACHE.computeIfAbsent(encoding, KNN1040ScalarQuantizedVectorsFormat::new);
+    private KNN1040ScalarQuantizedVectorsFormat flatFormatFor(final ScalarEncoding encoding) {
+        return vectorDataType == VectorDataType.HALF_FLOAT
+            ? FLAT_FORMAT_CACHE_HALF_FLOAT.computeIfAbsent(encoding, KNN1040HalfFloatScalarQuantizedVectorsFormat::new)
+            : FLAT_FORMAT_CACHE_FLOAT.computeIfAbsent(encoding, KNN1040ScalarQuantizedVectorsFormat::new);
     }
 
     /**
-     * Returns a fresh {@link KNN1040ScalarQuantizedVectorsFormat} with the default encoding. Used
-     * on the read path, where the encoding is unused downstream (see {@link #fieldsReader}).
+     * Returns the cached {@link KNN1040ScalarQuantizedVectorsFormat} with the default encoding,
+     * matching this instance's {@link #vectorDataType}. Used on the read path, where the encoding
+     * itself is unused downstream (see {@link #fieldsReader}) but the raw vector delegate is not.
      */
-    private static KNN1040ScalarQuantizedVectorsFormat flatFormatFor() {
-        return new KNN1040ScalarQuantizedVectorsFormat();
+    private KNN1040ScalarQuantizedVectorsFormat flatFormatFor() {
+        return flatFormatFor(ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE);
+    }
+
+    @VisibleForTesting
+    KNN1040ScalarQuantizedVectorsFormat getFaissSqFlatFormat() {
+        return flatFormatFor();
     }
 
     public Faiss1040ScalarQuantizedKnnVectorsFormat() {
@@ -85,9 +99,19 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
         final int approximateThreshold,
         final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory
     ) {
-        super(FORMAT_NAME);
+        this(FORMAT_NAME, approximateThreshold, nativeIndexBuildStrategyFactory, VectorDataType.FLOAT);
+    }
+
+    protected Faiss1040ScalarQuantizedKnnVectorsFormat(
+        final String formatName,
+        final int approximateThreshold,
+        final NativeIndexBuildStrategyFactory nativeIndexBuildStrategyFactory,
+        final VectorDataType vectorDataType
+    ) {
+        super(formatName);
         this.approximateThreshold = approximateThreshold;
         this.nativeIndexBuildStrategyFactory = nativeIndexBuildStrategyFactory;
+        this.vectorDataType = vectorDataType;
     }
 
     /**
@@ -171,6 +195,6 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
 
     @Override
     public String toString() {
-        return this.getClass().getSimpleName() + "(name=" + this.getClass().getSimpleName() + ")";
+        return this.getClass().getSimpleName() + "(name=" + getName() + ")";
     }
 }
