@@ -7,6 +7,7 @@ package org.opensearch.knn.index.query.lucenelib;
 
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.AcceptDocs;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.join.BitSetProducer;
@@ -26,6 +27,7 @@ import java.io.IOException;
 public final class OSDiversifyingChildrenFloatKnnVectorQuery extends DiversifyingChildrenFloatKnnVectorQuery {
 
     private final int k;
+    private final int luceneK;
     private final int rescoreK;
     private final boolean expandNestedDocs;
     private final BitSetProducer parentFilter;
@@ -54,6 +56,7 @@ public final class OSDiversifyingChildrenFloatKnnVectorQuery extends Diversifyin
     ) {
         super(fieldName, vector, filterQuery, luceneK, parentFilter);
         this.k = k;
+        this.luceneK = luceneK;
         this.rescoreK = rescoreK;
         this.expandNestedDocs = expandNestedDocs;
         this.parentFilter = parentFilter;
@@ -72,13 +75,36 @@ public final class OSDiversifyingChildrenFloatKnnVectorQuery extends Diversifyin
         return super.approximateSearch(context, acceptDocs, visitedLimit, knnCollectorManager);
     }
 
+    /**
+     * Performs a diversified, full-precision exact search over the accepted child documents, returning the
+     * best-scoring child per parent. Reads raw float vectors, so it is full precision even for quantized
+     * (e.g. 4x / on_disk) indexes. Used by {@link ExpandNestedDocsQuery} to rescore the oversampled parent
+     * candidates before expanding their nested documents.
+     *
+     * @param context the leaf reader context
+     * @param acceptIterator iterator over the candidate child documents
+     * @return diversified top docs (best child per parent)
+     * @throws IOException on read error
+     */
+    public TopDocs diversifyingExactSearch(final LeafReaderContext context, final DocIdSetIterator acceptIterator) throws IOException {
+        return super.exactSearch(context, acceptIterator, null);
+    }
+
     @Override
     protected TopDocs mergeLeafResults(TopDocs[] perLeafResults) {
-        // TODO: Fix this if condition after adding rescoring logic inside ExpandNestedDocsQuery when rescoring is enabled
-        if (rescoreK != RescoreContext.NO_RESCORE_NEEDED && !expandNestedDocs) {
-            // When rescoring is enabled, merge to oversampled k (rescore budget) rather than the
-            // full luceneK which may have been expanded by ef_search.
-            return TopDocs.merge(rescoreK, perLeafResults);
+        if (rescoreK != RescoreContext.NO_RESCORE_NEEDED) {
+            // When rescoring is enabled, merge to the oversampled k (rescore budget) rather than the full
+            // luceneK which may have been expanded by ef_search. For the expandNested path this preserves the
+            // oversampled parent candidates so ExpandNestedDocsQuery can rescore them at full precision and
+            // reduce to the top k parents before expanding their child documents.
+            // Invariant: luceneK >= rescoreK (KNNQueryFactory defines luceneK as max(rescoreK, efSearch)), so
+            // merging to rescoreK here never returns more candidates than the exact rescore pass can collect.
+            // The assert catches a broken invariant in tests. The Math.min is a production safety net for when
+            // assertions are disabled: it keeps this merge budget consistent with the exact rescore budget
+            // (luceneK) so a future caller that violates the invariant cannot make this step retain more
+            // candidates than the rescore pass can score, which would otherwise be a silent per-leaf truncation.
+            assert luceneK >= rescoreK : "luceneK (" + luceneK + ") must be >= rescoreK (" + rescoreK + ")";
+            return TopDocs.merge(Math.min(rescoreK, luceneK), perLeafResults);
         }
         // Merge all segment level results and take top k from it
         return TopDocs.merge(k, perLeafResults);
