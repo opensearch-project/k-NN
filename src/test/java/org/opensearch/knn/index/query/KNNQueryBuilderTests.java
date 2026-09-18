@@ -112,8 +112,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(indexMetadata.getSettings()).thenReturn(settings);
         when(indexMetadata.getCreationVersion()).thenReturn(Version.CURRENT);
 
-        // Initialize RescoreRadialSearchQuery singleton for tests that trigger radial search on quantized indices
-        RescoreRadialSearchQuery.initialize(new ExactSearcher(mock(ModelDao.OpenSearchKNNModelDao.class)));
+        // Initialize NativeEngineKnnVectorQuery singleton for tests that trigger radial search on quantized indices
+        NativeEngineKnnVectorQuery.initialize(new ExactSearcher(mock(ModelDao.OpenSearchKNNModelDao.class)));
     }
 
     public void testInvalidK() {
@@ -700,7 +700,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         // Then: validation passes — flat method with 32x is recognized as 1-bit SQ
         assertNotNull(query);
-        assertTrue(query instanceof RescoreRadialSearchQuery);
+        assertTrue(query instanceof NativeEngineKnnVectorQuery);
+        assertTrue(((NativeEngineKnnVectorQuery) query).isRadialSearch());
     }
 
     public void testDoToQuery_whenRadialSearchOnLuceneFlat32x_thenException() {

@@ -128,6 +128,13 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
 
     }
 
+    public void testTopKConstructor() {
+        assertFalse(objectUnderTest.isRadialSearch());
+        assertSame(knnQuery, objectUnderTest.getKnnQuery());
+        assertEquals(objectUnderTest, new NativeEngineKnnVectorQuery(knnQuery, QueryUtils.getInstance(), false));
+        assertNotEquals(objectUnderTest, new NativeEngineKnnVectorQuery(mock(KNNQuery.class), QueryUtils.getInstance(), false));
+    }
+
     @SneakyThrows
     public void testMultiLeaf() {
         directory = new ByteBuffersDirectory();
@@ -356,7 +363,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             // When
             Weight actual = objectUnderTest.createWeight(searcher, scoreMode, 1);
 
-            // Then
+            // The shared rescore path applies the first-pass budget, then the query applies final-k reduction.
             mockedResultUtil.verify(() -> ResultUtil.reduceToTopK(any(), anyInt()), times(2));
             assertNotNull(actual);
         }
@@ -468,8 +475,16 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             buildTopDocs(new HashMap<>(Map.of(0, 20f, 1, 18f, 2, 16f, 3, 14f))),
             PerLeafResult.SearchMode.EXACT_SEARCH
         );
-        TopDocs topDocs1 = ResultUtil.resultMapToTopDocs(Map.of(0, 18f, 1, 20f), 0);
-        TopDocs topDocs2 = ResultUtil.resultMapToTopDocs(Map.of(0, 21f), 4);
+        Map<Integer, Float> rescoredLeaf1 = Map.of(0, 18f, 1, 20f);
+        Map<Integer, Float> rescoredLeaf2 = Map.of(0, 21f);
+        TopDocs topDocs1 = ResultUtil.resultMapToTopDocs(rescoredLeaf1, 0);
+        TopDocs topDocs2 = ResultUtil.resultMapToTopDocs(rescoredLeaf2, 0);
+        TopDocs expectedTopDocs = TopDocs.merge(
+            k,
+            new TopDocs[] {
+                ResultUtil.resultMapToTopDocs(rescoredLeaf1, leaf1.docBase),
+                ResultUtil.resultMapToTopDocs(rescoredLeaf2, leaf2.docBase) }
+        );
         when(knnQuery.getRescoreContext()).thenReturn(RescoreContext.builder().oversampleFactor(1.5f).build());
         when(knnQuery.getK()).thenReturn(k);
         when(knnWeight.getQuery()).thenReturn(knnQuery);
@@ -495,8 +510,6 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             Weight actual = objectUnderTest.createWeight(searcher, scoreMode, 1);
 
             // Verify
-            TopDocs[] topDocs = { topDocs1, topDocs2 };
-            TopDocs expectedTopDocs = TopDocs.merge(k, topDocs);
             Query expected = QueryUtils.getInstance().createDocAndScoreQuery(reader, expectedTopDocs);
             assertEquals(expected, actual.getQuery());
         }
@@ -590,6 +603,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
 
         QueryUtils queryUtils = mock(QueryUtils.class);
         when(queryUtils.getAllSiblings(any(), any(), any(), any())).thenReturn(allSiblings);
+        when(queryUtils.mergeLeafResults(eq(leaves), any(), anyInt())).thenReturn(topK);
         when(queryUtils.createDocAndScoreQuery(eq(reader), any(), eq(knnWeight))).thenReturn(finalQuery);
 
         // Run

@@ -58,7 +58,7 @@ public class DocAndScoreQueryTests extends OpenSearchTestCase {
         int[] expectedDocs = { 0, 1, 2, 3, 4 };
         float[] expectedScores = { 0.1f, 1.2f, 2.3f, 5.1f, 3.4f };
         int[] findSegments = { 0, 2, 5 };
-        objectUnderTest = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, readerContext.id(), null);
+        objectUnderTest = new DocAndScoreQuery(expectedDocs, expectedScores, findSegments, readerContext.id(), null);
 
         // When
         Scorer scorer1 = objectUnderTest.createWeight(indexSearcher, ScoreMode.COMPLETE, 1).scorer(leaf1);
@@ -93,7 +93,7 @@ public class DocAndScoreQueryTests extends OpenSearchTestCase {
 
         // When
         KNNWeight knnWeight = mock(KNNWeight.class);
-        objectUnderTest = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, readerContext.id(), knnWeight);
+        objectUnderTest = new DocAndScoreQuery(expectedDocs, expectedScores, findSegments, readerContext.id(), knnWeight);
         Weight weight = objectUnderTest.createWeight(indexSearcher, ScoreMode.COMPLETE, 1);
         weight.explain(leaf1, 1);
 

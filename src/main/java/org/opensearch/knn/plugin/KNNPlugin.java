@@ -54,7 +54,6 @@ import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.RescoreKNNVectorQuery;
-import org.opensearch.knn.index.query.RescoreRadialSearchQuery;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
@@ -224,7 +223,7 @@ public class KNNPlugin extends Plugin
         return Optional.of((searchContext, query) -> {
             if (query instanceof KNNQuery || query instanceof RescoreKNNVectorQuery) {
                 return KNNMetrics.getKNNQueryMetrics();
-            } else if (query instanceof NativeEngineKnnVectorQuery) {
+            } else if (query instanceof NativeEngineKnnVectorQuery nativeQuery && nativeQuery.isRadialSearch() == false) {
                 return KNNMetrics.getNativeMetrics();
             }
             return List.of();
@@ -288,7 +287,7 @@ public class KNNPlugin extends Plugin
         KNNCircuitBreaker.getInstance().initialize(threadPool, clusterService, client);
         KNNQueryBuilder.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         KNNWeight.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
-        RescoreRadialSearchQuery.initialize(new ExactSearcher(ModelDao.OpenSearchKNNModelDao.getInstance()));
+        NativeEngineKnnVectorQuery.initialize(new ExactSearcher(ModelDao.OpenSearchKNNModelDao.getInstance()));
         TrainingModelRequest.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
 
         // Engine discovery runs after the k-NN singletons above are wired so definitions can use them.

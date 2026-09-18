@@ -11,14 +11,20 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.FilteredDocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.TopDocsCollector;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.opensearch.knn.index.query.KNNWeight;
+import org.opensearch.knn.index.query.PerLeafResult;
+import org.opensearch.knn.index.query.ResultUtil;
+import org.opensearch.knn.index.query.TopDocsDISI;
+import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.index.query.iterators.GroupedNestedDocIdSetIterator;
 
 import java.io.IOException;
@@ -31,6 +37,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * This class contains utility methods that help customize the search results
@@ -51,7 +59,7 @@ public class QueryUtils {
      * This is copied from org.apache.lucene.search.AbstractKnnVectorQuery#createRewrittenQuery
      *
      * @param reader the index reader
-     * @param topDocs the documents to be retured by the query
+     * @param topDocs the documents to be returned by the query
      * @return a query representing the given TopDocs
      */
     public Query createDocAndScoreQuery(final IndexReader reader, final TopDocs topDocs) {
@@ -68,7 +76,7 @@ public class QueryUtils {
             scores[i] = topDocs.scoreDocs[i].score;
         }
         int[] segmentStarts = findSegmentStarts(reader, docs);
-        return new DocAndScoreQuery(len, docs, scores, segmentStarts, reader.getContext().id(), knnWeight);
+        return new DocAndScoreQuery(docs, scores, segmentStarts, reader.getContext().id(), knnWeight);
     }
 
     private int[] findSegmentStarts(final IndexReader reader, final int[] docs) {
@@ -124,6 +132,104 @@ public class QueryUtils {
             iterator.nextDoc();
         }
         return leafDocScores;
+    }
+
+    @FunctionalInterface
+    public interface LeafExactSearcher {
+        TopDocs search(LeafReaderContext leaf, ExactSearcher.ExactSearcherContext context) throws IOException;
+    }
+
+    /**
+     * Applies the first-pass candidate budget and rescores the survivors against full-precision vectors.
+     * Results and leaves must be positionally aligned.
+     */
+    public List<PerLeafResult> rescore(
+        final IndexSearcher indexSearcher,
+        final List<LeafReaderContext> leaves,
+        final List<PerLeafResult> perLeafResults,
+        final int firstPassK,
+        final boolean shardLevelRescoringDisabled,
+        final Supplier<ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder> contextBuilderSupplier,
+        final BitSetProducer parentsFilter,
+        final LeafExactSearcher exactSearcher
+    ) throws IOException {
+        validateLeafResults(leaves, perLeafResults);
+        if (shardLevelRescoringDisabled == false) {
+            ResultUtil.reduceToTopK(perLeafResults, firstPassK);
+        }
+
+        final List<Callable<PerLeafResult>> rescoreTasks = new ArrayList<>(perLeafResults.size());
+        for (int i = 0; i < perLeafResults.size(); i++) {
+            final LeafReaderContext leaf = leaves.get(i);
+            final PerLeafResult firstPass = perLeafResults.get(i);
+            rescoreTasks.add(() -> {
+                if (firstPass.getResult().scoreDocs.length == 0) {
+                    return firstPass;
+                }
+
+                final DocIdSetIterator matchedDocs;
+                if (parentsFilter == null) {
+                    matchedDocs = new TopDocsDISI(firstPass.getResult());
+                } else {
+                    final Set<Integer> docIds = Arrays.stream(firstPass.getResult().scoreDocs)
+                        .map(scoreDoc -> scoreDoc.doc)
+                        .collect(Collectors.toSet());
+                    matchedDocs = getAllSiblings(leaf, docIds, parentsFilter, firstPass.getFilterBits());
+                }
+
+                final ExactSearcher.ExactSearcherContext context = contextBuilderSupplier.get()
+                    .useQuantizedVectorsForSearch(false)
+                    .matchedDocsIterator(matchedDocs)
+                    .numberOfMatchedDocs(matchedDocs.cost())
+                    .parentsFilter(parentsFilter)
+                    .build();
+
+                return new PerLeafResult(
+                    firstPass.getFilterBits(),
+                    firstPass.getFilterBitsCardinality(),
+                    exactSearcher.search(leaf, context),
+                    PerLeafResult.SearchMode.EXACT_SEARCH
+                );
+            });
+        }
+        return indexSearcher.getTaskExecutor().invokeAll(rescoreTasks);
+    }
+
+    /**
+     * Converts leaf-local document IDs to shard-level IDs and merges every result.
+     */
+    public TopDocs mergeLeafResults(final List<LeafReaderContext> leaves, final List<PerLeafResult> perLeafResults) {
+        final int resultCount = perLeafResults.stream().mapToInt(result -> result.getResult().scoreDocs.length).sum();
+        return mergeLeafResults(leaves, perLeafResults, resultCount);
+    }
+
+    /**
+     * Converts leaf-local document IDs to shard-level IDs and merges the best {@code topN} results.
+     */
+    public TopDocs mergeLeafResults(final List<LeafReaderContext> leaves, final List<PerLeafResult> perLeafResults, final int topN) {
+        validateLeafResults(leaves, perLeafResults);
+        if (topN == 0) {
+            return TopDocsCollector.EMPTY_TOPDOCS;
+        }
+        final TopDocs[] topDocs = new TopDocs[perLeafResults.size()];
+        for (int i = 0; i < perLeafResults.size(); i++) {
+            final TopDocs leafTopDocs = perLeafResults.get(i).getResult();
+            final ScoreDoc[] shardScoreDocs = new ScoreDoc[leafTopDocs.scoreDocs.length];
+            for (int j = 0; j < leafTopDocs.scoreDocs.length; j++) {
+                final ScoreDoc leafScoreDoc = leafTopDocs.scoreDocs[j];
+                final ScoreDoc shardScoreDoc = new ScoreDoc(leafScoreDoc.doc + leaves.get(i).docBase, leafScoreDoc.score);
+                shardScoreDoc.shardIndex = leafScoreDoc.shardIndex;
+                shardScoreDocs[j] = shardScoreDoc;
+            }
+            topDocs[i] = new TopDocs(leafTopDocs.totalHits, shardScoreDocs);
+        }
+        return TopDocs.merge(topN, topDocs);
+    }
+
+    private void validateLeafResults(final List<LeafReaderContext> leaves, final List<PerLeafResult> perLeafResults) {
+        if (leaves.size() != perLeafResults.size()) {
+            throw new IllegalArgumentException("Leaf contexts and results must have the same size");
+        }
     }
 
     /**
