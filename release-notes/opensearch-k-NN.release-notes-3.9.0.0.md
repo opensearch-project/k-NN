@@ -3,6 +3,8 @@
 Compatible with OpenSearch and OpenSearch Dashboards version 3.9.0
 
 ### Features
+* Add `half_float` as a vector data type for Flat and HNSW ([#3578](https://github.com/opensearch-project/k-NN/pull/3578))
+* Enable `half_float` vector data type for remote vector index build ([#3575](https://github.com/opensearch-project/k-NN/pull/3575))
 * Add Intel SVS (Scalable Vector Search) as a sandbox tenant engine with svs_vamana method, flat/sq/lvq/leanvec encoders, and query-time parameters ([#3551](https://github.com/opensearch-project/k-NN/pull/3551))
 * Add multi-bit scalar quantization (2-bit and 4-bit) for Faiss, and make flat method engine-agnostic with x16/x8 support ([#3544](https://github.com/opensearch-project/k-NN/pull/3544))
 * Add radial search method that applies post-filtering on quantized indices using size × oversample_factor top-K ([#3491](https://github.com/opensearch-project/k-NN/pull/3491))
