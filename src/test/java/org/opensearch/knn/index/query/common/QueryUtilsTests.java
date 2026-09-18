@@ -184,6 +184,19 @@ public class QueryUtilsTests extends TestCase {
         assertTrue(areSetBitsEqual(expectedBitSet, bits));
     }
 
+    public void testMergeLeafResults_whenEmpty_thenReturnsNoResults() {
+        assertEquals(0, queryUtils.mergeLeafResults(Collections.emptyList(), Collections.emptyList()).scoreDocs.length);
+    }
+
+    public void testMergeLeafResults_whenListsAreMisaligned_thenThrows() {
+        try {
+            queryUtils.mergeLeafResults(List.of(mock(LeafReaderContext.class)), Collections.emptyList());
+            fail("expected an IllegalArgumentException");
+        } catch (IllegalArgumentException exception) {
+            assertEquals("Leaf contexts and results must have the same size", exception.getMessage());
+        }
+    }
+
     private boolean areSetBitsEqual(Bits bits1, Bits bits2) {
         int minLength = Math.min(bits1.length(), bits2.length());
 

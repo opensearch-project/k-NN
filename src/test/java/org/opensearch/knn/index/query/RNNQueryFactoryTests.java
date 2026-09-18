@@ -51,7 +51,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        RescoreRadialSearchQuery.initialize(new ExactSearcher(mock(ModelDao.OpenSearchKNNModelDao.class)));
+        NativeEngineKnnVectorQuery.initialize(new ExactSearcher(mock(ModelDao.OpenSearchKNNModelDao.class)));
     }
 
     private final int testQueryDimension = 17;
@@ -251,8 +251,8 @@ public class RNNQueryFactoryTests extends KNNTestCase {
         assertEquals(expectedQuery, query);
     }
 
-    // Verify that Faiss radial search with 32x SQ wraps the inner KNNQuery in RescoreRadialSearchQuery.
-    public void testCreate_whenFaissSQ32x_thenWrapsInRescoreRadialSearchQuery() {
+    // Verify that Faiss radial search with 32x SQ wraps the inner KNNQuery in NativeEngineKnnVectorQuery.
+    public void testCreate_whenFaissSQ32x_thenWrapsInNativeEngineKnnVectorQuery() {
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         MappedFieldType testMapper = mock(MappedFieldType.class);
         IndexSettings indexSettings = mock(IndexSettings.class);
@@ -275,8 +275,8 @@ public class RNNQueryFactoryTests extends KNNTestCase {
 
         Query query = RNNQueryFactory.create(createQueryRequest);
 
-        assertTrue(query instanceof RescoreRadialSearchQuery);
-        RescoreRadialSearchQuery rescoreQuery = (RescoreRadialSearchQuery) query;
+        assertTrue(query instanceof NativeEngineKnnVectorQuery);
+        NativeEngineKnnVectorQuery rescoreQuery = (NativeEngineKnnVectorQuery) query;
         assertTrue(rescoreQuery.getInnerQuery() instanceof KNNQuery);
         assertEquals(testFieldName, rescoreQuery.getField());
         assertEquals(testRadius, rescoreQuery.getRadius(), 0.0f);
@@ -317,8 +317,8 @@ public class RNNQueryFactoryTests extends KNNTestCase {
             query = RNNQueryFactory.create(createQueryRequest);
         }
 
-        assertTrue(query instanceof RescoreRadialSearchQuery);
-        RescoreRadialSearchQuery rescoreQuery = (RescoreRadialSearchQuery) query;
+        assertTrue(query instanceof NativeEngineKnnVectorQuery);
+        NativeEngineKnnVectorQuery rescoreQuery = (NativeEngineKnnVectorQuery) query;
         // 25 * 2 = 50, where 2x is the fixed oversample factor SQ 1-bit resolves to.
         final int expectedFirstPassK = (int) Math.ceil(size * rescoreContext.getOversampleFactor());
         assertEquals(50, expectedFirstPassK);
@@ -371,7 +371,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
         final int expectedCap = (int) Math.ceil(
             RescoreContext.MAX_FIRST_PASS_RESULTS * RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR
         );
-        final RescoreRadialSearchQuery rescoreQuery = (RescoreRadialSearchQuery) query;
+        final NativeEngineKnnVectorQuery rescoreQuery = (NativeEngineKnnVectorQuery) query;
 
         assertEquals(expectedCap, rescoreQuery.getFirstPassK());
         assertTrue("the cap must scale past MAX_FIRST_PASS_RESULTS", expectedCap > RescoreContext.MAX_FIRST_PASS_RESULTS);
@@ -404,8 +404,8 @@ public class RNNQueryFactoryTests extends KNNTestCase {
 
         Query query = RNNQueryFactory.create(createQueryRequest);
 
-        assertTrue(query instanceof RescoreRadialSearchQuery);
-        RescoreRadialSearchQuery rescoreQuery = (RescoreRadialSearchQuery) query;
+        assertTrue(query instanceof NativeEngineKnnVectorQuery);
+        NativeEngineKnnVectorQuery rescoreQuery = (NativeEngineKnnVectorQuery) query;
         assertEquals(maxResultWindow, rescoreQuery.getFirstPassK());
         assertEquals(testRadius.floatValue(), ((KNNQuery) rescoreQuery.getInnerQuery()).getRadius().floatValue(), 0.0f);
     }
@@ -429,8 +429,8 @@ public class RNNQueryFactoryTests extends KNNTestCase {
 
         Query query = RNNQueryFactory.create(createQueryRequest);
 
-        assertTrue(query instanceof RescoreRadialSearchQuery);
-        assertEquals(MAX_RESULTS_RADIAL_RESCORING, ((RescoreRadialSearchQuery) query).getFirstPassK());
+        assertTrue(query instanceof NativeEngineKnnVectorQuery);
+        assertEquals(MAX_RESULTS_RADIAL_RESCORING, ((NativeEngineKnnVectorQuery) query).getFirstPassK());
     }
 
     // Given: quantized Lucene radial search with a custom max_result_window and no request window
@@ -459,12 +459,12 @@ public class RNNQueryFactoryTests extends KNNTestCase {
 
         Query query = RNNQueryFactory.create(createQueryRequest);
 
-        assertTrue(query instanceof RescoreRadialSearchQuery);
-        assertEquals(500, ((RescoreRadialSearchQuery) query).getFirstPassK());
+        assertTrue(query instanceof NativeEngineKnnVectorQuery);
+        assertEquals(500, ((NativeEngineKnnVectorQuery) query).getFirstPassK());
     }
 
     // Verify that quantized Lucene radial search wraps in the radial rescore query on every Lucene engine.
-    public void testCreate_whenLuceneSQ32x_thenWrapsInRescoreRadialSearchQuery() {
+    public void testCreate_whenLuceneSQ32x_thenWrapsInNativeEngineKnnVectorQuery() {
         List<KNNEngine> luceneEngines = Arrays.stream(KNNEngine.values())
             .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
             .collect(Collectors.toList());
@@ -485,7 +485,8 @@ public class RNNQueryFactoryTests extends KNNTestCase {
 
             Query query = RNNQueryFactory.create(createQueryRequest);
 
-            assertTrue(query instanceof RescoreRadialSearchQuery);
+            assertTrue(query instanceof NativeEngineKnnVectorQuery);
+            assertTrue(((NativeEngineKnnVectorQuery) query).isRadialSearch());
         }
     }
 
@@ -511,7 +512,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
         Query query = RNNQueryFactory.create(createQueryRequest);
 
         assertTrue(query instanceof KNNQuery);
-        assertFalse(query instanceof RescoreRadialSearchQuery);
+        assertFalse(query instanceof NativeEngineKnnVectorQuery);
     }
 
     // Verify that non-quantized Lucene radial search returns bare FloatVectorSimilarityQuery (no wrapper).
@@ -533,7 +534,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
             Query query = RNNQueryFactory.create(createQueryRequest);
 
             assertTrue(query instanceof FloatVectorSimilarityQuery);
-            assertFalse(query instanceof RescoreRadialSearchQuery);
+            assertFalse(query instanceof NativeEngineKnnVectorQuery);
         }
     }
 

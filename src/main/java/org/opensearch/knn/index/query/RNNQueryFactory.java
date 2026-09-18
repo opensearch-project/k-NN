@@ -19,8 +19,10 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.query.QueryShardContext;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 /**
@@ -82,21 +84,17 @@ public class RNNQueryFactory extends BaseQueryFactory {
             if (sizeBoundedQuery != null) {
                 return sizeBoundedQuery;
             }
-            // Honor the index-level max_result_window setting to cap the candidates rescored.
-            // Falls back to MAX_RESULTS_RADIAL_RESCORING if context is unavailable.
-            final int fallbackFirstPassK;
-            if (createQueryRequest.getContext().isPresent()) {
-                fallbackFirstPassK = createQueryRequest.getContext().get().getIndexSettings().getMaxResultWindow();
-            } else {
-                fallbackFirstPassK = MAX_RESULTS_RADIAL_RESCORING;
-            }
-            return new RescoreRadialSearchQuery(
+            final int fallbackFirstPassK = createQueryRequest.getContext()
+                .map(context -> context.getIndexSettings().getMaxResultWindow())
+                .orElse(MAX_RESULTS_RADIAL_RESCORING);
+            return NativeEngineKnnVectorQuery.createRadialRescoreQuery(
                 innerQuery,
                 fieldName,
                 vector,
                 radius,
                 createQueryRequest.isMemoryOptimizedSearchEnabled(),
-                fallbackFirstPassK
+                fallbackFirstPassK,
+                isShardLevelRescoringDisabled(createQueryRequest)
             );
         }
         return innerQuery;
@@ -142,14 +140,22 @@ public class RNNQueryFactory extends BaseQueryFactory {
                 .build()
         );
 
-        return new RescoreRadialSearchQuery(
+        return NativeEngineKnnVectorQuery.createRadialRescoreQuery(
             approximateCandidates,
             request.getFieldName(),
             request.getVector(),
             request.getRadius(),
             request.isMemoryOptimizedSearchEnabled(),
-            firstPassK
+            firstPassK,
+            isShardLevelRescoringDisabled(request)
         );
+    }
+
+    /** Returns whether candidate budgeting should be applied independently to each segment. */
+    private static boolean isShardLevelRescoringDisabled(final CreateQueryRequest request) {
+        return request.getContext()
+            .map(context -> context.getIndexSettings().getValue(KNNSettings.KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING))
+            .orElse(KNNSettings.KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_VALUE);
     }
 
     /**
