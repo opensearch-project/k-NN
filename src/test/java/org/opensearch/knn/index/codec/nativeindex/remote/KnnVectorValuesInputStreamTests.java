@@ -100,6 +100,44 @@ public class KnnVectorValuesInputStreamTests extends KNNTestCase {
         assertEquals(expectedBuffer, vectorStreamFloats);
     }
 
+    /**
+     * Tests that reading half_float vectors out of a VectorValuesInputStream yields raw fp32 bytes, same as
+     * FLOAT - the remote build service converts fp32 -> fp16 itself while streaming
+     * (FP32ToFP16ConvertingBytesIO), the same way it already does for the existing FLOAT+sq,bits:16 case.
+     */
+    public void testHalfFloatVectorValuesInputStream() throws IOException {
+        int NUM_DOCS = randomIntBetween(1, 1000);
+        int NUM_DIMENSION = randomIntBetween(1, 1000);
+
+        List<float[]> vectorValues = getRandomFloatVectors(NUM_DOCS, NUM_DIMENSION);
+        final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            vectorValues
+        );
+        final KNNVectorValues<float[]> knnVectorValuesForStream = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.HALF_FLOAT,
+            randomVectorValues
+        );
+
+        InputStream vectorValuesInputStream = new VectorValuesInputStream(knnVectorValuesForStream, VectorDataType.HALF_FLOAT);
+
+        // 1. Read all input stream bytes
+        byte[] vectorStreamBytes = vectorValuesInputStream.readAllBytes();
+        FloatBuffer vectorStreamFloats = ByteBuffer.wrap(vectorStreamBytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer();
+
+        // 2. Bytes should be dim*4 per vector (fp32), not dim*2 (fp16)
+        assertEquals((long) NUM_DOCS * NUM_DIMENSION * Float.BYTES, vectorStreamBytes.length);
+
+        // 3. Content should match the source vectors exactly, unconverted.
+        FloatBuffer expectedBuffer = ByteBuffer.allocate(NUM_DOCS * NUM_DIMENSION * Float.BYTES)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .asFloatBuffer();
+        for (float[] vector : vectorValues) {
+            expectedBuffer.put(vector);
+        }
+        expectedBuffer.position(0);
+        assertEquals(expectedBuffer, vectorStreamFloats);
+    }
+
     public void testByteVectorValuesInputStream() throws IOException {
         int NUM_DOCS = randomIntBetween(1, 1000);
         int NUM_DIMENSION = randomIntBetween(1, 1000);

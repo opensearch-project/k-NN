@@ -21,6 +21,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.blobstore.BlobStoreRepository;
 
@@ -29,6 +30,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.Random;
+import java.util.function.Supplier;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -95,6 +97,34 @@ public class DefaultVectorRepositoryAccessorTests extends RemoteIndexBuildTests 
         String BLOB_NAME = "test_blob";
         int NUM_DOCS = 100;
         objectUnderTest.writeToRepository(BLOB_NAME, NUM_DOCS, VectorDataType.FLOAT, knnVectorValuesSupplier);
+
+        verify(testContainer).asyncBlobUpload(any(), any());
+        verify(testContainer).writeBlob(eq(BLOB_NAME + DOC_ID_FILE_EXTENSION), any(), eq((long) NUM_DOCS * Integer.BYTES), eq(true));
+    }
+
+    public void testRepositoryInteractionWithBlobContainer_halfFloat() throws IOException, InterruptedException {
+        RepositoriesService repositoriesService = mock(RepositoriesService.class);
+        BlobStoreRepository mockRepository = mock(BlobStoreRepository.class);
+        BlobPath testBasePath = new BlobPath().add("testBasePath");
+        BlobStore mockBlobStore = mock(BlobStore.class);
+
+        when(repositoriesService.repository(any())).thenReturn(mockRepository);
+        when(mockRepository.basePath()).thenReturn(testBasePath);
+        when(mockRepository.blobStore()).thenReturn(mockBlobStore);
+
+        AsyncMultiStreamBlobContainer testContainer = Mockito.spy(
+            new TestAsyncBlobContainer(mock(FsBlobStore.class), testBasePath, mock(Path.class), false)
+        );
+
+        VectorRepositoryAccessor objectUnderTest = new DefaultVectorRepositoryAccessor(testContainer);
+
+        String BLOB_NAME = "test_blob";
+        int NUM_DOCS = 100;
+        Supplier<KNNVectorValues<?>> halfFloatVectorValuesSupplier = KNNVectorValuesFactory.getVectorValuesSupplier(
+            VectorDataType.HALF_FLOAT,
+            randomVectorValues
+        );
+        objectUnderTest.writeToRepository(BLOB_NAME, NUM_DOCS, VectorDataType.HALF_FLOAT, halfFloatVectorValuesSupplier);
 
         verify(testContainer).asyncBlobUpload(any(), any());
         verify(testContainer).writeBlob(eq(BLOB_NAME + DOC_ID_FILE_EXTENSION), any(), eq((long) NUM_DOCS * Integer.BYTES), eq(true));
