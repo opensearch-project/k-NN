@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine;
 
 import org.opensearch.common.ValidationException;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import java.util.Locale;
@@ -108,6 +109,38 @@ public interface Encoder {
                 }
             }
             return FULL_PRECISION;
+        }
+
+        /**
+         * Compression this bit width achieves for {@code vectorDataType}. The constants above are
+         * measured against FLOAT's 32 bits, so {@link #ONE} is x32 there; taking HALF_FLOAT's 16 bits
+         * down to 1 saves 16x instead.
+         *
+         * <p>HALF_FLOAT supports only bits=1. Any other width is rejected rather than falling through
+         * to {@link #getCompressionLevel()}, which is computed against FLOAT's 32-bit baseline and
+         * would report a level that is wrong for HALF_FLOAT.
+         */
+        public CompressionLevel getCompressionLevel(VectorDataType vectorDataType) {
+            if (vectorDataType == VectorDataType.HALF_FLOAT) {
+                if (this == ONE) {
+                    return CompressionLevel.x16;
+                }
+                throw new IllegalArgumentException(
+                    String.format(Locale.ROOT, "half_float only supports bits=1 for SQ quantization, got bits=%d", value)
+                );
+            }
+            return compressionLevel;
+        }
+
+        /**
+         * Data-type-aware inverse of {@link #getCompressionLevel(VectorDataType)}.
+         * For HALF_FLOAT, x16 is its SQ 1-bit level rather than the 2-bit level x16 denotes for FLOAT.
+         */
+        public static QuantizationBits fromCompressionLevel(CompressionLevel compressionLevel, VectorDataType vectorDataType) {
+            if (vectorDataType == VectorDataType.HALF_FLOAT && compressionLevel == CompressionLevel.x16) {
+                return ONE;
+            }
+            return fromCompressionLevel(compressionLevel);
         }
     }
 

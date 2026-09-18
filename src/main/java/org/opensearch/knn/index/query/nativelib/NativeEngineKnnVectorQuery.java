@@ -448,7 +448,9 @@ public class NativeEngineKnnVectorQuery extends Query {
             final ReentrantKnnCollectorManager reentrantCollectorManager = new ReentrantKnnCollectorManager(
                 collectorManager,
                 segmentOrdToResults,
-                knnQuery.getVectorDataType() == VectorDataType.FLOAT ? knnQuery.getQueryVector() : knnQuery.getByteQueryVector(),
+                knnQuery.getVectorDataType() == VectorDataType.FLOAT || knnQuery.getVectorDataType() == VectorDataType.HALF_FLOAT
+                    ? knnQuery.getQueryVector()
+                    : knnQuery.getByteQueryVector(),
                 knnQuery.getField()
             );
 
