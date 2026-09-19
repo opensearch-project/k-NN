@@ -147,3 +147,10 @@ else()
 endif()
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/faiss EXCLUDE_FROM_ALL)
+
+# Build the Sapphire Rapids faiss variant with 512-bit (zmm) vector codegen instead of
+# the compiler's 256-bit default. The faiss_avx512_spr target is created by faiss's own
+# CMake inside the add_subdirectory() above; append to its private compile options here.
+if(FAISS_OPT_LEVEL STREQUAL avx512_spr AND TARGET ${TARGET_LINK_FAISS_LIB})
+    target_compile_options(${TARGET_LINK_FAISS_LIB} PRIVATE -mprefer-vector-width=512)
+endif()
