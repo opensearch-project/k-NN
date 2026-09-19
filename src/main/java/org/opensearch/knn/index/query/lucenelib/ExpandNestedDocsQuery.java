@@ -22,12 +22,18 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.Bits;
 import org.opensearch.knn.index.query.common.QueryUtils;
+import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
+import org.opensearch.knn.indices.ModelDao;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * This query is for a nested k-NN field to return multiple nested field documents
@@ -37,11 +43,37 @@ import java.util.concurrent.Callable;
  * they are reduced to the top k results. Then, it constructs filtered document IDs for nested field documents
  * from these top k parent documents. Using these document IDs, it executes an exact nearest neighbor search
  * with a k value of Integer.MAX_VALUE, which provides scores for all specified nested field documents.
+ *
+ * When rescoring is enabled, two extra stages run between the approximate search and the expansion. The
+ * approximate search walked the graph over quantized vectors, so every parent's representative child was
+ * elected on inexact scores. The rescore stage re-scores all siblings of the oversampled candidates against
+ * full precision vectors, collapses each parent group back to its single best child, and cuts the result to
+ * k. Expanding only after that cut is what keeps the list at one row per document until the final top-k is
+ * decided; cutting to k after the expansion would count child documents instead of parent documents and drop
+ * parents that belong in the result. This mirrors the ordering that
+ * {@link org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery} uses for the native engines.
  */
 @Builder
 public class ExpandNestedDocsQuery extends Query {
     final private InternalNestedKnnVectorQuery internalNestedKnnVectorQuery;
     final private QueryUtils queryUtils;
+    /**
+     * Number of oversampled parent candidates the approximate search kept for rescoring.
+     * {@link RescoreContext#NO_RESCORE_NEEDED} means no rescoring, in which case the expansion runs
+     * directly on the approximate search results.
+     */
+    @Builder.Default
+    final private int rescoreK = RescoreContext.NO_RESCORE_NEEDED;
+    /**
+     * Full precision query vector. Required when {@link #rescoreK} enables rescoring, otherwise unused.
+     */
+    final private float[] floatQueryVector;
+    /**
+     * Runs the full precision rescore pass. Optional test seam; when unset one is created on demand, and only
+     * when {@link #rescoreK} enables rescoring. It is not created up front because building it reaches for the
+     * {@link ModelDao} singleton, which is only usable once the plugin has been initialized on a node.
+     */
+    final private ExactSearcher exactSearcher;
 
     @Override
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
@@ -49,9 +81,16 @@ public class ExpandNestedDocsQuery extends Query {
         Weight weight = docAndScoreQuery.createWeight(searcher, scoreMode, boost);
         IndexReader reader = searcher.getIndexReader();
         List<LeafReaderContext> leafReaderContexts = reader.leaves();
+        Weight filterWeight = getFilterWeight(searcher);
+        // Both the rescore and the expansion stage need the filter bits of every leaf they touch, so they are
+        // built once per leaf and shared instead of being rebuilt by each stage.
+        Map<Integer, Bits> filterBitsByLeaf = new ConcurrentHashMap<>();
         List<Map<Integer, Float>> perLeafResults;
         perLeafResults = queryUtils.doSearch(searcher, leafReaderContexts, weight);
-        TopDocs[] topDocs = retrieveAll(searcher, leafReaderContexts, perLeafResults);
+        if (isRescoreEnabled()) {
+            perLeafResults = rescoreToTopKParents(searcher, leafReaderContexts, perLeafResults, filterWeight, filterBitsByLeaf);
+        }
+        TopDocs[] topDocs = retrieveAll(searcher, leafReaderContexts, perLeafResults, filterWeight, filterBitsByLeaf);
         int sum = 0;
         for (TopDocs topDoc : topDocs) {
             sum += topDoc.scoreDocs.length;
@@ -63,26 +102,96 @@ public class ExpandNestedDocsQuery extends Query {
         return queryUtils.createDocAndScoreQuery(reader, topK).createWeight(searcher, scoreMode, boost);
     }
 
+    private boolean isRescoreEnabled() {
+        return rescoreK != RescoreContext.NO_RESCORE_NEEDED;
+    }
+
+    private ExactSearcher resolveExactSearcher() {
+        return exactSearcher != null ? exactSearcher : new ExactSearcher(ModelDao.OpenSearchKNNModelDao.getInstance());
+    }
+
+    /**
+     * Re-scores the oversampled candidates against full precision vectors and reduces them to the top k
+     * parent documents.
+     *
+     */
+    private List<Map<Integer, Float>> rescoreToTopKParents(
+        final IndexSearcher indexSearcher,
+        final List<LeafReaderContext> leafReaderContexts,
+        final List<Map<Integer, Float>> perLeafResults,
+        final Weight filterWeight,
+        final Map<Integer, Bits> filterBitsByLeaf
+    ) throws IOException {
+        final int k = internalNestedKnnVectorQuery.getK();
+        final ExactSearcher searcher = resolveExactSearcher();
+        List<Callable<TopDocs>> rescoreTasks = new ArrayList<>(leafReaderContexts.size());
+        for (int i = 0; i < perLeafResults.size(); i++) {
+            LeafReaderContext leafReaderContext = leafReaderContexts.get(i);
+            Map<Integer, Float> leafResult = perLeafResults.get(i);
+            int leafOrd = i;
+            rescoreTasks.add(() -> {
+                if (leafResult.isEmpty()) {
+                    return NestedKnnUtil.EMPTY_TOP_DOCS;
+                }
+                Bits queryFilter = filterBits(filterBitsByLeaf, leafReaderContext, filterWeight);
+                DocIdSetIterator allSiblings = queryUtils.getAllSiblings(
+                    leafReaderContext,
+                    leafResult.keySet(),
+                    internalNestedKnnVectorQuery.getParentFilter(),
+                    queryFilter
+                );
+                final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
+                    .matchedDocsIterator(allSiblings)
+                    .numberOfMatchedDocs(allSiblings.cost())
+                    // setting to false because in re-scoring we want to do exact search on full precision vectors
+                    .useQuantizedVectorsForSearch(false)
+                    .k(k)
+                    .field(internalNestedKnnVectorQuery.getField())
+                    .floatQueryVector(floatQueryVector)
+                    // passing the parent filter makes the searcher collapse each parent group to its best child
+                    .parentsFilter(internalNestedKnnVectorQuery.getParentFilter())
+                    .build();
+                TopDocs leafTopDocs = searcher.searchLeaf(leafReaderContext, exactSearcherContext);
+                for (ScoreDoc scoreDoc : leafTopDocs.scoreDocs) {
+                    scoreDoc.shardIndex = leafOrd;
+                }
+                return leafTopDocs;
+            });
+        }
+        TopDocs[] perLeafTopDocs = indexSearcher.getTaskExecutor().invokeAll(rescoreTasks).toArray(TopDocs[]::new);
+        TopDocs topKParents = TopDocs.merge(k, perLeafTopDocs);
+
+        List<Map<Integer, Float>> reducedResults = new ArrayList<>(leafReaderContexts.size());
+        for (int i = 0; i < leafReaderContexts.size(); i++) {
+            reducedResults.add(new HashMap<>());
+        }
+        for (ScoreDoc scoreDoc : topKParents.scoreDocs) {
+            reducedResults.get(scoreDoc.shardIndex).put(scoreDoc.doc, scoreDoc.score);
+        }
+        return reducedResults;
+    }
+
     private TopDocs[] retrieveAll(
         final IndexSearcher indexSearcher,
         final List<LeafReaderContext> leafReaderContexts,
-        final List<Map<Integer, Float>> perLeafResults
+        final List<Map<Integer, Float>> perLeafResults,
+        final Weight filterWeight,
+        final Map<Integer, Bits> filterBitsByLeaf
     ) throws IOException {
         // Construct query
         List<Callable<TopDocs>> nestedQueryTasks = new ArrayList<>(leafReaderContexts.size());
-        Weight filterWeight = getFilterWeight(indexSearcher);
         for (int i = 0; i < perLeafResults.size(); i++) {
             LeafReaderContext leafReaderContext = leafReaderContexts.get(i);
             int finalI = i;
             nestedQueryTasks.add(() -> {
-                Bits queryFilter = queryUtils.createBits(leafReaderContext, filterWeight);
+                Bits queryFilter = filterBits(filterBitsByLeaf, leafReaderContext, filterWeight);
                 DocIdSetIterator allSiblings = queryUtils.getAllSiblings(
                     leafReaderContext,
                     perLeafResults.get(finalI).keySet(),
                     internalNestedKnnVectorQuery.getParentFilter(),
                     queryFilter
                 );
-                TopDocs topDocs = internalNestedKnnVectorQuery.knnExactSearch(leafReaderContext, allSiblings);
+                TopDocs topDocs = scoreAllSiblings(leafReaderContext, allSiblings);
                 // Update doc id from segment id to shard id
                 for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
                     scoreDoc.doc = scoreDoc.doc + leafReaderContext.docBase;
@@ -91,6 +200,46 @@ public class ExpandNestedDocsQuery extends Query {
             });
         }
         return indexSearcher.getTaskExecutor().invokeAll(nestedQueryTasks).toArray(TopDocs[]::new);
+    }
+
+    /**
+     * Scores every sibling of the surviving parents, each keeping its own score, with no collapsing.
+     *
+     */
+    private TopDocs scoreAllSiblings(final LeafReaderContext leafReaderContext, final DocIdSetIterator allSiblings) throws IOException {
+        if (isRescoreEnabled() == false) {
+            return internalNestedKnnVectorQuery.knnExactSearch(leafReaderContext, allSiblings);
+        }
+        final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
+            .matchedDocsIterator(allSiblings)
+            .numberOfMatchedDocs(allSiblings.cost())
+            // setting to false because in re-scoring we want to do exact search on full precision vectors
+            .useQuantizedVectorsForSearch(false)
+            // every sibling keeps its own score, so no parent filter and no top-k cut here
+            .k((int) allSiblings.cost())
+            .field(internalNestedKnnVectorQuery.getField())
+            .floatQueryVector(floatQueryVector)
+            .build();
+        return resolveExactSearcher().searchLeaf(leafReaderContext, exactSearcherContext);
+    }
+
+    /**
+     * Returns the filter bits of a leaf, building them on first use. Reused across the rescore and expansion
+     * stages, which would otherwise each rebuild the same bit set.
+     */
+    private Bits filterBits(final Map<Integer, Bits> filterBitsByLeaf, final LeafReaderContext leafReaderContext, final Weight filterWeight)
+        throws IOException {
+        Bits cached = filterBitsByLeaf.get(leafReaderContext.ord);
+        if (cached != null) {
+            return cached;
+        }
+        Bits bits = queryUtils.createBits(leafReaderContext, filterWeight);
+        if (bits == null) {
+            // Nothing worth caching, and the map does not accept null values. Callers treat null as "no filter".
+            return null;
+        }
+        Bits existing = filterBitsByLeaf.putIfAbsent(leafReaderContext.ord, bits);
+        return existing != null ? existing : bits;
     }
 
     /**
@@ -119,12 +268,14 @@ public class ExpandNestedDocsQuery extends Query {
             return false;
         }
         ExpandNestedDocsQuery other = (ExpandNestedDocsQuery) o;
-        return internalNestedKnnVectorQuery.equals(other.internalNestedKnnVectorQuery);
+        // rescoreK is not part of internalNestedKnnVectorQuery's equality, so it has to be compared here.
+        // Otherwise two queries differing only in oversample_factor would be considered equal by the query cache.
+        return internalNestedKnnVectorQuery.equals(other.internalNestedKnnVectorQuery) && rescoreK == other.rescoreK;
     }
 
     @Override
     public int hashCode() {
-        return internalNestedKnnVectorQuery.hashCode();
+        return Objects.hash(internalNestedKnnVectorQuery, rescoreK);
     }
 
     @Override
