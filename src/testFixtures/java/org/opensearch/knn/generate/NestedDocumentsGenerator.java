@@ -55,7 +55,7 @@ public class NestedDocumentsGenerator extends DocumentsGenerator {
 
     private void generateOneChildDoc(final XContentBuilder builder, final List<float[]> vectors) throws IOException {
         // Vector field
-        if (dataType == VectorDataType.FLOAT) {
+        if (dataType == VectorDataType.FLOAT || dataType == VectorDataType.HALF_FLOAT) {
             final float[] vector = SearchTestHelper.generateOneSingleFloatVector(
                 DIMENSIONS,
                 MIN_VECTOR_ELEMENT_VALUE,

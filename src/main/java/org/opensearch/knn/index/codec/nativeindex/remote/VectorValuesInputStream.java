@@ -11,6 +11,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNByteVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNHalfFloatVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.QuantizedKNNBinaryVectorValues;
 
@@ -23,6 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static org.opensearch.knn.index.VectorDataType.BINARY;
 import static org.opensearch.knn.index.VectorDataType.BYTE;
 import static org.opensearch.knn.index.VectorDataType.FLOAT;
+import static org.opensearch.knn.index.VectorDataType.HALF_FLOAT;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
 
 /**
@@ -65,7 +67,9 @@ class VectorValuesInputStream extends InputStream {
         this.knnVectorValues = knnVectorValues;
         this.vectorDataType = vectorDataType;
         initializeVectorValues(this.knnVectorValues);
-        this.bytesPerVector = this.knnVectorValues.bytesPerVector();
+        this.bytesPerVector = vectorDataType == HALF_FLOAT
+            ? this.knnVectorValues.dimension() * Float.BYTES
+            : this.knnVectorValues.bytesPerVector();
         // We use currentBuffer == null to indicate that there are no more vectors to be read
         this.currentBuffer = ByteBuffer.allocate(bytesPerVector).order(ByteOrder.LITTLE_ENDIAN);
         // Position the InputStream at the specific byte within the specific vector that startPosition references
@@ -201,6 +205,12 @@ class VectorValuesInputStream extends InputStream {
         currentBuffer.clear();
         if (vectorDataType == FLOAT) {
             float[] floatVector = ((KNNFloatVectorValues) knnVectorValues).getVector();
+            currentBuffer.asFloatBuffer().put(floatVector);
+        } else if (vectorDataType == HALF_FLOAT) {
+            // Uploaded as raw fp32, same as FLOAT - the remote build service converts fp32 -> fp16 itself
+            // while streaming (FP32ToFP16ConvertingBytesIO), the same way it already does for the existing
+            // FLOAT+sq,bits:16 case. Do not encode to fp16 bytes here - the service does not expect that.
+            float[] floatVector = ((KNNHalfFloatVectorValues) knnVectorValues).getVector();
             currentBuffer.asFloatBuffer().put(floatVector);
         } else if (vectorDataType == BYTE) {
             byte[] byteVector = ((KNNByteVectorValues) knnVectorValues).getVector();

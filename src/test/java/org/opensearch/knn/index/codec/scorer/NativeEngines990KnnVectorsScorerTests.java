@@ -13,13 +13,13 @@ import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.apache.lucene.util.hnsw.RandomVectorScorerSupplier;
 import org.mockito.MockedStatic;
-import org.opensearch.knn.jni.SimdVectorComputeService;
 import org.opensearch.knn.memoryoptsearch.faiss.MMapVectorValues;
 import org.opensearch.knn.memoryoptsearch.faiss.NativeRandomVectorScorer;
 import org.opensearch.knn.memoryoptsearch.faiss.WrappedFloatVectorValues;
 
 import java.io.IOException;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
@@ -37,12 +37,16 @@ public class NativeEngines990KnnVectorsScorerTests extends TestCase {
         FloatVectorValues mmapValues = mock(FloatVectorValues.class, withSettings().extraInterfaces(MMapVectorValues.class));
         when(((MMapVectorValues) mmapValues).getAddressAndSize()).thenReturn(new long[] { 100L, 200L });
         float[] target = new float[] { 1.0f, 2.0f };
+        NativeRandomVectorScorer expectedScorer = mock(NativeRandomVectorScorer.class);
 
+        // Mock the factory method rather than the native SimdVectorComputeService.saveSearchContext --
+        // static native methods cannot be intercepted by Mockito's bytecode instrumentation.
         try (
-            MockedStatic<WrappedFloatVectorValues> wrappedMock = mockStatic(WrappedFloatVectorValues.class);
-            MockedStatic<SimdVectorComputeService> ignored = mockStatic(SimdVectorComputeService.class)
+            MockedStatic<NativeRandomVectorScorer> nativeMock = mockStatic(NativeRandomVectorScorer.class);
+            MockedStatic<WrappedFloatVectorValues> wrappedMock = mockStatic(WrappedFloatVectorValues.class)
         ) {
             wrappedMock.when(() -> WrappedFloatVectorValues.getBottomFloatVectorValues(vectorValues)).thenReturn(mmapValues);
+            nativeMock.when(() -> NativeRandomVectorScorer.create(any(), any(), any(), any())).thenReturn(expectedScorer);
 
             RandomVectorScorer result = scorer.getRandomVectorScorer(VectorSimilarityFunction.EUCLIDEAN, vectorValues, target);
 
@@ -57,12 +61,16 @@ public class NativeEngines990KnnVectorsScorerTests extends TestCase {
         FloatVectorValues mmapValues = mock(FloatVectorValues.class, withSettings().extraInterfaces(MMapVectorValues.class));
         when(((MMapVectorValues) mmapValues).getAddressAndSize()).thenReturn(new long[] { 100L, 200L });
         float[] target = new float[] { 1.0f, 2.0f };
+        NativeRandomVectorScorer expectedScorer = mock(NativeRandomVectorScorer.class);
 
+        // Mock the factory method rather than the native SimdVectorComputeService.saveSearchContext --
+        // static native methods cannot be intercepted by Mockito's bytecode instrumentation.
         try (
-            MockedStatic<WrappedFloatVectorValues> wrappedMock = mockStatic(WrappedFloatVectorValues.class);
-            MockedStatic<SimdVectorComputeService> ignored = mockStatic(SimdVectorComputeService.class)
+            MockedStatic<NativeRandomVectorScorer> nativeMock = mockStatic(NativeRandomVectorScorer.class);
+            MockedStatic<WrappedFloatVectorValues> wrappedMock = mockStatic(WrappedFloatVectorValues.class)
         ) {
             wrappedMock.when(() -> WrappedFloatVectorValues.getBottomFloatVectorValues(vectorValues)).thenReturn(mmapValues);
+            nativeMock.when(() -> NativeRandomVectorScorer.create(any(), any(), any(), any())).thenReturn(expectedScorer);
 
             RandomVectorScorer result = scorer.getRandomVectorScorer(VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT, vectorValues, target);
 

@@ -35,6 +35,10 @@ public class KNNCodecUtilTests extends TestCase {
         VectorDataType vectorDataType = VectorDataType.FLOAT;
         assertEquals(160, calculateArraySize(numVectors, vectorLength, vectorDataType));
 
+        // Half-float data type
+        vectorDataType = VectorDataType.HALF_FLOAT;
+        assertEquals(80, calculateArraySize(numVectors, vectorLength, vectorDataType));
+
         // Byte data type
         vectorDataType = VectorDataType.BYTE;
         assertEquals(40, calculateArraySize(numVectors, vectorLength, vectorDataType));

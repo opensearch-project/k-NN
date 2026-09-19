@@ -9,6 +9,7 @@ import lombok.Setter;
 import org.apache.lucene.index.FieldInfo;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.FieldInfoExtractor;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
@@ -74,7 +75,13 @@ public final class NativeIndexBuildStrategyFactory {
         }
 
         initializeVectorValues(knnVectorValues);
-        long vectorBlobLength = ((long) knnVectorValues.bytesPerVector()) * totalLiveDocs;
+        // HALF_FLOAT is uploaded as raw fp32 for remote build (see VectorValuesInputStream#reloadBuffer) -
+        // bytesPerVector() reports the 2-byte on-disk size, which understates the actual upload size here.
+        final VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(fieldInfo);
+        long bytesPerVectorForUpload = vectorDataType == VectorDataType.HALF_FLOAT
+            ? (long) knnVectorValues.dimension() * Float.BYTES
+            : knnVectorValues.bytesPerVector();
+        long vectorBlobLength = bytesPerVectorForUpload * totalLiveDocs;
 
         if (totalLiveDocs > MIN_DOCS_FOR_REMOTE_INDEX_BUILD
             && isKNNRemoteVectorBuildEnabled()

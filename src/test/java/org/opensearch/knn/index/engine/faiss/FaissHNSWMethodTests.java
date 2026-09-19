@@ -6,7 +6,10 @@
 package org.opensearch.knn.index.engine.faiss;
 
 import org.opensearch.Version;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -18,6 +21,7 @@ import org.opensearch.knn.index.engine.TrainingConfigValidationInput;
 import org.opensearch.knn.index.engine.TrainingConfigValidationOutput;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -26,12 +30,68 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 public class FaissHNSWMethodTests extends KNNTestCase {
+
+    public void testValidate_whenHalfFloatWithNoEncoder_thenAccepted() throws IOException {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .dimension(10)
+            .vectorDataType(VectorDataType.HALF_FLOAT)
+            .build();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .endObject();
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(xContentBuilderToMap(xContentBuilder));
+
+        assertNull(new FaissHNSWMethod().validate(knnMethodContext, knnMethodConfigContext));
+    }
+
+    public void testValidate_whenHalfFloatWithSqBits16Encoder_thenRejected() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .dimension(10)
+            .vectorDataType(VectorDataType.HALF_FLOAT)
+            .build();
+
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            new MethodComponentContext(
+                METHOD_HNSW,
+                Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 16)))
+            )
+        );
+
+        assertNotNull(new FaissHNSWMethod().validate(knnMethodContext, knnMethodConfigContext));
+    }
+
+    public void testValidate_whenHalfFloatWithSqBits1Encoder_thenAccepted() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(Version.CURRENT)
+            .dimension(10)
+            .vectorDataType(VectorDataType.HALF_FLOAT)
+            .build();
+
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            new MethodComponentContext(
+                METHOD_HNSW,
+                Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 1)))
+            )
+        );
+
+        assertNull(new FaissHNSWMethod().validate(knnMethodContext, knnMethodConfigContext));
+    }
 
     public void testSupportedEncoders_containsFlatSqPqAndQFrame() {
         Map<String, Encoder> encoders = FaissHNSWMethod.SUPPORTED_ENCODERS;
@@ -211,6 +271,42 @@ public class FaissHNSWMethodTests extends KNNTestCase {
         @SuppressWarnings("unchecked")
         Map<String, Object> encoderParams = (Map<String, Object>) innerParams.get(METHOD_ENCODER_PARAMETER);
         assertEquals(ENCODER_FLAT, encoderParams.get(NAME));
+    }
+
+    // --- supportsRemoteIndexBuild: half_float (#3575) ---
+
+    public void testSupportsRemoteIndexBuild_whenHalfFloatNoEncoder_thenSupported() {
+        // x1: flat fp16 native storage, no encoder resolved - uploaded as fp32, converted by the service
+        Map<String, Object> params = Map.of(
+            NAME,
+            METHOD_HNSW,
+            VECTOR_DATA_TYPE_FIELD,
+            VectorDataType.HALF_FLOAT.getValue(),
+            PARAMETERS,
+            Map.of()
+        );
+        assertTrue(FaissHNSWMethod.supportsRemoteIndexBuild(params));
+    }
+
+    public void testSupportsRemoteIndexBuild_whenHalfFloatSQOneBit_thenSupported() {
+        // x16 resolves internally to sq bits=1 - the 1-bit codes upload unchanged
+        Map<String, Object> params = buildLibraryParametersMap(VectorDataType.HALF_FLOAT, ENCODER_SQ, Map.of(SQ_BITS, 1));
+        assertTrue(FaissHNSWMethod.supportsRemoteIndexBuild(params));
+    }
+
+    public void testSupportsRemoteIndexBuild_whenHalfFloatSQSixteenBit_thenNotSupported() {
+        // fp16 SQ on half_float is not a valid mapping; the gate must not admit it either
+        Map<String, Object> params = buildLibraryParametersMap(VectorDataType.HALF_FLOAT, ENCODER_SQ, Map.of(SQ_BITS, 16));
+        assertFalse(FaissHNSWMethod.supportsRemoteIndexBuild(params));
+    }
+
+    public void testSupportsRemoteIndexBuild_whenFloatConfigs_thenUnchanged() {
+        // Regression guard: FLOAT eligibility unchanged by the half_float gate
+        assertTrue(FaissHNSWMethod.supportsRemoteIndexBuild(buildLibraryParametersMap(VectorDataType.FLOAT, ENCODER_FLAT, Map.of())));
+        assertTrue(
+            FaissHNSWMethod.supportsRemoteIndexBuild(buildLibraryParametersMap(VectorDataType.FLOAT, ENCODER_SQ, Map.of(SQ_BITS, 1)))
+        );
+        assertFalse(FaissHNSWMethod.supportsRemoteIndexBuild(buildLibraryParametersMap(VectorDataType.FLOAT, ENCODER_PQ, Map.of())));
     }
 
     private void assertSQOneBitIndex(VectorDataType dataType, String encoderName, Map<String, Object> encoderParams, boolean expected) {

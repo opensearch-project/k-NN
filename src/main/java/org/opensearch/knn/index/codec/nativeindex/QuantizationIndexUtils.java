@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.codec.nativeindex;
 
 import lombok.experimental.UtilityClass;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -63,8 +64,11 @@ public class QuantizationIndexUtils {
             dimensions = quantizationState.getDimensions();
             quantizationOutput = quantizationService.createQuantizationOutput(quantizationState.getQuantizationParams());
         } else {
-            bytesPerVector = knnVectorValues.bytesPerVector();
             dimensions = knnVectorValues.dimension();
+            // HALF_FLOAT is transferred off-heap as float[] (4 bytes), not bytesPerVector()'s reported 2-byte on-disk size.
+            bytesPerVector = indexInfo.getVectorDataType() == VectorDataType.HALF_FLOAT
+                ? dimensions * Float.BYTES
+                : knnVectorValues.bytesPerVector();
         }
 
         return new IndexBuildSetup(bytesPerVector, dimensions, quantizationOutput, quantizationState);

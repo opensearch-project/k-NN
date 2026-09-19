@@ -244,7 +244,9 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
         final int topK = doExhaustiveSearch ? 0 : TOP_K;
 
         // Prepare a query, and do search.
-        if (schema.vectorDataType == VectorDataType.FLOAT) {
+        if (schema.vectorDataType == VectorDataType.FLOAT || schema.vectorDataType == VectorDataType.HALF_FLOAT) {
+            // half_float queries are submitted as fp32 and scored against fp16 storage, so the query
+            // path is identical to FLOAT here; the document side is rounded in the generators.
             final float[] queryVector = SearchTestHelper.generateOneSingleFloatVector(
                 DIMENSIONS,
                 MIN_VECTOR_ELEMENT_VALUE,

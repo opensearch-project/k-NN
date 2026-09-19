@@ -27,15 +27,38 @@ import java.io.IOException;
 public class NativeRandomVectorScorer extends RandomVectorScorer.AbstractRandomVectorScorer {
 
     /**
+     * Factory method that creates a {@link NativeRandomVectorScorer} and initialises the
+     * native search context. This is the sole entry point for constructing the scorer (the
+     * constructor is package-private), so all callers go through this static factory. Unit
+     * tests can stub it via {@code Mockito.mockStatic} to obtain a scorer without a loaded
+     * native library; because the factory is mocked, the constructor -- and its call to the
+     * native method {@link SimdVectorComputeService#saveSearchContext} -- never runs.
+     *
+     * @param query                  the query vector
+     * @param knnVectorValues        document-to-ordinal mapping
+     * @param mmapVectorValues       native memory address and size of the vector data
+     * @param similarityFunctionType the SIMD similarity function to use
+     * @return a new {@link NativeRandomVectorScorer} ready for scoring
+     */
+    public static NativeRandomVectorScorer create(
+        final float[] query,
+        final KnnVectorValues knnVectorValues,
+        final MMapVectorValues mmapVectorValues,
+        final SimdVectorComputeService.SimilarityFunctionType similarityFunctionType
+    ) {
+        return new NativeRandomVectorScorer(query, knnVectorValues, mmapVectorValues, similarityFunctionType);
+    }
+
+    /**
      * Constructs a native-backed scorer for computing similarity between the given query
      * vector and a set of memory-mapped vectors.
      *
      * @param query                  the query vector represented as a {@code float[]} array
-     * @param knnVectorValues        the {@link KnnVectorValues} providing document–vector mappings
+     * @param knnVectorValues        the {@link KnnVectorValues} providing document-to-ordinal mappings
      * @param mmapVectorValues       the {@link MMapVectorValues} describing native memory chunks
      * @param similarityFunctionType the similarity function type
      */
-    public NativeRandomVectorScorer(
+    NativeRandomVectorScorer(
         final float[] query,
         final KnnVectorValues knnVectorValues,
         final MMapVectorValues mmapVectorValues,

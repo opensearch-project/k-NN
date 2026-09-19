@@ -9,9 +9,11 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.CodecFormatResolver;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
@@ -81,6 +83,8 @@ public abstract class KNN1040BasePerFieldKnnVectorsFormat extends PerFieldKnnVec
         ).fieldType(field);
 
         final KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
+        final VectorDataType vectorDataType = mappedFieldType.getVectorDataType();
+        final CompressionLevel compressionLevel = knnMappingConfig.getCompressionLevel();
         if (knnMappingConfig.getModelId().isPresent()) {
             return nativeFormatResolver.resolve();
         }
@@ -92,11 +96,27 @@ public abstract class KNN1040BasePerFieldKnnVectorsFormat extends PerFieldKnnVec
         final Map<String, Object> params = knnMethodContext.getMethodComponentContext().getParameters();
 
         if (engine == KNNEngine.LUCENE) {
-            return luceneFormatResolver.resolve(field, knnMethodContext, params, defaultMaxConnections, defaultBeamWidth);
+            return luceneFormatResolver.resolve(
+                field,
+                knnMethodContext,
+                params,
+                defaultMaxConnections,
+                defaultBeamWidth,
+                vectorDataType,
+                compressionLevel
+            );
         }
 
         // Native engines — pass params so the resolver can detect SQ encoder
-        return nativeFormatResolver.resolve(field, knnMethodContext, params, defaultMaxConnections, defaultBeamWidth);
+        return nativeFormatResolver.resolve(
+            field,
+            knnMethodContext,
+            params,
+            defaultMaxConnections,
+            defaultBeamWidth,
+            vectorDataType,
+            compressionLevel
+        );
     }
 
     @Override
