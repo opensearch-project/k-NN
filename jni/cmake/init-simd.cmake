@@ -75,7 +75,8 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND AVX512_SPR_ENABLED)
     # -mavx512vl : 256-bit "Sub-vector" support. Ex: _mm256_maskz_loadu_epi16
     # -mavx512fp16 : Native FP16 / EVEX Conversion.
     # -mavx512bf16 : Native BF16 dot-product (_mm512_dpbf16_ps) and FP32->BF16 conversion.
-    set(CMAKE_REQUIRED_FLAGS "-mavx512f -mavx512bw -mavx512vl -mavx512fp16 -mavx512bf16")
+    # -mprefer-vector-width=512 : Emit 512-bit (zmm) code instead of the 256-bit default.
+    set(CMAKE_REQUIRED_FLAGS "-mavx512f -mavx512bw -mavx512vl -mavx512fp16 -mavx512bf16 -mprefer-vector-width=512")
     check_cxx_source_compiles("
         #include <immintrin.h>
         int main() {
@@ -94,7 +95,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND AVX512_SPR_ENABLED)
     if(HAVE_AVX512_SPR_COMPILER)
         set(KNN_HAVE_AVX512_SPR ON)
         set(SIMD_OPT_LEVEL "avx512_spr")
-        set(SIMD_FLAGS -mavx512f -mavx512bw -mavx512vl -mavx512fp16 -mf16c -mavx512bf16)
+        set(SIMD_FLAGS -mavx512f -mavx512bw -mavx512vl -mavx512fp16 -mf16c -mavx512bf16 -mprefer-vector-width=512)
         add_definitions(-DKNN_HAVE_AVX512_SPR)
         message(STATUS "[SIMD] AVX512_SPR supported by compiler.")
     else()
