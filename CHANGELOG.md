@@ -60,3 +60,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Skip warmup for warm-tier indices to avoid unnecessary graph loading from remote store [#3565](https://github.com/opensearch-project/k-NN/pull/3565)
 * Avoid FP16 -> FP32 -> FP16 round trip when merging `half_float` segments [#3610](https://github.com/opensearch-project/k-NN/pull/3610)
 * Report `exact_search` timings in the Profile API for nested k-NN queries with `expand_nested_docs` on the Lucene engine [#3579](https://github.com/opensearch-project/k-NN/pull/3579)
+* Report warmup skip status and per-index skipped fields in the warmup API response [#3592](https://github.com/opensearch-project/k-NN/pull/3592)
