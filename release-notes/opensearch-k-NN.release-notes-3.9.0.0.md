@@ -22,6 +22,7 @@ Compatible with OpenSearch and OpenSearch Dashboards version 3.9.0
 * Terminate remote index build early when the associated merge is aborted ([#3488](https://github.com/opensearch-project/k-NN/pull/3488))
 * Skip warmup on warm indices since data is fetched on demand from remote store ([#3565](https://github.com/opensearch-project/k-NN/pull/3565))
 * Add configurable nproc count to native library build script for parallel compilation ([#3539](https://github.com/opensearch-project/k-NN/pull/3539))
+* Updated the `avx512_spr` build to prefer 512-bit vectorization on Sapphire Rapids and newer Intel CPUs, enabling improved code generation and potential performance gains while leaving other SIMD variants unchanged. ([#3559](https://github.com/opensearch-project/k-NN/pull/3559))
 
 ### Bug Fixes
 * Fix `_source` bloat on merge when derived source is used with `_source.excludes`/`_source.includes` ([#3465](https://github.com/opensearch-project/k-NN/pull/3465))
