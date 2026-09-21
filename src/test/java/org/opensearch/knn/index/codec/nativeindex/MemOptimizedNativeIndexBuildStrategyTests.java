@@ -24,6 +24,7 @@ import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOut
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.test.OpenSearchTestCase;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -324,6 +325,352 @@ public class MemOptimizedNativeIndexBuildStrategyTests extends OpenSearchTestCas
                 // Assert that the vector is in byte[] format due to quantization
                 assertTrue(vector instanceof byte[]);
             }
+        }
+    }
+
+    @SneakyThrows
+    public void testBuildAndWrite_freesNativeMemoryOnException() {
+        // Given
+        List<float[]> vectorValues = List.of(new float[] { 1, 2 }, new float[] { 2, 3 }, new float[] { 3, 4 });
+        final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            vectorValues
+        );
+        final KNNVectorValues<byte[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
+
+        try (
+            MockedStatic<JNIService> mockedJNIService = Mockito.mockStatic(JNIService.class);
+            MockedStatic<OffHeapVectorTransferFactory> mockedOffHeapVectorTransferFactory = Mockito.mockStatic(
+                OffHeapVectorTransferFactory.class
+            )
+        ) {
+            mockedJNIService.when(() -> JNIService.initIndex(3, 2, Map.of("index", "param"), KNNEngine.FAISS)).thenReturn(100L);
+
+            OffHeapVectorTransfer offHeapVectorTransfer = mock(OffHeapVectorTransfer.class);
+            mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 8, 3))
+                .thenReturn(offHeapVectorTransfer);
+
+            when(offHeapVectorTransfer.getTransferLimit()).thenReturn(2);
+            // Simulate exception during vector transfer
+            when(offHeapVectorTransfer.transfer(Mockito.any(), eq(false))).thenThrow(new IOException("Chaos Error 5: Input/output error"));
+
+            IndexOutputWithBuffer indexOutputWithBuffer = Mockito.mock(IndexOutputWithBuffer.class);
+            BuildIndexParams buildIndexParams = BuildIndexParams.builder()
+                .indexOutputWithBuffer(indexOutputWithBuffer)
+                .knnEngine(KNNEngine.FAISS)
+                .vectorDataType(VectorDataType.FLOAT)
+                .indexParameters(Map.of("index", "param"))
+                .knnVectorValuesSupplier(() -> knnVectorValues)
+                .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
+                .build();
+
+            // When
+            RuntimeException exception = expectThrows(
+                RuntimeException.class,
+                () -> MemOptimizedNativeIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams)
+            );
+
+            // Then - verify free was called to prevent memory leak
+            assertTrue(exception.getMessage().contains("Failed to build index"));
+            mockedJNIService.verify(() -> JNIService.free(100L, KNNEngine.FAISS));
+        }
+    }
+
+    @SneakyThrows
+    public void testBuildAndWrite_freesNativeMemoryOnIndexBuildAbortedException() {
+        // Given
+        List<float[]> vectorValues = List.of(new float[] { 1, 2 }, new float[] { 2, 3 }, new float[] { 3, 4 });
+        final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            vectorValues
+        );
+        final KNNVectorValues<byte[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
+
+        try (
+            MockedStatic<JNIService> mockedJNIService = Mockito.mockStatic(JNIService.class);
+            MockedStatic<OffHeapVectorTransferFactory> mockedOffHeapVectorTransferFactory = Mockito.mockStatic(
+                OffHeapVectorTransferFactory.class
+            )
+        ) {
+            mockedJNIService.when(() -> JNIService.initIndex(3, 2, Map.of("index", "param"), KNNEngine.FAISS)).thenReturn(100L);
+
+            OffHeapVectorTransfer offHeapVectorTransfer = mock(OffHeapVectorTransfer.class);
+            mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 8, 3))
+                .thenReturn(offHeapVectorTransfer);
+
+            when(offHeapVectorTransfer.getTransferLimit()).thenReturn(2);
+            // Simulate IndexBuildAbortedException during vector transfer
+            when(offHeapVectorTransfer.transfer(Mockito.any(), eq(false))).thenThrow(new IndexBuildAbortedException("Build aborted"));
+
+            IndexOutputWithBuffer indexOutputWithBuffer = Mockito.mock(IndexOutputWithBuffer.class);
+            BuildIndexParams buildIndexParams = BuildIndexParams.builder()
+                .indexOutputWithBuffer(indexOutputWithBuffer)
+                .knnEngine(KNNEngine.FAISS)
+                .vectorDataType(VectorDataType.FLOAT)
+                .indexParameters(Map.of("index", "param"))
+                .knnVectorValuesSupplier(() -> knnVectorValues)
+                .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
+                .build();
+
+            // When
+            IndexBuildAbortedException abortedException = expectThrows(
+                IndexBuildAbortedException.class,
+                () -> MemOptimizedNativeIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams)
+            );
+
+            // Then - verify free was called to prevent memory leak even on abort
+            assertEquals("Build aborted", abortedException.getMessage());
+            mockedJNIService.verify(() -> JNIService.free(100L, KNNEngine.FAISS));
+        }
+    }
+
+    @SneakyThrows
+    public void testBuildAndWrite_doesNotFreeWhenWriteIndexFails() {
+        // Given - transfers succeed so control reaches writeIndex, which then throws. Because writeIndex
+        // frees the native memory itself (on success and failure), our code must NOT free it again.
+        List<float[]> vectorValues = List.of(new float[] { 1, 2 }, new float[] { 2, 3 }, new float[] { 3, 4 });
+        final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            vectorValues
+        );
+        final KNNVectorValues<byte[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
+
+        try (
+            MockedStatic<JNIService> mockedJNIService = Mockito.mockStatic(JNIService.class);
+            MockedStatic<OffHeapVectorTransferFactory> mockedOffHeapVectorTransferFactory = Mockito.mockStatic(
+                OffHeapVectorTransferFactory.class
+            )
+        ) {
+            mockedJNIService.when(() -> JNIService.initIndex(3, 2, Map.of("index", "param"), KNNEngine.FAISS)).thenReturn(100L);
+
+            OffHeapVectorTransfer offHeapVectorTransfer = mock(OffHeapVectorTransfer.class);
+            mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 8, 3))
+                .thenReturn(offHeapVectorTransfer);
+
+            when(offHeapVectorTransfer.getTransferLimit()).thenReturn(2);
+            // Transfers succeed so we reach writeIndex
+            when(offHeapVectorTransfer.transfer(Mockito.any(), eq(false))).thenReturn(false);
+            when(offHeapVectorTransfer.flush(false)).thenReturn(false);
+            // writeIndex throws (e.g. I/O error during merge). Native side already freed the allocation.
+            mockedJNIService.when(() -> JNIService.writeIndex(Mockito.any(), eq(100L), eq(KNNEngine.FAISS), Mockito.any(), eq(false)))
+                .thenThrow(new RuntimeException("Chaos Error 5: Input/output error"));
+
+            IndexOutputWithBuffer indexOutputWithBuffer = Mockito.mock(IndexOutputWithBuffer.class);
+            BuildIndexParams buildIndexParams = BuildIndexParams.builder()
+                .indexOutputWithBuffer(indexOutputWithBuffer)
+                .knnEngine(KNNEngine.FAISS)
+                .vectorDataType(VectorDataType.FLOAT)
+                .indexParameters(Map.of("index", "param"))
+                .knnVectorValuesSupplier(() -> knnVectorValues)
+                .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
+                .build();
+
+            // When
+            RuntimeException exception = expectThrows(
+                RuntimeException.class,
+                () -> MemOptimizedNativeIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams)
+            );
+
+            // Then - the original failure propagates and we do NOT free (writeIndex already did)
+            assertTrue(exception.getMessage().contains("Failed to build index"));
+            mockedJNIService.verify(() -> JNIService.free(Mockito.anyLong(), Mockito.any(KNNEngine.class)), times(0));
+        }
+    }
+
+    @SneakyThrows
+    public void testBuildAndWrite_doesNotFreeOnSuccess() {
+        // Given - the happy path completes writeIndex successfully; our code must not free (writeIndex owns it).
+        List<float[]> vectorValues = List.of(new float[] { 1, 2 }, new float[] { 2, 3 }, new float[] { 3, 4 });
+        final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            vectorValues
+        );
+        final KNNVectorValues<byte[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
+
+        try (
+            MockedStatic<JNIService> mockedJNIService = Mockito.mockStatic(JNIService.class);
+            MockedStatic<OffHeapVectorTransferFactory> mockedOffHeapVectorTransferFactory = Mockito.mockStatic(
+                OffHeapVectorTransferFactory.class
+            )
+        ) {
+            mockedJNIService.when(() -> JNIService.initIndex(3, 2, Map.of("index", "param"), KNNEngine.FAISS)).thenReturn(100L);
+
+            OffHeapVectorTransfer offHeapVectorTransfer = mock(OffHeapVectorTransfer.class);
+            mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 8, 3))
+                .thenReturn(offHeapVectorTransfer);
+
+            when(offHeapVectorTransfer.getTransferLimit()).thenReturn(2);
+            when(offHeapVectorTransfer.transfer(Mockito.any(), eq(false))).thenReturn(false);
+            when(offHeapVectorTransfer.flush(false)).thenReturn(false);
+            // writeIndex succeeds (default mock behaviour is a no-op void)
+
+            IndexOutputWithBuffer indexOutputWithBuffer = Mockito.mock(IndexOutputWithBuffer.class);
+            BuildIndexParams buildIndexParams = BuildIndexParams.builder()
+                .indexOutputWithBuffer(indexOutputWithBuffer)
+                .knnEngine(KNNEngine.FAISS)
+                .vectorDataType(VectorDataType.FLOAT)
+                .indexParameters(Map.of("index", "param"))
+                .knnVectorValuesSupplier(() -> knnVectorValues)
+                .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
+                .build();
+
+            // When
+            MemOptimizedNativeIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams);
+
+            // Then - writeIndex was invoked and we never called free ourselves
+            mockedJNIService.verify(() -> JNIService.writeIndex(Mockito.any(), eq(100L), eq(KNNEngine.FAISS), Mockito.any(), eq(false)));
+            mockedJNIService.verify(() -> JNIService.free(Mockito.anyLong(), Mockito.any(KNNEngine.class)), times(0));
+        }
+    }
+
+    @SneakyThrows
+    public void testBuildAndWrite_freeFailureDoesNotMaskOriginalException() {
+        // Given - transfer fails (so we own cleanup) AND free itself throws. The original failure must be
+        // preserved as the thrown exception, with the free failure attached as a suppressed exception.
+        List<float[]> vectorValues = List.of(new float[] { 1, 2 }, new float[] { 2, 3 }, new float[] { 3, 4 });
+        final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            vectorValues
+        );
+        final KNNVectorValues<byte[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
+
+        try (
+            MockedStatic<JNIService> mockedJNIService = Mockito.mockStatic(JNIService.class);
+            MockedStatic<OffHeapVectorTransferFactory> mockedOffHeapVectorTransferFactory = Mockito.mockStatic(
+                OffHeapVectorTransferFactory.class
+            )
+        ) {
+            mockedJNIService.when(() -> JNIService.initIndex(3, 2, Map.of("index", "param"), KNNEngine.FAISS)).thenReturn(100L);
+
+            OffHeapVectorTransfer offHeapVectorTransfer = mock(OffHeapVectorTransfer.class);
+            mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 8, 3))
+                .thenReturn(offHeapVectorTransfer);
+
+            when(offHeapVectorTransfer.getTransferLimit()).thenReturn(2);
+            when(offHeapVectorTransfer.transfer(Mockito.any(), eq(false))).thenThrow(new IOException("Chaos Error 5: Input/output error"));
+            // free throws during cleanup
+            mockedJNIService.when(() -> JNIService.free(100L, KNNEngine.FAISS)).thenThrow(new RuntimeException("native free failed"));
+
+            IndexOutputWithBuffer indexOutputWithBuffer = Mockito.mock(IndexOutputWithBuffer.class);
+            BuildIndexParams buildIndexParams = BuildIndexParams.builder()
+                .indexOutputWithBuffer(indexOutputWithBuffer)
+                .knnEngine(KNNEngine.FAISS)
+                .vectorDataType(VectorDataType.FLOAT)
+                .indexParameters(Map.of("index", "param"))
+                .knnVectorValuesSupplier(() -> knnVectorValues)
+                .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
+                .build();
+
+            // When
+            RuntimeException exception = expectThrows(
+                RuntimeException.class,
+                () -> MemOptimizedNativeIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams)
+            );
+
+            // Then - original failure is preserved; free failure is attached as suppressed, not masking it
+            assertTrue(exception.getMessage().contains("Failed to build index"));
+            assertEquals(1, exception.getSuppressed().length);
+            assertEquals("native free failed", exception.getSuppressed()[0].getMessage());
+        }
+    }
+
+    @SneakyThrows
+    public void testBuildAndWrite_doesNotFreeWhenInitIndexReturnsZero() {
+        // Given - initIndex returns 0 (no valid native allocation) and a failure then occurs before writeIndex.
+        // The cleanup must skip freeing to avoid calling free on an invalid (zero) native pointer.
+        List<float[]> vectorValues = List.of(new float[] { 1, 2 }, new float[] { 2, 3 }, new float[] { 3, 4 });
+        final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            vectorValues
+        );
+        final KNNVectorValues<byte[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
+
+        try (
+            MockedStatic<JNIService> mockedJNIService = Mockito.mockStatic(JNIService.class);
+            MockedStatic<OffHeapVectorTransferFactory> mockedOffHeapVectorTransferFactory = Mockito.mockStatic(
+                OffHeapVectorTransferFactory.class
+            )
+        ) {
+            // initIndex returns 0 - no valid allocation
+            mockedJNIService.when(() -> JNIService.initIndex(3, 2, Map.of("index", "param"), KNNEngine.FAISS)).thenReturn(0L);
+
+            OffHeapVectorTransfer offHeapVectorTransfer = mock(OffHeapVectorTransfer.class);
+            mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 8, 3))
+                .thenReturn(offHeapVectorTransfer);
+
+            when(offHeapVectorTransfer.getTransferLimit()).thenReturn(2);
+            // Force a failure before writeIndex so cleanup runs
+            when(offHeapVectorTransfer.transfer(Mockito.any(), eq(false))).thenThrow(new IOException("Chaos Error 5: Input/output error"));
+
+            IndexOutputWithBuffer indexOutputWithBuffer = Mockito.mock(IndexOutputWithBuffer.class);
+            BuildIndexParams buildIndexParams = BuildIndexParams.builder()
+                .indexOutputWithBuffer(indexOutputWithBuffer)
+                .knnEngine(KNNEngine.FAISS)
+                .vectorDataType(VectorDataType.FLOAT)
+                .indexParameters(Map.of("index", "param"))
+                .knnVectorValuesSupplier(() -> knnVectorValues)
+                .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
+                .build();
+
+            // When
+            RuntimeException exception = expectThrows(
+                RuntimeException.class,
+                () -> MemOptimizedNativeIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams)
+            );
+
+            // Then - the original failure propagates and free is NOT called on the zero address
+            assertTrue(exception.getMessage().contains("Failed to build index"));
+            mockedJNIService.verify(() -> JNIService.free(Mockito.anyLong(), Mockito.any(KNNEngine.class)), times(0));
+        }
+    }
+
+    @SneakyThrows
+    public void testBuildAndWrite_doesNotFreeWhenWriteIndexThrowsAbort() {
+        // Given - transfers succeed so control reaches writeIndex, which then throws IndexBuildAbortedException.
+        // Since writeIndex already owns (and frees) the native memory, our code must NOT free it again.
+        List<float[]> vectorValues = List.of(new float[] { 1, 2 }, new float[] { 2, 3 }, new float[] { 3, 4 });
+        final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            vectorValues
+        );
+        final KNNVectorValues<byte[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
+
+        try (
+            MockedStatic<JNIService> mockedJNIService = Mockito.mockStatic(JNIService.class);
+            MockedStatic<OffHeapVectorTransferFactory> mockedOffHeapVectorTransferFactory = Mockito.mockStatic(
+                OffHeapVectorTransferFactory.class
+            )
+        ) {
+            mockedJNIService.when(() -> JNIService.initIndex(3, 2, Map.of("index", "param"), KNNEngine.FAISS)).thenReturn(100L);
+
+            OffHeapVectorTransfer offHeapVectorTransfer = mock(OffHeapVectorTransfer.class);
+            mockedOffHeapVectorTransferFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.FLOAT, 8, 3))
+                .thenReturn(offHeapVectorTransfer);
+
+            when(offHeapVectorTransfer.getTransferLimit()).thenReturn(2);
+            // Transfers succeed so we reach writeIndex
+            when(offHeapVectorTransfer.transfer(Mockito.any(), eq(false))).thenReturn(false);
+            when(offHeapVectorTransfer.flush(false)).thenReturn(false);
+            // writeIndex throws an abort after ownership of the native memory has transferred to it.
+            // Use thenAnswer because IndexBuildAbortedException is checked (extends IOException) and is not
+            // declared on writeIndex, which Mockito's thenThrow validation would otherwise reject.
+            mockedJNIService.when(() -> JNIService.writeIndex(Mockito.any(), eq(100L), eq(KNNEngine.FAISS), Mockito.any(), eq(false)))
+                .thenAnswer(invocation -> {
+                    throw new IndexBuildAbortedException("Build aborted");
+                });
+
+            IndexOutputWithBuffer indexOutputWithBuffer = Mockito.mock(IndexOutputWithBuffer.class);
+            BuildIndexParams buildIndexParams = BuildIndexParams.builder()
+                .indexOutputWithBuffer(indexOutputWithBuffer)
+                .knnEngine(KNNEngine.FAISS)
+                .vectorDataType(VectorDataType.FLOAT)
+                .indexParameters(Map.of("index", "param"))
+                .knnVectorValuesSupplier(() -> knnVectorValues)
+                .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
+                .build();
+
+            // When
+            IndexBuildAbortedException abortedException = expectThrows(
+                IndexBuildAbortedException.class,
+                () -> MemOptimizedNativeIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams)
+            );
+
+            // Then - the abort propagates unchanged and we do NOT free (writeIndex already did)
+            assertEquals("Build aborted", abortedException.getMessage());
+            mockedJNIService.verify(() -> JNIService.free(Mockito.anyLong(), Mockito.any(KNNEngine.class)), times(0));
         }
     }
 }
