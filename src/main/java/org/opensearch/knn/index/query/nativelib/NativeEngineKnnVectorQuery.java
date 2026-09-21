@@ -5,11 +5,11 @@
 
 package org.opensearch.knn.index.query.nativelib;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchNoDocsQuery;
@@ -17,7 +17,9 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.ScoreMode;
+import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.TopKnnCollector;
 import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.join.DiversifyingNearestChildrenKnnCollectorManager;
@@ -32,7 +34,6 @@ import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.PerLeafResult;
 import org.opensearch.knn.index.query.ResultUtil;
-import org.opensearch.knn.index.query.TopDocsDISI;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.index.query.memoryoptsearch.MemoryOptimizedKNNWeight;
@@ -62,15 +63,9 @@ import static org.opensearch.knn.profile.StopWatchUtils.startStopWatch;
 import static org.opensearch.knn.profile.StopWatchUtils.stopStopWatchAndLog;
 
 /**
- * {@link KNNQuery} executes approximate nearest neighbor search (ANN) on a segment level.
- * {@link NativeEngineKnnVectorQuery} executes approximate nearest neighbor search but gives
- * us the control to combine the top k results in each leaf and post process the results just
- * for k-NN query if required. This is done by overriding rewrite method to execute ANN on each leaf
- * {@link KNNQuery} does not give the ability to post process segment results.
+ * Coordinates segment-level native top-K search and full-precision radial rescoring.
  */
 @Log4j2
-@Getter
-@RequiredArgsConstructor
 public class NativeEngineKnnVectorQuery extends Query {
     /**
      * A special flag used for testing purposes that forces execution of the second (exact) search
@@ -79,6 +74,7 @@ public class NativeEngineKnnVectorQuery extends Query {
      * This flag should never be enabled in production; it is intended for testing and debugging only.
      */
     private static final boolean FORCE_REENTER_TESTING;
+    private static ExactSearcher EXACT_SEARCHER_SINGLETON;
 
     static {
         FORCE_REENTER_TESTING = Boolean.parseBoolean(System.getProperty("mem_opt_srch.force_reenter", "false"));
@@ -87,12 +83,144 @@ public class NativeEngineKnnVectorQuery extends Query {
     private final KNNQuery knnQuery;
     private final QueryUtils queryUtils;
     private final boolean expandNestedDocs;
+    private final RadialRescoreContext radialRescoreContext;
+
+    public NativeEngineKnnVectorQuery(final KNNQuery knnQuery, final QueryUtils queryUtils, final boolean expandNestedDocs) {
+        this.knnQuery = Objects.requireNonNull(knnQuery);
+        this.queryUtils = Objects.requireNonNull(queryUtils);
+        this.expandNestedDocs = expandNestedDocs;
+        this.radialRescoreContext = null;
+    }
+
+    private NativeEngineKnnVectorQuery(final QueryUtils queryUtils, final RadialRescoreContext radialRescoreContext) {
+        this.knnQuery = null;
+        this.queryUtils = Objects.requireNonNull(queryUtils);
+        this.expandNestedDocs = false;
+        this.radialRescoreContext = Objects.requireNonNull(radialRescoreContext);
+        Objects.requireNonNull(EXACT_SEARCHER_SINGLETON, "Exact searcher was not initialized.");
+    }
+
+    public static NativeEngineKnnVectorQuery createRadialRescoreQuery(
+        final Query innerQuery,
+        final String field,
+        final float[] queryVector,
+        final float radius,
+        final boolean memoryOptimizedSearchEnabled,
+        final int firstPassK
+    ) {
+        return createRadialRescoreQuery(innerQuery, field, queryVector, radius, memoryOptimizedSearchEnabled, firstPassK, false);
+    }
+
+    public static NativeEngineKnnVectorQuery createRadialRescoreQuery(
+        final Query innerQuery,
+        final String field,
+        final float[] queryVector,
+        final float radius,
+        final boolean memoryOptimizedSearchEnabled,
+        final int firstPassK,
+        final boolean shardLevelRescoringDisabled
+    ) {
+        return createRadialRescoreQuery(
+            innerQuery,
+            QueryUtils.getInstance(),
+            field,
+            queryVector,
+            radius,
+            memoryOptimizedSearchEnabled,
+            firstPassK,
+            shardLevelRescoringDisabled
+        );
+    }
+
+    private static NativeEngineKnnVectorQuery createRadialRescoreQuery(
+        final Query innerQuery,
+        final QueryUtils queryUtils,
+        final String field,
+        final float[] queryVector,
+        final float radius,
+        final boolean memoryOptimizedSearchEnabled,
+        final int firstPassK,
+        final boolean shardLevelRescoringDisabled
+    ) {
+        return new NativeEngineKnnVectorQuery(
+            queryUtils,
+            new RadialRescoreContext(
+                innerQuery,
+                field,
+                queryVector,
+                radius,
+                memoryOptimizedSearchEnabled,
+                firstPassK,
+                shardLevelRescoringDisabled
+            )
+        );
+    }
+
+    @VisibleForTesting
+    public static void initialize(final ExactSearcher exactSearcher) {
+        EXACT_SEARCHER_SINGLETON = exactSearcher;
+    }
+
+    public KNNQuery getKnnQuery() {
+        return knnQuery;
+    }
+
+    public QueryUtils getQueryUtils() {
+        return queryUtils;
+    }
+
+    public boolean isExpandNestedDocs() {
+        return expandNestedDocs;
+    }
+
+    public boolean isRadialSearch() {
+        return radialRescoreContext != null;
+    }
+
+    public Query getInnerQuery() {
+        return radialContext().innerQuery;
+    }
+
+    public String getField() {
+        return radialContext().field;
+    }
+
+    public float[] getQueryVector() {
+        return radialContext().queryVector;
+    }
+
+    public float getRadius() {
+        return radialContext().radius;
+    }
+
+    public boolean isMemoryOptimizedSearchEnabled() {
+        return radialContext().memoryOptimizedSearchEnabled;
+    }
+
+    public int getFirstPassK() {
+        return radialContext().firstPassK;
+    }
+
+    public boolean isShardLevelRescoringDisabled() {
+        return radialContext().shardLevelRescoringDisabled;
+    }
+
+    private RadialRescoreContext radialContext() {
+        if (radialRescoreContext == null) {
+            throw new IllegalStateException("Query is not configured for radial search");
+        }
+        return radialRescoreContext;
+    }
 
     @Override
-    public Weight createWeight(IndexSearcher indexSearcher, ScoreMode scoreMode, float boost) throws IOException {
+    public Weight createWeight(final IndexSearcher indexSearcher, final ScoreMode scoreMode, final float boost) throws IOException {
+        return isRadialSearch() ? createRadialWeight(indexSearcher, scoreMode, boost) : createTopKWeight(indexSearcher, scoreMode, boost);
+    }
+
+    private Weight createTopKWeight(final IndexSearcher indexSearcher, final ScoreMode scoreMode, final float boost) throws IOException {
         // Create Weight depending on whether 2-phase search is needed
         final boolean isShardLevelRescoringDisabled = KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(knnQuery.getIndexName());
-        final Integer firstPassKFor2PhaseSearch = getFirstPassK(isShardLevelRescoringDisabled);
+        final Integer firstPassKFor2PhaseSearch = getTopKFirstPassK();
         final int effectiveK = getEffectiveK(knnQuery.getK());
         final IOSupplier<KNNWeight> weightSupplier = getKNNWeightSupplier(firstPassKFor2PhaseSearch, indexSearcher, scoreMode, effectiveK);
 
@@ -116,16 +244,26 @@ public class NativeEngineKnnVectorQuery extends Query {
         if (isRescoreRequired(firstPassKFor2PhaseSearch) == false) {
             perLeafResults = doSearch(indexSearcher, leafReaderContexts, knnWeight, effectiveK);
         } else {
-            // Search with max(firstPassK, effectiveK) to honor ef_search exploration,
-            // then trim to firstPassK for the rescore input.
             final int searchK = Math.max(firstPassKFor2PhaseSearch, effectiveK);
             perLeafResults = doSearch(indexSearcher, leafReaderContexts, knnWeight, searchK);
-            if (isShardLevelRescoringDisabled == false) {
-                ResultUtil.reduceToTopK(perLeafResults, firstPassKFor2PhaseSearch);
-            }
 
             StopWatch stopWatch = new StopWatch().start();
-            perLeafResults = doRescore(indexSearcher, leafReaderContexts, knnWeight, perLeafResults, finalK);
+            perLeafResults = queryUtils.rescore(
+                indexSearcher,
+                leafReaderContexts,
+                perLeafResults,
+                firstPassKFor2PhaseSearch,
+                isShardLevelRescoringDisabled,
+                () -> ExactSearcher.ExactSearcherContext.builder()
+                    .k(finalK)
+                    .radius(knnQuery.getRadius())
+                    .field(knnQuery.getField())
+                    .floatQueryVector(knnQuery.getQueryVector())
+                    .byteQueryVector(knnQuery.getByteQueryVector())
+                    .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch()),
+                knnQuery.getParentsFilter(),
+                knnWeight::exactSearch
+            );
             long rescoreTime = stopWatch.stop().totalTime().millis();
             log.debug(
                 "Rescoring results took {} ms. oversampled k:{}, segments:{}",
@@ -159,22 +297,81 @@ public class NativeEngineKnnVectorQuery extends Query {
             }
         }
 
-        TopDocs[] topDocs = new TopDocs[perLeafResults.size()];
-        for (int i = 0; i < perLeafResults.size(); i++) {
-            TopDocs leafTopDocs = perLeafResults.get(i).getResult();
-            for (ScoreDoc scoreDoc : leafTopDocs.scoreDocs) {
-                scoreDoc.doc += leafReaderContexts.get(i).docBase;
-            }
-            topDocs[i] = leafTopDocs;
-        }
-
-        TopDocs topK = TopDocs.merge(getMergeTopN(topDocs, finalK, effectiveK), topDocs);
+        final TopDocs topK = queryUtils.mergeLeafResults(
+            leafReaderContexts,
+            perLeafResults,
+            getMergeTopN(perLeafResults, finalK, effectiveK)
+        );
 
         if (topK.scoreDocs.length == 0) {
             return new MatchNoDocsQuery().createWeight(indexSearcher, scoreMode, boost);
         }
 
         return queryUtils.createDocAndScoreQuery(reader, topK, knnWeight).createWeight(indexSearcher, scoreMode, boost);
+    }
+
+    private Weight createRadialWeight(final IndexSearcher searcher, final ScoreMode scoreMode, final float boost) throws IOException {
+        final RadialRescoreContext radial = radialContext();
+        final Weight innerWeight = searcher.createWeight(radial.innerQuery, ScoreMode.TOP_SCORES, 1.0f);
+        final List<LeafReaderContext> leaves = searcher.getIndexReader().leaves();
+        List<PerLeafResult> perLeafResults = collectRadialCandidates(searcher, innerWeight, leaves, radial.firstPassK);
+
+        perLeafResults = queryUtils.rescore(
+            searcher,
+            leaves,
+            perLeafResults,
+            radial.firstPassK,
+            radial.shardLevelRescoringDisabled,
+            () -> ExactSearcher.ExactSearcherContext.builder()
+                .radius(radial.radius)
+                .field(radial.field)
+                .floatQueryVector(radial.queryVector)
+                .maxResultWindow(radial.firstPassK)
+                .isMemoryOptimizedSearchEnabled(radial.memoryOptimizedSearchEnabled),
+            null,
+            EXACT_SEARCHER_SINGLETON::searchLeaf
+        );
+
+        final TopDocs merged = queryUtils.mergeLeafResults(leaves, perLeafResults);
+        if (merged.scoreDocs.length == 0) {
+            return new MatchNoDocsQuery().createWeight(searcher, scoreMode, boost);
+        }
+        return queryUtils.createDocAndScoreQuery(searcher.getIndexReader(), merged).createWeight(searcher, scoreMode, boost);
+    }
+
+    private List<PerLeafResult> collectRadialCandidates(
+        final IndexSearcher searcher,
+        final Weight innerWeight,
+        final List<LeafReaderContext> leaves,
+        final int firstPassK
+    ) throws IOException {
+        final List<Callable<PerLeafResult>> tasks = new ArrayList<>(leaves.size());
+        for (final LeafReaderContext leaf : leaves) {
+            tasks.add(() -> collectRadialLeafCandidates(innerWeight, leaf, firstPassK));
+        }
+        return searcher.getTaskExecutor().invokeAll(tasks);
+    }
+
+    private PerLeafResult collectRadialLeafCandidates(final Weight innerWeight, final LeafReaderContext leaf, final int firstPassK)
+        throws IOException {
+        final Scorer innerScorer = innerWeight.scorer(leaf);
+        if (innerScorer == null) {
+            return PerLeafResult.empty();
+        }
+        final TopDocs candidates = collectTopDocs(innerScorer, firstPassK);
+        if (candidates.scoreDocs.length == 0) {
+            return PerLeafResult.empty();
+        }
+        return new PerLeafResult(null, 0, candidates, PerLeafResult.SearchMode.APPROXIMATE_SEARCH);
+    }
+
+    private static TopDocs collectTopDocs(final Scorer scorer, final int candidateLimit) throws IOException {
+        final TopKnnCollector collector = new TopKnnCollector(candidateLimit, Integer.MAX_VALUE);
+        final DocIdSetIterator iterator = scorer.iterator();
+        for (int docId = iterator.nextDoc(); docId != DocIdSetIterator.NO_MORE_DOCS; docId = iterator.nextDoc()) {
+            collector.collect(docId, scorer.score());
+        }
+        return collector.topDocs();
     }
 
     private boolean isRescoreRequired(Integer firstPassKFor2PhaseSearch) {
@@ -200,7 +397,7 @@ public class NativeEngineKnnVectorQuery extends Query {
         return () -> (KNNWeight) knnQuery.createWeight(indexSearcher, scoreMode, 1);
     }
 
-    private Integer getFirstPassK(final boolean isShardLevelRescoringDisabled) {
+    private Integer getTopKFirstPassK() {
         final RescoreContext rescoreContext = knnQuery.getRescoreContext();
         if (rescoreContext != null && rescoreContext.isRescoreEnabled()) {
             // We need 2-phase search where using expanded `k` for the first stage search.
@@ -229,26 +426,13 @@ public class NativeEngineKnnVectorQuery extends Query {
     }
 
     /**
-     * Determines the topN parameter for TopDocs.merge.
-     *
-     * For expandNestedDocs or MOS without ef_search expansion: returns total doc count
-     * to preserve all results (totalHits behavior).
-     * For MOS with ef_search expansion: returns k to trim excess results from expanded search.
-     * For non-MOS without expandNestedDocs: uses k (already trimmed by reduceToTopK).
-     *
-     * @param topDocs the top documents
-     * @param k the user's requested result count
-     * @return the topN value to pass to TopDocs.merge
+     * Preserves every expanded nested result and unexpanded memory-optimized result; otherwise
+     * the final merge is bounded by {@code k}.
      */
-    private int getMergeTopN(TopDocs[] topDocs, int k, int effectiveK) {
+    private int getMergeTopN(final List<PerLeafResult> perLeafResults, final int k, final int effectiveK) {
         if (expandNestedDocs || (knnQuery.isMemoryOptimizedSearch() && effectiveK == k)) {
-            int sum = 0;
-            for (TopDocs topDoc : topDocs) {
-                sum += topDoc.scoreDocs.length;
-            }
-            return sum;
+            return perLeafResults.stream().mapToInt(result -> result.getResult().scoreDocs.length).sum();
         }
-
         return k;
     }
 
@@ -469,61 +653,6 @@ public class NativeEngineKnnVectorQuery extends Query {
         }
     }
 
-    private List<PerLeafResult> doRescore(
-        final IndexSearcher indexSearcher,
-        List<LeafReaderContext> leafReaderContexts,
-        KNNWeight knnWeight,
-        List<PerLeafResult> perLeafResults,
-        int k
-    ) throws IOException {
-        List<Callable<PerLeafResult>> rescoreTasks = new ArrayList<>(leafReaderContexts.size());
-        for (int i = 0; i < perLeafResults.size(); i++) {
-            LeafReaderContext leafReaderContext = leafReaderContexts.get(i);
-            int finalI = i;
-            rescoreTasks.add(() -> {
-                PerLeafResult perLeafeResult = perLeafResults.get(finalI);
-                if (perLeafeResult.getResult().scoreDocs.length == 0) {
-                    return perLeafeResult;
-                }
-                final Set<Integer> docIds = Arrays.stream(perLeafeResult.getResult().scoreDocs)
-                    .map(scoreDoc -> scoreDoc.doc)
-                    .collect(Collectors.toSet());
-                DocIdSetIterator matchedDocs;
-                if (knnQuery.getParentsFilter() != null) {
-                    matchedDocs = queryUtils.getAllSiblings(
-                        leafReaderContext,
-                        docIds,
-                        knnQuery.getParentsFilter(),
-                        perLeafeResult.getFilterBits()
-                    );
-                } else {
-                    matchedDocs = new TopDocsDISI(perLeafeResult.getResult());
-                }
-                final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
-                    .matchedDocsIterator(matchedDocs)
-                    .numberOfMatchedDocs(matchedDocs.cost())
-                    // setting to false because in re-scoring we want to do exact search on full precision vectors
-                    .useQuantizedVectorsForSearch(false)
-                    .k(k)
-                    .radius(knnQuery.getRadius())
-                    .field(knnQuery.getField())
-                    .floatQueryVector(knnQuery.getQueryVector())
-                    .byteQueryVector(knnQuery.getByteQueryVector())
-                    .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch())
-                    .parentsFilter(knnQuery.getParentsFilter())
-                    .build();
-                TopDocs rescoreResult = knnWeight.exactSearch(leafReaderContext, exactSearcherContext);
-                return new PerLeafResult(
-                    perLeafeResult.getFilterBits(),
-                    perLeafeResult.getFilterBitsCardinality(),
-                    rescoreResult,
-                    PerLeafResult.SearchMode.EXACT_SEARCH
-                );
-            });
-        }
-        return indexSearcher.getTaskExecutor().invokeAll(rescoreTasks);
-    }
-
     private PerLeafResult searchLeaf(LeafReaderContext ctx, KNNWeight queryWeight, int k) throws IOException {
         final PerLeafResult perLeafResult = queryWeight.searchLeaf(ctx, k);
         final Bits liveDocs = ctx.reader().getLiveDocs();
@@ -542,25 +671,119 @@ public class NativeEngineKnnVectorQuery extends Query {
     }
 
     @Override
-    public String toString(String field) {
+    public Query rewrite(final IndexSearcher indexSearcher) throws IOException {
+        if (isRadialSearch() == false) {
+            return this;
+        }
+        final RadialRescoreContext radial = radialContext();
+        final Query rewritten = radial.innerQuery.rewrite(indexSearcher);
+        if (rewritten == radial.innerQuery) {
+            return this;
+        }
+        return createRadialRescoreQuery(
+            rewritten,
+            queryUtils,
+            radial.field,
+            radial.queryVector,
+            radial.radius,
+            radial.memoryOptimizedSearchEnabled,
+            radial.firstPassK,
+            radial.shardLevelRescoringDisabled
+        );
+    }
+
+    @Override
+    public String toString(final String field) {
+        if (isRadialSearch()) {
+            final RadialRescoreContext radial = radialContext();
+            return this.getClass().getSimpleName()
+                + "[field="
+                + radial.field
+                + ", radius="
+                + radial.radius
+                + ", innerQuery="
+                + radial.innerQuery.toString(field)
+                + "]";
+        }
         return this.getClass().getSimpleName() + "[" + field + "]..." + KNNQuery.class.getSimpleName() + "[" + knnQuery.toString() + "]";
     }
 
     @Override
-    public void visit(QueryVisitor visitor) {
-        visitor.visitLeaf(this);
+    public void visit(final QueryVisitor visitor) {
+        if (isRadialSearch()) {
+            radialContext().innerQuery.visit(visitor.getSubVisitor(BooleanClause.Occur.MUST, this));
+        } else {
+            visitor.visitLeaf(this);
+        }
     }
 
     @Override
-    public boolean equals(Object obj) {
-        if (!sameClassAs(obj)) {
+    public boolean equals(final Object obj) {
+        if (sameClassAs(obj) == false) {
             return false;
         }
-        return knnQuery == ((NativeEngineKnnVectorQuery) obj).knnQuery;
+        final NativeEngineKnnVectorQuery other = (NativeEngineKnnVectorQuery) obj;
+        if (isRadialSearch() != other.isRadialSearch()) {
+            return false;
+        }
+        return isRadialSearch() ? radialRescoreContext.equals(other.radialRescoreContext) : knnQuery == other.knnQuery;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(classHash(), knnQuery.hashCode());
+        return isRadialSearch() ? Objects.hash(classHash(), radialRescoreContext) : Objects.hash(classHash(), knnQuery.hashCode());
+    }
+
+    private static final class RadialRescoreContext {
+        private final Query innerQuery;
+        private final String field;
+        private final float[] queryVector;
+        private final float radius;
+        private final boolean memoryOptimizedSearchEnabled;
+        private final int firstPassK;
+        private final boolean shardLevelRescoringDisabled;
+
+        private RadialRescoreContext(
+            final Query innerQuery,
+            final String field,
+            final float[] queryVector,
+            final float radius,
+            final boolean memoryOptimizedSearchEnabled,
+            final int firstPassK,
+            final boolean shardLevelRescoringDisabled
+        ) {
+            this.innerQuery = Objects.requireNonNull(innerQuery);
+            this.field = Objects.requireNonNull(field);
+            this.queryVector = Objects.requireNonNull(queryVector);
+            this.radius = radius;
+            this.memoryOptimizedSearchEnabled = memoryOptimizedSearchEnabled;
+            this.firstPassK = firstPassK;
+            this.shardLevelRescoringDisabled = shardLevelRescoringDisabled;
+        }
+
+        @Override
+        public boolean equals(final Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if ((obj instanceof RadialRescoreContext) == false) {
+                return false;
+            }
+            final RadialRescoreContext other = (RadialRescoreContext) obj;
+            return innerQuery.equals(other.innerQuery)
+                && field.equals(other.field)
+                && Arrays.equals(queryVector, other.queryVector)
+                && Float.compare(radius, other.radius) == 0
+                && memoryOptimizedSearchEnabled == other.memoryOptimizedSearchEnabled
+                && firstPassK == other.firstPassK
+                && shardLevelRescoringDisabled == other.shardLevelRescoringDisabled;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = Objects.hash(innerQuery, field, radius, memoryOptimizedSearchEnabled, firstPassK, shardLevelRescoringDisabled);
+            result = 31 * result + Arrays.hashCode(queryVector);
+            return result;
+        }
     }
 }

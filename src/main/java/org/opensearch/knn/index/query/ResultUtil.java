@@ -102,7 +102,7 @@ public final class ResultUtil {
     }
 
     /**
-     * COnvert map of results to top docs. Doc ids have proper offset
+     * Convert map of results to top docs. Doc ids have proper offset
      *
      * @param resultMap map of scores for the leafs
      * @param segmentOffset Offset to apply to ids to make them shard ids

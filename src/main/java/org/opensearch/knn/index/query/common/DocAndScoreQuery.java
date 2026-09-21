@@ -26,15 +26,13 @@ import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 
 final class DocAndScoreQuery extends Query {
 
-    private final int k;
     private final int[] docs;
     private final float[] scores;
     private final int[] segmentStarts;
     private final Object contextIdentity;
     private final KNNWeight knnWeight;
 
-    public DocAndScoreQuery(int k, int[] docs, float[] scores, int[] segmentStarts, Object contextIdentity, KNNWeight knnWeight) {
-        this.k = k;
+    public DocAndScoreQuery(int[] docs, float[] scores, int[] segmentStarts, Object contextIdentity, KNNWeight knnWeight) {
         this.docs = docs;
         this.scores = scores;
         this.segmentStarts = segmentStarts;
@@ -53,7 +51,7 @@ final class DocAndScoreQuery extends Query {
             public Explanation explain(LeafReaderContext context, int doc) {
                 int found = Arrays.binarySearch(docs, doc + context.docBase);
                 if (found < 0) {
-                    return Explanation.noMatch("not in top " + k);
+                    return Explanation.noMatch("not in result set");
                 }
                 float score = 0;
                 try {
@@ -67,6 +65,9 @@ final class DocAndScoreQuery extends Query {
                     throw new RuntimeException(e);
                 }
 
+                if (knnWeight == null) {
+                    return Explanation.match(score, "vector similarity score");
+                }
                 return knnWeight.explain(context, doc, score);
             }
 
@@ -172,8 +173,7 @@ final class DocAndScoreQuery extends Query {
 
                     @Override
                     public long cost() {
-                        // Estimate the cost of the scoring operation, if applicable.
-                        return docs.length == 0 ? k : docs.length;
+                        return docs.length;
                     }
                 };
             }
@@ -187,7 +187,7 @@ final class DocAndScoreQuery extends Query {
 
     @Override
     public String toString(String field) {
-        return "DocAndScore[" + k + "][docs:" + Arrays.toString(docs) + ", scores:" + Arrays.toString(scores) + "]";
+        return "DocAndScore[docs:" + Arrays.toString(docs) + ", scores:" + Arrays.toString(scores) + "]";
     }
 
     @Override
