@@ -446,6 +446,25 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         assertTrue(inProgressLatch2.await(100, TimeUnit.SECONDS));
     }
 
+    public void testGet_whenModelIndexDoesNotExist_thenResourceNotFound() throws InterruptedException {
+        ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
+
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        ActionListener<GetModelResponse> listener = ActionListener.wrap(
+            response -> fail("Getting a model when the model index does not exist should throw ResourceNotFoundException"),
+            exception -> {
+                // IndexNotFoundException extends ResourceNotFoundException, so instanceof would also hold
+                // for the unguarded path that lets the missing index escape. Pin the exact type.
+                assertEquals(ResourceNotFoundException.class, exception.getClass());
+                assertTrue(exception.getMessage(), exception.getMessage().contains("Cannot get model [any-model-id]"));
+                inProgressLatch.countDown();
+            }
+        );
+
+        modelDao.get("any-model-id", listener);
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    }
+
     public void testGet() throws IOException, InterruptedException, ExecutionException {
         ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
         String modelId = "efbsdhcvbsd";
