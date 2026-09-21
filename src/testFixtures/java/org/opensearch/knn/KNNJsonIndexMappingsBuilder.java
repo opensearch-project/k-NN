@@ -25,6 +25,8 @@ public class KNNJsonIndexMappingsBuilder {
     private Integer dimension;
     private String nestedFieldName;
     private String vectorDataType;
+    private String compressionLevel;
+    private String mode;
     private Method method;
 
     public XContentBuilder getIndexMappingBuilder() throws IOException {
@@ -39,6 +41,7 @@ public class KNNJsonIndexMappingsBuilder {
                 .field("type", "knn_vector")
                 .field("dimension", dimension);
             addVectorDataType(xContentBuilder);
+            addCompression(xContentBuilder);
             addMethod(xContentBuilder);
             xContentBuilder.endObject().endObject().endObject().endObject().endObject();
             return xContentBuilder;
@@ -50,6 +53,7 @@ public class KNNJsonIndexMappingsBuilder {
                 .field("type", "knn_vector")
                 .field("dimension", dimension);
             addVectorDataType(xContentBuilder);
+            addCompression(xContentBuilder);
             addMethod(xContentBuilder);
             xContentBuilder.endObject().endObject().endObject();
             return xContentBuilder;
@@ -67,6 +71,15 @@ public class KNNJsonIndexMappingsBuilder {
         xContentBuilder.field("data_type", vectorDataType);
     }
 
+    private void addCompression(final XContentBuilder xContentBuilder) throws IOException {
+        if (compressionLevel != null) {
+            xContentBuilder.field(KNNConstants.COMPRESSION_LEVEL_PARAMETER, compressionLevel);
+        }
+        if (mode != null) {
+            xContentBuilder.field(KNNConstants.MODE_PARAMETER, mode);
+        }
+    }
+
     private void addMethod(final XContentBuilder xContentBuilder) throws IOException {
         if (method == null) {
             return;
@@ -78,16 +91,23 @@ public class KNNJsonIndexMappingsBuilder {
     public static class Method {
         @NonNull
         private String methodName;
-        @NonNull
         private String engine;
         private String spaceType;
         private Parameters parameters;
 
         private void addTo(final XContentBuilder xContentBuilder) throws IOException {
-            xContentBuilder.startObject("method").field("name", methodName).field("engine", engine);
+            xContentBuilder.startObject("method").field("name", methodName);
+            addEngine(xContentBuilder);
             addSpaceType(xContentBuilder);
             addParameters(xContentBuilder);
             xContentBuilder.endObject();
+        }
+
+        private void addEngine(final XContentBuilder xContentBuilder) throws IOException {
+            if (engine == null) {
+                return;
+            }
+            xContentBuilder.field("engine", engine);
         }
 
         private void addSpaceType(final XContentBuilder xContentBuilder) throws IOException {

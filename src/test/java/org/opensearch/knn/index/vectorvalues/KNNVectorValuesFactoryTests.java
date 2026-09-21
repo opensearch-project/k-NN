@@ -40,6 +40,13 @@ public class KNNVectorValuesFactoryTests extends KNNTestCase {
 
         final KNNVectorValues<byte[]> binaryVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.BINARY, binaryDocValues);
         Assert.assertNotNull(binaryVectorValues);
+
+        final KNNVectorValues<float[]> halfFloatVectorValues = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.HALF_FLOAT,
+            binaryDocValues
+        );
+        Assert.assertNotNull(halfFloatVectorValues);
+        Assert.assertTrue(halfFloatVectorValues instanceof KNNHalfFloatVectorValues);
     }
 
     public void testGetVectorValuesUsingDocWithFieldSet_whenValidInput_thenSuccess() {

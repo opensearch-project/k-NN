@@ -56,6 +56,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.codec.util.UnitTestCodec;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
@@ -316,6 +317,25 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         assertTrue(format1.toString().contains("approximateThreshold=100"));
         assertTrue(format2.toString().contains("approximateThreshold=200"));
         assertTrue(format3.toString().contains("approximateThreshold=300"));
+    }
+
+    public void testFlatVectorsFormat_whenUseHalfFloatVectorFormatTrue_thenUsesFp16Delegate() {
+        NativeEngines990KnnVectorsFormat format = new NativeEngines990HalfFloatKnnVectorsFormat(100, new NativeIndexBuildStrategyFactory());
+        assertTrue(format.toString().contains("KNN1040HalfFloatFlatVectorsFormat"));
+    }
+
+    public void testFlatVectorsFormat_whenUseHalfFloatVectorFormatFalse_thenUsesFp32Delegate() {
+        NativeEngines990KnnVectorsFormat format = new NativeEngines990KnnVectorsFormat(100, new NativeIndexBuildStrategyFactory());
+        assertFalse(format.toString().contains("KNN1040HalfFloatFlatVectorsFormat"));
+    }
+
+    public void testFlatVectorsFormat_whenLegacyConstructors_thenDefaultToFp32Delegate() {
+        assertFalse(new NativeEngines990KnnVectorsFormat().toString().contains("KNN1040HalfFloatFlatVectorsFormat"));
+        assertFalse(new NativeEngines990KnnVectorsFormat(100).toString().contains("KNN1040HalfFloatFlatVectorsFormat"));
+        assertFalse(
+            new NativeEngines990KnnVectorsFormat(100, new NativeIndexBuildStrategyFactory()).toString()
+                .contains("KNN1040HalfFloatFlatVectorsFormat")
+        );
     }
 
     private List<String> getFilesFromSegment(Directory dir, String fileFormat) throws IOException {

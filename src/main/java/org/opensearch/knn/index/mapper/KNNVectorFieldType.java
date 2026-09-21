@@ -182,10 +182,14 @@ public class KNNVectorFieldType extends MappedFieldType {
         final Optional<KNNMethodContext> methodContext = knnMappingConfig.getKnnMethodContext();
         final boolean isFlatMethod = methodContext.isPresent()
             && METHOD_FLAT.equals(methodContext.get().getMethodComponentContext().getName());
-        final boolean isSQOneBit = methodContext.map(mc -> FaissSQEncoder.isSQOneBit(mc.getMethodComponentContext().getParameters()))
-            .orElse(false);
         final int dimension = knnMappingConfig.getDimension();
         final CompressionLevel compressionLevel = knnMappingConfig.getCompressionLevel();
+        // half_float x16 always resolves to SQ 1-bit, but the Lucene flat method carries no encoder in
+        // its method context (compression only), so the encoder-params check below misses it and the
+        // 1-bit first pass would run without full-precision rescoring.
+        final boolean isSQOneBit = methodContext.map(mc -> FaissSQEncoder.isSQOneBit(mc.getMethodComponentContext().getParameters()))
+            .orElse(false)
+            || (vectorDataType == VectorDataType.HALF_FLOAT && compressionLevel == CompressionLevel.x16);
         final Mode mode = knnMappingConfig.getMode();
         KNNEngine engine = null;
         if (methodContext.isPresent()) {
@@ -209,13 +213,13 @@ public class KNNVectorFieldType extends MappedFieldType {
      * @throws IllegalStateException if neither KNN method context nor Model ID is configured
      *
      * The transformation process follows this order:
-     * 1. If vector is not FLOAT type, no transformation is performed
+     * 1. If vector is not FLOAT or HALF_FLOAT type, no transformation is performed
      * 2. Attempts to use KNN method context if present
      * 3. Falls back to model ID if KNN method context is not available
      * 4. Throws exception if neither configuration is present
      */
     public float[] transformQueryVector(float[] vector) {
-        if (VectorDataType.FLOAT != vectorDataType) {
+        if (VectorDataType.FLOAT != vectorDataType && VectorDataType.HALF_FLOAT != vectorDataType) {
             return vector;
         }
         final Optional<KNNMethodContext> knnMethodContext = knnMappingConfig.getKnnMethodContext();
@@ -224,14 +228,15 @@ public class KNNVectorFieldType extends MappedFieldType {
             return VectorTransformerFactory.getVectorTransformer(
                 context.getKnnEngine(),
                 context.getSpaceType(),
-                context.getMethodComponentContext()
+                context.getMethodComponentContext(),
+                vectorDataType
             ).transform(vector, false);
         }
         final Optional<String> modelId = knnMappingConfig.getModelId();
         if (modelId.isPresent()) {
             ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
             final ModelMetadata metadata = modelDao.getMetadata(modelId.get());
-            return VectorTransformerFactory.getVectorTransformer(metadata.getKnnEngine(), metadata.getSpaceType(), null)
+            return VectorTransformerFactory.getVectorTransformer(metadata.getKnnEngine(), metadata.getSpaceType(), null, vectorDataType)
                 .transform(vector, false);
         }
         throw new IllegalStateException("Either KNN method context or Model Id should be configured");

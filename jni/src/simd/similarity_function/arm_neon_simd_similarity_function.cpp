@@ -141,18 +141,120 @@ struct ArmNeonFP16L2 final : BaseSimilarityFunction<BulkScoreTransformFunc, Scor
                                    int32_t* internalVectorIds,
                                    float* scores,
                                    const int32_t numVectors) {
-        // Prepare similarity calculation
-        auto func = dynamic_cast<faiss::ScalarQuantizer::SQDistanceComputer*>(srchContext->faissFunction.get());
-        knn_jni::util::ParameterCheck::require_non_null(
-            func, "Unexpected distance function acquired. Expected SQDistanceComputer, but it was something else");
+        // Bulk L2 with 4 batch
+        int32_t processedCount = 0;
+        constexpr int32_t vecBlock = 4;
+        const uint8_t* vectors[vecBlock];
+        const auto* queryPtr = (const float*) srchContext->queryVectorSimdAligned;
+        const int32_t dim = srchContext->dimension;
+        constexpr int32_t dimensionBatch = 8;
 
-        for (int32_t i = 0 ; i < numVectors ; ++i) {
-            // Calculate distance
-            auto vector = reinterpret_cast<uint8_t*>(srchContext->getVectorPointer(internalVectorIds[i]));
-            scores[i] = func->query_to_code(vector);
+        for ( ; (processedCount + vecBlock) <= numVectors ; processedCount += vecBlock) {
+            srchContext->getVectorPointersInBulk((uint8_t**)vectors, &internalVectorIds[processedCount], vecBlock);
+
+            // Score accumulator per each vector
+            float32x4_t acc0 = vdupq_n_f32(0.0f);
+            float32x4_t acc1 = vdupq_n_f32(0.0f);
+            float32x4_t acc2 = vdupq_n_f32(0.0f);
+            float32x4_t acc3 = vdupq_n_f32(0.0f);
+
+            // Batch L2 for 8 values
+            int32_t i = 0;
+            for (; i + dimensionBatch <= dim; i += dimensionBatch) {
+                // Load 8 FP32 query elements
+                float32x4_t q0 = vld1q_f32(queryPtr + i);
+                float32x4_t q1 = vld1q_f32(queryPtr + i + 4);
+
+                // Load 8 FP16 elements from each target and convert to FP32
+                float16x8_t h0 = vld1q_f16((const __fp16 *)(vectors[0] + i * 2));
+                float16x8_t h1 = vld1q_f16((const __fp16 *)(vectors[1] + i * 2));
+                float16x8_t h2 = vld1q_f16((const __fp16 *)(vectors[2] + i * 2));
+                float16x8_t h3 = vld1q_f16((const __fp16 *)(vectors[3] + i * 2));
+                float32x4_t d0_lo = vcvt_f32_f16(vget_low_f16(h0));
+                float32x4_t d0_hi = vcvt_f32_f16(vget_high_f16(h0));
+                float32x4_t d1_lo = vcvt_f32_f16(vget_low_f16(h1));
+                float32x4_t d1_hi = vcvt_f32_f16(vget_high_f16(h1));
+                float32x4_t d2_lo = vcvt_f32_f16(vget_low_f16(h2));
+                float32x4_t d2_hi = vcvt_f32_f16(vget_high_f16(h2));
+                float32x4_t d3_lo = vcvt_f32_f16(vget_low_f16(h3));
+                float32x4_t d3_hi = vcvt_f32_f16(vget_high_f16(h3));
+
+                if (i + 32 < dim) {
+                    __builtin_prefetch(queryPtr + i + 32);
+                    __builtin_prefetch(vectors[0] + (i + 32) * 2);
+                    __builtin_prefetch(vectors[1] + (i + 32) * 2);
+                    __builtin_prefetch(vectors[2] + (i + 32) * 2);
+                    __builtin_prefetch(vectors[3] + (i + 32) * 2);
+                }
+
+                // L2: diff = q - d, then acc += diff * diff (one FMA per half)
+                float32x4_t diff0_lo = vsubq_f32(q0, d0_lo);
+                float32x4_t diff0_hi = vsubq_f32(q1, d0_hi);
+                acc0 = vfmaq_f32(acc0, diff0_lo, diff0_lo);
+                acc0 = vfmaq_f32(acc0, diff0_hi, diff0_hi);
+
+                float32x4_t diff1_lo = vsubq_f32(q0, d1_lo);
+                float32x4_t diff1_hi = vsubq_f32(q1, d1_hi);
+                acc1 = vfmaq_f32(acc1, diff1_lo, diff1_lo);
+                acc1 = vfmaq_f32(acc1, diff1_hi, diff1_hi);
+
+                float32x4_t diff2_lo = vsubq_f32(q0, d2_lo);
+                float32x4_t diff2_hi = vsubq_f32(q1, d2_hi);
+                acc2 = vfmaq_f32(acc2, diff2_lo, diff2_lo);
+                acc2 = vfmaq_f32(acc2, diff2_hi, diff2_hi);
+
+                float32x4_t diff3_lo = vsubq_f32(q0, d3_lo);
+                float32x4_t diff3_hi = vsubq_f32(q1, d3_hi);
+                acc3 = vfmaq_f32(acc3, diff3_lo, diff3_lo);
+                acc3 = vfmaq_f32(acc3, diff3_hi, diff3_hi);
+            }
+
+            // Horizontal sum
+            scores[processedCount] = vaddvq_f32(acc0);
+            scores[processedCount + 1] = vaddvq_f32(acc1);
+            scores[processedCount + 2] = vaddvq_f32(acc2);
+            scores[processedCount + 3] = vaddvq_f32(acc3);
+
+            // Scalar tail.
+            for (; i < dim; i++) {
+                __fp16 h0 = *((const __fp16 *)(vectors[0] + i * 2));
+                __fp16 h1 = *((const __fp16 *)(vectors[1] + i * 2));
+                __fp16 h2 = *((const __fp16 *)(vectors[2] + i * 2));
+                __fp16 h3 = *((const __fp16 *)(vectors[3] + i * 2));
+                const float qv = queryPtr[i];
+                float d0 = qv - (float)h0; scores[processedCount] += d0 * d0;
+                float d1 = qv - (float)h1; scores[processedCount + 1] += d1 * d1;
+                float d2 = qv - (float)h2; scores[processedCount + 2] += d2 * d2;
+                float d3 = qv - (float)h3; scores[processedCount + 3] += d3 * d3;
+            }
         }
 
-        // Transform score values if it needs to
+        // Tail loop for remaining vectors
+        for (; processedCount < numVectors; ++processedCount) {
+            const auto* vecPtr = (const __fp16*) srchContext->getVectorPointer(internalVectorIds[processedCount]);
+            float32x4_t acc = vdupq_n_f32(0.0f);
+            int32_t i = 0;
+            for (; i <= dim - dimensionBatch; i += dimensionBatch) {
+                float32x4_t q0 = vld1q_f32(queryPtr + i);
+                float32x4_t q1 = vld1q_f32(queryPtr + i + 4);
+                float16x8_t h0 = vld1q_f16((const __fp16 *)(vecPtr + i));
+                float32x4_t d0_lo = vcvt_f32_f16(vget_low_f16(h0));
+                float32x4_t d0_hi = vcvt_f32_f16(vget_high_f16(h0));
+                float32x4_t diff_lo = vsubq_f32(q0, d0_lo);
+                float32x4_t diff_hi = vsubq_f32(q1, d0_hi);
+                acc = vfmaq_f32(acc, diff_lo, diff_lo);
+                acc = vfmaq_f32(acc, diff_hi, diff_hi);
+            }
+
+            float finalSum = vaddvq_f32(acc);
+            // Scalar tail for dimensions not divisible by 8
+            for (; i < dim; ++i) {
+                float d = queryPtr[i] - (float)vecPtr[i];
+                finalSum += d * d;
+            }
+            scores[processedCount] = finalSum;
+        }
+
         BulkScoreTransformFunc(scores, numVectors);
     }
 };
@@ -290,7 +392,7 @@ static FORCE_INLINE void simd4bitDotProductBatch(
     }
 }
 
-template <bool IsMaxIP>
+template <SQMetricMode Mode>
 struct ArmNeonSQSimilarityFunction final : SimilarityFunction {
     HOT_SPOT void calculateSimilarityInBulk(SimdVectorSearchContext* srchContext,
                                             int32_t* internalVectorIds,
@@ -331,7 +433,7 @@ struct ArmNeonSQSimilarityFunction final : SimilarityFunction {
                                            + ax * ly * y1
                                            + lx * ly * scores[processedCount + i];
 
-                if constexpr (IsMaxIP) {
+                if constexpr (Mode == SQMetricMode::MAX_IP || Mode == SQMetricMode::COSINE) {
                     scores[processedCount + i] += queryAdditional + additional - centroidDp;
                 } else {
                     scores[processedCount + i] = std::max(0.0F, queryAdditional + additional - 2 * scores[processedCount + i]);
@@ -356,7 +458,7 @@ struct ArmNeonSQSimilarityFunction final : SimilarityFunction {
                                            + ax * ly * y1
                                            + lx * ly * scores[processedCount + i];
 
-                if constexpr (IsMaxIP) {
+                if constexpr (Mode == SQMetricMode::MAX_IP || Mode == SQMetricMode::COSINE) {
                     scores[processedCount + i] += queryAdditional + additional - centroidDp;
                 } else {
                     scores[processedCount + i] =
@@ -379,7 +481,7 @@ struct ArmNeonSQSimilarityFunction final : SimilarityFunction {
                                    + ax * ly * y1
                                    + lx * ly * qcDist;
 
-            if constexpr (IsMaxIP) {
+            if constexpr (Mode == SQMetricMode::MAX_IP || Mode == SQMetricMode::COSINE) {
                 scores[processedCount] += queryAdditional + additional - centroidDp;
             } else {
                 scores[processedCount] =
@@ -387,8 +489,10 @@ struct ArmNeonSQSimilarityFunction final : SimilarityFunction {
             }
         }
 
-        if constexpr (IsMaxIP) {
+        if constexpr (Mode == SQMetricMode::MAX_IP) {
             FaissScoreToLuceneScoreTransform::ipToMaxIpTransformBulk(scores, numVectors);
+        } else if constexpr (Mode == SQMetricMode::COSINE) {
+            FaissScoreToLuceneScoreTransform::cosineTransformBulk(scores, numVectors);
         } else {
             FaissScoreToLuceneScoreTransform::l2TransformBulk(scores, numVectors);
         }
@@ -419,9 +523,13 @@ struct ArmNeonSQSimilarityFunction final : SimilarityFunction {
                       + ax * ly * y1
                       + lx * ly * qcDist;
 
-        if constexpr (IsMaxIP) {
+        if constexpr (Mode == SQMetricMode::MAX_IP || Mode == SQMetricMode::COSINE) {
             score += queryAdditional + additional - centroidDp;
-            return FaissScoreToLuceneScoreTransform::ipToMaxIpTransform(score);
+            if constexpr (Mode == SQMetricMode::MAX_IP) {
+                return FaissScoreToLuceneScoreTransform::ipToMaxIpTransform(score);
+            } else {
+                return FaissScoreToLuceneScoreTransform::cosineTransform(score);
+            }
         } else {
             score = std::max(0.0F, queryAdditional + additional - 2 * score);
             return FaissScoreToLuceneScoreTransform::l2Transform(score);
@@ -437,14 +545,18 @@ struct ArmNeonSQSimilarityFunction final : SimilarityFunction {
 ArmNeonFP16MaxIP<FaissScoreToLuceneScoreTransform::ipToMaxIpTransformBulk, FaissScoreToLuceneScoreTransform::ipToMaxIpTransform> FP16_MAX_INNER_PRODUCT_SIMIL_FUNC;
 // 2. L2
 ArmNeonFP16L2<FaissScoreToLuceneScoreTransform::l2TransformBulk, FaissScoreToLuceneScoreTransform::l2Transform> FP16_L2_SIMIL_FUNC;
+// 3. Cosine (same IP kernel as MaxIP, but with cosine score transform for L2-normalized vectors)
+ArmNeonFP16MaxIP<FaissScoreToLuceneScoreTransform::cosineTransformBulk, FaissScoreToLuceneScoreTransform::cosineTransform> FP16_COSINE_SIMIL_FUNC;
 
 //
 // SQ
 //
 // 1. Max IP
-ArmNeonSQSimilarityFunction<true> SQ_IP_SIMIL_FUNC;
+ArmNeonSQSimilarityFunction<SQMetricMode::MAX_IP> SQ_IP_SIMIL_FUNC;
 // 2. L2
-ArmNeonSQSimilarityFunction<false> SQ_L2_SIMIL_FUNC;
+ArmNeonSQSimilarityFunction<SQMetricMode::L2> SQ_L2_SIMIL_FUNC;
+// 3. Cosine
+ArmNeonSQSimilarityFunction<SQMetricMode::COSINE> SQ_COSINE_SIMIL_FUNC;
 
 #ifndef __NO_SELECT_FUNCTION
 SimilarityFunction* SimilarityFunction::selectSimilarityFunction(const NativeSimilarityFunctionType nativeFunctionType) {
@@ -456,6 +568,10 @@ SimilarityFunction* SimilarityFunction::selectSimilarityFunction(const NativeSim
         return &SQ_IP_SIMIL_FUNC;
     } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ_L2) {
         return &SQ_L2_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ_COSINE) {
+        return &SQ_COSINE_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::FP16_COSINE) {
+        return &FP16_COSINE_SIMIL_FUNC;
     }
 
     throw std::runtime_error("Invalid native similarity function type was given, nativeFunctionType="

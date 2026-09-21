@@ -85,6 +85,49 @@ public class KNNVectorFieldTypeTests extends KNNTestCase {
         return new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.FLOAT, mappingConfig);
     }
 
+    /**
+     * half_float x16 resolves to SQ 1-bit, but the flat method carries no encoder in its method
+     * context - the rescore default must still recognize it as SQ 1-bit, or the 1-bit first pass
+     * runs without full-precision rescoring and recall@1 collapses (observed 0.55 vs 1.00).
+     */
+    public void testResolveRescoreContext_whenHalfFloatFlatX16_thenReturnFixedOversampleFactor() {
+        RescoreContext rescoreContext = buildHalfFloatFlatFieldType(CompressionLevel.x16).resolveRescoreContext(null);
+        assertNotNull("half_float flat x16 (SQ 1-bit) must get a default rescore context", rescoreContext);
+        assertEquals(RescoreContext.FAISS_SCALAR_QUANTIZED_INDEX_OVERSAMPLE_FACTOR, rescoreContext.getOversampleFactor(), 0.001f);
+        assertFalse(rescoreContext.isUserProvided());
+        assertFalse(rescoreContext.isAllowOverrideOversampleFactor());
+    }
+
+    /** half_float x1 is raw fp16 (exact scoring) - no default rescore applies. */
+    public void testResolveRescoreContext_whenHalfFloatFlatX1_thenNull() {
+        assertNull(buildHalfFloatFlatFieldType(CompressionLevel.x1).resolveRescoreContext(null));
+    }
+
+    private KNNVectorFieldType buildHalfFloatFlatFieldType(CompressionLevel compressionLevel) {
+        KNNMethodContext flatMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_FLAT, Map.of())
+        );
+        KNNMappingConfig mappingConfig = new KNNMappingConfig() {
+            @Override
+            public Optional<KNNMethodContext> getKnnMethodContext() {
+                return Optional.of(flatMethodContext);
+            }
+
+            @Override
+            public int getDimension() {
+                return 128;
+            }
+
+            @Override
+            public CompressionLevel getCompressionLevel() {
+                return compressionLevel;
+            }
+        };
+        return new KNNVectorFieldType(FIELD_NAME, Collections.emptyMap(), VectorDataType.HALF_FLOAT, mappingConfig);
+    }
+
     public void testKNNVectorFieldType_whenSQOneBitEncoder_thenAlwaysUseMemoryOptimizedSearchIsTrue() {
         KNNVectorFieldType fieldType = buildSQOneBitFieldType();
         assertTrue(fieldType.isAlwaysUseMemoryOptimizedSearch());

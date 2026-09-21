@@ -25,7 +25,11 @@ public class SimdVectorComputeService {
         // FP16 Maximum Inner Product. The result will be the same as we acquired from VectorSimilarityFunction.EUCLIDEAN.
         FP16_L2,
         SQ_IP,
-        SQ_L2
+        SQ_L2,
+        // FP16 Cosine. Vectors are guaranteed to be L2-normalized, so cosine = inner product with score = (1 + dot) / 2.
+        FP16_COSINE,
+        // SQ Cosine. Same IP math as SQ_IP but with cosine score transform.
+        SQ_COSINE
     }
 
     public static native void saveSQSearchContext(
@@ -71,4 +75,25 @@ public class SimdVectorComputeService {
      * @return Similarity score.
      */
     public native static float scoreSimilarity(int internalVectorId);
+
+    /**
+     * Computes similarity between a query vector and one or more FP16-encoded vectors held
+     * directly in a Java byte[] (as opposed to a memory-mapped native chunk). This allows non-mmap
+     * scoring paths to still benefit from native SIMD FP16 distance computation when the CPU
+     * supports it.
+     *
+     * @param fp16Vectors            FP16-encoded vector bytes, `numVectors` vectors packed contiguously
+     *                               (2 * dimension bytes per vector, little-endian)
+     * @param numVectors             Number of vectors packed in `fp16Vectors`
+     * @param internalVectorIds      Positional ids of the packed vectors. Callers build this once and
+     *                               reuse/grow it across calls to avoid reallocating it on every native call.
+     * @param scores                 Output array to fill with `numVectors` similarity scores
+     * @return The maximum of the computed scores.
+     */
+    public native static float scoreSimilarityInBulkFromFp16Bytes(
+        byte[] fp16Vectors,
+        int numVectors,
+        int[] internalVectorIds,
+        float[] scores
+    );
 }

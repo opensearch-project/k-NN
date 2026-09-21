@@ -73,7 +73,11 @@ public class MMRRerankProcessor implements SearchResponseProcessor, SystemGenera
         final KNNVectorSimilarityFunction similarityFunction = mmrContext.getSpaceType().getKnnVectorSimilarityFunction();
         final int originalQuerySize = mmrContext.getOriginalQuerySize();
         final float diversity = mmrContext.getDiversity();
-        final boolean isFloatVector = VectorDataType.FLOAT.equals(mmrContext.getVectorDataType());
+        // HALF_FLOAT vectors are also serialized as decimal numbers in _source, same as FLOAT - only
+        // BYTE/BINARY are genuinely byte-range integers. Routing HALF_FLOAT through the byte path here
+        // would silently truncate/wrap every component via (byte)(double)x, corrupting MMR diversity scoring.
+        final VectorDataType vectorDataType = mmrContext.getVectorDataType();
+        final boolean isFloatVector = VectorDataType.FLOAT.equals(vectorDataType) || VectorDataType.HALF_FLOAT.equals(vectorDataType);
 
         final List<SearchHit> candidates = new ArrayList<>(List.of(searchResponse.getHits().getHits()));
         final Map<String, Object> docVectors = extractVectors(

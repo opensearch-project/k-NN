@@ -37,7 +37,7 @@ public class NonNestedDocumentsGenerator extends DocumentsGenerator {
 
             if (indexingType == IndexingType.DENSE || ThreadLocalRandom.current().nextFloat() < DENSE_RATIO) {
                 // Vector field
-                if (dataType == VectorDataType.FLOAT) {
+                if (dataType == VectorDataType.FLOAT || dataType == VectorDataType.HALF_FLOAT) {
                     final float[] vector = SearchTestHelper.generateOneSingleFloatVector(
                         DIMENSIONS,
                         MIN_VECTOR_ELEMENT_VALUE,
