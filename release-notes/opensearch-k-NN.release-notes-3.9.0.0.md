@@ -10,6 +10,7 @@ Compatible with OpenSearch and OpenSearch Dashboards version 3.9.0
 * Add radial search method that applies post-filtering on quantized indices using size × oversample_factor top-K ([#3491](https://github.com/opensearch-project/k-NN/pull/3491))
 * Introduce resolved index spec for centralized index configuration resolution ([#3499](https://github.com/opensearch-project/k-NN/pull/3499))
 * Support `index.knn.advanced.approximate_threshold` for the Lucene engine to control HNSW graph construction ([#3451](https://github.com/opensearch-project/k-NN/pull/3451))
+* Add BF16 scalar quantization support for FAISS-backed k-NN indices. ([#3190](https://github.com/opensearch-project/k-NN/pull/3190)))
 
 ### Enhancements
 * Add NEON SIMD kernel for FP16 L2 similarity with ~20% throughput improvement on ARM Graviton3 ([#3512](https://github.com/opensearch-project/k-NN/pull/3512))
