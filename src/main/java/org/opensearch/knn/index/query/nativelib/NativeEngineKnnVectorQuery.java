@@ -6,14 +6,12 @@
 package org.opensearch.knn.index.query.nativelib;
 
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchNoDocsQuery;
-import org.apache.lucene.search.Query;
 import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.ScoreMode;
@@ -28,11 +26,11 @@ import org.apache.lucene.util.IOSupplier;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.query.AbstractRescoreQuery;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.PerLeafResult;
 import org.opensearch.knn.index.query.ResultUtil;
-import org.opensearch.knn.index.query.TopDocsDISI;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.index.query.memoryoptsearch.MemoryOptimizedKNNWeight;
@@ -70,8 +68,7 @@ import static org.opensearch.knn.profile.StopWatchUtils.stopStopWatchAndLog;
  */
 @Log4j2
 @Getter
-@RequiredArgsConstructor
-public class NativeEngineKnnVectorQuery extends Query {
+public class NativeEngineKnnVectorQuery extends AbstractRescoreQuery {
     /**
      * A special flag used for testing purposes that forces execution of the second (exact) search
      * in optimistic search mode, regardless of the results returned by the first approximate search.
@@ -85,14 +82,19 @@ public class NativeEngineKnnVectorQuery extends Query {
     }
 
     private final KNNQuery knnQuery;
-    private final QueryUtils queryUtils;
     private final boolean expandNestedDocs;
+
+    public NativeEngineKnnVectorQuery(final KNNQuery knnQuery, final QueryUtils queryUtils, final boolean expandNestedDocs) {
+        super(queryUtils);
+        this.knnQuery = knnQuery;
+        this.expandNestedDocs = expandNestedDocs;
+    }
 
     @Override
     public Weight createWeight(IndexSearcher indexSearcher, ScoreMode scoreMode, float boost) throws IOException {
         // Create Weight depending on whether 2-phase search is needed
         final boolean isShardLevelRescoringDisabled = KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(knnQuery.getIndexName());
-        final Integer firstPassKFor2PhaseSearch = getFirstPassK(isShardLevelRescoringDisabled);
+        final Integer firstPassKFor2PhaseSearch = getFirstPassK();
         final int effectiveK = getEffectiveK(knnQuery.getK());
         final IOSupplier<KNNWeight> weightSupplier = getKNNWeightSupplier(firstPassKFor2PhaseSearch, indexSearcher, scoreMode, effectiveK);
 
@@ -120,12 +122,24 @@ public class NativeEngineKnnVectorQuery extends Query {
             // then trim to firstPassK for the rescore input.
             final int searchK = Math.max(firstPassKFor2PhaseSearch, effectiveK);
             perLeafResults = doSearch(indexSearcher, leafReaderContexts, knnWeight, searchK);
-            if (isShardLevelRescoringDisabled == false) {
-                ResultUtil.reduceToTopK(perLeafResults, firstPassKFor2PhaseSearch);
-            }
 
             StopWatch stopWatch = new StopWatch().start();
-            perLeafResults = doRescore(indexSearcher, leafReaderContexts, knnWeight, perLeafResults, finalK);
+            perLeafResults = rescore(
+                indexSearcher,
+                leafReaderContexts,
+                perLeafResults,
+                firstPassKFor2PhaseSearch,
+                isShardLevelRescoringDisabled,
+                () -> ExactSearcher.ExactSearcherContext.builder()
+                    .k(finalK)
+                    .radius(knnQuery.getRadius())
+                    .field(knnQuery.getField())
+                    .floatQueryVector(knnQuery.getQueryVector())
+                    .byteQueryVector(knnQuery.getByteQueryVector())
+                    .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch()),
+                knnQuery.getParentsFilter(),
+                knnWeight::exactSearch
+            );
             long rescoreTime = stopWatch.stop().totalTime().millis();
             log.debug(
                 "Rescoring results took {} ms. oversampled k:{}, segments:{}",
@@ -159,21 +173,19 @@ public class NativeEngineKnnVectorQuery extends Query {
             }
         }
 
-        TopDocs[] topDocs = new TopDocs[perLeafResults.size()];
+        final TopDocs[] topDocs = new TopDocs[perLeafResults.size()];
         for (int i = 0; i < perLeafResults.size(); i++) {
-            TopDocs leafTopDocs = perLeafResults.get(i).getResult();
+            final TopDocs leafTopDocs = perLeafResults.get(i).getResult();
             for (ScoreDoc scoreDoc : leafTopDocs.scoreDocs) {
                 scoreDoc.doc += leafReaderContexts.get(i).docBase;
             }
             topDocs[i] = leafTopDocs;
         }
 
-        TopDocs topK = TopDocs.merge(getMergeTopN(topDocs, finalK, effectiveK), topDocs);
-
+        final TopDocs topK = TopDocs.merge(getMergeTopN(topDocs, finalK, effectiveK), topDocs);
         if (topK.scoreDocs.length == 0) {
             return new MatchNoDocsQuery().createWeight(indexSearcher, scoreMode, boost);
         }
-
         return queryUtils.createDocAndScoreQuery(reader, topK, knnWeight).createWeight(indexSearcher, scoreMode, boost);
     }
 
@@ -200,7 +212,7 @@ public class NativeEngineKnnVectorQuery extends Query {
         return () -> (KNNWeight) knnQuery.createWeight(indexSearcher, scoreMode, 1);
     }
 
-    private Integer getFirstPassK(final boolean isShardLevelRescoringDisabled) {
+    private Integer getFirstPassK() {
         final RescoreContext rescoreContext = knnQuery.getRescoreContext();
         if (rescoreContext != null && rescoreContext.isRescoreEnabled()) {
             // We need 2-phase search where using expanded `k` for the first stage search.
@@ -240,15 +252,10 @@ public class NativeEngineKnnVectorQuery extends Query {
      * @param k the user's requested result count
      * @return the topN value to pass to TopDocs.merge
      */
-    private int getMergeTopN(TopDocs[] topDocs, int k, int effectiveK) {
+    private int getMergeTopN(final TopDocs[] topDocs, final int k, final int effectiveK) {
         if (expandNestedDocs || (knnQuery.isMemoryOptimizedSearch() && effectiveK == k)) {
-            int sum = 0;
-            for (TopDocs topDoc : topDocs) {
-                sum += topDoc.scoreDocs.length;
-            }
-            return sum;
+            return Arrays.stream(topDocs).mapToInt(topDocsResult -> topDocsResult.scoreDocs.length).sum();
         }
-
         return k;
     }
 
@@ -467,61 +474,6 @@ public class NativeEngineKnnVectorQuery extends Query {
                 perLeafResult.setResult(resultsFromDeepDive);
             }
         }
-    }
-
-    private List<PerLeafResult> doRescore(
-        final IndexSearcher indexSearcher,
-        List<LeafReaderContext> leafReaderContexts,
-        KNNWeight knnWeight,
-        List<PerLeafResult> perLeafResults,
-        int k
-    ) throws IOException {
-        List<Callable<PerLeafResult>> rescoreTasks = new ArrayList<>(leafReaderContexts.size());
-        for (int i = 0; i < perLeafResults.size(); i++) {
-            LeafReaderContext leafReaderContext = leafReaderContexts.get(i);
-            int finalI = i;
-            rescoreTasks.add(() -> {
-                PerLeafResult perLeafeResult = perLeafResults.get(finalI);
-                if (perLeafeResult.getResult().scoreDocs.length == 0) {
-                    return perLeafeResult;
-                }
-                final Set<Integer> docIds = Arrays.stream(perLeafeResult.getResult().scoreDocs)
-                    .map(scoreDoc -> scoreDoc.doc)
-                    .collect(Collectors.toSet());
-                DocIdSetIterator matchedDocs;
-                if (knnQuery.getParentsFilter() != null) {
-                    matchedDocs = queryUtils.getAllSiblings(
-                        leafReaderContext,
-                        docIds,
-                        knnQuery.getParentsFilter(),
-                        perLeafeResult.getFilterBits()
-                    );
-                } else {
-                    matchedDocs = new TopDocsDISI(perLeafeResult.getResult());
-                }
-                final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
-                    .matchedDocsIterator(matchedDocs)
-                    .numberOfMatchedDocs(matchedDocs.cost())
-                    // setting to false because in re-scoring we want to do exact search on full precision vectors
-                    .useQuantizedVectorsForSearch(false)
-                    .k(k)
-                    .radius(knnQuery.getRadius())
-                    .field(knnQuery.getField())
-                    .floatQueryVector(knnQuery.getQueryVector())
-                    .byteQueryVector(knnQuery.getByteQueryVector())
-                    .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch())
-                    .parentsFilter(knnQuery.getParentsFilter())
-                    .build();
-                TopDocs rescoreResult = knnWeight.exactSearch(leafReaderContext, exactSearcherContext);
-                return new PerLeafResult(
-                    perLeafeResult.getFilterBits(),
-                    perLeafeResult.getFilterBitsCardinality(),
-                    rescoreResult,
-                    PerLeafResult.SearchMode.EXACT_SEARCH
-                );
-            });
-        }
-        return indexSearcher.getTaskExecutor().invokeAll(rescoreTasks);
     }
 
     private PerLeafResult searchLeaf(LeafReaderContext ctx, KNNWeight queryWeight, int k) throws IOException {

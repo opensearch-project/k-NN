@@ -19,6 +19,7 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.query.QueryShardContext;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
@@ -96,7 +97,8 @@ public class RNNQueryFactory extends BaseQueryFactory {
                 vector,
                 radius,
                 createQueryRequest.isMemoryOptimizedSearchEnabled(),
-                fallbackFirstPassK
+                fallbackFirstPassK,
+                isShardLevelRescoringDisabled(createQueryRequest)
             );
         }
         return innerQuery;
@@ -148,8 +150,15 @@ public class RNNQueryFactory extends BaseQueryFactory {
             request.getVector(),
             request.getRadius(),
             request.isMemoryOptimizedSearchEnabled(),
-            firstPassK
+            firstPassK,
+            isShardLevelRescoringDisabled(request)
         );
+    }
+
+    private static boolean isShardLevelRescoringDisabled(final CreateQueryRequest request) {
+        return request.getContext()
+            .map(context -> context.getIndexSettings().getValue(KNNSettings.KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING))
+            .orElse(KNNSettings.KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_VALUE);
     }
 
     /**
