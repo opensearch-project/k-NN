@@ -334,14 +334,15 @@ public class CompressionLevelTests extends KNNTestCase {
         assertEquals(QuantizationBits.ONE, QuantizationBits.fromCompressionLevel(CompressionLevel.x16, VectorDataType.HALF_FLOAT));
     }
 
-    public void testQuantizationBits_halfFloatRejectsWidthsOtherThanOne() {
-        for (QuantizationBits bits : new QuantizationBits[] {
-            QuantizationBits.TWO,
-            QuantizationBits.FOUR,
-            QuantizationBits.SEVEN,
-            QuantizationBits.SIXTEEN }) {
+    public void testQuantizationBits_halfFloatRejectsWidthsOutsideOneTwoFour() {
+        for (QuantizationBits bits : new QuantizationBits[] { QuantizationBits.SEVEN, QuantizationBits.SIXTEEN }) {
             expectThrows(IllegalArgumentException.class, () -> bits.getCompressionLevel(VectorDataType.HALF_FLOAT));
         }
+    }
+
+    public void testQuantizationBits_halfFloatAcceptsTwoAndFour() {
+        assertEquals(CompressionLevel.x8, QuantizationBits.TWO.getCompressionLevel(VectorDataType.HALF_FLOAT));
+        assertEquals(CompressionLevel.x4, QuantizationBits.FOUR.getCompressionLevel(VectorDataType.HALF_FLOAT));
     }
 
     private ResolvedIndexSpec buildSpec(CompressionLevel compression, Mode mode, int dimension, KNNEngine engine) {

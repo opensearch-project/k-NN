@@ -46,9 +46,8 @@ import static org.opensearch.knn.index.engine.lucene.LuceneHNSWMethod.SUPPORTED_
  * requires indices created on or after 3.6.0; the 2/4-bit paths require indices created on or
  * after {@link org.opensearch.knn.common.KNNConstants#LUCENE_HNSW_SQ_2BIT_4BIT_MIN_VERSION}.
  *
- * <p>Those levels are measured against FLOAT's 32-bit storage. {@code half_float} supports only x1
- * and x16, and its x16 is SQ <b>1-bit</b> — 16 bits down to 1 — not the 2-bit level x16 denotes for
- * FLOAT.
+ * <p>Those levels are measured against FLOAT's 32-bit storage. {@code half_float} supports x1, x16,
+ * x8 and x4, whose SQ widths are 1/2/4-bit respectively (16 bits down to 1/2/4).
  */
 public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
 
@@ -59,7 +58,12 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
         CompressionLevel.x16,
         CompressionLevel.x32
     );
-    private static final Set<CompressionLevel> SUPPORTED_COMPRESSION_LEVELS_HALF_FLOAT = Set.of(CompressionLevel.x1, CompressionLevel.x16);
+    private static final Set<CompressionLevel> SUPPORTED_COMPRESSION_LEVELS_HALF_FLOAT = Set.of(
+        CompressionLevel.x1,
+        CompressionLevel.x4,
+        CompressionLevel.x8,
+        CompressionLevel.x16
+    );
     static final CompressionLevel DEFAULT_COMPRESSION_HALF_FLOAT = CompressionLevel.x1;
 
     @Override
@@ -160,7 +164,10 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
         }
 
         if (knnMethodConfigContext.getVectorDataType() == VectorDataType.HALF_FLOAT) {
-            return getDataTypeAwareDefaultCompressionLevel(knnMethodConfigContext) == CompressionLevel.x16;
+            CompressionLevel compressionLevel = getDataTypeAwareDefaultCompressionLevel(knnMethodConfigContext);
+            return compressionLevel == CompressionLevel.x16
+                || compressionLevel == CompressionLevel.x8
+                || compressionLevel == CompressionLevel.x4;
         }
 
         return super.shouldEncoderBeResolved(knnMethodContext, knnMethodConfigContext);

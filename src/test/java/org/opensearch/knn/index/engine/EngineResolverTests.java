@@ -125,6 +125,21 @@ public class EngineResolverTests extends KNNTestCase {
         );
     }
 
+    public void testResolveEngine_whenCompressionIs4xWithHalfFloat_thenEngineIsFaiss() {
+        assertEquals(
+            KNNEngine.FAISS,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder()
+                    .vectorDataType(org.opensearch.knn.index.VectorDataType.HALF_FLOAT)
+                    .compressionLevel(CompressionLevel.x4)
+                    .build(),
+                null,
+                null,
+                false
+            )
+        );
+    }
+
     public void testResolveEngine_whenConfiguredForBQ_thenEngineIsFaiss() {
         assertEquals(
             KNNEngine.FAISS,
@@ -490,6 +505,22 @@ public class EngineResolverTests extends KNNTestCase {
                 new KNNMethodContext(KNNEngine.LUCENE, SpaceType.DEFAULT, MethodComponentContext.EMPTY),
                 "lucene",
                 true,
+                Version.CURRENT
+            )
+        );
+    }
+
+    public void testValidateTopLevelEngine_whenHalfFloatWith4xCompression_thenFaissAllowed() {
+        assertEquals(
+            KNNEngine.FAISS,
+            ENGINE_RESOLVER.resolveEngine(
+                KNNMethodConfigContext.builder()
+                    .vectorDataType(org.opensearch.knn.index.VectorDataType.HALF_FLOAT)
+                    .compressionLevel(CompressionLevel.x4)
+                    .build(),
+                null,
+                "faiss",
+                false,
                 Version.CURRENT
             )
         );

@@ -26,7 +26,6 @@ import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.faiss.FaissCodecFormatResolver;
 import org.opensearch.knn.index.engine.lucene.LuceneCodecFormatResolver;
-import org.opensearch.knn.index.engine.lucene.LuceneFlatMethodResolver;
 import org.opensearch.knn.index.engine.Encoder.QuantizationBits;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 
@@ -117,7 +116,9 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
             if (p.getBits() == QuantizationBits.ONE.getValue()
                 || p.getBits() == QuantizationBits.TWO.getValue()
                 || p.getBits() == QuantizationBits.FOUR.getValue()) {
-                // half_float only ever reaches bits=1 — LuceneHNSWMethodResolver caps it at {x1, x16}.
+                // half_float reaches bits ∈ {1, 2, 4} — LuceneHNSWMethodResolver caps it at
+                // {x1, x16, x8, x4}. p.getBitEncoding() already resolves the correct ScalarEncoding
+                // from bits, independent of data type.
                 if (ctx.getVectorDataType() == VectorDataType.HALF_FLOAT) {
                     return new KNN1040HnswHalfFloatScalarQuantizedVectorsFormat(
                         p.getBitEncoding(),
@@ -149,12 +150,16 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
             );
         }, LuceneVectorsFormatType.FLAT, ctx -> {
             if (ctx.getVectorDataType() == VectorDataType.HALF_FLOAT) {
-                if (ctx.getCompressionLevel() == CompressionLevel.x16) {
-                    return new KNN1040HalfFloatScalarQuantizedVectorsFormat(ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE);
+                if (ctx.getCompressionLevel() == CompressionLevel.x16
+                    || ctx.getCompressionLevel() == CompressionLevel.x8
+                    || ctx.getCompressionLevel() == CompressionLevel.x4) {
+                    return new KNN1040HalfFloatScalarQuantizedVectorsFormat(
+                        resolveFlatScalarEncoding(ctx.getCompressionLevel(), VectorDataType.HALF_FLOAT)
+                    );
                 }
                 return new KNN1040HalfFloatFlatVectorsFormat();
             }
-            return new KNN1040ScalarQuantizedVectorsFormat(resolveFlatScalarEncoding(ctx.getCompressionLevel()));
+            return new KNN1040ScalarQuantizedVectorsFormat(resolveFlatScalarEncoding(ctx.getCompressionLevel(), VectorDataType.FLOAT));
         });
     }
 
@@ -187,20 +192,14 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
     }
 
     /**
-     * Picks the {@link ScalarEncoding} for the FLAT format from the field's compression level.
-     * x32 → 1-bit ({@code SINGLE_BIT_QUERY_NIBBLE}), x16 → 2-bit ({@code DIBIT_QUERY_NIBBLE}),
-     * x8 → 4-bit ({@code PACKED_NIBBLE}). Any other value (including {@code NOT_CONFIGURED},
-     * which the resolver maps to x32) falls back to 1-bit. {@link LuceneFlatMethodResolver}
-     * rejects unsupported compression levels at mapping time so an unexpected value here would
-     * indicate an upstream invariant violation.
+     * Picks the scalar encoding for the FLAT format from compression level and data type; unmapped
+     * levels (including NOT_CONFIGURED) fall back to 1-bit, each data type's default.
      */
-    private static ScalarEncoding resolveFlatScalarEncoding(final CompressionLevel compressionLevel) {
-        if (compressionLevel == CompressionLevel.x8) {
-            return ScalarEncodingResolver.forDocBits(4);
+    private static ScalarEncoding resolveFlatScalarEncoding(final CompressionLevel compressionLevel, final VectorDataType vectorDataType) {
+        int bits = QuantizationBits.fromCompressionLevel(compressionLevel, vectorDataType).getValue();
+        if (bits != 1 && bits != 2 && bits != 4) {
+            bits = 1;
         }
-        if (compressionLevel == CompressionLevel.x16) {
-            return ScalarEncodingResolver.forDocBits(2);
-        }
-        return ScalarEncodingResolver.forDocBits(1);
+        return ScalarEncodingResolver.forDocBits(bits);
     }
 }

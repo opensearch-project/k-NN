@@ -175,12 +175,12 @@ public class FaissSQEncoder implements Encoder {
 
         if (configContext.getVectorDataType() == VectorDataType.HALF_FLOAT
             && bitsObj instanceof Integer
-            && (Integer) bitsObj != QuantizationBits.ONE.getValue()) {
+            && !isSQCodedBits((Integer) bitsObj)) {
             validationException.addValidationError(
                 String.format(
                     Locale.ROOT,
-                    "half_float only supports [%s]=1 for encoder [%s]; use \"%s\": \"16x\" for SQ 1-bit, "
-                        + "or \"1x\" for unquantized fp16 storage, instead.",
+                    "half_float only supports [%s] in {1, 2, 4} for encoder [%s]; use \"%s\": \"16x\"/\"8x\"/\"4x\" for SQ "
+                        + "1/2/4-bit, or \"1x\" for unquantized fp16 storage, instead.",
                     SQ_BITS,
                     ENCODER_SQ,
                     COMPRESSION_LEVEL_PARAMETER

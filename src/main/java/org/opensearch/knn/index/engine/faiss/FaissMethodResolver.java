@@ -48,7 +48,12 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         CompressionLevel.x32
     );
 
-    private static final Set<CompressionLevel> SUPPORTED_COMPRESSION_LEVELS_HALF_FLOAT = Set.of(CompressionLevel.x1, CompressionLevel.x16);
+    private static final Set<CompressionLevel> SUPPORTED_COMPRESSION_LEVELS_HALF_FLOAT = Set.of(
+        CompressionLevel.x1,
+        CompressionLevel.x4,
+        CompressionLevel.x8,
+        CompressionLevel.x16
+    );
 
     @Override
     public ResolvedMethodContext resolveMethod(
@@ -103,11 +108,13 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         }
 
         if (knnMethodConfigContext.getVectorDataType() == VectorDataType.HALF_FLOAT) {
-            if (knnMethodConfigContext.getCompressionLevel() == CompressionLevel.x16) {
+            CompressionLevel compressionLevel = knnMethodConfigContext.getCompressionLevel();
+            if (compressionLevel == CompressionLevel.x16
+                || compressionLevel == CompressionLevel.x8
+                || compressionLevel == CompressionLevel.x4) {
                 return true;
             }
-            return Mode.ON_DISK == knnMethodConfigContext.getMode()
-                && CompressionLevel.isConfigured(knnMethodConfigContext.getCompressionLevel()) == false;
+            return Mode.ON_DISK == knnMethodConfigContext.getMode() && CompressionLevel.isConfigured(compressionLevel) == false;
         }
 
         return super.shouldEncoderBeResolved(knnMethodContext, knnMethodConfigContext);
@@ -136,7 +143,8 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         if (knnMethodConfigContext.getVectorDataType() == VectorDataType.HALF_FLOAT) {
             encoderComponentContext = new MethodComponentContext(ENCODER_SQ, new HashMap<>());
             encoder = encoderMap.get(ENCODER_SQ);
-            encoderComponentContext.getParameters().put(SQ_BITS, Encoder.QuantizationBits.ONE.getValue());
+            int bits = Encoder.QuantizationBits.fromCompressionLevel(resolvedCompressionLevel, VectorDataType.HALF_FLOAT).getValue();
+            encoderComponentContext.getParameters().put(SQ_BITS, bits);
             applyEncoder(resolvedKNNMethodContext, knnMethodConfigContext, encoderComponentContext, encoder);
             return;
         }

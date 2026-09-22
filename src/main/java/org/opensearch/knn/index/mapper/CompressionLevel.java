@@ -83,6 +83,20 @@ public enum CompressionLevel {
     }
 
     /**
+     * Gets the number of bits used to represent a half_float value in order to achieve this
+     * compression level.
+     *
+     * @return number of bits to represent a half_float at this compression level
+     */
+    public int numBitsForHalfFloat() {
+        if (this == NOT_CONFIGURED) {
+            return DEFAULT.numBitsForHalfFloat();
+        }
+
+        return (Short.BYTES * Byte.SIZE) / compressionLevel;
+    }
+
+    /**
      * Utility method that checks if compression is configured.
      *
      * @param compressionLevel Compression to check
