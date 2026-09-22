@@ -22,10 +22,12 @@ import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.opensearch.knn.common.FieldInfoExtractor;
+import org.opensearch.knn.common.LeafReaderUtil;
 import org.opensearch.knn.index.VectorDataType;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -122,7 +124,7 @@ public final class KNNVectorValuesFactory {
      * @param leafReader {@link LeafReader}
      * @return {@link KNNVectorValues}
      */
-    public static <T> KNNVectorValues<T> getVectorValues(final FieldInfo fieldInfo, final SegmentReader leafReader) throws IOException {
+    public static <T> KNNVectorValues<T> getVectorValues(final FieldInfo fieldInfo, final LeafReader leafReader) throws IOException {
         return getVectorValues(fieldInfo, leafReader, false);
     }
 
@@ -138,7 +140,7 @@ public final class KNNVectorValuesFactory {
      */
     public static <T> KNNVectorValues<T> getVectorValues(
         final FieldInfo fieldInfo,
-        final SegmentReader leafReader,
+        final LeafReader leafReader,
         boolean shouldRetrieveQuantizedVectors
     ) throws IOException {
         if (!fieldInfo.hasVectorValues()) {
@@ -157,7 +159,19 @@ public final class KNNVectorValuesFactory {
             if (shouldRetrieveQuantizedVectors) {
                 // Bypasses leafReader.getByteVectorValues() which enforces BYTE encoding check.
                 // This will call getByteVectorValues from NativeEngines990KnnVectorsReader at the end.
-                final ByteVectorValues byteVectorValues = leafReader.getVectorReader().getByteVectorValues(fieldInfo.getName());
+                // Quantized vectors are read through the codec, which only a segment backed reader exposes.
+                final SegmentReader segmentReader = LeafReaderUtil.tryGetSegmentReader(leafReader);
+                if (segmentReader == null) {
+                    throw new IllegalStateException(
+                        String.format(
+                            Locale.ROOT,
+                            "Quantized vectors for field [%s] require a codec backed reader, got [%s]",
+                            fieldInfo.getName(),
+                            leafReader.getClass().getSimpleName()
+                        )
+                    );
+                }
+                final ByteVectorValues byteVectorValues = segmentReader.getVectorReader().getByteVectorValues(fieldInfo.getName());
                 return getVectorValues(
                     VectorDataType.BINARY,  // retrieve binary data from reader
                     new KNNVectorValuesIterator.DocIdsIteratorValues(floatVectorValues.iterator(), byteVectorValues)
