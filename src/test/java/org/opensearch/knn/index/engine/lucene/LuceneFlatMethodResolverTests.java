@@ -296,7 +296,44 @@ public class LuceneFlatMethodResolverTests extends KNNTestCase {
         assertEquals(CompressionLevel.x16, resolvedMethodContext.getCompressionLevel());
     }
 
-    /** Every compression level besides x1 (opt-in exact FP16) and x16 (default, SQ 1-bit) must still be rejected for HALF_FLOAT. */
+    public void testResolveMethod_whenFlatMethodWithHalfFloatAndExplicitX8_thenResolve() {
+        KNNMethodContext flatMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_FLAT, Map.of())
+        );
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            flatMethodContext,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.HALF_FLOAT)
+                .compressionLevel(CompressionLevel.x8)
+                .versionCreated(Version.CURRENT)
+                .build(),
+            false,
+            SpaceType.L2
+        );
+        assertEquals(CompressionLevel.x8, resolvedMethodContext.getCompressionLevel());
+    }
+
+    public void testResolveMethod_whenFlatMethodWithHalfFloatAndExplicitX4_thenResolve() {
+        KNNMethodContext flatMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_FLAT, Map.of())
+        );
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            flatMethodContext,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.HALF_FLOAT)
+                .compressionLevel(CompressionLevel.x4)
+                .versionCreated(Version.CURRENT)
+                .build(),
+            false,
+            SpaceType.L2
+        );
+        assertEquals(CompressionLevel.x4, resolvedMethodContext.getCompressionLevel());
+    }
+
     public void testResolveMethod_whenFlatMethodWithHalfFloatAndUnsupportedCompression_thenThrow() {
         for (CompressionLevel level : CompressionLevel.values()) {
             if (level == CompressionLevel.NOT_CONFIGURED
