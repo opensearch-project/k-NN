@@ -456,7 +456,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 // IndexNotFoundException extends ResourceNotFoundException, so instanceof would also hold
                 // for the unguarded path that lets the missing index escape. Pin the exact type.
                 assertEquals(ResourceNotFoundException.class, exception.getClass());
-                assertTrue(exception.getMessage(), exception.getMessage().contains("Cannot get model [any-model-id]"));
+                assertTrue(exception.getMessage(), exception.getMessage().contains("Model [any-model-id] does not exist"));
                 inProgressLatch.countDown();
             }
         );

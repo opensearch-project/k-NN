@@ -421,12 +421,7 @@ public interface ModelDao {
         public void get(String modelId, ActionListener<GetModelResponse> actionListener) {
             // If the index is not created, there is no model to get
             if (!isCreated()) {
-                String errorMessage = String.format(
-                    Locale.ROOT,
-                    "Cannot get model [%s]. Model index [%s] does not exist",
-                    modelId,
-                    MODEL_INDEX_NAME
-                );
+                String errorMessage = String.format(Locale.ROOT, "Model [%s] does not exist", modelId);
                 actionListener.onFailure(new ResourceNotFoundException(errorMessage));
                 return;
             }
