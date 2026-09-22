@@ -7,6 +7,7 @@ package org.opensearch.knn.index.codec.nativeindex;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransfer;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -30,6 +31,7 @@ import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorV
  * to be transferred. It transfers vectors in small batches, builds index and can clear the offheap space where
  * the vectors were transferred
  */
+@Log4j2
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStrategy {
 
@@ -67,6 +69,14 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
                 engine
             )
         );
+
+        // On any failure before the index is written to disk, the native memory allocated by initIndex must
+        // be freed to avoid leaking it (each failed merge would otherwise permanently leak the HNSW graph).
+        // Once we hand the allocation to writeIndex, though, writeIndex is responsible for freeing it, so we
+        // must NOT free it ourselves: doing so would free the same native pointer twice (a double-free), which
+        // can corrupt the native heap or crash the JVM. This flag is true while we own the cleanup and is
+        // cleared once writeIndex takes over.
+        boolean shouldFreeIndexMemoryOnFailure = true;
 
         try (
             final OffHeapVectorTransfer vectorTransfer = getVectorTransfer(
@@ -120,19 +130,48 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
                 transferredDocIds.clear();
             }
 
-            // Write vector
+            // From here on, writeIndex owns the freeing of the native memory (it frees whether it succeeds
+            // or throws), so clear the flag to stop us from freeing it again in the catch blocks (double-free).
+            shouldFreeIndexMemoryOnFailure = false;
+
             AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
                 JNIService.writeIndex(indexInfo.getIndexOutputWithBuffer(), indexMemoryAddress, engine, indexParameters, false);
                 return null;
             });
 
         } catch (IndexBuildAbortedException indexBuildAbortedException) {
+            if (shouldFreeIndexMemoryOnFailure) {
+                freeNativeIndex(indexMemoryAddress, engine, indexBuildAbortedException);
+            }
             throw indexBuildAbortedException;
         } catch (Exception exception) {
-            throw new RuntimeException(
+            RuntimeException buildException = new RuntimeException(
                 "Failed to build index, field name [" + indexInfo.getField() + "], parameters " + indexInfo,
                 exception
             );
+            if (shouldFreeIndexMemoryOnFailure) {
+                freeNativeIndex(indexMemoryAddress, engine, buildException);
+            }
+            throw buildException;
+        }
+    }
+
+    /**
+     * Frees the native index allocation during exception cleanup. A failure while freeing is logged and attached as a
+     * suppressed exception so the original failure cause is never masked.
+     */
+    private void freeNativeIndex(final long indexMemoryAddress, final KNNEngine engine, final Throwable originalException) {
+        if (indexMemoryAddress == 0) {
+            return;
+        }
+        try {
+            AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
+                JNIService.free(indexMemoryAddress, engine);
+                return null;
+            });
+        } catch (Throwable freeException) {
+            log.error("Failed to free native index memory at address [{}] during exception cleanup", indexMemoryAddress, freeException);
+            originalException.addSuppressed(freeException);
         }
     }
 }
