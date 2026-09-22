@@ -12,6 +12,8 @@ import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_BF16;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
 import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
@@ -546,19 +548,40 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
         assertTrue(spec.supportsRemoteIndexBuild());
     }
 
-    public void testSupportsRemoteIndexBuild_whenHalfFloatSQOneBit_thenNotSupported() {
-        // isSQMultiBit() is data-type agnostic, so without an explicit half_float guard this would
-        // report true and hand the remote build service fp16 flat storage it reads as fp32.
+    public void testSupportsRemoteIndexBuild_whenHalfFloatSQOneBit_thenSupported() {
         ResolvedIndexSpec spec = baseFaissSQ1Bit().vectorDataType(VectorDataType.HALF_FLOAT).compressionLevel(CompressionLevel.x16).build();
         assertTrue("precondition: half_float SQ 1-bit is still SQ multi-bit", spec.isSQMultiBit());
-        assertFalse(spec.supportsRemoteIndexBuild());
+        assertTrue(spec.supportsRemoteIndexBuild());
     }
 
-    public void testSupportsRemoteIndexBuild_whenHalfFloatFlat_thenNotSupported() {
+    public void testSupportsRemoteIndexBuild_whenHalfFloatFlat_thenSupported() {
         ResolvedIndexSpec spec = baseFaiss().vectorDataType(VectorDataType.HALF_FLOAT)
             .encoderType(Encoder.EncoderType.FLAT)
             .compressionLevel(CompressionLevel.x1)
             .build();
+        assertTrue(spec.supportsRemoteIndexBuild());
+    }
+
+    public void testSupportsRemoteIndexBuild_FaissFP16Supported() {
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.SIXTEEN)
+            .sqType(FAISS_SQ_ENCODER_FP16)
+            .compressionLevel(CompressionLevel.x2)
+            .build();
+        assertTrue(spec.isFP16QuantizedIndex());
+        assertFalse(spec.isBF16QuantizedIndex());
+        assertTrue(spec.supportsRemoteIndexBuild());
+    }
+
+    public void testSupportsRemoteIndexBuild_FaissBF16NotSupported() {
+        // bf16 resolves to SQ with bits=16, so it also matches isFP16QuantizedIndex(). Remote build must still be
+        // blocked because the remote builder uses fp16 (half_float) and would truncate out-of-fp16-range values.
+        ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.SIXTEEN)
+            .sqType(FAISS_SQ_ENCODER_BF16)
+            .compressionLevel(CompressionLevel.x2)
+            .build();
+        assertTrue(spec.isBF16QuantizedIndex());
         assertFalse(spec.supportsRemoteIndexBuild());
     }
 

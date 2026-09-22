@@ -26,6 +26,10 @@ public class SimdVectorComputeService {
         FP16_L2,
         SQ_IP,
         SQ_L2,
+        // BF16 Maximum Inner Product. The result will be the same as we acquired from VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT.
+        BF16_MAXIMUM_INNER_PRODUCT,
+        // BF16 L2. The result will be the same as we acquired from VectorSimilarityFunction.EUCLIDEAN.
+        BF16_L2,
         // FP16 Cosine. Vectors are guaranteed to be L2-normalized, so cosine = inner product with score = (1 + dot) / 2.
         FP16_COSINE,
         // SQ Cosine. Same IP math as SQ_IP but with cosine score transform.

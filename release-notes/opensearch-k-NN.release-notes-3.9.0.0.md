@@ -3,11 +3,14 @@
 Compatible with OpenSearch and OpenSearch Dashboards version 3.9.0
 
 ### Features
+* Add `half_float` as a vector data type for Flat and HNSW ([#3578](https://github.com/opensearch-project/k-NN/pull/3578))
+* Enable `half_float` vector data type for remote vector index build ([#3575](https://github.com/opensearch-project/k-NN/pull/3575))
 * Add Intel SVS (Scalable Vector Search) as a sandbox tenant engine with svs_vamana method, flat/sq/lvq/leanvec encoders, and query-time parameters ([#3551](https://github.com/opensearch-project/k-NN/pull/3551))
 * Add multi-bit scalar quantization (2-bit and 4-bit) for Faiss, and make flat method engine-agnostic with x16/x8 support ([#3544](https://github.com/opensearch-project/k-NN/pull/3544))
 * Add radial search method that applies post-filtering on quantized indices using size × oversample_factor top-K ([#3491](https://github.com/opensearch-project/k-NN/pull/3491))
 * Introduce resolved index spec for centralized index configuration resolution ([#3499](https://github.com/opensearch-project/k-NN/pull/3499))
 * Support `index.knn.advanced.approximate_threshold` for the Lucene engine to control HNSW graph construction ([#3451](https://github.com/opensearch-project/k-NN/pull/3451))
+* Add BF16 scalar quantization support for FAISS-backed k-NN indices. ([#3190](https://github.com/opensearch-project/k-NN/pull/3190)))
 
 ### Enhancements
 * Add NEON SIMD kernel for FP16 L2 similarity with ~20% throughput improvement on ARM Graviton3 ([#3512](https://github.com/opensearch-project/k-NN/pull/3512))
@@ -19,6 +22,7 @@ Compatible with OpenSearch and OpenSearch Dashboards version 3.9.0
 * Terminate remote index build early when the associated merge is aborted ([#3488](https://github.com/opensearch-project/k-NN/pull/3488))
 * Skip warmup on warm indices since data is fetched on demand from remote store ([#3565](https://github.com/opensearch-project/k-NN/pull/3565))
 * Add configurable nproc count to native library build script for parallel compilation ([#3539](https://github.com/opensearch-project/k-NN/pull/3539))
+* Updated the `avx512_spr` build to prefer 512-bit vectorization on Sapphire Rapids and newer Intel CPUs, enabling improved code generation and potential performance gains while leaving other SIMD variants unchanged. ([#3559](https://github.com/opensearch-project/k-NN/pull/3559))
 
 ### Bug Fixes
 * Fix `_source` bloat on merge when derived source is used with `_source.excludes`/`_source.includes` ([#3465](https://github.com/opensearch-project/k-NN/pull/3465))

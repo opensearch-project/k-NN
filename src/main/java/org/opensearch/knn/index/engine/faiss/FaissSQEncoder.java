@@ -33,6 +33,7 @@ import static org.opensearch.knn.common.KNNConstants.FAISS_FLAT_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_BF16;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_TYPES;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
@@ -183,6 +184,28 @@ public class FaissSQEncoder implements Encoder {
                     SQ_BITS,
                     ENCODER_SQ,
                     COMPRESSION_LEVEL_PARAMETER
+                )
+            );
+            throw validationException;
+        }
+
+        // Clipping is a no-op for bf16: bf16 shares float32's exponent range, so no finite value is
+        // ever out of range. Reject an explicitly enabled clip instead of silently accepting a
+        // parameter that has no effect. (clip=false is the harmless default and is left alone. For
+        // non-16 bit widths the type parameter is already rejected below, so this only matters for
+        // the fp16/bf16 path.)
+        if (hasClip
+            && Boolean.TRUE.equals(encoderParams.get(FAISS_SQ_CLIP))
+            && FAISS_SQ_ENCODER_BF16.equals(encoderParams.get(FAISS_SQ_TYPE))) {
+            validationException.addValidationError(
+                String.format(
+                    Locale.ROOT,
+                    "Parameter [%s] is not supported when [%s=%s] for encoder [%s]. "
+                        + "Clipping is only applicable for fp16 quantization.",
+                    FAISS_SQ_CLIP,
+                    FAISS_SQ_TYPE,
+                    FAISS_SQ_ENCODER_BF16,
+                    ENCODER_SQ
                 )
             );
             throw validationException;

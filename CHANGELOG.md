@@ -19,6 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Flip defaults of 16x and 8x compression to SQ 2 bits and 4 bits [#3561](https://github.com/opensearch-project/k-NN/pull/3561)
 * Add dynamic mapping for knn_vector fields via plugin inferencer and knn_vector dynamic templates [#3490](https://github.com/opensearch-project/k-NN/pull/3490)
 * Add `half_float` as a vector data type for Flat and HNSW [#3578](https://github.com/opensearch-project/k-NN/pull/3578)
+* Enable `half_float` vector data type for remote vector index build [#3575](https://github.com/opensearch-project/k-NN/pull/3575)
+* Add BFloat16 (BF16) scalar quantization support [#3190](https://github.com/opensearch-project/k-NN/pull/3190)
 
 ### Maintenance
 * Fixed multiple forbidden api warnings from the code []()
@@ -35,6 +37,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Drop HasIndexSlice from ScalarQuantizedFloatVectorValues and expose float/quantized delegates via getters [#3486](https://github.com/opensearch-project/k-NN/pull/3486)
 * Fix exact search and rescore scoring innerproduct and cosinesimil fields with L2 on model based and 2.17 to 2.19 indices [#3537](https://github.com/opensearch-project/k-NN/pull/3537)
 * Support rescoring with `expand_nested_docs` on the Lucene engine, so the final reduction to k counts parent documents instead of child documents [#3125](https://github.com/opensearch-project/k-NN/issues/3125)
+* Fix native memory leak in MemOptimizedNativeIndexBuildStrategy on failed merges [#3593](https://github.com/opensearch-project/k-NN/pull/3593)
 
 ### Refactoring
 * Wire ResolvedIndexSpec consumers through spec-driven resolution flow [#3421](https://github.com/opensearch-project/k-NN/pull/3421)

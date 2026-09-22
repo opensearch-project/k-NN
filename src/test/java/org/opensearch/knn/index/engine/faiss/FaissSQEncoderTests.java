@@ -26,6 +26,7 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_FLAT_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_BF16;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
@@ -131,6 +132,47 @@ public class FaissSQEncoderTests extends KNNTestCase {
                 Version.CURRENT,
                 CompressionLevel.NOT_CONFIGURED,
                 Map.of(SQ_BITS, 16, FAISS_SQ_TYPE, "fp16", FAISS_SQ_CLIP, true)
+            )
+        );
+        assertNull(output.getValid());
+    }
+
+    // --- Validation: clip not allowed for bf16 (it is a no-op since bf16 shares float32's range) ---
+
+    public void testValidate_whenBf16WithClipTrue_thenError() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        TrainingConfigValidationOutput output = encoder.validateEncoderConfig(
+            buildValidationInput(
+                Version.CURRENT,
+                CompressionLevel.NOT_CONFIGURED,
+                Map.of(SQ_BITS, 16, FAISS_SQ_TYPE, FAISS_SQ_ENCODER_BF16, FAISS_SQ_CLIP, true)
+            )
+        );
+        assertNotNull(output.getValid());
+        assertFalse(output.getValid());
+        assertTrue(output.getErrorMessage().contains("clip"));
+        assertTrue(output.getErrorMessage().contains("fp16"));
+    }
+
+    public void testValidate_whenBf16WithClipFalse_thenOk() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        TrainingConfigValidationOutput output = encoder.validateEncoderConfig(
+            buildValidationInput(
+                Version.CURRENT,
+                CompressionLevel.NOT_CONFIGURED,
+                Map.of(SQ_BITS, 16, FAISS_SQ_TYPE, FAISS_SQ_ENCODER_BF16, FAISS_SQ_CLIP, false)
+            )
+        );
+        assertNull(output.getValid());
+    }
+
+    public void testValidate_whenBf16WithoutClip_thenOk() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        TrainingConfigValidationOutput output = encoder.validateEncoderConfig(
+            buildValidationInput(
+                Version.CURRENT,
+                CompressionLevel.NOT_CONFIGURED,
+                Map.of(SQ_BITS, 16, FAISS_SQ_TYPE, FAISS_SQ_ENCODER_BF16)
             )
         );
         assertNull(output.getValid());
