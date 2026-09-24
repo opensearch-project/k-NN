@@ -41,6 +41,9 @@ public class ExpandNestedDocsWithRescoreIT extends KNNRestTestCase {
     private static final String NESTED_FIELD = "nested_field";
     private static final String VECTOR_FIELD = "my_vector";
     private static final String NESTED_VECTOR_PATH = NESTED_FIELD + "." + VECTOR_FIELD;
+    private static final String PARENT_FILTER_FIELD = "parking";
+    private static final String CHILD_FILTER_FIELD = "storage";
+    private static final String NESTED_FILTER_PATH = NESTED_FIELD + "." + CHILD_FILTER_FIELD;
     private static final int DIMENSION = 3;
     private static final int CHILDREN_PER_PARENT = 3;
 
@@ -160,6 +163,90 @@ public class ExpandNestedDocsWithRescoreIT extends KNNRestTestCase {
     }
 
     /**
+     * A filter on the parent document has to survive the rescore stage: the filtered out parent must not come back
+     * even though it is the closest one, and the parents that do come back must still carry all of their children.
+     *
+     * Doc 4 is an exact match for the query vector, so it would win outright without the filter. With the filter
+     * applied the ground truth falls back to {1, 3} and the scores are the ones the unfiltered case produces,
+     * which is what shows the filter narrowed the candidate pool without disturbing the full precision rescoring.
+     */
+    @SneakyThrows
+    public void testExpandNestedDocs_whenRescoreEnabledWithParentFilter_thenReturnKMatchingParentsWithAllChildren() {
+        createNestedKnnIndex();
+        indexDocWithParentFilter("1", new Object[][] { { 2, 2, 2 }, { 1, 1, 1 }, { 3, 3, 3 } }, true);
+        indexDocWithParentFilter("2", new Object[][] { { 10, 10, 10 }, { 10, 10, 10 }, { 10, 10, 10 } }, true);
+        indexDocWithParentFilter("3", new Object[][] { { 9, 9, 9 }, { 200, 200, 200 }, { 300, 300, 300 } }, true);
+        indexDocWithParentFilter("4", new Object[][] { { 1, 1, 1 }, { 1, 1, 1 }, { 1, 1, 1 } }, false);
+        refreshIndex(INDEX_NAME);
+        forceMergeKnnIndex(INDEX_NAME, 1);
+
+        int k = 2;
+        String filter = String.format(Locale.ROOT, "{\"term\":{\"%s\":true}}", PARENT_FILTER_FIELD);
+        String responseBody = search(k, new Object[] { 1, 1, 1 }, null, false, filter);
+
+        Multimap<String, Integer> docIdToOffsets = parseInnerHits(responseBody, NESTED_FIELD);
+        assertEquals(k, docIdToOffsets.keySet().size());
+        assertFalse("the filtered out parent must not be returned", docIdToOffsets.containsKey("4"));
+        for (String docId : docIdToOffsets.keySet()) {
+            assertEquals("parent " + docId + " should carry all of its children", CHILDREN_PER_PARENT, docIdToOffsets.get(docId).size());
+        }
+        assertEquals(k, parseTotalSearchHits(responseBody));
+
+        assertEquals(List.of("1", "3"), parseIds(responseBody));
+
+        List<Double> scores = parseScores(responseBody);
+        assertEquals(0.44230768d, scores.get(0), 1e-7);
+        assertEquals(0.0017311643d, scores.get(1), 1e-9);
+    }
+
+    /**
+     * A filter on the child documents has to narrow the expansion as well as the candidate selection. Only the
+     * children matching the filter may be expanded into the inner hits, and the parents have to be ranked on their
+     * matching children alone.
+     *
+     * Ground truth over the filtered children only: doc 1 keeps [1,1,1] and [3,3,3], doc 2 keeps all three
+     * [10,10,10], doc 3 keeps only [200,200,200] and [300,300,300]. So doc 1 wins, doc 2 is second, and doc 3
+     * drops out even though its unfiltered best child [9,9,9] would have beaten all of doc 2's.
+     */
+    @SneakyThrows
+    public void testExpandNestedDocs_whenRescoreEnabledWithChildFilter_thenReturnOnlyMatchingChildren() {
+        createNestedKnnIndex();
+        indexDocWithChildFilter("1", new Object[][] { { 1, 1, 1 }, { 2, 2, 2 }, { 3, 3, 3 } }, new boolean[] { true, false, true });
+        indexDocWithChildFilter("2", new Object[][] { { 10, 10, 10 }, { 10, 10, 10 }, { 10, 10, 10 } }, new boolean[] { true, true, true });
+        indexDocWithChildFilter(
+            "3",
+            new Object[][] { { 9, 9, 9 }, { 200, 200, 200 }, { 300, 300, 300 } },
+            new boolean[] { false, true, true }
+        );
+        refreshIndex(INDEX_NAME);
+        forceMergeKnnIndex(INDEX_NAME, 1);
+
+        int k = 2;
+        String filter = String.format(
+            Locale.ROOT,
+            "{\"nested\":{\"path\":\"%s\",\"query\":{\"term\":{\"%s\":true}}}}",
+            NESTED_FIELD,
+            NESTED_FILTER_PATH
+        );
+        String responseBody = search(k, new Object[] { 1, 1, 1 }, null, false, filter);
+
+        Multimap<String, Integer> docIdToOffsets = parseInnerHits(responseBody, NESTED_FIELD);
+        assertEquals(List.of("1", "2"), parseIds(responseBody));
+        assertEquals(k, parseTotalSearchHits(responseBody));
+
+        // Only the children that pass the filter get expanded, so doc 1 comes back without its middle child
+        assertEquals(2, docIdToOffsets.get("1").size());
+        assertTrue(docIdToOffsets.get("1").containsAll(List.of(0, 2)));
+        assertEquals(CHILDREN_PER_PARENT, docIdToOffsets.get("2").size());
+
+        // The excluded child must not contribute to its parent's score either. Averaged over the matching children
+        // on full precision vectors, doc 1 is (1.0 + 1/13) / 2 and doc 2 is 1/244.
+        List<Double> scores = parseScores(responseBody);
+        assertEquals(0.53846154d, scores.get(0), 1e-7);
+        assertEquals(0.0040983607d, scores.get(1), 1e-9);
+    }
+
+    /**
      * The two exact search stages must report their time under the Profile API. This is the only test that can
      * catch a missing registration in {@link org.opensearch.knn.plugin.KNNPlugin#getQueryProfileMetricsProvider}:
      * without it the breakdown has no {@code exact_search} metric at all, and asking for its timer throws.
@@ -228,10 +315,14 @@ public class ExpandNestedDocsWithRescoreIT extends KNNRestTestCase {
             Locale.ROOT,
             "{\"properties\":{\"%s\":{\"type\":\"nested\",\"properties\":{\"%s\":"
                 + "{\"type\":\"knn_vector\",\"dimension\":%d,\"space_type\":\"l2\","
-                + "\"mode\":\"on_disk\",\"compression_level\":\"4x\"}}}}}",
+                + "\"mode\":\"on_disk\",\"compression_level\":\"4x\"},"
+                + "\"%s\":{\"type\":\"boolean\"}}},"
+                + "\"%s\":{\"type\":\"boolean\"}}}",
             NESTED_FIELD,
             VECTOR_FIELD,
-            DIMENSION
+            DIMENSION,
+            CHILD_FILTER_FIELD,
+            PARENT_FILTER_FIELD
         );
         Settings settings = Settings.builder()
             .put("number_of_shards", 1)
@@ -248,6 +339,33 @@ public class ExpandNestedDocsWithRescoreIT extends KNNRestTestCase {
     }
 
     /**
+     * Indexes a parent holding {@code vectors} plus a top level field the k-NN filter can select it by.
+     */
+    private void indexDocWithParentFilter(final String docId, final Object[][] vectors, final boolean filterValue) throws Exception {
+        addKnnDoc(
+            INDEX_NAME,
+            docId,
+            NestedKnnDocBuilder.create(NESTED_FIELD)
+                .addVectors(VECTOR_FIELD, vectors)
+                .addTopLevelField(PARENT_FILTER_FIELD, filterValue)
+                .build()
+        );
+    }
+
+    /**
+     * Indexes a parent whose children each carry their own filter value, so a nested filter can select a subset of
+     * the children of a single parent.
+     */
+    private void indexDocWithChildFilter(final String docId, final Object[][] vectors, final boolean[] filterValues) throws Exception {
+        assert vectors.length == filterValues.length;
+        NestedKnnDocBuilder builder = NestedKnnDocBuilder.create(NESTED_FIELD);
+        for (int i = 0; i < vectors.length; i++) {
+            builder.addVectorWithMetadata(VECTOR_FIELD, vectors[i], CHILD_FILTER_FIELD, filterValues[i]);
+        }
+        addKnnDoc(INDEX_NAME, docId, builder.build());
+    }
+
+    /**
      * @param rescore raw json for the {@code rescore} clause, or null to leave it out and take the field default
      */
     private String search(final int k, final Object[] queryVector, final String rescore) throws Exception {
@@ -259,20 +377,32 @@ public class ExpandNestedDocsWithRescoreIT extends KNNRestTestCase {
      * @param profile whether to ask for the Profile API breakdown
      */
     private String search(final int k, final Object[] queryVector, final String rescore, final boolean profile) throws Exception {
+        return search(k, queryVector, rescore, profile, null);
+    }
+
+    /**
+     * @param rescore raw json for the {@code rescore} clause, or null to leave it out and take the field default
+     * @param profile whether to ask for the Profile API breakdown
+     * @param filter  raw json for the k-NN query's {@code filter} clause, or null for an unfiltered search
+     */
+    private String search(final int k, final Object[] queryVector, final String rescore, final boolean profile, final String filter)
+        throws Exception {
         String rescoreClause = rescore == null ? "" : String.format(Locale.ROOT, ",\"rescore\":%s", rescore);
+        String filterClause = filter == null ? "" : String.format(Locale.ROOT, ",\"filter\":%s", filter);
         String body = String.format(
             Locale.ROOT,
             "{\"_source\":false,\"profile\":"
                 + profile
                 + ",\"size\":%d,\"query\":{\"nested\":{\"path\":\"%s\","
-                + "\"query\":{\"knn\":{\"%s\":{\"vector\":%s,\"k\":%d,\"expand_nested_docs\":true%s}}},"
+                + "\"query\":{\"knn\":{\"%s\":{\"vector\":%s,\"k\":%d,\"expand_nested_docs\":true%s%s}}},"
                 + "\"inner_hits\":{\"size\":100,\"_source\":false}}}}",
             k,
             NESTED_FIELD,
             NESTED_VECTOR_PATH,
             java.util.Arrays.toString(queryVector),
             k,
-            rescoreClause
+            rescoreClause,
+            filterClause
         );
 
         Request request = new Request("POST", String.format(Locale.ROOT, "/%s/_search", INDEX_NAME));
