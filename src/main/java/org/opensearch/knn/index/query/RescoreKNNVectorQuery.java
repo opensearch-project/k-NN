@@ -8,7 +8,6 @@ package org.opensearch.knn.index.query;
 import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.LeafReaderContext;
-import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
@@ -25,7 +24,6 @@ import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.profile.KNNProfileUtil;
-import org.opensearch.knn.profile.query.KNNQueryTimingType;
 import org.opensearch.search.profile.ContextualProfileBreakdown;
 import org.opensearch.search.profile.query.QueryProfiler;
 
@@ -115,21 +113,15 @@ public class RescoreKNNVectorQuery extends Query {
         if (scorer == null) {
             return TopDocsCollector.EMPTY_TOPDOCS;
         }
-        DocIdSetIterator iterator = scorer.iterator();
-        final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
-            .matchedDocsIterator(iterator)
-            .numberOfMatchedDocs(iterator.cost())
-            // setting to false because in re-scoring we want to do exact search on full precision vectors
-            .useQuantizedVectorsForSearch(false)
-            .k(k)
-            .field(field)
-            .floatQueryVector(queryVector)
-            .build();
-        TopDocs results = (TopDocs) KNNProfileUtil.profileBreakdown(
+        TopDocs results = QueryUtils.rescoreLeafWithFullPrecision(
+            searcher,
             profile,
             leafReaderContext,
-            KNNQueryTimingType.EXACT_SEARCH,
-            () -> searcher.searchLeaf(leafReaderContext, exactSearcherContext)
+            field,
+            queryVector,
+            scorer.iterator(),
+            k,
+            null
         );
         if (leafReaderContext.docBase > 0) {
             for (ScoreDoc scoreDoc : results.scoreDocs) {

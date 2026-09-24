@@ -161,22 +161,16 @@ public class ExpandNestedDocsQuery extends Query {
                     internalNestedKnnVectorQuery.getParentFilter(),
                     queryFilter
                 );
-                final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
-                    .matchedDocsIterator(allSiblings)
-                    .numberOfMatchedDocs(allSiblings.cost())
-                    // setting to false because in re-scoring we want to do exact search on full precision vectors
-                    .useQuantizedVectorsForSearch(false)
-                    .k(k)
-                    .field(internalNestedKnnVectorQuery.getField())
-                    .floatQueryVector(floatQueryVector)
-                    // passing the parent filter makes the searcher collapse each parent group to its best child
-                    .parentsFilter(internalNestedKnnVectorQuery.getParentFilter())
-                    .build();
-                TopDocs leafTopDocs = (TopDocs) KNNProfileUtil.profileBreakdown(
+                TopDocs leafTopDocs = QueryUtils.rescoreLeafWithFullPrecision(
+                    searcher,
                     profile,
                     leafReaderContext,
-                    KNNQueryTimingType.EXACT_SEARCH,
-                    () -> searcher.searchLeaf(leafReaderContext, exactSearcherContext)
+                    internalNestedKnnVectorQuery.getField(),
+                    floatQueryVector,
+                    allSiblings,
+                    k,
+                    // passing the parent filter makes the searcher collapse each parent group to its best child
+                    internalNestedKnnVectorQuery.getParentFilter()
                 );
                 for (ScoreDoc scoreDoc : leafTopDocs.scoreDocs) {
                     scoreDoc.shardIndex = leafOrd;
@@ -246,22 +240,16 @@ public class ExpandNestedDocsQuery extends Query {
                 () -> internalNestedKnnVectorQuery.knnExactSearch(leafReaderContext, allSiblings)
             );
         }
-        final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
-            .matchedDocsIterator(allSiblings)
-            .numberOfMatchedDocs(allSiblings.cost())
-            // setting to false because in re-scoring we want to do exact search on full precision vectors
-            .useQuantizedVectorsForSearch(false)
-            // every sibling keeps its own score, so no parent filter and no top-k cut here
-            .k((int) allSiblings.cost())
-            .field(internalNestedKnnVectorQuery.getField())
-            .floatQueryVector(floatQueryVector)
-            .build();
-        final ExactSearcher searcher = resolveExactSearcher();
-        return (TopDocs) KNNProfileUtil.profileBreakdown(
+        return QueryUtils.rescoreLeafWithFullPrecision(
+            resolveExactSearcher(),
             profile,
             leafReaderContext,
-            KNNQueryTimingType.EXACT_SEARCH,
-            () -> searcher.searchLeaf(leafReaderContext, exactSearcherContext)
+            internalNestedKnnVectorQuery.getField(),
+            floatQueryVector,
+            allSiblings,
+            // every sibling keeps its own score, so no top-k cut and no parent filter here
+            (int) allSiblings.cost(),
+            null
         );
     }
 
