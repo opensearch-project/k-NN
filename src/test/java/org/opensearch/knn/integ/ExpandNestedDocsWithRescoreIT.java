@@ -12,12 +12,17 @@ import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.KNNSettings;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Covers nested k-NN search with {@code expand_nested_docs} on a field that has rescoring enabled, which is the
@@ -155,6 +160,66 @@ public class ExpandNestedDocsWithRescoreIT extends KNNRestTestCase {
     }
 
     /**
+     * The two exact search stages must report their time under the Profile API. This is the only test that can
+     * catch a missing registration in {@link org.opensearch.knn.plugin.KNNPlugin#getQueryProfileMetricsProvider}:
+     * without it the breakdown has no {@code exact_search} metric at all, and asking for its timer throws.
+     */
+    @SneakyThrows
+    public void testExpandNestedDocs_whenProfileEnabled_thenReportExactSearchTime() {
+        createNestedKnnIndex();
+        indexDoc("1", new Object[][] { { 2, 2, 2 }, { 1, 1, 1 }, { 3, 3, 3 } });
+        indexDoc("2", new Object[][] { { 10, 10, 10 }, { 10, 10, 10 }, { 10, 10, 10 } });
+        indexDoc("3", new Object[][] { { 9, 9, 9 }, { 200, 200, 200 }, { 300, 300, 300 } });
+        refreshIndex(INDEX_NAME);
+        forceMergeKnnIndex(INDEX_NAME, 1);
+
+        int k = 2;
+        String responseBody = search(k, new Object[] { 1, 1, 1 }, null, true);
+
+        // Profiling must not disturb the results
+        assertEquals(List.of("1", "3"), parseIds(responseBody));
+
+        // The query sits several levels down the profile tree, under the nested query's block join, so scan for
+        // the breakdown at any depth rather than assuming a fixed nesting.
+        List<Long> timings = collectBreakdownMetric(responseBody, "exact_search");
+        assertFalse("expand_nested_docs with rescoring should report exact_search timings", timings.isEmpty());
+        assertTrue("at least one exact_search timing should be non-zero, got " + timings, timings.stream().anyMatch(t -> t > 0L));
+
+        // The collapsing rescore and the child expansion each run once per weight creation, and a single search
+        // request creates the weight more than once, so assert that the two stages stay paired rather than
+        // pinning an exact call count.
+        List<Long> counts = collectBreakdownMetric(responseBody, "exact_search_count");
+        long maxCount = counts.stream().mapToLong(Long::longValue).max().orElse(0L);
+        assertTrue("expected at least one exact_search per stage, got " + counts, maxCount >= 2L);
+        assertEquals("the collapsing rescore and the child expansion should be counted in pairs, got " + counts, 0L, maxCount % 2L);
+    }
+
+    /**
+     * Collects one metric out of every {@code breakdown} object in the profile tree, at any depth. The k-NN query
+     * is not at a fixed level of the tree, so walking is more robust than a hardcoded path.
+     */
+    @SuppressWarnings("unchecked")
+    private List<Long> collectBreakdownMetric(final String responseBody, final String metric) throws Exception {
+        Map<String, Object> parsed = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
+        List<Long> values = new ArrayList<>();
+        Deque<Object> pending = new ArrayDeque<>();
+        pending.push(parsed);
+        while (pending.isEmpty() == false) {
+            Object current = pending.pop();
+            if (current instanceof Map<?, ?> map) {
+                Object breakdown = map.get("breakdown");
+                if (breakdown instanceof Map<?, ?> breakdownMap && breakdownMap.get(metric) instanceof Number value) {
+                    values.add(value.longValue());
+                }
+                ((Map<String, Object>) map).values().forEach(pending::push);
+            } else if (current instanceof List<?> list) {
+                list.forEach(pending::push);
+            }
+        }
+        return values;
+    }
+
+    /**
      * Creates the index from the issue: a nested knn_vector with 4x compression on disk, which resolves to the
      * Lucene engine and enables rescoring by default.
      */
@@ -186,10 +251,20 @@ public class ExpandNestedDocsWithRescoreIT extends KNNRestTestCase {
      * @param rescore raw json for the {@code rescore} clause, or null to leave it out and take the field default
      */
     private String search(final int k, final Object[] queryVector, final String rescore) throws Exception {
+        return search(k, queryVector, rescore, false);
+    }
+
+    /**
+     * @param rescore raw json for the {@code rescore} clause, or null to leave it out and take the field default
+     * @param profile whether to ask for the Profile API breakdown
+     */
+    private String search(final int k, final Object[] queryVector, final String rescore, final boolean profile) throws Exception {
         String rescoreClause = rescore == null ? "" : String.format(Locale.ROOT, ",\"rescore\":%s", rescore);
         String body = String.format(
             Locale.ROOT,
-            "{\"_source\":false,\"size\":%d,\"query\":{\"nested\":{\"path\":\"%s\","
+            "{\"_source\":false,\"profile\":"
+                + profile
+                + ",\"size\":%d,\"query\":{\"nested\":{\"path\":\"%s\","
                 + "\"query\":{\"knn\":{\"%s\":{\"vector\":%s,\"k\":%d,\"expand_nested_docs\":true%s}}},"
                 + "\"inner_hits\":{\"size\":100,\"_source\":false}}}}",
             k,

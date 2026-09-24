@@ -29,6 +29,11 @@ import org.opensearch.knn.index.query.ResultUtil;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
+import org.opensearch.knn.profile.query.KNNQueryTimingType;
+import org.opensearch.search.internal.ContextIndexSearcher;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
+import org.opensearch.search.profile.Timer;
+import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -392,6 +397,130 @@ public class ExpandNestedEDocsQueryTests extends TestCase {
         assertNotEquals(noRescore.hashCode(), rescore.hashCode());
         assertEquals(rescore, sameRescore);
         assertEquals(rescore.hashCode(), sameRescore.hashCode());
+    }
+
+    /**
+     * When the search is profiled, both exact search stages must be timed under this query's node so that the
+     * time they take shows up in the Profile API's {@code exact_search} breakdown.
+     */
+    @SneakyThrows
+    public void testCreateWeight_whenProfilerEnabled_thenTimeBothExactSearchStages() {
+        Directory directory = new ByteBuffersDirectory();
+        try (IndexWriter writer = new IndexWriter(directory, new IndexWriterConfig())) {
+            Document doc = new Document();
+            doc.add(new FloatPoint("vector", 1.0f, 2.0f, 3.0f));
+            writer.addDocument(doc);
+            writer.commit();
+        }
+
+        IndexReader reader = DirectoryReader.open(directory);
+        assertEquals(1, reader.leaves().size());
+        LeafReaderContext leaf = reader.leaves().get(0);
+
+        // The profiler is only reachable through a ContextIndexSearcher, so a plain IndexSearcher mock would
+        // leave profiling switched off.
+        ContextIndexSearcher indexSearcher = mock(ContextIndexSearcher.class);
+        when(indexSearcher.getIndexReader()).thenReturn(reader);
+        when(indexSearcher.getTaskExecutor()).thenReturn(taskExecutor);
+
+        Timer timer = mock(Timer.class);
+        ContextualProfileBreakdown breakdown = mock(ContextualProfileBreakdown.class);
+        when(breakdown.context(leaf)).thenReturn(breakdown);
+        when(breakdown.getTimer(KNNQueryTimingType.EXACT_SEARCH)).thenReturn(timer);
+        QueryProfiler profiler = mock(QueryProfiler.class);
+        when(profiler.getProfileBreakdown(any())).thenReturn(breakdown);
+        when(indexSearcher.getProfiler()).thenReturn(profiler);
+
+        Weight queryWeight = mock(Weight.class);
+        ScoreMode scoreMode = mock(ScoreMode.class);
+        Query docAndScoreQuery = mock(Query.class);
+        when(docAndScoreQuery.createWeight(indexSearcher, scoreMode, 1.f)).thenReturn(queryWeight);
+
+        BitSetProducer parentFilter = mock(BitSetProducer.class);
+        InternalNestedKnnVectorQuery internalQuery = mock(InternalNestedKnnVectorQuery.class);
+        when(internalQuery.knnRewrite(indexSearcher)).thenReturn(docAndScoreQuery);
+        when(internalQuery.getK()).thenReturn(1);
+        when(internalQuery.getFilter()).thenReturn(null);
+        when(internalQuery.getField()).thenReturn("field");
+        when(internalQuery.getParentFilter()).thenReturn(parentFilter);
+
+        QueryUtils queryUtils = mock(QueryUtils.class);
+        when(queryUtils.doSearch(indexSearcher, reader.leaves(), queryWeight)).thenReturn(List.of(new HashMap<>(Map.of(1, 20f, 5, 19f))));
+        when(queryUtils.getAllSiblings(any(), any(), any(), any())).thenReturn(DocIdSetIterator.all(3));
+
+        ExactSearcher exactSearcher = mock(ExactSearcher.class);
+        when(exactSearcher.searchLeaf(any(), any())).thenReturn(topDocs(new ScoreDoc(1, 30f)));
+
+        Query finalQuery = mock(Query.class);
+        when(finalQuery.createWeight(indexSearcher, scoreMode, 1.f)).thenReturn(mock(Weight.class));
+        when(queryUtils.createDocAndScoreQuery(eq(reader), any())).thenReturn(finalQuery);
+
+        ExpandNestedDocsQuery query = new ExpandNestedDocsQuery.ExpandNestedDocsQueryBuilder().internalNestedKnnVectorQuery(internalQuery)
+            .queryUtils(queryUtils)
+            .rescoreK(4)
+            .floatQueryVector(new float[] { 1.0f, 2.0f, 3.0f })
+            .exactSearcher(exactSearcher)
+            .build();
+
+        query.createWeight(indexSearcher, scoreMode, 1.f);
+
+        // One leaf, two exact search stages: the collapsing rescore and the expansion. Both are timed, so the
+        // timer is started and stopped once per stage.
+        verify(exactSearcher, times(2)).searchLeaf(any(), any());
+        verify(timer, times(2)).start();
+        verify(timer, times(2)).stop();
+    }
+
+    /**
+     * Without a profiler attached the query must not reach for a profile breakdown at all, so that an
+     * unprofiled search stays on the untimed path.
+     */
+    @SneakyThrows
+    public void testCreateWeight_whenProfilerDisabled_thenNoProfileBreakdownLookup() {
+        Directory directory = new ByteBuffersDirectory();
+        try (IndexWriter writer = new IndexWriter(directory, new IndexWriterConfig())) {
+            Document doc = new Document();
+            doc.add(new FloatPoint("vector", 1.0f, 2.0f, 3.0f));
+            writer.addDocument(doc);
+            writer.commit();
+        }
+
+        IndexReader reader = DirectoryReader.open(directory);
+
+        ContextIndexSearcher indexSearcher = mock(ContextIndexSearcher.class);
+        when(indexSearcher.getIndexReader()).thenReturn(reader);
+        when(indexSearcher.getTaskExecutor()).thenReturn(taskExecutor);
+        when(indexSearcher.getProfiler()).thenReturn(null);
+
+        Weight queryWeight = mock(Weight.class);
+        ScoreMode scoreMode = mock(ScoreMode.class);
+        Query docAndScoreQuery = mock(Query.class);
+        when(docAndScoreQuery.createWeight(indexSearcher, scoreMode, 1.f)).thenReturn(queryWeight);
+
+        InternalNestedKnnVectorQuery internalQuery = mock(InternalNestedKnnVectorQuery.class);
+        when(internalQuery.knnRewrite(indexSearcher)).thenReturn(docAndScoreQuery);
+        when(internalQuery.getK()).thenReturn(1);
+        when(internalQuery.getFilter()).thenReturn(null);
+        when(internalQuery.getField()).thenReturn("field");
+        when(internalQuery.getParentFilter()).thenReturn(mock(BitSetProducer.class));
+        when(internalQuery.knnExactSearch(any(), any())).thenReturn(topDocs(new ScoreDoc(1, 30f)));
+
+        QueryUtils queryUtils = mock(QueryUtils.class);
+        when(queryUtils.doSearch(indexSearcher, reader.leaves(), queryWeight)).thenReturn(List.of(new HashMap<>(Map.of(1, 20f))));
+        when(queryUtils.getAllSiblings(any(), any(), any(), any())).thenReturn(DocIdSetIterator.all(3));
+
+        Query finalQuery = mock(Query.class);
+        when(finalQuery.createWeight(indexSearcher, scoreMode, 1.f)).thenReturn(mock(Weight.class));
+        when(queryUtils.createDocAndScoreQuery(eq(reader), any())).thenReturn(finalQuery);
+
+        ExpandNestedDocsQuery query = new ExpandNestedDocsQuery.ExpandNestedDocsQueryBuilder().internalNestedKnnVectorQuery(internalQuery)
+            .queryUtils(queryUtils)
+            .build();
+
+        query.createWeight(indexSearcher, scoreMode, 1.f);
+
+        verify(indexSearcher).getProfiler();
+        verify(internalQuery).knnExactSearch(any(), any());
     }
 
     private static TopDocs topDocs(ScoreDoc... scoreDocs) {

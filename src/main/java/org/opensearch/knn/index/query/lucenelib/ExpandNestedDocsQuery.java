@@ -25,6 +25,10 @@ import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.profile.KNNProfileUtil;
+import org.opensearch.knn.profile.query.KNNQueryTimingType;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
+import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -85,12 +89,13 @@ public class ExpandNestedDocsQuery extends Query {
         // Both the rescore and the expansion stage need the filter bits of every leaf they touch, so they are
         // built once per leaf and shared instead of being rebuilt by each stage.
         Map<Integer, Bits> filterBitsByLeaf = new ConcurrentHashMap<>();
+        ContextualProfileBreakdown profile = getProfileBreakdown(searcher);
         List<Map<Integer, Float>> perLeafResults;
         perLeafResults = queryUtils.doSearch(searcher, leafReaderContexts, weight);
         if (isRescoreEnabled()) {
-            perLeafResults = rescoreToTopKParents(searcher, leafReaderContexts, perLeafResults, filterWeight, filterBitsByLeaf);
+            perLeafResults = rescoreToTopKParents(searcher, leafReaderContexts, perLeafResults, filterWeight, filterBitsByLeaf, profile);
         }
-        TopDocs[] topDocs = retrieveAll(searcher, leafReaderContexts, perLeafResults, filterWeight, filterBitsByLeaf);
+        TopDocs[] topDocs = retrieveAll(searcher, leafReaderContexts, perLeafResults, filterWeight, filterBitsByLeaf, profile);
         int sum = 0;
         for (TopDocs topDoc : topDocs) {
             sum += topDoc.scoreDocs.length;
@@ -111,6 +116,21 @@ public class ExpandNestedDocsQuery extends Query {
     }
 
     /**
+     * Returns the profile breakdown for this query, or null when the search is not being profiled. The node for
+     * this query is added to the profile tree by
+     * {@link org.opensearch.knn.index.query.lucene.LuceneEngineKnnVectorQuery#createWeight} before it delegates
+     * here, so the lookup always resolves. The breakdown only carries the metrics that
+     * {@link org.opensearch.knn.plugin.KNNPlugin#getQueryProfileMetricsProvider} registers for this query type.
+     */
+    private ContextualProfileBreakdown getProfileBreakdown(final IndexSearcher indexSearcher) {
+        QueryProfiler profiler = KNNProfileUtil.getProfiler(indexSearcher);
+        if (profiler == null) {
+            return null;
+        }
+        return (ContextualProfileBreakdown) profiler.getProfileBreakdown(this);
+    }
+
+    /**
      * Re-scores the oversampled candidates against full precision vectors and reduces them to the top k
      * parent documents.
      *
@@ -120,7 +140,8 @@ public class ExpandNestedDocsQuery extends Query {
         final List<LeafReaderContext> leafReaderContexts,
         final List<Map<Integer, Float>> perLeafResults,
         final Weight filterWeight,
-        final Map<Integer, Bits> filterBitsByLeaf
+        final Map<Integer, Bits> filterBitsByLeaf,
+        final ContextualProfileBreakdown profile
     ) throws IOException {
         final int k = internalNestedKnnVectorQuery.getK();
         final ExactSearcher searcher = resolveExactSearcher();
@@ -151,7 +172,12 @@ public class ExpandNestedDocsQuery extends Query {
                     // passing the parent filter makes the searcher collapse each parent group to its best child
                     .parentsFilter(internalNestedKnnVectorQuery.getParentFilter())
                     .build();
-                TopDocs leafTopDocs = searcher.searchLeaf(leafReaderContext, exactSearcherContext);
+                TopDocs leafTopDocs = (TopDocs) KNNProfileUtil.profileBreakdown(
+                    profile,
+                    leafReaderContext,
+                    KNNQueryTimingType.EXACT_SEARCH,
+                    () -> searcher.searchLeaf(leafReaderContext, exactSearcherContext)
+                );
                 for (ScoreDoc scoreDoc : leafTopDocs.scoreDocs) {
                     scoreDoc.shardIndex = leafOrd;
                 }
@@ -176,7 +202,8 @@ public class ExpandNestedDocsQuery extends Query {
         final List<LeafReaderContext> leafReaderContexts,
         final List<Map<Integer, Float>> perLeafResults,
         final Weight filterWeight,
-        final Map<Integer, Bits> filterBitsByLeaf
+        final Map<Integer, Bits> filterBitsByLeaf,
+        final ContextualProfileBreakdown profile
     ) throws IOException {
         // Construct query
         List<Callable<TopDocs>> nestedQueryTasks = new ArrayList<>(leafReaderContexts.size());
@@ -191,7 +218,7 @@ public class ExpandNestedDocsQuery extends Query {
                     internalNestedKnnVectorQuery.getParentFilter(),
                     queryFilter
                 );
-                TopDocs topDocs = scoreAllSiblings(leafReaderContext, allSiblings);
+                TopDocs topDocs = scoreAllSiblings(leafReaderContext, allSiblings, profile);
                 // Update doc id from segment id to shard id
                 for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
                     scoreDoc.doc = scoreDoc.doc + leafReaderContext.docBase;
@@ -206,9 +233,18 @@ public class ExpandNestedDocsQuery extends Query {
      * Scores every sibling of the surviving parents, each keeping its own score, with no collapsing.
      *
      */
-    private TopDocs scoreAllSiblings(final LeafReaderContext leafReaderContext, final DocIdSetIterator allSiblings) throws IOException {
+    private TopDocs scoreAllSiblings(
+        final LeafReaderContext leafReaderContext,
+        final DocIdSetIterator allSiblings,
+        final ContextualProfileBreakdown profile
+    ) throws IOException {
         if (isRescoreEnabled() == false) {
-            return internalNestedKnnVectorQuery.knnExactSearch(leafReaderContext, allSiblings);
+            return (TopDocs) KNNProfileUtil.profileBreakdown(
+                profile,
+                leafReaderContext,
+                KNNQueryTimingType.EXACT_SEARCH,
+                () -> internalNestedKnnVectorQuery.knnExactSearch(leafReaderContext, allSiblings)
+            );
         }
         final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
             .matchedDocsIterator(allSiblings)
@@ -220,7 +256,13 @@ public class ExpandNestedDocsQuery extends Query {
             .field(internalNestedKnnVectorQuery.getField())
             .floatQueryVector(floatQueryVector)
             .build();
-        return resolveExactSearcher().searchLeaf(leafReaderContext, exactSearcherContext);
+        final ExactSearcher searcher = resolveExactSearcher();
+        return (TopDocs) KNNProfileUtil.profileBreakdown(
+            profile,
+            leafReaderContext,
+            KNNQueryTimingType.EXACT_SEARCH,
+            () -> searcher.searchLeaf(leafReaderContext, exactSearcherContext)
+        );
     }
 
     /**
