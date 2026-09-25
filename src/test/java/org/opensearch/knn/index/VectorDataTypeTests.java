@@ -21,6 +21,7 @@ import org.junit.Assert;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfHalfFloatsSerializer;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 
 import java.io.IOException;
 
@@ -129,4 +130,32 @@ public class VectorDataTypeTests extends KNNTestCase {
         assertEquals(3, fieldType.vectorDimension());
         assertEquals(VectorEncoding.FLOAT32, fieldType.vectorEncoding());
     }
+
+    public void testGetBitsPerDimension() {
+        assertEquals(32, VectorDataType.FLOAT.getBitsPerDimension());
+        assertEquals(16, VectorDataType.HALF_FLOAT.getBitsPerDimension());
+        assertEquals(8, VectorDataType.BYTE.getBitsPerDimension());
+        assertEquals(1, VectorDataType.BINARY.getBitsPerDimension());
+    }
+
+    public void testGetCompressionBits_whenFloat_thenLadderFrom32Bits() {
+        assertEquals(1, VectorDataType.FLOAT.getCompressionBits(CompressionLevel.x32));
+        assertEquals(2, VectorDataType.FLOAT.getCompressionBits(CompressionLevel.x16));
+        assertEquals(4, VectorDataType.FLOAT.getCompressionBits(CompressionLevel.x8));
+        assertEquals(8, VectorDataType.FLOAT.getCompressionBits(CompressionLevel.x4));
+        assertEquals(16, VectorDataType.FLOAT.getCompressionBits(CompressionLevel.x2));
+        assertEquals(32, VectorDataType.FLOAT.getCompressionBits(CompressionLevel.x1));
+        assertEquals(32, VectorDataType.FLOAT.getCompressionBits(CompressionLevel.NOT_CONFIGURED));
+    }
+
+    // The same levels land one step lower on half_float: its 16-bit width is half of float's.
+    public void testGetCompressionBits_whenHalfFloat_thenLadderFrom16Bits() {
+        assertEquals(1, VectorDataType.HALF_FLOAT.getCompressionBits(CompressionLevel.x16));
+        assertEquals(2, VectorDataType.HALF_FLOAT.getCompressionBits(CompressionLevel.x8));
+        assertEquals(4, VectorDataType.HALF_FLOAT.getCompressionBits(CompressionLevel.x4));
+        assertEquals(8, VectorDataType.HALF_FLOAT.getCompressionBits(CompressionLevel.x2));
+        assertEquals(16, VectorDataType.HALF_FLOAT.getCompressionBits(CompressionLevel.x1));
+        assertEquals(16, VectorDataType.HALF_FLOAT.getCompressionBits(CompressionLevel.NOT_CONFIGURED));
+    }
+
 }

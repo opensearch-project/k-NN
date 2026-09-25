@@ -93,4 +93,32 @@ public class QuantizationBitsTests extends KNNTestCase {
             }
         }
     }
+
+    public void testIsSQCoded_withCompressionLevel_thenFollowsEachDataTypesLadder() {
+        for (CompressionLevel level : new CompressionLevel[] { CompressionLevel.x32, CompressionLevel.x16, CompressionLevel.x8 }) {
+            assertTrue("FLOAT at " + level, Encoder.QuantizationBits.isSQCoded(level, VectorDataType.FLOAT));
+        }
+        for (CompressionLevel level : new CompressionLevel[] {
+            CompressionLevel.x64,
+            CompressionLevel.x4,
+            CompressionLevel.x2,
+            CompressionLevel.x1,
+            CompressionLevel.NOT_CONFIGURED }) {
+            assertFalse("FLOAT at " + level, Encoder.QuantizationBits.isSQCoded(level, VectorDataType.FLOAT));
+        }
+        for (CompressionLevel level : new CompressionLevel[] { CompressionLevel.x16, CompressionLevel.x8, CompressionLevel.x4 }) {
+            assertTrue("HALF_FLOAT at " + level, Encoder.QuantizationBits.isSQCoded(level, VectorDataType.HALF_FLOAT));
+        }
+        for (CompressionLevel level : new CompressionLevel[] {
+            CompressionLevel.x64,
+            CompressionLevel.x32,
+            CompressionLevel.x2,
+            CompressionLevel.x1,
+            CompressionLevel.NOT_CONFIGURED }) {
+            assertFalse("HALF_FLOAT at " + level, Encoder.QuantizationBits.isSQCoded(level, VectorDataType.HALF_FLOAT));
+        }
+        // Types without an SQ path are never SQ-coded, even where the arithmetic would land on 1/2/4 bits.
+        assertFalse(Encoder.QuantizationBits.isSQCoded(CompressionLevel.x1, VectorDataType.BINARY));
+        assertFalse(Encoder.QuantizationBits.isSQCoded(CompressionLevel.x8, VectorDataType.BYTE));
+    }
 }

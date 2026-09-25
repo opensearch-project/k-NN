@@ -113,9 +113,9 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
             knnMethodConfigContext.getVectorDataType(),
             validationException
         );
-        // half_float's only encoder configuration (SQ 1-bit) is fully determined by compression_level
-        // (x16) and auto-resolved internally - there's no tunable parameter surface to expose, so
-        // users configure it via compression_level, not by writing an encoder block themselves.
+        // half_float's encoder configuration (SQ 1/2/4-bit) is fully determined by compression_level
+        // (x16/x8/x4) and auto-resolved internally - there's no tunable parameter surface to expose,
+        // so users configure it via compression_level, not by writing an encoder block themselves.
         if (isEncoderSpecified(knnMethodContext)) {
             validationException = validationException == null ? new ValidationException() : validationException;
             validationException.addValidationError(
@@ -128,6 +128,7 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
                 )
             );
         }
+        validationException = validateMultiBitCompressionVersion(knnMethodConfigContext, validationException);
         validationException = validateCompressionNotx1WhenOnDisk(knnMethodConfigContext, validationException);
         if (validationException != null) {
             throw validationException;
@@ -155,22 +156,6 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
             .knnMethodContext(resolvedKNNMethodContext)
             .compressionLevel(resolvedCompressionLevel)
             .build();
-    }
-
-    @Override
-    protected boolean shouldEncoderBeResolved(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
-        if (isEncoderSpecified(knnMethodContext)) {
-            return false;
-        }
-
-        if (knnMethodConfigContext.getVectorDataType() == VectorDataType.HALF_FLOAT) {
-            CompressionLevel compressionLevel = getDataTypeAwareDefaultCompressionLevel(knnMethodConfigContext);
-            return compressionLevel == CompressionLevel.x16
-                || compressionLevel == CompressionLevel.x8
-                || compressionLevel == CompressionLevel.x4;
-        }
-
-        return super.shouldEncoderBeResolved(knnMethodContext, knnMethodConfigContext);
     }
 
     protected void resolveEncoder(KNNMethodContext resolvedKNNMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
@@ -259,18 +244,19 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
     }
 
     /**
-     * Rejects x8 / x16 compression on the Lucene HNSW method for indices created before
-     * {@link org.opensearch.knn.common.KNNConstants#LUCENE_HNSW_SQ_2BIT_4BIT_MIN_VERSION}. The
-     * 2-bit and 4-bit scalar-quantization codec files did not exist in earlier codecs, so an
-     * older index cannot read them; reject the mapping up front rather than deferring to a
-     * codec-time failure.
+     * Rejects the SQ 2-bit and 4-bit levels on the Lucene HNSW method for indices created before
+     * {@link org.opensearch.knn.common.KNNConstants#LUCENE_HNSW_SQ_2BIT_4BIT_MIN_VERSION}: x16 / x8
+     * for FLOAT and x8 / x4 for HALF_FLOAT. The 2-bit and 4-bit scalar-quantization codec files did
+     * not exist in earlier codecs, so an older index cannot read them; reject the mapping up front
+     * rather than deferring to a codec-time failure.
      */
     private ValidationException validateMultiBitCompressionVersion(
         KNNMethodConfigContext knnMethodConfigContext,
         ValidationException validationException
     ) {
         CompressionLevel compressionLevel = knnMethodConfigContext.getCompressionLevel();
-        if (compressionLevel != CompressionLevel.x8 && compressionLevel != CompressionLevel.x16) {
+        QuantizationBits bits = QuantizationBits.fromCompressionLevel(compressionLevel, knnMethodConfigContext.getVectorDataType());
+        if (bits != QuantizationBits.TWO && bits != QuantizationBits.FOUR) {
             return validationException;
         }
         Version versionCreated = knnMethodConfigContext.getVersionCreated();

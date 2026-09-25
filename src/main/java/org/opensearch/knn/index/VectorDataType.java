@@ -15,6 +15,7 @@ import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfFloatsSerializer;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfHalfFloatsSerializer;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
+import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.training.BinaryTrainingDataConsumer;
@@ -37,7 +38,7 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
  */
 @AllArgsConstructor
 public enum VectorDataType {
-    BINARY("binary") {
+    BINARY("binary", 1) {
 
         @Override
         public FieldType createKnnVectorFieldType(int dimension, KNNVectorSimilarityFunction knnVectorSimilarityFunction) {
@@ -61,7 +62,7 @@ public enum VectorDataType {
             JNICommons.freeBinaryVectorData(memoryAddress);
         }
     },
-    BYTE("byte") {
+    BYTE("byte", Byte.SIZE) {
 
         @Override
         public FieldType createKnnVectorFieldType(int dimension, KNNVectorSimilarityFunction knnVectorSimilarityFunction) {
@@ -83,7 +84,7 @@ public enum VectorDataType {
             JNICommons.freeByteVectorData(memoryAddress);
         }
     },
-    FLOAT("float") {
+    FLOAT("float", Float.SIZE) {
 
         @Override
         public FieldType createKnnVectorFieldType(int dimension, KNNVectorSimilarityFunction knnVectorSimilarityFunction) {
@@ -107,7 +108,7 @@ public enum VectorDataType {
         }
 
     },
-    HALF_FLOAT("half_float") {
+    HALF_FLOAT("half_float", Short.SIZE) {
 
         @Override
         public FieldType createKnnVectorFieldType(int dimension, KNNVectorSimilarityFunction knnVectorSimilarityFunction) {
@@ -137,6 +138,8 @@ public enum VectorDataType {
         .collect(Collectors.joining(","));
     @Getter
     private final String value;
+    @Getter
+    private final int bitsPerDimension;
 
     /**
      * Creates a KnnVectorFieldType based on the VectorDataType using the provided dimension and
@@ -166,6 +169,18 @@ public enum VectorDataType {
      * @param memoryAddress address to be freed
      */
     public abstract void freeNativeMemory(long memoryAddress);
+
+    /**
+     * Bits per dimension of this data type at {@code compressionLevel}: 16x leaves a float 2 bits
+     * but a half_float 1 bit. Pure arithmetic on an already-resolved level; method defaults are
+     * decided by the resolvers, not here. {@code NOT_CONFIGURED} computes as 1x.
+     *
+     * @param compressionLevel compression level to apply
+     * @return bits per dimension at that level
+     */
+    public int getCompressionBits(CompressionLevel compressionLevel) {
+        return compressionLevel.numBitsFor(this);
+    }
 
     /**
      * Validates if given VectorDataType is in the list of supported data types.

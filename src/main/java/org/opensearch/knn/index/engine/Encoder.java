@@ -72,7 +72,12 @@ public interface Encoder {
         /** Identity value for FLAT encoders: full precision float32 with no quantization applied. */
         FULL_PRECISION(32, CompressionLevel.x1);
 
-        private static final Set<QuantizationBits> HALF_FLOAT_SUPPORTED_BITS = Set.of(ONE, TWO, FOUR);
+        /**
+         * Integer-coded SQ widths, for either data type: FLOAT reaches them at x32/x16/x8 and
+         * HALF_FLOAT at x16/x8/x4. SEVEN (Lucene 7-bit), SIXTEEN (Faiss fp16) and FULL_PRECISION
+         * are not integer-coded and take their own paths.
+         */
+        private static final Set<QuantizationBits> SQ_CODED_BITS = Set.of(ONE, TWO, FOUR);
 
         private final int value;
         private final CompressionLevel compressionLevel;
@@ -114,6 +119,23 @@ public interface Encoder {
         }
 
         /**
+         * True when {@code compressionLevel} quantizes {@code vectorDataType} to 1, 2 or 4 bits per
+         * dimension: x32/x16/x8 for FLOAT, x16/x8/x4 for HALF_FLOAT. False for every other level,
+         * including x1 (raw), NOT_CONFIGURED, and FLOAT's x4 (Lucene 7-bit) and x2 (Faiss fp16),
+         * which are stored in other formats.
+         */
+        public static boolean isSQCoded(CompressionLevel compressionLevel, VectorDataType vectorDataType) {
+            // Only float and half_float have an SQ path; for other types the arithmetic below would be
+            // meaningless (binary at x1 computes to 1 bit).
+            if (vectorDataType != VectorDataType.FLOAT && vectorDataType != VectorDataType.HALF_FLOAT) {
+                return false;
+            }
+            // fromValue falls back to FULL_PRECISION for widths with no constant, which is never SQ-coded.
+            return CompressionLevel.isConfigured(compressionLevel)
+                && SQ_CODED_BITS.contains(fromValue(vectorDataType.getCompressionBits(compressionLevel)));
+        }
+
+        /**
          * Compression this bit width achieves for {@code vectorDataType}. The constants above are
          * measured against FLOAT's 32 bits, so {@link #ONE} is x32 there; HALF_FLOAT's 16 bits are half
          * that, so the same bit widths land one compression level lower.
@@ -122,19 +144,12 @@ public interface Encoder {
          */
         public CompressionLevel getCompressionLevel(VectorDataType vectorDataType) {
             if (vectorDataType == VectorDataType.HALF_FLOAT) {
-                if (HALF_FLOAT_SUPPORTED_BITS.contains(this) == false) {
+                if (SQ_CODED_BITS.contains(this) == false) {
                     throw new IllegalArgumentException(
                         String.format(Locale.ROOT, "half_float only supports bits in {1, 2, 4} for SQ quantization, got bits=%d", value)
                     );
                 }
-                for (CompressionLevel level : CompressionLevel.values()) {
-                    if (CompressionLevel.isConfigured(level) && level.numBitsForHalfFloat() == value) {
-                        return level;
-                    }
-                }
-                // Unreachable: 1, 2 and 4 each evenly divide half_float's 16 bits, matching x16/x8/x4
-                // respectively.
-                throw new IllegalStateException(String.format(Locale.ROOT, "No CompressionLevel found for half_float bits=%d", value));
+                return CompressionLevel.fromFactor(vectorDataType.getBitsPerDimension() / value);
             }
             return compressionLevel;
         }
@@ -145,12 +160,8 @@ public interface Encoder {
          * through to the generic, non-data-type-aware mapping below.
          */
         public static QuantizationBits fromCompressionLevel(CompressionLevel compressionLevel, VectorDataType vectorDataType) {
-            if (vectorDataType == VectorDataType.HALF_FLOAT) {
-                for (QuantizationBits bits : HALF_FLOAT_SUPPORTED_BITS) {
-                    if (bits.getCompressionLevel(vectorDataType) == compressionLevel) {
-                        return bits;
-                    }
-                }
+            if (vectorDataType == VectorDataType.HALF_FLOAT && isSQCoded(compressionLevel, vectorDataType)) {
+                return fromValue(vectorDataType.getCompressionBits(compressionLevel));
             }
             return fromCompressionLevel(compressionLevel);
         }

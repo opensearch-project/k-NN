@@ -150,9 +150,7 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
             );
         }, LuceneVectorsFormatType.FLAT, ctx -> {
             if (ctx.getVectorDataType() == VectorDataType.HALF_FLOAT) {
-                if (ctx.getCompressionLevel() == CompressionLevel.x16
-                    || ctx.getCompressionLevel() == CompressionLevel.x8
-                    || ctx.getCompressionLevel() == CompressionLevel.x4) {
+                if (QuantizationBits.isSQCoded(ctx.getCompressionLevel(), VectorDataType.HALF_FLOAT)) {
                     return new KNN1040HalfFloatScalarQuantizedVectorsFormat(
                         resolveFlatScalarEncoding(ctx.getCompressionLevel(), VectorDataType.HALF_FLOAT)
                     );
@@ -192,14 +190,11 @@ public class KNN1040PerFieldKnnVectorsFormat extends KNN1040BasePerFieldKnnVecto
     }
 
     /**
-     * Picks the scalar encoding for the FLAT format from compression level and data type; unmapped
-     * levels (including NOT_CONFIGURED) fall back to 1-bit, each data type's default.
+     * Picks the scalar encoding the FLAT format stores {@code vectorDataType} at for
+     * {@code compressionLevel}. Every level the flat method resolver admits for a quantized field maps
+     * to 1, 2 or 4 bits, and {@link ScalarEncodingResolver#forDocBits} rejects anything else.
      */
     private static ScalarEncoding resolveFlatScalarEncoding(final CompressionLevel compressionLevel, final VectorDataType vectorDataType) {
-        int bits = QuantizationBits.fromCompressionLevel(compressionLevel, vectorDataType).getValue();
-        if (bits != 1 && bits != 2 && bits != 4) {
-            bits = 1;
-        }
-        return ScalarEncodingResolver.forDocBits(bits);
+        return ScalarEncodingResolver.forDocBits(vectorDataType.getCompressionBits(compressionLevel));
     }
 }

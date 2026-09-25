@@ -45,6 +45,29 @@ public class CompressionLevelTests extends KNNTestCase {
         assertEquals(32, CompressionLevel.NOT_CONFIGURED.numBitsForFloat32());
     }
 
+    public void testNumBitsFor_whenFloat_thenMatchesNumBitsForFloat32() {
+        for (CompressionLevel level : CompressionLevel.values()) {
+            assertEquals(level.name(), level.numBitsForFloat32(), level.numBitsFor(VectorDataType.FLOAT));
+        }
+    }
+
+    public void testNumBitsFor_whenHalfFloat_thenHalvedLadder() {
+        assertEquals(1, CompressionLevel.x16.numBitsFor(VectorDataType.HALF_FLOAT));
+        assertEquals(2, CompressionLevel.x8.numBitsFor(VectorDataType.HALF_FLOAT));
+        assertEquals(4, CompressionLevel.x4.numBitsFor(VectorDataType.HALF_FLOAT));
+        assertEquals(8, CompressionLevel.x2.numBitsFor(VectorDataType.HALF_FLOAT));
+        assertEquals(16, CompressionLevel.x1.numBitsFor(VectorDataType.HALF_FLOAT));
+        assertEquals(16, CompressionLevel.NOT_CONFIGURED.numBitsFor(VectorDataType.HALF_FLOAT));
+    }
+
+    public void testFromFactor() {
+        assertEquals(CompressionLevel.x1, CompressionLevel.fromFactor(1));
+        assertEquals(CompressionLevel.x16, CompressionLevel.fromFactor(16));
+        assertEquals(CompressionLevel.x64, CompressionLevel.fromFactor(64));
+        expectThrows(IllegalArgumentException.class, () -> CompressionLevel.fromFactor(3));
+        expectThrows(IllegalArgumentException.class, () -> CompressionLevel.fromFactor(-1));
+    }
+
     public void testIsConfigured() {
         assertFalse(CompressionLevel.isConfigured(CompressionLevel.NOT_CONFIGURED));
         assertFalse(CompressionLevel.isConfigured(null));

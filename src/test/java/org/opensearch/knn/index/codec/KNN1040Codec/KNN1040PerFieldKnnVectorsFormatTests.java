@@ -5,16 +5,37 @@
 
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
+import org.apache.lucene.codecs.KnnVectorsFormat;
+import org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding;
+import org.opensearch.Version;
 import org.opensearch.common.collect.Tuple;
+import org.opensearch.index.IndexSettings;
+import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.METHOD_FLAT;
 
 public class KNN1040PerFieldKnnVectorsFormatTests extends KNNTestCase {
 
@@ -176,5 +197,100 @@ public class KNN1040PerFieldKnnVectorsFormatTests extends KNNTestCase {
 
         long collected = refs.stream().filter(ref -> ref.get() == null).count();
         assertTrue("Expected at least one executor to be GC'd, but none were", collected > 0);
+    }
+
+    // --- FLAT format selection: compression level and data type pick the format and its encoding ---
+
+    public void testGetKnnVectorsFormatForField_whenHalfFloatFlat_thenCompressionSelectsFormat() {
+        assertEquals(KNN1040HalfFloatFlatVectorsFormat.class, resolveFlatFormat(VectorDataType.HALF_FLOAT, CompressionLevel.x1).getClass());
+        assertFlatScalarQuantizedFormat(
+            VectorDataType.HALF_FLOAT,
+            CompressionLevel.x16,
+            KNN1040HalfFloatScalarQuantizedVectorsFormat.class,
+            ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE
+        );
+        assertFlatScalarQuantizedFormat(
+            VectorDataType.HALF_FLOAT,
+            CompressionLevel.x8,
+            KNN1040HalfFloatScalarQuantizedVectorsFormat.class,
+            ScalarEncoding.DIBIT_QUERY_NIBBLE
+        );
+        assertFlatScalarQuantizedFormat(
+            VectorDataType.HALF_FLOAT,
+            CompressionLevel.x4,
+            KNN1040HalfFloatScalarQuantizedVectorsFormat.class,
+            ScalarEncoding.PACKED_NIBBLE
+        );
+    }
+
+    public void testGetKnnVectorsFormatForField_whenFloatFlat_thenCompressionSelectsEncoding() {
+        assertFlatScalarQuantizedFormat(
+            VectorDataType.FLOAT,
+            CompressionLevel.x32,
+            KNN1040ScalarQuantizedVectorsFormat.class,
+            ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE
+        );
+        assertFlatScalarQuantizedFormat(
+            VectorDataType.FLOAT,
+            CompressionLevel.x16,
+            KNN1040ScalarQuantizedVectorsFormat.class,
+            ScalarEncoding.DIBIT_QUERY_NIBBLE
+        );
+        assertFlatScalarQuantizedFormat(
+            VectorDataType.FLOAT,
+            CompressionLevel.x8,
+            KNN1040ScalarQuantizedVectorsFormat.class,
+            ScalarEncoding.PACKED_NIBBLE
+        );
+    }
+
+    // A level with no 1/2/4-bit width for the data type must fail loudly rather than silently
+    // taking a default encoding.
+    public void testGetKnnVectorsFormatForField_whenFloatFlatCompressionHasNoSQWidth_thenThrows() {
+        // x4 leaves a float 8 bits: the Lucene 7-bit path, which the flat method does not offer.
+        expectThrows(IllegalArgumentException.class, () -> resolveFlatFormat(VectorDataType.FLOAT, CompressionLevel.x4));
+        // NOT_CONFIGURED is 32 bits; the flat resolver always resolves a level, so this never reaches the codec.
+        expectThrows(IllegalArgumentException.class, () -> resolveFlatFormat(VectorDataType.FLOAT, CompressionLevel.NOT_CONFIGURED));
+    }
+
+    private void assertFlatScalarQuantizedFormat(
+        VectorDataType vectorDataType,
+        CompressionLevel compressionLevel,
+        Class<? extends KnnVectorsFormat> expectedClass,
+        ScalarEncoding expectedEncoding
+    ) {
+        KnnVectorsFormat format = resolveFlatFormat(vectorDataType, compressionLevel);
+        assertEquals(vectorDataType + " at " + compressionLevel, expectedClass, format.getClass());
+        assertTrue(format.toString(), format.toString().contains("encoding=" + expectedEncoding));
+    }
+
+    private KnnVectorsFormat resolveFlatFormat(VectorDataType vectorDataType, CompressionLevel compressionLevel) {
+        KNNMethodContext flatContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_FLAT, Collections.emptyMap())
+        );
+        ResolvedIndexSpec resolvedSpec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.LUCENE)
+            .methodName(METHOD_FLAT)
+            .vectorDataType(vectorDataType)
+            .dimension(3)
+            .compressionLevel(compressionLevel)
+            .indexVersionCreated(Version.CURRENT)
+            .build();
+        KNNVectorFieldType fieldType = new KNNVectorFieldType(
+            "test_field",
+            Collections.emptyMap(),
+            vectorDataType,
+            getMappingConfigForMethodMapping(flatContext, 3),
+            Version.CURRENT,
+            resolvedSpec
+        );
+        MapperService mapperService = mock(MapperService.class);
+        when(mapperService.fieldType(eq("test_field"))).thenReturn(fieldType);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(indexSettings.getValue(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING)).thenReturn(null);
+        when(mapperService.getIndexSettings()).thenReturn(indexSettings);
+        return new KNN1040PerFieldKnnVectorsFormat(Optional.of(mapperService)).getKnnVectorsFormatForField("test_field");
     }
 }
