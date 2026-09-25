@@ -66,6 +66,28 @@ public final class RescoreContext {
     @Builder.Default
     private final boolean allowOverrideOversampleFactor = true;
 
+    // ---- Late-interaction (multi-vector MaxSim) rescore payload (optional) ----
+    // When lateInteractionField is non-null, the rescore is a native late-interaction MaxSim rescore
+    // over a DIFFERENT field's LateInteractionField doc-values (see k-NN #2934), rather than a
+    // full-precision same-field rescore. These are null for the standard oversample rescore.
+
+    /** Target late-interaction field to rescore on (a {@code late_interaction} typed field). */
+    private String lateInteractionField;
+
+    /** Per-token query multi-vectors used for MaxSim scoring against the target field. */
+    private float[][] lateInteractionQueryVectors;
+
+    /**
+     * Optional query-level similarity override for the late-interaction rescore
+     * (e.g. maxSimDotProduct, maxSimCosine). When null, the target field's space_type is used.
+     */
+    private String lateInteractionSimilarity;
+
+    /** Whether this context carries a late-interaction rescore payload. */
+    public boolean isLateInteraction() {
+        return lateInteractionField != null;
+    }
+
     public static final RescoreContext EXPLICITLY_DISABLED_RESCORE_CONTEXT = RescoreContext.builder()
         .oversampleFactor(DEFAULT_OVERSAMPLE_FACTOR)
         .rescoreEnabled(false)

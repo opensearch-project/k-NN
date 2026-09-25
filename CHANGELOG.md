@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased 3.9](https://github.com/opensearch-project/k-NN/compare/main...HEAD)
 ### Features
+* Add native `late_interaction` field type and MaxSim rescore on the knn query for multi-vector (ColBERT/ColPali) late-interaction search, backed by Lucene's LateInteractionField binary doc-values [#3439](https://github.com/opensearch-project/k-NN/issues/3439)
 * Enable the approximate graph threshold for Faiss SQ x32 (sq bits=1) indices [#3434](https://github.com/opensearch-project/k-NN/pull/3434)
 * Add support for SQ 2 bit and 4 bit with Lucene engine [#3562](https://github.com/opensearch-project/k-NN/pull/3562)
 * Accept SQ 2-bit and 4-bit quantization at the mapping and codec layers [#3429](https://github.com/opensearch-project/k-NN/pull/3429)
