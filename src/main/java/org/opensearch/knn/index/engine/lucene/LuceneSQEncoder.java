@@ -36,8 +36,6 @@ import static org.opensearch.knn.common.KNNConstants.MINIMUM_CONFIDENCE_INTERVAL
  * Lucene scalar quantization encoder
  */
 public class LuceneSQEncoder implements Encoder {
-    // HALF_FLOAT reaches this encoder through compression_level x16, which resolves to bits=1; it has
-    // no other supported width (see validate()).
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT, VectorDataType.HALF_FLOAT);
 
     /**
@@ -125,24 +123,21 @@ public class LuceneSQEncoder implements Encoder {
         }
 
         if (bitsObj instanceof Integer bits) {
-            // half_float only supports the 1-bit path; 2, 4 and 7 stay float-only.
-            if (configContext.getVectorDataType() == VectorDataType.HALF_FLOAT && bits != QuantizationBits.ONE.getValue()) {
+            // half_float supports the coded-flat 1/2/4-bit path
+            if (configContext.getVectorDataType() == VectorDataType.HALF_FLOAT && isCodedBits(bits) == false) {
                 validationException.addValidationError(
                     String.format(
                         Locale.ROOT,
-                        "[%s] data type only supports [%s=%d] for encoder [%s].",
+                        "[%s] data type only supports [%s] in {1, 2, 4} for encoder [%s].",
                         VectorDataType.HALF_FLOAT.getValue(),
                         LUCENE_SQ_BITS,
-                        QuantizationBits.ONE.getValue(),
                         ENCODER_SQ
                     )
                 );
                 throw validationException;
             }
 
-            if (bits == QuantizationBits.ONE.getValue()
-                || bits == QuantizationBits.TWO.getValue()
-                || bits == QuantizationBits.FOUR.getValue()) {
+            if (isCodedBits(bits)) {
                 Set<String> nonBitParameters = encoderParams.keySet()
                     .stream()
                     .filter(k -> !k.equals(LUCENE_SQ_BITS))
@@ -244,5 +239,19 @@ public class LuceneSQEncoder implements Encoder {
     @Override
     public Set<QuantizationBits> getSupportedBits() {
         return LUCENE_SQ_SUPPORTED_BITS;
+    }
+
+    /**
+     * Returns true if {@code bits} is an integer-coded SQ width stored via the Lucene 10.4 SIMD
+     * scalar quantization path. These are the widths {1, 2, 4} — the only widths supported for
+     * {@code half_float} vectors. {@code bits=7} (the legacy scalar quantization path) is excluded.
+     *
+     * @param bits the configured sq encoder bit width
+     * @return true for bits in {1, 2, 4}
+     */
+    public static boolean isCodedBits(final int bits) {
+        return bits == QuantizationBits.ONE.getValue()
+            || bits == QuantizationBits.TWO.getValue()
+            || bits == QuantizationBits.FOUR.getValue();
     }
 }

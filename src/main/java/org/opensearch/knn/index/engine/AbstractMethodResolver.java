@@ -111,6 +111,7 @@ public abstract class AbstractMethodResolver implements MethodResolver {
         // 1. The encoder is specified
         // 2. The compression is x1
         // 3. The compression is not specified and the mode is not disk-based
+        // 4. The data type has no SQ path (only float and half_float do)
         if (isEncoderSpecified(knnMethodContext)) {
             return false;
         }
@@ -124,7 +125,8 @@ public abstract class AbstractMethodResolver implements MethodResolver {
             return false;
         }
 
-        if (VectorDataType.FLOAT != knnMethodConfigContext.getVectorDataType()) {
+        VectorDataType vectorDataType = knnMethodConfigContext.getVectorDataType();
+        if (vectorDataType != VectorDataType.FLOAT && vectorDataType != VectorDataType.HALF_FLOAT) {
             return false;
         }
 

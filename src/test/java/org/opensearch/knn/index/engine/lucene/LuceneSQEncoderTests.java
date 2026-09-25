@@ -299,13 +299,28 @@ public class LuceneSQEncoderTests extends KNNTestCase {
         assertTrue(e.getMessage().contains("half_float"));
     }
 
-    // 2 and 4 are FLOAT-only widths; half_float rejects them the same way it rejects 7.
-    public void testValidate_whenHalfFloatWithBits2_thenError() {
+    public void testValidate_whenHalfFloatWithBits2_thenOk() {
+        callValidateEncoderParams(Version.CURRENT, VectorDataType.HALF_FLOAT, CompressionLevel.x8, Map.of(LUCENE_SQ_BITS, 2));
+    }
+
+    public void testValidate_whenHalfFloatWithBits2AndX16Compression_thenError() {
         ValidationException e = expectThrows(
             ValidationException.class,
             () -> callValidateEncoderParams(Version.CURRENT, VectorDataType.HALF_FLOAT, CompressionLevel.x16, Map.of(LUCENE_SQ_BITS, 2))
         );
-        assertTrue(e.getMessage().contains("half_float"));
+        assertTrue(e.getMessage().contains("8x"));
+    }
+
+    public void testValidate_whenHalfFloatWithBits4_thenOk() {
+        callValidateEncoderParams(Version.CURRENT, VectorDataType.HALF_FLOAT, CompressionLevel.x4, Map.of(LUCENE_SQ_BITS, 4));
+    }
+
+    public void testValidate_whenHalfFloatWithBits4AndX8Compression_thenError() {
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> callValidateEncoderParams(Version.CURRENT, VectorDataType.HALF_FLOAT, CompressionLevel.x8, Map.of(LUCENE_SQ_BITS, 4))
+        );
+        assertTrue(e.getMessage().contains("4x"));
     }
 
     public void testValidate_whenBits2WithX16Compression_explicitOnDisk_thenOk() {

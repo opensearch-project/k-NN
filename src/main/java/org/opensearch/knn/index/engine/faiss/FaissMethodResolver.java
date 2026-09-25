@@ -18,7 +18,6 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
-import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -48,7 +47,12 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         CompressionLevel.x32
     );
 
-    private static final Set<CompressionLevel> SUPPORTED_COMPRESSION_LEVELS_HALF_FLOAT = Set.of(CompressionLevel.x1, CompressionLevel.x16);
+    private static final Set<CompressionLevel> SUPPORTED_COMPRESSION_LEVELS_HALF_FLOAT = Set.of(
+        CompressionLevel.x1,
+        CompressionLevel.x4,
+        CompressionLevel.x8,
+        CompressionLevel.x16
+    );
 
     @Override
     public ResolvedMethodContext resolveMethod(
@@ -96,23 +100,6 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             .build();
     }
 
-    @Override
-    protected boolean shouldEncoderBeResolved(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
-        if (isEncoderSpecified(knnMethodContext)) {
-            return false;
-        }
-
-        if (knnMethodConfigContext.getVectorDataType() == VectorDataType.HALF_FLOAT) {
-            if (knnMethodConfigContext.getCompressionLevel() == CompressionLevel.x16) {
-                return true;
-            }
-            return Mode.ON_DISK == knnMethodConfigContext.getMode()
-                && CompressionLevel.isConfigured(knnMethodConfigContext.getCompressionLevel()) == false;
-        }
-
-        return super.shouldEncoderBeResolved(knnMethodContext, knnMethodConfigContext);
-    }
-
     private void resolveEncoder(
         KNNMethodContext resolvedKNNMethodContext,
         KNNMethodConfigContext knnMethodConfigContext,
@@ -136,7 +123,8 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         if (knnMethodConfigContext.getVectorDataType() == VectorDataType.HALF_FLOAT) {
             encoderComponentContext = new MethodComponentContext(ENCODER_SQ, new HashMap<>());
             encoder = encoderMap.get(ENCODER_SQ);
-            encoderComponentContext.getParameters().put(SQ_BITS, Encoder.QuantizationBits.ONE.getValue());
+            int bits = Encoder.QuantizationBits.fromCompressionLevel(resolvedCompressionLevel, VectorDataType.HALF_FLOAT).getValue();
+            encoderComponentContext.getParameters().put(SQ_BITS, bits);
             applyEncoder(resolvedKNNMethodContext, knnMethodConfigContext, encoderComponentContext, encoder);
             return;
         }
@@ -215,10 +203,9 @@ public class FaissMethodResolver extends AbstractMethodResolver {
     }
 
     /**
-     * half_float exposes exactly one knob - {@code compression_level}, x1 or x16 - so naming an encoder
-     * is rejected rather than silently accepted. Checked against the user's own method context, before
-     * resolution injects {@code sq bits=1} for x16: that injected encoder is internal and must still
-     * work.
+     * half_float is configured through {@code compression_level} only (x1, x16, x8 or x4), so an explicit
+     * encoder is rejected. Checked against the user's own method context, before resolution injects the
+     * internal {@code sq} encoder for an SQ level.
      */
     private void validateEncoderNotSpecifiedForHalfFloat(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
         if (knnMethodConfigContext.getVectorDataType() != VectorDataType.HALF_FLOAT || isEncoderSpecified(knnMethodContext) == false) {

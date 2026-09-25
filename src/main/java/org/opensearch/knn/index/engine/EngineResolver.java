@@ -11,6 +11,7 @@ import org.opensearch.Version;
 import org.opensearch.common.logging.DeprecationLogger;
 import org.opensearch.index.mapper.MapperParsingException;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 
@@ -128,8 +129,10 @@ public final class EngineResolver {
             return KNNEngine.DEFAULT;
         }
 
-        if (compressionLevel == CompressionLevel.x4) {
-            // Lucene is only engine that supports 4x - so we have to default to it here.
+        if (compressionLevel == CompressionLevel.x4 && knnMethodConfigContext.getVectorDataType() != VectorDataType.HALF_FLOAT) {
+            // Lucene is only engine that supports 4x for FLOAT - so we have to default to it here.
+            // For HALF_FLOAT, 4x is SQ 4-bit, which both engines support - fall through to the
+            // generic default below.
             return KNNEngine.LUCENE;
         }
         if (CompressionLevel.isConfigured(compressionLevel) == false || compressionLevel == CompressionLevel.x1) {
@@ -233,7 +236,9 @@ public final class EngineResolver {
         if (requiresTraining && topLevelEngine != KNNEngine.FAISS) {
             throw new MapperParsingException(String.format(Locale.ROOT, "Cannot specify engine other than FAISS for training"));
         }
-        if (knnMethodConfigContext.getCompressionLevel() == CompressionLevel.x4 && topLevelEngine != KNNEngine.LUCENE) {
+        if (knnMethodConfigContext.getCompressionLevel() == CompressionLevel.x4
+            && topLevelEngine != KNNEngine.LUCENE
+            && knnMethodConfigContext.getVectorDataType() != VectorDataType.HALF_FLOAT) {
             throw new MapperParsingException(String.format(Locale.ROOT, "Lucene is the only engine that supports 4x compression"));
         }
         return topLevelEngine;

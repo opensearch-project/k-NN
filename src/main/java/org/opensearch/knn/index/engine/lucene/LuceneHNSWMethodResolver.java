@@ -46,9 +46,8 @@ import static org.opensearch.knn.index.engine.lucene.LuceneHNSWMethod.SUPPORTED_
  * requires indices created on or after 3.6.0; the 2/4-bit paths require indices created on or
  * after {@link org.opensearch.knn.common.KNNConstants#LUCENE_HNSW_SQ_2BIT_4BIT_MIN_VERSION}.
  *
- * <p>Those levels are measured against FLOAT's 32-bit storage. {@code half_float} supports only x1
- * and x16, and its x16 is SQ <b>1-bit</b> — 16 bits down to 1 — not the 2-bit level x16 denotes for
- * FLOAT.
+ * <p>Those levels are measured against FLOAT's 32-bit storage. {@code half_float} supports x1, x16,
+ * x8 and x4, whose SQ widths are 1/2/4-bit respectively (16 bits down to 1/2/4).
  */
 public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
 
@@ -59,7 +58,12 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
         CompressionLevel.x16,
         CompressionLevel.x32
     );
-    private static final Set<CompressionLevel> SUPPORTED_COMPRESSION_LEVELS_HALF_FLOAT = Set.of(CompressionLevel.x1, CompressionLevel.x16);
+    private static final Set<CompressionLevel> SUPPORTED_COMPRESSION_LEVELS_HALF_FLOAT = Set.of(
+        CompressionLevel.x1,
+        CompressionLevel.x4,
+        CompressionLevel.x8,
+        CompressionLevel.x16
+    );
     static final CompressionLevel DEFAULT_COMPRESSION_HALF_FLOAT = CompressionLevel.x1;
 
     @Override
@@ -109,9 +113,9 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
             knnMethodConfigContext.getVectorDataType(),
             validationException
         );
-        // half_float's only encoder configuration (SQ 1-bit) is fully determined by compression_level
-        // (x16) and auto-resolved internally - there's no tunable parameter surface to expose, so
-        // users configure it via compression_level, not by writing an encoder block themselves.
+        // half_float's encoder configuration (SQ 1/2/4-bit) is fully determined by compression_level
+        // (x16/x8/x4) and auto-resolved internally - there's no tunable parameter surface to expose,
+        // so users configure it via compression_level, not by writing an encoder block themselves.
         if (isEncoderSpecified(knnMethodContext)) {
             validationException = validationException == null ? new ValidationException() : validationException;
             validationException.addValidationError(
@@ -124,6 +128,7 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
                 )
             );
         }
+        validationException = validateMultiBitCompressionVersion(knnMethodConfigContext, validationException);
         validationException = validateCompressionNotx1WhenOnDisk(knnMethodConfigContext, validationException);
         if (validationException != null) {
             throw validationException;
@@ -151,19 +156,6 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
             .knnMethodContext(resolvedKNNMethodContext)
             .compressionLevel(resolvedCompressionLevel)
             .build();
-    }
-
-    @Override
-    protected boolean shouldEncoderBeResolved(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
-        if (isEncoderSpecified(knnMethodContext)) {
-            return false;
-        }
-
-        if (knnMethodConfigContext.getVectorDataType() == VectorDataType.HALF_FLOAT) {
-            return getDataTypeAwareDefaultCompressionLevel(knnMethodConfigContext) == CompressionLevel.x16;
-        }
-
-        return super.shouldEncoderBeResolved(knnMethodContext, knnMethodConfigContext);
     }
 
     protected void resolveEncoder(KNNMethodContext resolvedKNNMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
@@ -252,18 +244,19 @@ public class LuceneHNSWMethodResolver extends AbstractMethodResolver {
     }
 
     /**
-     * Rejects x8 / x16 compression on the Lucene HNSW method for indices created before
-     * {@link org.opensearch.knn.common.KNNConstants#LUCENE_HNSW_SQ_2BIT_4BIT_MIN_VERSION}. The
-     * 2-bit and 4-bit scalar-quantization codec files did not exist in earlier codecs, so an
-     * older index cannot read them; reject the mapping up front rather than deferring to a
-     * codec-time failure.
+     * Rejects the SQ 2-bit and 4-bit levels on the Lucene HNSW method for indices created before
+     * {@link org.opensearch.knn.common.KNNConstants#LUCENE_HNSW_SQ_2BIT_4BIT_MIN_VERSION}: x16 / x8
+     * for FLOAT and x8 / x4 for HALF_FLOAT. The 2-bit and 4-bit scalar-quantization codec files did
+     * not exist in earlier codecs, so an older index cannot read them; reject the mapping up front
+     * rather than deferring to a codec-time failure.
      */
     private ValidationException validateMultiBitCompressionVersion(
         KNNMethodConfigContext knnMethodConfigContext,
         ValidationException validationException
     ) {
         CompressionLevel compressionLevel = knnMethodConfigContext.getCompressionLevel();
-        if (compressionLevel != CompressionLevel.x8 && compressionLevel != CompressionLevel.x16) {
+        QuantizationBits bits = QuantizationBits.fromCompressionLevel(compressionLevel, knnMethodConfigContext.getVectorDataType());
+        if (bits != QuantizationBits.TWO && bits != QuantizationBits.FOUR) {
             return validationException;
         }
         Version versionCreated = knnMethodConfigContext.getVersionCreated();
