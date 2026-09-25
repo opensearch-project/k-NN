@@ -18,7 +18,6 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
-import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -99,25 +98,6 @@ public class FaissMethodResolver extends AbstractMethodResolver {
             .knnMethodContext(resolvedKNNMethodContext)
             .compressionLevel(resolvedCompressionLevel)
             .build();
-    }
-
-    @Override
-    protected boolean shouldEncoderBeResolved(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
-        if (isEncoderSpecified(knnMethodContext)) {
-            return false;
-        }
-
-        if (knnMethodConfigContext.getVectorDataType() == VectorDataType.HALF_FLOAT) {
-            CompressionLevel compressionLevel = knnMethodConfigContext.getCompressionLevel();
-            if (compressionLevel == CompressionLevel.x16
-                || compressionLevel == CompressionLevel.x8
-                || compressionLevel == CompressionLevel.x4) {
-                return true;
-            }
-            return Mode.ON_DISK == knnMethodConfigContext.getMode() && CompressionLevel.isConfigured(compressionLevel) == false;
-        }
-
-        return super.shouldEncoderBeResolved(knnMethodContext, knnMethodConfigContext);
     }
 
     private void resolveEncoder(
@@ -223,10 +203,9 @@ public class FaissMethodResolver extends AbstractMethodResolver {
     }
 
     /**
-     * half_float exposes exactly one knob - {@code compression_level}, x1 or x16 - so naming an encoder
-     * is rejected rather than silently accepted. Checked against the user's own method context, before
-     * resolution injects {@code sq bits=1} for x16: that injected encoder is internal and must still
-     * work.
+     * half_float is configured through {@code compression_level} only (x1, x16, x8 or x4), so an explicit
+     * encoder is rejected. Checked against the user's own method context, before resolution injects the
+     * internal {@code sq} encoder for an SQ level.
      */
     private void validateEncoderNotSpecifiedForHalfFloat(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
         if (knnMethodConfigContext.getVectorDataType() != VectorDataType.HALF_FLOAT || isEncoderSpecified(knnMethodContext) == false) {

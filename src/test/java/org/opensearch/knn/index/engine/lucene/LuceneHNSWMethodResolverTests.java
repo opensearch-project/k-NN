@@ -653,6 +653,63 @@ public class LuceneHNSWMethodResolverTests extends KNNTestCase {
         );
     }
 
+    // half_float's 2-bit and 4-bit levels are x8 and x4; they sit behind the same 2/4-bit gate as
+    // FLOAT's x16 and x8.
+    public void testResolveMethod_whenHalfFloatX8OnPreGate_thenThrow() {
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> TEST_RESOLVER.resolveMethod(
+                null,
+                KNNMethodConfigContext.builder()
+                    .vectorDataType(VectorDataType.HALF_FLOAT)
+                    .compressionLevel(CompressionLevel.x8)
+                    .versionCreated(Version.V_3_7_0)
+                    .build(),
+                false,
+                SpaceType.L2
+            )
+        );
+        assertTrue(e.getMessage(), e.getMessage().contains("requires an index created with version"));
+    }
+
+    public void testResolveMethod_whenHalfFloatX4OnPreGate_thenThrow() {
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> TEST_RESOLVER.resolveMethod(
+                null,
+                KNNMethodConfigContext.builder()
+                    .vectorDataType(VectorDataType.HALF_FLOAT)
+                    .compressionLevel(CompressionLevel.x4)
+                    .versionCreated(Version.V_3_7_0)
+                    .build(),
+                false,
+                SpaceType.L2
+            )
+        );
+        assertTrue(e.getMessage(), e.getMessage().contains("requires an index created with version"));
+    }
+
+    // x16 is half_float's 1-bit level, which predates the 2/4-bit gate and must keep resolving.
+    public void testResolveMethod_whenHalfFloatX16OnPreGate_thenResolvesToSQOneBit() {
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            null,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.HALF_FLOAT)
+                .compressionLevel(CompressionLevel.x16)
+                .versionCreated(Version.V_3_7_0)
+                .build(),
+            false,
+            SpaceType.L2
+        );
+        assertEquals(CompressionLevel.x16, resolvedMethodContext.getCompressionLevel());
+        MethodComponentContext encoderCtx = (MethodComponentContext) resolvedMethodContext.getKnnMethodContext()
+            .getMethodComponentContext()
+            .getParameters()
+            .get(METHOD_ENCODER_PARAMETER);
+        assertEquals(ENCODER_SQ, encoderCtx.getName());
+        assertEquals(1, encoderCtx.getParameters().get(LUCENE_SQ_BITS));
+    }
+
     public void testResolveMethod_whenOnDiskPreGate_thenBitsDerivedAsOne() {
         // On_disk on a 3.6.0-pre-gate index resolves to x32 (bits=1) — never x16/x8.
         ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(

@@ -8,6 +8,7 @@ package org.opensearch.knn.index.mapper;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.opensearch.core.common.Strings;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.util.Collections;
@@ -57,6 +58,22 @@ public enum CompressionLevel {
         throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid compression level: \"[%s]\"", name));
     }
 
+    /**
+     * Get the compression level for a compression factor, the number in the "Nx" name.
+     *
+     * @param factor factor by which compression takes place, e.g. 16 for {@link #x16}
+     * @return CompressionLevel enum value
+     * @throws IllegalArgumentException if no compression level has that factor
+     */
+    public static CompressionLevel fromFactor(int factor) {
+        for (CompressionLevel config : CompressionLevel.values()) {
+            if (config != NOT_CONFIGURED && config.compressionLevel == factor) {
+                return config;
+            }
+        }
+        throw new IllegalArgumentException(String.format(Locale.ROOT, "Invalid compression factor: [%d]", factor));
+    }
+
     private final int compressionLevel;
     @Getter
     private final String name;
@@ -75,25 +92,22 @@ public enum CompressionLevel {
      * @return number of bits to represent a float at this compression level
      */
     public int numBitsForFloat32() {
-        if (this == NOT_CONFIGURED) {
-            return DEFAULT.numBitsForFloat32();
-        }
-
-        return (Float.BYTES * Byte.SIZE) / compressionLevel;
+        return numBitsFor(VectorDataType.FLOAT);
     }
 
     /**
-     * Gets the number of bits used to represent a half_float value in order to achieve this
-     * compression level.
+     * Gets the number of bits used to represent one dimension of {@code vectorDataType} in order to
+     * achieve this compression: the type's uncompressed width divided by the compression factor.
+     * {@code NOT_CONFIGURED} resolves as the default (1x).
      *
-     * @return number of bits to represent a half_float at this compression level
+     * @param vectorDataType data type whose width the compression applies to
+     * @return number of bits per dimension at this compression level
      */
-    public int numBitsForHalfFloat() {
+    public int numBitsFor(VectorDataType vectorDataType) {
         if (this == NOT_CONFIGURED) {
-            return DEFAULT.numBitsForHalfFloat();
+            return DEFAULT.numBitsFor(vectorDataType);
         }
-
-        return (Short.BYTES * Byte.SIZE) / compressionLevel;
+        return vectorDataType.getBitsPerDimension() / compressionLevel;
     }
 
     /**
