@@ -48,6 +48,7 @@ import org.opensearch.knn.index.codec.derivedsource.DerivedSourceIndexOperationL
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.mapper.KNNDynamicTemplateTypeHandler;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.mapper.LateInteractionFieldMapper;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.query.KNNQuery;
@@ -233,10 +234,10 @@ public class KNNPlugin extends Plugin
 
     @Override
     public Map<String, Mapper.TypeParser> getMappers() {
-        return Collections.singletonMap(
-            KNNVectorFieldMapper.CONTENT_TYPE,
-            new KNNVectorFieldMapper.TypeParser(ModelDao.OpenSearchKNNModelDao::getInstance)
-        );
+        Map<String, Mapper.TypeParser> mappers = new HashMap<>();
+        mappers.put(KNNVectorFieldMapper.CONTENT_TYPE, new KNNVectorFieldMapper.TypeParser(ModelDao.OpenSearchKNNModelDao::getInstance));
+        mappers.put(LateInteractionFieldMapper.CONTENT_TYPE, LateInteractionFieldMapper.PARSER);
+        return Collections.unmodifiableMap(mappers);
     }
 
     @Override

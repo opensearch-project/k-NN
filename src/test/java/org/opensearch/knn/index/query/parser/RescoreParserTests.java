@@ -118,4 +118,102 @@ public class RescoreParserTests extends KNNTestCase {
         XContentParser parser = createParser(builder);
         expectThrows(IllegalArgumentException.class, () -> RescoreParser.fromXContent(parser));
     }
+
+    // ---- late-interaction rescore payload ----
+
+    @SneakyThrows
+    public void testStreams_lateInteraction() {
+        RescoreContext ctx = RescoreContext.builder()
+            .oversampleFactor(2.0f)
+            .lateInteractionField("tokens")
+            .lateInteractionQueryVectors(new float[][] { { 0.1f, 0.2f, 0.3f }, { 0.4f, 0.5f, 0.6f } })
+            .lateInteractionSimilarity("maxSimDotProduct")
+            .build();
+        validateStreams(ctx);
+    }
+
+    @SneakyThrows
+    public void testDoXContent_lateInteraction() {
+        RescoreContext ctx = RescoreContext.builder()
+            .oversampleFactor(3.0f)
+            .lateInteractionField("tokens")
+            .lateInteractionQueryVectors(new float[][] { { 1.0f, 2.0f } })
+            .lateInteractionSimilarity("maxSimDotProduct")
+            .build();
+
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
+        RescoreParser.doXContent(builder, ctx);
+        builder.endObject();
+
+        // Dynamic field-name key (RFC #3439): the field name is the key, with a nested `vector`.
+        String json = builder.toString();
+        assertTrue(json.contains("\"tokens\""));
+        assertTrue(json.contains(RescoreParser.LATE_INTERACTION_VECTOR_PARAMETER));
+        assertTrue(json.contains("maxSimDotProduct"));
+    }
+
+    @SneakyThrows
+    public void testFromXContent_lateInteraction_thenSucceed() {
+        // "rescore": { "oversample_factor": 2, "tokens": { "vector": [[..],[..]], "similarity": "maxSimDotProduct" } }
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(RESCORE_OVERSAMPLE_PARAMETER, 2.0f)
+            .startObject("tokens")
+            .startArray(RescoreParser.LATE_INTERACTION_VECTOR_PARAMETER)
+            .startArray()
+            .value(0.1f)
+            .value(0.2f)
+            .value(0.3f)
+            .endArray()
+            .startArray()
+            .value(0.4f)
+            .value(0.5f)
+            .value(0.6f)
+            .endArray()
+            .endArray()
+            .field(RescoreParser.LATE_INTERACTION_SIMILARITY_PARAMETER, "maxSimDotProduct")
+            .endObject()
+            .endObject();
+
+        XContentParser parser = createParser(builder);
+        RescoreContext ctx = RescoreParser.fromXContent(parser);
+
+        assertTrue(ctx.isLateInteraction());
+        assertEquals("tokens", ctx.getLateInteractionField());
+        assertEquals("maxSimDotProduct", ctx.getLateInteractionSimilarity());
+        assertEquals(2, ctx.getLateInteractionQueryVectors().length);
+        assertArrayEquals(new float[] { 0.1f, 0.2f, 0.3f }, ctx.getLateInteractionQueryVectors()[0], 1e-6f);
+        assertArrayEquals(new float[] { 0.4f, 0.5f, 0.6f }, ctx.getLateInteractionQueryVectors()[1], 1e-6f);
+    }
+
+    @SneakyThrows
+    public void testFromXContent_lateInteraction_defaultsOversample() {
+        // No oversample_factor given with a late-interaction rescore -> defaults to 3.0.
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("tokens")
+            .startArray(RescoreParser.LATE_INTERACTION_VECTOR_PARAMETER)
+            .startArray()
+            .value(0.1f)
+            .value(0.2f)
+            .endArray()
+            .endArray()
+            .endObject()
+            .endObject();
+        XContentParser parser = createParser(builder);
+        RescoreContext ctx = RescoreParser.fromXContent(parser);
+        assertEquals(RescoreParser.LATE_INTERACTION_DEFAULT_OVERSAMPLE_FACTOR, ctx.getOversampleFactor(), 1e-6f);
+    }
+
+    @SneakyThrows
+    public void testFromXContent_lateInteraction_missingVector_thenFail() {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("tokens")
+            .field(RescoreParser.LATE_INTERACTION_SIMILARITY_PARAMETER, "maxSimDotProduct")
+            .endObject()
+            .endObject();
+        XContentParser parser = createParser(builder);
+        expectThrows(IllegalArgumentException.class, () -> RescoreParser.fromXContent(parser));
+    }
 }
