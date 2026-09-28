@@ -30,6 +30,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
 import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
 import org.opensearch.repositories.RepositoriesService;
@@ -549,6 +550,65 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         );
         assertEquals("half_float", request.getVectorDataType());
         assertFalse(request.isSkipStoredVectors());
+    }
+
+    public void testBuildRequestHalfFloatFlat() throws IOException {
+        ResolvedIndexSpec resolvedSpec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName("hnsw")
+            .encoderType(Encoder.EncoderType.FLAT)
+            .compressionLevel(CompressionLevel.NOT_CONFIGURED)
+            .vectorDataType(VectorDataType.HALF_FLOAT)
+            .dimension(2)
+            .build();
+        RemoteBuildRequest request = RemoteIndexBuildStrategy.buildRemoteBuildRequest(
+            createTestIndexSettings(),
+            halfFloatBuildIndexParams(),
+            createTestRepositoryMetadata(),
+            MOCK_FULL_PATH,
+            getMockParameterMap(),
+            resolvedSpec
+        );
+        assertEquals(VectorDataType.HALF_FLOAT.getValue(), request.getVectorDataType());
+        assertEquals(2, request.getDimension());
+        assertEquals(3, request.getDocCount());
+        assertFalse(request.isSkipStoredVectors());
+    }
+
+    public void testBuildRequestHalfFloatSQOneBit() throws IOException {
+        ResolvedIndexSpec resolvedSpec = ResolvedIndexSpec.builder()
+            .engine(KNNEngine.FAISS)
+            .methodName("hnsw")
+            .encoderType(Encoder.EncoderType.SQ)
+            .quantizationBits(Encoder.QuantizationBits.ONE)
+            .compressionLevel(CompressionLevel.x16)
+            .vectorDataType(VectorDataType.HALF_FLOAT)
+            .dimension(2)
+            .build();
+        RemoteBuildRequest request = RemoteIndexBuildStrategy.buildRemoteBuildRequest(
+            createTestIndexSettings(),
+            halfFloatBuildIndexParams(),
+            createTestRepositoryMetadata(),
+            MOCK_FULL_PATH,
+            getMockSQOneBitParameterMap(),
+            resolvedSpec
+        );
+        assertEquals(VectorDataType.HALF_FLOAT.getValue(), request.getVectorDataType());
+        assertTrue(request.isSkipStoredVectors());
+    }
+
+    private BuildIndexParams halfFloatBuildIndexParams() {
+        return BuildIndexParams.builder()
+            .indexOutputWithBuffer(indexOutputWithBuffer)
+            .knnEngine(KNNEngine.FAISS)
+            .field(buildIndexParams.getField())
+            .vectorDataType(VectorDataType.HALF_FLOAT)
+            .indexParameters(buildIndexParams.getIndexParameters())
+            .knnVectorValuesSupplier(KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.HALF_FLOAT, randomVectorValues))
+            .totalLiveDocs(buildIndexParams.getTotalLiveDocs())
+            .segmentWriteState(segmentWriteState)
+            .isFlush(randomBoolean())
+            .build();
     }
 
     public Map<String, Object> getMockParameterMap() {
