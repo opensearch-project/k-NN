@@ -67,12 +67,7 @@ public class DefaultVectorRepositoryAccessor implements VectorRepositoryAccessor
         assert blobContainer != null;
         KNNVectorValues<?> knnVectorValues = knnVectorValuesSupplier.get();
         initializeVectorValues(knnVectorValues);
-        // HALF_FLOAT is uploaded as raw fp32 (see VectorValuesInputStream#reloadBuffer) - bytesPerVector()
-        // reports the 2-byte on-disk size, which does not match the actual upload size here.
-        long bytesPerVectorForUpload = vectorDataType == VectorDataType.HALF_FLOAT
-            ? (long) knnVectorValues.dimension() * Float.BYTES
-            : knnVectorValues.bytesPerVector();
-        long vectorBlobLength = bytesPerVectorForUpload * totalLiveDocs;
+        long vectorBlobLength = (long) knnVectorValues.bytesPerVector() * totalLiveDocs;
 
         // TODO : Once Lucene patch https://github.com/apache/lucene/issues/14992 is merged, remove vector data type check in condition.
         // That issue is specific to MergedByteVectorValues (BYTE/BINARY); HALF_FLOAT rides on Lucene's
