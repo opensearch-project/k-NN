@@ -6,14 +6,12 @@
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
 import org.apache.lucene.codecs.CodecUtil;
-import org.apache.lucene.codecs.KnnVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatFieldVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
 import org.apache.lucene.codecs.lucene95.OrdToDocDISIReaderConfiguration;
 import org.apache.lucene.index.DocsWithFieldSet;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.MergeState;
@@ -48,8 +46,8 @@ import static org.opensearch.knn.index.codec.KNN1040Codec.KNN1040HalfFloatFlatVe
  * {@link #alignOutput}, including before the first field), written back to back with no gaps.
  * Vector order depends on the call: {@link #writeField} uses insertion order, {@link
  * #writeSortingField} remaps to new-doc order first, and {@link #mergeOneFlatVectorField} writes
- * final merged-segment order via {@link KnnVectorsWriter.MergedVectorValues#mergeFloatVectorValues}
- * (dropping deletions, applying any index sort). Sparse fields get a trailing doc-id/ordinal
+ * final merged-segment order via {@link MergeOptimizedHalfFloatVector} (dropping deletions,
+ * applying any index sort). Sparse fields get a trailing doc-id/ordinal
  * mapping block from {@link OrdToDocDISIReaderConfiguration#writeStoredMeta} appended right after
  * their vectors; dense and empty fields skip it.
  *
@@ -58,7 +56,9 @@ import static org.opensearch.knn.index.codec.KNN1040Codec.KNN1040HalfFloatFlatVe
  * - so a {@code dimension}-length vector takes exactly {@code dimension * 2} bytes, half of
  * FLOAT32's {@code dimension * 4}. The conversion runs through native SIMD when available
  * ({@code SimdFp16.encodeFp32ToFp16}), falling back to the equivalent {@code Float.floatToFloat16}
- * in pure Java; both produce identical bytes.
+ * in pure Java; both produce identical bytes. Merge is the exception: vectors arriving from another
+ * FP16 segment are already encoded, so {@link MergeOptimizedHalfFloatVector} passes their bytes
+ * through untouched instead of decoding and re-encoding them.
  */
 public class KNN1040HalfFloatFlatVectorsWriter extends FlatVectorsWriter {
 
@@ -165,12 +165,7 @@ public class KNN1040HalfFloatFlatVectorsWriter extends FlatVectorsWriter {
     public void mergeOneFlatVectorField(FieldInfo fieldInfo, MergeState mergeState) throws IOException {
         checkFloat32Encoding(fieldInfo);
 
-        // Delegates to MergedVectorValues so vectors come out in final merged-segment doc order,
-        // with deletions filtered and index sorting applied. A naive per-reader loop can't
-        // reproduce this order: under an index sort, each reader's docs are remapped to
-        // non-contiguous ids interleaved with other readers' docs in the merged segment, not laid
-        // out reader-by-reader.
-        final FloatVectorValues mergedValues = KnnVectorsWriter.MergedVectorValues.mergeFloatVectorValues(fieldInfo, mergeState);
+        final MergeOptimizedHalfFloatVector mergedValues = MergeOptimizedHalfFloatVector.create(fieldInfo, mergeState);
 
         final long vectorDataOffset = alignOutput(vectorData);
         final DocsWithFieldSet docsWithField = writeVectorData(vectorData, mergedValues, fieldInfo.getVectorDimension());
@@ -179,14 +174,16 @@ public class KNN1040HalfFloatFlatVectorsWriter extends FlatVectorsWriter {
         writeMeta(fieldInfo, segmentWriteState.segmentInfo.maxDoc(), vectorDataOffset, vectorDataLength, docsWithField);
     }
 
-    // Encodes vectors to FP16 and writes them, returning the documents that have a vector.
-    private static DocsWithFieldSet writeVectorData(IndexOutput output, FloatVectorValues values, int dimension) throws IOException {
+    // Writes each merged vector's FP16 bytes, returning the documents that have a vector.
+    // MergeOptimizedHalfFloatVector supplies bytes already in FP16 form wherever the source segment
+    // stored them that way, so the common merge does no conversion at all.
+    private static DocsWithFieldSet writeVectorData(IndexOutput output, MergeOptimizedHalfFloatVector values, int dimension)
+        throws IOException {
         final byte[] outputBuffer = new byte[dimension * Short.BYTES];
         final DocsWithFieldSet docsWithField = new DocsWithFieldSet();
         final KnnVectorValues.DocIndexIterator iterator = values.iterator();
         for (int doc = iterator.nextDoc(); doc != DocIdSetIterator.NO_MORE_DOCS; doc = iterator.nextDoc()) {
-            final float[] vector = values.vectorValue(iterator.index());
-            KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE.floatToByteArray(vector, outputBuffer, dimension);
+            values.currentVectorBytes(outputBuffer);
             output.writeBytes(outputBuffer, 0, outputBuffer.length);
             docsWithField.add(doc);
         }
