@@ -124,7 +124,7 @@ public class LuceneSQEncoder implements Encoder {
 
         if (bitsObj instanceof Integer bits) {
             // half_float supports the coded-flat 1/2/4-bit path
-            if (configContext.getVectorDataType() == VectorDataType.HALF_FLOAT && isCodedBits(bits) == false) {
+            if (configContext.getVectorDataType() == VectorDataType.HALF_FLOAT && QuantizationBits.isSQCodedBits(bits) == false) {
                 validationException.addValidationError(
                     String.format(
                         Locale.ROOT,
@@ -137,7 +137,7 @@ public class LuceneSQEncoder implements Encoder {
                 throw validationException;
             }
 
-            if (isCodedBits(bits)) {
+            if (QuantizationBits.isSQCodedBits(bits)) {
                 Set<String> nonBitParameters = encoderParams.keySet()
                     .stream()
                     .filter(k -> !k.equals(LUCENE_SQ_BITS))
@@ -239,19 +239,5 @@ public class LuceneSQEncoder implements Encoder {
     @Override
     public Set<QuantizationBits> getSupportedBits() {
         return LUCENE_SQ_SUPPORTED_BITS;
-    }
-
-    /**
-     * Returns true if {@code bits} is an integer-coded SQ width stored via the Lucene 10.4 SIMD
-     * scalar quantization path. These are the widths {1, 2, 4} — the only widths supported for
-     * {@code half_float} vectors. {@code bits=7} (the legacy scalar quantization path) is excluded.
-     *
-     * @param bits the configured sq encoder bit width
-     * @return true for bits in {1, 2, 4}
-     */
-    public static boolean isCodedBits(final int bits) {
-        return bits == QuantizationBits.ONE.getValue()
-            || bits == QuantizationBits.TWO.getValue()
-            || bits == QuantizationBits.FOUR.getValue();
     }
 }

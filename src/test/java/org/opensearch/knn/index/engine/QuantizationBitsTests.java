@@ -76,6 +76,20 @@ public class QuantizationBitsTests extends KNNTestCase {
         );
     }
 
+    public void testFromCompressionLevel_withHalfFloatAndNonSQLevel_thenFullPrecision() {
+        for (CompressionLevel level : new CompressionLevel[] {
+            CompressionLevel.x32,
+            CompressionLevel.x2,
+            CompressionLevel.x64,
+            CompressionLevel.NOT_CONFIGURED }) {
+            assertEquals(
+                "HALF_FLOAT at " + level,
+                Encoder.QuantizationBits.FULL_PRECISION,
+                Encoder.QuantizationBits.fromCompressionLevel(level, VectorDataType.HALF_FLOAT)
+            );
+        }
+    }
+
     public void testCompressionLevelRoundTrips_forFloatAndHalfFloat() {
         for (VectorDataType vectorDataType : new VectorDataType[] { VectorDataType.FLOAT, VectorDataType.HALF_FLOAT }) {
             java.util.Set<Encoder.QuantizationBits> supported = vectorDataType == VectorDataType.HALF_FLOAT
@@ -91,6 +105,15 @@ public class QuantizationBitsTests extends KNNTestCase {
                 CompressionLevel level = bits.getCompressionLevel(vectorDataType);
                 assertEquals(vectorDataType + " @ " + bits, bits, Encoder.QuantizationBits.fromCompressionLevel(level, vectorDataType));
             }
+        }
+    }
+
+    public void testIsSQCodedBits_thenOnlyOneTwoAndFour() {
+        for (int bits : new int[] { 1, 2, 4 }) {
+            assertTrue("bits=" + bits, Encoder.QuantizationBits.isSQCodedBits(bits));
+        }
+        for (int bits : new int[] { 0, 3, 7, 8, 16, 32, 999 }) {
+            assertFalse("bits=" + bits, Encoder.QuantizationBits.isSQCodedBits(bits));
         }
     }
 

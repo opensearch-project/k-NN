@@ -124,15 +124,22 @@ public interface Encoder {
          * including x1 (raw), NOT_CONFIGURED, and FLOAT's x4 (Lucene 7-bit) and x2 (Faiss fp16),
          * which are stored in other formats.
          */
+        /**
+         * Whether {@code bits} is a width the SQ encoders code at (1, 2 or 4). The single definition
+         * of that set; the Faiss and Lucene SQ encoders delegate here. Unknown widths are never coded.
+         */
+        public static boolean isSQCodedBits(int bits) {
+            // fromValue falls back to FULL_PRECISION for widths with no constant, which is never SQ-coded.
+            return SQ_CODED_BITS.contains(fromValue(bits));
+        }
+
         public static boolean isSQCoded(CompressionLevel compressionLevel, VectorDataType vectorDataType) {
             // Only float and half_float have an SQ path; for other types the arithmetic below would be
             // meaningless (binary at x1 computes to 1 bit).
             if (vectorDataType != VectorDataType.FLOAT && vectorDataType != VectorDataType.HALF_FLOAT) {
                 return false;
             }
-            // fromValue falls back to FULL_PRECISION for widths with no constant, which is never SQ-coded.
-            return CompressionLevel.isConfigured(compressionLevel)
-                && SQ_CODED_BITS.contains(fromValue(vectorDataType.getCompressionBits(compressionLevel)));
+            return CompressionLevel.isConfigured(compressionLevel) && isSQCodedBits(vectorDataType.getCompressionBits(compressionLevel));
         }
 
         /**
@@ -156,12 +163,14 @@ public interface Encoder {
 
         /**
          * Data-type-aware inverse of {@link #getCompressionLevel(VectorDataType)}. For HALF_FLOAT,
-         * x16/x8/x4 are its SQ 1/2/4-bit levels; any other compression level (including x1) falls
-         * through to the generic, non-data-type-aware mapping below.
+         * x16/x8/x4 are its SQ 1/2/4-bit levels and every other level (x1, NOT_CONFIGURED, or a level
+         * half_float does not support) is {@link #FULL_PRECISION}.
          */
         public static QuantizationBits fromCompressionLevel(CompressionLevel compressionLevel, VectorDataType vectorDataType) {
-            if (vectorDataType == VectorDataType.HALF_FLOAT && isSQCoded(compressionLevel, vectorDataType)) {
-                return fromValue(vectorDataType.getCompressionBits(compressionLevel));
+            if (vectorDataType == VectorDataType.HALF_FLOAT) {
+                return isSQCoded(compressionLevel, vectorDataType)
+                    ? fromValue(vectorDataType.getCompressionBits(compressionLevel))
+                    : FULL_PRECISION;
             }
             return fromCompressionLevel(compressionLevel);
         }
