@@ -8,6 +8,7 @@ package org.opensearch.knn.index.codec.nativeindex.remote;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.BuildResult;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
 
 import java.io.IOException;
@@ -91,6 +92,36 @@ public class RemoteIndexBuildMetricsTests extends RemoteIndexBuildTests {
         assertEquals(0L, (long) REMOTE_INDEX_BUILD_CURRENT_FLUSH_OPERATIONS.getValue());
         assertEquals(0L, (long) REMOTE_INDEX_BUILD_CURRENT_FLUSH_SIZE.getValue());
         assertEquals(0L, (long) REMOTE_INDEX_BUILD_FLUSH_TIME.getValue());
+    }
+
+    /**
+     * The size gauge reflects the upload layout: fp32 for FLOAT, fp16 (2 bytes per dimension) for HALF_FLOAT.
+     */
+    public void testStartMetricsSizeReflectsVectorDataType() throws IOException {
+        int docs = buildIndexParams.getTotalLiveDocs();
+        int dimension = 2;
+
+        RemoteIndexBuildMetrics floatMetrics = new RemoteIndexBuildMetrics();
+        floatMetrics.startRemoteIndexBuildMetrics(buildParamsWithFlush(true));
+        assertEquals((long) docs * dimension * Float.BYTES, (long) REMOTE_INDEX_BUILD_CURRENT_FLUSH_SIZE.getValue());
+        floatMetrics.endRemoteIndexBuildMetrics(BuildResult.SUCCESS);
+
+        BuildIndexParams halfFloatParams = BuildIndexParams.builder()
+            .indexOutputWithBuffer(indexOutputWithBuffer)
+            .knnEngine(buildIndexParams.getKnnEngine())
+            .field(buildIndexParams.getField())
+            .vectorDataType(VectorDataType.HALF_FLOAT)
+            .indexParameters(buildIndexParams.getIndexParameters())
+            .knnVectorValuesSupplier(KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.HALF_FLOAT, randomVectorValues))
+            .totalLiveDocs(docs)
+            .segmentWriteState(segmentWriteState)
+            .isFlush(true)
+            .build();
+        RemoteIndexBuildMetrics halfFloatMetrics = new RemoteIndexBuildMetrics();
+        halfFloatMetrics.startRemoteIndexBuildMetrics(halfFloatParams);
+        assertEquals((long) docs * dimension * Short.BYTES, (long) REMOTE_INDEX_BUILD_CURRENT_FLUSH_SIZE.getValue());
+        halfFloatMetrics.endRemoteIndexBuildMetrics(BuildResult.SUCCESS);
+        assertEquals(0L, (long) REMOTE_INDEX_BUILD_CURRENT_FLUSH_SIZE.getValue());
     }
 
     /**
