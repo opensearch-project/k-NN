@@ -115,12 +115,20 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
         assertFalse(responseMap.containsKey(MODEL_STATE));
     }
 
+    @SneakyThrows
     public void testGetModel_whenModelIDIsInValid_thenFail() {
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "invalid-model-id");
         Request request = new Request("GET", restURI);
 
         ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-        assertTrue(ex.getMessage().contains("\"invalid-model-id\""));
+        assertEquals(RestStatus.NOT_FOUND.getStatus(), ex.getResponse().getStatusLine().getStatusCode());
+
+        // The model index is created lazily by the first put, so before the handler guarded on that this
+        // returned index_not_found_exception unless an earlier test had already trained a model. Assert on
+        // the response body rather than the exception message, which also prefixes the request line.
+        String body = EntityUtils.toString(ex.getResponse().getEntity());
+        assertTrue(body, body.contains("resource_not_found_exception"));
+        assertTrue(body, body.contains("invalid-model-id"));
     }
 
     public void testGetModel_whenIDIsBlank_thenFail() {
