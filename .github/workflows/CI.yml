@@ -43,6 +43,12 @@ jobs:
   Build-k-NN-Linux:
     strategy:
       fail-fast: false
+      # Cap concurrent shard jobs. Each Linux shard runs in the opensearch-build CI
+      # container pulled from public.ecr.aws; running all java x shard combinations at
+      # once caused simultaneous image pulls to trip the ECR Public anonymous bandwidth
+      # limit ("toomanyrequests: Data limit exceeded"). Limiting concurrency staggers the
+      # pulls without reducing test coverage.
+      max-parallel: 2
       matrix:
         java: [21, 25]
         # Split integTest across parallel runners. Each shard is an independent job (own

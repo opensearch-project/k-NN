@@ -35,6 +35,9 @@ jobs:
   integ-test-with-security-linux:
     strategy:
       fail-fast: false
+      # Cap concurrent shard jobs to avoid simultaneous public.ecr.aws image pulls tripping
+      # the ECR Public anonymous bandwidth limit ("toomanyrequests: Data limit exceeded").
+      max-parallel: 2
       matrix:
         java: [21, 25]
         # Split integTest across parallel runners.
