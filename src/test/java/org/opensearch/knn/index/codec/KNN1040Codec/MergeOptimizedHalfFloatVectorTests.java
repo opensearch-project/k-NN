@@ -37,6 +37,7 @@ import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfHalfFloatsSerializer;
 import org.opensearch.knn.memoryoptsearch.faiss.MMapFloatVectorValues;
+import org.opensearch.knn.memoryoptsearch.faiss.WrappedFloatVectorValues;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -158,6 +159,207 @@ public class MergeOptimizedHalfFloatVectorTests extends KNNTestCase {
         }
     }
 
+    @SneakyThrows
+    public void testCreate_skipsSegmentsWithNothingToMerge() {
+        try (Directory dir = new ByteBuffersDirectory()) {
+            float[][] vectors = { randomVector(), randomVector() };
+            SegmentReadState readState = writeHalfFloatSegment(dir, "_0", vectors);
+
+            try (FlatVectorsReader reader = new KNN1040HalfFloatFlatVectorsReader(readState, mockScorer())) {
+                KnnVectorsReader present = Mockito.mock(KnnVectorsReader.class);
+                Mockito.when(present.getFloatVectorValues(FIELD_NAME)).thenReturn(reader.getFloatVectorValues(FIELD_NAME));
+                KnnVectorsReader withoutValues = Mockito.mock(KnnVectorsReader.class);
+                Mockito.when(withoutValues.getFloatVectorValues(FIELD_NAME)).thenReturn(null);
+
+                FieldInfos withField = new FieldInfos(new FieldInfo[] { createFieldInfo() });
+                FieldInfos withoutField = new FieldInfos(new FieldInfo[0]);
+
+                // Only the first segment contributes: the second never had the field, the third has no
+                // vectors reader at all, and the fourth has a reader but no values for this field.
+                MergeState mergeState = mergeStateOver(
+                    dir,
+                    identityDocMaps(4),
+                    new FieldInfos[] { withField, withoutField, withField, withField },
+                    new KnnVectorsReader[] { present, present, null, withoutValues },
+                    new int[] { vectors.length, 0, 0, 0 },
+                    false
+                );
+
+                assertVectorsEqual(vectors, collectMergedBytes(mergeState));
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testIterator_reportsPositionAndCost_andRejectsAdvance() {
+        try (Directory dir = new ByteBuffersDirectory()) {
+            float[][] vectors = { randomVector(), randomVector() };
+            SegmentReadState readState = writeHalfFloatSegment(dir, "_0", vectors);
+
+            try (FlatVectorsReader reader = new KNN1040HalfFloatFlatVectorsReader(readState, mockScorer())) {
+                MergeOptimizedHalfFloatVector values = mergedViewOver(dir, reader.getFloatVectorValues(FIELD_NAME));
+                KnnVectorValues.DocIndexIterator iterator = values.iterator();
+
+                assertEquals(-1, iterator.docID());
+                assertEquals(-1, iterator.index());
+                assertEquals(vectors.length, iterator.cost());
+
+                assertEquals(0, iterator.nextDoc());
+                assertEquals(0, iterator.docID());
+                assertEquals(0, iterator.index());
+
+                assertEquals(1, iterator.nextDoc());
+                assertEquals(1, iterator.docID());
+                assertEquals(1, iterator.index());
+
+                assertEquals(DocIdSetIterator.NO_MORE_DOCS, iterator.nextDoc());
+                assertEquals(DocIdSetIterator.NO_MORE_DOCS, iterator.docID());
+                assertEquals(DocIdSetIterator.NO_MORE_DOCS, iterator.index());
+
+                expectThrows(UnsupportedOperationException.class, () -> iterator.advance(0));
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testSizeAndDimension_spanEverySub() {
+        try (Directory dir = new ByteBuffersDirectory()) {
+            SegmentReadState readState = writeHalfFloatSegment(dir, "_0", new float[][] { randomVector(), randomVector() });
+
+            try (FlatVectorsReader reader = new KNN1040HalfFloatFlatVectorsReader(readState, mockScorer())) {
+                MergeOptimizedHalfFloatVector values = mergedViewOver(
+                    dir,
+                    reader.getFloatVectorValues(FIELD_NAME),
+                    plainFloatVectorValues(new float[][] { randomVector() })
+                );
+
+                assertEquals(3, values.size());
+                assertEquals(DIMENSION, values.dimension());
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testRandomAccessOperationsAreUnsupported() {
+        try (Directory dir = new ByteBuffersDirectory()) {
+            SegmentReadState readState = writeHalfFloatSegment(dir, "_0", new float[][] { randomVector() });
+
+            try (FlatVectorsReader reader = new KNN1040HalfFloatFlatVectorsReader(readState, mockScorer())) {
+                MergeOptimizedHalfFloatVector values = mergedViewOver(dir, reader.getFloatVectorValues(FIELD_NAME));
+
+                // This view exists only to stream a merge forward; nothing on the merge path needs these.
+                expectThrows(UnsupportedOperationException.class, () -> values.ordToDoc(0));
+                expectThrows(UnsupportedOperationException.class, () -> values.scorer(randomVector()));
+                expectThrows(UnsupportedOperationException.class, values::copy);
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testVectorValue_decodesOnlyTheOrdTheIteratorIsOn() {
+        try (Directory dir = new ByteBuffersDirectory()) {
+            float[][] vectors = { randomVector(), randomVector() };
+            SegmentReadState readState = writeHalfFloatSegment(dir, "_0", vectors);
+
+            try (FlatVectorsReader reader = new KNN1040HalfFloatFlatVectorsReader(readState, mockScorer())) {
+                MergeOptimizedHalfFloatVector values = mergedViewOver(dir, reader.getFloatVectorValues(FIELD_NAME));
+                KnnVectorValues.DocIndexIterator iterator = values.iterator();
+                iterator.nextDoc();
+
+                assertArrayEquals(roundTripped(vectors[0]), values.vectorValue(0), 0.0f);
+
+                IllegalStateException e = expectThrows(IllegalStateException.class, () -> values.vectorValue(1));
+                assertTrue(e.getMessage().contains("forward iteration"));
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testMerge_fallsBackToEncoding_forUnrecognisedWrappers() {
+        try (Directory dir = new ByteBuffersDirectory()) {
+            float[][] first = { randomVector() };
+            float[][] second = { randomVector() };
+
+            FloatVectorValues plain = plainFloatVectorValues(first);
+            FloatVectorValues overPlain = new UnrecognisedWrapper(plain, plain);
+            FloatVectorValues overNothing = new UnrecognisedWrapper(null, plainFloatVectorValues(second));
+
+            MergeState.DocMap[] docMaps = { docID -> docID, docID -> first.length + docID };
+
+            assertVectorsEqual(
+                new float[][] { first[0], second[0] },
+                collectMergedBytes(mergeStateOver(dir, docMaps, overPlain, overNothing))
+            );
+        }
+    }
+
+    @SneakyThrows
+    public void testMerge_fallsBackToEncoding_whenSourceDimensionDisagrees() {
+        try (Directory dir = new ByteBuffersDirectory()) {
+            float[][] vectors = { randomVector() };
+            SegmentReadState readState = writeHalfFloatSegment(dir, "_0", vectors);
+
+            try (FlatVectorsReader reader = new KNN1040HalfFloatFlatVectorsReader(readState, mockScorer())) {
+                KNN1040HalfFloatFlatVectorsValues spiedValues = Mockito.spy(
+                    (KNN1040HalfFloatFlatVectorsValues) reader.getFloatVectorValues(FIELD_NAME)
+                );
+                Mockito.doReturn(DIMENSION + 1).when(spiedValues).dimension();
+
+                assertVectorsEqual(vectors, collectMergedBytes(mergeStateOver(dir, identityDocMaps(1), spiedValues)));
+                Mockito.verify(spiedValues).vectorValue(Mockito.anyInt());
+            }
+        }
+    }
+
+    /** Builds the merged view the writer would hand its vectors to. */
+    private MergeOptimizedHalfFloatVector mergedViewOver(Directory dir, FloatVectorValues... values) throws IOException {
+        return MergeOptimizedHalfFloatVector.create(createFieldInfo(), mergeStateOver(dir, identityDocMaps(values.length), values));
+    }
+
+    /** The vector as it survives a trip through FP16, which is what a decode off disk returns. */
+    private float[] roundTripped(float[] vector) {
+        byte[] encoded = new byte[DIMENSION * Short.BYTES];
+        KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE.floatToByteArray(vector, encoded, DIMENSION);
+        float[] decoded = new float[DIMENSION];
+        KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE.byteToFloatArray(encoded, decoded, DIMENSION, 0);
+        return decoded;
+    }
+
+    /** A wrapper the unwrap doesn't know how to see through; {@code inner} is the layer it exposes. */
+    private static class UnrecognisedWrapper extends WrappedFloatVectorValues {
+        private final FloatVectorValues source;
+
+        UnrecognisedWrapper(FloatVectorValues inner, FloatVectorValues source) {
+            super(inner);
+            this.source = source;
+        }
+
+        @Override
+        public int dimension() {
+            return source.dimension();
+        }
+
+        @Override
+        public int size() {
+            return source.size();
+        }
+
+        @Override
+        public float[] vectorValue(int ord) throws IOException {
+            return source.vectorValue(ord);
+        }
+
+        @Override
+        public FloatVectorValues copy() {
+            return this;
+        }
+
+        @Override
+        public DocIndexIterator iterator() {
+            return source.iterator();
+        }
+    }
+
     /** Drives the merged view the way the writer does, collecting each vector's FP16 bytes. */
     private List<byte[]> collectMergedBytes(MergeState mergeState) throws IOException {
         MergeOptimizedHalfFloatVector values = MergeOptimizedHalfFloatVector.create(createFieldInfo(), mergeState);
@@ -193,28 +395,42 @@ public class MergeOptimizedHalfFloatVectorTests extends KNNTestCase {
         FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { createFieldInfo() });
         KnnVectorsReader[] readers = new KnnVectorsReader[values.length];
         FieldInfos[] sourceFieldInfos = new FieldInfos[values.length];
-        Bits[] liveDocs = new Bits[values.length];
         int[] maxDocs = new int[values.length];
-        int totalDocs = 0;
         for (int i = 0; i < values.length; i++) {
             KnnVectorsReader reader = Mockito.mock(KnnVectorsReader.class);
             Mockito.when(reader.getFloatVectorValues(FIELD_NAME)).thenReturn(values[i]);
             readers[i] = reader;
             sourceFieldInfos[i] = fieldInfos;
             maxDocs[i] = values[i].size();
-            totalDocs += values[i].size();
+        }
+
+        return mergeStateOver(dir, docMaps, sourceFieldInfos, readers, maxDocs, needsIndexSort);
+    }
+
+    /** Spells out each segment's field infos and reader, so segments the merge must skip can be posed. */
+    private MergeState mergeStateOver(
+        Directory dir,
+        MergeState.DocMap[] docMaps,
+        FieldInfos[] sourceFieldInfos,
+        KnnVectorsReader[] readers,
+        int[] maxDocs,
+        boolean needsIndexSort
+    ) {
+        int totalDocs = 0;
+        for (int maxDoc : maxDocs) {
+            totalDocs += maxDoc;
         }
 
         return new MergeState(
             docMaps,
             createSegmentInfo(dir, "_merged", totalDocs),
-            fieldInfos,
+            new FieldInfos(new FieldInfo[] { createFieldInfo() }),
             null,
             null,
             null,
             null,
             sourceFieldInfos,
-            liveDocs,
+            new Bits[readers.length],
             null,
             null,
             readers,
