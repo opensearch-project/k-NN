@@ -156,7 +156,7 @@ public interface Encoder {
                         String.format(Locale.ROOT, "half_float only supports bits in {1, 2, 4} for SQ quantization, got bits=%d", value)
                     );
                 }
-                return CompressionLevel.fromFactor(vectorDataType.getBitsPerDimension() / value);
+                return CompressionLevel.forBits(this, vectorDataType);
             }
             return compressionLevel;
         }

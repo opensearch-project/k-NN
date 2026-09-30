@@ -60,6 +60,23 @@ public class CompressionLevelTests extends KNNTestCase {
         assertEquals(16, CompressionLevel.NOT_CONFIGURED.numBitsFor(VectorDataType.HALF_FLOAT));
     }
 
+    public void testForBits() {
+        assertEquals(CompressionLevel.x32, CompressionLevel.forBits(QuantizationBits.ONE, VectorDataType.FLOAT));
+        assertEquals(CompressionLevel.x16, CompressionLevel.forBits(QuantizationBits.TWO, VectorDataType.FLOAT));
+        assertEquals(CompressionLevel.x8, CompressionLevel.forBits(QuantizationBits.FOUR, VectorDataType.FLOAT));
+        assertEquals(CompressionLevel.x2, CompressionLevel.forBits(QuantizationBits.SIXTEEN, VectorDataType.FLOAT));
+        assertEquals(CompressionLevel.x1, CompressionLevel.forBits(QuantizationBits.FULL_PRECISION, VectorDataType.FLOAT));
+        assertEquals(CompressionLevel.x16, CompressionLevel.forBits(QuantizationBits.ONE, VectorDataType.HALF_FLOAT));
+        assertEquals(CompressionLevel.x8, CompressionLevel.forBits(QuantizationBits.TWO, VectorDataType.HALF_FLOAT));
+        assertEquals(CompressionLevel.x4, CompressionLevel.forBits(QuantizationBits.FOUR, VectorDataType.HALF_FLOAT));
+        assertEquals(CompressionLevel.x1, CompressionLevel.forBits(QuantizationBits.SIXTEEN, VectorDataType.HALF_FLOAT));
+        // 32 bits do not fit in a 16-bit half_float
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> CompressionLevel.forBits(QuantizationBits.FULL_PRECISION, VectorDataType.HALF_FLOAT)
+        );
+    }
+
     public void testFromFactor() {
         assertEquals(CompressionLevel.x1, CompressionLevel.fromFactor(1));
         assertEquals(CompressionLevel.x16, CompressionLevel.fromFactor(16));

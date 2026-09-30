@@ -18,7 +18,6 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.ResolvedMethodContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.CompressionLevel;
-import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -263,19 +262,8 @@ public class FaissMethodResolver extends AbstractMethodResolver {
         encoder.validate(resolvedKnnMethodContext, knnMethodConfigContext);
     }
 
-    /**
-     * Defers to {@link #getDefaultCompressionLevel(KNNMethodConfigContext, CompressionLevel)} for every
-     * data type but {@code half_float}, whose ON_DISK default is x16 (its SQ 1-bit level) rather than
-     * FLOAT's x32.
-     */
     private CompressionLevel getDefaultCompressionLevel(KNNMethodConfigContext knnMethodConfigContext) {
-        if (knnMethodConfigContext.getVectorDataType() != VectorDataType.HALF_FLOAT) {
-            return getDefaultCompressionLevel(knnMethodConfigContext, CompressionLevel.x32);
-        }
-        if (CompressionLevel.isConfigured(knnMethodConfigContext.getCompressionLevel())) {
-            return knnMethodConfigContext.getCompressionLevel();
-        }
-        return Mode.ON_DISK == knnMethodConfigContext.getMode() ? CompressionLevel.x16 : CompressionLevel.x1;
+        return getDefaultCompressionLevel(knnMethodConfigContext, CompressionLevel.x32);
     }
 
     /**

@@ -9,6 +9,7 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.AbstractMethodResolver;
+import org.opensearch.knn.index.engine.Encoder.QuantizationBits;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -50,8 +51,6 @@ public class LuceneFlatMethodResolver extends AbstractMethodResolver {
         CompressionLevel.x8,
         CompressionLevel.x16
     );
-    static final CompressionLevel DEFAULT_COMPRESSION = CompressionLevel.x32;
-    static final CompressionLevel DEFAULT_COMPRESSION_HALF_FLOAT = CompressionLevel.x16;
 
     @Override
     public ResolvedMethodContext resolveMethod(
@@ -108,7 +107,11 @@ public class LuceneFlatMethodResolver extends AbstractMethodResolver {
 
     private CompressionLevel validateAndResolveCompressionLevel(KNNMethodConfigContext knnMethodConfigContext) {
         final boolean isHalfFloat = VectorDataType.HALF_FLOAT == knnMethodConfigContext.getVectorDataType();
-        final CompressionLevel defaultCompression = isHalfFloat ? DEFAULT_COMPRESSION_HALF_FLOAT : DEFAULT_COMPRESSION;
+        // flat has no mode; it always defaults to the data type's SQ 1-bit level (x32 float, x16 half_float).
+        final CompressionLevel defaultCompression = CompressionLevel.forBits(
+            QuantizationBits.ONE,
+            knnMethodConfigContext.getVectorDataType()
+        );
 
         CompressionLevel compressionLevel = knnMethodConfigContext.getCompressionLevel();
         if (CompressionLevel.isConfigured(compressionLevel)) {

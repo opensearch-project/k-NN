@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.opensearch.core.common.Strings;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.Encoder.QuantizationBits;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.util.Collections;
@@ -84,6 +85,19 @@ public enum CompressionLevel {
     @Getter
     private final RescoreContext defaultRescoreContext;
     private final Set<Mode> modesForRescore;
+
+    /**
+     * The compression level at which one dimension of {@code vectorDataType} occupies {@code bits}:
+     * FLOAT at 1 bit is x32, HALF_FLOAT at 1 bit is x16.
+     *
+     * @param bits bits per dimension
+     * @param vectorDataType data type whose width the compression applies to
+     * @return the matching compression level
+     * @throws IllegalArgumentException if the resulting factor is not a defined compression level
+     */
+    public static CompressionLevel forBits(QuantizationBits bits, VectorDataType vectorDataType) {
+        return fromFactor(vectorDataType.getBitsPerDimension() / bits.getValue());
+    }
 
     /**
      * Gets the number of bits used to represent a float in order to achieve this compression. For instance, for
