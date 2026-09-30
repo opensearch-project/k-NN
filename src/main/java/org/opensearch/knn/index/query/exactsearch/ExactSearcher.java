@@ -10,6 +10,7 @@ import lombok.Builder;
 import lombok.Value;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.index.VectorSimilarityFunction;
@@ -24,8 +25,8 @@ import org.apache.lucene.search.VectorScorer;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.util.BitSet;
 import org.opensearch.common.Nullable;
-import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
+import org.opensearch.knn.common.LeafReaderUtil;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
@@ -95,16 +96,20 @@ public class ExactSearcher {
      * @throws IOException if an I/O error occurs while reading vectors or computing scores
      */
     public TopDocs searchLeaf(final LeafReaderContext leafReaderContext, final ExactSearcherContext context) throws IOException {
-        final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
+        final LeafReader reader = readerForVectorValues(leafReaderContext);
         final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, context.getField());
         if (fieldInfo == null) {
-            log.debug("[KNN] FieldInfo is null for field [{}] in segment [{}]", context.getField(), reader.getSegmentName());
+            log.debug("[KNN] FieldInfo is null for field [{}] in segment [{}]", context.getField(), LeafReaderUtil.leafReaderName(reader));
             return TopDocsCollector.EMPTY_TOPDOCS;
         }
 
         final VectorScorer vectorScorer = createVectorScorer(reader, fieldInfo, leafReaderContext, context);
         if (vectorScorer == null) {
-            log.debug("[KNN] VectorScorer creation failed for field [{}] in segment [{}]", context.getField(), reader.getSegmentName());
+            log.debug(
+                "[KNN] VectorScorer creation failed for field [{}] in segment [{}]",
+                context.getField(),
+                LeafReaderUtil.leafReaderName(reader)
+            );
             return TopDocsCollector.EMPTY_TOPDOCS;
         }
 
@@ -119,17 +124,54 @@ public class ExactSearcher {
         return exactNearestNeighborSearch(context, vectorScorer, matchedDocs);
     }
 
+    /**
+     * Returns the reader to read vector values from. A segment backed leaf resolves to its segment reader,
+     * which is what this path used before, so normal search is unaffected. A leaf with no segment, such as
+     * the {@code MemoryIndex} percolation builds, is used as is.
+     */
+    private static LeafReader readerForVectorValues(final LeafReaderContext leafReaderContext) {
+        final LeafReader leafReader = leafReaderContext.reader();
+        final SegmentReader segmentReader = LeafReaderUtil.tryGetSegmentReader(leafReader);
+        return segmentReader == null ? leafReader : segmentReader;
+    }
+
+    /**
+     * Prefers the space type the query resolved from the mapping, falling back to segment metadata.
+     */
+    private SpaceType resolveSpaceType(final ExactSearcherContext context, final FieldInfo fieldInfo) {
+        return context.getSpaceType() != null ? context.getSpaceType() : getSpaceType(modelDao, fieldInfo);
+    }
+
+    /**
+     * Converts the query radius into the minimum score a document has to reach. Memory optimized search
+     * already expresses the radius as a Lucene score, so it passes through unchanged.
+     */
+    private float resolveMinScore(final ExactSearcherContext context, final FieldInfo fieldInfo) {
+        return context.isMemoryOptimizedSearchEnabled
+            ? context.getRadius()
+            : KNNEngine.FAISS.score(context.getRadius(), resolveSpaceType(context, fieldInfo));
+    }
+
+    /**
+     * Prefers the vector data type the query resolved from the mapping, falling back to segment metadata.
+     * A leaf with neither field attributes nor Lucene vector values, which is what a {@code MemoryIndex}
+     * builds for a field on an index created before 2.17, reports float for every field.
+     */
+    private VectorDataType resolveVectorDataType(final ExactSearcherContext context, final FieldInfo fieldInfo) {
+        return context.getVectorDataType() != null ? context.getVectorDataType() : FieldInfoExtractor.extractVectorDataType(fieldInfo);
+    }
+
     public Scorer exactSearchScorer(final LeafReaderContext leafReaderContext, final ExactSearcherContext context) throws IOException {
-        final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
+        final LeafReader reader = readerForVectorValues(leafReaderContext);
         final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, context.getField());
         if (fieldInfo == null) {
-            log.debug("[KNN] FieldInfo is null for field [{}] in segment [{}]", context.getField(), reader.getSegmentName());
+            log.debug("[KNN] FieldInfo is null for field [{}] in segment [{}]", context.getField(), LeafReaderUtil.leafReaderName(reader));
             return null;
         }
 
         final VectorScorer vectorScorer = createVectorScorer(reader, fieldInfo, leafReaderContext, context);
         if (vectorScorer == null) {
-            log.error("VectorScorer is null for field [{}] in segment [{}]", context.getField(), reader.getSegmentName());
+            log.error("VectorScorer is null for field [{}] in segment [{}]", context.getField(), LeafReaderUtil.leafReaderName(reader));
             throw new IllegalStateException("VectorScorer is null for exact searcher");
         }
 
@@ -139,11 +181,7 @@ public class ExactSearcher {
 
         if (context.getRadius() != null) {
             assert extractKNNEngine(fieldInfo) == KNNEngine.FAISS : "Exact searcher for Radial search is only used by FAISS engine";
-            final float minScore = context.isMemoryOptimizedSearchEnabled
-                ? context.getRadius()
-                : KNNEngine.FAISS.score(context.getRadius(), getSpaceType(modelDao, fieldInfo));
-
-            return BulkVectorScorer.forRadialSearch(vectorScorer, matchedDocs, minScore);
+            return BulkVectorScorer.forRadialSearch(vectorScorer, matchedDocs, resolveMinScore(context, fieldInfo));
         }
 
         return BulkVectorScorer.forKSearch(vectorScorer, matchedDocs);
@@ -210,10 +248,11 @@ public class ExactSearcher {
         if (KNNEngine.FAISS != engine) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Engine [%s] does not support radial search", engine));
         }
-        final SpaceType spaceType = getSpaceType(modelDao, fieldInfo);
-        final float minScore = context.isMemoryOptimizedSearchEnabled ? context.getRadius() : engine.score(context.getRadius(), spaceType);
-
-        return collectTopK(BulkVectorScorer.forRadialSearch(vectorScorer, matchedDocs, minScore), context.getMaxResultWindow(), false);
+        return collectTopK(
+            BulkVectorScorer.forRadialSearch(vectorScorer, matchedDocs, resolveMinScore(context, fieldInfo)),
+            context.getMaxResultWindow(),
+            false
+        );
     }
 
     /**
@@ -300,7 +339,7 @@ public class ExactSearcher {
      *       against quantized document vectors using Hamming distance.</li>
      * </ol>
      *
-     * @param reader            the {@link SegmentReader} for the current segment
+     * @param reader            the {@link LeafReader} for the current leaf
      * @param fieldInfo         the {@link FieldInfo} for the vector field (must not be {@code null})
      * @param leafReaderContext the {@link LeafReaderContext} used to resolve parent bit sets for
      *                          nested documents
@@ -310,13 +349,13 @@ public class ExactSearcher {
      * @throws IOException if an I/O error occurs while reading vector values or quantization metadata
      */
     private VectorScorer createVectorScorer(
-        final SegmentReader reader,
+        final LeafReader reader,
         final FieldInfo fieldInfo,
         final LeafReaderContext leafReaderContext,
         final ExactSearcherContext context
     ) throws IOException {
-        final VectorDataType vectorDataType = FieldInfoExtractor.extractVectorDataType(fieldInfo);
-        final SpaceType spaceType = getSpaceType(modelDao, fieldInfo);
+        final VectorDataType vectorDataType = resolveVectorDataType(context, fieldInfo);
+        final SpaceType spaceType = resolveSpaceType(context, fieldInfo);
         final VectorScorerMode scorerMode = context.isUseQuantizedVectorsForSearch() ? VectorScorerMode.SCORE : VectorScorerMode.RESCORE;
         final boolean isNestedRequired = context.getParentsFilter() != null;
         final BitSet parentBitSet = isNestedRequired ? context.getParentsFilter().getBitSet(leafReaderContext) : null;
@@ -457,6 +496,18 @@ public class ExactSearcher {
          * The name of the k-NN vector field being searched.
          */
         String field;
+        /**
+         * Space type resolved from the field mapping when the query was built, or {@code null} when the
+         * caller has none. Leaves with no field attributes, such as the {@code MemoryIndex} percolation
+         * builds, cannot recover it from segment metadata, so the mapped value is preferred when present.
+         */
+        SpaceType spaceType;
+
+        /**
+         * Vector data type resolved from the field mapping when the query was built, or {@code null} when
+         * the caller has none. Preferred over segment metadata for the same reason as {@link #spaceType}.
+         */
+        VectorDataType vectorDataType;
 
         /**
          * The maximum number of results to retain during radial search. Acts as an upper bound
