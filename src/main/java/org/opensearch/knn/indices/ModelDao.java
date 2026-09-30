@@ -419,6 +419,13 @@ public interface ModelDao {
          */
         @Override
         public void get(String modelId, ActionListener<GetModelResponse> actionListener) {
+            // If the index is not created, there is no model to get
+            if (!isCreated()) {
+                String errorMessage = String.format(Locale.ROOT, "Model [%s] does not exist", modelId);
+                actionListener.onFailure(new ResourceNotFoundException(errorMessage));
+                return;
+            }
+
             /*
                 GET /<model_index>/<modelId>?_local
             */
@@ -428,8 +435,8 @@ public interface ModelDao {
 
                 getRequestBuilder.execute(ActionListener.wrap(response -> {
                     if (response.isSourceEmpty()) {
-                        String errorMessage = String.format(Locale.ROOT, "Model \" %s \" does not exist", modelId);
-                        actionListener.onFailure(new ResourceNotFoundException(modelId, errorMessage));
+                        String errorMessage = String.format(Locale.ROOT, "Model [%s] does not exist", modelId);
+                        actionListener.onFailure(new ResourceNotFoundException(errorMessage));
                         return;
                     }
                     final Map<String, Object> responseMap = response.getSourceAsMap();
