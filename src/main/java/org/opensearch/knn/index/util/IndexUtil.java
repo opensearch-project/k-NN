@@ -51,6 +51,7 @@ import static org.opensearch.knn.common.KNNConstants.QUANTIZATION_LEVEL_FAISS_IN
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE_FAISS_INDEX_LOAD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import org.opensearch.knn.index.query.parser.RescoreParser;
 import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_PARAMETER;
 import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_ENABLED_PARAMETER;
 
@@ -74,6 +75,9 @@ public class IndexUtil {
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_NULL_K = Version.V_3_3_0;
     private static final Version MINIMAL_RESCORE_ENABLED_FEATURE = Version.V_3_7_0;
     private static final Version MINIMAL_GENERIC_METHOD_PARAMETERS_FEATURE = Version.V_3_9_0;
+    // Native late-interaction (multi-vector MaxSim) rescore payload on the `rescore` block.
+    // TODO(pre-merge): pin to the concrete release version this ships in (currently the dev version).
+    private static final Version MINIMAL_LATE_INTERACTION_RESCORE_FEATURE = Version.CURRENT;
     // public so neural search can access it
     public static final Map<String, Version> minimalRequiredVersionMap = initializeMinimalRequiredVersionMap();
     public static final Set<VectorDataType> VECTOR_DATA_TYPES_NOT_SUPPORTING_ENCODERS = Set.of(VectorDataType.BINARY, VectorDataType.BYTE);
@@ -440,6 +444,7 @@ public class IndexUtil {
                 put(KNNConstants.MODEL_VECTOR_DATA_TYPE_KEY, MINIMAL_SUPPORTED_VERSION_FOR_MODEL_VECTOR_DATA_TYPE);
                 put(RESCORE_PARAMETER, MINIMAL_RESCORE_FEATURE);
                 put(RESCORE_ENABLED_PARAMETER, MINIMAL_RESCORE_ENABLED_FEATURE);
+                put(RescoreParser.LATE_INTERACTION_RESCORE_FEATURE, MINIMAL_LATE_INTERACTION_RESCORE_FEATURE);
                 put(KNNConstants.MINIMAL_MODE_AND_COMPRESSION_FEATURE, MINIMAL_MODE_AND_COMPRESSION_FEATURE);
                 put(KNNConstants.TOP_LEVEL_SPACE_TYPE_FEATURE, MINIMAL_TOP_LEVEL_SPACE_TYPE_FEATURE);
                 put(KNNConstants.MODEL_VERSION, MINIMAL_SUPPORTED_VERSION_FOR_MODEL_VERSION);

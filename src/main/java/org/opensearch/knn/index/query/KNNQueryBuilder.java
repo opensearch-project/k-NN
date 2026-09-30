@@ -41,6 +41,8 @@ import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.engine.model.QueryContext;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
+import org.opensearch.knn.index.mapper.LateInteractionFieldMapper;
+import org.opensearch.knn.index.mapper.LateInteractionFieldType;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
 import org.opensearch.knn.index.query.parser.RescoreParser;
 import org.opensearch.knn.index.query.request.MethodParameter;
@@ -594,6 +596,20 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
         }
 
         if (k != null && k != 0) {
+            final boolean isLateInteractionRescore = processedRescoreContext != null && processedRescoreContext.isLateInteraction();
+            // For a late-interaction rescore, the phase-1 kNN query must NOT apply the (late-interaction)
+            // rescore context; the second-pass MaxSim rescore is applied by wrapping below. The phase-1 kNN
+            // is oversampled to (oversample_factor * k) candidates so the MaxSim rescore has a large enough
+            // pool to pick the final top-k from (mirrors the disk-based rescore's first-pass oversampling).
+            final RescoreContext phase1RescoreContext = isLateInteractionRescore
+                ? RescoreContext.EXPLICITLY_DISABLED_RESCORE_CONTEXT
+                : processedRescoreContext;
+            // Phase-1 pool for a late-interaction rescore = ceil(oversample_factor * k), so the MaxSim
+            // second pass reranks that many candidates and returns the final top-k. (Unlike the disk-based
+            // rescore we do not apply its MIN_FIRST_PASS floor here — the pool is exactly the user's ask.)
+            final int phase1K = isLateInteractionRescore
+                ? Math.max(this.k, (int) Math.ceil(this.k * processedRescoreContext.getOversampleFactor()))
+                : this.k;
             KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
                 .knnEngine(knnEngine)
                 .indexName(indexName)
@@ -602,15 +618,19 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
                 .originalVector(vector)
                 .byteVector(getByteVectorForCreatingQueryRequest(vectorDataType, byteVector))
                 .vectorDataType(vectorDataType)
-                .k(this.k)
+                .k(phase1K)
                 .methodParameters(this.methodParameters)
                 .filter(this.filter)
                 .context(context)
-                .rescoreContext(processedRescoreContext)
+                .rescoreContext(phase1RescoreContext)
                 .expandNested(expandNested == null ? false : expandNested)
                 .memoryOptimizedSearchEnabled(memoryOptimizedSearchEnabled)
                 .build();
-            return KNNQueryFactory.create(createQueryRequest);
+            final Query phase1Query = KNNQueryFactory.create(createQueryRequest);
+            if (isLateInteractionRescore) {
+                return buildLateInteractionRescoreQuery(context, phase1Query, processedRescoreContext);
+            }
+            return phase1Query;
         }
         if (radius != null) {
             RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
@@ -667,6 +687,84 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Model ID '%s' is not created.", modelId));
         }
         return modelMetadata;
+    }
+
+    /**
+     * Wraps the phase-1 kNN query in a {@link LateInteractionRescoreQuery} that reranks candidates using
+     * native MaxSim over the target late-interaction field's doc-values.
+     *
+     * @param context      query shard context, used to resolve the target field mapping
+     * @param phase1Query  the phase-1 kNN query producing candidates
+     * @param rescoreContext resolved rescore context carrying the late-interaction target + query vectors
+     */
+    private Query buildLateInteractionRescoreQuery(
+        final QueryShardContext context,
+        final Query phase1Query,
+        final RescoreContext rescoreContext
+    ) {
+        final String liFieldName = rescoreContext.getLateInteractionField();
+        final MappedFieldType targetFieldType = context.fieldMapper(liFieldName);
+        if (targetFieldType == null) {
+            throw new IllegalArgumentException(
+                String.format(Locale.ROOT, "Late interaction rescore field [%s] does not exist in the mapping", liFieldName)
+            );
+        }
+        if (!(targetFieldType instanceof LateInteractionFieldType)) {
+            throw new IllegalArgumentException(
+                String.format(
+                    Locale.ROOT,
+                    "Late interaction rescore field [%s] must be of type [%s]",
+                    liFieldName,
+                    LateInteractionFieldMapper.CONTENT_TYPE
+                )
+            );
+        }
+        final LateInteractionFieldType liFieldType = (LateInteractionFieldType) targetFieldType;
+        final float[][] queryVectors = rescoreContext.getLateInteractionQueryVectors();
+        for (int i = 0; i < queryVectors.length; i++) {
+            if (queryVectors[i].length != liFieldType.getDimension()) {
+                throw new IllegalArgumentException(
+                    String.format(
+                        Locale.ROOT,
+                        "Late interaction query vector at index [%d] has dimension [%d] but field [%s] expects [%d]",
+                        i,
+                        queryVectors[i].length,
+                        liFieldName,
+                        liFieldType.getDimension()
+                    )
+                );
+            }
+        }
+        // Similarity: query-level override (RFC #3439 `similarity`) if provided, else the field's space_type.
+        final SpaceType spaceType = resolveLateInteractionSpaceType(rescoreContext.getLateInteractionSimilarity(), liFieldType);
+        return new LateInteractionRescoreQuery(phase1Query, liFieldName, this.k, queryVectors, spaceType);
+    }
+
+    /**
+     * Resolves the {@link SpaceType} for a late-interaction rescore. A query-level {@code similarity}
+     * (maxSimDotProduct / maxSimCosine / maxSimEuclidean) overrides the field's space type; when absent,
+     * the target field's space type is used.
+     */
+    private static SpaceType resolveLateInteractionSpaceType(final String similarityOverride, final LateInteractionFieldType liFieldType) {
+        if (similarityOverride == null) {
+            return liFieldType.getSpaceType();
+        }
+        switch (similarityOverride) {
+            case "maxSimDotProduct":
+                return SpaceType.INNER_PRODUCT;
+            case "maxSimCosine":
+                return SpaceType.COSINESIMIL;
+            case "maxSimEuclidean":
+                return SpaceType.L2;
+            default:
+                throw new IllegalArgumentException(
+                    String.format(
+                        Locale.ROOT,
+                        "Unsupported late-interaction similarity [%s]; expected one of maxSimDotProduct, maxSimCosine, maxSimEuclidean",
+                        similarityOverride
+                    )
+                );
+        }
     }
 
     /**
