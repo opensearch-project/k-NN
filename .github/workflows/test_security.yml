@@ -35,10 +35,15 @@ jobs:
   integ-test-with-security-linux:
     strategy:
       fail-fast: false
+      # Cap concurrent shard jobs to avoid simultaneous public.ecr.aws image pulls tripping
+      # the ECR Public anonymous bandwidth limit ("toomanyrequests: Data limit exceeded").
+      max-parallel: 2
       matrix:
         java: [21, 25]
-        # Split integTest across parallel runners.
-        shard: [0, 1, 2, 3]
+        # Split integTest across parallel runners. Linux is capped at 2 shards to reduce
+        # public.ecr.aws container pulls (ECR Public bandwidth limit); keep test.shard.total
+        # below in sync with this list.
+        shard: [0, 1]
     # The CI image now ships GCC 13+ after deprecating AL2
     # (see opensearch-build#5227). All native libraries (nmslib, faiss, simd)
     # compile with the default toolchain in a single step.
@@ -121,7 +126,7 @@ jobs:
           su `id -un 1000` -c "whoami && java -version && \
               ./gradlew ${GRADLE_TASKS} -Pknn_libs=opensearchknn_faiss,opensearchknn_simd ${SIMD_FLAGS} \
                               -Dbuild.lib.apply_patches=false -Dnproc.count=${NPROC} \
-                              -Dtest.shard.total=4 -Dtest.shard.index=${{ matrix.shard }}"
+                              -Dtest.shard.total=2 -Dtest.shard.index=${{ matrix.shard }}"
 
   check-results:
     needs: [check-files, integ-test-with-security-linux]
