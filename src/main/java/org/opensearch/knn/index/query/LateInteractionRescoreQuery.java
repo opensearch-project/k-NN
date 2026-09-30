@@ -21,6 +21,7 @@ import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopDocsCollector;
 import org.apache.lucene.search.Weight;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.query.common.QueryUtils;
 
 import java.io.IOException;
@@ -51,27 +52,26 @@ public class LateInteractionRescoreQuery extends Query {
     private final String field;
     private final int k;
     private final float[][] queryVector;
+    private final SpaceType spaceType;
     private final VectorSimilarityFunction vectorSimilarityFunction;
+    private final RawMaxSimilarity rawMaxSimilarity;
 
     /**
-     * @param innerQuery               phase-1 query producing the candidate set
-     * @param field                    late-interaction field name (binary doc-values)
-     * @param k                        number of results to keep after rescoring
-     * @param queryVector              query multi-vectors (per-token)
-     * @param vectorSimilarityFunction per-vector similarity used inside MaxSim (from the field's space type)
+     * @param innerQuery  phase-1 query producing the candidate set
+     * @param field       late-interaction field name (binary doc-values)
+     * @param k           number of results to keep after rescoring
+     * @param queryVector query multi-vectors (per-token)
+     * @param spaceType   space type whose raw similarity (dot product / cosine / min squared L2) is summed
+     *                    per query token to form the MaxSim score (see {@link RawMaxSimilarity})
      */
-    public LateInteractionRescoreQuery(
-        Query innerQuery,
-        String field,
-        int k,
-        float[][] queryVector,
-        VectorSimilarityFunction vectorSimilarityFunction
-    ) {
+    public LateInteractionRescoreQuery(Query innerQuery, String field, int k, float[][] queryVector, SpaceType spaceType) {
         this.innerQuery = innerQuery;
         this.field = field;
         this.k = k;
         this.queryVector = queryVector;
-        this.vectorSimilarityFunction = vectorSimilarityFunction;
+        this.spaceType = spaceType;
+        this.vectorSimilarityFunction = spaceType.getKnnVectorSimilarityFunction().getVectorSimilarityFunction();
+        this.rawMaxSimilarity = new RawMaxSimilarity(spaceType);
     }
 
     @Override
@@ -101,11 +101,15 @@ public class LateInteractionRescoreQuery extends Query {
             return TopDocsCollector.EMPTY_TOPDOCS;
         }
 
-        // A DoubleValues over this leaf that computes SUM_MAX_SIM(queryVector, docMultiVectors) per doc.
+        // A DoubleValues over this leaf that computes raw-similarity MaxSim(queryVector, docMultiVectors) per
+        // doc. We pass an explicit RawMaxSimilarity rather than relying on Lucene's default SUM_MAX_SIM, which
+        // sums the *scaled* per-token VectorSimilarityFunction.compare and can rank out of MaxSim order for l2
+        // and negative-dot innerproduct (k-NN #3612). RawMaxSimilarity sums raw similarities instead.
         final LateInteractionFloatValuesSource valuesSource = new LateInteractionFloatValuesSource(
             field,
             queryVector,
-            vectorSimilarityFunction
+            vectorSimilarityFunction,
+            rawMaxSimilarity
         );
         final DoubleValues maxSimValues = valuesSource.getValues(leaf, null);
 
@@ -153,12 +157,12 @@ public class LateInteractionRescoreQuery extends Query {
         return k == other.k
             && Objects.equals(innerQuery, other.innerQuery)
             && Objects.equals(field, other.field)
-            && vectorSimilarityFunction == other.vectorSimilarityFunction
+            && spaceType == other.spaceType
             && Arrays.deepEquals(queryVector, other.queryVector);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(classHash(), innerQuery, field, k, vectorSimilarityFunction, Arrays.deepHashCode(queryVector));
+        return Objects.hash(classHash(), innerQuery, field, k, spaceType, Arrays.deepHashCode(queryVector));
     }
 }

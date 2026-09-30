@@ -12,7 +12,6 @@ import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.MatchNoDocsQuery;
-import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.Query;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.common.ValidationException;
@@ -737,32 +736,26 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> imple
             }
         }
         // Similarity: query-level override (RFC #3439 `similarity`) if provided, else the field's space_type.
-        final VectorSimilarityFunction similarityFunction = resolveLateInteractionSimilarity(
-            rescoreContext.getLateInteractionSimilarity(),
-            liFieldType
-        );
-        return new LateInteractionRescoreQuery(phase1Query, liFieldName, this.k, queryVectors, similarityFunction);
+        final SpaceType spaceType = resolveLateInteractionSpaceType(rescoreContext.getLateInteractionSimilarity(), liFieldType);
+        return new LateInteractionRescoreQuery(phase1Query, liFieldName, this.k, queryVectors, spaceType);
     }
 
     /**
-     * Resolves the Lucene {@link VectorSimilarityFunction} for a late-interaction rescore. A query-level
-     * {@code similarity} (maxSimDotProduct / maxSimCosine / maxSimEuclidean) overrides the field's space
-     * type; when absent, the target field's space type is used.
+     * Resolves the {@link SpaceType} for a late-interaction rescore. A query-level {@code similarity}
+     * (maxSimDotProduct / maxSimCosine / maxSimEuclidean) overrides the field's space type; when absent,
+     * the target field's space type is used.
      */
-    private static VectorSimilarityFunction resolveLateInteractionSimilarity(
-        final String similarityOverride,
-        final LateInteractionFieldType liFieldType
-    ) {
+    private static SpaceType resolveLateInteractionSpaceType(final String similarityOverride, final LateInteractionFieldType liFieldType) {
         if (similarityOverride == null) {
-            return liFieldType.getSpaceType().getKnnVectorSimilarityFunction().getVectorSimilarityFunction();
+            return liFieldType.getSpaceType();
         }
         switch (similarityOverride) {
             case "maxSimDotProduct":
-                return SpaceType.INNER_PRODUCT.getKnnVectorSimilarityFunction().getVectorSimilarityFunction();
+                return SpaceType.INNER_PRODUCT;
             case "maxSimCosine":
-                return SpaceType.COSINESIMIL.getKnnVectorSimilarityFunction().getVectorSimilarityFunction();
+                return SpaceType.COSINESIMIL;
             case "maxSimEuclidean":
-                return SpaceType.L2.getKnnVectorSimilarityFunction().getVectorSimilarityFunction();
+                return SpaceType.L2;
             default:
                 throw new IllegalArgumentException(
                     String.format(
