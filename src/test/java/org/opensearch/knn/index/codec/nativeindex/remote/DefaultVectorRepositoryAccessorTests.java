@@ -131,6 +131,33 @@ public class DefaultVectorRepositoryAccessorTests extends RemoteIndexBuildTests 
     }
 
     /**
+     * half_float vectors are uploaded as fp16, so the vector blob length must be 2 bytes per dimension.
+     */
+    public void testRepositoryInteraction_halfFloatBlobLengthIsFp16() throws IOException, InterruptedException {
+        BlobPath testBasePath = new BlobPath().add("testBasePath");
+        BlobContainer testContainer = Mockito.spy(new TestBlobContainer(mock(FsBlobStore.class), testBasePath, mock(Path.class)));
+        VectorRepositoryAccessor objectUnderTest = new DefaultVectorRepositoryAccessor(testContainer);
+
+        String BLOB_NAME = "test_blob";
+        int NUM_DOCS = 100;
+        Supplier<KNNVectorValues<?>> supplier = KNNVectorValuesFactory.getVectorValuesSupplier(
+            VectorDataType.HALF_FLOAT,
+            randomVectorValues
+        );
+        objectUnderTest.writeToRepository(BLOB_NAME, NUM_DOCS, VectorDataType.HALF_FLOAT, supplier);
+
+        KNNVectorValues<?> knnVectorValues = supplier.get();
+        initializeVectorValues(knnVectorValues);
+        verify(testContainer).writeBlob(
+            eq(BLOB_NAME + VECTOR_BLOB_FILE_EXTENSION),
+            any(),
+            eq((long) NUM_DOCS * knnVectorValues.dimension() * Short.BYTES),
+            eq(true)
+        );
+        verify(testContainer).writeBlob(eq(BLOB_NAME + DOC_ID_FILE_EXTENSION), any(), eq((long) NUM_DOCS * Integer.BYTES), eq(true));
+    }
+
+    /**
      * Test that when an exception is thrown during asyncBlobUpload, the exception is rethrown.
      */
     public void testAsyncUploadThrowsException() throws IOException {
