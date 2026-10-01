@@ -22,6 +22,7 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.search.NestedHelper;
 import org.opensearch.index.search.OpenSearchToParentBlockJoinQuery;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
@@ -55,6 +56,8 @@ public abstract class BaseQueryFactory {
         private byte[] byteVector;
         // TODO : This needs clean-up, `vectorFieldType` has it already.
         private VectorDataType vectorDataType;
+
+        private SpaceType spaceType;
         // TODO : This needs clean-up, `vectorFieldType` has it already.
         private Map<String, ?> methodParameters;
         private KNNVectorFieldType vectorFieldType;

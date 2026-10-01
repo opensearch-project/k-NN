@@ -9,6 +9,10 @@ import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
+import org.apache.lucene.document.KnnFloatVectorField;
+import org.apache.lucene.index.VectorSimilarityFunction;
+import org.apache.lucene.index.memory.MemoryIndex;
+import org.apache.lucene.search.Explanation;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
@@ -1892,5 +1896,79 @@ public class KNNWeightTests extends KNNWeightTestCase {
                 );
             }
         }
+    }
+
+    /**
+     * Percolation evaluates stored queries against a Lucene {@code MemoryIndex}, which has no segment behind
+     * it. Such a leaf carries no native engine files, so the only thing that can score it is exact search.
+     */
+    @SneakyThrows
+    public void testSearchLeaf_whenLeafHasNoSegment_thenExactSearch() {
+        KNNWeight.initialize(null);
+        final LeafReaderContext leafReaderContext = memoryIndexLeaf(new float[] { 1.0f, 2.0f });
+        final KNNQuery query = segmentLessQuery(SpaceType.L2);
+
+        final PerLeafResult result = new DefaultKNNWeight(query, 1.0f, null).searchLeaf(leafReaderContext, 3);
+
+        assertEquals(PerLeafResult.SearchMode.EXACT_SEARCH, result.getSearchMode());
+        assertEquals(1, result.getResult().scoreDocs.length);
+        // Squared L2 distance between [1, 2] and [3, 4] is 8, so 1 / (1 + 8).
+        assertEquals(0.111111f, result.getResult().scoreDocs[0].score, 1e-5f);
+    }
+
+    /**
+     * A {@code MemoryIndex} leaf exposes no field attributes, so the space type can only be recovered from the
+     * Lucene similarity function recorded on the field. That disagrees with the mapping for any space type
+     * Lucene has no equivalent for, so the query carries the mapped value and it has to win.
+     */
+    @SneakyThrows
+    public void testSearchLeaf_whenLeafHasNoSegment_thenQuerySpaceTypeWinsOverFieldInfo() {
+        KNNWeight.initialize(null);
+        final LeafReaderContext leafReaderContext = memoryIndexLeaf(new float[] { 1.0f, 2.0f });
+
+        final PerLeafResult withSpaceType = new DefaultKNNWeight(segmentLessQuery(SpaceType.INNER_PRODUCT), 1.0f, null).searchLeaf(
+            leafReaderContext,
+            3
+        );
+        // Inner product of [1, 2] and [3, 4] is 11, so 11 + 1.
+        assertEquals(12.0f, withSpaceType.getResult().scoreDocs[0].score, 1e-5f);
+
+        // Without one, the field is scored with the EUCLIDEAN function it was indexed with.
+        final PerLeafResult withoutSpaceType = new DefaultKNNWeight(segmentLessQuery(null), 1.0f, null).searchLeaf(leafReaderContext, 3);
+        assertEquals(0.111111f, withoutSpaceType.getResult().scoreDocs[0].score, 1e-5f);
+    }
+
+    /**
+     * Explain resolves the space type the same way scoring does, so a leaf with no field attributes has to
+     * report the mapped space type and not the L2 the recorded similarity function would give.
+     */
+    @SneakyThrows
+    public void testExplain_whenLeafHasNoSegment_thenReportsQuerySpaceType() {
+        KNNWeight.initialize(null);
+        final LeafReaderContext leafReaderContext = memoryIndexLeaf(new float[] { 1.0f, 2.0f });
+        final KNNWeight knnWeight = new DefaultKNNWeight(segmentLessQuery(SpaceType.INNER_PRODUCT), 1.0f, null);
+
+        final Explanation explanation = knnWeight.explain(leafReaderContext, 0, 12.0f);
+
+        final String rendered = explanation.toString();
+        assertTrue(rendered, rendered.contains("spaceType = " + SpaceType.INNER_PRODUCT.getValue()));
+        assertFalse(rendered, rendered.contains("spaceType = " + SpaceType.L2.getValue()));
+    }
+
+    private LeafReaderContext memoryIndexLeaf(final float[] vector) {
+        final MemoryIndex memoryIndex = new MemoryIndex(true, true);
+        memoryIndex.addField(new KnnFloatVectorField(FIELD_NAME, vector, VectorSimilarityFunction.EUCLIDEAN), null);
+        return memoryIndex.createSearcher().getIndexReader().leaves().get(0);
+    }
+
+    private KNNQuery segmentLessQuery(final SpaceType spaceType) {
+        return KNNQuery.builder()
+            .field(FIELD_NAME)
+            .queryVector(new float[] { 3.0f, 4.0f })
+            .k(3)
+            .indexName(INDEX_NAME)
+            .vectorDataType(VectorDataType.FLOAT)
+            .spaceType(spaceType)
+            .build();
     }
 }
