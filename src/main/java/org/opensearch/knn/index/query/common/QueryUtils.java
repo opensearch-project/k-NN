@@ -18,8 +18,13 @@ import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
+import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.query.KNNWeight;
+import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.index.query.iterators.GroupedNestedDocIdSetIterator;
+import org.opensearch.knn.profile.KNNProfileUtil;
+import org.opensearch.knn.profile.query.KNNQueryTimingType;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -182,5 +187,59 @@ public class QueryUtils {
             }
         };
         return BitSet.of(filterIterator, maxDoc);
+    }
+
+    /**
+     * Re-scores an already gathered candidate set of a single leaf against full precision vectors.
+     *
+     * The approximate search may have walked the graph over quantized vectors, so its scores are inexact. This
+     * runs an exact search restricted to the candidates, always over full precision vectors, and reports the
+     * time it took under {@link KNNQueryTimingType#EXACT_SEARCH} when the search is being profiled.
+     *
+     * Only the float, non-radial rescore path is covered, which is what the Lucene engine queries need. The
+     * native engine queries carry extra context (radius, byte vectors, memory optimized search) and go through
+     * {@link org.opensearch.knn.index.query.KNNWeight#exactSearch} instead.
+     *
+     * Deliberately static rather than an instance method: callers that mock this class to stub out the
+     * surrounding search steps still exercise the real context construction here.
+     *
+     * @param exactSearcher the searcher performing the exact search
+     * @param profile breakdown to report the exact search time to, or null when the search is not being profiled
+     * @param leafReaderContext the leaf reader context
+     * @param field the vector field being searched
+     * @param floatQueryVector the full precision query vector
+     * @param matchedDocs the candidates to re-score
+     * @param k the number of results to keep; pass the candidate count to keep all of them
+     * @param parentsFilter when non-null, collapses each parent group to its best scoring child before the
+     *                      top k cut, so k counts parent documents rather than nested field documents
+     * @return the re-scored documents, sorted by descending score, with leaf local document IDs
+     * @throws IOException
+     */
+    public static TopDocs rescoreLeafWithFullPrecision(
+        final ExactSearcher exactSearcher,
+        @Nullable final ContextualProfileBreakdown profile,
+        final LeafReaderContext leafReaderContext,
+        final String field,
+        final float[] floatQueryVector,
+        final DocIdSetIterator matchedDocs,
+        final int k,
+        @Nullable final BitSetProducer parentsFilter
+    ) throws IOException {
+        final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
+            .matchedDocsIterator(matchedDocs)
+            .numberOfMatchedDocs(matchedDocs.cost())
+            // setting to false because in re-scoring we want to do exact search on full precision vectors
+            .useQuantizedVectorsForSearch(false)
+            .k(k)
+            .field(field)
+            .floatQueryVector(floatQueryVector)
+            .parentsFilter(parentsFilter)
+            .build();
+        return (TopDocs) KNNProfileUtil.profileBreakdown(
+            profile,
+            leafReaderContext,
+            KNNQueryTimingType.EXACT_SEARCH,
+            () -> exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext)
+        );
     }
 }

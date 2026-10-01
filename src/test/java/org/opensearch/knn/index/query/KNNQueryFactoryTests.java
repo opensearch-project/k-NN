@@ -565,7 +565,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
         testExpandNestedDocsQuery(KNNEngine.LUCENE, OSDiversifyingChildrenFloatKnnVectorQuery.class, VectorDataType.FLOAT, false);
     }
 
-    public void testCreate_whenRescoreWithExpandNested_thenSkipRescoreWrapper() {
+    public void testCreate_whenRescoreWithExpandNested_thenExpandNestedDocsQueryOwnsRescore() {
         QueryShardContext queryShardContext = mock(QueryShardContext.class);
         BitSetProducer parentFilter = mock(BitSetProducer.class);
         when(queryShardContext.getParentFilter()).thenReturn(parentFilter);
@@ -586,9 +586,28 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .build();
         Query query = KNNQueryFactory.create(createQueryRequest);
 
-        // Should return LuceneEngineKnnVectorQuery without RescoreKNNVectorQuery wrapper
+        // Rescoring has to happen before the child docs are expanded, so ExpandNestedDocsQuery runs it
+        // internally rather than being wrapped by RescoreKNNVectorQuery.
         assertEquals(LuceneEngineKnnVectorQuery.class, query.getClass());
         assertFalse(query instanceof RescoreKNNVectorQuery);
+        Query luceneQuery = ((LuceneEngineKnnVectorQuery) query).getLuceneQuery();
+        assertEquals(ExpandNestedDocsQuery.class, luceneQuery.getClass());
+        // The rescore-enabled query must be distinguishable from the plain expansion for query caching
+        assertNotEquals(
+            luceneQuery,
+            ((LuceneEngineKnnVectorQuery) KNNQueryFactory.create(
+                KNNQueryFactory.CreateQueryRequest.builder()
+                    .knnEngine(KNNEngine.LUCENE)
+                    .indexName(testIndexName)
+                    .fieldName(testFieldName)
+                    .vector(testQueryVector)
+                    .vectorDataType(VectorDataType.FLOAT)
+                    .k(testK)
+                    .expandNested(true)
+                    .context(queryShardContext)
+                    .build()
+            )).getLuceneQuery()
+        );
     }
 
     public void testCreate_whenRescoreWithoutExpandNested_thenWrapWithRescoreQuery() {
