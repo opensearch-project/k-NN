@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Add `half_float` as a vector data type for Flat and HNSW [#3578](https://github.com/opensearch-project/k-NN/pull/3578)
 * Enable `half_float` vector data type for remote vector index build [#3575](https://github.com/opensearch-project/k-NN/pull/3575)
 * Add BFloat16 (BF16) scalar quantization support [#3190](https://github.com/opensearch-project/k-NN/pull/3190)
+* Support knn queries on native engine fields inside percolator queries by scoring the percolated document with exact search [#3556](https://github.com/opensearch-project/k-NN/pull/3556)
 
 ### Maintenance
 * Fixed multiple forbidden api warnings from the code []()
@@ -38,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix exact search and rescore scoring innerproduct and cosinesimil fields with L2 on model based and 2.17 to 2.19 indices [#3537](https://github.com/opensearch-project/k-NN/pull/3537)
 * Trim memory-optimized search results to k across segments [#3591](https://github.com/opensearch-project/k-NN/pull/3591)
 * Fix native memory leak in MemOptimizedNativeIndexBuildStrategy on failed merges [#3593](https://github.com/opensearch-project/k-NN/pull/3593)
+* Return model not found instead of the internal model index when getting a model before any model is trained [#3598](https://github.com/opensearch-project/k-NN/pull/3598)
 
 ### Refactoring
 * Wire ResolvedIndexSpec consumers through spec-driven resolution flow [#3421](https://github.com/opensearch-project/k-NN/pull/3421)
