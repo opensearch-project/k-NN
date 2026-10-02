@@ -135,12 +135,10 @@ public class NativeEngineKnnVectorQuery extends Query {
             );
         }
 
-        // For non-memory-optimized search, reduce to top k across segments.
-        // For memory-optimized search, skip reduceToTopK to preserve totalHits behavior;
-        // the final trim to k is handled by TopDocs.merge via getTotalTopDoc.
-        if (knnQuery.isMemoryOptimizedSearch() == false) {
-            ResultUtil.reduceToTopK(perLeafResults, finalK);
-        }
+        // Reduce to top k across segments. `k` is a per-shard budget, so every engine path must agree on
+        // it: without this the matched doc set, and therefore `hits.total`, aggregations, `post_filter` and
+        // `terminate_after`, would grow with the number of segments in the shard.
+        ResultUtil.reduceToTopK(perLeafResults, finalK);
 
         if (expandNestedDocs) {
             StopWatch stopWatch = new StopWatch().start();
@@ -168,7 +166,7 @@ public class NativeEngineKnnVectorQuery extends Query {
             topDocs[i] = leafTopDocs;
         }
 
-        TopDocs topK = TopDocs.merge(getMergeTopN(topDocs, finalK, effectiveK), topDocs);
+        TopDocs topK = TopDocs.merge(getMergeTopN(topDocs, finalK), topDocs);
 
         if (topK.scoreDocs.length == 0) {
             return new MatchNoDocsQuery().createWeight(indexSearcher, scoreMode, boost);
@@ -231,17 +229,22 @@ public class NativeEngineKnnVectorQuery extends Query {
     /**
      * Determines the topN parameter for TopDocs.merge.
      *
-     * For expandNestedDocs or MOS without ef_search expansion: returns total doc count
-     * to preserve all results (totalHits behavior).
-     * For MOS with ef_search expansion: returns k to trim excess results from expanded search.
-     * For non-MOS without expandNestedDocs: uses k (already trimmed by reduceToTopK).
+     * When expandNestedDocs is set to true, additional nested documents are retrieved.
+     * As a result, the total number of documents will exceed k.
+     * Instead of relying on the k value, we must count the total number of documents
+     * to accurately determine how many are in topDocs.
+     * The theoretical maximum value this method could return is Integer.MAX_VALUE,
+     * as a single shard cannot have more documents than Integer.MAX_VALUE.
+     *
+     * Otherwise k is the topN: it both trims an ef_search-expanded candidate set back down and, since
+     * TopDocs.merge returns min(topN, available), leaves a shard that found fewer than k hits untouched.
      *
      * @param topDocs the top documents
      * @param k the user's requested result count
      * @return the topN value to pass to TopDocs.merge
      */
-    private int getMergeTopN(TopDocs[] topDocs, int k, int effectiveK) {
-        if (expandNestedDocs || (knnQuery.isMemoryOptimizedSearch() && effectiveK == k)) {
+    private int getMergeTopN(TopDocs[] topDocs, int k) {
+        if (expandNestedDocs) {
             int sum = 0;
             for (TopDocs topDoc : topDocs) {
                 sum += topDoc.scoreDocs.length;
