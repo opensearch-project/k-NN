@@ -15,8 +15,10 @@ import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.SegmentCommitInfo;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.store.Directory;
+import org.opensearch.common.Nullable;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.index.engine.Engine;
+import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.knn.common.FieldInfoExtractor;
@@ -24,12 +26,14 @@ import org.opensearch.knn.index.codec.util.NativeMemoryCacheKeyHelper;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 import org.opensearch.knn.index.warmup.MemoryOptimizedSearchWarmup;
+import org.opensearch.knn.index.warmup.WarmupSkipReason;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -84,9 +88,10 @@ public class KNNIndexShard {
      * Load all the k-NN segments for this shard into the cache.
      * First it tries to warm-up memory optimized fields, then load off-heap fields.
      *
+     * @return the reason warmup was skipped for this shard, or null if the warmup was performed
      * @throws IOException Thrown when getting the HNSW Paths to be loaded in
      */
-    public void warmup() throws IOException {
+    public @Nullable WarmupSkipReason warmup() throws IOException {
         final String indexName = indexShard.shardId().getIndexName();
 
         // Skip warmup for warm-tier indices. Warm indices use FileCache-backed storage
@@ -95,12 +100,17 @@ public class KNNIndexShard {
         // store through FileCache.
         if (indexShard.indexSettings().isWarmIndex()) {
             log.info("[KNN] Skipping warmup for warm index: [{}]", indexName);
-            return;
+            return WarmupSkipReason.WARM_TIER_INDEX;
+        }
+
+        final MapperService mapperService = indexShard.mapperService();
+        final WarmupSkipReason skipReason = getNoOffHeapWarmupSkipReason(mapperService);
+        if (skipReason != null) {
+            log.info("[KNN] Skipping warmup for index [{}] because no k-NN field requires an off-heap warmup", indexName);
+            return skipReason;
         }
 
         log.info("[KNN] Warming up index: [{}]", indexName);
-
-        final MapperService mapperService = indexShard.mapperService();
 
         try (Engine.Searcher searcher = indexShard.acquireSearcher("knn-warmup-mem")) {
             final Directory directory = indexShard.store().directory();
@@ -124,6 +134,49 @@ public class KNNIndexShard {
             // Since the thrown exception is not being logged, we need to explicitly log the error message.
             log.error("Failed warm-up index: [{}]", indexName, e);
             throw e;
+        }
+
+        return null;
+    }
+
+    /**
+     * Determines whether the warmup would be a complete no-op because no k-NN field of the shard
+     * requires an off-heap warmup.
+     *
+     * @param mapperService the shard's mapper service; may be null
+     * @return {@link WarmupSkipReason#LUCENE_ENGINE} when the shard has at least one k-NN field and
+     *         none of them use an engine that creates custom segment files; null when the warmup
+     *         has actual work to do
+     */
+    private @Nullable WarmupSkipReason getNoOffHeapWarmupSkipReason(final MapperService mapperService) {
+        if (mapperService == null) {
+            return null;
+        }
+
+        boolean hasKnnField = false;
+        for (final MappedFieldType fieldType : mapperService.fieldTypes()) {
+            if (fieldType instanceof KNNVectorFieldType knnFieldType) {
+                hasKnnField = true;
+                final KNNEngine engine = resolveEngineSafely(knnFieldType);
+                if (engine != null && engine.createsCustomSegmentFiles()) {
+                    return null;
+                }
+            }
+        }
+
+        return hasKnnField ? WarmupSkipReason.LUCENE_ENGINE : null;
+    }
+
+    private @Nullable KNNEngine resolveEngineSafely(final KNNVectorFieldType knnFieldType) {
+        try {
+            return knnFieldType.getResolvedSpec().getEngine();
+        } catch (Exception e) {
+            log.debug(
+                "Failed to resolve engine for field [{}]; treating the field as not requiring off-heap warmup",
+                knnFieldType.name(),
+                e
+            );
+            return null;
         }
     }
 
