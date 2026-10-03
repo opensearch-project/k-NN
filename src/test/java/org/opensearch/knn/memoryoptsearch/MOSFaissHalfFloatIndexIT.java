@@ -12,8 +12,8 @@ import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
 
 /**
- * Faiss HNSW coverage for the {@code half_float} data type across both supported compression levels:
- * x1 and x16 (SQ 1-bit).
+ * Faiss HNSW coverage for the {@code half_float} data type across all supported compression levels:
+ * x1 (raw fp16), x16 (SQ 1-bit), x8 (SQ 2-bit), and x4 (SQ 4-bit).
  *
  * <p>Every test carries {@link ExpectRemoteBuildValidation} so the remote (GPU) build job asserts the index
  * was actually built remotely rather than silently falling back to a local build. Remote build eligibility
@@ -131,6 +131,150 @@ public class MOSFaissHalfFloatIndexIT extends AbstractMemoryOptimizedKnnSearchIT
             NO_ADDITIONAL_SETTINGS,
             Mode.ON_DISK,
             CompressionLevel.x16
+        );
+    }
+
+    // ---------------------------------------------------------------------
+    // x8 - SQ 2-bit
+    // ---------------------------------------------------------------------
+
+    @ExpectRemoteBuildValidation
+    public void testNonNestedDiskBasedIndexWithL2_SQTwoBit() {
+        doTestNonNestedIndex(
+            VectorDataType.HALF_FLOAT,
+            EMPTY_PARAMS,
+            false,
+            SpaceType.L2,
+            NO_ADDITIONAL_SETTINGS,
+            Mode.ON_DISK,
+            CompressionLevel.x8
+        );
+    }
+
+    @ExpectRemoteBuildValidation
+    public void testNonNestedDiskBasedIndexWithIP_SQTwoBit() {
+        doTestNonNestedIndex(
+            VectorDataType.HALF_FLOAT,
+            EMPTY_PARAMS,
+            false,
+            SpaceType.INNER_PRODUCT,
+            NO_ADDITIONAL_SETTINGS,
+            Mode.ON_DISK,
+            CompressionLevel.x8
+        );
+    }
+
+    @ExpectRemoteBuildValidation
+    public void testNonNestedDiskBasedIndexWithCosine_SQTwoBit() {
+        doTestNonNestedIndex(
+            VectorDataType.HALF_FLOAT,
+            EMPTY_PARAMS,
+            false,
+            SpaceType.COSINESIMIL,
+            NO_ADDITIONAL_SETTINGS,
+            Mode.ON_DISK,
+            CompressionLevel.x8
+        );
+    }
+
+    @ExpectRemoteBuildValidation
+    public void testNestedDiskBasedIndexWithL2_SQTwoBit() {
+        doTestNestedIndex(VectorDataType.HALF_FLOAT, EMPTY_PARAMS, SpaceType.L2, NO_ADDITIONAL_SETTINGS, Mode.ON_DISK, CompressionLevel.x8);
+    }
+
+    @ExpectRemoteBuildValidation
+    public void testNestedDiskBasedIndexWithIP_SQTwoBit() {
+        doTestNestedIndex(
+            VectorDataType.HALF_FLOAT,
+            EMPTY_PARAMS,
+            SpaceType.INNER_PRODUCT,
+            NO_ADDITIONAL_SETTINGS,
+            Mode.ON_DISK,
+            CompressionLevel.x8
+        );
+    }
+
+    @ExpectRemoteBuildValidation
+    public void testNestedDiskBasedIndexWithCosine_SQTwoBit() {
+        doTestNestedIndex(
+            VectorDataType.HALF_FLOAT,
+            EMPTY_PARAMS,
+            SpaceType.COSINESIMIL,
+            NO_ADDITIONAL_SETTINGS,
+            Mode.ON_DISK,
+            CompressionLevel.x8
+        );
+    }
+
+    // ---------------------------------------------------------------------
+    // x4 - SQ 4-bit
+    // ---------------------------------------------------------------------
+
+    @ExpectRemoteBuildValidation
+    public void testNonNestedDiskBasedIndexWithL2_SQFourBit() {
+        doTestNonNestedIndex(
+            VectorDataType.HALF_FLOAT,
+            EMPTY_PARAMS,
+            false,
+            SpaceType.L2,
+            NO_ADDITIONAL_SETTINGS,
+            Mode.ON_DISK,
+            CompressionLevel.x4
+        );
+    }
+
+    @ExpectRemoteBuildValidation
+    public void testNonNestedDiskBasedIndexWithIP_SQFourBit() {
+        doTestNonNestedIndex(
+            VectorDataType.HALF_FLOAT,
+            EMPTY_PARAMS,
+            false,
+            SpaceType.INNER_PRODUCT,
+            NO_ADDITIONAL_SETTINGS,
+            Mode.ON_DISK,
+            CompressionLevel.x4
+        );
+    }
+
+    @ExpectRemoteBuildValidation
+    public void testNonNestedDiskBasedIndexWithCosine_SQFourBit() {
+        doTestNonNestedIndex(
+            VectorDataType.HALF_FLOAT,
+            EMPTY_PARAMS,
+            false,
+            SpaceType.COSINESIMIL,
+            NO_ADDITIONAL_SETTINGS,
+            Mode.ON_DISK,
+            CompressionLevel.x4
+        );
+    }
+
+    @ExpectRemoteBuildValidation
+    public void testNestedDiskBasedIndexWithL2_SQFourBit() {
+        doTestNestedIndex(VectorDataType.HALF_FLOAT, EMPTY_PARAMS, SpaceType.L2, NO_ADDITIONAL_SETTINGS, Mode.ON_DISK, CompressionLevel.x4);
+    }
+
+    @ExpectRemoteBuildValidation
+    public void testNestedDiskBasedIndexWithIP_SQFourBit() {
+        doTestNestedIndex(
+            VectorDataType.HALF_FLOAT,
+            EMPTY_PARAMS,
+            SpaceType.INNER_PRODUCT,
+            NO_ADDITIONAL_SETTINGS,
+            Mode.ON_DISK,
+            CompressionLevel.x4
+        );
+    }
+
+    @ExpectRemoteBuildValidation
+    public void testNestedDiskBasedIndexWithCosine_SQFourBit() {
+        doTestNestedIndex(
+            VectorDataType.HALF_FLOAT,
+            EMPTY_PARAMS,
+            SpaceType.COSINESIMIL,
+            NO_ADDITIONAL_SETTINGS,
+            Mode.ON_DISK,
+            CompressionLevel.x4
         );
     }
 }

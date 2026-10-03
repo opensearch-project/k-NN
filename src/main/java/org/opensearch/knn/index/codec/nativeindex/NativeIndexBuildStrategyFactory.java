@@ -13,7 +13,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
-import org.opensearch.knn.index.engine.faiss.FaissSQEncoder;
+import org.opensearch.knn.index.engine.Encoder.QuantizationBits;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.repositories.RepositoriesService;
 
@@ -62,7 +62,7 @@ public final class NativeIndexBuildStrategyFactory {
         final boolean isTemplate = fieldInfo.attributes().containsKey(MODEL_ID);
         final boolean iterative = !isTemplate && knnEngine.supportsIterativeBuild();
         final boolean isFaissSQMosField = FieldInfoExtractor.isSQField(fieldInfo)
-            && FaissSQEncoder.isSQCodedBits(FieldInfoExtractor.extractSQConfig(fieldInfo).getBits());
+            && QuantizationBits.isSQCodedBits(FieldInfoExtractor.extractSQConfig(fieldInfo).getBits());
 
         // Determine build strategy
         final NativeIndexBuildStrategy strategy;
