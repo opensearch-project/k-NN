@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Support knn queries on native engine fields inside percolator queries by scoring the percolated document with exact search [#3556](https://github.com/opensearch-project/k-NN/pull/3556)
 
 ### Maintenance
+* Route model index operations through the plugin subject instead of stashing the thread context [#3618](https://github.com/opensearch-project/k-NN/pull/3618)
 * Fixed multiple forbidden api warnings from the code []()
 * Speed up the Remote Index Build IT job via round-robin test sharding and bulk document indexing, and cancel in-progress CI/GPU runs on newer commits [#3554](https://github.com/opensearch-project/k-NN/pull/3554)
 * Disable the gRPC transport ITs for the distribution-level (external-cluster) integ test run, where the release distribution's k-NN cluster does not enable the transport-grpc aux transport [#3576](https://github.com/opensearch-project/k-NN/pull/3576)
