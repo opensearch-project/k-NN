@@ -15,7 +15,7 @@ import lombok.Getter;
  * <p>The {@code bits} field must be set explicitly by callers — there is no default. The supported
  * MOS bit widths are {@code 1}, {@code 2}, and {@code 4}; {@link #EMPTY} carries {@code bits=0} as
  * a sentinel. Callers that treat the value as a doc bit width should validate it through
- * {@link FaissSQEncoder#isSQCodedBits(int)}.
+ * {@link org.opensearch.knn.index.engine.Encoder.QuantizationBits#isSQCodedBits(int)}.
  */
 @Builder
 @Getter
