@@ -61,6 +61,7 @@ TEST(NmslibStreamLoadingTest, BasicAssertions) {
       int numIds = 100;
       std::vector<int> ids;
       auto vectors = new std::vector<float>();
+      std::unique_ptr<std::vector<float>> vectorsOwner(vectors);
       int dim = 2;
       vectors->reserve(dim * numIds);
       for (int i = 0; i < numIds; ++i) {
