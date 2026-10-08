@@ -4,56 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). See the [CONTRIBUTING guide](./CONTRIBUTING.md#Changelog) for instructions on how to add changelog entries.
 
-## [Unreleased 3.9](https://github.com/opensearch-project/k-NN/compare/main...HEAD)
+## [Unreleased 3.10](https://github.com/opensearch-project/k-NN/compare/main...HEAD)
 ### Features
-* Enable the approximate graph threshold for Faiss SQ x32 (sq bits=1) indices [#3434](https://github.com/opensearch-project/k-NN/pull/3434)
-* Add support for SQ 2 bit and 4 bit with Lucene engine [#3562](https://github.com/opensearch-project/k-NN/pull/3562)
-* Accept SQ 2-bit and 4-bit quantization at the mapping and codec layers [#3429](https://github.com/opensearch-project/k-NN/pull/3429)
-* Build SQ B-bit HNSW graph with multi-bit symmetric distance for SQ bits ∈ {1, 2, 4} [#3431](https://github.com/opensearch-project/k-NN/pull/3431
-* Enable remote vector index build for multi-bit SQ - bits ∈ {2, 4} [#3459](https://github.com/opensearch-project/k-NN/pull/3459)
-* Set default oversample factor to 1 for SQ 2-bit and 4-bit encoders (x16 / x8 compression) [#3463](https://github.com/opensearch-project/k-NN/pull/3463)
-* Support flat with x8 and x16 compression and make `method=flat` engine-agnostic [#3471](https://github.com/opensearch-project/k-NN/pull/3471)
-* Add Intel SVS (Scalable Vector Search) as a sandbox tenant engine: `svs_vamana` with flat/sq/lvq/leanvec encoders [#XXXX](https://github.com/opensearch-project/k-NN/pull/XXXX)
-* Added new radial search method that acts as a postfilter on size * oversample_factor topK on quantized indices [#3491](https://github.com/opensearch-project/k-NN/pull/3491)
-* Added validation to ensure Remote Index build gets triggered for dimensions > 64. [#3557](https://github.com/opensearch-project/k-NN/pull/3557)
-* Flip defaults of 16x and 8x compression to SQ 2 bits and 4 bits [#3561](https://github.com/opensearch-project/k-NN/pull/3561)
-* Add dynamic mapping for knn_vector fields via plugin inferencer and knn_vector dynamic templates [#3490](https://github.com/opensearch-project/k-NN/pull/3490)
-* Add `half_float` as a vector data type for Flat and HNSW [#3578](https://github.com/opensearch-project/k-NN/pull/3578)
-* Enable `half_float` vector data type for remote vector index build [#3575](https://github.com/opensearch-project/k-NN/pull/3575)
-* Add BFloat16 (BF16) scalar quantization support [#3190](https://github.com/opensearch-project/k-NN/pull/3190)
-* Support knn queries on native engine fields inside percolator queries by scoring the percolated document with exact search [#3556](https://github.com/opensearch-project/k-NN/pull/3556)
-* Add SQ 2-bit and 4-bit for half_float [#3603](https://github.com/opensearch-project/k-NN/pull/3603)
 
 ### Maintenance
-* Fixed multiple forbidden api warnings from the code []()
-* Speed up the Remote Index Build IT job via round-robin test sharding and bulk document indexing, and cancel in-progress CI/GPU runs on newer commits [#3554](https://github.com/opensearch-project/k-NN/pull/3554)
-* Disable the gRPC transport ITs for the distribution-level (external-cluster) integ test run, where the release distribution's k-NN cluster does not enable the transport-grpc aux transport [#3576](https://github.com/opensearch-project/k-NN/pull/3576)
 
 ### Bug Fixes
-* Fix native thread leak in Lucene HNSW merge executor when index_thread_qty > 1 [#3102](https://github.com/opensearch-project/k-NN/issues/3102)
-* Fix knn query against a field alias returning zero hits silently [#3485](https://github.com/opensearch-project/k-NN/pull/3485)
-* Add prefetch for Lucene engine's fp32 and binary vector data type [#3504](https://github.com/opensearch-project/k-NN/pull/3504)
-* Fix when BQ file is not present in the segment as there is no vectors in the segment [#3511](https://github.com/opensearch-project/k-NN/pull/3511)
-* Fix derived source failing to ingest non-JSON (CBOR/SMILE) documents into knn_vector indices [#3529](https://github.com/opensearch-project/k-NN/pull/3529)
-* Fix shared mutable PerLeafResult.EMPTY_RESULT causing NPE [#3534](https://github.com/opensearch-project/k-NN/pull/3534)
-* Drop HasIndexSlice from ScalarQuantizedFloatVectorValues and expose float/quantized delegates via getters [#3486](https://github.com/opensearch-project/k-NN/pull/3486)
-* Fix exact search and rescore scoring innerproduct and cosinesimil fields with L2 on model based and 2.17 to 2.19 indices [#3537](https://github.com/opensearch-project/k-NN/pull/3537)
-* Fix native memory leak in MemOptimizedNativeIndexBuildStrategy on failed merges [#3593](https://github.com/opensearch-project/k-NN/pull/3593)
-* Return model not found instead of the internal model index when getting a model before any model is trained [#3598](https://github.com/opensearch-project/k-NN/pull/3598)
 * Fix double free of off-heap vectors when a native index build fails [#3621](https://github.com/opensearch-project/k-NN/pull/3621)
 * Honor query cancellation and timeout in memory-optimized search [#3620](https://github.com/opensearch-project/k-NN/pull/3620)
 
 ### Refactoring
-* Wire ResolvedIndexSpec consumers through spec-driven resolution flow [#3421](https://github.com/opensearch-project/k-NN/pull/3421)
-* Refactor engine field mapper, deprecate mode parameter, add encoder validation [#3436](https://github.com/opensearch-project/k-NN/pull/3436)
-* Centralize rescore and MOS logic in ResolvedIndexSpec [#3466](https://github.com/opensearch-project/k-NN/pull/3466)
-* Add ScalarEncodingResolver and parameterize Faiss SQ format by encoding to unblock multi-bit SQ support [#3428](https://github.com/opensearch-project/k-NN/pull/3428)
 
 ### Enhancements
-* Support `index.knn.advanced.approximate_threshold` for the Lucene engine [#3451](https://github.com/opensearch-project/k-NN/pull/3451)
-* Convert document vectors to primitive arrays once per document in lateInteractionScore, instead of once per query-vector/document-vector pair [#3453](https://github.com/opensearch-project/k-NN/pull/3453)
-* Terminate remote index build early when the merge has been aborted [#3488](https://github.com/opensearch-project/k-NN/pull/3488)
-* Add NEON SIMD kernel for FP16 L2 similarity [#3512](https://github.com/opensearch-project/k-NN/pull/3512)
-* Add native SIMD cosine scoring for FP16 and SQ formats, removing post-hoc score conversion [#3386](https://github.com/opensearch-project/k-NN/pull/3386)
-* Skip warmup for warm-tier indices to avoid unnecessary graph loading from remote store [#3565](https://github.com/opensearch-project/k-NN/pull/3565)
-* Avoid FP16 -> FP32 -> FP16 round trip when merging `half_float` segments [#3610](https://github.com/opensearch-project/k-NN/pull/3610)
+* Set the CMAKE_BUILD_TYPE to Release to ensure that all targets get build with optimized code [#3622](https://github.com/opensearch-project/k-NN/pull/3622)

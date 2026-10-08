@@ -7,6 +7,16 @@ cmake_minimum_required(VERSION 3.24.0)
 
 project(KNNPlugin_JNI)
 
+# Default to an optimized Release build (-O3 -DNDEBUG) for every target. Previously the build type was only set
+# as a side effect of including NMSLIB's CMakeLists, so FAISS-only builds compiled the JNI libraries without
+# optimization. An explicit -DCMAKE_BUILD_TYPE (e.g. Debug) still takes precedence. Multi-config generators
+# (Xcode, Visual Studio) pick the configuration at build time and ignore CMAKE_BUILD_TYPE.
+get_property(KNN_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if (NOT KNN_IS_MULTI_CONFIG AND NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build types: Release Debug RelWithDebInfo MinSizeRel" FORCE)
+endif ()
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/macros.cmake)
 
 # ---------------------------------- SETUP ----------------------------------
@@ -209,6 +219,7 @@ if ("${WIN32}" STREQUAL "")
                 tests/nmslib_stream_support_test.cpp
                 tests/faiss_index_bq_unit_test.cpp
                 tests/faiss_sq_distance_computer_test.cpp
+                tests/build_config_test.cpp
         )
 
         target_link_libraries(
@@ -223,6 +234,8 @@ if ("${WIN32}" STREQUAL "")
                 ${TARGET_LIB_COMMON}
                 ${TARGET_LIB_UTIL}
         )
+
+        target_compile_definitions(jni_test PRIVATE ${KNN_BUILD_CONFIG_DEFINITIONS})
 
         target_include_directories(jni_test PRIVATE
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests
