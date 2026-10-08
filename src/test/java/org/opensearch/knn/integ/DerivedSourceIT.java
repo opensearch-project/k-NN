@@ -622,6 +622,117 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
         );
     }
 
+    @SneakyThrows
+    @ExpectRemoteBuildValidation
+    public void testDerivedSource_whenParentHasManyNestedDocs_thenReturnsOwnVectors() {
+        String indexName = getIndexName("derived-source", "many-nested-docs", false);
+        int dimension = 3;
+        // More nested docs than the first offset window used to look up the first child of a parent
+        int fillerCount = 200;
+
+        Settings settings = Settings.builder()
+            .put("number_of_shards", 1)
+            .put("number_of_replicas", 0)
+            .put("index.knn", true)
+            .put("index.knn.derived_source.enabled", true)
+            .build();
+
+        XContentBuilder mappingBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(KNNConstants.PROPERTIES)
+            .startObject("name")
+            .field(KNNConstants.TYPE, "keyword")
+            .endObject()
+            .startObject("items")
+            .field(KNNConstants.TYPE, "nested")
+            .startObject(KNNConstants.PROPERTIES)
+            .startObject("vec")
+            .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
+            .field(DIMENSION, dimension);
+        addCompressionMappingFields(mappingBuilder);
+        mappingBuilder.startObject("method")
+            .field("engine", "faiss")
+            .field("space_type", "l2")
+            .field("name", "hnsw")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .startObject("other")
+            .field(KNNConstants.TYPE, "nested")
+            .startObject(KNNConstants.PROPERTIES)
+            .startObject("n")
+            .field(KNNConstants.TYPE, "integer")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        createKnnIndex(indexName, settings, mappingBuilder.toString());
+
+        XContentBuilder firstDoc = XContentFactory.jsonBuilder()
+            .startObject()
+            .field("name", "first")
+            .startArray("items")
+            .startObject()
+            .array("vec", 1.0f, 1.0f, 1.0f)
+            .endObject()
+            .startObject()
+            .array("vec", 2.0f, 2.0f, 2.0f)
+            .endObject()
+            .endArray()
+            .endObject();
+
+        XContentBuilder secondDoc = XContentFactory.jsonBuilder()
+            .startObject()
+            .field("name", "second")
+            .startArray("items")
+            .startObject()
+            .array("vec", 8.0f, 8.0f, 8.0f)
+            .endObject()
+            .startObject()
+            .array("vec", 9.0f, 9.0f, 9.0f)
+            .endObject()
+            .endArray()
+            .startArray("other");
+        for (int i = 0; i < fillerCount; i++) {
+            secondDoc.startObject().field("n", i).endObject();
+        }
+        secondDoc.endArray().endObject();
+
+        // Index both docs before refreshing so that they end up in the same segment
+        addKnnDoc(indexName, "1", firstDoc.toString());
+        addKnnDoc(indexName, "2", secondDoc.toString());
+        refreshIndex(indexName);
+
+        assertNestedVectors(getKnnDoc(indexName, "2"), 8.0f, 9.0f);
+
+        // A partial update rebuilds the document from the derived source, so the vectors must survive it
+        Request updateRequest = new Request("POST", "/" + indexName + "/_update/2?refresh=true");
+        updateRequest.setJsonEntity("{\"doc\": {\"name\": \"second-updated\"}}");
+        client().performRequest(updateRequest);
+
+        assertNestedVectors(getKnnDoc(indexName, "2"), 8.0f, 9.0f);
+        assertNestedVectors(getKnnDoc(indexName, "1"), 1.0f, 2.0f);
+
+        deleteKNNIndex(indexName);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void assertNestedVectors(Map<String, Object> source, float... expectedValues) {
+        List<Map<String, Object>> items = (List<Map<String, Object>>) source.get("items");
+        assertNotNull(items);
+        assertEquals(expectedValues.length, items.size());
+        for (int i = 0; i < expectedValues.length; i++) {
+            List<?> vector = (List<?>) items.get(i).get("vec");
+            assertNotNull(vector);
+            for (Object value : vector) {
+                assertEquals(expectedValues[i], ((Number) value).floatValue(), 0.0f);
+            }
+        }
+    }
+
     @SuppressWarnings("unchecked")
     private List<Float> extractVector(Map<String, Object> source, String... path) {
         Object current = source;
