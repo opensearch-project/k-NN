@@ -12,6 +12,7 @@ import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.QueryTimeout;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Explanation;
@@ -26,6 +27,7 @@ import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.FixedBitSet;
+import org.opensearch.common.Nullable;
 import org.opensearch.common.StopWatch;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
@@ -390,6 +392,17 @@ public abstract class KNNWeight extends Weight {
             knnExplanation.addLeafResult(context.id(), annResultsCount);
             knnExplanation.addExhaustedSearch(context.id(), annSearchBudgetExhausted);
         }
+        // A timed-out ANN search returns partial results, which can hold fewer than k hits. Return them as they are
+        // instead of falling back to exact search, which would ignore the deadline (same as Lucene's
+        // AbstractKnnVectorQuery).
+        if (isQueryTimedOut()) {
+            return new PerLeafResult(
+                filterWeight == null ? null : filterBitSet,
+                filterCardinality,
+                topDocs,
+                PerLeafResult.SearchMode.APPROXIMATE_SEARCH
+            );
+        }
         // See whether we have to perform exact search based on approx search results
         // This is required if there are no native engine files or if approximate search returned
         // results less than K, though we have more than k filtered docs
@@ -463,7 +476,8 @@ public abstract class KNNWeight extends Weight {
             .numberOfMatchedDocs(numberOfAcceptedDocs)
             .floatQueryVector(knnQuery.getQueryVector())
             .byteQueryVector(knnQuery.getByteQueryVector())
-            .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch());
+            .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch())
+            .queryTimeout(getQueryTimeout());
 
         if (knnQuery.getContext() != null) {
             exactSearcherContextBuilder.maxResultWindow(knnQuery.getContext().getMaxResultWindow());
@@ -750,6 +764,20 @@ public abstract class KNNWeight extends Weight {
             return true;
         }
         return false;
+    }
+
+    /**
+     * The search's {@link QueryTimeout} (task cancellation or request timeout), or null when this weight doesn't honor
+     * it. Weights that honor timeouts override this.
+     */
+    @Nullable
+    protected QueryTimeout getQueryTimeout() {
+        return null;
+    }
+
+    private boolean isQueryTimedOut() {
+        final QueryTimeout queryTimeout = getQueryTimeout();
+        return queryTimeout != null && queryTimeout.shouldExit();
     }
 
     /**

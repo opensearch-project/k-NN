@@ -9,6 +9,7 @@ import lombok.SneakyThrows;
 import org.apache.lucene.index.CompositeReaderContext;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.QueryTimeout;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
@@ -16,6 +17,7 @@ import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.TaskExecutor;
+import org.apache.lucene.search.TimeLimitingKnnCollectorManager;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.Weight;
@@ -42,13 +44,16 @@ import java.util.List;
 import java.util.concurrent.Executors;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -238,18 +243,35 @@ public class OptimisticSearchTests {
     public void testOptimisticSearchNestedUseDiversifyingCollector() {
         // When parentsFilter is set (nested index), the reentrant search should use
         // DiversifyingNearestChildrenKnnCollectorManager instead of TopKnnCollectorManager.
-        dotTstOptimisticSearchCollectorType(true);
+        dotTstOptimisticSearchCollectorType(true, null);
     }
 
     @Test
     @SneakyThrows
     public void testOptimisticSearchNonNestedUseTopKCollector() {
         // When parentsFilter is null (non-nested), the reentrant search should use TopKnnCollectorManager.
-        dotTstOptimisticSearchCollectorType(false);
+        dotTstOptimisticSearchCollectorType(false, null);
+    }
+
+    @Test
+    @SneakyThrows
+    public void testOptimisticSearch_whenSearcherHasTimeout_thenSecondPassIsTimeLimited() {
+        // The second pass must honor the same deadline as the first.
+        dotTstOptimisticSearchCollectorType(false, () -> false);
+        dotTstOptimisticSearchCollectorType(true, () -> false);
+    }
+
+    @Test
+    @SneakyThrows
+    public void testOptimisticSearch_whenTimedOut_thenSkipsSecondPass() {
+        // First-pass results are partial after a timeout; a second pass would only run past the deadline.
+        dotTstOptimisticSearchCollectorType(false, () -> true);
     }
 
     @SneakyThrows
-    private void dotTstOptimisticSearchCollectorType(final boolean isNested) {
+    private void dotTstOptimisticSearchCollectorType(final boolean isNested, final QueryTimeout timeout) {
+        clearInvocations(knnWeight);
+        when(searcher.getTimeout()).thenReturn(timeout);
         try (MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)) {
             mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any())).thenReturn(false);
 
@@ -329,6 +351,11 @@ public class OptimisticSearchTests {
             // Execute search
             query.createWeight(searcher, ScoreMode.TOP_DOCS_WITH_SCORES, 1.0f);
 
+            if (timeout != null && timeout.shouldExit()) {
+                verify(knnWeight, never()).setReentrantKNNCollectorManager(any());
+                return;
+            }
+
             // Capture the ReentrantKnnCollectorManager passed to setReentrantKNNCollectorManager
             ArgumentCaptor<ReentrantKnnCollectorManager> captor = ArgumentCaptor.forClass(ReentrantKnnCollectorManager.class);
             verify(knnWeight, times(1)).setReentrantKNNCollectorManager(captor.capture());
@@ -338,6 +365,15 @@ public class OptimisticSearchTests {
             Field delegateField = ReentrantKnnCollectorManager.class.getDeclaredField("knnCollectorManager");
             delegateField.setAccessible(true);
             Object innerCollectorManager = delegateField.get(captured);
+            // The second pass is always time-limited, with the searcher's timeout (null when none is set).
+            assertTrue(
+                "Expected a time-limited second pass, got " + innerCollectorManager.getClass(),
+                innerCollectorManager instanceof TimeLimitingKnnCollectorManager
+            );
+            assertSame(timeout, ((TimeLimitingKnnCollectorManager) innerCollectorManager).getQueryTimeout());
+            Field timeLimitedDelegate = TimeLimitingKnnCollectorManager.class.getDeclaredField("delegate");
+            timeLimitedDelegate.setAccessible(true);
+            innerCollectorManager = timeLimitedDelegate.get(innerCollectorManager);
 
             if (isNested) {
                 assertTrue(

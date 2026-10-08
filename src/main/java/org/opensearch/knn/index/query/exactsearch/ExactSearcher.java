@@ -12,6 +12,7 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.QueryTimeout;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.DocIdSetIterator;
@@ -211,9 +212,9 @@ public class ExactSearcher {
         final DocIdSetIterator matchedDocs
     ) throws IOException {
         if (context.getMatchedDocsIterator() != null && context.getNumberOfMatchedDocs() <= context.getK()) {
-            return scoreAllDocs(BulkVectorScorer.forKSearch(vectorScorer, matchedDocs));
+            return scoreAllDocs(BulkVectorScorer.forKSearch(vectorScorer, matchedDocs, context.getQueryTimeout()));
         }
-        return collectTopK(BulkVectorScorer.forKSearch(vectorScorer, matchedDocs), context.getK());
+        return collectTopK(BulkVectorScorer.forKSearch(vectorScorer, matchedDocs, context.getQueryTimeout()), context.getK());
     }
 
     /**
@@ -249,7 +250,7 @@ public class ExactSearcher {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Engine [%s] does not support radial search", engine));
         }
         return collectTopK(
-            BulkVectorScorer.forRadialSearch(vectorScorer, matchedDocs, resolveMinScore(context, fieldInfo)),
+            BulkVectorScorer.forRadialSearch(vectorScorer, matchedDocs, resolveMinScore(context, fieldInfo), context.getQueryTimeout()),
             context.getMaxResultWindow(),
             false
         );
@@ -468,6 +469,13 @@ public class ExactSearcher {
          */
         @Nullable
         DocIdSetIterator matchedDocsIterator;
+
+        /**
+         * The search's query timeout (task cancellation or request timeout). When non-null, exact search stops early
+         * once it fires and returns the results collected so far.
+         */
+        @Nullable
+        QueryTimeout queryTimeout;
 
         /**
          * The total number of documents matched by the pre-filter, used to select the search strategy.
