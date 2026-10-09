@@ -6,6 +6,7 @@
 package org.opensearch.knn.plugin.transport;
 
 import org.opensearch.knn.index.KNNIndexShard;
+import org.opensearch.knn.index.warmup.WarmupSkipReason;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.support.ActionFilters;
@@ -25,17 +26,16 @@ import org.opensearch.transport.TransportService;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Transport Action for warming up k-NN indices. TransportBroadcastByNodeAction will distribute the request to
  * all shards across the cluster for the given indices. For each shard, shardOperation will be called and the
  * warmup will take place.
  */
-public class KNNWarmupTransportAction extends TransportBroadcastByNodeAction<
-    KNNWarmupRequest,
-    KNNWarmupResponse,
-    TransportBroadcastByNodeAction.EmptyResult> {
+public class KNNWarmupTransportAction extends TransportBroadcastByNodeAction<KNNWarmupRequest, KNNWarmupResponse, KNNWarmupShardResult> {
 
     public static Logger logger = LogManager.getLogger(KNNWarmupTransportAction.class);
 
@@ -62,8 +62,8 @@ public class KNNWarmupTransportAction extends TransportBroadcastByNodeAction<
     }
 
     @Override
-    protected EmptyResult readShardResult(StreamInput in) throws IOException {
-        return EmptyResult.readEmptyResultFrom(in);
+    protected KNNWarmupShardResult readShardResult(StreamInput in) throws IOException {
+        return new KNNWarmupShardResult(in);
     }
 
     @Override
@@ -72,11 +72,19 @@ public class KNNWarmupTransportAction extends TransportBroadcastByNodeAction<
         int totalShards,
         int successfulShards,
         int failedShards,
-        List<EmptyResult> emptyResults,
+        List<KNNWarmupShardResult> shardResults,
         List<DefaultShardOperationFailedException> shardFailures,
         ClusterState clusterState
     ) {
-        return new KNNWarmupResponse(totalShards, successfulShards, failedShards, shardFailures);
+        int skippedShards = 0;
+        final Set<String> skipReasons = new LinkedHashSet<>();
+        for (final KNNWarmupShardResult shardResult : shardResults) {
+            if (shardResult.isSkipped()) {
+                skippedShards++;
+                skipReasons.add(shardResult.getSkipReason().getValue());
+            }
+        }
+        return new KNNWarmupResponse(totalShards, successfulShards, failedShards, shardFailures, skippedShards, List.copyOf(skipReasons));
     }
 
     @Override
@@ -85,12 +93,12 @@ public class KNNWarmupTransportAction extends TransportBroadcastByNodeAction<
     }
 
     @Override
-    protected EmptyResult shardOperation(KNNWarmupRequest request, ShardRouting shardRouting) throws IOException {
+    protected KNNWarmupShardResult shardOperation(KNNWarmupRequest request, ShardRouting shardRouting) throws IOException {
         KNNIndexShard knnIndexShard = new KNNIndexShard(
             indicesService.indexServiceSafe(shardRouting.shardId().getIndex()).getShard(shardRouting.shardId().id())
         );
-        knnIndexShard.warmup();
-        return EmptyResult.INSTANCE;
+        final WarmupSkipReason skipReason = knnIndexShard.warmup();
+        return skipReason == null ? KNNWarmupShardResult.executed() : KNNWarmupShardResult.skipped(skipReason);
     }
 
     @Override
