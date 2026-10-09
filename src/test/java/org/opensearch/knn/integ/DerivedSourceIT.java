@@ -623,7 +623,6 @@ public class DerivedSourceIT extends DerivedSourceTestCase {
     }
 
     @SneakyThrows
-    @ExpectRemoteBuildValidation
     public void testDerivedSource_whenParentHasManyNestedDocs_thenReturnsOwnVectors() {
         String indexName = getIndexName("derived-source", "many-nested-docs", false);
         int dimension = 3;
