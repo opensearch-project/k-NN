@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.QueryTimeout;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchNoDocsQuery;
@@ -17,6 +18,7 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.ScoreMode;
+import org.apache.lucene.search.TimeLimitingKnnCollectorManager;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.Weight;
@@ -326,6 +328,8 @@ public class NativeEngineKnnVectorQuery extends Query {
             .useQuantizedVectorsForSearch(useQuantizedVectors)
             .k((int) allSiblings.cost())
             .field(knnQuery.getField())
+            .spaceType(knnQuery.getSpaceType())
+            .vectorDataType(knnQuery.getVectorDataType())
             .radius(knnQuery.getRadius())
             .floatQueryVector(knnQuery.getQueryVector())
             .byteQueryVector(knnQuery.getByteQueryVector())
@@ -395,6 +399,13 @@ public class NativeEngineKnnVectorQuery extends Query {
         // Get memory optimized knn weight first, it's safe get it, we checked it already.
         final MemoryOptimizedKNNWeight memoryOptKNNWeight = (MemoryOptimizedKNNWeight) knnWeight;
 
+        // Once the query has timed out the first pass returned partial results, and a second pass over them would
+        // only spend more time past the deadline.
+        final QueryTimeout queryTimeout = indexSearcher.getTimeout();
+        if (queryTimeout != null && queryTimeout.shouldExit()) {
+            return;
+        }
+
         // How many results have we collected?
         int totalResults = 0;
         for (PerLeafResult perLeafResult : perLeafResults) {
@@ -441,9 +452,11 @@ public class NativeEngineKnnVectorQuery extends Query {
 
         // Kick off 2nd search tasks
         if (secondDeepDiveTasks.isEmpty() == false) {
-            final KnnCollectorManager collectorManager = knnQuery.getParentsFilter() == null
+            final KnnCollectorManager baseCollectorManager = knnQuery.getParentsFilter() == null
                 ? new TopKnnCollectorManager(k, indexSearcher)
                 : new DiversifyingNearestChildrenKnnCollectorManager(k, knnQuery.getParentsFilter(), indexSearcher);
+            // Bound the second pass by the same deadline as the first.
+            final KnnCollectorManager collectorManager = new TimeLimitingKnnCollectorManager(baseCollectorManager, queryTimeout);
 
             final ReentrantKnnCollectorManager reentrantCollectorManager = new ReentrantKnnCollectorManager(
                 collectorManager,
@@ -507,6 +520,8 @@ public class NativeEngineKnnVectorQuery extends Query {
                     .k(k)
                     .radius(knnQuery.getRadius())
                     .field(knnQuery.getField())
+                    .spaceType(knnQuery.getSpaceType())
+                    .vectorDataType(knnQuery.getVectorDataType())
                     .floatQueryVector(knnQuery.getQueryVector())
                     .byteQueryVector(knnQuery.getByteQueryVector())
                     .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch())

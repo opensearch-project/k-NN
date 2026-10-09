@@ -12,6 +12,7 @@ import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.QueryTimeout;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Explanation;
@@ -26,10 +27,12 @@ import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.FixedBitSet;
+import org.opensearch.common.Nullable;
 import org.opensearch.common.StopWatch;
 import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.common.LeafReaderUtil;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -146,12 +149,11 @@ public abstract class KNNWeight extends Weight {
         final String highLevelExplanation = getHighLevelExplanation();
         final StringBuilder leafLevelExplanation = getLeafLevelExplanation(context);
 
-        final SegmentReader reader = Lucene.segmentReader(context.reader());
-        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
+        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(context.reader(), knnQuery.getField());
         if (fieldInfo == null) {
             return Explanation.match(score, highLevelExplanation, Explanation.match(score, leafLevelExplanation.toString()));
         }
-        final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
+        final SpaceType spaceType = resolveSpaceType(fieldInfo);
         leafLevelExplanation.append(", spaceType = ").append(spaceType.getValue());
 
         final Float rawScore = knnExplanation.getRawScore(doc);
@@ -175,6 +177,15 @@ public abstract class KNNWeight extends Weight {
         return rawScoreDetail != null
             ? Explanation.match(score, highLevelExplanation, Explanation.match(score, leafLevelExplanation.toString(), rawScoreDetail))
             : Explanation.match(score, highLevelExplanation, Explanation.match(score, leafLevelExplanation.toString()));
+    }
+
+    /**
+     * Prefers the space type the query resolved from the field mapping. A leaf with no field attributes,
+     * such as the {@code MemoryIndex} percolation builds, falls back to the Lucene similarity function
+     * recorded on the field, which records L2 for every space type with no Lucene equivalent.
+     */
+    private SpaceType resolveSpaceType(final FieldInfo fieldInfo) {
+        return knnQuery.getSpaceType() != null ? knnQuery.getSpaceType() : FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
     }
 
     private StringBuilder getLeafLevelExplanation(LeafReaderContext context) {
@@ -314,8 +325,8 @@ public abstract class KNNWeight extends Weight {
      * @return A Map of docId to scores for top k results
      */
     public PerLeafResult searchLeaf(LeafReaderContext context, int k) throws IOException {
-        final SegmentReader reader = Lucene.segmentReader(context.reader());
-        final String segmentName = reader.getSegmentName();
+        final SegmentReader reader = LeafReaderUtil.tryGetSegmentReader(context.reader());
+        final String segmentName = LeafReaderUtil.leafReaderName(context.reader());
 
         final StopWatch stopWatch = startStopWatch(log);
         final BitSet filterBitSet = getFilteredDocsBitSet(context);
@@ -332,6 +343,27 @@ public abstract class KNNWeight extends Weight {
         }
         if (knnQuery.isExplain()) {
             knnExplanation.setCardinality(filterCardinality);
+        }
+
+        /*
+         * A leaf with no segment behind it carries no native engine files and no ANN structures. Percolation
+         * reaches this path because it evaluates stored queries against a Lucene MemoryIndex over the document
+         * being percolated. Score that document exactly instead of attempting an approximate search.
+         */
+        if (reader == null) {
+            log.debug("[KNN] Leaf [{}] has no segment, scoring field [{}] with exact search", segmentName, knnQuery.getField());
+            final DocIdSetIterator docs = filterWeight != null ? new BitSetIterator(filterBitSet, filterCardinality) : null;
+            final TopDocs result = doExactSearch(context, docs, filterCardinality, k);
+            if (knnQuery.isExplain()) {
+                knnExplanation.addLeafResult(context.id(), 0);
+                knnExplanation.addExhaustedSearch(context.id(), false);
+            }
+            return new PerLeafResult(
+                filterWeight == null ? null : filterBitSet,
+                filterCardinality,
+                result,
+                PerLeafResult.SearchMode.EXACT_SEARCH
+            );
         }
 
         /*
@@ -359,6 +391,17 @@ public abstract class KNNWeight extends Weight {
         if (knnQuery.isExplain()) {
             knnExplanation.addLeafResult(context.id(), annResultsCount);
             knnExplanation.addExhaustedSearch(context.id(), annSearchBudgetExhausted);
+        }
+        // A timed-out ANN search returns partial results, which can hold fewer than k hits. Return them as they are
+        // instead of falling back to exact search, which would ignore the deadline (same as Lucene's
+        // AbstractKnnVectorQuery).
+        if (isQueryTimedOut()) {
+            return new PerLeafResult(
+                filterWeight == null ? null : filterBitSet,
+                filterCardinality,
+                topDocs,
+                PerLeafResult.SearchMode.APPROXIMATE_SEARCH
+            );
         }
         // See whether we have to perform exact search based on approx search results
         // This is required if there are no native engine files or if approximate search returned
@@ -426,12 +469,15 @@ public abstract class KNNWeight extends Weight {
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
             .field(knnQuery.getField())
+            .spaceType(knnQuery.getSpaceType())
+            .vectorDataType(knnQuery.getVectorDataType())
             .radius(knnQuery.getRadius())
             .matchedDocsIterator(acceptedDocs)
             .numberOfMatchedDocs(numberOfAcceptedDocs)
             .floatQueryVector(knnQuery.getQueryVector())
             .byteQueryVector(knnQuery.getByteQueryVector())
-            .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch());
+            .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch())
+            .queryTimeout(getQueryTimeout());
 
         if (knnQuery.getContext() != null) {
             exactSearcherContextBuilder.maxResultWindow(knnQuery.getContext().getMaxResultWindow());
@@ -610,8 +656,14 @@ public abstract class KNNWeight extends Weight {
         throws IOException {
         final StopWatch stopWatch = startStopWatch(log);
         TopDocs exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
-        final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
-        stopStopWatchAndLog(log, stopWatch, "Exact search", knnQuery.getShardId(), reader.getSegmentName(), knnQuery.getField());
+        stopStopWatchAndLog(
+            log,
+            stopWatch,
+            "Exact search",
+            knnQuery.getShardId(),
+            LeafReaderUtil.leafReaderName(leafReaderContext.reader()),
+            knnQuery.getField()
+        );
         return exactSearchResults;
     }
 
@@ -715,6 +767,20 @@ public abstract class KNNWeight extends Weight {
     }
 
     /**
+     * The search's {@link QueryTimeout} (task cancellation or request timeout), or null when this weight doesn't honor
+     * it. Weights that honor timeouts override this.
+     */
+    @Nullable
+    protected QueryTimeout getQueryTimeout() {
+        return null;
+    }
+
+    private boolean isQueryTimedOut() {
+        final QueryTimeout queryTimeout = getQueryTimeout();
+        return queryTimeout != null && queryTimeout.shouldExit();
+    }
+
+    /**
      * This condition mainly checks during filtered search we have more than K elements in filterIds but the ANN
      * doesn't yield K nearest neighbors. Also check to make sure that we didn't hit Lucene's visit budget to match
      * behavior on low filtering percentages.
@@ -742,7 +808,11 @@ public abstract class KNNWeight extends Weight {
      * @return boolean - false if exactSearch needs to be done since no native engine files are in segments.
      */
     private boolean isMissingNativeEngineFiles(LeafReaderContext context) {
-        final SegmentReader reader = Lucene.segmentReader(context.reader());
+        final SegmentReader reader = LeafReaderUtil.tryGetSegmentReader(context.reader());
+        if (reader == null) {
+            // No segment means no native engine files to look for.
+            return true;
+        }
         final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
         // if segment has no documents with at least 1 vector field, field info will be null
         if (fieldInfo == null) {

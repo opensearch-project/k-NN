@@ -21,6 +21,7 @@ import org.apache.lucene.search.ScorerSupplier;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopKnnCollector;
 import org.apache.lucene.search.Weight;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 
 import java.io.IOException;
@@ -88,6 +89,13 @@ public class RescoreRadialSearchQuery extends Query {
     private final int firstPassK;
 
     /**
+     * Space type resolved from the field mapping, or {@code null} when the caller has none. Rescoring
+     * prefers it over the one derived from segment metadata, which a leaf with no field attributes cannot
+     * recover.
+     */
+    private final SpaceType spaceType;
+
+    /**
      * Constructs a new rescoring wrapper for radial search on a quantized index.
      *
      * @param innerQuery                   the inner radial search query (must not be null)
@@ -96,6 +104,7 @@ public class RescoreRadialSearchQuery extends Query {
      * @param radius                       the radius threshold for the search
      * @param memoryOptimizedSearchEnabled whether memory-optimized search is enabled
      * @param firstPassK                   maximum number of approximate candidates to rescore
+     * @param spaceType                    space type from the field mapping, or null to derive it from the segment
      */
     public RescoreRadialSearchQuery(
         final Query innerQuery,
@@ -103,7 +112,8 @@ public class RescoreRadialSearchQuery extends Query {
         final float[] queryVector,
         float radius,
         final boolean memoryOptimizedSearchEnabled,
-        final int firstPassK
+        final int firstPassK,
+        final SpaceType spaceType
     ) {
         this.innerQuery = Objects.requireNonNull(innerQuery);
         this.field = Objects.requireNonNull(field);
@@ -111,6 +121,7 @@ public class RescoreRadialSearchQuery extends Query {
         this.radius = radius;
         this.memoryOptimizedSearchEnabled = memoryOptimizedSearchEnabled;
         this.firstPassK = firstPassK;
+        this.spaceType = spaceType;
         Objects.requireNonNull(EXACT_SEARCHER_SINGLETON, "Exact searcher was not initialized.");
     }
 
@@ -140,7 +151,7 @@ public class RescoreRadialSearchQuery extends Query {
     public Query rewrite(final IndexSearcher indexSearcher) throws IOException {
         final Query rewritten = innerQuery.rewrite(indexSearcher);
         if (rewritten != innerQuery) {
-            return new RescoreRadialSearchQuery(rewritten, field, queryVector, radius, memoryOptimizedSearchEnabled, firstPassK);
+            return new RescoreRadialSearchQuery(rewritten, field, queryVector, radius, memoryOptimizedSearchEnabled, firstPassK, spaceType);
         } else {
             return this;
         }
@@ -187,6 +198,7 @@ public class RescoreRadialSearchQuery extends Query {
         private final float radius;
         private final boolean memoryOptimizedSearchEnabled;
         private final int firstPassK;
+        private final SpaceType spaceType;
 
         /**
          * @param query       the parent query (for Lucene's Weight contract)
@@ -203,6 +215,7 @@ public class RescoreRadialSearchQuery extends Query {
             this.radius = rescoreQuery.radius;
             this.memoryOptimizedSearchEnabled = rescoreQuery.memoryOptimizedSearchEnabled;
             this.firstPassK = rescoreQuery.firstPassK;
+            this.spaceType = rescoreQuery.spaceType;
         }
 
         @Override
@@ -265,6 +278,7 @@ public class RescoreRadialSearchQuery extends Query {
                         .useQuantizedVectorsForSearch(false)
                         .radius(radius)
                         .field(field)
+                        .spaceType(spaceType)
                         .floatQueryVector(queryVector)
                         .isMemoryOptimizedSearchEnabled(memoryOptimizedSearchEnabled)
                         .build();

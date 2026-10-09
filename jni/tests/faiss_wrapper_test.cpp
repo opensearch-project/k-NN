@@ -224,6 +224,7 @@ TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
         faiss::idx_t numIds = 100;
         std::vector<faiss::idx_t> ids;
         auto *vectors = new std::vector<float>();
+        std::unique_ptr<std::vector<float>> vectorsOwner(vectors);
         int dim = 8;
         vectors->reserve(dim * numIds);
         for (int64_t i = 0; i < numIds; ++i) {
@@ -284,6 +285,7 @@ TEST(FaissCreateByteIndexFromTemplateTest, BasicAssertions) {
         faiss::idx_t numIds = 100;
         std::vector<faiss::idx_t> ids;
         auto *vectors = new std::vector<int8_t>();
+        std::unique_ptr<std::vector<int8_t>> vectorsOwner(vectors);
         int dim = 8;
         vectors->reserve(dim * numIds);
         for (int64_t i = 0; i < numIds; ++i) {
@@ -368,6 +370,7 @@ TEST(FaissCreateIndexFromTemplateTest, RejectsNonArrayInvertedLists) {
     std::vector<faiss::idx_t> ids = test_util::Range(numIds);
     auto* vectors = new std::vector<float>(
         test_util::RandomVectors(dim, numIds, randomDataMin, randomDataMax));
+    std::unique_ptr<std::vector<float>> vectorsOwner(vectors);
 
     // Setup jni
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
@@ -416,6 +419,7 @@ TEST(FaissCreateIndexFromTemplateTest, RejectsWrappedIndex) {
     std::vector<faiss::idx_t> ids = test_util::Range(numIds);
     auto* vectors = new std::vector<float>(
         test_util::RandomVectors(dim, numIds, randomDataMin, randomDataMax));
+    std::unique_ptr<std::vector<float>> vectorsOwner(vectors);
 
     // Setup jni
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
@@ -461,6 +465,7 @@ TEST(FaissCreateIndexFromTemplateTest, AcceptsValidIVFTemplate) {
     std::vector<faiss::idx_t> ids = test_util::Range(numIds);
     auto* vectors = new std::vector<float>(
         test_util::RandomVectors(dim, numIds, randomDataMin, randomDataMax));
+    std::unique_ptr<std::vector<float>> vectorsOwner(vectors);
 
     // Setup jni
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
@@ -510,6 +515,7 @@ TEST(FaissCreateIndexFromTemplateTest, AcceptsValidHNSWPQTemplate) {
     std::vector<faiss::idx_t> ids = test_util::Range(numIds);
     auto* vectors = new std::vector<float>(
         test_util::RandomVectors(dim, numIds, randomDataMin, randomDataMax));
+    std::unique_ptr<std::vector<float>> vectorsOwner(vectors);
 
     // Setup jni
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
@@ -563,6 +569,7 @@ TEST(FaissCreateByteIndexFromTemplateTest, RejectsNonArrayInvertedLists) {
     faiss::idx_t numIds = 10;
     std::vector<faiss::idx_t> ids = test_util::Range(numIds);
     auto* vectors = new std::vector<int8_t>(numIds * dim);
+    std::unique_ptr<std::vector<int8_t>> vectorsOwner(vectors);
     for (auto& v : *vectors) {
         v = static_cast<int8_t>(test_util::RandomInt(-128, 127));
     }
@@ -617,6 +624,7 @@ TEST(FaissCreateBinaryIndexFromTemplateTest, RejectsNonArrayInvertedLists) {
     faiss::idx_t numIds = 10;
     std::vector<faiss::idx_t> ids = test_util::Range(numIds);
     auto* vectors = new std::vector<uint8_t>(numIds * (dim / 8));
+    std::unique_ptr<std::vector<uint8_t>> vectorsOwner(vectors);
     for (auto& v : *vectors) {
         v = static_cast<uint8_t>(test_util::RandomInt(0, 255));
     }

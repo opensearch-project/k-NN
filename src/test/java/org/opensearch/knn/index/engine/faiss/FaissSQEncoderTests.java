@@ -449,36 +449,63 @@ public class FaissSQEncoderTests extends KNNTestCase {
         assertTrue(e.getMessage().contains("half_float"));
     }
 
-    public void testValidateDirectly_whenBits2WithHalfFloat_thenThrows() {
+    public void testValidateDirectly_whenBits2WithHalfFloatAndX8_thenNoException() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        encoder.validate(
+            buildMethodContext(Map.of(SQ_BITS, 2)),
+            buildConfigContext(Version.CURRENT, CompressionLevel.x8, VectorDataType.HALF_FLOAT)
+        );
+    }
+
+    public void testValidateDirectly_whenBits2WithHalfFloatAndX16_thenThrows() {
         FaissSQEncoder encoder = new FaissSQEncoder();
         ValidationException e = expectThrows(
             ValidationException.class,
             () -> encoder.validate(
                 buildMethodContext(Map.of(SQ_BITS, 2)),
-                buildConfigContext(Version.CURRENT, CompressionLevel.NOT_CONFIGURED, VectorDataType.HALF_FLOAT)
+                buildConfigContext(Version.CURRENT, CompressionLevel.x16, VectorDataType.HALF_FLOAT)
             )
         );
-        assertTrue(e.getMessage().contains("half_float"));
+        assertTrue(e.getMessage().contains("8x"));
     }
 
-    public void testValidateDirectly_whenBits4WithHalfFloat_thenThrows() {
+    public void testValidateDirectly_whenBits4WithHalfFloatAndX4_thenNoException() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        encoder.validate(
+            buildMethodContext(Map.of(SQ_BITS, 4)),
+            buildConfigContext(Version.CURRENT, CompressionLevel.x4, VectorDataType.HALF_FLOAT)
+        );
+    }
+
+    public void testValidateDirectly_whenBits4WithHalfFloatAndX8_thenThrows() {
         FaissSQEncoder encoder = new FaissSQEncoder();
         ValidationException e = expectThrows(
             ValidationException.class,
             () -> encoder.validate(
                 buildMethodContext(Map.of(SQ_BITS, 4)),
+                buildConfigContext(Version.CURRENT, CompressionLevel.x8, VectorDataType.HALF_FLOAT)
+            )
+        );
+        assertTrue(e.getMessage().contains("4x"));
+    }
+
+    public void testCalculateCompressionLevel_whenBits2WithHalfFloat_thenX8() {
+        FaissSQEncoder encoder = new FaissSQEncoder();
+        assertEquals(
+            CompressionLevel.x8,
+            encoder.calculateCompressionLevel(
+                new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 2)),
                 buildConfigContext(Version.CURRENT, CompressionLevel.NOT_CONFIGURED, VectorDataType.HALF_FLOAT)
             )
         );
-        assertTrue(e.getMessage().contains("half_float"));
     }
 
-    public void testCalculateCompressionLevel_whenBits2WithHalfFloat_thenThrows() {
+    public void testCalculateCompressionLevel_whenBits4WithHalfFloat_thenX4() {
         FaissSQEncoder encoder = new FaissSQEncoder();
-        expectThrows(
-            IllegalArgumentException.class,
-            () -> encoder.calculateCompressionLevel(
-                new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 2)),
+        assertEquals(
+            CompressionLevel.x4,
+            encoder.calculateCompressionLevel(
+                new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 4)),
                 buildConfigContext(Version.CURRENT, CompressionLevel.NOT_CONFIGURED, VectorDataType.HALF_FLOAT)
             )
         );
@@ -554,19 +581,6 @@ public class FaissSQEncoderTests extends KNNTestCase {
         FaissSQEncoder encoder = new FaissSQEncoder();
         MethodComponentContext mcc = new MethodComponentContext(ENCODER_SQ, Map.of(SQ_BITS, 4));
         assertEquals(CompressionLevel.x8, encoder.calculateCompressionLevel(mcc, null));
-    }
-
-    // --- isSQCodedBits utility ---
-
-    public void testIsSQCodedBits() {
-        assertTrue(FaissSQEncoder.isSQCodedBits(1));
-        assertTrue(FaissSQEncoder.isSQCodedBits(2));
-        assertTrue(FaissSQEncoder.isSQCodedBits(4));
-        // fp16 is SQ but stores compressed floats, not integer-coded bits
-        assertFalse(FaissSQEncoder.isSQCodedBits(16));
-        for (int bits : new int[] { 0, 3, 5, 7, 8, -1 }) {
-            assertFalse("Expected " + bits + " to not be SQ-coded bits", FaissSQEncoder.isSQCodedBits(bits));
-        }
     }
 
 }

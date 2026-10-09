@@ -3129,6 +3129,34 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    public void testTypeParser_whenHalfFloatFlatWithExplicitX4Compression_thenSuccess() {
+        String fieldName = "test-field-name";
+        String indexName = "test-index-name";
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, TEST_DIMENSION)
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.HALF_FLOAT.getValue())
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x4.getName())
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_FLAT)
+            .endObject()
+            .endObject();
+
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(xContentBuilder),
+            buildParserContext(indexName, settings)
+        );
+        assertNotNull(builder);
+    }
+
+    @SneakyThrows
     public void testTypeParser_whenHalfFloatFlatWithUnsupportedCompression_thenThrow() {
         String fieldName = "test-field-name";
         String indexName = "test-index-name";
@@ -3137,14 +3165,12 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         ModelDao modelDao = mock(ModelDao.class);
         KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
 
-        // half_float only supports x1 or x16 (opt-in SQ 1-bit, also the default); anything else must
-        // still be rejected, by LuceneFlatMethodResolver's per-data-type validation.
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
             .field(DIMENSION_FIELD_NAME, TEST_DIMENSION)
             .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.HALF_FLOAT.getValue())
-            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x4.getName())
+            .field(COMPRESSION_LEVEL_PARAMETER, CompressionLevel.x2.getName())
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_FLAT)
             .endObject()
