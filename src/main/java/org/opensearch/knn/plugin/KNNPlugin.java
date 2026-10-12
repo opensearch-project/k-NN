@@ -56,6 +56,7 @@ import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.RescoreKNNVectorQuery;
 import org.opensearch.knn.index.query.RescoreRadialSearchQuery;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
+import org.opensearch.knn.index.query.lucenelib.ExpandNestedDocsQuery;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
 import org.opensearch.knn.index.util.KNNClusterUtil;
@@ -222,7 +223,7 @@ public class KNNPlugin extends Plugin
     @Override
     public Optional<ProfileMetricsProvider> getQueryProfileMetricsProvider() {
         return Optional.of((searchContext, query) -> {
-            if (query instanceof KNNQuery || query instanceof RescoreKNNVectorQuery) {
+            if (query instanceof KNNQuery || query instanceof RescoreKNNVectorQuery || query instanceof ExpandNestedDocsQuery) {
                 return KNNMetrics.getKNNQueryMetrics();
             } else if (query instanceof NativeEngineKnnVectorQuery) {
                 return KNNMetrics.getNativeMetrics();
