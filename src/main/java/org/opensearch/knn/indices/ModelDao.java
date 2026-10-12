@@ -44,13 +44,13 @@ import org.opensearch.cluster.health.ClusterIndexHealth;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.common.PluginClient;
 import org.opensearch.knn.common.exception.DeleteModelException;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.mapper.CompressionLevel;
@@ -73,7 +73,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Supplier;
 
 import static java.util.Objects.isNull;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_MAPPING_PATH;
@@ -191,6 +190,7 @@ public interface ModelDao {
 
         private static volatile OpenSearchKNNModelDao INSTANCE;
         private static Client client;
+        private static PluginClient pluginClient;
         private static ClusterService clusterService;
         private static Settings settings;
 
@@ -206,8 +206,16 @@ public interface ModelDao {
             return INSTANCE;
         }
 
-        public static void initialize(Client client, ClusterService clusterService, Settings settings) {
+        /**
+         * @param client used for the plugin's own cluster level transport actions, which stay with the
+         *               caller's identity
+         * @param pluginClient used for every operation against the model system index
+         * @param clusterService used to read model index state and settings from the cluster state
+         * @param settings node settings the model index shard and replica counts are read from
+         */
+        public static void initialize(Client client, PluginClient pluginClient, ClusterService clusterService, Settings settings) {
             OpenSearchKNNModelDao.client = client;
+            OpenSearchKNNModelDao.pluginClient = pluginClient;
             OpenSearchKNNModelDao.clusterService = clusterService;
             OpenSearchKNNModelDao.settings = settings;
         }
@@ -226,21 +234,14 @@ public interface ModelDao {
             if (isCreated()) {
                 return;
             }
-            runWithStashedThreadContext(() -> {
-                CreateIndexRequest request;
-                try {
-                    request = new CreateIndexRequest(MODEL_INDEX_NAME).mapping(getMapping())
-                        .settings(
-                            Settings.builder()
-                                .put("index.hidden", true)
-                                .put("index.number_of_shards", this.numberOfShards)
-                                .put("index.number_of_replicas", this.numberOfReplicas)
-                        );
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-                client.admin().indices().create(request, actionListener);
-            });
+            CreateIndexRequest request = new CreateIndexRequest(MODEL_INDEX_NAME).mapping(getMapping())
+                .settings(
+                    Settings.builder()
+                        .put("index.hidden", true)
+                        .put("index.number_of_shards", this.numberOfShards)
+                        .put("index.number_of_replicas", this.numberOfReplicas)
+                );
+            pluginClient.admin().indices().create(request, actionListener);
         }
 
         @Override
@@ -325,7 +326,7 @@ public interface ModelDao {
                 parameters.put(KNNConstants.MODEL_BLOB_PARAMETER, base64Model);
             }
 
-            final IndexRequestBuilder indexRequestBuilder = client.prepareIndex(MODEL_INDEX_NAME);
+            final IndexRequestBuilder indexRequestBuilder = pluginClient.prepareIndex(MODEL_INDEX_NAME);
             indexRequestBuilder.setId(model.getModelID());
             indexRequestBuilder.setSource(parameters);
 
@@ -355,18 +356,14 @@ public interface ModelDao {
             ActionListener<IndexResponse> onIndexListener = getUpdateModelMetadataListener(model.getModelMetadata(), onMetaListener);
 
             // Create the model index if it does not already exist
-            Runnable indexModelRunnable = () -> indexRequestBuilder.execute(onIndexListener);
             if (!isCreated()) {
                 create(
-                    ActionListener.wrap(
-                        createIndexResponse -> ModelDao.runWithStashedThreadContext(indexModelRunnable),
-                        onIndexListener::onFailure
-                    )
+                    ActionListener.wrap(createIndexResponse -> indexRequestBuilder.execute(onIndexListener), onIndexListener::onFailure)
                 );
                 return;
             }
 
-            ModelDao.runWithStashedThreadContext(indexModelRunnable);
+            indexRequestBuilder.execute(onIndexListener);
         }
 
         private ActionListener<IndexResponse> getUpdateModelMetadataListener(
@@ -391,24 +388,11 @@ public interface ModelDao {
             /*
                 GET /<model_index>/<modelId>?_local
             */
-            try {
-                return ModelDao.runWithStashedThreadContext(() -> {
-                    GetRequestBuilder getRequestBuilder = new GetRequestBuilder(client, GetAction.INSTANCE, MODEL_INDEX_NAME).setId(modelId)
-                        .setPreference("_local");
-                    GetResponse getResponse;
-                    try {
-                        getResponse = getRequestBuilder.execute().get();
-                    } catch (InterruptedException | ExecutionException e) {
-                        throw new RuntimeException(e);
-                    }
-                    Map<String, Object> responseMap = getResponse.getSourceAsMap();
-                    return Model.getModelFromSourceMap(responseMap);
-                });
-            } catch (RuntimeException runtimeException) {
-                // we need to use RuntimeException as container for real exception to keep signature
-                // of runWithStashedThreadContext generic
-                throw runtimeException.getCause();
-            }
+            GetRequestBuilder getRequestBuilder = new GetRequestBuilder(pluginClient, GetAction.INSTANCE, MODEL_INDEX_NAME).setId(modelId)
+                .setPreference("_local");
+            GetResponse getResponse = getRequestBuilder.execute().get();
+            Map<String, Object> responseMap = getResponse.getSourceAsMap();
+            return Model.getModelFromSourceMap(responseMap);
         }
 
         /**
@@ -429,22 +413,20 @@ public interface ModelDao {
             /*
                 GET /<model_index>/<modelId>?_local
             */
-            ModelDao.runWithStashedThreadContext(() -> {
-                GetRequestBuilder getRequestBuilder = new GetRequestBuilder(client, GetAction.INSTANCE, MODEL_INDEX_NAME).setId(modelId)
-                    .setPreference("_local");
+            GetRequestBuilder getRequestBuilder = new GetRequestBuilder(pluginClient, GetAction.INSTANCE, MODEL_INDEX_NAME).setId(modelId)
+                .setPreference("_local");
 
-                getRequestBuilder.execute(ActionListener.wrap(response -> {
-                    if (response.isSourceEmpty()) {
-                        String errorMessage = String.format(Locale.ROOT, "Model [%s] does not exist", modelId);
-                        actionListener.onFailure(new ResourceNotFoundException(errorMessage));
-                        return;
-                    }
-                    final Map<String, Object> responseMap = response.getSourceAsMap();
-                    Model model = Model.getModelFromSourceMap(responseMap);
-                    actionListener.onResponse(new GetModelResponse(model));
+            getRequestBuilder.execute(ActionListener.wrap(response -> {
+                if (response.isSourceEmpty()) {
+                    String errorMessage = String.format(Locale.ROOT, "Model [%s] does not exist", modelId);
+                    actionListener.onFailure(new ResourceNotFoundException(errorMessage));
+                    return;
+                }
+                final Map<String, Object> responseMap = response.getSourceAsMap();
+                Model model = Model.getModelFromSourceMap(responseMap);
+                actionListener.onResponse(new GetModelResponse(model));
 
-                }, actionListener::onFailure));
-            });
+            }, actionListener::onFailure));
         }
 
         /**
@@ -455,10 +437,8 @@ public interface ModelDao {
          */
         @Override
         public void search(SearchRequest request, ActionListener<SearchResponse> actionListener) {
-            ModelDao.runWithStashedThreadContext(() -> {
-                request.indices(MODEL_INDEX_NAME);
-                client.search(request, actionListener);
-            });
+            request.indices(MODEL_INDEX_NAME);
+            pluginClient.search(request, actionListener);
         }
 
         @Override
@@ -566,7 +546,7 @@ public interface ModelDao {
 
             // Setup delete model request
             clearModelMetadataStep.whenComplete(acknowledgedResponse -> {
-                DeleteRequestBuilder deleteRequestBuilder = new DeleteRequestBuilder(client, DeleteAction.INSTANCE, MODEL_INDEX_NAME);
+                DeleteRequestBuilder deleteRequestBuilder = new DeleteRequestBuilder(pluginClient, DeleteAction.INSTANCE, MODEL_INDEX_NAME);
                 deleteRequestBuilder.setId(modelId);
                 deleteRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
                 deleteModelFromIndex(modelId, deleteModelFromIndexStep, deleteRequestBuilder);
@@ -625,12 +605,10 @@ public interface ModelDao {
             StepListener<DeleteResponse> deleteModelFromIndexStep,
             DeleteRequestBuilder deleteRequestBuilder
         ) {
-            ModelDao.runWithStashedThreadContext(
-                () -> deleteRequestBuilder.execute(
-                    ActionListener.wrap(
-                        deleteModelFromIndexStep::onResponse,
-                        exception -> removeModelIdFromGraveyardOnFailure(modelId, exception, deleteModelFromIndexStep)
-                    )
+            deleteRequestBuilder.execute(
+                ActionListener.wrap(
+                    deleteModelFromIndexStep::onResponse,
+                    exception -> removeModelIdFromGraveyardOnFailure(modelId, exception, deleteModelFromIndexStep)
                 )
             );
         }
@@ -718,28 +696,6 @@ public interface ModelDao {
             }
 
             return stringBuilder.toString();
-        }
-    }
-
-    /**
-     * Set the thread context to default, this is needed to allow actions on model system index
-     * when security plugin is enabled
-     * @param function runnable that needs to be executed after thread context has been stashed, accepts and returns nothing
-     */
-    private static void runWithStashedThreadContext(Runnable function) {
-        try (ThreadContext.StoredContext context = OpenSearchKNNModelDao.client.threadPool().getThreadContext().stashContext()) {
-            function.run();
-        }
-    }
-
-    /**
-     * Set the thread context to default, this is needed to allow actions on model system index
-     * when security plugin is enabled
-     * @param function supplier function that needs to be executed after thread context has been stashed, return object
-     */
-    private static <T> T runWithStashedThreadContext(Supplier<T> function) {
-        try (ThreadContext.StoredContext context = OpenSearchKNNModelDao.client.threadPool().getThreadContext().stashContext()) {
-            return function.get();
         }
     }
 }
