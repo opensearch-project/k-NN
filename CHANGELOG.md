@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Maintenance
 * Fixed build issues happening due to Lucene 10.5.2 upgrade [#3631](https://github.com/opensearch-project/k-NN/pull/3631)
+* Use clustered test vectors and the api-snapshot builder image so remote index build ITs pass on cuVS 26.08 [#3627](https://github.com/opensearch-project/k-NN/pull/3627)
 
 ### Bug Fixes
 * Fix double free of off-heap vectors when a native index build fails [#3621](https://github.com/opensearch-project/k-NN/pull/3621)
