@@ -26,7 +26,9 @@ public enum KNNCounter {
     MIN_SCORE_QUERY_REQUESTS("min_score_query_requests"),
     MIN_SCORE_QUERY_WITH_FILTER_REQUESTS("min_score_query_with_filter_requests"),
     MAX_DISTANCE_QUERY_REQUESTS("max_distance_query_requests"),
-    MAX_DISTANCE_QUERY_WITH_FILTER_REQUESTS("max_distance_query_with_filter_requests");
+    MAX_DISTANCE_QUERY_WITH_FILTER_REQUESTS("max_distance_query_with_filter_requests"),
+
+    LATE_INTERACTION_SCORE_REQUESTS("late_interaction_score_requests");
 
     private String name;
     private AtomicLong count;
