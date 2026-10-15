@@ -135,9 +135,11 @@ public class NativeEngineKnnVectorQuery extends Query {
             );
         }
 
-        // Reduce to top k across segments. `k` is a per-shard budget, so every engine path must agree on
-        // it: without this the matched doc set, and therefore `hits.total`, aggregations, `post_filter` and
-        // `terminate_after`, would grow with the number of segments in the shard.
+        // Reduce to the global top k across segments, for memory-optimized search as well. Its optimistic
+        // strategy gives each segment a pro-rated budget and only re-searches segments that compete for the
+        // global top k, so the union of its per-segment results is neither a per-segment nor a per-shard k: its
+        // size, and therefore `hits.total` and aggregations, would depend on segment proportions and on whether
+        // k >= ef_search.
         ResultUtil.reduceToTopK(perLeafResults, finalK);
 
         if (expandNestedDocs) {

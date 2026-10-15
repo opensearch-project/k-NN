@@ -1032,8 +1032,8 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
     /**
      * When ef_search is not greater than k, memory-optimized search must still hand only the global
      * top-k docs to the rewritten query. Returning the union of every segment's hits would inflate
-     * hits.total, aggregations and post_filter to k * numSegments, and make the answer depend on how
-     * many segments the shard happens to have.
+     * hits.total, aggregations and post_filter, and make the answer depend on how the shard's documents
+     * happen to be split into segments.
      */
     public void testMemoryOptimizedSearch_efSearchNotGreaterThanK_trimsToTopKAcrossSegments() {
         final int k = 100;

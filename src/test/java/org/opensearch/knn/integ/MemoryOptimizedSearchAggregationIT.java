@@ -26,9 +26,9 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.MODE_PARAMETER;
 
 /**
- * A {@code knn} clause is a filter on the documents an aggregation sees, so an aggregation over one must
- * observe exactly the top k docs of the shard - the same set the non-memory-optimized path produces, and
- * the same set before and after a merge.
+ * A {@code knn} clause is a filter on the documents an aggregation sees, so under memory-optimized search an
+ * aggregation over one must observe exactly the global top k docs of the shard, and the same set before and
+ * after a merge.
  *
  * <p>{@code mode: on_disk} with {@code compression_level: 1x} forces memory-optimized search regardless of
  * the {@code index.knn.memory_optimized_search} index setting, and {@code k} is chosen to be not greater
@@ -60,7 +60,8 @@ public class MemoryOptimizedSearchAggregationIT extends KNNRestTestCase {
 
         final float[] queryVector = randomVector(random);
 
-        // Every segment holds more than k docs, so an untrimmed union would hold k * segmentCount docs.
+        // Every segment holds more than k docs, so an untrimmed union would exceed k. On this test cluster it would
+        // hold k * segmentCount docs, because mem_opt_srch.force_reenter re-searches every segment with the full k.
         assertMatchedDocCount("with " + segmentCount + " segments", queryVector);
 
         forceMergeKnnIndex(INDEX, 1);
