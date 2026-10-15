@@ -201,5 +201,18 @@ public class AbstractMethodResolverTests extends KNNTestCase {
                     .build()
             )
         );
+        // half_float shares the rule: its SQ levels resolve an encoder, x1 does not.
+        assertTrue(
+            TEST_RESOLVER.shouldEncoderBeResolved(
+                null,
+                KNNMethodConfigContext.builder().compressionLevel(CompressionLevel.x16).vectorDataType(VectorDataType.HALF_FLOAT).build()
+            )
+        );
+        assertFalse(
+            TEST_RESOLVER.shouldEncoderBeResolved(
+                null,
+                KNNMethodConfigContext.builder().compressionLevel(CompressionLevel.x1).vectorDataType(VectorDataType.HALF_FLOAT).build()
+            )
+        );
     }
 }

@@ -103,8 +103,8 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
                     return null;
                 });
             }
-            // Resetting here as vectors are deleted in JNILayer for non-iterative index builds
-            vectorTransfer.reset();
+            // vectorTransfer owns the vectors and frees them in close on every path. The JNI layer only releases
+            // their contents early, so it must not be reset here.
         } catch (IndexBuildAbortedException indexBuildAbortedException) {
             throw indexBuildAbortedException;
         } catch (Exception exception) {

@@ -90,10 +90,11 @@ public class DerivedSourceLuceneHelper {
             numericDocValues.nextDoc();
         }
 
-        // If there are no numeric docvalues before the current parent doc, then the parent doc is the first parent. So
-        // its first child must be 0
+        // If there are no numeric docvalues before the current parent doc, then either the parent doc is the first
+        // parent (when searching from the start of the segment), so its first child must be 0, or the previous parent
+        // is before the starting point, so the caller needs to retry with an earlier starting point
         if (previousParentDocId == NO_MORE_DOCS) {
-            return 0;
+            return startingPoint == 0 ? 0 : NO_MORE_DOCS;
         }
         // If the document right before is the previous parent, then there are no children. Return
         if (parentDocId - previousParentDocId <= 1) {

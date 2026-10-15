@@ -259,6 +259,48 @@ public class ResolvedIndexSpecTests extends KNNTestCase {
         assertEquals(expected, spec.getRescoreContext());
     }
 
+    public void testRescoreContext_HalfFloatFlatMethodX16_thenOversampleTwo() {
+        ResolvedIndexSpec spec = baseFaiss().vectorDataType(VectorDataType.HALF_FLOAT)
+            .methodName(METHOD_FLAT)
+            .encoderType(Encoder.EncoderType.FLAT)
+            .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
+            .compressionLevel(CompressionLevel.x16)
+            .mode(Mode.NOT_CONFIGURED)
+            .build();
+        RescoreContext expected = RescoreContext.builder().oversampleFactor(2.0f).userProvided(false).build();
+        assertEquals(expected, spec.getRescoreContext());
+    }
+
+    public void testRescoreContext_HalfFloatFlatMethodX8_thenOversampleOne() {
+        ResolvedIndexSpec spec = baseFaiss().vectorDataType(VectorDataType.HALF_FLOAT)
+            .methodName(METHOD_FLAT)
+            .encoderType(Encoder.EncoderType.FLAT)
+            .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
+            .compressionLevel(CompressionLevel.x8)
+            .mode(Mode.NOT_CONFIGURED)
+            .build();
+        RescoreContext expected = RescoreContext.builder()
+            .oversampleFactor(RescoreContext.SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR)
+            .userProvided(false)
+            .build();
+        assertEquals(expected, spec.getRescoreContext());
+    }
+
+    public void testRescoreContext_HalfFloatFlatMethodX4_thenOversampleOne() {
+        ResolvedIndexSpec spec = baseFaiss().vectorDataType(VectorDataType.HALF_FLOAT)
+            .methodName(METHOD_FLAT)
+            .encoderType(Encoder.EncoderType.FLAT)
+            .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)
+            .compressionLevel(CompressionLevel.x4)
+            .mode(Mode.NOT_CONFIGURED)
+            .build();
+        RescoreContext expected = RescoreContext.builder()
+            .oversampleFactor(RescoreContext.SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR)
+            .userProvided(false)
+            .build();
+        assertEquals(expected, spec.getRescoreContext());
+    }
+
     public void testRescoreContext_x1ReturnsNull() {
         ResolvedIndexSpec spec = baseFaiss().encoderType(Encoder.EncoderType.FLAT)
             .quantizationBits(Encoder.QuantizationBits.FULL_PRECISION)

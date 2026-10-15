@@ -206,15 +206,17 @@ public final class ResolvedIndexSpec {
                 .build();
         }
 
-        if (compressionLevel == CompressionLevel.x32 && isMethodFlat()) {
-            return RescoreContext.builder().oversampleFactor(FLAT_OVERSAMPLE_FACTOR).userProvided(false).build();
-        }
-
-        if (isMethodFlat() && (compressionLevel == CompressionLevel.x16 || compressionLevel == CompressionLevel.x8)) {
-            return RescoreContext.builder()
-                .oversampleFactor(RescoreContext.SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR)
-                .userProvided(false)
-                .build();
+        if (isMethodFlat()) {
+            Encoder.QuantizationBits flatBits = Encoder.QuantizationBits.fromCompressionLevel(compressionLevel, vectorDataType);
+            if (flatBits == Encoder.QuantizationBits.ONE) {
+                return RescoreContext.builder().oversampleFactor(FLAT_OVERSAMPLE_FACTOR).userProvided(false).build();
+            }
+            if (flatBits == Encoder.QuantizationBits.TWO || flatBits == Encoder.QuantizationBits.FOUR) {
+                return RescoreContext.builder()
+                    .oversampleFactor(RescoreContext.SQ_MULTI_BIT_DEFAULT_OVERSAMPLE_FACTOR)
+                    .userProvided(false)
+                    .build();
+            }
         }
 
         if (compressionLevel.isModeValidForRescore(mode)) {
@@ -286,6 +288,7 @@ public final class ResolvedIndexSpec {
      *   <li>BYTE with FLAT encoder</li>
      *   <li>HALF_FLOAT with FLAT encoder (native fp16 storage)</li>
      *   <li>FLOAT with SQ encoder at intermediate bit widths (2, 4, 7 bits)</li>
+     *   <li>HALF_FLOAT with SQ encoder at intermediate bit widths (2, 4 bits)</li>
      * </ul>
      *
      * <p>Everything else returns false — e.g. the PQ encoder and non-FLAT binary/byte configs. New

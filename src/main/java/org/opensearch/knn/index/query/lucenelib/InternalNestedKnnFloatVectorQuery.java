@@ -52,8 +52,7 @@ public class InternalNestedKnnFloatVectorQuery extends KnnFloatVectorQuery imple
             luceneK,
             parentFilter,
             k,
-            rescoreK,
-            true
+            rescoreK
         );
     }
 

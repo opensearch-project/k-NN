@@ -94,7 +94,7 @@ public class FaissSQEncoder implements Encoder {
             // Multi-bit MOS path (bits in {1,2,4}): document vectors are scalar-quantized to B bits and
             // stored in Lucene's flat SQ files; Faiss only builds the HNSW graph. Use the flat description
             // and carry SQ_BITS = B so the codec/build path can resolve the document bit width.
-            if (bitsObj instanceof Integer && isSQCodedBits((Integer) bitsObj)) {
+            if (bitsObj instanceof Integer && QuantizationBits.isSQCodedBits((Integer) bitsObj)) {
                 int bits = (Integer) bitsObj;
                 return KNNLibraryIndexingContextImpl.builder().parameters(new HashMap<>() {
                     {
@@ -175,12 +175,12 @@ public class FaissSQEncoder implements Encoder {
 
         if (configContext.getVectorDataType() == VectorDataType.HALF_FLOAT
             && bitsObj instanceof Integer
-            && (Integer) bitsObj != QuantizationBits.ONE.getValue()) {
+            && !QuantizationBits.isSQCodedBits((Integer) bitsObj)) {
             validationException.addValidationError(
                 String.format(
                     Locale.ROOT,
-                    "half_float only supports [%s]=1 for encoder [%s]; use \"%s\": \"16x\" for SQ 1-bit, "
-                        + "or \"1x\" for unquantized fp16 storage, instead.",
+                    "half_float only supports [%s] in {1, 2, 4} for encoder [%s]; use \"%s\": \"16x\"/\"8x\"/\"4x\" for SQ "
+                        + "1/2/4-bit, or \"1x\" for unquantized fp16 storage, instead.",
                     SQ_BITS,
                     ENCODER_SQ,
                     COMPRESSION_LEVEL_PARAMETER
@@ -308,18 +308,4 @@ public class FaissSQEncoder implements Encoder {
         return EnumSet.of(QuantizationBits.ONE, QuantizationBits.TWO, QuantizationBits.FOUR, QuantizationBits.SIXTEEN);
     }
 
-    /**
-     * Returns true if {@code bits} is a document bit width stored as integer-coded scalar quantization
-     * codes in Lucene's flat SQ format. These are the widths {1, 2, 4} — HNSW construction is
-     * delegated to native Faiss over the coded bytes. fp16 (16) is excluded — it is a compressed
-     * float representation (not integer-quantized codes) and takes the standard Faiss SQ description.
-     *
-     * @param bits the configured sq encoder bit width
-     * @return true for bits in {1, 2, 4}
-     */
-    public static boolean isSQCodedBits(final int bits) {
-        return bits == QuantizationBits.ONE.getValue()
-            || bits == QuantizationBits.TWO.getValue()
-            || bits == QuantizationBits.FOUR.getValue();
-    }
 }

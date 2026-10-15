@@ -14,6 +14,7 @@ import org.opensearch.knn.index.mapper.Mode;
 
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Map;
 import java.util.Set;
 
@@ -111,6 +112,7 @@ public abstract class AbstractMethodResolver implements MethodResolver {
         // 1. The encoder is specified
         // 2. The compression is x1
         // 3. The compression is not specified and the mode is not disk-based
+        // 4. The data type has no SQ path (only float and half_float do)
         if (isEncoderSpecified(knnMethodContext)) {
             return false;
         }
@@ -124,7 +126,8 @@ public abstract class AbstractMethodResolver implements MethodResolver {
             return false;
         }
 
-        if (VectorDataType.FLOAT != knnMethodConfigContext.getVectorDataType()) {
+        VectorDataType vectorDataType = knnMethodConfigContext.getVectorDataType();
+        if (vectorDataType != VectorDataType.FLOAT && vectorDataType != VectorDataType.HALF_FLOAT) {
             return false;
         }
 
@@ -208,8 +211,9 @@ public abstract class AbstractMethodResolver implements MethodResolver {
 
     /**
      * Resolves the default compression level from the config context. If the compression level is explicitly
-     * configured, returns it directly. Otherwise, for ON_DISK mode on V_3_6_0+, returns x32; for ON_DISK mode
-     * on earlier versions, returns the provided fallback; otherwise returns x1.
+     * configured, returns it directly. Otherwise, for ON_DISK mode on V_3_6_0+, returns the data type's SQ
+     * 1-bit level (x32 for float, x16 for half_float; float when the context carries no data type); for
+     * ON_DISK mode on earlier versions, returns the provided fallback; otherwise returns x1.
      *
      * @param knnMethodConfigContext the config context
      * @param priorVersionOnDiskDefault the default compression for ON_DISK mode before V_3_6_0
@@ -227,8 +231,10 @@ public abstract class AbstractMethodResolver implements MethodResolver {
         }
         Version version = knnMethodConfigContext.getVersionCreated();
         if (version != null && version.onOrAfter(Version.V_3_6_0)) {
-            return CompressionLevel.x32;
+            VectorDataType vectorDataType = Objects.requireNonNullElse(knnMethodConfigContext.getVectorDataType(), VectorDataType.DEFAULT);
+            return CompressionLevel.forBits(Encoder.QuantizationBits.ONE, vectorDataType);
         }
+        // Only reachable for float: half_float indices are all 3.6+.
         return priorVersionOnDiskDefault;
     }
 }

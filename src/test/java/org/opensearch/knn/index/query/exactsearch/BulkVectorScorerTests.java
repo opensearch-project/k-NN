@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.query.exactsearch;
 
 import lombok.SneakyThrows;
+import org.apache.lucene.index.QueryTimeout;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.VectorScorer;
@@ -15,7 +16,10 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class BulkVectorScorerTests extends KNNTestCase {
 
@@ -473,6 +477,91 @@ public class BulkVectorScorerTests extends KNNTestCase {
         assertEquals(scoreDoc1, scorer.score(), 1e-5f);
 
         assertEquals(DocIdSetIterator.NO_MORE_DOCS, iter.nextDoc());
+    }
+
+    @SneakyThrows
+    public void testForKSearch_whenTimeoutAlreadyFired_thenReturnsNoDocs() {
+        final List<float[]> vectors = List.of(new float[] { 1.0f, 0.0f, 0.0f }, new float[] { 0.5f, 0.5f, 0.0f });
+
+        final BulkVectorScorer scorer = BulkVectorScorer.forKSearch(
+            createVectorScorer(vectors, QUERY, VectorSimilarityFunction.EUCLIDEAN),
+            DocIdSetIterator.all(vectors.size()),
+            () -> true
+        );
+
+        assertEquals(DocIdSetIterator.NO_MORE_DOCS, scorer.iterator().nextDoc());
+    }
+
+    @SneakyThrows
+    public void testForKSearch_whenTimeoutNeverFires_thenReturnsAllDocs() {
+        final List<float[]> vectors = List.of(new float[] { 1.0f, 0.0f, 0.0f }, new float[] { 0.5f, 0.5f, 0.0f });
+
+        final BulkVectorScorer scorer = BulkVectorScorer.forKSearch(
+            createVectorScorer(vectors, QUERY, VectorSimilarityFunction.EUCLIDEAN),
+            DocIdSetIterator.all(vectors.size()),
+            () -> false
+        );
+
+        final DocIdSetIterator iter = scorer.iterator();
+        assertEquals(0, iter.nextDoc());
+        assertEquals(1, iter.nextDoc());
+        assertEquals(DocIdSetIterator.NO_MORE_DOCS, iter.nextDoc());
+    }
+
+    @SneakyThrows
+    public void testForKSearch_whenTimeoutFiresMidBatch_thenFinishesCurrentBatchAndStops() {
+        final List<float[]> vectors = List.of(new float[] { 1.0f, 0.0f, 0.0f }, new float[] { 0.5f, 0.5f, 0.0f });
+        final AtomicBoolean timedOut = new AtomicBoolean(false);
+
+        final BulkVectorScorer scorer = BulkVectorScorer.forKSearch(
+            createVectorScorer(vectors, QUERY, VectorSimilarityFunction.EUCLIDEAN),
+            DocIdSetIterator.all(vectors.size()),
+            timedOut::get
+        );
+
+        // The timeout is checked once per batch, so docs already scored in the current batch are still returned.
+        final DocIdSetIterator iter = scorer.iterator();
+        assertEquals(0, iter.nextDoc());
+        timedOut.set(true);
+        assertEquals(1, iter.nextDoc());
+        assertEquals(DocIdSetIterator.NO_MORE_DOCS, iter.nextDoc());
+    }
+
+    @SneakyThrows
+    public void testForRadialSearch_whenTimeoutAlreadyFired_thenReturnsNoDocs() {
+        final List<float[]> vectors = List.of(new float[] { 1.0f, 0.0f, 0.0f }, new float[] { 0.9f, 0.1f, 0.0f });
+        final QueryTimeout timeout = () -> true;
+
+        final BulkVectorScorer scorer = BulkVectorScorer.forRadialSearch(
+            createVectorScorer(vectors, QUERY, VectorSimilarityFunction.EUCLIDEAN),
+            DocIdSetIterator.all(vectors.size()),
+            0.0f,
+            timeout
+        );
+
+        assertEquals(DocIdSetIterator.NO_MORE_DOCS, scorer.iterator().nextDoc());
+    }
+
+    @SneakyThrows
+    public void testForKSearch_whenAllBatchesAreNonCompetitive_thenStillChecksTimeout() {
+        final List<float[]> vectors = new ArrayList<>();
+        for (int i = 0; i < 1000; i++) {
+            vectors.add(new float[] { randomFloat(), randomFloat(), randomFloat() });
+        }
+        final AtomicInteger checks = new AtomicInteger();
+        final BulkVectorScorer scorer = BulkVectorScorer.forKSearch(
+            createVectorScorer(vectors, QUERY, VectorSimilarityFunction.EUCLIDEAN),
+            DocIdSetIterator.all(vectors.size()),
+            () -> {
+                checks.incrementAndGet();
+                return false;
+            }
+        );
+        // No score can beat this, so every batch is skipped as non-competitive.
+        scorer.setMinCompetitiveScore(Float.MAX_VALUE);
+
+        assertEquals(DocIdSetIterator.NO_MORE_DOCS, scorer.iterator().nextDoc());
+        assertTrue("the timeout must be checked even for skipped batches", checks.get() > 0);
     }
 
     private VectorScorer createVectorScorer(List<float[]> vectors, float[] query, VectorSimilarityFunction similarity) throws IOException {
