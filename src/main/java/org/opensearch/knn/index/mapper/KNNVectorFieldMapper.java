@@ -860,7 +860,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             float value = perDimensionProcessor.processByte(context.parser().floatValue());
             perDimensionValidator.validateByte(value);
             vector.add((byte) value);
-            context.parser().nextToken();
         } else if (token == XContentParser.Token.VALUE_STRING) {
             final byte[] decoded;
             try {
@@ -910,7 +909,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             value = perDimensionProcessor.process(context.parser().floatValue());
             perDimensionValidator.validate(value);
             vector.add(value);
-            context.parser().nextToken();
         } else if (token == XContentParser.Token.VALUE_STRING) {
             final byte[] decoded;
             try {
