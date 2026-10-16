@@ -1035,36 +1035,58 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
     }
 
     /**
-     * When ef_search is not greater than k, memory-optimized search must still hand only the global
-     * top-k docs to the rewritten query. Returning the union of every segment's hits would inflate
-     * hits.total, aggregations and post_filter, and make the answer depend on how the shard's documents
-     * happen to be split into segments.
+     * Without memory-optimized search, a plain query is a {@link KNNQuery} whose weight returns each segment's own
+     * top k with no cross-segment reduction. Memory-optimized search must match that, so that toggling it does not
+     * change hits.total or aggregations: each segment keeps its own top k, and a segment that collected more than k
+     * hits is trimmed back to k.
      */
-    public void testMemoryOptimizedSearch_efSearchNotGreaterThanK_trimsToTopKAcrossSegments() {
+    public void testMemoryOptimizedSearch_plainQuery_keepsEachSegmentsTopK() {
         final int k = 100;
-        // Each of the two segments fills its budget, so the union holds 2 * k docs.
-        final TopDocs captured = runMemoryOptimizedSearchOverTwoSegments(k, k, k, k);
+        // Both segments over-collect, as the optimistic first pass can for a segment holding a large share of the shard.
+        final TopDocs captured = runMemoryOptimizedSearchOverTwoSegments(k, k, 130, 130, null);
 
-        assertEquals("only the global top-k docs should be handed to the rewritten query", k, captured.scoreDocs.length);
+        assertEquals("each segment should contribute its own top k", 2 * k, captured.scoreDocs.length);
+        assertEquals("segment 0 should keep exactly k hits", k, countInSegment(captured, 0));
+        assertEquals("segment 1 should keep exactly k hits", k, countInSegment(captured, 1));
+        // Segment 0 scores are 2 * (130 - i) and segment 1 scores are 2 * (130 - i) - 1, so each keeps i < 100.
+        assertEquals("lowest kept score must be the k-th best of segment 1", 61, minScore(captured), 0.0f);
+    }
 
-        // Scores are interleaved between the two segments, so the global top-k is half of each.
-        final float[] scores = new float[captured.scoreDocs.length];
-        for (int i = 0; i < captured.scoreDocs.length; ++i) {
-            scores[i] = captured.scoreDocs[i].score;
-        }
-        Arrays.sort(scores);
-        assertEquals("highest score must be kept", 2 * k, scores[scores.length - 1], 0.0f);
-        assertEquals("cut-off must be the k-th largest score of the union", k + 1, scores[0], 0.0f);
+    /**
+     * When ef_search is greater than k the segments are searched with ef_search, and each must still be trimmed to
+     * its own top k rather than the shard to the global top k.
+     */
+    public void testMemoryOptimizedSearch_efSearchGreaterThanK_keepsEachSegmentsTopK() {
+        final int k = 50;
+        final TopDocs captured = runMemoryOptimizedSearchOverTwoSegments(k, 100, 94, 94, null);
+
+        assertEquals("each segment should contribute its own top k", 2 * k, captured.scoreDocs.length);
+        assertEquals(k, countInSegment(captured, 0));
+        assertEquals(k, countInSegment(captured, 1));
     }
 
     /**
      * The trim must not clamp up to k: when the segments together return fewer than k docs, all of them
-     * are still reported. This is the behavior PR #2965 added the union branch for.
+     * are still reported.
      */
     public void testMemoryOptimizedSearch_fewerResultsThanK_keepsAllResults() {
         final int k = 100;
-        final TopDocs captured = runMemoryOptimizedSearchOverTwoSegments(k, k, 20, 15);
+        final TopDocs captured = runMemoryOptimizedSearchOverTwoSegments(k, k, 20, 15, null);
         assertEquals("all hits must be kept when the shard holds fewer than k", 35, captured.scoreDocs.length);
+    }
+
+    /**
+     * Without memory-optimized search, a query with a rescore context runs through this class and is reduced to the
+     * global top k. Memory-optimized search must do the same.
+     */
+    public void testMemoryOptimizedSearch_withRescore_reducesToGlobalTopK() {
+        final int k = 100;
+        final RescoreContext rescore = RescoreContext.builder().oversampleFactor(2.0f).build();
+        final TopDocs captured = runMemoryOptimizedSearchOverTwoSegments(k, k, k, k, rescore);
+
+        assertEquals("only the global top-k docs should be handed to the rewritten query", k, captured.scoreDocs.length);
+        // Scores are interleaved between the two segments, so the global top k is half of each.
+        assertEquals("cut-off must be the k-th largest score of the union", k + 1, minScore(captured), 0.0f);
     }
 
     /**
@@ -1072,10 +1094,17 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
      * segments and returns the {@link TopDocs} that were handed to {@code createDocAndScoreQuery}.
      *
      * <p>Segment scores are interleaved so that the global top-k draws from both segments: segment 0
-     * yields {@code 2 * (numHits0 - i)} and segment 1 yields {@code 2 * (numHits1 - i) - 1}.
+     * yields {@code 2 * (numHits0 - i)} and segment 1 yields {@code 2 * (numHits1 - i) - 1}. With a rescore
+     * context, the exact (rescoring) search returns each segment's top {@code k} of those same scores.
      */
     @SneakyThrows
-    private TopDocs runMemoryOptimizedSearchOverTwoSegments(final int k, final int efSearch, final int numHits0, final int numHits1) {
+    private TopDocs runMemoryOptimizedSearchOverTwoSegments(
+        final int k,
+        final int efSearch,
+        final int numHits0,
+        final int numHits1,
+        final RescoreContext rescore
+    ) {
         try (MockedStatic<KNNSettings> mockedKnnSettings = mockStatic(KNNSettings.class)) {
             mockedKnnSettings.when(() -> KNNSettings.isShardLevelRescoringDisabledForDiskBasedVector(any())).thenReturn(false);
 
@@ -1095,7 +1124,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             ctor.setAccessible(true);
             final LeafReader leafReader = mock(LeafReader.class);
             final LeafReaderContext leafContext0 = ctor.newInstance(null, leafReader, 0, 0, 0, 0);
-            final LeafReaderContext leafContext1 = ctor.newInstance(null, leafReader, 1, 10000, 1, 10000);
+            final LeafReaderContext leafContext1 = ctor.newInstance(null, leafReader, 1, SEGMENT_1_DOC_BASE, 1, SEGMENT_1_DOC_BASE);
             when(indexReader.leaves()).thenReturn(Arrays.asList(leafContext0, leafContext1));
             when(indexReader.getContext()).thenReturn(indexReaderContext);
 
@@ -1109,7 +1138,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             when(knnQuery.getIndexName()).thenReturn("test-index");
             when(knnQuery.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
             when(knnQuery.isMemoryOptimizedSearch()).thenReturn(true);
-            when(knnQuery.getRescoreContext()).thenReturn(null);
+            when(knnQuery.getRescoreContext()).thenReturn(rescore);
 
             final MemoryOptimizedKNNWeight weight = mock(MemoryOptimizedKNNWeight.class);
             when(weight.searchLeaf(eq(leafContext0), anyInt())).thenReturn(
@@ -1121,6 +1150,12 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             // The optimistic second pass may revisit a segment; return the same hits so results are unchanged.
             when(weight.approximateSearch(eq(leafContext0), any(), anyInt(), anyInt())).thenReturn(segmentTopDocs(numHits0, 0));
             when(weight.approximateSearch(eq(leafContext1), any(), anyInt(), anyInt())).thenReturn(segmentTopDocs(numHits1, 1));
+            when(weight.exactSearch(eq(leafContext0), any())).thenAnswer(
+                invocation -> topOf(segmentTopDocs(numHits0, 0), ((ExactSearcher.ExactSearcherContext) invocation.getArgument(1)).getK())
+            );
+            when(weight.exactSearch(eq(leafContext1), any())).thenAnswer(
+                invocation -> topOf(segmentTopDocs(numHits1, 1), ((ExactSearcher.ExactSearcherContext) invocation.getArgument(1)).getK())
+            );
             when(knnQuery.createWeight(eq(indexSearcher), eq(ScoreMode.TOP_DOCS), eq(1f))).thenReturn(weight);
             when(knnQuery.createWeight(eq(indexSearcher), eq(ScoreMode.TOP_DOCS), eq(1f), anyInt())).thenReturn(weight);
 
@@ -1137,6 +1172,8 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         }
     }
 
+    private static final int SEGMENT_1_DOC_BASE = 10000;
+
     /**
      * Builds one segment's hits, sorted by descending score. Segment 0 gets even scores and segment 1 odd
      * ones so that the two segments interleave in the merged ranking.
@@ -1147,6 +1184,29 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             scoreDocs[i] = new ScoreDoc(i, 2 * (numHits - i) - segmentOrd);
         }
         return new TopDocs(new TotalHits(numHits, TotalHits.Relation.EQUAL_TO), scoreDocs);
+    }
+
+    private static TopDocs topOf(final TopDocs topDocs, final int n) {
+        final ScoreDoc[] top = Arrays.copyOf(topDocs.scoreDocs, Math.min(n, topDocs.scoreDocs.length));
+        return new TopDocs(new TotalHits(top.length, TotalHits.Relation.EQUAL_TO), top);
+    }
+
+    private static int countInSegment(final TopDocs topDocs, final int segmentOrd) {
+        int count = 0;
+        for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
+            if ((scoreDoc.doc >= SEGMENT_1_DOC_BASE) == (segmentOrd == 1)) {
+                ++count;
+            }
+        }
+        return count;
+    }
+
+    private static float minScore(final TopDocs topDocs) {
+        float min = Float.MAX_VALUE;
+        for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
+            min = Math.min(min, scoreDoc.score);
+        }
+        return min;
     }
 
     private IndexReader createTestIndexReader() throws IOException {

@@ -137,12 +137,16 @@ public class NativeEngineKnnVectorQuery extends Query {
             );
         }
 
-        // Reduce to the global top k across segments, for memory-optimized search as well. Its optimistic
-        // strategy gives each segment a pro-rated budget and only re-searches segments that compete for the
-        // global top k, so the union of its per-segment results is neither a per-segment nor a per-shard k: its
-        // size, and therefore `hits.total` and aggregations, would depend on segment proportions and on whether
-        // k >= ef_search.
-        ResultUtil.reduceToTopK(perLeafResults, finalK);
+        // Memory-optimized search must match the documents the same query matches without it, so that toggling it does
+        // not change `hits.total` or aggregations. Without memory-optimized search, a query with a rescore context or
+        // nested expansion runs through this class and is reduced to the global top k, while any other query is a
+        // plain KNNQuery whose KNNWeight returns each segment's own top k with no cross-segment reduction.
+        final boolean perSegmentTopK = isPerSegmentTopK();
+        if (perSegmentTopK) {
+            ResultUtil.reduceToTopKPerLeaf(perLeafResults, finalK);
+        } else {
+            ResultUtil.reduceToTopK(perLeafResults, finalK);
+        }
 
         if (expandNestedDocs) {
             StopWatch stopWatch = new StopWatch().start();
@@ -170,13 +174,27 @@ public class NativeEngineKnnVectorQuery extends Query {
             topDocs[i] = leafTopDocs;
         }
 
-        TopDocs topK = TopDocs.merge(getMergeTopN(topDocs, finalK), topDocs);
+        TopDocs topK = TopDocs.merge(getMergeTopN(topDocs, finalK, perSegmentTopK), topDocs);
 
         if (topK.scoreDocs.length == 0) {
             return new MatchNoDocsQuery().createWeight(indexSearcher, scoreMode, boost);
         }
 
         return queryUtils.createDocAndScoreQuery(reader, topK, knnWeight).createWeight(indexSearcher, scoreMode, boost);
+    }
+
+    /**
+     * Whether each segment should keep its own top k rather than the shard keeping the global top k.
+     *
+     * <p>This mirrors the path the same query takes without memory-optimized search. {@code KNNQueryFactory} only
+     * wraps a non-memory-optimized query in this class when it has a rescore context or expands nested documents,
+     * and this class then reduces it to the global top k. Every other non-memory-optimized query is a plain
+     * {@link KNNQuery}, whose {@link KNNWeight} returns each segment's top k with no cross-segment reduction.
+     *
+     * @return true for a memory-optimized query that has neither a rescore context nor nested expansion
+     */
+    private boolean isPerSegmentTopK() {
+        return knnQuery.isMemoryOptimizedSearch() && knnQuery.getRescoreContext() == null && expandNestedDocs == false;
     }
 
     private boolean isRescoreRequired(Integer firstPassKFor2PhaseSearch) {
@@ -240,15 +258,19 @@ public class NativeEngineKnnVectorQuery extends Query {
      * The theoretical maximum value this method could return is Integer.MAX_VALUE,
      * as a single shard cannot have more documents than Integer.MAX_VALUE.
      *
+     * The same count is used when each segment keeps its own top k (see {@link #isPerSegmentTopK()}), since the
+     * union of those per-segment results is the matched set.
+     *
      * Otherwise k is the topN: it both trims an ef_search-expanded candidate set back down and, since
      * TopDocs.merge returns min(topN, available), leaves a shard that found fewer than k hits untouched.
      *
      * @param topDocs the top documents
      * @param k the user's requested result count
+     * @param perSegmentTopK whether each segment keeps its own top k instead of the shard keeping the global top k
      * @return the topN value to pass to TopDocs.merge
      */
-    private int getMergeTopN(TopDocs[] topDocs, int k) {
-        if (expandNestedDocs) {
+    private int getMergeTopN(TopDocs[] topDocs, int k, boolean perSegmentTopK) {
+        if (expandNestedDocs || perSegmentTopK) {
             int sum = 0;
             for (TopDocs topDoc : topDocs) {
                 sum += topDoc.scoreDocs.length;

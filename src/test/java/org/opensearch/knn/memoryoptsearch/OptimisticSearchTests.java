@@ -212,18 +212,18 @@ public class OptimisticSearchTests {
             }
 
             // Validate results
-            // Take top-k for answer set
-            List<Float> answerScores = new ArrayList<>();
+            // A plain memory-optimized query keeps each segment's own top-k, as the query does without memory-optimized
+            // search, so the answer set is the union of every segment's top-k.
+            final List<Float> answerScores = new ArrayList<>();
             for (List<ScoreDoc> scoreDocs : searchResults) {
+                final List<Float> segmentScores = new ArrayList<>();
                 for (ScoreDoc scoreDoc : scoreDocs) {
-                    answerScores.add(scoreDoc.score);
+                    segmentScores.add(scoreDoc.score);
                 }
+                segmentScores.sort((a, b) -> Float.compare(b, a));
+                answerScores.addAll(segmentScores.subList(0, Math.min(DEFAULT_K, segmentScores.size())));
             }
             answerScores.sort((a, b) -> Float.compare(b, a));
-            if (numSegments > 0) {
-                // Only take top-k for non-empty segment.
-                answerScores = answerScores.subList(0, DEFAULT_K);
-            }
 
             // Collect scores and sort them in desc.
             final List<Float> acquiredScores = new ArrayList<>();

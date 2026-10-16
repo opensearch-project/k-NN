@@ -13,7 +13,9 @@ import org.apache.lucene.util.DocIdSetBuilder;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
@@ -64,6 +66,26 @@ public final class ResultUtil {
             TotalHits totalHits = new TotalHits(filteredScoreDoc.length, TotalHits.Relation.EQUAL_TO);
             results.setResult(new TopDocs(totalHits, filteredScoreDoc));
         });
+    }
+
+    /**
+     * Reduce each leaf's results to that leaf's own top k, without reducing across leaves.
+     * Ties at the cut-off are broken by doc id so that every leaf keeps at most k results.
+     *
+     * @param perLeafResults Results from the list
+     * @param k the number of results to keep in each leaf
+     */
+    public static void reduceToTopKPerLeaf(final List<PerLeafResult> perLeafResults, final int k) {
+        for (PerLeafResult perLeafResult : perLeafResults) {
+            final ScoreDoc[] scoreDocs = perLeafResult.getResult().scoreDocs;
+            if (scoreDocs.length <= k) {
+                continue;
+            }
+            final ScoreDoc[] sorted = scoreDocs.clone();
+            Arrays.sort(sorted, Comparator.comparingDouble((ScoreDoc scoreDoc) -> scoreDoc.score).reversed().thenComparingInt(d -> d.doc));
+            final ScoreDoc[] topK = Arrays.copyOf(sorted, k);
+            perLeafResult.setResult(new TopDocs(new TotalHits(topK.length, TotalHits.Relation.EQUAL_TO), topK));
+        }
     }
 
     /**
