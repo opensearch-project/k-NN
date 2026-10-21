@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Bug Fixes
 * Fix `explain` failing with a NullPointerException for Lucene engine queries that use `rescore` or `expand_nested_docs`, and explain those scores as an Exact search [#3641](https://github.com/opensearch-project/k-NN/pull/3641)
+* Fix derived source returning a placeholder instead of the vector when `_source` includes or excludes a parent object of a `knn_vector` field [#3640](https://github.com/opensearch-project/k-NN/pull/3640)
 * Fix double free of off-heap vectors when a native index build fails [#3621](https://github.com/opensearch-project/k-NN/pull/3621)
 * Honor query cancellation and timeout in memory-optimized search [#3620](https://github.com/opensearch-project/k-NN/pull/3620)
 * Fix derived source returning another document's nested vectors when a parent has more nested docs than the first child lookup window [#3624](https://github.com/opensearch-project/k-NN/pull/3624)
