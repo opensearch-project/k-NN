@@ -18,6 +18,7 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.CompressionTestConfig;
 import org.opensearch.knn.KNNCompressionRestTestCase;
+import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
@@ -285,6 +286,106 @@ public class ExplainIT extends KNNCompressionRestTestCase {
             "shard level rescoring disabled",
             String.valueOf(dimension)
         );
+    }
+
+    @SneakyThrows
+    public void testExplain_whenLuceneEngineWithRescore_thenRescoringExplained() {
+        int dimension = 2;
+        XContentBuilder mapping = XContentFactory.jsonBuilder().startObject().startObject("properties");
+        addLuceneVectorField(mapping, FIELD_NAME, dimension).endObject().endObject();
+        createKnnIndex(INDEX_NAME, mapping.toString());
+        addKNNDocs(INDEX_NAME, FIELD_NAME, dimension, 0, 5);
+
+        XContentBuilder queryBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("knn")
+            .startObject(FIELD_NAME)
+            .field("vector", new float[] { 1.0f, 1.0f })
+            .field("k", 3)
+            .startObject(RescoreParser.RESCORE_PARAMETER)
+            .field(RescoreParser.RESCORE_OVERSAMPLE_PARAMETER, 2.0f)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        validateExplainSearchResponse(
+            queryBuilder,
+            ANN_SEARCH,
+            "rescored with " + EXACT_SEARCH + " search on full precision vectors to keep the top 3",
+            "spaceType = " + SpaceType.L2.getValue()
+        );
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    @SneakyThrows
+    public void testExplain_whenLuceneEngineWithExpandNestedDocs_thenNestedExactSearchExplained() {
+        for (boolean rescore : new boolean[] { false, true }) {
+            String nestedField = "nested_field";
+            String vectorField = nestedField + "." + FIELD_NAME;
+            XContentBuilder mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(nestedField)
+                .field("type", "nested")
+                .startObject("properties");
+            addLuceneVectorField(mapping, FIELD_NAME, 2).endObject().endObject().endObject().endObject();
+            createKnnIndex(INDEX_NAME, mapping.toString());
+            for (int i = 1; i <= 3; i++) {
+                String doc = NestedKnnDocBuilder.create(nestedField)
+                    .addVectors(FIELD_NAME, new Float[] { (float) i, (float) i }, new Float[] { i + 4.0f, i + 4.0f })
+                    .build();
+                addKnnDoc(INDEX_NAME, String.valueOf(i), doc);
+            }
+            refreshIndex(INDEX_NAME);
+
+            XContentBuilder queryBuilder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("query")
+                .startObject("nested")
+                .field("path", nestedField)
+                .field("score_mode", "max")
+                .startObject("query")
+                .startObject("knn")
+                .startObject(vectorField)
+                .field("vector", new float[] { 1.0f, 1.0f })
+                .field("k", 2)
+                .field("expand_nested_docs", true);
+            if (rescore) {
+                queryBuilder.startObject(RescoreParser.RESCORE_PARAMETER)
+                    .field(RescoreParser.RESCORE_OVERSAMPLE_PARAMETER, 2.0f)
+                    .endObject();
+            }
+            queryBuilder.endObject().endObject().endObject().endObject().endObject().endObject();
+
+            validateExplainSearchResponse(
+                queryBuilder,
+                ANN_SEARCH + " on the parent documents",
+                rescore
+                    ? "rescored with " + EXACT_SEARCH + " search on full precision vectors to keep the top 2 parents"
+                    : "to find the top 2 parents",
+                "the nested documents of those parents were scored with " + EXACT_SEARCH + " search",
+                "spaceType = " + SpaceType.L2.getValue()
+            );
+            deleteKNNIndex(INDEX_NAME);
+        }
+    }
+
+    /**
+     * Adds a Lucene HNSW knn_vector field to the "properties" object the builder is in.
+     */
+    private XContentBuilder addLuceneVectorField(XContentBuilder builder, String fieldName, int dimension) throws IOException {
+        return builder.startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .endObject()
+            .endObject();
     }
 
     private void validateExplainSearchResponse(XContentBuilder queryBuilder, String... descriptions) throws IOException, ParseException {

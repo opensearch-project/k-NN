@@ -7,9 +7,12 @@ package org.opensearch.knn.index.query.common;
 
 import junit.framework.TestCase;
 import lombok.SneakyThrows;
+import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.TaskExecutor;
@@ -20,6 +23,10 @@ import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.FixedBitSet;
 import org.junit.Before;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.indices.ModelDao;
+import org.mockito.MockedStatic;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -31,6 +38,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 public class QueryUtilsTests extends TestCase {
@@ -206,5 +214,45 @@ public class QueryUtilsTests extends TestCase {
         }
 
         return true;
+    }
+
+    public void testExactSearchExplainer_whenFieldExists_thenExplainsSearchAndSpaceType() {
+        FieldInfo fieldInfo = mock(FieldInfo.class);
+        when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.COSINESIMIL.getValue());
+        LeafReaderContext context = mockLeafWithField("field", fieldInfo);
+
+        Explanation explanation;
+        try (MockedStatic<ModelDao.OpenSearchKNNModelDao> modelDao = mockStatic(ModelDao.OpenSearchKNNModelDao.class)) {
+            modelDao.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(mock(ModelDao.OpenSearchKNNModelDao.class));
+            explanation = queryUtils.exactSearchExplainer("field", "Approximate-NN, rescored").explain(context, 0, 0.7f);
+        }
+
+        assertTrue(explanation.isMatch());
+        assertEquals(0.7f, explanation.getValue().floatValue());
+        assertEquals("the type of knn search executed was Approximate-NN, rescored", explanation.getDescription());
+        assertEquals(1, explanation.getDetails().length);
+        assertEquals(0.7f, explanation.getDetails()[0].getValue().floatValue());
+        assertEquals(
+            "the type of knn search executed at leaf was Exact, spaceType = " + SpaceType.COSINESIMIL.getValue(),
+            explanation.getDetails()[0].getDescription()
+        );
+    }
+
+    public void testExactSearchExplainer_whenFieldMissingInLeaf_thenOmitsSpaceType() {
+        LeafReaderContext context = mockLeafWithField("field", null);
+
+        Explanation explanation = queryUtils.exactSearchExplainer("field", "Approximate-NN").explain(context, 0, 0.5f);
+
+        assertEquals("the type of knn search executed at leaf was Exact", explanation.getDetails()[0].getDescription());
+    }
+
+    private LeafReaderContext mockLeafWithField(String field, FieldInfo fieldInfo) {
+        FieldInfos fieldInfos = mock(FieldInfos.class);
+        when(fieldInfos.fieldInfo(field)).thenReturn(fieldInfo);
+        LeafReader leafReader = mock(LeafReader.class);
+        when(leafReader.getFieldInfos()).thenReturn(fieldInfos);
+        LeafReaderContext context = mock(LeafReaderContext.class);
+        when(context.reader()).thenReturn(leafReader);
+        return context;
     }
 }
