@@ -100,11 +100,19 @@ public class QueryUtils {
      * Explains scores that were computed by an exact search over the field's full precision vectors, in the same
      * format {@link KNNWeight#explain(LeafReaderContext, int, float)} uses for the native engines.
      *
+     * The explanation is a short tree: the search type, one detail per step that produced the score, then the
+     * leaf's search type and space type.
+     *
      * @param field the k-NN field that was searched
-     * @param searchDescription how the search ran, completing "the type of knn search executed was ..."
+     * @param searchType completes "the type of knn search executed was ...", e.g. {@link KNNConstants#ANN_SEARCH}
+     * @param steps what ran after the approximate search, one short phrase each
      */
-    public ScoreExplainer exactSearchExplainer(final String field, final String searchDescription) {
+    public ScoreExplainer exactSearchExplainer(final String field, final String searchType, final String... steps) {
         return (context, doc, score) -> {
+            final List<Explanation> details = new ArrayList<>(steps.length + 1);
+            for (String step : steps) {
+                details.add(Explanation.match(score, step));
+            }
             final StringBuilder leafLevelExplanation = new StringBuilder("the type of knn search executed at leaf was ").append(
                 KNNConstants.EXACT_SEARCH
             );
@@ -113,11 +121,8 @@ public class QueryUtils {
                 final SpaceType spaceType = FieldInfoExtractor.getSpaceType(ModelDao.OpenSearchKNNModelDao.getInstance(), fieldInfo);
                 leafLevelExplanation.append(", spaceType = ").append(spaceType.getValue());
             }
-            return Explanation.match(
-                score,
-                "the type of knn search executed was " + searchDescription,
-                Explanation.match(score, leafLevelExplanation.toString())
-            );
+            details.add(Explanation.match(score, leafLevelExplanation.toString()));
+            return Explanation.match(score, "the type of knn search executed was " + searchType, details);
         };
     }
 

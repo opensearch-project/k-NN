@@ -216,7 +216,7 @@ public class QueryUtilsTests extends TestCase {
         return true;
     }
 
-    public void testExactSearchExplainer_whenFieldExists_thenExplainsSearchAndSpaceType() {
+    public void testExactSearchExplainer_whenFieldExists_thenExplainsStepsAndSpaceType() {
         FieldInfo fieldInfo = mock(FieldInfo.class);
         when(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE)).thenReturn(SpaceType.COSINESIMIL.getValue());
         LeafReaderContext context = mockLeafWithField("field", fieldInfo);
@@ -224,18 +224,24 @@ public class QueryUtilsTests extends TestCase {
         Explanation explanation;
         try (MockedStatic<ModelDao.OpenSearchKNNModelDao> modelDao = mockStatic(ModelDao.OpenSearchKNNModelDao.class)) {
             modelDao.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(mock(ModelDao.OpenSearchKNNModelDao.class));
-            explanation = queryUtils.exactSearchExplainer("field", "Approximate-NN, rescored").explain(context, 0, 0.7f);
+            explanation = queryUtils.exactSearchExplainer("field", "Approximate-NN", "step one", "step two").explain(context, 0, 0.7f);
         }
 
         assertTrue(explanation.isMatch());
         assertEquals(0.7f, explanation.getValue().floatValue());
-        assertEquals("the type of knn search executed was Approximate-NN, rescored", explanation.getDescription());
-        assertEquals(1, explanation.getDetails().length);
-        assertEquals(0.7f, explanation.getDetails()[0].getValue().floatValue());
+        assertEquals("the type of knn search executed was Approximate-NN", explanation.getDescription());
+        List<String> details = Arrays.stream(explanation.getDetails()).map(Explanation::getDescription).toList();
         assertEquals(
-            "the type of knn search executed at leaf was Exact, spaceType = " + SpaceType.COSINESIMIL.getValue(),
-            explanation.getDetails()[0].getDescription()
+            List.of(
+                "step one",
+                "step two",
+                "the type of knn search executed at leaf was Exact, spaceType = " + SpaceType.COSINESIMIL.getValue()
+            ),
+            details
         );
+        for (Explanation detail : explanation.getDetails()) {
+            assertEquals(0.7f, detail.getValue().floatValue());
+        }
     }
 
     public void testExactSearchExplainer_whenFieldMissingInLeaf_thenOmitsSpaceType() {
@@ -243,6 +249,7 @@ public class QueryUtilsTests extends TestCase {
 
         Explanation explanation = queryUtils.exactSearchExplainer("field", "Approximate-NN").explain(context, 0, 0.5f);
 
+        assertEquals(1, explanation.getDetails().length);
         assertEquals("the type of knn search executed at leaf was Exact", explanation.getDetails()[0].getDescription());
     }
 

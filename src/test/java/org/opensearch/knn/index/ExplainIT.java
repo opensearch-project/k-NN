@@ -313,8 +313,8 @@ public class ExplainIT extends KNNCompressionRestTestCase {
 
         validateExplainSearchResponse(
             queryBuilder,
-            ANN_SEARCH,
-            "rescored with " + EXACT_SEARCH + " search on full precision vectors to keep the top 3",
+            "the type of knn search executed was " + ANN_SEARCH,
+            "rescored with " + EXACT_SEARCH + " search on full precision vectors, kept top 3",
             "spaceType = " + SpaceType.L2.getValue()
         );
         deleteKNNIndex(INDEX_NAME);
@@ -362,11 +362,9 @@ public class ExplainIT extends KNNCompressionRestTestCase {
 
             validateExplainSearchResponse(
                 queryBuilder,
-                ANN_SEARCH + " on the parent documents",
-                rescore
-                    ? "rescored with " + EXACT_SEARCH + " search on full precision vectors to keep the top 2 parents"
-                    : "to find the top 2 parents",
-                "the nested documents of those parents were scored with " + EXACT_SEARCH + " search",
+                "the type of knn search executed was " + ANN_SEARCH + " on parent documents",
+                rescore ? "rescored with " + EXACT_SEARCH + " search on full precision vectors, kept top 2 parents" : "kept top 2 parents",
+                "scored their nested documents with " + EXACT_SEARCH + " search",
                 "spaceType = " + SpaceType.L2.getValue()
             );
             deleteKNNIndex(INDEX_NAME);

@@ -105,23 +105,16 @@ public class ExpandNestedDocsQuery extends Query {
         if (topK.scoreDocs.length == 0) {
             return new MatchNoDocsQuery().createWeight(searcher, scoreMode, boost);
         }
-        return queryUtils.createDocAndScoreQuery(
-            reader,
-            topK,
-            queryUtils.exactSearchExplainer(internalNestedKnnVectorQuery.getField(), describeSearch())
-        ).createWeight(searcher, scoreMode, boost);
-    }
-
-    private String describeSearch() {
         final int k = internalNestedKnnVectorQuery.getK();
-        return KNNConstants.ANN_SEARCH
-            + " on the parent documents"
-            + (isRescoreEnabled()
-                ? ", rescored with " + KNNConstants.EXACT_SEARCH + " search on full precision vectors to keep the top " + k + " parents"
-                : " to find the top " + k + " parents")
-            + ", and the nested documents of those parents were scored with "
-            + KNNConstants.EXACT_SEARCH
-            + " search";
+        final QueryUtils.ScoreExplainer explainer = queryUtils.exactSearchExplainer(
+            internalNestedKnnVectorQuery.getField(),
+            KNNConstants.ANN_SEARCH + " on parent documents",
+            isRescoreEnabled()
+                ? "rescored with " + KNNConstants.EXACT_SEARCH + " search on full precision vectors, kept top " + k + " parents"
+                : "kept top " + k + " parents",
+            "scored their nested documents with " + KNNConstants.EXACT_SEARCH + " search"
+        );
+        return queryUtils.createDocAndScoreQuery(reader, topK, explainer).createWeight(searcher, scoreMode, boost);
     }
 
     private boolean isRescoreEnabled() {

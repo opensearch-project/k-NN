@@ -87,11 +87,8 @@ public class RescoreKNNVectorQuery extends Query {
         final QueryUtils queryUtils = QueryUtils.getInstance();
         final QueryUtils.ScoreExplainer explainer = queryUtils.exactSearchExplainer(
             field,
-            KNNConstants.ANN_SEARCH
-                + ", and its results were rescored with "
-                + KNNConstants.EXACT_SEARCH
-                + " search on full precision vectors to keep the top "
-                + k
+            KNNConstants.ANN_SEARCH,
+            "rescored with " + KNNConstants.EXACT_SEARCH + " search on full precision vectors, kept top " + k
         );
         return queryUtils.createDocAndScoreQuery(searcher.getIndexReader(), topK, explainer).createWeight(searcher, scoreMode, boost);
     }
