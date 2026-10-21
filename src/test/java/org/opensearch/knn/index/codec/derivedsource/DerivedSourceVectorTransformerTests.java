@@ -119,6 +119,37 @@ public class DerivedSourceVectorTransformerTests extends OpenSearchTestCase {
         );
     }
 
+    public void testInitialize_whenPatternNamesParentObject_thenSelectsChildVectors() {
+        String[] fields = { "obj.vec", "obj.inner.vec", "objective.vec", "top_vector" };
+
+        // An include of the parent object keeps every vector under it, at any depth
+        assertFieldFiltering(
+            fields,
+            new String[] { "obj" },
+            null,
+            new String[] { "obj.vec", "obj.inner.vec" },
+            new String[] { "objective.vec", "top_vector" }
+        );
+        assertFieldFiltering(fields, new String[] { "obj.inner" }, null, new String[] { "obj.inner.vec" }, new String[] { "obj.vec" });
+        assertFieldFiltering(
+            fields,
+            new String[] { "obj*" },
+            null,
+            new String[] { "obj.vec", "obj.inner.vec", "objective.vec" },
+            new String[] { "top_vector" }
+        );
+
+        // An exclude of the parent object removes every vector under it
+        assertFieldFiltering(
+            fields,
+            null,
+            new String[] { "obj" },
+            new String[] { "objective.vec", "top_vector" },
+            new String[] { "obj.vec", "obj.inner.vec" }
+        );
+        assertFieldFiltering(fields, new String[] { "obj" }, new String[] { "obj.inner" }, new String[] { "obj.vec" }, new String[] {});
+    }
+
     public void testInjectVectors_whenSourceIsNonXContent_thenPreservesOriginalSource() throws Exception {
         DerivedSourceVectorTransformer transformer = createTransformerWithFields("test_vector");
         transformer.initialize(null, null);
@@ -130,7 +161,17 @@ public class DerivedSourceVectorTransformerTests extends OpenSearchTestCase {
     }
 
     private void assertFieldFiltering(String[] includes, String[] excludes, String[] expectedPresent, String[] expectedAbsent) {
-        DerivedSourceVectorTransformer transformer = createTransformerWithFields(ALL_FIELDS);
+        assertFieldFiltering(ALL_FIELDS, includes, excludes, expectedPresent, expectedAbsent);
+    }
+
+    private void assertFieldFiltering(
+        String[] fields,
+        String[] includes,
+        String[] excludes,
+        String[] expectedPresent,
+        String[] expectedAbsent
+    ) {
+        DerivedSourceVectorTransformer transformer = createTransformerWithFields(fields);
         transformer.initialize(includes, excludes);
 
         Set<String> remainingFields = getRemainingFields(transformer);

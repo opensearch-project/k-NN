@@ -90,7 +90,7 @@ public class DerivedSourceVectorTransformer {
             for (String fieldName : allFields) {
                 boolean matched = false;
                 for (String includePattern : includes) {
-                    if (Regex.simpleMatch(includePattern, fieldName)) {
+                    if (matchesFieldOrParent(includePattern, fieldName)) {
                         matched = true;
                         break;
                     }
@@ -108,7 +108,7 @@ public class DerivedSourceVectorTransformer {
                     continue;
                 }
                 for (String excludePattern : excludes) {
-                    if (Regex.simpleMatch(excludePattern, fieldName)) {
+                    if (matchesFieldOrParent(excludePattern, fieldName)) {
                         fieldsToRemove.add(fieldName);
                         break;
                     }
@@ -117,6 +117,14 @@ public class DerivedSourceVectorTransformer {
         }
 
         return fieldsToRemove;
+    }
+
+    /**
+     * Whether a _source include/exclude pattern selects the field, either directly or through one of its parent
+     * objects, the same way core's _source filtering treats a pattern that names an object ("obj" selects "obj.vec").
+     */
+    private static boolean matchesFieldOrParent(String pattern, String fieldName) {
+        return Regex.simpleMatch(pattern, fieldName) || Regex.simpleMatch(pattern + ".*", fieldName);
     }
 
     /**
