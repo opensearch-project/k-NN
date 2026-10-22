@@ -8,6 +8,9 @@
  */
 package org.opensearch.knn.indices;
 
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.mockito.MockedStatic;
 import org.opensearch.Version;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexAction;
@@ -38,6 +41,7 @@ import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheAction;
 import org.opensearch.knn.plugin.transport.UpdateModelGraveyardAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
+import org.opensearch.knn.training.TrainingJobClusterStateListener;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.plugins.PluginsService;
@@ -60,6 +64,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+
 /**
  * Tests that every action ModelDao runs, including the k-NN metadata, graveyard and cache actions that
  * follow a model write or delete, runs as the plugin subject and not as the caller, while the caller's
@@ -70,6 +77,22 @@ public class ModelDaoPluginSubjectTests extends KNNSingleNodeTestCase {
     private static final String CALLER_HEADER = "knn-test-caller";
     private static final String CALLER = "set-by-caller";
     private static final String NO_CALLER = "no caller header";
+
+    private static MockedStatic<TrainingJobClusterStateListener> trainingJobClusterStateListener;
+
+    @BeforeClass
+    public static void silenceTrainingJobSweep() {
+        // As in ModelDaoTests: the sweep that a new cluster schedules would read models this test is
+        // still writing, from another thread.
+        TrainingJobClusterStateListener listener = mock(TrainingJobClusterStateListener.class);
+        trainingJobClusterStateListener = mockStatic(TrainingJobClusterStateListener.class);
+        trainingJobClusterStateListener.when(TrainingJobClusterStateListener::getInstance).thenReturn(listener);
+    }
+
+    @AfterClass
+    public static void restoreTrainingJobSweep() {
+        trainingJobClusterStateListener.close();
+    }
 
     @Override
     protected Collection<Class<? extends Plugin>> getPlugins() {
