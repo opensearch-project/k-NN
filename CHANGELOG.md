@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Maintenance
 * Fixed build issues happening due to Lucene 10.5.2 upgrade [#3631](https://github.com/opensearch-project/k-NN/pull/3631)
+* Use clustered test vectors and the api-snapshot builder image so remote index build ITs pass on cuVS 26.08 [#3627](https://github.com/opensearch-project/k-NN/pull/3627)
 
 ### Bug Fixes
 * Fix `explain` failing with a NullPointerException for Lucene engine queries that use `rescore` or `expand_nested_docs`, and explain those scores as an Exact search [#3641](https://github.com/opensearch-project/k-NN/pull/3641)
@@ -26,3 +27,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Set the CMAKE_BUILD_TYPE to Release to ensure that all targets get build with optimized code [#3622](https://github.com/opensearch-project/k-NN/pull/3622)
 * Avoid FP16 -> FP32 -> FP16 round trip when merging `half_float` segments [#3610](https://github.com/opensearch-project/k-NN/pull/3610)
 * Report `exact_search` timings in the Profile API for nested k-NN queries with `expand_nested_docs` on the Lucene engine [#3579](https://github.com/opensearch-project/k-NN/pull/3579)
+* Send `half_float` vectors to the remote vector index build service as fp16 instead of fp32 [#3608](https://github.com/opensearch-project/k-NN/pull/3608)
