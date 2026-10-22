@@ -288,7 +288,7 @@ public class KNNPlugin extends Plugin
 
         KNNSettings.state().initialize(client, clusterService);
         KNNClusterUtil.instance().initialize(clusterService, indexNameExpressionResolver);
-        ModelDao.OpenSearchKNNModelDao.initialize(client, pluginClient, clusterService, environment.settings());
+        ModelDao.OpenSearchKNNModelDao.initialize(pluginClient, clusterService, environment.settings());
         ModelCache.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
         TrainingJobRunner.initialize(threadPool, ModelDao.OpenSearchKNNModelDao.getInstance());
         TrainingJobClusterStateListener.initialize(threadPool, ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
@@ -506,6 +506,11 @@ public class KNNPlugin extends Plugin
         return ImmutableList.of(new SystemIndexDescriptor(MODEL_INDEX_NAME, "Index for storing models used for k-NN indices"));
     }
 
+    /**
+     * Gives the model index client the subject that k-NN runs its own model operations as.
+     *
+     * @param pluginSubject the subject core assigned to this plugin
+     */
     @Override
     public void assignSubject(PluginSubject pluginSubject) {
         pluginClient.setSubject(pluginSubject);

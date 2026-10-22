@@ -38,7 +38,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.clustermanager.AcknowledgedResponse;
-import org.opensearch.transport.client.Client;
 import org.opensearch.cluster.health.ClusterHealthStatus;
 import org.opensearch.cluster.health.ClusterIndexHealth;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -189,7 +188,6 @@ public interface ModelDao {
         private int numberOfReplicas;
 
         private static volatile OpenSearchKNNModelDao INSTANCE;
-        private static Client client;
         private static PluginClient pluginClient;
         private static ClusterService clusterService;
         private static Settings settings;
@@ -207,14 +205,14 @@ public interface ModelDao {
         }
 
         /**
-         * @param client used for the plugin's own cluster level transport actions, which stay with the
-         *               caller's identity
-         * @param pluginClient used for every operation against the model system index
+         * Sets the components every model operation uses.
+         *
+         * @param pluginClient runs every model index operation, and the model metadata, graveyard and cache
+         *                     actions that follow them, as the plugin subject
          * @param clusterService used to read model index state and settings from the cluster state
          * @param settings node settings the model index shard and replica counts are read from
          */
-        public static void initialize(Client client, PluginClient pluginClient, ClusterService clusterService, Settings settings) {
-            OpenSearchKNNModelDao.client = client;
+        public static void initialize(PluginClient pluginClient, ClusterService clusterService, Settings settings) {
             OpenSearchKNNModelDao.pluginClient = pluginClient;
             OpenSearchKNNModelDao.clusterService = clusterService;
             OpenSearchKNNModelDao.settings = settings;
@@ -337,7 +335,7 @@ public interface ModelDao {
             // passed then nothing needs to be removed from the cache
             ActionListener<IndexResponse> onMetaListener;
             onMetaListener = ActionListener.wrap(indexResponse -> {
-                client.execute(
+                pluginClient.execute(
                     RemoveModelFromCacheAction.INSTANCE,
                     new RemoveModelFromCacheRequest(model.getModelID()),
                     ActionListener.wrap(removeModelFromCacheResponse -> {
@@ -371,7 +369,7 @@ public interface ModelDao {
             ActionListener<IndexResponse> listener
         ) {
             return ActionListener.wrap(
-                indexResponse -> client.execute(
+                indexResponse -> pluginClient.execute(
                     UpdateModelMetadataAction.INSTANCE,
                     new UpdateModelMetadataRequest(indexResponse.getId(), false, modelMetadata),
                     // Here we wrap the IndexResponse listener around an AcknowledgedListener. This allows us
@@ -589,7 +587,7 @@ public interface ModelDao {
 
         // Remove model from cache in the cluster
         private void removeModelFromCache(String modelId, StepListener<RemoveModelFromCacheResponse> clearModelFromCacheStep) {
-            client.execute(
+            pluginClient.execute(
                 RemoveModelFromCacheAction.INSTANCE,
                 new RemoveModelFromCacheRequest(modelId),
                 ActionListener.wrap(
@@ -621,7 +619,7 @@ public interface ModelDao {
             Optional<Exception> exception
         ) {
 
-            client.execute(
+            pluginClient.execute(
                 UpdateModelGraveyardAction.INSTANCE,
                 new UpdateModelGraveyardRequest(modelId, isRemoveRequest),
                 ActionListener.wrap(acknowledgedResponse -> {
@@ -648,7 +646,7 @@ public interface ModelDao {
 
         // Clear the metadata of the model for a given modelId
         private void clearModelMetadata(String modelId, StepListener<AcknowledgedResponse> clearModelMetadataStep) {
-            client.execute(
+            pluginClient.execute(
                 UpdateModelMetadataAction.INSTANCE,
                 new UpdateModelMetadataRequest(modelId, true, null),
                 ActionListener.wrap(
@@ -661,7 +659,7 @@ public interface ModelDao {
         // This function helps to remove the model from model graveyard and return the exception from previous step
         // when the delete request fails while executing after adding modelId to model graveyard
         private void removeModelIdFromGraveyardOnFailure(String modelId, Exception exceptionFromPreviousStep, StepListener<?> step) {
-            client.execute(
+            pluginClient.execute(
                 UpdateModelGraveyardAction.INSTANCE,
                 new UpdateModelGraveyardRequest(modelId, true),
                 ActionListener.wrap(acknowledgedResponse -> {
