@@ -311,12 +311,13 @@ public class ExplainIT extends KNNCompressionRestTestCase {
             .endObject()
             .endObject();
 
-        validateExplainSearchResponse(
+        int hits = validateExplainSearchResponse(
             queryBuilder,
             "the type of knn search executed was " + ANN_SEARCH,
             "rescored with " + EXACT_SEARCH + " search on full precision vectors, kept top 3",
             "spaceType = " + SpaceType.L2.getValue()
         );
+        assertEquals(3, hits);
         deleteKNNIndex(INDEX_NAME);
     }
 
@@ -360,13 +361,14 @@ public class ExplainIT extends KNNCompressionRestTestCase {
             }
             queryBuilder.endObject().endObject().endObject().endObject().endObject().endObject();
 
-            validateExplainSearchResponse(
+            int hits = validateExplainSearchResponse(
                 queryBuilder,
                 "the type of knn search executed was " + ANN_SEARCH + " on parent documents",
                 rescore ? "rescored with " + EXACT_SEARCH + " search on full precision vectors, kept top 2 parents" : "kept top 2 parents",
                 "scored their nested documents with " + EXACT_SEARCH + " search",
                 "spaceType = " + SpaceType.L2.getValue()
             );
+            assertEquals("parent documents with expand_nested_docs, rescore=" + rescore, 2, hits);
             deleteKNNIndex(INDEX_NAME);
         }
     }
@@ -386,7 +388,11 @@ public class ExplainIT extends KNNCompressionRestTestCase {
             .endObject();
     }
 
-    private void validateExplainSearchResponse(XContentBuilder queryBuilder, String... descriptions) throws IOException, ParseException {
+    /**
+     * Checks that every hit's explanation contains each description and the hit's score, and returns the number of
+     * hits, so callers can also assert that the query matched something.
+     */
+    private int validateExplainSearchResponse(XContentBuilder queryBuilder, String... descriptions) throws IOException, ParseException {
         String responseBody = EntityUtils.toString(performSearch(INDEX_NAME, queryBuilder.toString(), "explain=true").getEntity());
         List<Object> searchResponseHits = parseSearchResponseHits(responseBody);
         searchResponseHits.stream().forEach(hit -> {
@@ -399,6 +405,7 @@ public class ExplainIT extends KNNCompressionRestTestCase {
             }
             assertTrue(explanation.contains(String.valueOf(score)));
         });
+        return searchResponseHits.size();
     }
 
     private void createDefaultKnnIndex(int dimension) throws IOException {
