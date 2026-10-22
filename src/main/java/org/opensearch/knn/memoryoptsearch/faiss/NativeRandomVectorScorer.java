@@ -65,7 +65,7 @@ public class NativeRandomVectorScorer extends RandomVectorScorer.AbstractRandomV
         final SimdVectorComputeService.SimilarityFunctionType similarityFunctionType
     ) {
         super(knnVectorValues);
-        SimdVectorComputeService.saveSearchContext(query, mmapVectorValues.getAddressAndSize(), similarityFunctionType.ordinal());
+        SimdVectorComputeService.saveSearchContext(query, mmapVectorValues.getAddressAndSize(), similarityFunctionType.getWireValue());
     }
 
     /**
