@@ -184,7 +184,7 @@ public class NativeRandomVectorScorerTests extends KNNTestCase {
                 }
 
                 // Save search context first
-                SimdVectorComputeService.saveSearchContext(queryVec, addressAndSize, functionType.ordinal());
+                SimdVectorComputeService.saveSearchContext(queryVec, addressAndSize, functionType.getWireValue());
 
                 // Cosine reconstructs L2-normalized FP16 vectors, so allow a touch more slack for
                 // FP16 norm drift; still far tighter than the ~0.1-0.4 error the regression produces.
@@ -335,7 +335,7 @@ public class NativeRandomVectorScorerTests extends KNNTestCase {
                 }
 
                 // Save search context first
-                SimdVectorComputeService.saveSearchContext(queryVec, addressAndSize, functionType.ordinal());
+                SimdVectorComputeService.saveSearchContext(queryVec, addressAndSize, functionType.getWireValue());
 
                 // Test single vector scoring
                 for (int i = 0; i < numVectors; ++i) {
