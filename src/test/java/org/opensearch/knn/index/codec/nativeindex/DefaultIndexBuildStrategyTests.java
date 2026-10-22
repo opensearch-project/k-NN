@@ -11,10 +11,14 @@ import org.junit.Before;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.apache.lucene.store.IndexOutput;
 import org.opensearch.core.common.unit.ByteSizeValue;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
+import org.opensearch.knn.index.codec.transfer.OffHeapFloatVectorTransfer;
 import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransfer;
 import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransferFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -29,12 +33,21 @@ import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOut
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.test.OpenSearchTestCase;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -95,7 +108,8 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
             mockedJNIService.verifyNoMoreInteractions();
             verify(offHeapVectorTransfer).flush(true);
             verify(offHeapVectorTransfer, times(3)).transfer(vectorTransferCapture.capture(), eq(true));
-            verify(offHeapVectorTransfer).reset();
+            verify(offHeapVectorTransfer, never()).reset();
+            verify(offHeapVectorTransfer).close();
 
             float[] prev = null;
             for (float[] vector : vectorTransferCapture.getAllValues()) {
@@ -282,6 +296,8 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
             mockedJNIService.verifyNoMoreInteractions();
             verify(offHeapVectorTransfer).flush(true);
             verify(offHeapVectorTransfer, times(3)).transfer(vectorTransferCapture.capture(), eq(true));
+            verify(offHeapVectorTransfer, never()).reset();
+            verify(offHeapVectorTransfer).close();
 
             float[] prev = null;
             for (float[] vector : vectorTransferCapture.getAllValues()) {
@@ -291,5 +307,121 @@ public class DefaultIndexBuildStrategyTests extends OpenSearchTestCase {
                 prev = vector;
             }
         }
+    }
+
+    /**
+     * Regression tests for the double free of the off-heap vectors when a native build fails, which crashes the JVM
+     * with a SIGSEGV in {@code JNICommons.freeVectorData}.
+     *
+     * <p>{@code vectorTransfer} owns the off-heap vectors and frees them in {@code close()}. The native build functions
+     * only release their contents early, so when the build fails after entering JNI, {@code close()} must still free
+     * them exactly once. These tests run the real native build and stub out {@code deallocate()} to count calls. They
+     * fail if Java resets the address before {@code close()} (leak) or frees the vectors more than once.</p>
+     */
+    @SneakyThrows
+    public void testBuildAndWrite_nmslib_whenWriteFails_thenVectorsAreFreedExactlyOnce() {
+        assertVectorsFreedExactlyOnce(nmslibParamsWithFailingOutput(randomFloatVectorValues(100, 8)));
+    }
+
+    @SneakyThrows
+    public void testBuildAndWrite_faissTemplate_whenTemplateIsInvalid_thenVectorsAreFreedExactlyOnce() {
+        assertVectorsFreedExactlyOnce(faissParamsWithInvalidTemplate(randomFloatVectorValues(100, 8)));
+    }
+
+    /**
+     * Same scenarios as above but lets {@code deallocate()} run for real. If the native layer frees the vectors as well,
+     * this double frees the native {@code std::vector} and crashes the test JVM (SIGSEGV with jemalloc, SIGABRT with
+     * glibc or macOS libmalloc), reproducing the production crash.
+     */
+    @SneakyThrows
+    public void testBuildAndWrite_nmslib_whenWriteFails_thenNoNativeCrash() {
+        assertBuildFailsWithoutCrash(nmslibParamsWithFailingOutput(randomFloatVectorValues(100, 8)));
+    }
+
+    @SneakyThrows
+    public void testBuildAndWrite_faissTemplate_whenTemplateIsInvalid_thenNoNativeCrash() {
+        assertBuildFailsWithoutCrash(faissParamsWithInvalidTemplate(randomFloatVectorValues(100, 8)));
+    }
+
+    private static void assertVectorsFreedExactlyOnce(final BuildIndexParams buildIndexParams) {
+        try (
+            MockedStatic<KNNSettings> mockedKNNSettings = mockKNNSettings();
+            MockedStatic<OffHeapVectorTransferFactory> mockedFactory = mockStatic(OffHeapVectorTransferFactory.class)
+        ) {
+            final OffHeapFloatVectorTransfer vectorTransfer = spy(new OffHeapFloatVectorTransfer(8 * Float.BYTES, 100));
+            // Only count frees; the crash itself is covered by the NoNativeCrash tests.
+            doNothing().when(vectorTransfer).deallocate();
+            mockedFactory.when(() -> OffHeapVectorTransferFactory.getVectorTransfer(any(), anyInt(), anyInt())).thenReturn(vectorTransfer);
+
+            expectThrows(RuntimeException.class, () -> DefaultIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams));
+
+            // Zero calls means the address was reset before close (leak); more than one is a double free.
+            verify(vectorTransfer, times(1)).deallocate();
+        }
+    }
+
+    private static void assertBuildFailsWithoutCrash(final BuildIndexParams buildIndexParams) {
+        try (MockedStatic<KNNSettings> mockedKNNSettings = mockKNNSettings()) {
+            expectThrows(RuntimeException.class, () -> DefaultIndexBuildStrategy.getInstance().buildAndWriteIndex(buildIndexParams));
+        }
+    }
+
+    private static MockedStatic<KNNSettings> mockKNNSettings() {
+        final MockedStatic<KNNSettings> mockedKNNSettings = mockStatic(KNNSettings.class, CALLS_REAL_METHODS);
+        mockedKNNSettings.when(KNNSettings::getVectorStreamingMemoryLimit).thenReturn(new ByteSizeValue(1024 * 1024));
+        // Loading the Faiss library reads these settings, which need a cluster service otherwise.
+        mockedKNNSettings.when(KNNSettings::isFaissAVX512SPRDisabled).thenReturn(false);
+        mockedKNNSettings.when(KNNSettings::isFaissAVX512Disabled).thenReturn(false);
+        mockedKNNSettings.when(KNNSettings::isFaissAVX2Disabled).thenReturn(false);
+        return mockedKNNSettings;
+    }
+
+    private static KNNVectorValues<?> randomFloatVectorValues(final int count, final int dimension) {
+        final List<float[]> vectors = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            final float[] vector = new float[dimension];
+            for (int j = 0; j < dimension; j++) {
+                vector[j] = randomFloat();
+            }
+            vectors.add(vector);
+        }
+        return KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, new TestVectorValues.PreDefinedFloatVectorValues(vectors));
+    }
+
+    private static BuildIndexParams nmslibParamsWithFailingOutput(final KNNVectorValues<?> knnVectorValues) throws IOException {
+        // Simulates the merge IndexOutput failing (e.g. MergeAbortedException) while NMSLIB serializes the graph.
+        final IndexOutput failingIndexOutput = mock(IndexOutput.class);
+        doThrow(new IOException("simulated merge abort while writing NMSLIB index")).when(failingIndexOutput)
+            .writeBytes(any(byte[].class), anyInt(), anyInt());
+        return BuildIndexParams.builder()
+            .indexOutputWithBuffer(new IndexOutputWithBuffer(failingIndexOutput))
+            .knnEngine(KNNEngine.NMSLIB)
+            .vectorDataType(VectorDataType.FLOAT)
+            .indexParameters(Map.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()))
+            .knnVectorValuesSupplier(() -> knnVectorValues)
+            .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
+            .build();
+    }
+
+    private static BuildIndexParams faissParamsWithInvalidTemplate(final KNNVectorValues<?> knnVectorValues) {
+        // A template that Faiss cannot deserialize fails in the native template validation step.
+        final byte[] invalidTemplate = new byte[] { 1, 2, 3, 4 };
+        return BuildIndexParams.builder()
+            .indexOutputWithBuffer(new IndexOutputWithBuffer(mock(IndexOutput.class)))
+            .knnEngine(KNNEngine.FAISS)
+            .vectorDataType(VectorDataType.FLOAT)
+            .indexParameters(
+                Map.of(
+                    KNNConstants.MODEL_ID,
+                    "id",
+                    KNNConstants.MODEL_BLOB_PARAMETER,
+                    invalidTemplate,
+                    KNNConstants.SPACE_TYPE,
+                    SpaceType.L2.getValue()
+                )
+            )
+            .knnVectorValuesSupplier(() -> knnVectorValues)
+            .totalLiveDocs((int) knnVectorValues.totalLiveDocs())
+            .build();
     }
 }

@@ -5,23 +5,29 @@
 
 package org.opensearch.knn.index.query.exactsearch;
 
+import org.apache.lucene.index.QueryTimeout;
 import org.apache.lucene.search.DocAndFloatFeatureBuffer;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.VectorScorer;
+import org.opensearch.common.Nullable;
 
 import java.io.IOException;
 import java.util.function.Predicate;
 
 /**
  * A {@link Scorer} that scores documents using bulk vector scoring, yielding only those
- * whose score satisfies the provided {@link Predicate}.
+ * whose score satisfies the provided {@link Predicate}. When given a {@link QueryTimeout}, it checks the timeout once
+ * per scored batch and stops iterating once it fires, so a cancelled or timed-out search keeps the results collected
+ * so far.
  */
 public class BulkVectorScorer extends Scorer {
 
     private final DocAndFloatFeatureBuffer buffer = new DocAndFloatFeatureBuffer();
     private final VectorScorer.Bulk bulkScorer;
     private final Predicate<Float> scoreFilter;
+    @Nullable
+    private final QueryTimeout queryTimeout;
     private final long cost;
 
     private int currentDocId = -1;
@@ -29,20 +35,39 @@ public class BulkVectorScorer extends Scorer {
     private float currentScore;
     private float minCompetitiveScore = 0f;
 
-    private BulkVectorScorer(final VectorScorer vectorScorer, final DocIdSetIterator matchedDocs, final Predicate<Float> scoreFilter)
-        throws IOException {
+    private BulkVectorScorer(
+        final VectorScorer vectorScorer,
+        final DocIdSetIterator matchedDocs,
+        final Predicate<Float> scoreFilter,
+        @Nullable final QueryTimeout queryTimeout
+    ) throws IOException {
         this.bulkScorer = vectorScorer.bulk(matchedDocs);
         this.scoreFilter = scoreFilter;
+        this.queryTimeout = queryTimeout;
         this.cost = matchedDocs != null ? matchedDocs.cost() : vectorScorer.iterator().cost();
     }
 
     public static BulkVectorScorer forKSearch(VectorScorer vectorScorer, DocIdSetIterator matchedDocs) throws IOException {
-        return new BulkVectorScorer(vectorScorer, matchedDocs, score -> true);
+        return forKSearch(vectorScorer, matchedDocs, null);
+    }
+
+    public static BulkVectorScorer forKSearch(VectorScorer vectorScorer, DocIdSetIterator matchedDocs, @Nullable QueryTimeout queryTimeout)
+        throws IOException {
+        return new BulkVectorScorer(vectorScorer, matchedDocs, score -> true, queryTimeout);
     }
 
     public static BulkVectorScorer forRadialSearch(VectorScorer vectorScorer, DocIdSetIterator matchedDocs, float minScore)
         throws IOException {
-        return new BulkVectorScorer(vectorScorer, matchedDocs, score -> score >= minScore);
+        return forRadialSearch(vectorScorer, matchedDocs, minScore, null);
+    }
+
+    public static BulkVectorScorer forRadialSearch(
+        VectorScorer vectorScorer,
+        DocIdSetIterator matchedDocs,
+        float minScore,
+        @Nullable QueryTimeout queryTimeout
+    ) throws IOException {
+        return new BulkVectorScorer(vectorScorer, matchedDocs, score -> score >= minScore, queryTimeout);
     }
 
     @Override
@@ -65,6 +90,9 @@ public class BulkVectorScorer extends Scorer {
                     int result = scanBufferForMatch();
                     if (result != -1) {
                         return result;
+                    }
+                    if (queryTimeout != null && queryTimeout.shouldExit()) {
+                        return currentDocId = NO_MORE_DOCS;
                     }
                     float maxBatchScore = bulkScorer.nextDocsAndScores(DocIdSetIterator.NO_MORE_DOCS, null, buffer);
                     currentBatchIdx = 0;

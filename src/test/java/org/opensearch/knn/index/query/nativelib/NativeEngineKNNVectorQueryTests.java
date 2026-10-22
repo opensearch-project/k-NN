@@ -16,6 +16,7 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.TaskExecutor;
+import org.apache.lucene.search.TimeLimitingKnnCollectorManager;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.Weight;
@@ -935,7 +936,11 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
                 Field delegateField = ReentrantKnnCollectorManager.class.getDeclaredField("knnCollectorManager");
                 delegateField.setAccessible(true);
 
-                Object delegate = delegateField.get(reentrantKnnCollectorManager);
+                // The second pass is always wrapped in a TimeLimitingKnnCollectorManager; read `k` from its delegate.
+                final Object timeLimited = delegateField.get(reentrantKnnCollectorManager);
+                Field timeLimitedDelegateField = TimeLimitingKnnCollectorManager.class.getDeclaredField("delegate");
+                timeLimitedDelegateField.setAccessible(true);
+                Object delegate = timeLimitedDelegateField.get(timeLimited);
                 Field kField = delegate.getClass().getDeclaredField("k");
                 kField.setAccessible(true);
 

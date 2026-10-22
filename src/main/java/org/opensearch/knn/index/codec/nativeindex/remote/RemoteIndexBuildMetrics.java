@@ -7,7 +7,6 @@ package org.opensearch.knn.index.codec.nativeindex.remote;
 
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.StopWatch;
-import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.codec.nativeindex.remote.RemoteIndexBuildStrategy.BuildResult;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -64,12 +63,7 @@ public class RemoteIndexBuildMetrics {
     public void startRemoteIndexBuildMetrics(BuildIndexParams indexInfo) throws IOException {
         KNNVectorValues<?> knnVectorValues = indexInfo.getKnnVectorValuesSupplier().get();
         initializeVectorValues(knnVectorValues);
-        // HALF_FLOAT is uploaded as raw fp32 for remote build (see VectorValuesInputStream#reloadBuffer) -
-        // bytesPerVector() reports the 2-byte on-disk size, which understates the actual upload size here.
-        long bytesPerVectorForUpload = indexInfo.getVectorDataType() == VectorDataType.HALF_FLOAT
-            ? (long) knnVectorValues.dimension() * Float.BYTES
-            : knnVectorValues.bytesPerVector();
-        this.size = (long) indexInfo.getTotalLiveDocs() * bytesPerVectorForUpload;
+        this.size = (long) indexInfo.getTotalLiveDocs() * knnVectorValues.bytesPerVector();
         this.isFlush = indexInfo.isFlush();
         this.fieldName = indexInfo.getField();
         overallStopWatch.start();

@@ -837,7 +837,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         // Validations
         assertNotNull(query);
-        assertTrue(query.getClass().isAssignableFrom(FloatVectorSimilarityQuery.class));
+        assertTrue(query instanceof FloatVectorSimilarityQuery);
     }
 
     @SneakyThrows
@@ -873,7 +873,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         // Validations
         assertNotNull(query);
-        assertTrue(query.getClass().isAssignableFrom(FloatVectorSimilarityQuery.class));
+        assertTrue(query instanceof FloatVectorSimilarityQuery);
     }
 
     @SneakyThrows

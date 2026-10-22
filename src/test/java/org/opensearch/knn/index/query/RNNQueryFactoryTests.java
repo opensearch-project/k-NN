@@ -102,7 +102,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
                 testRadius,
                 DEFAULT_VECTOR_DATA_TYPE_FIELD
             );
-            assertEquals(FloatVectorSimilarityQuery.class, query.getClass());
+            assertEquals(FloatVectorSimilarityQuery.Adaptive.class, query.getClass());
         }
     }
 
@@ -128,7 +128,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
                 .filter(FILTER_QUERY_BUILDER)
                 .build();
             Query query = RNNQueryFactory.create(createQueryRequest);
-            assertEquals(ByteVectorSimilarityQuery.class, query.getClass());
+            assertEquals(ByteVectorSimilarityQuery.Adaptive.class, query.getClass());
         }
     }
 
@@ -160,7 +160,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
                 .build();
             final Query floatQuery = RNNQueryFactory.create(floatRequest);
             assertTrue("Lucene radial path must produce a FloatVectorSimilarityQuery", floatQuery instanceof FloatVectorSimilarityQuery);
-            final FloatVectorSimilarityQuery expectedFloatQuery = new FloatVectorSimilarityQuery(
+            final FloatVectorSimilarityQuery expectedFloatQuery = new FloatVectorSimilarityQuery.Adaptive(
                 testFieldName,
                 testQueryVector,
                 testRadius,
@@ -181,7 +181,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
                 .build();
             final Query byteQuery = RNNQueryFactory.create(byteRequest);
             assertTrue("Lucene radial path must produce a ByteVectorSimilarityQuery", byteQuery instanceof ByteVectorSimilarityQuery);
-            final ByteVectorSimilarityQuery expectedByteQuery = new ByteVectorSimilarityQuery(
+            final ByteVectorSimilarityQuery expectedByteQuery = new ByteVectorSimilarityQuery.Adaptive(
                 testFieldName,
                 testByteQueryVector,
                 testRadius,
@@ -211,7 +211,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
                 .radius(testRadius)
                 .build();
             Query query = RNNQueryFactory.create(createQueryRequest);
-            assertEquals(FloatVectorSimilarityQuery.class, query.getClass());
+            assertEquals(FloatVectorSimilarityQuery.Adaptive.class, query.getClass());
         }
     }
 
