@@ -38,6 +38,7 @@
     "jni/build/",
     "jni/tmp/",
     "LICENSE",
-    "NOTICE"
+    "NOTICE",
+    ".idea"
   ]
 }
