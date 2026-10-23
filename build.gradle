@@ -857,6 +857,8 @@ integTest {
     filter {
         excludeTestsMatching "org.opensearch.knn.index.RelocationIT"
         excludeTestsMatching "org.opensearch.knn.integ.DynamicVectorMappingMultiNodeIT"
+        // Needs a second cluster, so it runs in integTestMultiCluster
+        excludeTestsMatching "org.opensearch.knn.index.RestoreToNewClusterIT"
         // The gRPC transport ITs are temporarily disabled for the distribution-level ITs: the release
         // distribution's k-NN test cluster does not enable the transport-grpc aux transport
         if (System.getProperty("tests.rest.cluster") != null) {
@@ -892,6 +894,25 @@ task integTestMultiNode(type: RestIntegTestTask) {
         includeTestsMatching "org.opensearch.knn.integ.DynamicVectorMappingMultiNodeIT"
     }
 }
+
+// Cluster B: a second, empty cluster. It uses the same snapshot folder (path.repo) as cluster A, so it can read A's snapshots.
+testClusters.register('integTestSecondCluster') {
+    commonIntegTestClusters(it, _numNodes)
+    if (System.getProperty("security.enabled") != null) {
+        // RestoreToNewClusterIT restores the model index onto this cluster, which security refuses unless it is listed.
+        setting 'plugins.security.system_indices.restore.indices', '[".opensearch-knn-models"]'
+    }
+}
+
+// Runs the tests that need two clusters: this task's own cluster (A) and integTestSecondCluster (B).
+task integTestMultiCluster(type: RestIntegTestTask) {
+    commonIntegTest(it, project, integTestDependOnJniLib, opensearch_tmp_dir, _numNodes)
+    useCluster testClusters.integTestSecondCluster
+    nonInputProperties.systemProperty('tests.second_cluster', "${-> testClusters.integTestSecondCluster.allHttpSocketURI.join(',')}")
+    // setIncludes rather than a filter, because CI test sharding replaces the filter's patterns
+    setIncludes(['org/opensearch/knn/index/RestoreToNewClusterIT.class'])
+}
+check.dependsOn integTestMultiCluster
 
 def commonIntegTestClusters(OpenSearchCluster cluster, _numNodes){
     cluster.testDistribution = "ARCHIVE"
@@ -979,6 +1000,10 @@ testClusters.integTestRemoteIndexBuild {
 
 testClusters.integTestMultiNode {
     commonIntegTestClusters(it, 2)
+}
+
+testClusters.integTestMultiCluster {
+    commonIntegTestClusters(it, _numNodes)
 }
 
 task integTestRemote(type: RestIntegTestTask) {
