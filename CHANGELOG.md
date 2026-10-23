@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Maintenance
 * Fixed build issues happening due to Lucene 10.5.2 upgrade [#3631](https://github.com/opensearch-project/k-NN/pull/3631)
 * Use clustered test vectors and the api-snapshot builder image so remote index build ITs pass on cuVS 26.08 [#3627](https://github.com/opensearch-project/k-NN/pull/3627)
+* Route model index operations through the plugin subject instead of stashing the thread context [#3618](https://github.com/opensearch-project/k-NN/pull/3618)
 
 ### Bug Fixes
 * Fix `explain` failing with a NullPointerException for Lucene engine queries that use `rescore` or `expand_nested_docs`, and explain those scores as an Exact search [#3641](https://github.com/opensearch-project/k-NN/pull/3641)
