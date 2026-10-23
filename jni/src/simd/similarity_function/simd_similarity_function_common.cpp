@@ -328,16 +328,12 @@ void SimilarityFunction::updateVectorChunk(uint8_t* vectorsPtr, const int64_t ve
 //
 // Similarity function base
 //
-using BulkScoreTransform = void (*)(float*/*scores*/, int32_t/*num scores to transform*/);
-using ScoreTransform = float (*)(float/*score*/);
-
-// Metric mode for SQ (Scalar Quantized) similarity functions.
-// Controls both intermediate score computation and final score transformation.
-enum class SQMetricMode {
-    MAX_IP,   // Inner product: score += correction; ipToMaxIpTransform
-    L2,       // L2 distance: score = max(0, correction - 2*score); l2Transform
-    COSINE    // Cosine (normalized IP): score += correction; cosineTransform
-};
+// The score transforms and the SQ metric mode live in similarity_function.h so the storage-format headers
+// (sq_format.h, fp16_format.h, bf16_format.h) can refer to them; they are pulled into this file's scope for the
+// ISA kernels that include it.
+using knn_jni::simd::similarity_function::BulkScoreTransform;
+using knn_jni::simd::similarity_function::ScoreTransform;
+using knn_jni::simd::similarity_function::SQMetricMode;
 
 template <BulkScoreTransform BulkScoreTransformFunc, ScoreTransform ScoreTransformFunc>
 struct BaseSimilarityFunction : SimilarityFunction {

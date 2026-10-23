@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Support rescoring with `expand_nested_docs` on the Lucene engine, so the final reduction to k counts parent documents instead of child documents [#3579](https://github.com/opensearch-project/k-NN/pull/3579)
 
 ### Refactoring
+* Make the bulk SIMD kernels format aware: the FP16, BF16 and SQ kernels take the storage format (where a vector's values and correction factors live) as a compile-time parameter instead of hard-coding the Lucene layout, and the Java/JNI similarity function type carries an explicit wire value [#3645](https://github.com/opensearch-project/k-NN/pull/3645)
 
 ### Enhancements
 * Set the CMAKE_BUILD_TYPE to Release to ensure that all targets get build with optimized code [#3622](https://github.com/opensearch-project/k-NN/pull/3622)
