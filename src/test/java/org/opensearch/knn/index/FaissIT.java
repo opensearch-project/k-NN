@@ -119,17 +119,23 @@ public class FaissIT extends KNNCompressionRestTestCase {
     public static final int ALWAYS_BUILD_VECTOR_DATA_STRUCTURE_THRESHOLD = 0;
 
     static TestUtils.TestData testData;
+    // The HNSW-PQ end-to-end tests keep the original uniform fixture: their PQ models are trained on uniform
+    // random vectors, and their score assertions were written against that data.
+    static TestUtils.TestData uniformTestData;
 
     @BeforeClass
     public static void setUpClass() throws IOException, URISyntaxException {
         if (FaissIT.class.getClassLoader() == null) {
             throw new IllegalStateException("ClassLoader of FaissIT Class is null");
         }
-        URL testIndexVectors = FaissIT.class.getClassLoader().getResource("data/test_vectors_1000x128.json");
-        URL testQueries = FaissIT.class.getClassLoader().getResource("data/test_queries_100x128.csv");
+        URL testIndexVectors = FaissIT.class.getClassLoader().getResource("data/test_vectors_clustered_1000x128.json");
+        URL testQueries = FaissIT.class.getClassLoader().getResource("data/test_queries_clustered_100x128.csv");
         assert testIndexVectors != null;
         assert testQueries != null;
         testData = new TestUtils.TestData(testIndexVectors.toURI().getPath(), testQueries.toURI().getPath());
+        URL uniformIndexVectors = FaissIT.class.getClassLoader().getResource("data/test_vectors_1000x128.json");
+        URL uniformQueries = FaissIT.class.getClassLoader().getResource("data/test_queries_100x128.csv");
+        uniformTestData = new TestUtils.TestData(uniformIndexVectors.toURI().getPath(), uniformQueries.toURI().getPath());
     }
 
     @SneakyThrows
@@ -596,7 +602,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
 
         SpaceType spaceType = SpaceType.L2;
 
-        Integer dimension = testData.indexData.vectors[0].length;
+        Integer dimension = uniformTestData.indexData.vectors[0].length;
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
@@ -638,15 +644,21 @@ public class FaissIT extends KNNCompressionRestTestCase {
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
 
         // Index the test data
-        bulkAddKnnDocs(indexName, fieldName, testData.indexData.docs, testData.indexData.vectors, testData.indexData.docs.length);
+        bulkAddKnnDocs(
+            indexName,
+            fieldName,
+            uniformTestData.indexData.docs,
+            uniformTestData.indexData.vectors,
+            uniformTestData.indexData.docs.length
+        );
 
         // Assert we have the right number of documents in the index
         refreshAllNonSystemIndices();
-        assertEquals(testData.indexData.docs.length, getDocCount(indexName));
+        assertEquals(uniformTestData.indexData.docs.length, getDocCount(indexName));
 
         int k = 10;
-        for (int i = 0; i < testData.queries.length; i++) {
-            Response response = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName, testData.queries[i], k), k);
+        for (int i = 0; i < uniformTestData.queries.length; i++) {
+            Response response = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName, uniformTestData.queries[i], k), k);
             String responseBody = EntityUtils.toString(response.getEntity());
             List<KNNResult> knnResults = parseSearchResponse(responseBody, fieldName);
             assertEquals(k, knnResults.size());
@@ -655,7 +667,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             for (int j = 0; j < k; j++) {
                 float[] primitiveArray = knnResults.get(j).getVector();
                 assertEquals(
-                    KNNEngine.FAISS.score(KNNScoringUtil.l2Squared(testData.queries[i], primitiveArray), spaceType),
+                    KNNEngine.FAISS.score(KNNScoringUtil.l2Squared(uniformTestData.queries[i], primitiveArray), spaceType),
                     actualScores.get(j),
                     0.0001
                 );
@@ -1536,7 +1548,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
 
         SpaceType spaceType = SpaceType.L2;
 
-        Integer dimension = testData.indexData.vectors[0].length;
+        Integer dimension = uniformTestData.indexData.vectors[0].length;
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
@@ -1576,15 +1588,21 @@ public class FaissIT extends KNNCompressionRestTestCase {
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
 
         // Index the test data
-        bulkAddKnnDocs(indexName, fieldName, testData.indexData.docs, testData.indexData.vectors, testData.indexData.docs.length);
+        bulkAddKnnDocs(
+            indexName,
+            fieldName,
+            uniformTestData.indexData.docs,
+            uniformTestData.indexData.vectors,
+            uniformTestData.indexData.docs.length
+        );
 
         // Assert we have the right number of documents in the index
         refreshAllNonSystemIndices();
-        assertEquals(testData.indexData.docs.length, getDocCount(indexName));
+        assertEquals(uniformTestData.indexData.docs.length, getDocCount(indexName));
 
         int k = 10;
-        for (int i = 0; i < testData.queries.length; i++) {
-            Response response = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName, testData.queries[i], k), k);
+        for (int i = 0; i < uniformTestData.queries.length; i++) {
+            Response response = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName, uniformTestData.queries[i], k), k);
             String responseBody = EntityUtils.toString(response.getEntity());
             List<KNNResult> knnResults = parseSearchResponse(responseBody, fieldName);
             assertEquals(k, knnResults.size());
@@ -1593,7 +1611,7 @@ public class FaissIT extends KNNCompressionRestTestCase {
             for (int j = 0; j < k; j++) {
                 float[] primitiveArray = knnResults.get(j).getVector();
                 assertEquals(
-                    KNNEngine.FAISS.score(KNNScoringUtil.l2Squared(testData.queries[i], primitiveArray), spaceType),
+                    KNNEngine.FAISS.score(KNNScoringUtil.l2Squared(uniformTestData.queries[i], primitiveArray), spaceType),
                     actualScores.get(j),
                     0.0001
                 );

@@ -16,7 +16,6 @@ import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.ScorerSupplier;
 import org.apache.lucene.search.Weight;
 import org.opensearch.knn.index.query.KNNScorer;
-import org.opensearch.knn.index.query.KNNWeight;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -31,15 +30,22 @@ final class DocAndScoreQuery extends Query {
     private final float[] scores;
     private final int[] segmentStarts;
     private final Object contextIdentity;
-    private final KNNWeight knnWeight;
+    private final QueryUtils.ScoreExplainer scoreExplainer;
 
-    public DocAndScoreQuery(int k, int[] docs, float[] scores, int[] segmentStarts, Object contextIdentity, KNNWeight knnWeight) {
+    public DocAndScoreQuery(
+        int k,
+        int[] docs,
+        float[] scores,
+        int[] segmentStarts,
+        Object contextIdentity,
+        QueryUtils.ScoreExplainer scoreExplainer
+    ) {
         this.k = k;
         this.docs = docs;
         this.scores = scores;
         this.segmentStarts = segmentStarts;
         this.contextIdentity = contextIdentity;
-        this.knnWeight = knnWeight;
+        this.scoreExplainer = scoreExplainer;
     }
 
     @Override
@@ -67,7 +73,7 @@ final class DocAndScoreQuery extends Query {
                     throw new RuntimeException(e);
                 }
 
-                return knnWeight.explain(context, doc, score);
+                return scoreExplainer.explain(context, doc, score);
             }
 
             @Override

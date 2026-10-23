@@ -5,9 +5,11 @@
 
 package org.opensearch.knn.index.query.common;
 
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.FilteredDocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
@@ -19,9 +21,13 @@ import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.opensearch.common.Nullable;
+import org.opensearch.knn.common.FieldInfoExtractor;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.index.query.iterators.GroupedNestedDocIdSetIterator;
+import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.profile.KNNProfileUtil;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;
 import org.opensearch.search.profile.ContextualProfileBreakdown;
@@ -59,11 +65,17 @@ public class QueryUtils {
      * @param topDocs the documents to be retured by the query
      * @return a query representing the given TopDocs
      */
-    public Query createDocAndScoreQuery(final IndexReader reader, final TopDocs topDocs) {
-        return createDocAndScoreQuery(reader, topDocs, null);
+    public Query createDocAndScoreQuery(final IndexReader reader, final TopDocs topDocs, final KNNWeight knnWeight) {
+        return createDocAndScoreQuery(reader, topDocs, knnWeight::explain);
     }
 
-    public Query createDocAndScoreQuery(final IndexReader reader, final TopDocs topDocs, final KNNWeight knnWeight) {
+    /**
+     * Same as {@link #createDocAndScoreQuery(IndexReader, TopDocs, KNNWeight)}, for queries that compute their final
+     * scores themselves and so have no {@link KNNWeight} to explain them.
+     *
+     * @param scoreExplainer explains the score of each returned document, see {@link #exactSearchExplainer}
+     */
+    public Query createDocAndScoreQuery(final IndexReader reader, final TopDocs topDocs, final ScoreExplainer scoreExplainer) {
         int len = topDocs.scoreDocs.length;
         Arrays.sort(topDocs.scoreDocs, Comparator.comparingInt(a -> a.doc));
         int[] docs = new int[len];
@@ -73,7 +85,45 @@ public class QueryUtils {
             scores[i] = topDocs.scoreDocs[i].score;
         }
         int[] segmentStarts = findSegmentStarts(reader, docs);
-        return new DocAndScoreQuery(len, docs, scores, segmentStarts, reader.getContext().id(), knnWeight);
+        return new DocAndScoreQuery(len, docs, scores, segmentStarts, reader.getContext().id(), scoreExplainer);
+    }
+
+    /**
+     * Explains the score of a document returned by a {@link DocAndScoreQuery}.
+     */
+    @FunctionalInterface
+    public interface ScoreExplainer {
+        Explanation explain(LeafReaderContext context, int doc, float score);
+    }
+
+    /**
+     * Explains scores that were computed by an exact search over the field's full precision vectors, in the same
+     * format {@link KNNWeight#explain(LeafReaderContext, int, float)} uses for the native engines.
+     *
+     * The explanation is a short tree: the search type, one detail per step that produced the score, then the
+     * leaf's search type and space type.
+     *
+     * @param field the k-NN field that was searched
+     * @param searchType completes "the type of knn search executed was ...", e.g. {@link KNNConstants#ANN_SEARCH}
+     * @param steps what ran after the approximate search, one short phrase each
+     */
+    public ScoreExplainer exactSearchExplainer(final String field, final String searchType, final String... steps) {
+        return (context, doc, score) -> {
+            final List<Explanation> details = new ArrayList<>(steps.length + 1);
+            for (String step : steps) {
+                details.add(Explanation.match(score, step));
+            }
+            final StringBuilder leafLevelExplanation = new StringBuilder("the type of knn search executed at leaf was ").append(
+                KNNConstants.EXACT_SEARCH
+            );
+            final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(context.reader(), field);
+            if (fieldInfo != null) {
+                final SpaceType spaceType = FieldInfoExtractor.getSpaceType(ModelDao.OpenSearchKNNModelDao.getInstance(), fieldInfo);
+                leafLevelExplanation.append(", spaceType = ").append(spaceType.getValue());
+            }
+            details.add(Explanation.match(score, leafLevelExplanation.toString()));
+            return Explanation.match(score, "the type of knn search executed was " + searchType, details);
+        };
     }
 
     private int[] findSegmentStarts(final IndexReader reader, final int[] docs) {

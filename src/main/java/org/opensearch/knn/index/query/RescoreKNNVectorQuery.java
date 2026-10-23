@@ -20,6 +20,7 @@ import org.apache.lucene.search.TopDocsCollector;
 import org.apache.lucene.search.Weight;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.StopWatch;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.indices.ModelDao;
@@ -83,7 +84,13 @@ public class RescoreKNNVectorQuery extends Query {
         if (topK.scoreDocs.length == 0) {
             return new MatchNoDocsQuery().createWeight(searcher, scoreMode, boost);
         }
-        return QueryUtils.getInstance().createDocAndScoreQuery(searcher.getIndexReader(), topK).createWeight(searcher, scoreMode, boost);
+        final QueryUtils queryUtils = QueryUtils.getInstance();
+        final QueryUtils.ScoreExplainer explainer = queryUtils.exactSearchExplainer(
+            field,
+            KNNConstants.ANN_SEARCH,
+            "rescored with " + KNNConstants.EXACT_SEARCH + " search on full precision vectors, kept top " + k
+        );
+        return queryUtils.createDocAndScoreQuery(searcher.getIndexReader(), topK, explainer).createWeight(searcher, scoreMode, boost);
     }
 
     private TopDocs[] doRescore(final IndexSearcher indexSearcher, Weight weight) throws IOException {
