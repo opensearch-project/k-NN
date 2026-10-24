@@ -341,7 +341,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         BuildIndexParams indexInfo,
         RepositoryContext repositoryContext,
         RemoteBuildStatusResponse remoteBuildStatusResponse
-    ) throws TerminalIOException {
+    ) throws TerminalIOException, IndexBuildAbortedException {
         metrics.startRepositoryReadMetrics();
         boolean success = false;
         Directory directory = indexInfo.getSegmentWriteState().directory;
@@ -359,7 +359,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             }
             try (IndexInput input = directory.openInput(temporaryFile, indexInfo.getSegmentWriteState().context)) {
                 try {
-                    RemoteIndexGraphValidator.validate(input);
+                    RemoteIndexGraphValidator.validate(input, indexInfo.getTotalLiveDocs());
                 } catch (RemoteIndexGraphValidator.GraphFaultException e) {
                     metrics.recordGraphFault();
                     throw e;
@@ -368,7 +368,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
                 indexInfo.getIndexOutputWithBuffer().copyFrom(input);
             }
             success = true;
-        } catch (TerminalIOException e) {
+        } catch (TerminalIOException | IndexBuildAbortedException e) {
             throw e;
         } catch (Exception e) {
             throw new RuntimeException(String.format(Locale.ROOT, "Repository read failed for vector field [%s]", indexInfo.getField()), e);
