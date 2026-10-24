@@ -5,8 +5,10 @@
 
 package org.opensearch.knn.index.codec.nativeindex.remote;
 
+import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.MergeAbortChecker;
+import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FilterDirectory;
@@ -31,6 +33,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.IndexBuildAbortedException;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategy;
+import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -56,6 +59,7 @@ import java.io.IOException;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -86,6 +90,7 @@ import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_BUILD_SIZE_MAX_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_REPOSITORY_SETTING;
 import static org.opensearch.knn.index.SpaceType.INNER_PRODUCT;
+import static org.opensearch.knn.index.SpaceType.L2;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_FLUSH_TIME;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_MERGE_TIME;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.DOC_ID_FILE_EXTENSION;
@@ -113,6 +118,30 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
 
     public void testRemoteGraphDimensionMustMatchRequest() throws Exception {
         assertRemoteGraphBuild(RemoteIndexGraphValidatorTests.graphBytesWithDimension(256), true, false);
+    }
+
+    public void testRemoteGraphMetricMustMatchRequest() throws Exception {
+        assertRemoteGraphBuild(RemoteIndexGraphValidatorTests.graphBytesWithMetric(0), true, false);
+    }
+
+    public void testRemoteGraphEncodingMustMatchRequest() throws Exception {
+        assertRemoteGraphBuild(
+            RemoteIndexGraphValidatorTests.graphBytes("faiss_cagra2_flat_binary_300_vectors_768_dims.bin", 1),
+            true,
+            false
+        );
+    }
+
+    public void testRemoteGraphScalarEncodingMustMatchRequest() throws Exception {
+        assertRemoteGraphBuild(
+            RemoteIndexGraphValidatorTests.graphBytesWithMetric("faiss_cagra2_flat_byte_300_vectors_768_dims.bin", 1),
+            true,
+            false
+        );
+    }
+
+    public void testRemoteGraphDocumentIdsMustFitSegment() throws Exception {
+        assertRemoteGraphBuild(RemoteIndexGraphValidatorTests.graphBytesWithLastDocumentId(300), true, false);
     }
 
     public void testCleanupFailureAfterRemoteSuccessTerminatesBuild() throws Exception {
@@ -302,7 +331,7 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         RepositoriesService repositoriesService = mock(RepositoriesService.class);
         when(repositoriesService.repository(any())).thenReturn(repository);
         KNNLibraryIndexingContext context = mock(KNNLibraryIndexingContext.class);
-        when(context.getLibraryParameters()).thenReturn(getMockParameterMap());
+        when(context.getLibraryParameters()).thenReturn(getMockL2ParameterMap());
         ResolvedIndexSpec resolvedSpec = mock(ResolvedIndexSpec.class);
         when(resolvedSpec.isFaissSQMultiBit()).thenReturn(skipStoredVectors);
         when(context.getResolvedSpec()).thenReturn(resolvedSpec);
@@ -332,10 +361,11 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
             mergeAbort.when(MergeAbortChecker::isMergeAborted).thenReturn(aborted);
             clients.when(() -> RemoteIndexClientFactory.getRemoteIndexClient(any())).thenReturn(client);
             waiters.when(() -> RemoteIndexWaiterFactory.getRemoteIndexWaiter(any(), any())).thenReturn(waiter);
+            SegmentInfo remoteSegmentInfo = KNNCodecTestUtil.newSegmentInfo(directory.getDelegate(), "_0", 300, Codec.getDefault());
             SegmentWriteState state = new SegmentWriteState(
                 InfoStream.NO_OUTPUT,
                 directory,
-                segmentInfo,
+                remoteSegmentInfo,
                 mock(FieldInfos.class),
                 null,
                 IOContext.DEFAULT
@@ -983,6 +1013,13 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
             PARAMETERS,
             innerParams
         );
+    }
+
+    private Map<String, Object> getMockL2ParameterMap() {
+        Map<String, Object> parameters = new HashMap<>(getMockParameterMap());
+        parameters.put(SPACE_TYPE, L2.getValue());
+        parameters.put(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue());
+        return parameters;
     }
 
     public Map<String, Object> getMockSQOneBitParameterMap() {

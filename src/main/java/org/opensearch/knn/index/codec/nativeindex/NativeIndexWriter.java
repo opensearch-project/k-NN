@@ -21,6 +21,7 @@ import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.common.exception.TerminalIOException;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -152,6 +153,9 @@ public class NativeIndexWriter {
         } catch (IndexBuildAbortedException ex) {
             log.warn("Merge Aborted for field {}", fieldInfo.name, ex);
             throw new MergePolicy.MergeAbortedException("KNN Merge aborted.");
+        } catch (TerminalIOException ex) {
+            log.warn("Terminal I/O exception during merge for field {}", fieldInfo.name, ex);
+            throw ex;
         } catch (Exception ex) {
             log.error("Merge exception happened for field {}", fieldInfo.name, ex);
         }

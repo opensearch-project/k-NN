@@ -10,6 +10,8 @@ import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.knn.index.codec.nativeindex.IndexBuildAbortedException;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -31,13 +33,29 @@ final class RemoteIndexGraphValidator {
         }
     }
 
-    static void validate(IndexInput input, int expectedVectorCount, int expectedDimension, boolean skipStoredVectors) throws IOException {
+    static void validate(
+        IndexInput input,
+        int expectedVectorCount,
+        int expectedDimension,
+        int expectedMaxDoc,
+        String expectedVectorDataType,
+        String expectedSpaceType,
+        boolean skipStoredVectors
+    ) throws IOException {
         try {
             checkCancellation();
-            if (expectedVectorCount <= 0) {
-                throw new GraphFaultException("Remote graph must contain vectors");
+            if (expectedVectorCount <= 0 || expectedMaxDoc <= 0) {
+                throw new GraphFaultException("Remote graph and target segment must contain vectors");
             }
-            GraphLayout graph = readLayout(input, expectedVectorCount, expectedDimension, skipStoredVectors);
+            GraphLayout graph = readLayout(
+                input,
+                expectedVectorCount,
+                expectedDimension,
+                expectedMaxDoc,
+                expectedVectorDataType,
+                expectedSpaceType,
+                skipStoredVectors
+            );
             validateConnectivity(input, graph, expectedVectorCount);
         } catch (GraphFaultException e) {
             throw e;
@@ -78,18 +96,29 @@ final class RemoteIndexGraphValidator {
      * Read the supported FAISS layouts without the search loader's metadata allocations or recursive index loading.
      * Sections are counted arrays: a little-endian 64-bit element count followed by fixed-width elements.
      */
-    private static GraphLayout readLayout(IndexInput input, int expectedVectorCount, int expectedDimension, boolean skipStoredVectors)
-        throws IOException {
+    private static GraphLayout readLayout(
+        IndexInput input,
+        int expectedVectorCount,
+        int expectedDimension,
+        int expectedMaxDoc,
+        String expectedVectorDataType,
+        String expectedSpaceType,
+        boolean skipStoredVectors
+    ) throws IOException {
         String type = readType(input);
         if (type.equals("IxMp") == false && type.equals("IBMp") == false) {
             throw new GraphFaultException("Remote graph must have a document ID map");
         }
-        Header mapHeader = readHeader(input, type.equals("IBMp"), expectedVectorCount);
+        boolean binary = type.equals("IBMp");
+        if (binary != VectorDataType.BINARY.getValue().equals(expectedVectorDataType)) {
+            throw new GraphFaultException("Remote graph encoding does not match the build request");
+        }
+        Header mapHeader = readHeader(input, binary, expectedVectorCount);
         if (mapHeader.dimension != expectedDimension) {
             throw new GraphFaultException("Remote graph dimension does not match the build request");
         }
         type = readType(input);
-        boolean binary = type.equals("IBHf") || type.equals("IBHc");
+        binary = type.equals("IBHf") || type.equals("IBHc");
         boolean cagra = type.equals("IHNc") || type.equals("IHc2") || type.equals("IBHc");
         if (cagra == false && type.equals("IHNf") == false && type.equals("IHNs") == false && type.equals("IBHf") == false) {
             throw new GraphFaultException("Unsupported remote graph type: " + type);
@@ -97,6 +126,9 @@ final class RemoteIndexGraphValidator {
         Header header = readHeader(input, binary, expectedVectorCount);
         if (mapHeader.matches(header) == false) {
             throw new GraphFaultException("Remote graph header does not match its ID map");
+        }
+        if (binary == false && header.metric != expectedFloatMetric(expectedSpaceType)) {
+            throw new GraphFaultException("Remote graph metric does not match the build request");
         }
         if (skipStoredVectors && binary && mapHeader.metric != 0 && mapHeader.metric != 1) {
             throw new GraphFaultException("Remote binary graph has an unsupported ADC metric: " + mapHeader.metric);
@@ -142,7 +174,7 @@ final class RemoteIndexGraphValidator {
         }
         // FaissFlatIndexFactory can supply local storage for float CAGRA and ordinary binary HNSW only.
         boolean supportsSkippedStorage = (cagra && binary == false) || type.equals("IBHf");
-        readStorage(input, header, expectedVectorCount, skipStoredVectors, supportsSkippedStorage);
+        readStorage(input, header, expectedVectorCount, expectedVectorDataType, skipStoredVectors, supportsSkippedStorage);
         Section ids = readSection(input, Long.BYTES);
         if (ids.count != expectedVectorCount) {
             throw new GraphFaultException("Remote graph ID map does not match the expected vector count");
@@ -152,7 +184,7 @@ final class RemoteIndexGraphValidator {
         for (int i = 0; i < expectedVectorCount; i++) {
             checkCancellation(i);
             long id = input.readLong();
-            if (id < 0 || id < previous || id >= Integer.MAX_VALUE) {
+            if (id < 0 || id < previous || id >= expectedMaxDoc) {
                 throw new GraphFaultException("Remote graph has an invalid document ID: " + id);
             }
             previous = id;
@@ -168,6 +200,20 @@ final class RemoteIndexGraphValidator {
             throw new GraphFaultException("Remote graph has unexpected trailing data");
         }
         return new GraphLayout(cumulative, levels, offsets, neighbors, maxLevel, entryPoint, baseLevelOnly);
+    }
+
+    private static int expectedFloatMetric(String expectedSpaceType) throws GraphFaultException {
+        final SpaceType spaceType;
+        try {
+            spaceType = SpaceType.getSpace(expectedSpaceType);
+        } catch (IllegalArgumentException e) {
+            throw new GraphFaultException("Remote build request has an unsupported space type: " + expectedSpaceType, e);
+        }
+        return switch (spaceType) {
+            case L2 -> 1;
+            case INNER_PRODUCT, COSINESIMIL -> 0;
+            default -> throw new GraphFaultException("Remote build request has an unsupported float space type: " + expectedSpaceType);
+        };
     }
 
     private static Header readHeader(IndexInput input, boolean binary, int expectedVectorCount) throws IOException {
@@ -194,6 +240,7 @@ final class RemoteIndexGraphValidator {
         IndexInput input,
         Header graphHeader,
         int expectedVectorCount,
+        String expectedVectorDataType,
         boolean skipStoredVectors,
         boolean supportsSkippedStorage
     ) throws IOException {
@@ -215,6 +262,11 @@ final class RemoteIndexGraphValidator {
         if (header.matches(graphHeader) == false) {
             throw new GraphFaultException("Remote flat storage does not match its graph header");
         }
+        if (type.equals("IxF2") || type.equals("IxFI")) {
+            if (VectorDataType.FLOAT.getValue().equals(expectedVectorDataType) == false) {
+                throw new GraphFaultException("Remote flat storage encoding does not match the build request");
+            }
+        }
         long elementsPerVector = binary ? header.codeSize : header.dimension;
         int elementSize = binary ? Byte.BYTES : Float.BYTES;
         if (type.equals("IxSQ")) {
@@ -230,6 +282,15 @@ final class RemoteIndexGraphValidator {
                 case 8 -> 1;
                 default -> throw new GraphFaultException("Unsupported remote scalar quantizer: " + quantizer);
             };
+            boolean encodingMatches = switch (quantizer) {
+                case 4 -> VectorDataType.HALF_FLOAT.getValue().equals(expectedVectorDataType);
+                case 7 -> VectorDataType.FLOAT.getValue().equals(expectedVectorDataType);
+                case 8 -> VectorDataType.BYTE.getValue().equals(expectedVectorDataType);
+                default -> false;
+            };
+            if (encodingMatches == false) {
+                throw new GraphFaultException("Remote scalar storage encoding does not match the build request");
+            }
             if (rangeStatistic < 0 || rangeStatistic > 3 || dimension != header.dimension || codeSize != dimension * bytesPerDimension) {
                 throw new GraphFaultException("Remote scalar storage has inconsistent metadata");
             }

@@ -366,6 +366,9 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
                         input,
                         buildRequest.getDocCount(),
                         buildRequest.getDimension(),
+                        indexInfo.getSegmentWriteState().segmentInfo.maxDoc(),
+                        buildRequest.getVectorDataType(),
+                        buildRequest.getIndexParameters().getSpaceType(),
                         buildRequest.isSkipStoredVectors()
                     );
                 } catch (RemoteIndexGraphValidator.GraphFaultException e) {

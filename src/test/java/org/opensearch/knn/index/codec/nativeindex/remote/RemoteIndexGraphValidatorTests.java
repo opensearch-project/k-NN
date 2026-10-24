@@ -11,6 +11,8 @@ import org.mockito.MockedStatic;
 import org.opensearch.knn.index.codec.nativeindex.IndexBuildAbortedException;
 import org.opensearch.common.lucene.store.ByteArrayIndexInput;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissHNSW;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissHNSWProvider;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissIndex;
@@ -71,8 +73,11 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
 
     public void testBinaryDimensionMustMatchBuildRequest() throws IOException {
         byte[] bytes = binaryGraphWithSkippedStorage(1);
-        validate(bytes, 3, 8, true);
-        IOException failure = expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(bytes, 3, 16, true));
+        validate(bytes, 3, 8, VectorDataType.BINARY, SpaceType.HAMMING, true);
+        IOException failure = expectThrows(
+            RemoteIndexGraphValidator.GraphFaultException.class,
+            () -> validate(bytes, 3, 16, VectorDataType.BINARY, SpaceType.HAMMING, true)
+        );
         assertTrue(failure.getMessage(), failure.getMessage().contains("dimension"));
     }
 
@@ -185,12 +190,15 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
 
     public void testSkippedBinaryStorageAcceptsAdcMetrics() throws IOException {
         for (int metric : new int[] { 0, 1 }) {
-            validate(binaryGraphWithSkippedStorage(metric), 3, 8, true);
+            validate(binaryGraphWithSkippedStorage(metric), 3, 8, VectorDataType.BINARY, SpaceType.HAMMING, true);
         }
     }
 
     public void testSkippedBinaryStorageRejectsUnsupportedAdcMetric() {
-        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(binaryGraphWithSkippedStorage(2), 3, 8, true));
+        expectThrows(
+            RemoteIndexGraphValidator.GraphFaultException.class,
+            () -> validate(binaryGraphWithSkippedStorage(2), 3, 8, VectorDataType.BINARY, SpaceType.HAMMING, true)
+        );
     }
 
     private static byte[] binaryGraphWithSkippedStorage(int metric) {
@@ -230,7 +238,7 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         data.putInt(33, 0).putInt(70, 0).putInt(43336 + 33, 0);
         data.position(43336);
         data.put("IxFI".getBytes(StandardCharsets.US_ASCII));
-        validate(bytes);
+        validate(bytes, 300, 768, VectorDataType.FLOAT, SpaceType.INNER_PRODUCT, false);
     }
 
     public void testBinaryIdMapCanRecordDifferentMetric() throws IOException {
@@ -238,7 +246,7 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         assertEquals("IBMp", new String(bytes, 0, 4, StandardCharsets.US_ASCII));
         // Binary ID maps may record the ADC metric independently from the graph's default Hamming metric.
         ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).putInt(21, 0);
-        validate(bytes);
+        validate(bytes, 300, 768, VectorDataType.BINARY, SpaceType.HAMMING, false);
     }
 
     private void assertMetricMismatchRejected(int metricOffset) throws IOException {
@@ -341,7 +349,21 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         IOException failure = new IOException("Disk read failed");
         try (IndexInput input = spy(new ByteArrayIndexInput("graph", graphBytes(CAGRA_FILES.getFirst(), 1)))) {
             doThrow(failure).when(input).readInt();
-            assertSame(failure, expectThrows(IOException.class, () -> RemoteIndexGraphValidator.validate(input, 300, 768, false)));
+            assertSame(
+                failure,
+                expectThrows(
+                    IOException.class,
+                    () -> RemoteIndexGraphValidator.validate(
+                        input,
+                        300,
+                        768,
+                        300,
+                        VectorDataType.FLOAT.getValue(),
+                        SpaceType.L2.getValue(),
+                        false
+                    )
+                )
+            );
         }
     }
 
@@ -355,7 +377,21 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         IOException failure = new IOException("Disk seek failed");
         try (IndexInput input = spy(new ByteArrayIndexInput("graph", bytes))) {
             doThrow(failure).when(input).seek(neighborsOffset);
-            assertSame(failure, expectThrows(IOException.class, () -> RemoteIndexGraphValidator.validate(input, 300, 768, false)));
+            assertSame(
+                failure,
+                expectThrows(
+                    IOException.class,
+                    () -> RemoteIndexGraphValidator.validate(
+                        input,
+                        300,
+                        768,
+                        300,
+                        VectorDataType.FLOAT.getValue(),
+                        SpaceType.L2.getValue(),
+                        false
+                    )
+                )
+            );
         }
     }
 
@@ -522,18 +558,72 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         return resized.array();
     }
 
+    static byte[] graphBytesWithMetric(int metric) throws IOException {
+        return graphBytesWithMetric(CAGRA_FILES.getFirst(), metric);
+    }
+
+    static byte[] graphBytesWithMetric(String file, int metric) throws IOException {
+        byte[] bytes = graphBytes(file, 1);
+        ByteBuffer data = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
+        data.putInt(33, metric).putInt(70, metric);
+        for (int offset = 0; offset <= bytes.length - 4; offset++) {
+            if (bytes[offset] == 'I' && bytes[offset + 1] == 'x' && bytes[offset + 2] == 'S' && bytes[offset + 3] == 'Q') {
+                data.putInt(offset + 33, metric);
+                return bytes;
+            }
+            if (bytes[offset] == 'I' && bytes[offset + 1] == 'x' && bytes[offset + 2] == 'F') {
+                data.putInt(offset + 33, metric);
+                return bytes;
+            }
+        }
+        throw new AssertionError("Fixture has no scalar or flat vector storage");
+    }
+
+    static byte[] graphBytesWithLastDocumentId(long documentId) throws IOException {
+        byte[] bytes = graphBytes(CAGRA_FILES.getFirst(), 1);
+        ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).putLong(bytes.length - Long.BYTES, documentId);
+        return bytes;
+    }
+
     private static void validate(byte[] bytes) throws IOException {
         validate(bytes, 300, 768, false);
     }
 
     private static void validateFixture(byte[] bytes, String file) throws IOException {
-        validate(bytes, 300, file.equals("faiss_binary_cagra_300_vectors_32_dims.faiss") ? 32 : 768, false);
+        boolean binary = file.contains("binary");
+        VectorDataType vectorDataType = file.contains("flat_byte") ? VectorDataType.BYTE
+            : file.contains("flat_fp16") ? VectorDataType.HALF_FLOAT
+            : binary ? VectorDataType.BINARY
+            : VectorDataType.FLOAT;
+        SpaceType spaceType = binary ? SpaceType.HAMMING
+            : file.equals("faiss_cagra_flat_float_300_vectors_768_dims.bin") ? SpaceType.L2
+            : SpaceType.INNER_PRODUCT;
+        validate(bytes, 300, file.equals("faiss_binary_cagra_300_vectors_32_dims.faiss") ? 32 : 768, vectorDataType, spaceType, false);
     }
 
     private static void validate(byte[] bytes, int expectedVectorCount, int expectedDimension, boolean skipStoredVectors)
         throws IOException {
+        validate(bytes, expectedVectorCount, expectedDimension, VectorDataType.FLOAT, SpaceType.L2, skipStoredVectors);
+    }
+
+    private static void validate(
+        byte[] bytes,
+        int expectedVectorCount,
+        int expectedDimension,
+        VectorDataType vectorDataType,
+        SpaceType spaceType,
+        boolean skipStoredVectors
+    ) throws IOException {
         try (ByteArrayIndexInput input = new ByteArrayIndexInput("graph", bytes)) {
-            RemoteIndexGraphValidator.validate(input, expectedVectorCount, expectedDimension, skipStoredVectors);
+            RemoteIndexGraphValidator.validate(
+                input,
+                expectedVectorCount,
+                expectedDimension,
+                expectedVectorCount,
+                vectorDataType.getValue(),
+                spaceType.getValue(),
+                skipStoredVectors
+            );
         }
     }
 
