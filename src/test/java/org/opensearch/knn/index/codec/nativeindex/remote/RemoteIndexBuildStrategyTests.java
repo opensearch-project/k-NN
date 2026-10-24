@@ -10,7 +10,10 @@ import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexOutput;
+import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.InfoStream;
+import org.mockito.MockedStatic;
+import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.common.SetOnce;
 import org.opensearch.common.blobstore.BlobContainer;
 import org.opensearch.common.blobstore.BlobPath;
@@ -24,26 +27,39 @@ import org.opensearch.knn.common.exception.TerminalIOException;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.IndexBuildAbortedException;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategy;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
+import org.opensearch.knn.index.remote.RemoteIndexWaiter;
+import org.opensearch.knn.index.remote.RemoteIndexWaiterFactory;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
 import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
+import org.opensearch.remoteindexbuild.model.RemoteBuildResponse;
+import org.opensearch.remoteindexbuild.model.RemoteBuildStatusResponse;
+import org.opensearch.remoteindexbuild.client.RemoteIndexClient;
+import org.opensearch.remoteindexbuild.client.RemoteIndexClientFactory;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.RepositoryMissingException;
 import org.opensearch.repositories.blobstore.BlobStoreRepository;
 
 import java.io.IOException;
+import java.io.ByteArrayInputStream;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
@@ -79,6 +95,105 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
     public static final String VECTORS_PATH = "_vectors";
     public static final String MOCK_FULL_PATH = "vectors/1_1_25/SIRKos4rOWlMA62PX2p75m_vectors/SIRKos4rOWlMA62PX2p75m_target_field__3l";
     public static final String MOCK_SEGMENT_STATE = "_3l";
+
+    public void testDisconnectedRemoteGraphFallsBackToCPU() throws Exception {
+        assertRemoteGraphBuild(true);
+    }
+
+    public void testConnectedRemoteGraphIsAccepted() throws Exception {
+        assertRemoteGraphBuild(false);
+    }
+
+    public void testRepositoryDownloadFailureDoesNotCountAsGraphFault() throws Exception {
+        assertRemoteGraphBuild(false, true);
+    }
+
+    private void assertRemoteGraphBuild(boolean disconnected) throws Exception {
+        assertRemoteGraphBuild(disconnected, false);
+    }
+
+    private void assertRemoteGraphBuild(boolean disconnected, boolean downloadFailure) throws Exception {
+        byte[] graph = RemoteIndexGraphValidatorTests.graphBytes("faiss_cagra_flat_float_300_vectors_768_dims.bin", disconnected ? 2 : 1);
+        BlobContainer blobContainer = mock(BlobContainer.class);
+        if (downloadFailure) {
+            when(blobContainer.readBlob("graph.faiss")).thenThrow(new IOException("Repository download failed"));
+        } else {
+            when(blobContainer.readBlob("graph.faiss")).thenReturn(new ByteArrayInputStream(graph));
+        }
+        BlobStore blobStore = mock(BlobStore.class);
+        when(blobStore.blobContainer(any())).thenReturn(blobContainer);
+        BlobStoreRepository repository = mock(BlobStoreRepository.class);
+        when(repository.basePath()).thenReturn(new BlobPath());
+        when(repository.blobStore()).thenReturn(blobStore);
+        RepositoryMetadata metadata = createTestRepositoryMetadata();
+        when(repository.getMetadata()).thenReturn(metadata);
+        RepositoriesService repositoriesService = mock(RepositoriesService.class);
+        when(repositoriesService.repository(any())).thenReturn(repository);
+        KNNLibraryIndexingContext context = mock(KNNLibraryIndexingContext.class);
+        when(context.getLibraryParameters()).thenReturn(getMockParameterMap());
+        when(context.getResolvedSpec()).thenReturn(mock(ResolvedIndexSpec.class));
+        RemoteIndexClient client = mock(RemoteIndexClient.class);
+        when(client.submitVectorBuild(any())).thenReturn(RemoteBuildResponse.builder().jobId("job").build());
+        RemoteIndexWaiter waiter = mock(RemoteIndexWaiter.class);
+        when(waiter.awaitVectorBuild(any())).thenReturn(RemoteBuildStatusResponse.builder().fileName("graph.faiss").build());
+
+        try (
+            Directory directory = newDirectory();
+            MockedStatic<RemoteIndexClientFactory> clients = mockStatic(RemoteIndexClientFactory.class);
+            MockedStatic<RemoteIndexWaiterFactory> waiters = mockStatic(RemoteIndexWaiterFactory.class);
+            IndexOutputWithBuffer output = new IndexOutputWithBuffer(directory.createOutput("index.faiss", IOContext.DEFAULT))
+        ) {
+            clients.when(() -> RemoteIndexClientFactory.getRemoteIndexClient(any())).thenReturn(client);
+            waiters.when(() -> RemoteIndexWaiterFactory.getRemoteIndexWaiter(any(), any())).thenReturn(waiter);
+            SegmentWriteState state = new SegmentWriteState(
+                InfoStream.NO_OUTPUT,
+                directory,
+                segmentInfo,
+                mock(FieldInfos.class),
+                null,
+                IOContext.DEFAULT
+            );
+            BuildIndexParams params = BuildIndexParams.builder()
+                .indexOutputWithBuffer(output)
+                .segmentWriteState(state)
+                .knnEngine(KNNEngine.FAISS)
+                .field(buildIndexParams.getField())
+                .vectorDataType(VectorDataType.FLOAT)
+                .indexParameters(buildIndexParams.getIndexParameters())
+                .knnVectorValuesSupplier(knnVectorValuesSupplier)
+                .totalLiveDocs(buildIndexParams.getTotalLiveDocs())
+                .isFlush(buildIndexParams.isFlush())
+                .build();
+            NativeIndexBuildStrategy fallback = mock(NativeIndexBuildStrategy.class);
+            byte[] cpuIndex = new byte[] { 1, 2, 3 };
+            doAnswer(invocation -> {
+                assertEquals(0L, output.getBytesWritten());
+                output.writeFromStreamWithBuffer(new ByteArrayInputStream(cpuIndex), cpuIndex.length);
+                return null;
+            }).when(fallback).buildAndWriteIndex(params);
+
+            new RemoteIndexBuildStrategy(() -> repositoriesService, fallback, createTestIndexSettings(), context).buildAndWriteIndex(
+                params
+            );
+
+            verify(client).submitVectorBuild(any());
+            verify(blobContainer).readBlob("graph.faiss");
+            boolean expectFallback = disconnected || downloadFailure;
+            verify(fallback, expectFallback ? times(1) : never()).buildAndWriteIndex(params);
+            assertEquals(expectFallback ? 1L : 0L, (long) KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT.getValue());
+            assertEquals(expectFallback ? 0L : 1L, (long) KNNRemoteIndexBuildValue.INDEX_BUILD_SUCCESS_COUNT.getValue());
+            assertEquals(disconnected ? 1L : 0L, (long) KNNRemoteIndexBuildValue.GPU_GRAPH_FAULT_COUNT.getValue());
+            assertArrayEquals(new String[] { "index.faiss" }, directory.listAll());
+            output.close();
+            byte[] expected = expectFallback ? cpuIndex : graph;
+            try (IndexInput input = directory.openInput("index.faiss", IOContext.DEFAULT)) {
+                assertEquals(expected.length, input.length());
+                byte[] actual = new byte[expected.length];
+                input.readBytes(actual, 0, actual.length);
+                assertArrayEquals(expected, actual);
+            }
+        }
+    }
 
     /**
      * Test that we fallback to the fallback NativeIndexBuildStrategy when an exception is thrown

@@ -11,6 +11,10 @@ import com.google.common.annotations.VisibleForTesting;
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.MergeAbortChecker;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.store.IndexOutput;
+import org.apache.lucene.util.IOUtils;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.common.UUIDs;
@@ -27,6 +31,7 @@ import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategy;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.ResolvedIndexSpec;
+import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.remote.RemoteIndexWaiter;
 import org.opensearch.knn.index.remote.RemoteIndexWaiterFactory;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -330,7 +335,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     }
 
     /**
-     * Downloads the index file from the repository and writes to the indexOutput
+     * Downloads and validates the index before copying it to the indexOutput.
      */
     private void readFromRepository(
         BuildIndexParams indexInfo,
@@ -339,17 +344,38 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     ) throws TerminalIOException {
         metrics.startRepositoryReadMetrics();
         boolean success = false;
+        Directory directory = indexInfo.getSegmentWriteState().directory;
+        String temporaryFile = null;
         try {
-            repositoryContext.vectorRepositoryAccessor.readFromRepository(
-                remoteBuildStatusResponse.getFileName(),
-                indexInfo.getIndexOutputWithBuffer()
+            // Stage the download on disk so the graph can be inspected without loading the entire index into memory.
+            IndexOutput output = directory.createTempOutput(
+                indexInfo.getSegmentWriteState().segmentInfo.name,
+                "remote",
+                indexInfo.getSegmentWriteState().context
             );
+            temporaryFile = output.getName();
+            try (IndexOutputWithBuffer bufferedOutput = new IndexOutputWithBuffer(output)) {
+                repositoryContext.vectorRepositoryAccessor.readFromRepository(remoteBuildStatusResponse.getFileName(), bufferedOutput);
+            }
+            try (IndexInput input = directory.openInput(temporaryFile, indexInfo.getSegmentWriteState().context)) {
+                try {
+                    RemoteIndexGraphValidator.validate(input);
+                } catch (RemoteIndexGraphValidator.GraphFaultException e) {
+                    metrics.recordGraphFault();
+                    throw e;
+                }
+                input.seek(0);
+                indexInfo.getIndexOutputWithBuffer().copyFrom(input);
+            }
             success = true;
         } catch (TerminalIOException e) {
             throw e;
         } catch (Exception e) {
             throw new RuntimeException(String.format(Locale.ROOT, "Repository read failed for vector field [%s]", indexInfo.getField()), e);
         } finally {
+            if (temporaryFile != null) {
+                IOUtils.deleteFilesIgnoringExceptions(directory, temporaryFile);
+            }
             metrics.endRepositoryReadMetrics(success);
         }
     }

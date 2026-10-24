@@ -16,6 +16,7 @@ import java.io.IOException;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.BUILD_REQUEST_FAILURE_COUNT;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.BUILD_REQUEST_SUCCESS_COUNT;
+import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.GPU_GRAPH_FAULT_COUNT;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.INDEX_BUILD_MERGE_ABORT_EXCEPTION;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.INDEX_BUILD_SUCCESS_COUNT;
@@ -121,6 +122,11 @@ public class RemoteIndexBuildMetrics {
     // Repository read phase metric helpers
     public void startRepositoryReadMetrics() {
         readStopWatch.start();
+    }
+
+    /** Records one rejected remote graph, independently of whether the subsequent CPU fallback succeeds. */
+    public void recordGraphFault() {
+        GPU_GRAPH_FAULT_COUNT.increment();
     }
 
     public void endRepositoryReadMetrics(boolean success) {

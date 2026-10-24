@@ -243,6 +243,10 @@ public class KNNStats {
             KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT.getValue()
         );
         clientStatsMap.put(
+            KNNRemoteIndexBuildValue.GPU_GRAPH_FAULT_COUNT.getName(),
+            KNNRemoteIndexBuildValue.GPU_GRAPH_FAULT_COUNT.getValue()
+        );
+        clientStatsMap.put(
             KNNRemoteIndexBuildValue.INDEX_BUILD_MERGE_ABORT_EXCEPTION.getName(),
             KNNRemoteIndexBuildValue.INDEX_BUILD_MERGE_ABORT_EXCEPTION.getValue()
         );

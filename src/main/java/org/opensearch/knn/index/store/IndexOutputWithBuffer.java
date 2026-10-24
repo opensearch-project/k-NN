@@ -10,6 +10,7 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.opensearch.knn.common.exception.TerminalIOException;
 
@@ -100,6 +101,22 @@ public class IndexOutputWithBuffer implements AutoCloseable {
      */
     public String getName() {
         return indexOutput.getName();
+    }
+
+    /** Copies a validated index while tracking writes for remote-build fallback. */
+    public void copyFrom(IndexInput input) throws IOException {
+        long remaining = input.length() - input.getFilePointer();
+        while (remaining > 0) {
+            int length = (int) Math.min(buffer.length, remaining);
+            input.readBytes(buffer, 0, length);
+            try {
+                indexOutput.writeBytes(buffer, 0, length);
+                bytesWritten += length;
+            } catch (IOException e) {
+                throw new TerminalIOException("Failed to write to indexOutput", e);
+            }
+            remaining -= length;
+        }
     }
 
     /**

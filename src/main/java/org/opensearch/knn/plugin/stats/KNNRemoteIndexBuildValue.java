@@ -34,6 +34,8 @@ public enum KNNRemoteIndexBuildValue {
     STATUS_REQUEST_FAILURE_COUNT("status_request_failure_count"),
     INDEX_BUILD_SUCCESS_COUNT("index_build_success_count"),
     INDEX_BUILD_FAILURE_COUNT("index_build_failure_count"),
+    // One fault per remote graph rejected for invalid structure or connectivity, regardless of component count.
+    GPU_GRAPH_FAULT_COUNT("gpu_graph_fault_count"),
     INDEX_BUILD_MERGE_ABORT_EXCEPTION("index_build_merge_abort_exception"),
     INDEX_BUILD_TERMINAL_EXCEPTION("index_build_terminal_exception"),
     WAITING_TIME("waiting_time_in_ms");
