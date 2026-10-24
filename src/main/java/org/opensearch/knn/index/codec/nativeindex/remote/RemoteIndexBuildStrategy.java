@@ -359,7 +359,11 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             }
             try (IndexInput input = directory.openInput(temporaryFile, indexInfo.getSegmentWriteState().context)) {
                 try {
-                    RemoteIndexGraphValidator.validate(input, indexInfo.getTotalLiveDocs());
+                    RemoteIndexGraphValidator.validate(
+                        input,
+                        indexInfo.getTotalLiveDocs(),
+                        shouldSkipStoredVectors(indexInfo.getVectorDataType(), knnLibraryIndexingContext.getResolvedSpec())
+                    );
                 } catch (RemoteIndexGraphValidator.GraphFaultException e) {
                     metrics.recordGraphFault();
                     throw e;

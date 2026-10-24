@@ -51,6 +51,192 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         }
     }
 
+    public void testMissingVectorStorageIsRejectedForOrdinaryBuild() throws IOException {
+        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(graphBytesWithoutStorage()));
+    }
+
+    public void testSkippedCagraStorageIsAcceptedWhenRequested() throws IOException {
+        validate(graphBytesWithoutStorage(), 300, true);
+    }
+
+    public void testEmbeddedStorageIsRejectedWhenSkippedStorageWasRequested() throws IOException {
+        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(graphBytes(CAGRA_FILES.getFirst(), 1), 300, true));
+    }
+
+    public void testPlainHnswCannotUseSkippedStorage() {
+        byte[] cagra = smallGraphWithUpperLevel(0);
+        ByteBuffer graph = ByteBuffer.allocate(cagra.length - 6);
+        graph.put("IHNf".getBytes(StandardCharsets.US_ASCII)).put(cagra, 4, 33).put(cagra, 43, cagra.length - 43);
+        IOException failure = expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validateGraph(graph.array(), 3));
+        assertTrue(failure.getMessage(), failure.getMessage().contains("skipped vector storage"));
+    }
+
+    public void testMissingIdMapIsRejected() throws IOException {
+        byte[] bytes = graphBytes(CAGRA_FILES.getFirst(), 1);
+        // Retain a complete CAGRA graph and its flat storage, removing only the ID-map header and trailing IDs.
+        byte[] graph = Arrays.copyOfRange(bytes, 37, bytes.length - Long.BYTES * 301);
+        IOException failure = expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(graph));
+        assertTrue(failure.getMessage(), failure.getMessage().contains("document ID map"));
+    }
+
+    public void testNonBaseCagraRequiresEntryPoint() throws IOException {
+        byte[] bytes = graphBytes(CAGRA_FILES.getFirst(), 1);
+        // IxMp header (37 bytes), then CAGRA fourcc/common header (37 bytes) and two flags.
+        bytes[75] = 0; // base_level_only=false; this fixture has entry_point=max_level=-1.
+        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(bytes));
+    }
+
+    public void testNonBaseCagraChecksMaximumLevelAndEntryPointLevel() {
+        for (int entryPoint : new int[] { -1, 1, 3, Integer.MAX_VALUE }) {
+            byte[] graph = smallGraphWithUpperLevel(0);
+            graph[38] = 0;
+            ByteBuffer.wrap(graph).order(ByteOrder.LITTLE_ENDIAN).putInt(175, entryPoint);
+            expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validateGraph(graph, 3));
+        }
+        for (int maxLevel : new int[] { -1, 0, 2, Integer.MAX_VALUE }) {
+            byte[] graph = smallGraphWithUpperLevel(0);
+            graph[38] = 0;
+            ByteBuffer.wrap(graph).order(ByteOrder.LITTLE_ENDIAN).putInt(179, maxLevel);
+            expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validateGraph(graph, 3));
+        }
+    }
+
+    public void testNonBaseCagraWithValidMetadataIsAccepted() throws IOException {
+        byte[] graph = smallGraphWithUpperLevel(0);
+        graph[38] = 0;
+        validateGraph(graph, 3);
+    }
+
+    public void testBaseOnlyCagraRejectsUnsafeRangeSearchMetadata() {
+        for (int entryPoint : new int[] { -2, 1, 3, Integer.MAX_VALUE }) {
+            byte[] graph = smallGraphWithUpperLevel(0);
+            ByteBuffer.wrap(graph).order(ByteOrder.LITTLE_ENDIAN).putInt(175, entryPoint);
+            expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validateGraph(graph, 3));
+        }
+        for (int maxLevel : new int[] { -2, 2, Integer.MAX_VALUE }) {
+            byte[] graph = smallGraphWithUpperLevel(0);
+            ByteBuffer.wrap(graph).order(ByteOrder.LITTLE_ENDIAN).putInt(179, maxLevel);
+            expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validateGraph(graph, 3));
+        }
+        byte[] graph = smallGraphWithUpperLevel(0);
+        // Native range search uses a random seed if entry_point=-1. Nodes 1 and 2 do not have level 1.
+        ByteBuffer.wrap(graph).order(ByteOrder.LITTLE_ENDIAN).putInt(175, -1);
+        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validateGraph(graph, 3));
+    }
+
+    public void testBaseOnlyCagraCanSearchBelowHighestStoredLevel() throws IOException {
+        for (int entryPoint : new int[] { -1, 0, 1, 2 }) {
+            for (int maxLevel : new int[] { -1, 0 }) {
+                byte[] graph = smallGraphWithUpperLevel(0);
+                ByteBuffer.wrap(graph).order(ByteOrder.LITTLE_ENDIAN).putInt(175, entryPoint).putInt(179, maxLevel);
+                validateGraph(graph, 3);
+            }
+        }
+    }
+
+    public void testBaseOnlyCagraCanUseRandomSeedsWhenEveryNodeHasUpperLevel() throws IOException {
+        ByteBuffer graph = ByteBuffer.allocate(207).order(ByteOrder.LITTLE_ENDIAN);
+        graph.put("IHNc".getBytes(StandardCharsets.US_ASCII));
+        graph.putInt(1).putLong(3).putLong(0).putLong(0).put((byte) 1).putInt(1);
+        graph.put((byte) 0).put((byte) 1).putInt(32);
+        graph.putLong(1).putDouble(1.0);
+        graph.putLong(3).putInt(0).putInt(2).putInt(3);
+        graph.putLong(3).putInt(2).putInt(2).putInt(2);
+        graph.putLong(4).putLong(0).putLong(3).putLong(6).putLong(9);
+        graph.putLong(9);
+        for (int node = 0; node < 3; node++) {
+            graph.putInt((node + 1) % 3).putInt(-1).putInt(node);
+        }
+        graph.putInt(-1).putInt(1).putInt(16).putInt(16).putInt(0);
+        graph.put("null".getBytes(StandardCharsets.US_ASCII));
+        validateGraph(graph.array(), 3);
+    }
+
+    public void testNonBaseCagraStillNeedsRandomEntryPointsForMemoryOptimizedSearch() {
+        byte[] graph = smallGraphWithUpperLevel(0);
+        graph[38] = 0;
+        ByteBuffer.wrap(graph).order(ByteOrder.LITTLE_ENDIAN).putInt(39, 0);
+        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validateGraph(graph, 3));
+    }
+
+    public void testSkippedBinaryStorageAcceptsAdcMetrics() throws IOException {
+        for (int metric : new int[] { 0, 1 }) {
+            validate(binaryGraphWithSkippedStorage(metric), 3, true);
+        }
+    }
+
+    public void testSkippedBinaryStorageRejectsUnsupportedAdcMetric() {
+        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(binaryGraphWithSkippedStorage(2), 3, true));
+    }
+
+    private static byte[] binaryGraphWithSkippedStorage(int metric) {
+        byte[] graph = smallGraphWithUpperLevel(0);
+        ByteBuffer bytes = ByteBuffer.allocate(25 + 25 + graph.length - 43 + 8 + 24).order(ByteOrder.LITTLE_ENDIAN);
+        bytes.put("IBMp".getBytes(StandardCharsets.US_ASCII));
+        bytes.putInt(8).putInt(1).putLong(3).put((byte) 1).putInt(metric);
+        bytes.put("IBHf".getBytes(StandardCharsets.US_ASCII));
+        bytes.putInt(8).putInt(1).putLong(3).put((byte) 1).putInt(1);
+        bytes.put(graph, 43, graph.length - 43).putLong(3).putLong(0).putLong(1).putLong(2);
+        return bytes.array();
+    }
+
+    public void testCagraFlagsMustBeBoolean() {
+        for (int offset : new int[] { 37, 38 }) {
+            byte[] graph = smallGraph();
+            graph[offset] = 2;
+            expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validateGraph(graph, 3));
+        }
+    }
+
+    public void testFloatIdMapMetricMustMatchGraph() throws IOException {
+        assertMetricMismatchRejected(33);
+    }
+
+    public void testFloatGraphMetricMustMatchIdMap() throws IOException {
+        assertMetricMismatchRejected(70);
+    }
+
+    public void testFloatStorageMetricMustMatchGraph() throws IOException {
+        assertMetricMismatchRejected(43336 + 33);
+    }
+
+    public void testConsistentInnerProductHeadersAreAccepted() throws IOException {
+        byte[] bytes = graphBytes(CAGRA_FILES.getFirst(), 1);
+        ByteBuffer data = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
+        data.putInt(33, 0).putInt(70, 0).putInt(43336 + 33, 0);
+        data.position(43336);
+        data.put("IxFI".getBytes(StandardCharsets.US_ASCII));
+        validate(bytes);
+    }
+
+    public void testBinaryIdMapCanRecordDifferentMetric() throws IOException {
+        byte[] bytes = graphBytes("faiss_cagra2_flat_binary_300_vectors_768_dims.bin", 1);
+        assertEquals("IBMp", new String(bytes, 0, 4, StandardCharsets.US_ASCII));
+        // Binary ID maps may record the ADC metric independently from the graph's default Hamming metric.
+        ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).putInt(21, 0);
+        validate(bytes);
+    }
+
+    private void assertMetricMismatchRejected(int metricOffset) throws IOException {
+        byte[] bytes = graphBytes(CAGRA_FILES.getFirst(), 1);
+        ByteBuffer data = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
+        assertEquals(1, data.getInt(metricOffset));
+        data.putInt(metricOffset, 0);
+        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(bytes));
+    }
+
+    static byte[] graphBytesWithoutStorage() throws IOException {
+        byte[] original = graphBytes(CAGRA_FILES.getFirst(), 1);
+        // Layout of the independent 300-vector FP32 fixture: graph ends at 43336; ID map is the last counted long array.
+        int storageOffset = 43336;
+        assertEquals("IxF2", new String(original, storageOffset, 4, StandardCharsets.US_ASCII));
+        int idMapOffset = original.length - Long.BYTES * 301;
+        ByteBuffer bytes = ByteBuffer.allocate(storageOffset + 4 + original.length - idMapOffset);
+        bytes.put(original, 0, storageOffset).put("null".getBytes(StandardCharsets.US_ASCII));
+        bytes.put(original, idMapOffset, original.length - idMapOffset);
+        return bytes.array();
+    }
+
     public void testDisconnectedCagraGraphs() throws IOException {
         for (String file : CAGRA_FILES) {
             IOException exception = expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(graphBytes(file, 2)));
@@ -77,7 +263,7 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         buffer.putInt(8).putLong(1).putLong(0).putLong(0).put((byte) 1).putInt(1);
         buffer.put((byte) 0).put((byte) 1).putInt(32);
         buffer.put(hnsw).put("null".getBytes(StandardCharsets.US_ASCII));
-        validate(buffer.array(), 1);
+        validate(withIdMap(buffer.array(), 8, 1), 1, true);
     }
 
     public void testInvalidNeighbor() throws IOException {
@@ -128,7 +314,7 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         IOException failure = new IOException("Disk read failed");
         try (IndexInput input = spy(new ByteArrayIndexInput("graph", graphBytes(CAGRA_FILES.getFirst(), 1)))) {
             doThrow(failure).when(input).readInt();
-            assertSame(failure, expectThrows(IOException.class, () -> RemoteIndexGraphValidator.validate(input, 300)));
+            assertSame(failure, expectThrows(IOException.class, () -> RemoteIndexGraphValidator.validate(input, 300, false)));
         }
     }
 
@@ -142,34 +328,34 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         IOException failure = new IOException("Disk seek failed");
         try (IndexInput input = spy(new ByteArrayIndexInput("graph", bytes))) {
             doThrow(failure).when(input).seek(neighborsOffset);
-            assertSame(failure, expectThrows(IOException.class, () -> RemoteIndexGraphValidator.validate(input, 300)));
+            assertSame(failure, expectThrows(IOException.class, () -> RemoteIndexGraphValidator.validate(input, 300, false)));
         }
     }
 
     public void testHandWrittenCagraGraph() throws IOException {
-        validate(smallGraph(), 3);
+        validateGraph(smallGraph(), 3);
     }
 
     public void testLargeSerializedGraph() throws IOException {
-        validate(ringGraph(100_000), 100_000);
+        validateGraph(ringGraph(100_000), 100_000);
     }
 
     public void testOversizedCumulativeTableIsRejectedBeforeAllocation() {
         byte[] bytes = smallGraph();
         ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).putLong(59, Integer.MAX_VALUE);
-        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(bytes, 3));
+        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validateGraph(bytes, 3));
     }
 
     public void testOversizedDegreeIsRejectedBeforeAllocation() {
         byte[] bytes = smallGraph();
         ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).putInt(71, Integer.MAX_VALUE);
-        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(bytes, 3));
+        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validateGraph(bytes, 3));
     }
 
     public void testTerminalOffsetMustMatchNeighborSection() {
         byte[] bytes = smallGraph();
         ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).putLong(127, 7);
-        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(bytes, 3));
+        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validateGraph(bytes, 3));
     }
 
     public void testIdMapMustContainAllVectorIds() {
@@ -178,35 +364,35 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         bytes.put("IxMp".getBytes(StandardCharsets.US_ASCII));
         bytes.putInt(1).putLong(3).putLong(0).putLong(0).put((byte) 1).putInt(1);
         bytes.put(graph).putLong(0);
-        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(bytes.array(), 3));
+        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(bytes.array(), 3, true));
     }
 
     public void testNestedGraphCannotBeUsedAsFlatStorage() {
         byte[] graph = smallGraph();
         ByteBuffer bytes = ByteBuffer.allocate(graph.length * 2 - 4);
         bytes.put(graph, 0, graph.length - 4).put(graph);
-        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(bytes.array(), 3));
+        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(withIdMap(bytes.array(), 1, 3), 3));
     }
 
     public void testValidationHonorsMergeCancellation() throws Exception {
         try (MockedStatic<MergeAbortChecker> mergeAbort = mockStatic(MergeAbortChecker.class)) {
             mergeAbort.when(MergeAbortChecker::isMergeAborted).thenReturn(true);
-            expectThrows(IndexBuildAbortedException.class, () -> validate(smallGraph(), 3));
+            expectThrows(IndexBuildAbortedException.class, () -> validateGraph(smallGraph(), 3));
         }
     }
 
     public void testValidationHonorsCancellationDuringScan() throws Exception {
         try (MockedStatic<MergeAbortChecker> mergeAbort = mockStatic(MergeAbortChecker.class)) {
             mergeAbort.when(MergeAbortChecker::isMergeAborted).thenReturn(false, false, false, true);
-            expectThrows(IndexBuildAbortedException.class, () -> validate(ringGraph(2048), 2048));
+            expectThrows(IndexBuildAbortedException.class, () -> validateGraph(ringGraph(2048), 2048));
         }
     }
 
     public void testEveryTruncatedPrefixIsRejected() {
-        byte[] graph = smallGraph();
+        byte[] graph = withIdMap(smallGraph(), 1, 3);
         for (int length = 0; length < graph.length; length++) {
             byte[] prefix = Arrays.copyOf(graph, length);
-            expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(prefix, 3));
+            expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(prefix, 3, true));
         }
     }
 
@@ -215,27 +401,36 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
             for (long count : new long[] { -1, Long.MIN_VALUE, Long.MAX_VALUE, 1L << 62 }) {
                 byte[] bytes = smallGraph();
                 ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).putLong(offset, count);
-                expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(bytes, 3));
+                expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validateGraph(bytes, 3));
             }
         }
     }
 
     public void testUpperLevelNeighborMustExistOnThatLevel() {
-        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(smallGraphWithUpperLevel(1), 3));
+        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validateGraph(smallGraphWithUpperLevel(1), 3));
     }
 
     public void testValidUpperLevelGraph() throws IOException {
-        validate(smallGraphWithUpperLevel(0), 3);
+        validateGraph(smallGraphWithUpperLevel(0), 3);
     }
 
-    public void testHnswEntryPointMustExistAtMaximumLevel() {
+    public void testHnswEntryPointMustExistAtMaximumLevel() throws IOException {
         byte[] cagra = smallGraphWithUpperLevel(0);
         // Plain HNSW has the same graph sections without the six CAGRA-specific header bytes.
-        ByteBuffer bytes = ByteBuffer.allocate(cagra.length - 6).order(ByteOrder.LITTLE_ENDIAN);
+        // Replace the four-byte "null" with a 37-byte flat header, vector count and three float values.
+        ByteBuffer bytes = ByteBuffer.allocate(cagra.length - 6 - 4 + 37 + 8 + 12).order(ByteOrder.LITTLE_ENDIAN);
         bytes.put("IHNf".getBytes(StandardCharsets.US_ASCII));
-        bytes.put(cagra, 4, 33).put(cagra, 43, cagra.length - 43);
+        bytes.put(cagra, 4, 33).put(cagra, 43, cagra.length - 43 - 4);
+        bytes.put("IxF2".getBytes(StandardCharsets.US_ASCII));
+        bytes.putInt(1).putLong(3).putLong(0).putLong(0).put((byte) 1).putInt(1);
+        bytes.putLong(3).putFloat(0).putFloat(1).putFloat(2);
+        validate(withIdMap(bytes.array(), 1, 3), 3);
         bytes.putInt(169, 1); // Node 1 only belongs to level 0; maximum level is 1.
-        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(bytes.array(), 3));
+        IOException failure = expectThrows(
+            RemoteIndexGraphValidator.GraphFaultException.class,
+            () -> validate(withIdMap(bytes.array(), 1, 3), 3)
+        );
+        assertTrue(failure.getMessage(), failure.getMessage().contains("maximum level"));
     }
 
     private static byte[] smallGraphWithUpperLevel(int upperNeighbor) {
@@ -288,9 +483,28 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
     }
 
     private static void validate(byte[] bytes, int expectedVectorCount) throws IOException {
+        validate(bytes, expectedVectorCount, false);
+    }
+
+    private static void validate(byte[] bytes, int expectedVectorCount, boolean skipStoredVectors) throws IOException {
         try (ByteArrayIndexInput input = new ByteArrayIndexInput("graph", bytes)) {
-            RemoteIndexGraphValidator.validate(input, expectedVectorCount);
+            RemoteIndexGraphValidator.validate(input, expectedVectorCount, skipStoredVectors);
         }
+    }
+
+    private static void validateGraph(byte[] graph, int count) throws IOException {
+        validate(withIdMap(graph, 1, count), count, true);
+    }
+
+    private static byte[] withIdMap(byte[] graph, int dimension, int count) {
+        ByteBuffer bytes = ByteBuffer.allocate(37 + graph.length + Long.BYTES * (count + 1)).order(ByteOrder.LITTLE_ENDIAN);
+        bytes.put("IxMp".getBytes(StandardCharsets.US_ASCII));
+        bytes.putInt(dimension).putLong(count).putLong(0).putLong(0).put((byte) 1).putInt(1);
+        bytes.put(graph).putLong(count);
+        for (int i = 0; i < count; i++) {
+            bytes.putLong(i);
+        }
+        return bytes.array();
     }
 
     static byte[] graphBytesWithInvalidNeighbor(String file, int neighborId) throws IOException {

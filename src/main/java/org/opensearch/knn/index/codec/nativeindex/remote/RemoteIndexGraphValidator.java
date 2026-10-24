@@ -31,13 +31,13 @@ final class RemoteIndexGraphValidator {
         }
     }
 
-    static void validate(IndexInput input, int expectedVectorCount) throws IOException {
+    static void validate(IndexInput input, int expectedVectorCount, boolean skipStoredVectors) throws IOException {
         try {
             checkCancellation();
             if (expectedVectorCount <= 0) {
                 throw new GraphFaultException("Remote graph must contain vectors");
             }
-            GraphLayout graph = readLayout(input, expectedVectorCount);
+            GraphLayout graph = readLayout(input, expectedVectorCount, skipStoredVectors);
             validateConnectivity(input, graph, expectedVectorCount);
         } catch (GraphFaultException e) {
             throw e;
@@ -59,40 +59,56 @@ final class RemoteIndexGraphValidator {
         }
     }
 
-    private record Header(int dimension, int codeSize) {
+    private record Header(int dimension, int codeSize, int metric) {
+        boolean matches(Header other) {
+            // Binary graphs may retain the default Hamming metric while their ID map records the ADC metric.
+            // Float headers, identified by the absence of a binary code size, must agree on the metric as well.
+            return dimension == other.dimension && codeSize == other.codeSize && (codeSize > 0 || metric == other.metric);
+        }
     }
 
     private record Section(long offset, long count) {
     }
 
-    private record GraphLayout(Section cumulative, Section levels, Section offsets, Section neighbors, int maxLevel, int entryPoint) {
+    private record GraphLayout(Section cumulative, Section levels, Section offsets, Section neighbors, int maxLevel, int entryPoint,
+        boolean baseLevelOnly) {
     }
 
     /**
      * Read the supported FAISS layouts without the search loader's metadata allocations or recursive index loading.
      * Sections are counted arrays: a little-endian 64-bit element count followed by fixed-width elements.
      */
-    private static GraphLayout readLayout(IndexInput input, int expectedVectorCount) throws IOException {
+    private static GraphLayout readLayout(IndexInput input, int expectedVectorCount, boolean skipStoredVectors) throws IOException {
         String type = readType(input);
-        boolean idMap = type.equals("IxMp") || type.equals("IBMp");
-        Header mapHeader = idMap ? readHeader(input, type.equals("IBMp"), expectedVectorCount) : null;
-        if (idMap) {
-            type = readType(input);
+        if (type.equals("IxMp") == false && type.equals("IBMp") == false) {
+            throw new GraphFaultException("Remote graph must have a document ID map");
         }
+        Header mapHeader = readHeader(input, type.equals("IBMp"), expectedVectorCount);
+        type = readType(input);
         boolean binary = type.equals("IBHf") || type.equals("IBHc");
         boolean cagra = type.equals("IHNc") || type.equals("IHc2") || type.equals("IBHc");
         if (cagra == false && type.equals("IHNf") == false && type.equals("IHNs") == false && type.equals("IBHf") == false) {
             throw new GraphFaultException("Unsupported remote graph type: " + type);
         }
         Header header = readHeader(input, binary, expectedVectorCount);
-        if (mapHeader != null && mapHeader.equals(header) == false) {
+        if (mapHeader.matches(header) == false) {
             throw new GraphFaultException("Remote graph header does not match its ID map");
         }
+        if (skipStoredVectors && binary && mapHeader.metric != 0 && mapHeader.metric != 1) {
+            throw new GraphFaultException("Remote binary graph has an unsupported ADC metric: " + mapHeader.metric);
+        }
+        boolean baseLevelOnly = false;
         if (cagra) {
             requireBytes(input, type.equals("IHc2") ? 10 : 6);
-            input.readByte(); // keep_max_size_level0
-            input.readByte(); // base_level_only
-            if (input.readInt() <= 0) {
+            int keepMaxSizeLevel0 = input.readByte();
+            int baseLevelOnlyFlag = input.readByte();
+            if ((keepMaxSizeLevel0 != 0 && keepMaxSizeLevel0 != 1) || (baseLevelOnlyFlag != 0 && baseLevelOnlyFlag != 1)) {
+                throw new GraphFaultException("Remote CAGRA graph has invalid search flags");
+            }
+            baseLevelOnly = baseLevelOnlyFlag == 1;
+            int entryPoints = input.readInt();
+            // Memory-optimized search always uses random CAGRA entry points, including full HNSW artifacts.
+            if (entryPoints <= 0) {
                 throw new GraphFaultException("Remote CAGRA graph has no search entry points");
             }
             if (type.equals("IHc2")) {
@@ -113,25 +129,29 @@ final class RemoteIndexGraphValidator {
         input.readInt(); // efConstruction
         input.readInt(); // efSearch
         input.readInt(); // Deprecated search parameter.
-        if (cagra == false && (entryPoint < 0 || entryPoint >= expectedVectorCount || maxLevel < 0 || maxLevel >= cumulative.count - 1)) {
+        int minimumEntryPointAndLevel = baseLevelOnly ? -1 : 0;
+        if (entryPoint < minimumEntryPointAndLevel
+            || entryPoint >= expectedVectorCount
+            || maxLevel < minimumEntryPointAndLevel
+            || maxLevel >= cumulative.count - 1) {
             throw new GraphFaultException("Remote graph has invalid entry point or maximum level");
         }
-        readStorage(input, header, expectedVectorCount, binary && cagra);
-        if (idMap) {
-            Section ids = readSection(input, Long.BYTES);
-            if (ids.count != expectedVectorCount) {
-                throw new GraphFaultException("Remote graph ID map does not match the expected vector count");
+        // FaissFlatIndexFactory can supply local storage for float CAGRA and ordinary binary HNSW only.
+        boolean supportsSkippedStorage = (cagra && binary == false) || type.equals("IBHf");
+        readStorage(input, header, expectedVectorCount, skipStoredVectors, supportsSkippedStorage);
+        Section ids = readSection(input, Long.BYTES);
+        if (ids.count != expectedVectorCount) {
+            throw new GraphFaultException("Remote graph ID map does not match the expected vector count");
+        }
+        input.seek(ids.offset);
+        long previous = -1;
+        for (int i = 0; i < expectedVectorCount; i++) {
+            checkCancellation(i);
+            long id = input.readLong();
+            if (id < 0 || id < previous || id >= Integer.MAX_VALUE) {
+                throw new GraphFaultException("Remote graph has an invalid document ID: " + id);
             }
-            input.seek(ids.offset);
-            long previous = -1;
-            for (int i = 0; i < expectedVectorCount; i++) {
-                checkCancellation(i);
-                long id = input.readLong();
-                if (id < 0 || id < previous || id >= Integer.MAX_VALUE) {
-                    throw new GraphFaultException("Remote graph has an invalid document ID: " + id);
-                }
-                previous = id;
-            }
+            previous = id;
         }
         // Existing FAISS fixtures and persisted indices may include a Lucene footer after the raw FAISS payload.
         if (input.length() - input.getFilePointer() == CodecUtil.footerLength()) {
@@ -143,7 +163,7 @@ final class RemoteIndexGraphValidator {
         } else if (input.getFilePointer() != input.length()) {
             throw new GraphFaultException("Remote graph has unexpected trailing data");
         }
-        return new GraphLayout(cumulative, levels, offsets, neighbors, cagra ? -1 : maxLevel, cagra ? -1 : entryPoint);
+        return new GraphLayout(cumulative, levels, offsets, neighbors, maxLevel, entryPoint, baseLevelOnly);
     }
 
     private static Header readHeader(IndexInput input, boolean binary, int expectedVectorCount) throws IOException {
@@ -163,20 +183,32 @@ final class RemoteIndexGraphValidator {
         if (binary == false && metric != 0 && metric != 1) {
             throw new GraphFaultException("Remote graph has an unsupported metric: " + metric);
         }
-        return new Header(dimension, codeSize);
+        return new Header(dimension, codeSize, metric);
     }
 
-    private static void readStorage(IndexInput input, Header graphHeader, int expectedVectorCount, boolean binaryCagra) throws IOException {
+    private static void readStorage(
+        IndexInput input,
+        Header graphHeader,
+        int expectedVectorCount,
+        boolean skipStoredVectors,
+        boolean supportsSkippedStorage
+    ) throws IOException {
         String type = readType(input);
-        if (type.equals("null") && binaryCagra == false) {
-            return; // IO_FLAG_SKIP_STORAGE: vectors are stored locally by the caller.
+        if (type.equals("null")) {
+            if (skipStoredVectors == false || supportsSkippedStorage == false) {
+                throw new GraphFaultException("Remote graph cannot use skipped vector storage for this build");
+            }
+            return;
+        }
+        if (skipStoredVectors) {
+            throw new GraphFaultException("Remote graph contains vector storage despite requesting skipped storage");
         }
         boolean binary = type.equals("IBxF");
         if (binary == false && type.equals("IxF2") == false && type.equals("IxFI") == false && type.equals("IxSQ") == false) {
             throw new GraphFaultException("Unsupported remote flat storage type: " + type);
         }
         Header header = readHeader(input, binary, expectedVectorCount);
-        if (header.equals(graphHeader) == false) {
+        if (header.matches(graphHeader) == false) {
             throw new GraphFaultException("Remote flat storage does not match its graph header");
         }
         long elementsPerVector = binary ? header.codeSize : header.dimension;
@@ -271,7 +303,13 @@ final class RemoteIndexGraphValidator {
                 if (end <= start || end > graph.neighbors.count || nodeLevels < 1 || nodeLevels >= graph.cumulative.count) {
                     throw new GraphFaultException("Remote graph has invalid neighbor offsets or levels");
                 }
-                if (node == graph.entryPoint && nodeLevels - 1 != graph.maxLevel) {
+                if (graph.baseLevelOnly) {
+                    // Native CAGRA range search still traverses maxLevel from the serialized entry point, or a random
+                    // vertex when entryPoint=-1. Every possible starting vertex must therefore have that level.
+                    if ((graph.entryPoint == -1 || node == graph.entryPoint) && nodeLevels <= graph.maxLevel) {
+                        throw new GraphFaultException("Remote CAGRA range search entry point does not exist at the maximum level");
+                    }
+                } else if (node == graph.entryPoint && nodeLevels - 1 != graph.maxLevel) {
                     throw new GraphFaultException("Remote graph entry point does not exist at the maximum level");
                 }
                 highestLevel = Math.max(highestLevel, nodeLevels - 1);
@@ -319,7 +357,7 @@ final class RemoteIndexGraphValidator {
                 }
                 start = end;
             }
-            if (start != graph.neighbors.count || (graph.maxLevel >= 0 && highestLevel != graph.maxLevel)) {
+            if (start != graph.neighbors.count || (graph.baseLevelOnly == false && highestLevel != graph.maxLevel)) {
                 throw new GraphFaultException("Remote graph has inconsistent terminal offset or maximum level");
             }
             if (components > 1) {

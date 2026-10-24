@@ -108,6 +108,24 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         assertRemoteGraphBuild(false);
     }
 
+    public void testMissingVectorStorageFallsBackToCPU() throws Exception {
+        assertRemoteGraphBuild(RemoteIndexGraphValidatorTests.graphBytesWithoutStorage(), true, false);
+    }
+
+    public void testSkippedStorageIsAcceptedForSQBuild() throws Exception {
+        assertRemoteGraphBuild(RemoteIndexGraphValidatorTests.graphBytesWithoutStorage(), false, false, false, true);
+    }
+
+    public void testUnexpectedEmbeddedStorageFallsBackForSQBuild() throws Exception {
+        assertRemoteGraphBuild(
+            RemoteIndexGraphValidatorTests.graphBytes("faiss_cagra_flat_float_300_vectors_768_dims.bin", 1),
+            true,
+            false,
+            false,
+            true
+        );
+    }
+
     public void testRepositoryDownloadFailureDoesNotCountAsGraphFault() throws Exception {
         assertRemoteGraphBuild(false, true);
     }
@@ -170,6 +188,16 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
     }
 
     private void assertRemoteGraphBuild(byte[] graph, boolean graphFault, boolean downloadFailure, boolean aborted) throws Exception {
+        assertRemoteGraphBuild(graph, graphFault, downloadFailure, aborted, false);
+    }
+
+    private void assertRemoteGraphBuild(
+        byte[] graph,
+        boolean graphFault,
+        boolean downloadFailure,
+        boolean aborted,
+        boolean skipStoredVectors
+    ) throws Exception {
         BlobContainer blobContainer = mock(BlobContainer.class);
         if (downloadFailure) {
             when(blobContainer.readBlob("graph.faiss")).thenThrow(new IOException("Repository download failed"));
@@ -187,7 +215,9 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         when(repositoriesService.repository(any())).thenReturn(repository);
         KNNLibraryIndexingContext context = mock(KNNLibraryIndexingContext.class);
         when(context.getLibraryParameters()).thenReturn(getMockParameterMap());
-        when(context.getResolvedSpec()).thenReturn(mock(ResolvedIndexSpec.class));
+        ResolvedIndexSpec resolvedSpec = mock(ResolvedIndexSpec.class);
+        when(resolvedSpec.isFaissSQMultiBit()).thenReturn(skipStoredVectors);
+        when(context.getResolvedSpec()).thenReturn(resolvedSpec);
         RemoteIndexClient client = mock(RemoteIndexClient.class);
         when(client.submitVectorBuild(any())).thenReturn(RemoteBuildResponse.builder().jobId("job").build());
         RemoteIndexWaiter waiter = mock(RemoteIndexWaiter.class);
