@@ -451,6 +451,22 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         }
     }
 
+    public void testCancellationPollingAccumulatesNeighborWork() throws Exception {
+        int count = 300;
+        byte[] bytes = withIdMap(ringGraph(count), 1, count);
+        try (ByteArrayIndexInput input = new ByteArrayIndexInput("graph", bytes)) {
+            FaissHNSW graph = ((FaissHNSWProvider) FaissIndex.load(input)).getFaissHnsw();
+            long invalidNeighborOffset = graph.getNeighbors().getBaseOffset() + Integer.BYTES * graph.getOffsetsReader().get(count - 1);
+            ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).putInt(Math.toIntExact(invalidNeighborOffset), count);
+        }
+        try (MockedStatic<MergeAbortChecker> mergeAbort = mockStatic(MergeAbortChecker.class)) {
+            // The fifth poll is reached only when node, level, and neighbor work shares one monotonic counter. A
+            // per-loop counter reaches the deliberately invalid final neighbor first and reports a graph fault instead.
+            mergeAbort.when(MergeAbortChecker::isMergeAborted).thenReturn(false, false, false, false, true);
+            expectThrows(IndexBuildAbortedException.class, () -> validate(bytes, count, 1, true));
+        }
+    }
+
     public void testEveryTruncatedPrefixIsRejected() {
         byte[] graph = withIdMap(smallGraph(), 1, 3);
         for (int length = 0; length < graph.length; length++) {
@@ -475,6 +491,10 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
 
     public void testValidUpperLevelGraph() throws IOException {
         validateGraph(smallGraphWithUpperLevel(0), 3);
+    }
+
+    public void testValidThreeLevelGraph() throws IOException {
+        validateGraph(smallGraphWithThreeLevels(), 3);
     }
 
     public void testHnswEntryPointMustExistAtMaximumLevel() throws IOException {
@@ -507,6 +527,21 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         bytes.putLong(4).putLong(0).putLong(3).putLong(5).putLong(7);
         bytes.putLong(7).putInt(1).putInt(-1).putInt(upperNeighbor).putInt(2).putInt(-1).putInt(0).putInt(-1);
         bytes.putInt(0).putInt(1).putInt(16).putInt(16).putInt(0);
+        bytes.put("null".getBytes(StandardCharsets.US_ASCII));
+        return bytes.array();
+    }
+
+    private static byte[] smallGraphWithThreeLevels() {
+        ByteBuffer bytes = ByteBuffer.allocate(207).order(ByteOrder.LITTLE_ENDIAN);
+        bytes.put("IHNc".getBytes(StandardCharsets.US_ASCII));
+        bytes.putInt(1).putLong(3).putLong(0).putLong(0).put((byte) 1).putInt(1);
+        bytes.put((byte) 0).put((byte) 0).putInt(32);
+        bytes.putLong(1).putDouble(1.0);
+        bytes.putLong(4).putInt(0).putInt(2).putInt(3).putInt(4);
+        bytes.putLong(3).putInt(3).putInt(1).putInt(1);
+        bytes.putLong(4).putLong(0).putLong(4).putLong(6).putLong(8);
+        bytes.putLong(8).putInt(1).putInt(-1).putInt(0).putInt(0).putInt(2).putInt(-1).putInt(0).putInt(-1);
+        bytes.putInt(0).putInt(2).putInt(16).putInt(16).putInt(0);
         bytes.put("null".getBytes(StandardCharsets.US_ASCII));
         return bytes.array();
     }

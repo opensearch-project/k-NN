@@ -337,13 +337,16 @@ final class RemoteIndexGraphValidator {
             IndexInput cumulative = input.clone();
             IndexInput neighborLevels = input.clone()
         ) {
+            // Keep cancellation polling proportional to total validation work. Per-loop counters restart for every node
+            // and level, so small adjacency lists would otherwise never reach the polling interval.
+            long work = 0;
             cumulative.seek(graph.cumulative.offset);
             if (cumulative.readInt() != 0) {
                 throw new GraphFaultException("Remote graph cumulative neighbor table must start at zero");
             }
             int previousDegree = 0;
             for (long i = 1; i < graph.cumulative.count; i++) {
-                checkCancellation(i);
+                checkCancellation(work++);
                 int degree = cumulative.readInt();
                 if (degree <= previousDegree) {
                     throw new GraphFaultException("Remote graph cumulative neighbor table is invalid");
@@ -362,7 +365,7 @@ final class RemoteIndexGraphValidator {
             }
             int highestLevel = 0;
             for (int node = 0; node < count; node++) {
-                checkCancellation(node);
+                checkCancellation(work++);
                 long end = offsets.readLong();
                 int nodeLevels = levels.readInt();
                 if (end <= start || end > graph.neighbors.count || nodeLevels < 1 || nodeLevels >= graph.cumulative.count) {
@@ -385,11 +388,11 @@ final class RemoteIndexGraphValidator {
                 cumulative.seek(graph.cumulative.offset);
                 int levelStart = cumulative.readInt();
                 for (int level = 0; level < nodeLevels; level++) {
-                    checkCancellation(level + 1L);
+                    checkCancellation(work++);
                     int levelEnd = cumulative.readInt();
                     input.seek(graph.neighbors.offset + (start + levelStart) * Integer.BYTES);
                     for (int i = levelStart; i < levelEnd; i++) {
-                        checkCancellation(i + 1L);
+                        checkCancellation(work++);
                         int neighbor = input.readInt();
                         if (neighbor == -1) {
                             break;
