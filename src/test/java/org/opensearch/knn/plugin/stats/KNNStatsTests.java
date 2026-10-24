@@ -44,6 +44,7 @@ public class KNNStatsTests extends KNNTestCase {
         Map<String, Object> clientStats = remoteStats.get(StatNames.CLIENT_STATS.getName());
         assertTrue(clientStats.containsKey(KNNRemoteIndexBuildValue.INDEX_BUILD_SUCCESS_COUNT.getName()));
         assertTrue(clientStats.containsKey(KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT.getName()));
+        assertTrue(clientStats.containsKey(KNNRemoteIndexBuildValue.GPU_GRAPH_FAULT_COUNT.getName()));
         // Benign-termination counters added for the early merge-abort feature.
         assertTrue(clientStats.containsKey(KNNRemoteIndexBuildValue.INDEX_BUILD_MERGE_ABORT_EXCEPTION.getName()));
         assertTrue(clientStats.containsKey(KNNRemoteIndexBuildValue.INDEX_BUILD_TERMINAL_EXCEPTION.getName()));
@@ -68,5 +69,16 @@ public class KNNStatsTests extends KNNTestCase {
         assertEquals(1L, (long) (Long) clientStats.get(KNNRemoteIndexBuildValue.INDEX_BUILD_MERGE_ABORT_EXCEPTION.getName()));
         assertEquals(2L, (long) (Long) clientStats.get(KNNRemoteIndexBuildValue.INDEX_BUILD_TERMINAL_EXCEPTION.getName()));
         assertEquals(0L, (long) (Long) clientStats.get(KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT.getName()));
+        assertEquals(0L, (long) (Long) clientStats.get(KNNRemoteIndexBuildValue.GPU_GRAPH_FAULT_COUNT.getName()));
+
+        KNNRemoteIndexBuildValue.GPU_GRAPH_FAULT_COUNT.increment();
+        Map<String, Map<String, Object>> updatedRemoteStats = (Map<String, Map<String, Object>>) knnStats.getNodeStats()
+            .get(StatNames.REMOTE_VECTOR_INDEX_BUILD_STATS.getName())
+            .getValue();
+        assertEquals(
+            1L,
+            (long) (Long) updatedRemoteStats.get(StatNames.CLIENT_STATS.getName())
+                .get(KNNRemoteIndexBuildValue.GPU_GRAPH_FAULT_COUNT.getName())
+        );
     }
 }

@@ -8,10 +8,13 @@ package org.opensearch.knn.index.store;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.CodecUtil;
+import org.apache.lucene.index.MergeAbortChecker;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.opensearch.knn.common.exception.TerminalIOException;
+import org.opensearch.knn.index.codec.nativeindex.IndexBuildAbortedException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -100,6 +103,25 @@ public class IndexOutputWithBuffer implements AutoCloseable {
      */
     public String getName() {
         return indexOutput.getName();
+    }
+
+    /** Copies a validated index while tracking writes for remote-build fallback. */
+    public void copyFrom(IndexInput input) throws IOException {
+        long remaining = input.length() - input.getFilePointer();
+        while (remaining > 0) {
+            if (MergeAbortChecker.isMergeAborted()) {
+                throw new IndexBuildAbortedException("Remote graph copy aborted due to merge cancellation");
+            }
+            int length = (int) Math.min(buffer.length, remaining);
+            input.readBytes(buffer, 0, length);
+            try {
+                indexOutput.writeBytes(buffer, 0, length);
+                bytesWritten += length;
+            } catch (IOException e) {
+                throw new TerminalIOException("Failed to write to indexOutput", e);
+            }
+            remaining -= length;
+        }
     }
 
     /**
