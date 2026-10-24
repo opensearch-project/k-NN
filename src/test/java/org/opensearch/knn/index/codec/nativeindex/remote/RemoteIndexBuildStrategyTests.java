@@ -9,9 +9,11 @@ import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.MergeAbortChecker;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.store.TrackingDirectoryWrapper;
 import org.apache.lucene.util.InfoStream;
 import org.mockito.MockedStatic;
 import org.opensearch.cluster.metadata.RepositoryMetadata;
@@ -55,6 +57,7 @@ import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -106,6 +109,70 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
 
     public void testConnectedRemoteGraphIsAccepted() throws Exception {
         assertRemoteGraphBuild(false);
+    }
+
+    public void testRemoteGraphDimensionMustMatchRequest() throws Exception {
+        assertRemoteGraphBuild(RemoteIndexGraphValidatorTests.graphBytesWithDimension(256), true, false);
+    }
+
+    public void testCleanupFailureAfterRemoteSuccessTerminatesBuild() throws Exception {
+        assertCleanupFailure(false, false, false);
+    }
+
+    public void testCleanupFailureAfterGraphFaultPreventsFallback() throws Exception {
+        assertCleanupFailure(true, false, false);
+    }
+
+    public void testCleanupFailureAfterDownloadFailurePreventsFallback() throws Exception {
+        assertCleanupFailure(false, true, false);
+    }
+
+    public void testCleanupFailurePreservesCancellation() throws Exception {
+        assertCleanupFailure(false, false, true);
+    }
+
+    public void testCleanupFailurePreservesTerminalIOException() throws Exception {
+        assertRemoteGraphBuild(
+            new byte[0],
+            false,
+            new TerminalIOException("Output closed", new IOException()),
+            false,
+            false,
+            new IOException("Staged file deletion failed")
+        );
+    }
+
+    public void testCleanupFailurePreservesFatalError() throws Exception {
+        assertRemoteGraphBuild(
+            new byte[0],
+            false,
+            new AssertionError("Fatal repository error"),
+            false,
+            false,
+            new IOException("Staged file deletion failed")
+        );
+    }
+
+    public void testUncheckedCleanupFailureTerminatesBuild() throws Exception {
+        assertRemoteGraphBuild(
+            RemoteIndexGraphValidatorTests.graphBytes("faiss_cagra_flat_float_300_vectors_768_dims.bin", 1),
+            false,
+            null,
+            false,
+            false,
+            new IllegalStateException("Staged file deletion failed")
+        );
+    }
+
+    private void assertCleanupFailure(boolean graphFault, boolean downloadFailure, boolean aborted) throws Exception {
+        assertRemoteGraphBuild(
+            RemoteIndexGraphValidatorTests.graphBytes("faiss_cagra_flat_float_300_vectors_768_dims.bin", graphFault ? 2 : 1),
+            graphFault,
+            downloadFailure ? new IOException("Repository download failed") : null,
+            aborted,
+            false,
+            new IOException("Staged file deletion failed")
+        );
     }
 
     public void testMissingVectorStorageFallsBackToCPU() throws Exception {
@@ -198,9 +265,30 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         boolean aborted,
         boolean skipStoredVectors
     ) throws Exception {
+        assertRemoteGraphBuild(
+            graph,
+            graphFault,
+            downloadFailure ? new IOException("Repository download failed") : null,
+            aborted,
+            skipStoredVectors,
+            null
+        );
+    }
+
+    private void assertRemoteGraphBuild(
+        byte[] graph,
+        boolean graphFault,
+        Throwable downloadException,
+        boolean aborted,
+        boolean skipStoredVectors,
+        Exception cleanupFailure
+    ) throws Exception {
+        boolean downloadFailure = downloadException != null;
+        boolean fatalError = downloadException instanceof Error;
+        boolean terminalIO = downloadException instanceof TerminalIOException;
         BlobContainer blobContainer = mock(BlobContainer.class);
         if (downloadFailure) {
-            when(blobContainer.readBlob("graph.faiss")).thenThrow(new IOException("Repository download failed"));
+            when(blobContainer.readBlob("graph.faiss")).thenThrow(downloadException);
         } else {
             when(blobContainer.readBlob("graph.faiss")).thenReturn(new ByteArrayInputStream(graph));
         }
@@ -223,8 +311,19 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
         RemoteIndexWaiter waiter = mock(RemoteIndexWaiter.class);
         when(waiter.awaitVectorBuild(any())).thenReturn(RemoteBuildStatusResponse.builder().fileName("graph.faiss").build());
 
-        try (
-            Directory directory = newDirectory();
+        AtomicBoolean failDeletion = new AtomicBoolean(cleanupFailure != null);
+        try (TrackingDirectoryWrapper directory = new TrackingDirectoryWrapper(new FilterDirectory(newDirectory()) {
+            @Override
+            public void deleteFile(String name) throws IOException {
+                if (name.endsWith(".tmp") && failDeletion.compareAndSet(true, false)) {
+                    if (cleanupFailure instanceof IOException ioFailure) {
+                        throw ioFailure;
+                    }
+                    throw (RuntimeException) cleanupFailure;
+                }
+                super.deleteFile(name);
+            }
+        });
             MockedStatic<MergeAbortChecker> mergeAbort = mockStatic(MergeAbortChecker.class);
             MockedStatic<RemoteIndexClientFactory> clients = mockStatic(RemoteIndexClientFactory.class);
             MockedStatic<RemoteIndexWaiterFactory> waiters = mockStatic(RemoteIndexWaiterFactory.class);
@@ -269,23 +368,56 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
                 createTestIndexSettings(),
                 context
             );
-            if (aborted) {
-                expectThrows(IndexBuildAbortedException.class, () -> strategy.buildAndWriteIndex(params));
+            if (fatalError || terminalIO) {
+                Throwable failure = expectThrows(downloadException.getClass(), () -> strategy.buildAndWriteIndex(params));
+                assertSame(downloadException, failure);
+                assertArrayEquals(new Throwable[] { cleanupFailure }, failure.getSuppressed());
+            } else if (aborted) {
+                IndexBuildAbortedException failure = expectThrows(
+                    IndexBuildAbortedException.class,
+                    () -> strategy.buildAndWriteIndex(params)
+                );
+                if (cleanupFailure != null) {
+                    assertArrayEquals(new Throwable[] { cleanupFailure }, failure.getSuppressed());
+                }
+            } else if (cleanupFailure != null) {
+                TerminalIOException failure = expectThrows(TerminalIOException.class, () -> strategy.buildAndWriteIndex(params));
+                assertSame(cleanupFailure, failure.getCause());
+                if (graphFault || downloadFailure) {
+                    assertEquals(1, failure.getSuppressed().length);
+                    assertTrue(failure.getSuppressed()[0].getCause() instanceof IOException);
+                }
             } else {
                 strategy.buildAndWriteIndex(params);
             }
 
             verify(client).submitVectorBuild(any());
             verify(blobContainer).readBlob("graph.faiss");
-            boolean expectFallback = graphFault || downloadFailure;
+            boolean expectFallback = (graphFault || downloadFailure) && cleanupFailure == null && !fatalError && !terminalIO;
             verify(fallback, expectFallback ? times(1) : never()).buildAndWriteIndex(params);
-            assertEquals(expectFallback ? 1L : 0L, (long) KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT.getValue());
-            assertEquals(expectFallback || aborted ? 0L : 1L, (long) KNNRemoteIndexBuildValue.INDEX_BUILD_SUCCESS_COUNT.getValue());
+            assertEquals(expectFallback || fatalError ? 1L : 0L, (long) KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT.getValue());
+            assertEquals(
+                expectFallback || aborted || cleanupFailure != null ? 0L : 1L,
+                (long) KNNRemoteIndexBuildValue.INDEX_BUILD_SUCCESS_COUNT.getValue()
+            );
             assertEquals(aborted ? 1L : 0L, (long) KNNRemoteIndexBuildValue.INDEX_BUILD_MERGE_ABORT_EXCEPTION.getValue());
+            assertEquals(
+                terminalIO || cleanupFailure != null && !aborted && !fatalError ? 1L : 0L,
+                (long) KNNRemoteIndexBuildValue.INDEX_BUILD_TERMINAL_EXCEPTION.getValue()
+            );
             assertEquals(graphFault ? 1L : 0L, (long) KNNRemoteIndexBuildValue.GPU_GRAPH_FAULT_COUNT.getValue());
+            boolean readSucceeded = !graphFault && !downloadFailure && !aborted && cleanupFailure == null;
+            assertEquals(readSucceeded ? 1L : 0L, (long) KNNRemoteIndexBuildValue.READ_SUCCESS_COUNT.getValue());
+            assertEquals(readSucceeded ? 0L : 1L, (long) KNNRemoteIndexBuildValue.READ_FAILURE_COUNT.getValue());
+            if (cleanupFailure != null) {
+                String stagedFile = directory.getCreatedFiles().stream().filter(name -> name.endsWith(".tmp")).findFirst().orElseThrow();
+                // A failed deletion leaves the file tracked; the strategy must fail before Lucene can seal the segment.
+                directory.deleteFile(stagedFile);
+            }
+            assertEquals(Collections.singleton("index.faiss"), directory.getCreatedFiles());
             assertArrayEquals(new String[] { "index.faiss" }, directory.listAll());
             output.close();
-            byte[] expected = aborted ? new byte[0] : expectFallback ? cpuIndex : graph;
+            byte[] expected = expectFallback ? cpuIndex : aborted || graphFault || downloadFailure ? new byte[0] : graph;
             try (IndexInput input = directory.openInput("index.faiss", IOContext.DEFAULT)) {
                 assertEquals(expected.length, input.length());
                 byte[] actual = new byte[expected.length];

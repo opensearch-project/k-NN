@@ -14,7 +14,6 @@ import org.apache.lucene.index.MergeAbortChecker;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
-import org.apache.lucene.util.IOUtils;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.common.UUIDs;
@@ -169,7 +168,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         FAILURE,
         /** The build was terminated because the merge was aborted (benign cancellation). */
         MERGE_ABORT,
-        /** The build was terminated due to a terminal IO exception (index output closed). */
+        /** The build was terminated due to a terminal IO exception (for example, a closed output or failed staging cleanup). */
         TERMINAL_IO
     }
 
@@ -197,13 +196,13 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
 
             // 2. Trigger remote index build
             RemoteIndexClient client = RemoteIndexClientFactory.getRemoteIndexClient(KNNSettings.getRemoteBuildServiceEndpoint());
-            RemoteBuildResponse remoteBuildResponse = submitBuild(repositoryContext, indexInfo, client);
+            SubmittedBuild submittedBuild = submitBuild(repositoryContext, indexInfo, client);
 
             // 3. Await vector build completion
-            RemoteBuildStatusResponse remoteBuildStatusResponse = awaitIndexBuild(remoteBuildResponse, indexInfo, client);
+            RemoteBuildStatusResponse remoteBuildStatusResponse = awaitIndexBuild(submittedBuild.response(), indexInfo, client);
 
             // 4. Download index file and write to indexOutput
-            readFromRepository(indexInfo, repositoryContext, remoteBuildStatusResponse);
+            readFromRepository(indexInfo, repositoryContext, remoteBuildStatusResponse, submittedBuild.request());
             buildResult = BuildResult.SUCCESS;
             return;
         } catch (TerminalIOException e) {
@@ -272,12 +271,14 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         return indexInfo.getKnnVectorValuesSupplier();
     }
 
+    private record SubmittedBuild(RemoteBuildRequest request, RemoteBuildResponse response) {
+    }
+
     /**
      * Submits a remote build request to the remote index build service
-     * @return RemoteBuildResponse containing the response from the remote service
+     * @return the submitted request and response, retaining the requested metadata for artifact validation
      */
-    private RemoteBuildResponse submitBuild(RepositoryContext repositoryContext, BuildIndexParams indexInfo, RemoteIndexClient client) {
-        final RemoteBuildResponse remoteBuildResponse;
+    private SubmittedBuild submitBuild(RepositoryContext repositoryContext, BuildIndexParams indexInfo, RemoteIndexClient client) {
         boolean success = false;
         metrics.startBuildRequestMetrics();
         try {
@@ -289,9 +290,9 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
                 knnLibraryIndexingContext.getLibraryParameters(),
                 knnLibraryIndexingContext.getResolvedSpec()
             );
-            remoteBuildResponse = client.submitVectorBuild(buildRequest);
+            RemoteBuildResponse remoteBuildResponse = client.submitVectorBuild(buildRequest);
             success = true;
-            return remoteBuildResponse;
+            return new SubmittedBuild(buildRequest, remoteBuildResponse);
         } catch (IOException e) {
             throw new RuntimeException(
                 String.format(Locale.ROOT, "Submit vector build failed for vector field [%s]", indexInfo.getField()),
@@ -340,12 +341,14 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
     private void readFromRepository(
         BuildIndexParams indexInfo,
         RepositoryContext repositoryContext,
-        RemoteBuildStatusResponse remoteBuildStatusResponse
+        RemoteBuildStatusResponse remoteBuildStatusResponse,
+        RemoteBuildRequest buildRequest
     ) throws TerminalIOException, IndexBuildAbortedException {
         metrics.startRepositoryReadMetrics();
         boolean success = false;
         Directory directory = indexInfo.getSegmentWriteState().directory;
         String temporaryFile = null;
+        Throwable primaryFailure = null;
         try {
             // Stage the download on disk so the graph can be inspected without loading the entire index into memory.
             IndexOutput output = directory.createTempOutput(
@@ -361,8 +364,9 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
                 try {
                     RemoteIndexGraphValidator.validate(
                         input,
-                        indexInfo.getTotalLiveDocs(),
-                        shouldSkipStoredVectors(indexInfo.getVectorDataType(), knnLibraryIndexingContext.getResolvedSpec())
+                        buildRequest.getDocCount(),
+                        buildRequest.getDimension(),
+                        buildRequest.isSkipStoredVectors()
                     );
                 } catch (RemoteIndexGraphValidator.GraphFaultException e) {
                     metrics.recordGraphFault();
@@ -373,14 +377,52 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             }
             success = true;
         } catch (TerminalIOException | IndexBuildAbortedException e) {
+            primaryFailure = e;
             throw e;
         } catch (Exception e) {
-            throw new RuntimeException(String.format(Locale.ROOT, "Repository read failed for vector field [%s]", indexInfo.getField()), e);
+            RuntimeException failure = new RuntimeException(
+                String.format(Locale.ROOT, "Repository read failed for vector field [%s]", indexInfo.getField()),
+                e
+            );
+            primaryFailure = failure;
+            throw failure;
+        } catch (Error e) {
+            primaryFailure = e;
+            throw e;
         } finally {
-            if (temporaryFile != null) {
-                IOUtils.deleteFilesIgnoringExceptions(directory, temporaryFile);
+            boolean cleanupSucceeded = false;
+            try {
+                if (temporaryFile != null) {
+                    deleteStagedFile(directory, temporaryFile, primaryFailure);
+                }
+                cleanupSucceeded = true;
+            } finally {
+                metrics.endRepositoryReadMetrics(success && cleanupSucceeded);
             }
-            metrics.endRepositoryReadMetrics(success);
+        }
+    }
+
+    private static void deleteStagedFile(Directory directory, String temporaryFile, Throwable primaryFailure) throws TerminalIOException {
+        try {
+            directory.deleteFile(temporaryFile);
+        } catch (IOException | RuntimeException cleanupFailure) {
+            if (primaryFailure instanceof TerminalIOException
+                || primaryFailure instanceof IndexBuildAbortedException
+                || primaryFailure instanceof Error) {
+                if (primaryFailure != cleanupFailure) {
+                    primaryFailure.addSuppressed(cleanupFailure);
+                }
+                return;
+            }
+            // Lucene tracks created files and rejects .tmp names when sealing a segment. Fallback cannot repair this state.
+            TerminalIOException failure = new TerminalIOException(
+                "Failed to delete staged remote index file [" + temporaryFile + "]",
+                cleanupFailure
+            );
+            if (primaryFailure != null) {
+                failure.addSuppressed(primaryFailure);
+            }
+            throw failure;
         }
     }
 

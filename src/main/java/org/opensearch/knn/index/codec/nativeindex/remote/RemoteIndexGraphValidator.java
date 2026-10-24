@@ -31,13 +31,13 @@ final class RemoteIndexGraphValidator {
         }
     }
 
-    static void validate(IndexInput input, int expectedVectorCount, boolean skipStoredVectors) throws IOException {
+    static void validate(IndexInput input, int expectedVectorCount, int expectedDimension, boolean skipStoredVectors) throws IOException {
         try {
             checkCancellation();
             if (expectedVectorCount <= 0) {
                 throw new GraphFaultException("Remote graph must contain vectors");
             }
-            GraphLayout graph = readLayout(input, expectedVectorCount, skipStoredVectors);
+            GraphLayout graph = readLayout(input, expectedVectorCount, expectedDimension, skipStoredVectors);
             validateConnectivity(input, graph, expectedVectorCount);
         } catch (GraphFaultException e) {
             throw e;
@@ -78,12 +78,16 @@ final class RemoteIndexGraphValidator {
      * Read the supported FAISS layouts without the search loader's metadata allocations or recursive index loading.
      * Sections are counted arrays: a little-endian 64-bit element count followed by fixed-width elements.
      */
-    private static GraphLayout readLayout(IndexInput input, int expectedVectorCount, boolean skipStoredVectors) throws IOException {
+    private static GraphLayout readLayout(IndexInput input, int expectedVectorCount, int expectedDimension, boolean skipStoredVectors)
+        throws IOException {
         String type = readType(input);
         if (type.equals("IxMp") == false && type.equals("IBMp") == false) {
             throw new GraphFaultException("Remote graph must have a document ID map");
         }
         Header mapHeader = readHeader(input, type.equals("IBMp"), expectedVectorCount);
+        if (mapHeader.dimension != expectedDimension) {
+            throw new GraphFaultException("Remote graph dimension does not match the build request");
+        }
         type = readType(input);
         boolean binary = type.equals("IBHf") || type.equals("IBHc");
         boolean cagra = type.equals("IHNc") || type.equals("IHc2") || type.equals("IBHc");

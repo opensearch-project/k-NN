@@ -39,14 +39,14 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
 
     public void testConnectedCagraGraphs() throws IOException {
         for (String file : CAGRA_FILES) {
-            validate(graphBytes(file, 1));
+            validateFixture(graphBytes(file, 1), file);
         }
     }
 
     public void testUnmodifiedFaissFixtures() throws IOException {
         for (String file : CAGRA_FILES) {
             try (InputStream resource = getClass().getResourceAsStream("/data/memoryoptsearch/" + file)) {
-                validate(resource.readAllBytes());
+                validateFixture(resource.readAllBytes(), file);
             }
         }
     }
@@ -55,12 +55,36 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(graphBytesWithoutStorage()));
     }
 
+    public void testCoherentGraphDimensionMustMatchBuildRequest() throws IOException {
+        byte[] bytes = graphBytesWithDimension(256);
+        validate(bytes, 300, 256, false);
+        IOException failure = expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(bytes));
+        assertTrue(failure.getMessage(), failure.getMessage().contains("dimension"));
+    }
+
+    public void testSkippedStorageDimensionMustMatchBuildRequest() throws IOException {
+        byte[] bytes = graphBytesWithoutStorage();
+        validate(bytes, 300, 768, true);
+        IOException failure = expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(bytes, 300, 256, true));
+        assertTrue(failure.getMessage(), failure.getMessage().contains("dimension"));
+    }
+
+    public void testBinaryDimensionMustMatchBuildRequest() throws IOException {
+        byte[] bytes = binaryGraphWithSkippedStorage(1);
+        validate(bytes, 3, 8, true);
+        IOException failure = expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(bytes, 3, 16, true));
+        assertTrue(failure.getMessage(), failure.getMessage().contains("dimension"));
+    }
+
     public void testSkippedCagraStorageIsAcceptedWhenRequested() throws IOException {
-        validate(graphBytesWithoutStorage(), 300, true);
+        validate(graphBytesWithoutStorage(), 300, 768, true);
     }
 
     public void testEmbeddedStorageIsRejectedWhenSkippedStorageWasRequested() throws IOException {
-        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(graphBytes(CAGRA_FILES.getFirst(), 1), 300, true));
+        expectThrows(
+            RemoteIndexGraphValidator.GraphFaultException.class,
+            () -> validate(graphBytes(CAGRA_FILES.getFirst(), 1), 300, 768, true)
+        );
     }
 
     public void testPlainHnswCannotUseSkippedStorage() {
@@ -161,12 +185,12 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
 
     public void testSkippedBinaryStorageAcceptsAdcMetrics() throws IOException {
         for (int metric : new int[] { 0, 1 }) {
-            validate(binaryGraphWithSkippedStorage(metric), 3, true);
+            validate(binaryGraphWithSkippedStorage(metric), 3, 8, true);
         }
     }
 
     public void testSkippedBinaryStorageRejectsUnsupportedAdcMetric() {
-        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(binaryGraphWithSkippedStorage(2), 3, true));
+        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(binaryGraphWithSkippedStorage(2), 3, 8, true));
     }
 
     private static byte[] binaryGraphWithSkippedStorage(int metric) {
@@ -239,7 +263,10 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
 
     public void testDisconnectedCagraGraphs() throws IOException {
         for (String file : CAGRA_FILES) {
-            IOException exception = expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(graphBytes(file, 2)));
+            IOException exception = expectThrows(
+                RemoteIndexGraphValidator.GraphFaultException.class,
+                () -> validateFixture(graphBytes(file, 2), file)
+            );
             assertTrue(exception.getMessage(), exception.getMessage().contains("2 connected components"));
         }
     }
@@ -263,7 +290,7 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         buffer.putInt(8).putLong(1).putLong(0).putLong(0).put((byte) 1).putInt(1);
         buffer.put((byte) 0).put((byte) 1).putInt(32);
         buffer.put(hnsw).put("null".getBytes(StandardCharsets.US_ASCII));
-        validate(withIdMap(buffer.array(), 8, 1), 1, true);
+        validate(withIdMap(buffer.array(), 8, 1), 1, 8, true);
     }
 
     public void testInvalidNeighbor() throws IOException {
@@ -275,7 +302,7 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
     public void testInvalidNeighborMatchingLuceneSentinel() throws IOException {
         for (String file : CAGRA_FILES) {
             byte[] bytes = graphBytesWithInvalidNeighbor(file, Integer.MAX_VALUE);
-            IOException exception = expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(bytes));
+            IOException exception = expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validateFixture(bytes, file));
             assertTrue(exception.getMessage(), exception.getMessage().contains("invalid neighbor ID"));
         }
     }
@@ -284,7 +311,7 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         for (String file : CAGRA_FILES) {
             for (long count : new long[] { -1, 0, 299, Integer.MAX_VALUE, Long.MAX_VALUE }) {
                 byte[] bytes = graphBytesWithVectorCount(file, count);
-                expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(bytes));
+                expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validateFixture(bytes, file));
             }
         }
     }
@@ -299,7 +326,7 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
     public void testVectorCountMustMatchSerializedLevels() throws IOException {
         byte[] bytes = graphBytesWithVectorCount(CAGRA_FILES.getFirst(), 299);
         ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).putLong(8, 299);
-        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(bytes, 299));
+        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(bytes, 299, 768, false));
     }
 
     public void testTruncatedGraphIsGraphFault() {
@@ -314,7 +341,7 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         IOException failure = new IOException("Disk read failed");
         try (IndexInput input = spy(new ByteArrayIndexInput("graph", graphBytes(CAGRA_FILES.getFirst(), 1)))) {
             doThrow(failure).when(input).readInt();
-            assertSame(failure, expectThrows(IOException.class, () -> RemoteIndexGraphValidator.validate(input, 300, false)));
+            assertSame(failure, expectThrows(IOException.class, () -> RemoteIndexGraphValidator.validate(input, 300, 768, false)));
         }
     }
 
@@ -328,7 +355,7 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         IOException failure = new IOException("Disk seek failed");
         try (IndexInput input = spy(new ByteArrayIndexInput("graph", bytes))) {
             doThrow(failure).when(input).seek(neighborsOffset);
-            assertSame(failure, expectThrows(IOException.class, () -> RemoteIndexGraphValidator.validate(input, 300, false)));
+            assertSame(failure, expectThrows(IOException.class, () -> RemoteIndexGraphValidator.validate(input, 300, 768, false)));
         }
     }
 
@@ -364,14 +391,14 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         bytes.put("IxMp".getBytes(StandardCharsets.US_ASCII));
         bytes.putInt(1).putLong(3).putLong(0).putLong(0).put((byte) 1).putInt(1);
         bytes.put(graph).putLong(0);
-        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(bytes.array(), 3, true));
+        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(bytes.array(), 3, 1, true));
     }
 
     public void testNestedGraphCannotBeUsedAsFlatStorage() {
         byte[] graph = smallGraph();
         ByteBuffer bytes = ByteBuffer.allocate(graph.length * 2 - 4);
         bytes.put(graph, 0, graph.length - 4).put(graph);
-        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(withIdMap(bytes.array(), 1, 3), 3));
+        expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(withIdMap(bytes.array(), 1, 3), 3, 1, false));
     }
 
     public void testValidationHonorsMergeCancellation() throws Exception {
@@ -392,7 +419,7 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         byte[] graph = withIdMap(smallGraph(), 1, 3);
         for (int length = 0; length < graph.length; length++) {
             byte[] prefix = Arrays.copyOf(graph, length);
-            expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(prefix, 3, true));
+            expectThrows(RemoteIndexGraphValidator.GraphFaultException.class, () -> validate(prefix, 3, 1, true));
         }
     }
 
@@ -424,11 +451,11 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         bytes.put("IxF2".getBytes(StandardCharsets.US_ASCII));
         bytes.putInt(1).putLong(3).putLong(0).putLong(0).put((byte) 1).putInt(1);
         bytes.putLong(3).putFloat(0).putFloat(1).putFloat(2);
-        validate(withIdMap(bytes.array(), 1, 3), 3);
+        validate(withIdMap(bytes.array(), 1, 3), 3, 1, false);
         bytes.putInt(169, 1); // Node 1 only belongs to level 0; maximum level is 1.
         IOException failure = expectThrows(
             RemoteIndexGraphValidator.GraphFaultException.class,
-            () -> validate(withIdMap(bytes.array(), 1, 3), 3)
+            () -> validate(withIdMap(bytes.array(), 1, 3), 3, 1, false)
         );
         assertTrue(failure.getMessage(), failure.getMessage().contains("maximum level"));
     }
@@ -478,22 +505,40 @@ public class RemoteIndexGraphValidatorTests extends KNNTestCase {
         return bytes.array();
     }
 
+    static byte[] graphBytesWithDimension(int dimension) throws IOException {
+        byte[] original = graphBytes(CAGRA_FILES.getFirst(), 1);
+        int storageOffset = 43336;
+        int vectorCountOffset = storageOffset + 37;
+        int vectorsOffset = vectorCountOffset + Long.BYTES;
+        int idsOffset = original.length - Long.BYTES * 301;
+        int vectorBytes = dimension * 300 * Float.BYTES;
+        ByteBuffer resized = ByteBuffer.allocate(vectorsOffset + vectorBytes + original.length - idsOffset).order(ByteOrder.LITTLE_ENDIAN);
+        resized.put(original, 0, vectorCountOffset);
+        resized.putLong((long) dimension * 300);
+        resized.put(original, vectorsOffset, vectorBytes);
+        resized.put(original, idsOffset, original.length - idsOffset);
+        // Change all three headers and the flat vector payload together, leaving a coherent index of the wrong dimension.
+        resized.putInt(4, dimension).putInt(41, dimension).putInt(storageOffset + 4, dimension);
+        return resized.array();
+    }
+
     private static void validate(byte[] bytes) throws IOException {
-        validate(bytes, 300);
+        validate(bytes, 300, 768, false);
     }
 
-    private static void validate(byte[] bytes, int expectedVectorCount) throws IOException {
-        validate(bytes, expectedVectorCount, false);
+    private static void validateFixture(byte[] bytes, String file) throws IOException {
+        validate(bytes, 300, file.equals("faiss_binary_cagra_300_vectors_32_dims.faiss") ? 32 : 768, false);
     }
 
-    private static void validate(byte[] bytes, int expectedVectorCount, boolean skipStoredVectors) throws IOException {
+    private static void validate(byte[] bytes, int expectedVectorCount, int expectedDimension, boolean skipStoredVectors)
+        throws IOException {
         try (ByteArrayIndexInput input = new ByteArrayIndexInput("graph", bytes)) {
-            RemoteIndexGraphValidator.validate(input, expectedVectorCount, skipStoredVectors);
+            RemoteIndexGraphValidator.validate(input, expectedVectorCount, expectedDimension, skipStoredVectors);
         }
     }
 
     private static void validateGraph(byte[] graph, int count) throws IOException {
-        validate(withIdMap(graph, 1, count), count, true);
+        validate(withIdMap(graph, 1, count), count, 1, true);
     }
 
     private static byte[] withIdMap(byte[] graph, int dimension, int count) {
