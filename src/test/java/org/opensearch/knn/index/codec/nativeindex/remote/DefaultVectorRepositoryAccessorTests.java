@@ -35,6 +35,7 @@ import java.util.function.Supplier;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
@@ -42,6 +43,41 @@ import static org.opensearch.knn.common.KNNConstants.DOC_ID_FILE_EXTENSION;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_BLOB_FILE_EXTENSION;
 
 public class DefaultVectorRepositoryAccessorTests extends RemoteIndexBuildTests {
+
+    public void testRepositoryReadClosesStreamAfterSuccess() throws IOException {
+        InputStream stream = spy(new ByteArrayInputStream(new byte[] { 1, 2, 3 }));
+        BlobContainer container = mock(BlobContainer.class);
+        when(container.readBlob("graph.faiss")).thenReturn(stream);
+        try (
+            Directory directory = newDirectory();
+            IndexOutputWithBuffer output = new IndexOutputWithBuffer(directory.createOutput("graph.faiss", IOContext.DEFAULT))
+        ) {
+            new DefaultVectorRepositoryAccessor(container).readFromRepository("graph.faiss", output);
+            assertEquals(3, output.getBytesWritten());
+            verify(stream).close();
+        }
+    }
+
+    public void testRepositoryReadClosesStreamAfterReadFailure() throws IOException {
+        IOException failure = new IOException("Repository stream failed");
+        InputStream stream = mock(InputStream.class);
+        when(stream.read(any(byte[].class), eq(0), Mockito.anyInt())).thenThrow(failure);
+        BlobContainer container = mock(BlobContainer.class);
+        when(container.readBlob("graph.faiss")).thenReturn(stream);
+        try (
+            Directory directory = newDirectory();
+            IndexOutputWithBuffer output = new IndexOutputWithBuffer(directory.createOutput("graph.faiss", IOContext.DEFAULT))
+        ) {
+            assertSame(
+                failure,
+                expectThrows(
+                    IOException.class,
+                    () -> new DefaultVectorRepositoryAccessor(container).readFromRepository("graph.faiss", output)
+                )
+            );
+            verify(stream).close();
+        }
+    }
 
     /**
      * Test that whenever an non AsyncMultiStreamBlobContainer is used, writeBlob is invoked twice

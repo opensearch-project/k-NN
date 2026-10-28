@@ -5,12 +5,20 @@
 
 package org.opensearch.knn.index.codec.nativeindex.remote;
 
+import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.MergeAbortChecker;
+import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexOutput;
+import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.store.TrackingDirectoryWrapper;
 import org.apache.lucene.util.InfoStream;
+import org.mockito.MockedStatic;
+import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.common.SetOnce;
 import org.opensearch.common.blobstore.BlobContainer;
 import org.opensearch.common.blobstore.BlobPath;
@@ -24,26 +32,45 @@ import org.opensearch.knn.common.exception.TerminalIOException;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.IndexBuildAbortedException;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategy;
+import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
+import org.opensearch.knn.index.remote.RemoteIndexWaiter;
+import org.opensearch.knn.index.remote.RemoteIndexWaiterFactory;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
+import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue;
 import org.opensearch.remoteindexbuild.model.RemoteBuildRequest;
+import org.opensearch.remoteindexbuild.model.RemoteBuildResponse;
+import org.opensearch.remoteindexbuild.model.RemoteBuildStatusResponse;
+import org.opensearch.remoteindexbuild.client.RemoteIndexClient;
+import org.opensearch.remoteindexbuild.client.RemoteIndexClientFactory;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.repositories.RepositoryMissingException;
 import org.opensearch.repositories.blobstore.BlobStoreRepository;
 
 import java.io.IOException;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
@@ -63,6 +90,7 @@ import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_BUILD_SIZE_MAX_SETTING;
 import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_REPOSITORY_SETTING;
 import static org.opensearch.knn.index.SpaceType.INNER_PRODUCT;
+import static org.opensearch.knn.index.SpaceType.L2;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_FLUSH_TIME;
 import static org.opensearch.knn.plugin.stats.KNNRemoteIndexBuildValue.REMOTE_INDEX_BUILD_MERGE_TIME;
 import static org.opensearch.remoteindexbuild.constants.KNNRemoteConstants.DOC_ID_FILE_EXTENSION;
@@ -79,6 +107,355 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
     public static final String VECTORS_PATH = "_vectors";
     public static final String MOCK_FULL_PATH = "vectors/1_1_25/SIRKos4rOWlMA62PX2p75m_vectors/SIRKos4rOWlMA62PX2p75m_target_field__3l";
     public static final String MOCK_SEGMENT_STATE = "_3l";
+
+    public void testDisconnectedRemoteGraphFallsBackToCPU() throws Exception {
+        assertRemoteGraphBuild(true);
+    }
+
+    public void testConnectedRemoteGraphIsAccepted() throws Exception {
+        assertRemoteGraphBuild(false);
+    }
+
+    public void testRemoteGraphDimensionMustMatchRequest() throws Exception {
+        assertRemoteGraphBuild(RemoteIndexGraphValidatorTests.graphBytesWithDimension(256), true, false);
+    }
+
+    public void testRemoteGraphMetricMustMatchRequest() throws Exception {
+        assertRemoteGraphBuild(RemoteIndexGraphValidatorTests.graphBytesWithMetric(0), true, false);
+    }
+
+    public void testRemoteGraphEncodingMustMatchRequest() throws Exception {
+        assertRemoteGraphBuild(
+            RemoteIndexGraphValidatorTests.graphBytes("faiss_cagra2_flat_binary_300_vectors_768_dims.bin", 1),
+            true,
+            false
+        );
+    }
+
+    public void testRemoteGraphScalarEncodingMustMatchRequest() throws Exception {
+        assertRemoteGraphBuild(
+            RemoteIndexGraphValidatorTests.graphBytesWithMetric("faiss_cagra2_flat_byte_300_vectors_768_dims.bin", 1),
+            true,
+            false
+        );
+    }
+
+    public void testRemoteGraphDocumentIdsMustFitSegment() throws Exception {
+        assertRemoteGraphBuild(RemoteIndexGraphValidatorTests.graphBytesWithLastDocumentId(300), true, false);
+    }
+
+    public void testCleanupFailureAfterRemoteSuccessTerminatesBuild() throws Exception {
+        assertCleanupFailure(false, false, false);
+    }
+
+    public void testCleanupFailureAfterGraphFaultPreventsFallback() throws Exception {
+        assertCleanupFailure(true, false, false);
+    }
+
+    public void testCleanupFailureAfterDownloadFailurePreventsFallback() throws Exception {
+        assertCleanupFailure(false, true, false);
+    }
+
+    public void testCleanupFailurePreservesCancellation() throws Exception {
+        assertCleanupFailure(false, false, true);
+    }
+
+    public void testCleanupFailurePreservesTerminalIOException() throws Exception {
+        assertRemoteGraphBuild(
+            new byte[0],
+            false,
+            new TerminalIOException("Output closed", new IOException()),
+            false,
+            false,
+            new IOException("Staged file deletion failed")
+        );
+    }
+
+    public void testCleanupFailurePreservesFatalError() throws Exception {
+        assertRemoteGraphBuild(
+            new byte[0],
+            false,
+            new AssertionError("Fatal repository error"),
+            false,
+            false,
+            new IOException("Staged file deletion failed")
+        );
+    }
+
+    public void testUncheckedCleanupFailureTerminatesBuild() throws Exception {
+        assertRemoteGraphBuild(
+            RemoteIndexGraphValidatorTests.graphBytes("faiss_cagra_flat_float_300_vectors_768_dims.bin", 1),
+            false,
+            null,
+            false,
+            false,
+            new IllegalStateException("Staged file deletion failed")
+        );
+    }
+
+    private void assertCleanupFailure(boolean graphFault, boolean downloadFailure, boolean aborted) throws Exception {
+        assertRemoteGraphBuild(
+            RemoteIndexGraphValidatorTests.graphBytes("faiss_cagra_flat_float_300_vectors_768_dims.bin", graphFault ? 2 : 1),
+            graphFault,
+            downloadFailure ? new IOException("Repository download failed") : null,
+            aborted,
+            false,
+            new IOException("Staged file deletion failed")
+        );
+    }
+
+    public void testMissingVectorStorageFallsBackToCPU() throws Exception {
+        assertRemoteGraphBuild(RemoteIndexGraphValidatorTests.graphBytesWithoutStorage(), true, false);
+    }
+
+    public void testSkippedStorageIsAcceptedForSQBuild() throws Exception {
+        assertRemoteGraphBuild(RemoteIndexGraphValidatorTests.graphBytesWithoutStorage(), false, false, false, true);
+    }
+
+    public void testUnexpectedEmbeddedStorageFallsBackForSQBuild() throws Exception {
+        assertRemoteGraphBuild(
+            RemoteIndexGraphValidatorTests.graphBytes("faiss_cagra_flat_float_300_vectors_768_dims.bin", 1),
+            true,
+            false,
+            false,
+            true
+        );
+    }
+
+    public void testRepositoryDownloadFailureDoesNotCountAsGraphFault() throws Exception {
+        assertRemoteGraphBuild(false, true);
+    }
+
+    public void testInvalidNeighborSentinelFallsBackToCPU() throws Exception {
+        assertRemoteGraphBuild(
+            RemoteIndexGraphValidatorTests.graphBytesWithInvalidNeighbor(
+                "faiss_cagra_flat_float_300_vectors_768_dims.bin",
+                Integer.MAX_VALUE
+            ),
+            true,
+            false
+        );
+    }
+
+    public void testOversizedGraphVectorCountFallsBackToCPU() throws Exception {
+        assertRemoteGraphBuild(
+            RemoteIndexGraphValidatorTests.graphBytesWithVectorCount("faiss_cagra_flat_float_300_vectors_768_dims.bin", Integer.MAX_VALUE),
+            true,
+            false
+        );
+    }
+
+    public void testZeroGraphVectorCountFallsBackToCPU() throws Exception {
+        assertRemoteGraphBuild(
+            RemoteIndexGraphValidatorTests.graphBytesWithVectorCount("faiss_cagra_flat_float_300_vectors_768_dims.bin", 0),
+            true,
+            false
+        );
+    }
+
+    public void testTruncatedGraphFallsBackAndCountsGraphFault() throws Exception {
+        assertRemoteGraphBuild("IHNc".getBytes(StandardCharsets.US_ASCII), true, false);
+    }
+
+    public void testUnsupportedGraphFormatFallsBackAndCountsGraphFault() throws Exception {
+        assertRemoteGraphBuild("bad!".getBytes(StandardCharsets.US_ASCII), true, false);
+    }
+
+    public void testCancellationDuringValidationCleansTemporaryFileWithoutFallback() throws Exception {
+        assertRemoteGraphBuild(
+            RemoteIndexGraphValidatorTests.graphBytes("faiss_cagra_flat_float_300_vectors_768_dims.bin", 1),
+            false,
+            false,
+            true
+        );
+    }
+
+    private void assertRemoteGraphBuild(boolean disconnected) throws Exception {
+        assertRemoteGraphBuild(disconnected, false);
+    }
+
+    private void assertRemoteGraphBuild(boolean disconnected, boolean downloadFailure) throws Exception {
+        byte[] graph = RemoteIndexGraphValidatorTests.graphBytes("faiss_cagra_flat_float_300_vectors_768_dims.bin", disconnected ? 2 : 1);
+        assertRemoteGraphBuild(graph, disconnected, downloadFailure);
+    }
+
+    private void assertRemoteGraphBuild(byte[] graph, boolean graphFault, boolean downloadFailure) throws Exception {
+        assertRemoteGraphBuild(graph, graphFault, downloadFailure, false);
+    }
+
+    private void assertRemoteGraphBuild(byte[] graph, boolean graphFault, boolean downloadFailure, boolean aborted) throws Exception {
+        assertRemoteGraphBuild(graph, graphFault, downloadFailure, aborted, false);
+    }
+
+    private void assertRemoteGraphBuild(
+        byte[] graph,
+        boolean graphFault,
+        boolean downloadFailure,
+        boolean aborted,
+        boolean skipStoredVectors
+    ) throws Exception {
+        assertRemoteGraphBuild(
+            graph,
+            graphFault,
+            downloadFailure ? new IOException("Repository download failed") : null,
+            aborted,
+            skipStoredVectors,
+            null
+        );
+    }
+
+    private void assertRemoteGraphBuild(
+        byte[] graph,
+        boolean graphFault,
+        Throwable downloadException,
+        boolean aborted,
+        boolean skipStoredVectors,
+        Exception cleanupFailure
+    ) throws Exception {
+        boolean downloadFailure = downloadException != null;
+        boolean fatalError = downloadException instanceof Error;
+        boolean terminalIO = downloadException instanceof TerminalIOException;
+        BlobContainer blobContainer = mock(BlobContainer.class);
+        if (downloadFailure) {
+            when(blobContainer.readBlob("graph.faiss")).thenThrow(downloadException);
+        } else {
+            when(blobContainer.readBlob("graph.faiss")).thenReturn(new ByteArrayInputStream(graph));
+        }
+        BlobStore blobStore = mock(BlobStore.class);
+        when(blobStore.blobContainer(any())).thenReturn(blobContainer);
+        BlobStoreRepository repository = mock(BlobStoreRepository.class);
+        when(repository.basePath()).thenReturn(new BlobPath());
+        when(repository.blobStore()).thenReturn(blobStore);
+        RepositoryMetadata metadata = createTestRepositoryMetadata();
+        when(repository.getMetadata()).thenReturn(metadata);
+        RepositoriesService repositoriesService = mock(RepositoriesService.class);
+        when(repositoriesService.repository(any())).thenReturn(repository);
+        KNNLibraryIndexingContext context = mock(KNNLibraryIndexingContext.class);
+        when(context.getLibraryParameters()).thenReturn(getMockL2ParameterMap());
+        ResolvedIndexSpec resolvedSpec = mock(ResolvedIndexSpec.class);
+        when(resolvedSpec.isFaissSQMultiBit()).thenReturn(skipStoredVectors);
+        when(context.getResolvedSpec()).thenReturn(resolvedSpec);
+        RemoteIndexClient client = mock(RemoteIndexClient.class);
+        when(client.submitVectorBuild(any())).thenReturn(RemoteBuildResponse.builder().jobId("job").build());
+        RemoteIndexWaiter waiter = mock(RemoteIndexWaiter.class);
+        when(waiter.awaitVectorBuild(any())).thenReturn(RemoteBuildStatusResponse.builder().fileName("graph.faiss").build());
+
+        AtomicBoolean failDeletion = new AtomicBoolean(cleanupFailure != null);
+        try (TrackingDirectoryWrapper directory = new TrackingDirectoryWrapper(new FilterDirectory(newDirectory()) {
+            @Override
+            public void deleteFile(String name) throws IOException {
+                if (name.endsWith(".tmp") && failDeletion.compareAndSet(true, false)) {
+                    if (cleanupFailure instanceof IOException ioFailure) {
+                        throw ioFailure;
+                    }
+                    throw (RuntimeException) cleanupFailure;
+                }
+                super.deleteFile(name);
+            }
+        });
+            MockedStatic<MergeAbortChecker> mergeAbort = mockStatic(MergeAbortChecker.class);
+            MockedStatic<RemoteIndexClientFactory> clients = mockStatic(RemoteIndexClientFactory.class);
+            MockedStatic<RemoteIndexWaiterFactory> waiters = mockStatic(RemoteIndexWaiterFactory.class);
+            IndexOutputWithBuffer output = new IndexOutputWithBuffer(directory.createOutput("index.faiss", IOContext.DEFAULT))
+        ) {
+            mergeAbort.when(MergeAbortChecker::isMergeAborted).thenReturn(aborted);
+            clients.when(() -> RemoteIndexClientFactory.getRemoteIndexClient(any())).thenReturn(client);
+            waiters.when(() -> RemoteIndexWaiterFactory.getRemoteIndexWaiter(any(), any())).thenReturn(waiter);
+            SegmentInfo remoteSegmentInfo = KNNCodecTestUtil.newSegmentInfo(directory.getDelegate(), "_0", 300, Codec.getDefault());
+            SegmentWriteState state = new SegmentWriteState(
+                InfoStream.NO_OUTPUT,
+                directory,
+                remoteSegmentInfo,
+                mock(FieldInfos.class),
+                null,
+                IOContext.DEFAULT
+            );
+            TestVectorValues.PreDefinedFloatVectorValues vectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+                Collections.nCopies(300, new float[768])
+            );
+            BuildIndexParams params = BuildIndexParams.builder()
+                .indexOutputWithBuffer(output)
+                .segmentWriteState(state)
+                .knnEngine(KNNEngine.FAISS)
+                .field(buildIndexParams.getField())
+                .vectorDataType(VectorDataType.FLOAT)
+                .indexParameters(buildIndexParams.getIndexParameters())
+                .knnVectorValuesSupplier(KNNVectorValuesFactory.getVectorValuesSupplier(VectorDataType.FLOAT, vectorValues))
+                .totalLiveDocs(300)
+                .isFlush(buildIndexParams.isFlush())
+                .build();
+            NativeIndexBuildStrategy fallback = mock(NativeIndexBuildStrategy.class);
+            byte[] cpuIndex = new byte[] { 1, 2, 3 };
+            doAnswer(invocation -> {
+                assertEquals(0L, output.getBytesWritten());
+                output.writeFromStreamWithBuffer(new ByteArrayInputStream(cpuIndex), cpuIndex.length);
+                return null;
+            }).when(fallback).buildAndWriteIndex(params);
+
+            RemoteIndexBuildStrategy strategy = new RemoteIndexBuildStrategy(
+                () -> repositoriesService,
+                fallback,
+                createTestIndexSettings(),
+                context
+            );
+            if (fatalError || terminalIO) {
+                Throwable failure = expectThrows(downloadException.getClass(), () -> strategy.buildAndWriteIndex(params));
+                assertSame(downloadException, failure);
+                assertArrayEquals(new Throwable[] { cleanupFailure }, failure.getSuppressed());
+            } else if (aborted) {
+                IndexBuildAbortedException failure = expectThrows(
+                    IndexBuildAbortedException.class,
+                    () -> strategy.buildAndWriteIndex(params)
+                );
+                if (cleanupFailure != null) {
+                    assertArrayEquals(new Throwable[] { cleanupFailure }, failure.getSuppressed());
+                }
+            } else if (cleanupFailure != null) {
+                TerminalIOException failure = expectThrows(TerminalIOException.class, () -> strategy.buildAndWriteIndex(params));
+                assertSame(cleanupFailure, failure.getCause());
+                if (graphFault || downloadFailure) {
+                    assertEquals(1, failure.getSuppressed().length);
+                    assertTrue(failure.getSuppressed()[0].getCause() instanceof IOException);
+                }
+            } else {
+                strategy.buildAndWriteIndex(params);
+            }
+
+            verify(client).submitVectorBuild(any());
+            verify(blobContainer).readBlob("graph.faiss");
+            boolean expectFallback = (graphFault || downloadFailure) && cleanupFailure == null && !fatalError && !terminalIO;
+            verify(fallback, expectFallback ? times(1) : never()).buildAndWriteIndex(params);
+            assertEquals(expectFallback || fatalError ? 1L : 0L, (long) KNNRemoteIndexBuildValue.INDEX_BUILD_FAILURE_COUNT.getValue());
+            assertEquals(
+                expectFallback || aborted || cleanupFailure != null ? 0L : 1L,
+                (long) KNNRemoteIndexBuildValue.INDEX_BUILD_SUCCESS_COUNT.getValue()
+            );
+            assertEquals(aborted ? 1L : 0L, (long) KNNRemoteIndexBuildValue.INDEX_BUILD_MERGE_ABORT_EXCEPTION.getValue());
+            assertEquals(
+                terminalIO || cleanupFailure != null && !aborted && !fatalError ? 1L : 0L,
+                (long) KNNRemoteIndexBuildValue.INDEX_BUILD_TERMINAL_EXCEPTION.getValue()
+            );
+            assertEquals(graphFault ? 1L : 0L, (long) KNNRemoteIndexBuildValue.GPU_GRAPH_FAULT_COUNT.getValue());
+            boolean readSucceeded = !graphFault && !downloadFailure && !aborted && cleanupFailure == null;
+            assertEquals(readSucceeded ? 1L : 0L, (long) KNNRemoteIndexBuildValue.READ_SUCCESS_COUNT.getValue());
+            assertEquals(readSucceeded ? 0L : 1L, (long) KNNRemoteIndexBuildValue.READ_FAILURE_COUNT.getValue());
+            if (cleanupFailure != null) {
+                String stagedFile = directory.getCreatedFiles().stream().filter(name -> name.endsWith(".tmp")).findFirst().orElseThrow();
+                // A failed deletion leaves the file tracked; the strategy must fail before Lucene can seal the segment.
+                directory.deleteFile(stagedFile);
+            }
+            assertEquals(Collections.singleton("index.faiss"), directory.getCreatedFiles());
+            assertArrayEquals(new String[] { "index.faiss" }, directory.listAll());
+            output.close();
+            byte[] expected = expectFallback ? cpuIndex : aborted || graphFault || downloadFailure ? new byte[0] : graph;
+            try (IndexInput input = directory.openInput("index.faiss", IOContext.DEFAULT)) {
+                assertEquals(expected.length, input.length());
+                byte[] actual = new byte[expected.length];
+                input.readBytes(actual, 0, actual.length);
+                assertArrayEquals(expected, actual);
+            }
+        }
+    }
 
     /**
      * Test that we fallback to the fallback NativeIndexBuildStrategy when an exception is thrown
@@ -636,6 +1013,13 @@ public class RemoteIndexBuildStrategyTests extends RemoteIndexBuildTests {
             PARAMETERS,
             innerParams
         );
+    }
+
+    private Map<String, Object> getMockL2ParameterMap() {
+        Map<String, Object> parameters = new HashMap<>(getMockParameterMap());
+        parameters.put(SPACE_TYPE, L2.getValue());
+        parameters.put(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue());
+        return parameters;
     }
 
     public Map<String, Object> getMockSQOneBitParameterMap() {

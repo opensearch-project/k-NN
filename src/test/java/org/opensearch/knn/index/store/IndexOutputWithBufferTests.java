@@ -9,11 +9,87 @@ import lombok.SneakyThrows;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexOutput;
+import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.index.MergeAbortChecker;
+import org.mockito.MockedStatic;
+import org.opensearch.common.lucene.store.ByteArrayIndexInput;
+import org.opensearch.knn.common.exception.TerminalIOException;
+import org.opensearch.knn.index.codec.nativeindex.IndexBuildAbortedException;
 import org.opensearch.knn.KNNTestCase;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.util.Arrays;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 public class IndexOutputWithBufferTests extends KNNTestCase {
+
+    public void testCopyFromPreservesBytesAndTracksRemainingLength() throws IOException {
+        byte[] bytes = new byte[128 * 1024 + 17];
+        random().nextBytes(bytes);
+        try (Directory directory = newDirectory(); IndexInput input = new ByteArrayIndexInput("copy", bytes)) {
+            try (IndexOutputWithBuffer output = new IndexOutputWithBuffer(directory.createOutput("copy.faiss", IOContext.DEFAULT))) {
+                input.seek(7);
+                output.copyFrom(input);
+                assertEquals(bytes.length - 7, output.getBytesWritten());
+            }
+            try (IndexInput result = directory.openInput("copy.faiss", IOContext.DEFAULT)) {
+                byte[] actual = new byte[Math.toIntExact(result.length())];
+                result.readBytes(actual, 0, actual.length);
+                assertArrayEquals(Arrays.copyOfRange(bytes, 7, bytes.length), actual);
+            }
+        }
+    }
+
+    public void testCopyReadFailurePreservesSuccessfulWriteCount() throws IOException {
+        IOException failure = new IOException("Read failed after one chunk");
+        IndexOutput delegate = mock(IndexOutput.class);
+        try (
+            IndexInput input = spy(new ByteArrayIndexInput("copy", new byte[128 * 1024]));
+            IndexOutputWithBuffer output = new IndexOutputWithBuffer(delegate)
+        ) {
+            doCallRealMethod().doThrow(failure).when(input).readBytes(any(byte[].class), eq(0), eq(64 * 1024));
+            assertSame(failure, expectThrows(IOException.class, () -> output.copyFrom(input)));
+            assertEquals(64 * 1024, output.getBytesWritten());
+            verify(delegate).writeBytes(any(byte[].class), eq(0), eq(64 * 1024));
+        }
+    }
+
+    public void testCopyWriteFailureIsTerminal() throws IOException {
+        IOException failure = new IOException("Output failed");
+        IndexOutput delegate = mock(IndexOutput.class);
+        doThrow(failure).when(delegate).writeBytes(any(byte[].class), eq(0), eq(1));
+        try (
+            IndexInput input = new ByteArrayIndexInput("copy", new byte[1]);
+            IndexOutputWithBuffer output = new IndexOutputWithBuffer(delegate)
+        ) {
+            TerminalIOException exception = expectThrows(TerminalIOException.class, () -> output.copyFrom(input));
+            assertSame(failure, exception.getCause());
+            assertEquals(0, output.getBytesWritten());
+        }
+    }
+
+    public void testCopyHonorsCancellationBetweenChunks() throws IOException {
+        IndexOutput delegate = mock(IndexOutput.class);
+        try (
+            MockedStatic<MergeAbortChecker> mergeAbort = mockStatic(MergeAbortChecker.class);
+            IndexInput input = new ByteArrayIndexInput("copy", new byte[128 * 1024]);
+            IndexOutputWithBuffer output = new IndexOutputWithBuffer(delegate)
+        ) {
+            mergeAbort.when(MergeAbortChecker::isMergeAborted).thenReturn(false, true);
+            expectThrows(IndexBuildAbortedException.class, () -> output.copyFrom(input));
+            assertEquals(64 * 1024, output.getBytesWritten());
+            verify(delegate).writeBytes(any(byte[].class), eq(0), eq(64 * 1024));
+        }
+    }
 
     @SneakyThrows
     public void testWriteFromStream_thenTracksBytesWritten() {
