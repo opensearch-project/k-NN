@@ -542,6 +542,62 @@ struct ArmNeonSQSimilarityFunction final : SimilarityFunction {
     }
 };
 
+//
+// SQ 4-bit (4-bit query x 4-bit data, Lucene PACKED_NIBBLE) - ARM NEON implementation
+//
+#include "sq4_similarity_function.cpp"
+
+// Multiplies 16 unsigned bytes pairwise and accumulates the sums of each group of four adjacent
+// products into 4 uint32 lanes. All inputs are in [0, 15], so no intermediate overflows.
+static FORCE_INLINE uint32x4_t neon_sq4DotAccumulate(const uint32x4_t acc, const uint8x16_t a, const uint8x16_t b) {
+#if defined(__ARM_FEATURE_DOTPROD)
+    // UDOT (mandatory from Armv8.4-A): u8 x u8 multiply, sum of 4 adjacent products, accumulate into u32.
+    return vdotq_u32(acc, a, b);
+#else
+    // UMULL: u8 x u8 -> u16 (at most 225). UADALP: pairwise add u16 -> accumulate into u32.
+    const uint16x8_t productsLow = vmull_u8(vget_low_u8(a), vget_low_u8(b));
+    const uint16x8_t productsHigh = vmull_high_u8(a, b);
+    return vpadalq_u16(vpadalq_u16(acc, productsLow), productsHigh);
+#endif
+}
+
+struct ArmNeonSQ4Kernel final {
+    // Processes 16 packed document bytes (32 dimensions) per iteration for BATCH_SIZE documents.
+    template <int BATCH_SIZE>
+    static FORCE_INLINE void dotProductBatch(const uint8_t* query, uint8_t** docs, const int32_t packedBytes, int32_t* results) {
+        const uint8_t* queryHigh = query;
+        const uint8_t* queryLow = query + packedBytes;
+        const uint8x16_t lowMask = vdupq_n_u8(0x0F);
+
+        uint32x4_t acc[BATCH_SIZE];
+        for (int32_t b = 0 ; b < BATCH_SIZE ; ++b) {
+            acc[b] = vdupq_n_u32(0);
+        }
+
+        int32_t i = 0;
+        for ( ; i + 16 <= packedBytes ; i += 16) {
+            const uint8x16_t qHigh = vld1q_u8(queryHigh + i);
+            const uint8x16_t qLow = vld1q_u8(queryLow + i);
+
+            for (int32_t b = 0 ; b < BATCH_SIZE ; ++b) {
+                const uint8x16_t d = vld1q_u8(docs[b] + i);
+                acc[b] = neon_sq4DotAccumulate(acc[b], vshrq_n_u8(d, 4), qHigh);
+                acc[b] = neon_sq4DotAccumulate(acc[b], vandq_u8(d, lowMask), qLow);
+            }
+        }
+
+        for (int32_t b = 0 ; b < BATCH_SIZE ; ++b) {
+            int32_t total = static_cast<int32_t>(vaddvq_u32(acc[b]));
+            // Scalar tail for remaining bytes (< 16)
+            for (int32_t r = i ; r < packedBytes ; ++r) {
+                total += static_cast<int32_t>(docs[b][r] >> 4) * queryHigh[r];
+                total += static_cast<int32_t>(docs[b][r] & 0x0F) * queryLow[r];
+            }
+            results[b] = total;
+        }
+    }
+};
+
 
 //
 // FP16
@@ -616,6 +672,16 @@ ArmNeonSQSimilarityFunction<SQMetricMode::L2> SQ_L2_SIMIL_FUNC;
 // 3. Cosine
 ArmNeonSQSimilarityFunction<SQMetricMode::COSINE> SQ_COSINE_SIMIL_FUNC;
 
+//
+// SQ 4-bit
+//
+// 1. Max IP
+SQ4SimilarityFunction<SQMetricMode::MAX_IP, ArmNeonSQ4Kernel> SQ4_IP_SIMIL_FUNC;
+// 2. L2
+SQ4SimilarityFunction<SQMetricMode::L2, ArmNeonSQ4Kernel> SQ4_L2_SIMIL_FUNC;
+// 3. Cosine
+SQ4SimilarityFunction<SQMetricMode::COSINE, ArmNeonSQ4Kernel> SQ4_COSINE_SIMIL_FUNC;
+
 #ifndef __NO_SELECT_FUNCTION
 SimilarityFunction* SimilarityFunction::selectSimilarityFunction(const NativeSimilarityFunctionType nativeFunctionType) {
     if (nativeFunctionType == NativeSimilarityFunctionType::FP16_MAXIMUM_INNER_PRODUCT) {
@@ -634,6 +700,12 @@ SimilarityFunction* SimilarityFunction::selectSimilarityFunction(const NativeSim
         return &SQ_COSINE_SIMIL_FUNC;
     } else if (nativeFunctionType == NativeSimilarityFunctionType::FP16_COSINE) {
         return &FP16_COSINE_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ4_IP) {
+        return &SQ4_IP_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ4_L2) {
+        return &SQ4_L2_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ4_COSINE) {
+        return &SQ4_COSINE_SIMIL_FUNC;
     }
 
     throw std::runtime_error("Invalid native similarity function type was given, nativeFunctionType="

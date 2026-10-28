@@ -981,4 +981,86 @@ struct AVX512SQSimilarityFunction final : SimilarityFunction {
     }
 };
 
+//
+// SQ 4-bit (4-bit query x 4-bit data, Lucene PACKED_NIBBLE) - AVX512 SIMD implementation
+//
+#include "sq4_similarity_function.cpp"
+
+// Multiplies 64 unsigned bytes by 64 signed bytes and accumulates the sums of each group of four
+// adjacent products into 16 int32 lanes. All inputs are in [0, 15], so no intermediate saturates.
+static FORCE_INLINE __m512i avx512_sq4DotAccumulate(const __m512i acc, const __m512i unsignedBytes, const __m512i signedBytes) {
+#if defined(__AVX512VNNI__)
+    // VPDPBUSD: u8 x s8 multiply, sum of 4 adjacent products, accumulate into int32 in a single instruction.
+    return _mm512_dpbusd_epi32(acc, unsignedBytes, signedBytes);
+#else
+    // VPMADDUBSW: u8 x s8 -> sum of 2 adjacent products as int16 (at most 2 * 15 * 15 = 450, no saturation).
+    // VPMADDWD with ones: sum of 2 adjacent int16 -> int32.
+    const __m512i pairSums = _mm512_maddubs_epi16(unsignedBytes, signedBytes);
+    return _mm512_add_epi32(acc, _mm512_madd_epi16(pairSums, _mm512_set1_epi16(1)));
+#endif
+}
+
+struct AVX512SQ4Kernel final {
+    // Processes 64 packed document bytes (128 dimensions) per iteration for BATCH_SIZE documents.
+    // The high nibbles of the document pair with query[i] and the low nibbles with query[packedBytes + i],
+    // so the nibbles are split with a shift and a mask, no shuffling needed.
+    template <int BATCH_SIZE>
+    static FORCE_INLINE void dotProductBatch(const uint8_t* query, uint8_t** docs, const int32_t packedBytes, int32_t* results) {
+        const uint8_t* queryHigh = query;
+        const uint8_t* queryLow = query + packedBytes;
+        const __m512i lowMask = _mm512_set1_epi8(0x0F);
+
+        __m512i acc[BATCH_SIZE];
+        #pragma unroll
+        for (int32_t b = 0 ; b < BATCH_SIZE ; ++b) {
+            acc[b] = _mm512_setzero_si512();
+        }
+
+        int32_t i = 0;
+        for ( ; i + 64 <= packedBytes ; i += 64) {
+            const __m512i qHigh = _mm512_loadu_si512(queryHigh + i);
+            const __m512i qLow = _mm512_loadu_si512(queryLow + i);
+
+            // Prefetch next chunk
+            if (i + 64 < packedBytes) {
+                #pragma unroll
+                for (int32_t b = 0 ; b < BATCH_SIZE ; ++b) {
+                    __builtin_prefetch(docs[b] + i + 64);
+                }
+            }
+
+            #pragma unroll
+            for (int32_t b = 0 ; b < BATCH_SIZE ; ++b) {
+                const __m512i d = _mm512_loadu_si512(docs[b] + i);
+                // _mm512_srli_epi16 shifts 16-bit lanes, the mask drops the bits bleeding in from the neighbor byte.
+                const __m512i dHigh = _mm512_and_si512(_mm512_srli_epi16(d, 4), lowMask);
+                const __m512i dLow = _mm512_and_si512(d, lowMask);
+                acc[b] = avx512_sq4DotAccumulate(acc[b], dHigh, qHigh);
+                acc[b] = avx512_sq4DotAccumulate(acc[b], dLow, qLow);
+            }
+        }
+
+        // Single masked tail (< 64 bytes). Masked-off bytes are neither loaded nor faulted on.
+        if (i < packedBytes) {
+            const __mmask64 tailMask = _cvtu64_mask64((1ULL << (packedBytes - i)) - 1);
+            const __m512i qHigh = _mm512_maskz_loadu_epi8(tailMask, queryHigh + i);
+            const __m512i qLow = _mm512_maskz_loadu_epi8(tailMask, queryLow + i);
+
+            #pragma unroll
+            for (int32_t b = 0 ; b < BATCH_SIZE ; ++b) {
+                const __m512i d = _mm512_maskz_loadu_epi8(tailMask, docs[b] + i);
+                const __m512i dHigh = _mm512_and_si512(_mm512_srli_epi16(d, 4), lowMask);
+                const __m512i dLow = _mm512_and_si512(d, lowMask);
+                acc[b] = avx512_sq4DotAccumulate(acc[b], dHigh, qHigh);
+                acc[b] = avx512_sq4DotAccumulate(acc[b], dLow, qLow);
+            }
+        }
+
+        #pragma unroll
+        for (int32_t b = 0 ; b < BATCH_SIZE ; ++b) {
+            results[b] = _mm512_reduce_add_epi32(acc[b]);
+        }
+    }
+};
+
 #endif  // KNN_AVX512_COMMON_SIMD_SIMILARITY_FUNCTION_CPP

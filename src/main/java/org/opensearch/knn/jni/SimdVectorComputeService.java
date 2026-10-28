@@ -33,7 +33,13 @@ public class SimdVectorComputeService {
         // FP16 Cosine. Vectors are guaranteed to be L2-normalized, so cosine = inner product with score = (1 + dot) / 2.
         FP16_COSINE,
         // SQ Cosine. Same IP math as SQ_IP but with cosine score transform.
-        SQ_COSINE
+        SQ_COSINE,
+        // 4-bit SQ (PACKED_NIBBLE: 4-bit query x 4-bit data) Maximum Inner Product.
+        SQ4_IP,
+        // 4-bit SQ L2.
+        SQ4_L2,
+        // 4-bit SQ Cosine. Same IP math as SQ4_IP but with cosine score transform.
+        SQ4_COSINE
     }
 
     public static native void saveSQSearchContext(

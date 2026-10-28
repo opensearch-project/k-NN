@@ -28,8 +28,13 @@ namespace knn_jni::simd::similarity_function {
         // Cosine for FP16. Vectors are L2-normalized so cosine = inner product with score = (1 + dot) / 2.
         FP16_COSINE,
         // Cosine for SQ. Same IP intermediate math as SQ_IP but with cosine score transform.
-        SQ_COSINE
-
+        SQ_COSINE,
+        // Max inner product for 4-bit SQ (Lucene PACKED_NIBBLE: 4-bit query x 4-bit data).
+        SQ4_IP,
+        // L2 for 4-bit SQ.
+        SQ4_L2,
+        // Cosine for 4-bit SQ. Same IP intermediate math as SQ4_IP but with cosine score transform.
+        SQ4_COSINE
     };
 
     struct SimilarityFunction;

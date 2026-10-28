@@ -75,8 +75,10 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND AVX512_SPR_ENABLED)
     # -mavx512vl : 256-bit "Sub-vector" support. Ex: _mm256_maskz_loadu_epi16
     # -mavx512fp16 : Native FP16 / EVEX Conversion.
     # -mavx512bf16 : Native BF16 dot-product (_mm512_dpbf16_ps) and FP32->BF16 conversion.
+    # -mavx512vnni : Integer dot-product (_mm512_dpbusd_epi32) used by the 4-bit SQ kernel. Every CPU passing the
+    #                AVX512_SPR runtime check (avx512_fp16 + avx512_bf16) also implements AVX512-VNNI.
     # -mprefer-vector-width=512 : Emit 512-bit (zmm) code instead of the 256-bit default.
-    set(CMAKE_REQUIRED_FLAGS "-mavx512f -mavx512bw -mavx512vl -mavx512fp16 -mavx512bf16 -mprefer-vector-width=512")
+    set(CMAKE_REQUIRED_FLAGS "-mavx512f -mavx512bw -mavx512vl -mavx512fp16 -mavx512bf16 -mavx512vnni -mprefer-vector-width=512")
     check_cxx_source_compiles("
         #include <immintrin.h>
         int main() {
@@ -86,8 +88,11 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND AVX512_SPR_ENABLED)
             // Verify AVX512-BF16 support, since the SPR kernels use it for BF16 IP.
             __m512bh bf = (__m512bh)_mm512_cvtne2ps_pbh(v, v);
             __m512 acc = _mm512_dpbf16_ps(_mm512_setzero_ps(), bf, bf);
+            // Verify AVX512-VNNI support, since the SPR kernels use it for 4-bit SQ.
+            __m512i dp = _mm512_dpbusd_epi32(_mm512_setzero_si512(), _mm512_setzero_si512(), _mm512_setzero_si512());
             (void)w;
             (void)acc;
+            (void)dp;
             return 0;
         }" HAVE_AVX512_SPR_COMPILER)
     unset(CMAKE_REQUIRED_FLAGS)
@@ -95,7 +100,7 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Linux" AND AVX512_SPR_ENABLED)
     if(HAVE_AVX512_SPR_COMPILER)
         set(KNN_HAVE_AVX512_SPR ON)
         set(SIMD_OPT_LEVEL "avx512_spr")
-        set(SIMD_FLAGS -mavx512f -mavx512bw -mavx512vl -mavx512fp16 -mf16c -mavx512bf16 -mprefer-vector-width=512)
+        set(SIMD_FLAGS -mavx512f -mavx512bw -mavx512vl -mavx512fp16 -mf16c -mavx512bf16 -mavx512vnni -mprefer-vector-width=512)
         add_definitions(-DKNN_HAVE_AVX512_SPR)
         message(STATUS "[SIMD] AVX512_SPR supported by compiler.")
     else()

@@ -319,6 +319,18 @@ DefaultSQSimilarityFunction<SQMetricMode::L2> SQ_L2_SIMIL_FUNC;
 // 3. Cosine
 DefaultSQSimilarityFunction<SQMetricMode::COSINE> SQ_COSINE_SIMIL_FUNC;
 
+//
+// SQ 4-bit (4-bit query x 4-bit data, Lucene PACKED_NIBBLE) - Default (non-SIMD) implementation
+//
+#include "sq4_similarity_function.cpp"
+
+// 1. Max IP
+SQ4SimilarityFunction<SQMetricMode::MAX_IP, DefaultSQ4Kernel> SQ4_IP_SIMIL_FUNC;
+// 2. L2
+SQ4SimilarityFunction<SQMetricMode::L2, DefaultSQ4Kernel> SQ4_L2_SIMIL_FUNC;
+// 3. Cosine
+SQ4SimilarityFunction<SQMetricMode::COSINE, DefaultSQ4Kernel> SQ4_COSINE_SIMIL_FUNC;
+
 #ifndef __NO_SELECT_FUNCTION
 SimilarityFunction* SimilarityFunction::selectSimilarityFunction(const NativeSimilarityFunctionType nativeFunctionType) {
     if (nativeFunctionType == NativeSimilarityFunctionType::FP16_MAXIMUM_INNER_PRODUCT) {
@@ -337,6 +349,12 @@ SimilarityFunction* SimilarityFunction::selectSimilarityFunction(const NativeSim
         return &SQ_COSINE_SIMIL_FUNC;
     } else if (nativeFunctionType == NativeSimilarityFunctionType::FP16_COSINE) {
         return &DEFAULT_FP16_COSINE_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ4_IP) {
+        return &SQ4_IP_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ4_L2) {
+        return &SQ4_L2_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ4_COSINE) {
+        return &SQ4_COSINE_SIMIL_FUNC;
     }
 
     throw std::runtime_error("Invalid native similarity function type was given, nativeFunctionType="

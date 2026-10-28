@@ -50,6 +50,15 @@ AVX512SQSimilarityFunction<SQMetricMode::L2> SQ_L2_SIMIL_FUNC;
 // 3. Cosine
 AVX512SQSimilarityFunction<SQMetricMode::COSINE> SQ_COSINE_SIMIL_FUNC;
 
+// SQ 4-bit
+//
+// 1. Max IP
+SQ4SimilarityFunction<SQMetricMode::MAX_IP, AVX512SQ4Kernel> SQ4_IP_SIMIL_FUNC;
+// 2. L2
+SQ4SimilarityFunction<SQMetricMode::L2, AVX512SQ4Kernel> SQ4_L2_SIMIL_FUNC;
+// 3. Cosine
+SQ4SimilarityFunction<SQMetricMode::COSINE, AVX512SQ4Kernel> SQ4_COSINE_SIMIL_FUNC;
+
 #ifndef __NO_SELECT_FUNCTION
 SimilarityFunction* SimilarityFunction::selectSimilarityFunction(const NativeSimilarityFunctionType nativeFunctionType) {
     if (nativeFunctionType == NativeSimilarityFunctionType::FP16_MAXIMUM_INNER_PRODUCT) {
@@ -68,6 +77,12 @@ SimilarityFunction* SimilarityFunction::selectSimilarityFunction(const NativeSim
         return &SQ_COSINE_SIMIL_FUNC;
     } else if (nativeFunctionType == NativeSimilarityFunctionType::FP16_COSINE) {
         return &FP16_COSINE_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ4_IP) {
+        return &SQ4_IP_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ4_L2) {
+        return &SQ4_L2_SIMIL_FUNC;
+    } else if (nativeFunctionType == NativeSimilarityFunctionType::SQ4_COSINE) {
+        return &SQ4_COSINE_SIMIL_FUNC;
     }
 
     throw std::runtime_error("Invalid native similarity function type was given, nativeFunctionType="

@@ -282,6 +282,23 @@ SimdVectorSearchContext* SimilarityFunction::saveSearchContext(
          // Lucene's docPackedLength for SINGLE_BIT_QUERY_NIBBLE: (dim + 7) / 8
          THREAD_LOCAL_SIMD_VEC_SRCH_CTX.oneVectorByteSize =
              (dimension + 7) / 8 + 3 * sizeof(float) + sizeof(int32_t);
+    } else if (nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ4_IP)
+               || nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ4_L2)
+               || nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ4_COSINE)) {
+         // The query is unpacked: one 4-bit value per byte over the discretized (even) dimension.
+         const int32_t packedBytes = (dimension + 1) / 2;
+         if (queryByteSize != 2 * packedBytes) {
+             throw std::runtime_error(
+                 std::string("4-bit SQ query must have ") + std::to_string(2 * packedBytes)
+                 + " bytes for dimension=" + std::to_string(dimension) + ", but got " + std::to_string(queryByteSize));
+         }
+
+         THREAD_LOCAL_SIMD_VEC_SRCH_CTX.similarityFunction =
+             selectSimilarityFunction(static_cast<NativeSimilarityFunctionType>(nativeFunctionTypeOrd));
+
+         // On-disk layout: [packedNibbles | lowerInterval(float) | upperInterval(float) | additionalCorrection(float) | quantizedComponentSum(int)]
+         // Lucene's docPackedLength for PACKED_NIBBLE: (dim + 1) / 2
+         THREAD_LOCAL_SIMD_VEC_SRCH_CTX.oneVectorByteSize = packedBytes + 3 * sizeof(float) + sizeof(int32_t);
     } else {
         throw std::runtime_error(
             std::string("Invalid native similarity function type was given, nativeFunctionTypeOrd=")

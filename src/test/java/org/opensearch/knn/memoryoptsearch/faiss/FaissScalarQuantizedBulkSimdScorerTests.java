@@ -46,6 +46,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -69,6 +70,32 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
             System.out.println("Dimension=" + dim);
             doTest(VectorSimilarityFunction.COSINE, dim);
         }
+    }
+
+    // Dimensions cover packed lengths below, at, and across the 64-byte (AVX512) and 16-byte (NEON) kernel boundaries.
+    private static final List<Integer> SQ4_DIMENSIONS = Arrays.asList(1, 2, 7, 31, 32, 33, 77, 127, 128, 129, 255, 256, 512, 777, 1024);
+
+    @Test
+    public void testSQ4CosineScoring() {
+        for (int dim : SQ4_DIMENSIONS) {
+            doTest(VectorSimilarityFunction.COSINE, dim, ScalarEncoding.PACKED_NIBBLE);
+        }
+    }
+
+    @Test
+    public void testSQ4EuclideanScoring() {
+        for (int dim : SQ4_DIMENSIONS) {
+            doTest(VectorSimilarityFunction.EUCLIDEAN, dim, ScalarEncoding.PACKED_NIBBLE);
+        }
+        doTest(VectorSimilarityFunction.EUCLIDEAN, 10240, ScalarEncoding.PACKED_NIBBLE);
+    }
+
+    @Test
+    public void testSQ4MaxInnerProductScoring() {
+        for (int dim : SQ4_DIMENSIONS) {
+            doTest(VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT, dim, ScalarEncoding.PACKED_NIBBLE);
+        }
+        doTest(VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT, 10240, ScalarEncoding.PACKED_NIBBLE);
     }
 
     @Test
@@ -204,9 +231,12 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
         IOUtils.rm(tempDir);
     }
 
-    @SneakyThrows
     private void doTest(final VectorSimilarityFunction similarityFunction, final int dimension) {
-        final ScalarEncoding encoding = ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE;
+        doTest(similarityFunction, dimension, ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE);
+    }
+
+    @SneakyThrows
+    private void doTest(final VectorSimilarityFunction similarityFunction, final int dimension, final ScalarEncoding encoding) {
         final FlatVectorsScorer defaultScorer = FlatVectorScorerUtil.getLucene99FlatVectorsScorer();
         final FlatVectorsFormat rawVectorFormat = getRawVectorFormat();
 
@@ -325,7 +355,12 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
                 for (int ord = 0; ord < maxOrd; ord++) {
                     float actual = testScorer.score(ord);
                     float expected = truthScorer.score(ord);
-                    assertEquals("Score mismatch at ord=" + ord + " for " + similarityFunction, expected, actual, 1e-2);
+                    assertEquals(
+                        "Score mismatch at ord=" + ord + " for " + similarityFunction + ", " + encoding + ", dim=" + dimension,
+                        expected,
+                        actual,
+                        1e-2
+                    );
                 }
 
                 // Bulk scoring with various batch sizes to exercise batch-of-8, batch-of-4, and tail
@@ -343,7 +378,16 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
                         float actualBulk = bulkScores[j];
                         float expected = truthScorer.score(ords[j]);
                         assertEquals(
-                            "Bulk score mismatch at ord=" + ords[j] + " (batch=" + batchSize + ") for " + similarityFunction,
+                            "Bulk score mismatch at ord="
+                                + ords[j]
+                                + " (batch="
+                                + batchSize
+                                + ") for "
+                                + similarityFunction
+                                + ", "
+                                + encoding
+                                + ", dim="
+                                + dimension,
                             expected,
                             actualBulk,
                             1e-2

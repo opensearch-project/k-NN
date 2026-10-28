@@ -26,6 +26,7 @@ import org.opensearch.knn.memoryoptsearch.faiss.WrappedFloatVectorValues;
 import java.io.IOException;
 
 import org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding;
+import static org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding.PACKED_NIBBLE;
 import static org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE;
 
 /**
@@ -112,12 +113,13 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
         final QuantizedByteVectorValues quantizedByteVectorValues,
         final float[] target
     ) throws IOException {
-        // Native bulk-SIMD scoring is implemented for 1-bit documents only. Multi-bit docs
-        // (B=2, B=4) share the same .veq layout but need width-specific kernels that are not
-        // yet in the native SIMD path — route them to Lucene's pure-Java reference scorer,
-        // which scores the same codes correctly.
+        // Native bulk-SIMD scoring is implemented for 1-bit and 4-bit documents. 2-bit docs
+        // share the same .veq layout but need a width-specific kernel that is not yet in the
+        // native SIMD path — route them to Lucene's pure-Java reference scorer, which scores
+        // the same codes correctly.
         final ScalarEncoding scalarEncoding = quantizedByteVectorValues.getScalarEncoding();
-        if (ScalarEncodingResolver.docBits(scalarEncoding) != 1) {
+        final int docBits = ScalarEncodingResolver.docBits(scalarEncoding);
+        if (docBits != 1 && docBits != 4) {
             return (RandomVectorScorer.AbstractRandomVectorScorer) super.getRandomVectorScorer(
                 similarityFunction,
                 quantizedByteVectorValues,
@@ -148,7 +150,7 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
      * <ol>
      *   <li>Validates the scalar encoding format</li>
      *   <li>Quantizes the query vector into the same representation as stored vectors</li>
-     *   <li>Applies transformations (e.g., nibble transposition) required for SIMD efficiency</li>
+     *   <li>Applies transformations (e.g., nibble transposition for 1-bit documents) required for SIMD efficiency</li>
      *   <li>Initializes a native SIMD search context</li>
      * </ol>
      *
@@ -170,9 +172,11 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
         // Check encoding type
         final ScalarEncoding scalarEncoding = quantizedByteVectorValues.getScalarEncoding();
 
-        // We only support 32x quantization with 4 bit query quantization for search.
-        if (scalarEncoding != SINGLE_BIT_QUERY_NIBBLE) {
-            throw new IllegalStateException(String.format(Locale.ROOT, "SQ only supports %s encoding.", SINGLE_BIT_QUERY_NIBBLE));
+        // We only support 32x (1-bit) and 8x (4-bit) quantization with 4 bit query quantization for search.
+        if (scalarEncoding != SINGLE_BIT_QUERY_NIBBLE && scalarEncoding != PACKED_NIBBLE) {
+            throw new IllegalStateException(
+                String.format(Locale.ROOT, "SQ only supports %s and %s encodings.", SINGLE_BIT_QUERY_NIBBLE, PACKED_NIBBLE)
+            );
         }
 
         // Validate dimensionality
@@ -194,7 +198,7 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
 
         // For cosine similarity, the query vector is expected to already be normalized.
         // Normalization is performed upfront in KNNQueryBuilder via VectorTransformerFactory
-        // for Lucene cosine with SQ 1-bit and flat methods and for Faiss.
+        // for Lucene cosine with SQ 1/2/4-bit and flat methods and for Faiss.
         //
         // The SQ_COSINE native kernel treats cosine as a plain inner product ((1 + dot) / 2),
         // which is only correct when both the query and the stored vectors are L2-normalized.
@@ -212,8 +216,11 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
             quantizedByteVectorValues.getCentroid()
         );
 
-        // Transpose half-bytes (nibbles) for SIMD-friendly layout
-        OptimizedScalarQuantizer.transposeHalfByte(scratch, targetQuantized);
+        // Transpose half-bytes (nibbles) into bit planes for the 1-bit kernel. The 4-bit kernel consumes the
+        // unpacked query as is (one nibble per byte), pairing it with the packed nibbles of each document.
+        if (scalarEncoding == SINGLE_BIT_QUERY_NIBBLE) {
+            OptimizedScalarQuantizer.transposeHalfByte(scratch, targetQuantized);
+        }
 
         // Return Bulk SIMD scorer
         return new BulkSimdRandomVectorScorer(
@@ -273,6 +280,7 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
             final float centroidDp
         ) {
             super(knnVectorValues);
+            final boolean fourBit = knnVectorValues.getScalarEncoding() == PACKED_NIBBLE;
 
             // Initialize native SIMD search context
             SimdVectorComputeService.saveSQSearchContext(
@@ -282,13 +290,34 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
                 targetCorrectiveTerms.additionalCorrection(),
                 targetCorrectiveTerms.quantizedComponentSum(),
                 addressAndSize,
-                similarityFunction == VectorSimilarityFunction.COSINE ? SimdVectorComputeService.SimilarityFunctionType.SQ_COSINE.ordinal()
-                    : similarityFunction == VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT
-                        ? SimdVectorComputeService.SimilarityFunctionType.SQ_IP.ordinal()
-                    : SimdVectorComputeService.SimilarityFunctionType.SQ_L2.ordinal(),
+                nativeFunctionType(similarityFunction, fourBit).ordinal(),
                 dimension,
                 centroidDp
             );
+        }
+
+        /**
+         * Maps the similarity function and document bit width to the native SQ similarity function type.
+         *
+         * @param similarityFunction similarity function (cosine, max inner product or L2)
+         * @param fourBit            true for 4-bit ({@code PACKED_NIBBLE}) documents, false for 1-bit documents
+         * @return native similarity function type
+         */
+        static SimdVectorComputeService.SimilarityFunctionType nativeFunctionType(
+            final VectorSimilarityFunction similarityFunction,
+            final boolean fourBit
+        ) {
+            return switch (similarityFunction) {
+                case COSINE -> fourBit
+                    ? SimdVectorComputeService.SimilarityFunctionType.SQ4_COSINE
+                    : SimdVectorComputeService.SimilarityFunctionType.SQ_COSINE;
+                case MAXIMUM_INNER_PRODUCT -> fourBit
+                    ? SimdVectorComputeService.SimilarityFunctionType.SQ4_IP
+                    : SimdVectorComputeService.SimilarityFunctionType.SQ_IP;
+                default -> fourBit
+                    ? SimdVectorComputeService.SimilarityFunctionType.SQ4_L2
+                    : SimdVectorComputeService.SimilarityFunctionType.SQ_L2;
+            };
         }
 
         /**

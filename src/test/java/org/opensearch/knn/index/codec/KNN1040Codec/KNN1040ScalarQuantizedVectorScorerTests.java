@@ -16,15 +16,19 @@ import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.apache.lucene.util.quantization.OptimizedScalarQuantizer;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.jni.SimdVectorComputeService;
 import org.opensearch.knn.memoryoptsearch.MemorySegmentAddressExtractorUtil;
 
 import java.io.IOException;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -60,10 +64,8 @@ public class KNN1040ScalarQuantizedVectorScorerTests extends KNNTestCase {
     }
 
     /**
-     * For multi-bit encodings (B=2, B=4) the scorer must route to Lucene's reference scorer without
-     * touching {@code MemorySegmentAddressExtractorUtil} — native bulk SIMD is not wired for
-     * multi-bit yet. Parameterizing over {@link ScalarEncoding#DIBIT_QUERY_NIBBLE} and
-     * {@link ScalarEncoding#PACKED_NIBBLE} verifies the gate for both widths.
+     * For 2-bit encodings the scorer must route to Lucene's reference scorer without touching
+     * {@code MemorySegmentAddressExtractorUtil} — native bulk SIMD is not wired for 2-bit yet.
      */
     @SneakyThrows
     private void assertMultiBitFallback(final ScalarEncoding encoding) {
@@ -109,9 +111,120 @@ public class KNN1040ScalarQuantizedVectorScorerTests extends KNNTestCase {
         assertMultiBitFallback(ScalarEncoding.DIBIT_QUERY_NIBBLE);
     }
 
+    /**
+     * For encodings with a native kernel (1-bit and 4-bit) and a resolvable memory address, the scorer must push
+     * the query into the native search context with the matching similarity function type. 1-bit queries are
+     * transposed into 4 bit planes (packed, half the discretized dimension in bytes) while 4-bit queries stay
+     * unpacked (one nibble per byte).
+     */
     @SneakyThrows
-    public void testGetRandomVectorScorer_whenFourBitEncoding_thenRoutesToLuceneScorerWithoutAddressExtraction() {
-        assertMultiBitFallback(ScalarEncoding.PACKED_NIBBLE);
+    private void assertNativeRouting(
+        final ScalarEncoding encoding,
+        final VectorSimilarityFunction similarityFunction,
+        final SimdVectorComputeService.SimilarityFunctionType expectedFunctionType,
+        final int expectedQueryLength
+    ) {
+        final FlatVectorsScorer mockDelegate = mock(FlatVectorsScorer.class);
+        final KNN1040ScalarQuantizedVectorScorer scorer = new KNN1040ScalarQuantizedVectorScorer(mockDelegate);
+
+        final int dimension = 8;
+        final QuantizedByteVectorValues mockQuantizedValues = mock(QuantizedByteVectorValues.class);
+        final IndexInput mockIndexInput = mock(IndexInput.class);
+        when(mockQuantizedValues.getSlice()).thenReturn(mockIndexInput);
+        when(mockIndexInput.length()).thenReturn(1024L);
+        when(mockQuantizedValues.dimension()).thenReturn(dimension);
+        when(mockQuantizedValues.getScalarEncoding()).thenReturn(encoding);
+        when(mockQuantizedValues.getCentroid()).thenReturn(new float[dimension]);
+        when(mockQuantizedValues.getCentroidDP()).thenReturn(0.5f);
+
+        final OptimizedScalarQuantizer mockQuantizer = mock(OptimizedScalarQuantizer.class);
+        when(mockQuantizedValues.getQuantizer()).thenReturn(mockQuantizer);
+        when(mockQuantizer.scalarQuantize(any(float[].class), any(byte[].class), anyByte(), any(float[].class))).thenReturn(
+            new OptimizedScalarQuantizer.QuantizationResult(0.0f, 1.0f, 0.0f, 0)
+        );
+
+        final StubVectorValues stub = new StubVectorValues();
+        final java.lang.reflect.Field field = StubVectorValues.class.getDeclaredField("quantizedVectorValues");
+        field.setAccessible(true);
+        field.set(stub, mockQuantizedValues);
+
+        // Unit-length query so the cosine normalization assertion holds.
+        final float[] target = new float[dimension];
+        target[0] = 1.0f;
+
+        try (
+            MockedStatic<MemorySegmentAddressExtractorUtil> mockedExtractor = Mockito.mockStatic(MemorySegmentAddressExtractorUtil.class);
+            MockedStatic<SimdVectorComputeService> mockedSimd = Mockito.mockStatic(SimdVectorComputeService.class)
+        ) {
+            mockedExtractor.when(
+                () -> MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(any(IndexInput.class), anyLong(), anyLong())
+            ).thenReturn(new long[] { 0L, 1024L });
+
+            final RandomVectorScorer result = scorer.getRandomVectorScorer(similarityFunction, stub, target);
+            assertNotNull(result);
+
+            final ArgumentCaptor<byte[]> queryCaptor = ArgumentCaptor.forClass(byte[].class);
+            mockedSimd.verify(
+                () -> SimdVectorComputeService.saveSQSearchContext(
+                    queryCaptor.capture(),
+                    eq(0.0f),
+                    eq(1.0f),
+                    eq(0.0f),
+                    eq(0),
+                    any(long[].class),
+                    eq(expectedFunctionType.ordinal()),
+                    eq(dimension),
+                    eq(0.5f)
+                )
+            );
+            assertEquals(expectedQueryLength, queryCaptor.getValue().length);
+        }
+    }
+
+    @SneakyThrows
+    public void testGetRandomVectorScorer_whenFourBitEncoding_thenRoutesToNativeScorer() {
+        // 4-bit query is unpacked: one byte per (discretized) dimension.
+        assertNativeRouting(
+            ScalarEncoding.PACKED_NIBBLE,
+            VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT,
+            SimdVectorComputeService.SimilarityFunctionType.SQ4_IP,
+            8
+        );
+        assertNativeRouting(
+            ScalarEncoding.PACKED_NIBBLE,
+            VectorSimilarityFunction.EUCLIDEAN,
+            SimdVectorComputeService.SimilarityFunctionType.SQ4_L2,
+            8
+        );
+        assertNativeRouting(
+            ScalarEncoding.PACKED_NIBBLE,
+            VectorSimilarityFunction.COSINE,
+            SimdVectorComputeService.SimilarityFunctionType.SQ4_COSINE,
+            8
+        );
+    }
+
+    @SneakyThrows
+    public void testGetRandomVectorScorer_whenOneBitEncoding_thenRoutesToNativeScorer() {
+        // 1-bit query is transposed into 4 bit planes: 4 bits * 8 dims / 8 = 4 bytes.
+        assertNativeRouting(
+            ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE,
+            VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT,
+            SimdVectorComputeService.SimilarityFunctionType.SQ_IP,
+            4
+        );
+        assertNativeRouting(
+            ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE,
+            VectorSimilarityFunction.EUCLIDEAN,
+            SimdVectorComputeService.SimilarityFunctionType.SQ_L2,
+            4
+        );
+        assertNativeRouting(
+            ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE,
+            VectorSimilarityFunction.COSINE,
+            SimdVectorComputeService.SimilarityFunctionType.SQ_COSINE,
+            4
+        );
     }
 
     @SneakyThrows
@@ -179,8 +292,8 @@ public class KNN1040ScalarQuantizedVectorScorerTests extends KNNTestCase {
 
     /**
      * Exercises the encoding guard in {@code getScorer}: the scalar encoding is resolved via
-     * {@link ScalarEncodingResolver#docBits} to decide the scoring path (1-bit → native SIMD,
-     * 2/4-bit → Lucene fallback). An encoding whose bit width is outside the supported set
+     * {@link ScalarEncodingResolver#docBits} to decide the scoring path (1/4-bit → native SIMD,
+     * 2-bit → Lucene fallback). An encoding whose bit width is outside the supported set
      * (here {@code UNSIGNED_BYTE}, 8 bits) is rejected up front with an
      * {@link IllegalArgumentException} before any scorer is built.
      */
