@@ -11,6 +11,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.util.quantization.QuantizedByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.MergeAbortChecker;
 import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.SegmentWriteState;
 import org.opensearch.common.Nullable;
@@ -153,8 +154,33 @@ public class NativeIndexWriter {
             log.warn("Merge Aborted for field {}", fieldInfo.name, ex);
             throw new MergePolicy.MergeAbortedException("KNN Merge aborted.");
         } catch (Exception ex) {
+            // An abort that lands while the native index is being *written* (not built) surfaces here as a
+            // generic exception: RateLimitedIndexOutput throws MergeAbortedException inside the JNI write
+            // callback and the native layer re-throws it as java.lang.Exception. Swallowing it lets Lucene
+            // carry on merging a shard that is already closing, which then fails the engine. Re-throw it as
+            // an abort so Lucene drops the merge cleanly.
+            if (isMergeAborted(ex)) {
+                log.warn("Merge Aborted during native index write for field {}", fieldInfo.name, ex);
+                throw new MergePolicy.MergeAbortedException("KNN Merge aborted during native index write.");
+            }
             log.error("Merge exception happened for field {}", fieldInfo.name, ex);
         }
+    }
+
+    /**
+     * True if the current merge has been aborted, either per Lucene's merge state for this merge thread or
+     * because a {@link MergePolicy.MergeAbortedException} is in the exception's cause chain.
+     */
+    private static boolean isMergeAborted(final Throwable ex) {
+        if (MergeAbortChecker.isMergeAborted()) {
+            return true;
+        }
+        for (Throwable t = ex; t != null; t = t.getCause()) {
+            if (t instanceof MergePolicy.MergeAbortedException) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void buildAndWriteIndex(final Supplier<KNNVectorValues<?>> knnVectorValuesSupplier, int totalLiveDocs, boolean isFlush)
