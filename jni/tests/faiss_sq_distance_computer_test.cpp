@@ -160,6 +160,48 @@ protected:
         return c;
     }
 
+    // Runs every distance entry point on both docBits == 1 computers over the same data and
+    // requires bit-identical results. FaissSQOneBitDistanceComputer is what production uses for
+    // docBits == 1; FaissSQDistanceComputer with docBits == 1 is the generic kernel that the
+    // reference-based tests above validate, so pinning the two together transitively validates
+    // the specialization.
+    template <bool MaxIP, bool Aligned>
+    void expectOneBitMatchesGeneric(int32_t qvb, int32_t dim, int numVecs) {
+        auto buf = makeBuffer(numVecs, qvb);
+        auto queryBuf = makeQuery(qvb);
+
+        FaissSQOneBitDistanceComputer<MaxIP, Aligned> special(
+            buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, numVecs, 1);
+        FaissSQDistanceComputer<MaxIP, Aligned> generic(
+            buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, numVecs, 1);
+
+        const auto* query = reinterpret_cast<const float*>(queryBuf.data());
+        special.set_query(query);
+        generic.set_query(query);
+
+        for (int i = 0; i < numVecs; ++i) {
+            EXPECT_FLOAT_EQ(special(static_cast<idx_t>(i)), generic(static_cast<idx_t>(i)))
+                << "operator() differs at " << i << " (qvb=" << qvb << ")";
+        }
+
+        for (int i = 0; i + 3 < numVecs; i += 4) {
+            float s0, s1, s2, s3, g0, g1, g2, g3;
+            special.distances_batch_4(i, i + 1, i + 2, i + 3, s0, s1, s2, s3);
+            generic.distances_batch_4(i, i + 1, i + 2, i + 3, g0, g1, g2, g3);
+            EXPECT_FLOAT_EQ(s0, g0) << "distances_batch_4 differs at " << i;
+            EXPECT_FLOAT_EQ(s1, g1) << "distances_batch_4 differs at " << (i + 1);
+            EXPECT_FLOAT_EQ(s2, g2) << "distances_batch_4 differs at " << (i + 2);
+            EXPECT_FLOAT_EQ(s3, g3) << "distances_batch_4 differs at " << (i + 3);
+        }
+
+        for (int i = 0; i < numVecs; ++i) {
+            for (int j = i; j < numVecs; ++j) {
+                EXPECT_FLOAT_EQ(special.symmetric_dis(i, j), generic.symmetric_dis(i, j))
+                    << "symmetric_dis differs at (" << i << "," << j << ")";
+            }
+        }
+    }
+
     // Dimension that produces the given quantizedVectorBytes.
     // quantizedVectorBytes = (8 * ((dim+7)/8)) / 32  →  dim ≈ quantizedVectorBytes * 32
     // For aligned (multiple-of-8): use quantizedVectorBytes = 8, 16, 24, ...
@@ -575,6 +617,74 @@ TEST_P(FaissSQDistanceComputerTest, GetDistanceComputerIntegrationNonMultipleOf8
         float actual = (*dc)(static_cast<idx_t>(i));
         EXPECT_NEAR(actual, expected, TOLERANCE)
             << "Integration mismatch at vector " << i << " with qvb=" << qvb;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 1-bit specialization — FaissSQOneBitDistanceComputer
+//
+// docBits == 1 is served by its own computer so the hot loops carry no docBits logic; see the
+// comment on FaissSQOneBitDistanceComputer. These tests check that the specialization produces
+// exactly the same numbers as the generic computer and that get_distance_computer actually routes
+// to it.
+// ---------------------------------------------------------------------------
+
+TEST_P(FaissSQDistanceComputerTest, OneBitSpecializationMatchesGeneric) {
+    auto [isMaxIP, isBytesMultipleOf8] = GetParam();
+    constexpr int NUM_VECS = 8;
+    // 8/16/24 are the production shapes. 7 and 13 exercise the byte remainder loop, which only
+    // exists on the unaligned path — IsBytesMultipleOf8 == true implies qvb % 8 == 0 in
+    // production (oneElementSize = qvb + 16), and the direct uint64_t load path deliberately
+    // processes whole words only, so a trailing-byte qvb is not a meaningful input for it.
+    const std::vector<int32_t> qvbs = isBytesMultipleOf8
+        ? std::vector<int32_t>{8, 16, 24}
+        : std::vector<int32_t>{8, 16, 24, 7, 13};
+    for (int32_t qvb : qvbs) {
+        const int32_t dim = qvb * 8;
+        if (isMaxIP && isBytesMultipleOf8)        expectOneBitMatchesGeneric<true, true>(qvb, dim, NUM_VECS);
+        else if (isMaxIP && !isBytesMultipleOf8)  expectOneBitMatchesGeneric<true, false>(qvb, dim, NUM_VECS);
+        else if (!isMaxIP && isBytesMultipleOf8)  expectOneBitMatchesGeneric<false, true>(qvb, dim, NUM_VECS);
+        else                                      expectOneBitMatchesGeneric<false, false>(qvb, dim, NUM_VECS);
+    }
+}
+
+TEST_P(FaissSQDistanceComputerTest, OneBitSpecializationRejectsMultiBitDocBits) {
+    auto [isMaxIP, isBytesMultipleOf8] = GetParam();
+    if (isMaxIP || isBytesMultipleOf8) return;  // docBits validation is template-independent
+
+    // 32 == qvb 16 + 16 bytes of correction factors.
+    EXPECT_THROW((FaissSQOneBitDistanceComputer<false, false>(32, nullptr, CENTROID_DP, 128, 1, 2)),
+                 std::runtime_error);
+    EXPECT_THROW((FaissSQOneBitDistanceComputer<false, false>(32, nullptr, CENTROID_DP, 128, 1, 4)),
+                 std::runtime_error);
+    EXPECT_THROW((FaissSQOneBitDistanceComputer<false, false>(32, nullptr, CENTROID_DP, 128, 1, 0)),
+                 std::runtime_error);
+    EXPECT_THROW((FaissSQOneBitDistanceComputer<false, false>(32, nullptr, CENTROID_DP, 128, 1, 3)),
+                 std::runtime_error);
+}
+
+TEST_P(FaissSQDistanceComputerTest, GetDistanceComputerRoutesByDocBits) {
+    auto [isMaxIP, isBytesMultipleOf8] = GetParam();
+    constexpr int NUM_VECS = 4;
+    const faiss::MetricType metric = isMaxIP ? faiss::METRIC_INNER_PRODUCT : faiss::METRIC_L2;
+    // qvb 16 -> oneElementSize 32 (aligned); qvb 14 -> 30 (unaligned, still even so docBits 2 is legal).
+    const int32_t qvb = isBytesMultipleOf8 ? 16 : 14;
+    const int32_t dim = qvb * 8;
+
+    // True when the returned computer is the 1-bit specialization, for whichever template
+    // instantiation get_distance_computer picked.
+    auto isOneBitComputer = [](const faiss::DistanceComputer* dc) {
+        return dynamic_cast<const FaissSQOneBitDistanceComputer<true, true>*>(dc) != nullptr
+            || dynamic_cast<const FaissSQOneBitDistanceComputer<true, false>*>(dc) != nullptr
+            || dynamic_cast<const FaissSQOneBitDistanceComputer<false, true>*>(dc) != nullptr
+            || dynamic_cast<const FaissSQOneBitDistanceComputer<false, false>*>(dc) != nullptr;
+    };
+
+    for (int32_t docBits : {1, 2, 4}) {
+        FaissSQFlat flat(NUM_VECS, qvb, CENTROID_DP, dim, metric, docBits);
+        std::unique_ptr<faiss::DistanceComputer> dc(flat.get_distance_computer());
+        EXPECT_EQ(isOneBitComputer(dc.get()), docBits == 1)
+            << "get_distance_computer routed docBits=" << docBits << " to the wrong computer";
     }
 }
 
