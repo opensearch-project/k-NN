@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <cstring>
 #include <stdexcept>
+#include <string>
 #include <iostream>
 
 namespace knn_jni {
@@ -575,7 +576,8 @@ namespace knn_jni {
         int64_t numVectors;
         int32_t quantizedVectorBytes;
         float centroidDp;
-        int32_t oneElementSize;
+        // 64-bit so that ordinal * oneElementSize cannot overflow once the storage exceeds 2 GiB.
+        int64_t oneElementSize;
         // For safely casting uint8_t* to float*, we should enforce 8-byte alignment for the vector.
         std::vector<uint8_t, knn_jni::NBytesAlignedAllocator<uint8_t, 8>> quantizedVectorsAndCorrectionFactors;
         int32_t dimension;
@@ -602,6 +604,20 @@ namespace knn_jni {
             // Memory layout per element:
             // [Quantized Vector | lowerInterval (float) | upperInterval (float) | additionalCorrection (float) | quantizedComponentSum (int)]
             code_size = oneElementSize;
+        }
+
+        // Returns a pointer to the `numElements` stored elements starting at ordinal `startOrd`.
+        // Throws if the range is not within the elements stored so far, so a bad batch fails the
+        // build with an exception instead of reading outside the buffer.
+        const uint8_t* elementsAt(int64_t startOrd, int64_t numElements) const {
+            const int64_t storedElements = static_cast<int64_t>(quantizedVectorsAndCorrectionFactors.size()) / oneElementSize;
+            if (startOrd < 0 || numElements < 0 || startOrd + numElements > storedElements) {
+                throw std::runtime_error(
+                    "SQ elements [" + std::to_string(startOrd) + ", " + std::to_string(startOrd + numElements)
+                    + ") are out of bounds of the " + std::to_string(storedElements) + " stored elements"
+                );
+            }
+            return quantizedVectorsAndCorrectionFactors.data() + startOrd * oneElementSize;
         }
 
         faiss::DistanceComputer* get_distance_computer() const {
