@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Refactoring
 
 ### Enhancements
+* Add SIMD kernels for SQ 2-bit and 4-bit distance computation during indexing [#3655](https://github.com/opensearch-project/k-NN/pull/3655)
 * Use a dedicated 1-bit SQ distance computer to restore 1-bit indexing performance [#3652](https://github.com/opensearch-project/k-NN/pull/3652)
 * Set the CMAKE_BUILD_TYPE to Release to ensure that all targets get build with optimized code [#3622](https://github.com/opensearch-project/k-NN/pull/3622)
 * Avoid FP16 -> FP32 -> FP16 round trip when merging `half_float` segments [#3610](https://github.com/opensearch-project/k-NN/pull/3610)
