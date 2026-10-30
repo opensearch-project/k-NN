@@ -38,7 +38,9 @@ import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
  * Restores a snapshot of k-NN's model index ({@code .opensearch-knn-models}) and a data index built from a trained
  * model onto a second, empty cluster, the way a customer recovers onto a new cluster. Checks that k-NN works there
  * with no further steps: the restored model and k-NN results match the source cluster, and the restored indices take
- * new documents and new models.
+ * new documents and new models. Also checks that a model whose training failed comes back failed, and the restore
+ * order: a data index restored before the model index fails to restore, one restored with or after the model index
+ * works, and the training index works restored before, with or after the model index.
  *
  * <p>The empty cluster's address comes from {@code tests.second_cluster}. The
  * {@code integTestMultiCluster} task starts both clusters and sets it. The base class helpers all send to
@@ -53,6 +55,7 @@ public class RestoreToNewClusterIT extends KNNRestTestCase {
     private static final String DATA_INDEX = "data-index";
     private static final String FIELD = "vector";
     private static final String MODEL_ID = "model-from-source";
+    private static final String FAILED_MODEL_ID = "model-failed-on-source";
     private static final String NEW_MODEL_ID = "model-trained-after-restore";
     private static final String NEW_DOC_ID = "written-after-restore";
     private static final String MODELS_URI = "/_plugins/_knn/models/";
@@ -71,6 +74,16 @@ public class RestoreToNewClusterIT extends KNNRestTestCase {
         "l2",
         "parameters",
         Map.of("nlist", 4, "nprobes", 2)
+    );
+    private static final Map<String, Object> FAILED_MODEL_METHOD = Map.of(
+        "name",
+        "ivf",
+        "engine",
+        "faiss",
+        "space_type",
+        "l2",
+        "parameters",
+        Map.of("nlist", TRAINING_DOCS * 2)
     );
 
     private RestClient targetClient;
@@ -94,6 +107,7 @@ public class RestoreToNewClusterIT extends KNNRestTestCase {
             try {
                 deleteIgnoringMissing(targetClient, "/" + DATA_INDEX);
                 deleteIgnoringMissing(targetClient, MODELS_URI + MODEL_ID);
+                deleteIgnoringMissing(targetClient, MODELS_URI + FAILED_MODEL_ID);
                 deleteIgnoringMissing(targetClient, MODELS_URI + NEW_MODEL_ID);
                 deleteIgnoringMissing(targetClient, "/" + TRAINING_INDEX);
                 deleteIgnoringMissing(targetClient, "/_snapshot/" + REPOSITORY);
@@ -105,10 +119,14 @@ public class RestoreToNewClusterIT extends KNNRestTestCase {
         deleteIgnoringMissing(client(), "/" + DATA_INDEX);
     }
 
-    public void testRestoreOntoNewCluster_whenModelIndexRestoredWithDataIndex_thenKnnWorks() throws Exception {
+    public void testRestoreOntoNewCluster_whenModelIndexRestoredBeforeOrWithDataIndex_thenKnnWorks() throws Exception {
         // Source cluster: train a model, build a data index from it, and record what the source answers.
         createTrainingIndex(TRAINING_INDEX, createKnnIndexMapping(FIELD, DIMENSIONS));
         bulkAddKnnDocs(TRAINING_INDEX, FIELD, randomVectors(TRAINING_DOCS), TRAINING_DOCS);
+        // A model whose training failed: IVF can't make more clusters (nlist) than there are training vectors.
+        trainModel(FAILED_MODEL_ID, TRAINING_INDEX, FIELD, DIMENSIONS, FAILED_MODEL_METHOD, "failed on the source cluster");
+        assertTrainingFails(FAILED_MODEL_ID, TRAINING_ATTEMPTS, TRAINING_DELAY_MILLIS);
+        Map<String, Object> failedModelOnSource = model(client(), FAILED_MODEL_ID);
         trainModel(MODEL_ID, TRAINING_INDEX, FIELD, DIMENSIONS, MODEL_METHOD, "trained on the source cluster");
         assertTrainingSucceeds(MODEL_ID, TRAINING_ATTEMPTS, TRAINING_DELAY_MILLIS);
         createKnnIndex(DATA_INDEX, createKnnIndexMapping(FIELD, MODEL_ID));
@@ -124,7 +142,7 @@ public class RestoreToNewClusterIT extends KNNRestTestCase {
         registerRepository(REPOSITORY, "fs", true, Settings.builder().put("location", repositoryLocation()).build());
         Request snapshot = new Request("PUT", "/_snapshot/" + REPOSITORY + "/" + SNAPSHOT);
         snapshot.addParameter("wait_for_completion", "true");
-        snapshot.setJsonEntity(snapshotIndices());
+        snapshot.setJsonEntity(indices(MODEL_INDEX_NAME, DATA_INDEX, TRAINING_INDEX));
         client().performRequest(snapshot);
 
         // The same write the target makes after its restore, so the target has an answer to match.
@@ -140,19 +158,37 @@ public class RestoreToNewClusterIT extends KNNRestTestCase {
         assertEquals("model on the new cluster", 404, targetClient.performRequest(getModel).getStatusLine().getStatusCode());
 
         registerReadOnlyRepository(targetClient);
-        Request restore = new Request("POST", "/_snapshot/" + REPOSITORY + "/" + SNAPSHOT + "/_restore");
-        restore.addParameter("wait_for_completion", "true");
-        restore.setJsonEntity(snapshotIndices());
-        Map<String, Object> restoreResponse = entityAsMap(targetClient.performRequest(restore));
-        assertEquals(
-            "restore had failed shards: " + restoreResponse,
+
+        // The training index restores before the model index, since it doesn't depend on the model. It's deleted
+        // again so that all three indices can be restored together below.
+        assertRestored(targetClient, TRAINING_INDEX);
+        targetClient.performRequest(new Request("DELETE", "/" + TRAINING_INDEX));
+
+        // Restoring the data index before the model index fails: its shard can't open without the model.
+        Map<String, Object> dataOnlyResponse = restore(targetClient, DATA_INDEX);
+        assertNotEquals(
+            "failed shards when the data index is restored alone: " + dataOnlyResponse,
             0,
-            XContentMapValues.extractValue("snapshot.shards.failed", restoreResponse)
+            XContentMapValues.extractValue("snapshot.shards.failed", dataOnlyResponse)
         );
+        String allocationFailure = allocationFailure(targetClient);
+        assertTrue(allocationFailure, allocationFailure.contains("Model ID '" + MODEL_ID + "' is not created."));
+        // The failed data index has to be deleted, then restored again with the model index.
+        targetClient.performRequest(new Request("DELETE", "/" + DATA_INDEX));
+        assertRestored(targetClient, MODEL_INDEX_NAME, DATA_INDEX, TRAINING_INDEX);
+
+        // The failed model comes back failed, and can be deleted.
+        assertEquals("restored failed model", failedModelOnSource, model(targetClient, FAILED_MODEL_ID));
+        targetClient.performRequest(new Request("DELETE", MODELS_URI + FAILED_MODEL_ID));
 
         // The restored model and the data index built from it answer exactly as on the source.
         assertEquals("restored model", modelOnSource, model(targetClient, MODEL_ID));
         assertEquals("k-NN results after restore", resultsOnSource, knnResults(targetClient, queries));
+
+        // The data index also restores in a later request than the model index.
+        targetClient.performRequest(new Request("DELETE", "/" + DATA_INDEX));
+        assertRestored(targetClient, DATA_INDEX);
+        assertEquals("k-NN results after the data index is restored on its own", resultsOnSource, knnResults(targetClient, queries));
 
         // The restored data index takes a new document, which needs the restored model.
         addDocument(targetClient, newVector);
@@ -161,19 +197,53 @@ public class RestoreToNewClusterIT extends KNNRestTestCase {
         List<?> neighborsOfNewVector = (List<?>) resultsOnTargetAfterWrite.get(Arrays.toString(newVector));
         assertEquals("nearest neighbor of the new vector", List.of(NEW_DOC_ID, 1.0), neighborsOfNewVector.get(0));
 
-        // The restored model index takes a new model, trained from the restored training index.
+        // The training index also restores after the model index. The restored model index takes a new model,
+        // trained from that training index.
+        targetClient.performRequest(new Request("DELETE", "/" + TRAINING_INDEX));
+        assertRestored(targetClient, TRAINING_INDEX);
         trainModel(targetClient, NEW_MODEL_ID);
         assertTrainingSucceeds(targetClient, NEW_MODEL_ID);
         assertEquals("models on the target", List.of(MODEL_ID, NEW_MODEL_ID), modelIds(targetClient));
     }
 
-    private static String snapshotIndices() throws IOException {
+    private static String indices(String... names) throws IOException {
         return XContentFactory.jsonBuilder()
             .startObject()
-            .field("indices", String.join(",", MODEL_INDEX_NAME, DATA_INDEX, TRAINING_INDEX))
+            .field("indices", String.join(",", names))
             .field("include_global_state", false)
             .endObject()
             .toString();
+    }
+
+    private static Map<String, Object> restore(RestClient cluster, String... names) throws IOException {
+        Request request = new Request("POST", "/_snapshot/" + REPOSITORY + "/" + SNAPSHOT + "/_restore");
+        request.addParameter("wait_for_completion", "true");
+        request.setJsonEntity(indices(names));
+        return entityAsMap(cluster.performRequest(request));
+    }
+
+    private static void assertRestored(RestClient cluster, String... names) throws IOException {
+        Map<String, Object> response = restore(cluster, names);
+        assertEquals(
+            "failed shards restoring " + String.join(",", names) + ": " + response,
+            0,
+            XContentMapValues.extractValue("snapshot.shards.failed", response)
+        );
+    }
+
+    /** Why the data index's primary shard is unassigned, from the cluster allocation explain API. */
+    private static String allocationFailure(RestClient cluster) throws IOException {
+        Request request = new Request("GET", "/_cluster/allocation/explain");
+        request.setJsonEntity(
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .field("index", DATA_INDEX)
+                .field("shard", 0)
+                .field("primary", true)
+                .endObject()
+                .toString()
+        );
+        return String.valueOf(XContentMapValues.extractValue("unassigned_info.details", entityAsMap(cluster.performRequest(request))));
     }
 
     private static String repositoryLocation() {
