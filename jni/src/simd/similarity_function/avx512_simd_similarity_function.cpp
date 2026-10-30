@@ -18,14 +18,19 @@
 //
 template <BulkScoreTransform BulkScoreTransformFunc, ScoreTransform ScoreTransformFunc>
 struct AVX512BF16MaxIP final : BaseSimilarityFunction<BulkScoreTransformFunc, ScoreTransformFunc> {
-    void calculateSimilarityInBulk(SimdVectorSearchContext* srchContext,
-                                   int32_t* internalVectorIds,
-                                   float* scores,
-                                   const int32_t numVectors) {
+    // Scores `internalVectorIds[0..numVectors)` into `scores`. Format (bf16_format.h) locates each vector's BF16
+    // values; Epilogue turns the raw inner products into scores in place. Both are compile-time parameters.
+    template <typename Format, typename Epilogue>
+    static FORCE_INLINE void scoreInBulk(const Format& format,
+                                         const Epilogue& epilogue,
+                                         const float* queryPtr,
+                                         const int32_t dim,
+                                         int32_t* internalVectorIds,
+                                         float* scores,
+                                         const int32_t numVectors) {
+        static_assert(is_bf16_format<Format>::value, "Format must be one of the bf16_format.h formats");
 
         int32_t processedCount = 0;
-        const auto* queryPtr = (const float*) srchContext->queryVectorSimdAligned;
-        const int32_t dim = srchContext->dimension;
 
         constexpr int32_t vecBlock      = 8;
         constexpr int32_t elemPerLoad   = 16;
@@ -40,8 +45,8 @@ struct AVX512BF16MaxIP final : BaseSimilarityFunction<BulkScoreTransformFunc, Sc
         __m512 sum[vecBlock];
 
         for (; processedCount <= numVectors - vecBlock; processedCount += vecBlock) {
-            const uint8_t* vectors[vecBlock];
-            srchContext->getVectorPointersInBulk((uint8_t**)vectors, &internalVectorIds[processedCount], vecBlock);
+            uint8_t* vectors[vecBlock];
+            format.getVectorPointersInBulk(vectors, &internalVectorIds[processedCount], vecBlock);
 
             #pragma unroll
             for (int32_t v = 0; v < vecBlock; ++v) {
@@ -97,7 +102,7 @@ struct AVX512BF16MaxIP final : BaseSimilarityFunction<BulkScoreTransformFunc, Sc
 
         // Tail loop for remaining vectors
         for (; processedCount < numVectors; ++processedCount) {
-            const auto* vecPtr = (const uint8_t*) srchContext->getVectorPointer(internalVectorIds[processedCount]);
+            const auto* vecPtr = (const uint8_t*) format.getVectorPointer(internalVectorIds[processedCount]);
             __m512 sumScalar = _mm512_setzero_ps();
 
             for (int32_t i = 0; i < simdDim; i += elemPerLoad) {
@@ -115,7 +120,21 @@ struct AVX512BF16MaxIP final : BaseSimilarityFunction<BulkScoreTransformFunc, Sc
             scores[processedCount] = _mm512_reduce_add_ps(sumScalar);
         }
 
-        BulkScoreTransformFunc(scores, numVectors);
+        epilogue.finishInBulk(scores, numVectors);
+    }
+
+    void calculateSimilarityInBulk(SimdVectorSearchContext* srchContext,
+                                   int32_t* internalVectorIds,
+                                   float* scores,
+                                   const int32_t numVectors) {
+        const auto* queryPtr = (const float*) srchContext->queryVectorSimdAligned;
+        const int32_t dim = srchContext->dimension;
+
+        // Lucene's flat BF16 records; the transform is the one this function was instantiated with.
+        const LuceneBf16Format format(srchContext);
+        const LuceneBf16Format::Epilogue<BulkScoreTransformFunc> epilogue{};
+
+        scoreInBulk(format, epilogue, queryPtr, dim, internalVectorIds, scores, numVectors);
     }
 };
 
