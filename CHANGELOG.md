@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Use clustered test vectors and the api-snapshot builder image so remote index build ITs pass on cuVS 26.08 [#3627](https://github.com/opensearch-project/k-NN/pull/3627)
 
 ### Bug Fixes
+* Fix SIGSEGV in Faiss SQ HNSW build caused by 32-bit offset overflow for segments over 2 GiB of quantized vectors [#3653](https://github.com/opensearch-project/k-NN/pull/3653)
+* Rethrow merge abort during native index write so aborted merges no longer fail the shard engine [#3651](https://github.com/opensearch-project/k-NN/pull/3651)
 * Fix `explain` failing with a NullPointerException for Lucene engine queries that use `rescore` or `expand_nested_docs`, and explain those scores as an Exact search [#3641](https://github.com/opensearch-project/k-NN/pull/3641)
 * Fix double free of off-heap vectors when a native index build fails [#3621](https://github.com/opensearch-project/k-NN/pull/3621)
 * Honor query cancellation and timeout in memory-optimized search [#3620](https://github.com/opensearch-project/k-NN/pull/3620)
@@ -24,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Refactoring
 
 ### Enhancements
+* Use a dedicated 1-bit SQ distance computer to restore 1-bit indexing performance [#3652](https://github.com/opensearch-project/k-NN/pull/3652)
 * Set the CMAKE_BUILD_TYPE to Release to ensure that all targets get build with optimized code [#3622](https://github.com/opensearch-project/k-NN/pull/3622)
 * Avoid FP16 -> FP32 -> FP16 round trip when merging `half_float` segments [#3610](https://github.com/opensearch-project/k-NN/pull/3610)
 * Report `exact_search` timings in the Profile API for nested k-NN queries with `expand_nested_docs` on the Lucene engine [#3579](https://github.com/opensearch-project/k-NN/pull/3579)

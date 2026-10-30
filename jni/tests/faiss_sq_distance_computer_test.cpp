@@ -10,10 +10,16 @@
  */
 
 #include "sq/faiss_sq_flat.h"
+#include "sq/faiss_sq_hnsw.h"
+#include "faiss/IndexIDMap.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <random>
+#include <stdexcept>
+#include <type_traits>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -158,6 +164,48 @@ protected:
         c.interval = upper - lower;
         c.componentSum = static_cast<float>(cs);
         return c;
+    }
+
+    // Runs every distance entry point on both docBits == 1 computers over the same data and
+    // requires bit-identical results. FaissSQOneBitDistanceComputer is what production uses for
+    // docBits == 1; FaissSQDistanceComputer with docBits == 1 is the generic kernel that the
+    // reference-based tests above validate, so pinning the two together transitively validates
+    // the specialization.
+    template <bool MaxIP, bool Aligned>
+    void expectOneBitMatchesGeneric(int32_t qvb, int32_t dim, int numVecs) {
+        auto buf = makeBuffer(numVecs, qvb);
+        auto queryBuf = makeQuery(qvb);
+
+        FaissSQOneBitDistanceComputer<MaxIP, Aligned> special(
+            buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, numVecs, 1);
+        FaissSQDistanceComputer<MaxIP, Aligned> generic(
+            buf.oneElementSize, buf.data.data(), CENTROID_DP, dim, numVecs, 1);
+
+        const auto* query = reinterpret_cast<const float*>(queryBuf.data());
+        special.set_query(query);
+        generic.set_query(query);
+
+        for (int i = 0; i < numVecs; ++i) {
+            EXPECT_FLOAT_EQ(special(static_cast<idx_t>(i)), generic(static_cast<idx_t>(i)))
+                << "operator() differs at " << i << " (qvb=" << qvb << ")";
+        }
+
+        for (int i = 0; i + 3 < numVecs; i += 4) {
+            float s0, s1, s2, s3, g0, g1, g2, g3;
+            special.distances_batch_4(i, i + 1, i + 2, i + 3, s0, s1, s2, s3);
+            generic.distances_batch_4(i, i + 1, i + 2, i + 3, g0, g1, g2, g3);
+            EXPECT_FLOAT_EQ(s0, g0) << "distances_batch_4 differs at " << i;
+            EXPECT_FLOAT_EQ(s1, g1) << "distances_batch_4 differs at " << (i + 1);
+            EXPECT_FLOAT_EQ(s2, g2) << "distances_batch_4 differs at " << (i + 2);
+            EXPECT_FLOAT_EQ(s3, g3) << "distances_batch_4 differs at " << (i + 3);
+        }
+
+        for (int i = 0; i < numVecs; ++i) {
+            for (int j = i; j < numVecs; ++j) {
+                EXPECT_FLOAT_EQ(special.symmetric_dis(i, j), generic.symmetric_dis(i, j))
+                    << "symmetric_dis differs at (" << i << "," << j << ")";
+            }
+        }
     }
 
     // Dimension that produces the given quantizedVectorBytes.
@@ -579,6 +627,74 @@ TEST_P(FaissSQDistanceComputerTest, GetDistanceComputerIntegrationNonMultipleOf8
 }
 
 // ---------------------------------------------------------------------------
+// 1-bit specialization — FaissSQOneBitDistanceComputer
+//
+// docBits == 1 is served by its own computer so the hot loops carry no docBits logic; see the
+// comment on FaissSQOneBitDistanceComputer. These tests check that the specialization produces
+// exactly the same numbers as the generic computer and that get_distance_computer actually routes
+// to it.
+// ---------------------------------------------------------------------------
+
+TEST_P(FaissSQDistanceComputerTest, OneBitSpecializationMatchesGeneric) {
+    auto [isMaxIP, isBytesMultipleOf8] = GetParam();
+    constexpr int NUM_VECS = 8;
+    // 8/16/24 are the production shapes. 7 and 13 exercise the byte remainder loop, which only
+    // exists on the unaligned path — IsBytesMultipleOf8 == true implies qvb % 8 == 0 in
+    // production (oneElementSize = qvb + 16), and the direct uint64_t load path deliberately
+    // processes whole words only, so a trailing-byte qvb is not a meaningful input for it.
+    const std::vector<int32_t> qvbs = isBytesMultipleOf8
+        ? std::vector<int32_t>{8, 16, 24}
+        : std::vector<int32_t>{8, 16, 24, 7, 13};
+    for (int32_t qvb : qvbs) {
+        const int32_t dim = qvb * 8;
+        if (isMaxIP && isBytesMultipleOf8)        expectOneBitMatchesGeneric<true, true>(qvb, dim, NUM_VECS);
+        else if (isMaxIP && !isBytesMultipleOf8)  expectOneBitMatchesGeneric<true, false>(qvb, dim, NUM_VECS);
+        else if (!isMaxIP && isBytesMultipleOf8)  expectOneBitMatchesGeneric<false, true>(qvb, dim, NUM_VECS);
+        else                                      expectOneBitMatchesGeneric<false, false>(qvb, dim, NUM_VECS);
+    }
+}
+
+TEST_P(FaissSQDistanceComputerTest, OneBitSpecializationRejectsMultiBitDocBits) {
+    auto [isMaxIP, isBytesMultipleOf8] = GetParam();
+    if (isMaxIP || isBytesMultipleOf8) return;  // docBits validation is template-independent
+
+    // 32 == qvb 16 + 16 bytes of correction factors.
+    EXPECT_THROW((FaissSQOneBitDistanceComputer<false, false>(32, nullptr, CENTROID_DP, 128, 1, 2)),
+                 std::runtime_error);
+    EXPECT_THROW((FaissSQOneBitDistanceComputer<false, false>(32, nullptr, CENTROID_DP, 128, 1, 4)),
+                 std::runtime_error);
+    EXPECT_THROW((FaissSQOneBitDistanceComputer<false, false>(32, nullptr, CENTROID_DP, 128, 1, 0)),
+                 std::runtime_error);
+    EXPECT_THROW((FaissSQOneBitDistanceComputer<false, false>(32, nullptr, CENTROID_DP, 128, 1, 3)),
+                 std::runtime_error);
+}
+
+TEST_P(FaissSQDistanceComputerTest, GetDistanceComputerRoutesByDocBits) {
+    auto [isMaxIP, isBytesMultipleOf8] = GetParam();
+    constexpr int NUM_VECS = 4;
+    const faiss::MetricType metric = isMaxIP ? faiss::METRIC_INNER_PRODUCT : faiss::METRIC_L2;
+    // qvb 16 -> oneElementSize 32 (aligned); qvb 14 -> 30 (unaligned, still even so docBits 2 is legal).
+    const int32_t qvb = isBytesMultipleOf8 ? 16 : 14;
+    const int32_t dim = qvb * 8;
+
+    // True when the returned computer is the 1-bit specialization, for whichever template
+    // instantiation get_distance_computer picked.
+    auto isOneBitComputer = [](const faiss::DistanceComputer* dc) {
+        return dynamic_cast<const FaissSQOneBitDistanceComputer<true, true>*>(dc) != nullptr
+            || dynamic_cast<const FaissSQOneBitDistanceComputer<true, false>*>(dc) != nullptr
+            || dynamic_cast<const FaissSQOneBitDistanceComputer<false, true>*>(dc) != nullptr
+            || dynamic_cast<const FaissSQOneBitDistanceComputer<false, false>*>(dc) != nullptr;
+    };
+
+    for (int32_t docBits : {1, 2, 4}) {
+        FaissSQFlat flat(NUM_VECS, qvb, CENTROID_DP, dim, metric, docBits);
+        std::unique_ptr<faiss::DistanceComputer> dc(flat.get_distance_computer());
+        EXPECT_EQ(isOneBitComputer(dc.get()), docBits == 1)
+            << "get_distance_computer routed docBits=" << docBits << " to the wrong computer";
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Instantiate all 4 combinations
 // ---------------------------------------------------------------------------
 
@@ -965,6 +1081,154 @@ TEST(FaissSQDistanceComputerValidation, AcceptsAllSupportedDocBits) {
             (FaissSQDistanceComputer<false, true>(oneElementByteSize, dummy.data(), 0.0f, 128, 1, docBits))
         ) << "docBits=" << docBits << " must be accepted";
     }
+}
+
+// ---------------------------------------------------------------------------
+// FaissSQFlat element offsets past 2 GiB must not overflow
+// ---------------------------------------------------------------------------
+
+// Dimension 768 with 1-bit SQ: 96 quantized bytes + 16 bytes of correction factors = 112 bytes per element.
+constexpr int32_t QVB_768 = 96;
+constexpr int32_t SQ_BUILD_BATCH = 16 * 1024;
+
+// Element offsets are ordinal * oneElementSize; a 32-bit oneElementSize makes that a 32-bit multiply.
+static_assert(std::is_same_v<decltype(FaissSQFlat::oneElementSize), int64_t>,
+              "FaissSQFlat::oneElementSize must be 64-bit so element offsets cannot overflow");
+
+TEST(FaissSQFlatElementsAt, OneElementSizeIncludesCorrectionFactors) {
+    for (const int32_t docBits : {1, 2, 4}) {
+        const int32_t qvb = docBits * QVB_768;
+        FaissSQFlat flat(0, qvb, 0.0f, 768, faiss::METRIC_L2, docBits);
+        EXPECT_EQ(qvb + 16, flat.oneElementSize) << "docBits=" << docBits;
+        EXPECT_EQ(qvb + 16, flat.code_size) << "docBits=" << docBits;
+    }
+}
+
+TEST(FaissSQFlatElementsAt, ElementOffsetAbove2GiBDoesNotOverflow) {
+    FaissSQFlat flat(0, QVB_768, 0.0f, 768, faiss::METRIC_L2, 1);
+    ASSERT_EQ(112, flat.oneElementSize);
+    // First 16K batch whose offset crosses INT32_MAX (2^31 / 112 ~ 19.17M), and a ~33.3M-vector segment.
+    for (const int32_t numAdded : {1171 * SQ_BUILD_BATCH, 2034 * SQ_BUILD_BATCH}) {
+        const int64_t offset = numAdded * flat.oneElementSize;
+        EXPECT_GT(offset, static_cast<int64_t>(INT32_MAX));
+        EXPECT_EQ(static_cast<int64_t>(numAdded) * 112, offset);
+    }
+}
+
+TEST(FaissSQFlatElementsAt, ReturnsPointerToStartOrdinal) {
+    constexpr int NUM_VECS = 4;
+    FaissSQFlat flat(NUM_VECS, QVB_768, 0.0f, 768, faiss::METRIC_L2, 1);
+    flat.quantizedVectorsAndCorrectionFactors.resize(NUM_VECS * flat.oneElementSize);
+
+    const uint8_t* base = flat.quantizedVectorsAndCorrectionFactors.data();
+    EXPECT_EQ(base, flat.elementsAt(0, NUM_VECS));
+    EXPECT_EQ(base + flat.oneElementSize, flat.elementsAt(1, NUM_VECS - 1));
+    EXPECT_EQ(base + NUM_VECS * flat.oneElementSize, flat.elementsAt(NUM_VECS, 0));
+}
+
+TEST(FaissSQFlatElementsAt, OutOfBoundsRangeThrows) {
+    constexpr int NUM_VECS = 4;
+    FaissSQFlat flat(NUM_VECS, QVB_768, 0.0f, 768, faiss::METRIC_L2, 1);
+    flat.quantizedVectorsAndCorrectionFactors.resize(NUM_VECS * flat.oneElementSize);
+
+    EXPECT_THROW(flat.elementsAt(1, NUM_VECS), std::runtime_error);
+    EXPECT_THROW(flat.elementsAt(NUM_VECS + 1, 0), std::runtime_error);
+    EXPECT_THROW(flat.elementsAt(-1, 1), std::runtime_error);
+    EXPECT_THROW(flat.elementsAt(0, -1), std::runtime_error);
+}
+
+TEST(FaissSQFlatElementsAt, EmptyStorage) {
+    FaissSQFlat flat(4, QVB_768, 0.0f, 768, faiss::METRIC_L2, 1);
+    EXPECT_EQ(flat.quantizedVectorsAndCorrectionFactors.data(), flat.elementsAt(0, 0));
+    EXPECT_THROW(flat.elementsAt(0, 1), std::runtime_error);
+}
+
+// Builds the SQ HNSW graph the same way addDocsToSQIndex does: all elements are stored up front, then
+// inserted into HNSW in batches, each batch read through elementsAt(numAdded, numDocs).
+class FaissSQHnswBatchedBuildTest : public ::testing::Test {
+protected:
+    static constexpr int32_t QVB = 16;
+    static constexpr int32_t DIM = QVB * 8;
+    static constexpr int32_t M = 8;
+
+    std::unique_ptr<faiss::IndexBinaryIDMap> createIndex(int numVecs) {
+        auto* flat = new FaissSQFlat(numVecs, QVB, 0.5f, DIM, faiss::METRIC_L2, 1);
+        std::mt19937 rng(42);
+        std::uniform_int_distribution<int> byteDist(0, 255);
+        std::uniform_real_distribution<float> floatDist(0.1f, 1.0f);
+        for (int i = 0; i < numVecs; ++i) {
+            std::vector<uint8_t> element(flat->oneElementSize);
+            int32_t componentSum = 0;
+            for (int32_t b = 0; b < QVB; ++b) {
+                element[b] = static_cast<uint8_t>(byteDist(rng));
+                componentSum += __builtin_popcount(element[b]);
+            }
+            const float corrections[3] = {-floatDist(rng), floatDist(rng), floatDist(rng)};
+            std::memcpy(element.data() + QVB, corrections, sizeof(corrections));
+            std::memcpy(element.data() + QVB + sizeof(corrections), &componentSum, sizeof(componentSum));
+            flat->quantizedVectorsAndCorrectionFactors.insert(
+                flat->quantizedVectorsAndCorrectionFactors.end(), element.begin(), element.end());
+        }
+        auto index = std::make_unique<faiss::IndexBinaryIDMap>(new FaissSQHnsw(M, flat));
+        index->own_fields = true;
+        return index;
+    }
+
+    static FaissSQHnsw* hnswOf(faiss::IndexBinaryIDMap& index) {
+        return static_cast<FaissSQHnsw*>(index.index);
+    }
+
+    static void addBatch(faiss::IndexBinaryIDMap& index, int64_t numAdded, int64_t numDocs) {
+        std::vector<faiss::idx_t> ids(numDocs);
+        for (int64_t i = 0; i < numDocs; ++i) {
+            ids[i] = 1000 + numAdded + i;
+        }
+        index.add_with_ids(numDocs, hnswOf(index)->faiss_sq_flat->elementsAt(numAdded, numDocs), ids.data());
+    }
+};
+
+TEST_F(FaissSQHnswBatchedBuildTest, BatchedAddInsertsEveryElement) {
+    // 7 full batches of 32 plus a partial batch of 13.
+    constexpr int NUM_VECS = 7 * 32 + 13;
+    constexpr int BATCH = 32;
+    auto index = createIndex(NUM_VECS);
+
+    for (int numAdded = 0; numAdded < NUM_VECS; numAdded += BATCH) {
+        addBatch(*index, numAdded, std::min(BATCH, NUM_VECS - numAdded));
+    }
+
+    FaissSQHnsw* hnsw = hnswOf(*index);
+    ASSERT_EQ(NUM_VECS, index->ntotal);
+    ASSERT_EQ(NUM_VECS, hnsw->ntotal);
+    ASSERT_EQ(static_cast<size_t>(NUM_VECS), hnsw->hnsw.levels.size());
+    for (int i = 0; i < NUM_VECS; ++i) {
+        EXPECT_EQ(1000 + i, index->id_map[i]);
+    }
+
+    // Every node must be linked into the base layer of the graph.
+    for (faiss::idx_t node = 0; node < NUM_VECS; ++node) {
+        size_t begin, end;
+        hnsw->hnsw.neighbor_range(node, 0, &begin, &end);
+        bool hasNeighbor = false;
+        for (size_t j = begin; j < end; ++j) {
+            hasNeighbor |= hnsw->hnsw.neighbors[j] >= 0;
+        }
+        EXPECT_TRUE(hasNeighbor) << "node " << node << " has no base layer neighbors";
+    }
+}
+
+TEST_F(FaissSQHnswBatchedBuildTest, BatchPastStoredElementsThrowsWithoutChangingIndex) {
+    constexpr int NUM_VECS = 64;
+    auto index = createIndex(NUM_VECS);
+    addBatch(*index, 0, 48);
+
+    EXPECT_THROW(addBatch(*index, 48, 32), std::runtime_error);
+    EXPECT_EQ(48, index->ntotal);
+    EXPECT_EQ(48, hnswOf(*index)->ntotal);
+
+    // The remaining elements can still be added.
+    addBatch(*index, 48, 16);
+    EXPECT_EQ(NUM_VECS, index->ntotal);
 }
 
 } // namespace knn_jni
