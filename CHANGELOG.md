@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Refactoring
 
 ### Enhancements
+* Score ADC queries from a precomputed per-query table instead of a per-dimension loop [#3633](https://github.com/opensearch-project/k-NN/pull/3633)
 * Use a dedicated 1-bit SQ distance computer to restore 1-bit indexing performance [#3652](https://github.com/opensearch-project/k-NN/pull/3652)
 * Set the CMAKE_BUILD_TYPE to Release to ensure that all targets get build with optimized code [#3622](https://github.com/opensearch-project/k-NN/pull/3622)
 * Avoid FP16 -> FP32 -> FP16 round trip when merging `half_float` segments [#3610](https://github.com/opensearch-project/k-NN/pull/3610)

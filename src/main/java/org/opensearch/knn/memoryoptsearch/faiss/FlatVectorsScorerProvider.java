@@ -20,7 +20,6 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNN1040Codec.KNN1040ScalarQuantizedVectorScorer;
 import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer;
 import org.opensearch.knn.index.engine.Encoder.QuantizationBits;
-import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
 import java.io.IOException;
 import java.util.EnumMap;
@@ -140,19 +139,22 @@ public class FlatVectorsScorerProvider {
                 );
             }
 
+            // Once per query, not per document.
+            final AdcQueryTable queryTable = AdcQueryTable.create(target, spaceType);
+
             return switch (spaceType) {
                 case L2 -> new RandomVectorScorer.AbstractRandomVectorScorer(knnVectorValues) {
                     @Override
                     public float score(int internalVectorId) throws IOException {
                         final byte[] quantizedByteVector = byteVectorValues.vectorValue(internalVectorId);
-                        return SpaceType.L2.scoreTranslation(KNNScoringUtil.l2SquaredADC(target, quantizedByteVector));
+                        return SpaceType.L2.scoreTranslation(queryTable.distance(quantizedByteVector));
                     }
                 };
                 case INNER_PRODUCT, COSINESIMIL -> new RandomVectorScorer.AbstractRandomVectorScorer(knnVectorValues) {
                     @Override
                     public float score(int internalVectorId) throws IOException {
                         final byte[] quantizedByteVector = byteVectorValues.vectorValue(internalVectorId);
-                        return SpaceType.INNER_PRODUCT.scoreTranslation(-1 * KNNScoringUtil.innerProductADC(target, quantizedByteVector));
+                        return SpaceType.INNER_PRODUCT.scoreTranslation(-1 * queryTable.distance(quantizedByteVector));
                     }
                 };
                 default -> throw new IllegalArgumentException("Unsupported space type: " + spaceType);
