@@ -433,7 +433,14 @@ namespace knn_jni {
             __builtin_cpu_init();
             f.popcnt = __builtin_cpu_supports("popcnt");
             // Also requires OS support for the YMM state; libgcc checks XGETBV for "avx2".
+#if defined(_WIN32)
+            // MinGW GCC cannot keep 32-byte AVX values on the 16-byte aligned Win64 stack and emits
+            // aligned moves that fault, so Windows uses the scalar B=4 kernel. This matches the
+            // generic (no AVX) Faiss and SIMD builds on Windows in jni/cmake/init-faiss.cmake.
+            f.avx2 = false;
+#else
             f.avx2 = __builtin_cpu_supports("avx2");
+#endif
 #elif defined(__aarch64__) && defined(__linux__)
             f.neonDotProd = (getauxval(AT_HWCAP) & KNN_SQ_HWCAP_ASIMDDP) != 0;
 #endif
