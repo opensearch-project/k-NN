@@ -113,6 +113,11 @@ public class KNNStats {
                 StatNames.MAX_DISTANCE_QUERY_WITH_FILTER_REQUESTS.getName(),
                 createNodeStat(new KNNCounterSupplier(KNNCounter.MAX_DISTANCE_QUERY_WITH_FILTER_REQUESTS))
             );
+
+        builder.put(
+            StatNames.LATE_INTERACTION_SCORE_REQUESTS.getName(),
+            createNodeStat(new KNNCounterSupplier(KNNCounter.LATE_INTERACTION_SCORE_REQUESTS))
+        );
     }
 
     private void addNativeMemoryStats(ImmutableMap.Builder<String, KNNStat<?>> builder) {
