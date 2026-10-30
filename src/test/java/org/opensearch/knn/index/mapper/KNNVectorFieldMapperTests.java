@@ -2517,6 +2517,64 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertTrue(knnVectorFieldMapper instanceof FlatVectorFieldMapper);
     }
 
+    public void testTypeParser_whenPre217ByteWithKNNDisabled_thenFlatMapper() throws IOException {
+        assertPre217NonKnnUsesFlatMapper(VectorDataType.BYTE);
+    }
+
+    public void testTypeParser_whenPre217BinaryWithKNNDisabled_thenFlatMapper() throws IOException {
+        // Same as the byte case: binary has no working legacy method path when index.knn is disabled.
+        assertPre217NonKnnUsesFlatMapper(VectorDataType.BINARY);
+    }
+
+    public void testTypeParser_whenPre217FloatWithKNNDisabled_thenEngineMapper() throws IOException {
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, false).build();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 4)
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue())
+            .endObject();
+
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            "test-field-name-1",
+            xContentBuilderToMap(xContentBuilder),
+            buildLegacyParserContext("test-index", settings, Version.V_2_15_0)
+        );
+
+        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
+        assertTrue(knnVectorFieldMapper instanceof EngineFieldMapper);
+    }
+
+    private void assertPre217NonKnnUsesFlatMapper(VectorDataType vectorDataType) throws IOException {
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, false).build();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 8)
+            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue())
+            .endObject();
+
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            "test-field-name-1",
+            xContentBuilderToMap(xContentBuilder),
+            buildLegacyParserContext("test-index", settings, Version.V_2_15_0)
+        );
+
+        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
+        assertTrue(knnVectorFieldMapper instanceof FlatVectorFieldMapper);
+        assertEquals(vectorDataType, knnVectorFieldMapper.fieldType().getVectorDataType());
+    }
+
     public void testTypeParser_whenBinaryWithLegacyKNNEnabled_thenValid() throws IOException {
         // Check legacy is picked up if model context and method context are not set
         ModelDao modelDao = mock(ModelDao.class);
