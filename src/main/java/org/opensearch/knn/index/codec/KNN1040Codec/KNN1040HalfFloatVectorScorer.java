@@ -235,7 +235,7 @@ public class KNN1040HalfFloatVectorScorer implements FlatVectorsScorer {
             SimdVectorComputeService.saveSearchContext(
                 target,
                 usesMmapAddress ? addressAndSize : new long[0],
-                nativeFunctionType.ordinal()
+                nativeFunctionType.getWireValue()
             );
         }
 
