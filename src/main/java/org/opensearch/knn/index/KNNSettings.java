@@ -76,7 +76,7 @@ import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.getFeatureF
 public class KNNSettings {
 
     private static final Logger logger = LogManager.getLogger(KNNSettings.class);
-    private static KNNSettings INSTANCE;
+    private static final KNNSettings INSTANCE = new KNNSettings();
     private static final OsProbe osProbe = OsProbe.getInstance();
 
     private static final int INDEX_THREAD_QTY_MAX = 32;
@@ -599,10 +599,7 @@ public class KNNSettings {
 
     private KNNSettings() {}
 
-    public static synchronized KNNSettings state() {
-        if (INSTANCE == null) {
-            INSTANCE = new KNNSettings();
-        }
+    public static KNNSettings state() {
         return INSTANCE;
     }
 

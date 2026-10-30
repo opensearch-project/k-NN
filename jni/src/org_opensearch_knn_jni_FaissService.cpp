@@ -609,8 +609,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_addDocsToSQIndex
 
         // Get the next batch of vectors to be added to HNSW
         // Note that we've already inserted quantized vectors in storage, just that it's not visible yet.
-        auto* vecPtr = faissSQFlat->quantizedVectorsAndCorrectionFactors.data()
-                       + (numAdded * faissSQFlat->oneElementSize);
+        const uint8_t* vecPtr = faissSQFlat->elementsAt(numAdded, numDocs);
 
         // Keep building HNSW
         binaryIdMap->add_with_ids(numDocs, vecPtr, &docIds[0]);
