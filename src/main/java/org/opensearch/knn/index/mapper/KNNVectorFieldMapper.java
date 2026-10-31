@@ -305,9 +305,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
 
-            // return FlatVectorFieldMapper only for indices that are created on or after 2.17.0, for others, use
-            // EngineFieldMapper to maintain backwards compatibility.
-            if (originalParameters.getResolvedKnnMethodContext() == null && indexCreatedVersion.onOrAfter(Version.V_2_17_0)) {
+            // Build a FlatVectorFieldMapper only when the mapping resolved to no ANN method. Indices created on or
+            // after 2.17.0 take this path; pre-2.17.0 indices keep using EngineFieldMapper to maintain backwards
+            // compatibility, except for non-float data types, which never had a working legacy method path and are
+            // routed to the flat path by the type parser (see issue #3643).
+            if (originalParameters.getResolvedKnnMethodContext() == null
+                && (indexCreatedVersion.onOrAfter(Version.V_2_17_0) || vectorDataType.getValue() != VectorDataType.FLOAT)) {
                 // Prior to 3.0.0, hasDocValues defaulted to false. However, FlatVectorFieldMapper requires
                 // hasDocValues to be true to maintain proper functionality for vector search operations.
                 // For indices created on or after 3.0.0, we automatically set hasDocValues to true if not
@@ -418,8 +421,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
             final boolean isKNNDisabled = isKNNDisabled(parserContext.getSettings());
 
-            // Check for flat configuration and validate only if index is created after 2.17
-            if (isKNNDisabled && parserContext.indexVersionCreated().onOrAfter(Version.V_2_17_0)) {
+            // A non-k-NN index (index.knn=false/unset) stores vectors only as doc values, with no ANN structure, so
+            // it maps to the flat path. Validate and route it there.
+            if (isKNNDisabled && isFlatMapping(builder, parserContext.indexVersionCreated())) {
                 validateFromFlat(builder);
             } else if (builder.modelId.get() != null) {
                 validateFromModel(builder);
@@ -630,6 +634,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         private boolean isKNNDisabled(Settings settings) {
             boolean isSettingPresent = KNNSettings.IS_KNN_INDEX_SETTING.exists(settings);
             return !isSettingPresent || !KNNSettings.IS_KNN_INDEX_SETTING.get(settings);
+        }
+
+        private boolean isFlatMapping(KNNVectorFieldMapper.Builder builder, Version indexVersionCreated) {
+            if (indexVersionCreated.onOrAfter(Version.V_2_17_0)) {
+                return true;
+            }
+            return builder.vectorDataType.getValue() != VectorDataType.FLOAT;
         }
 
         private void setSpaceType(final KNNMethodContext knnMethodContext, final SpaceType spaceType) {
