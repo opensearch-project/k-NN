@@ -7,6 +7,20 @@ cmake_minimum_required(VERSION 3.24.0)
 
 project(KNNPlugin_JNI)
 
+if(APPLE)
+    # Automatically locate the active macOS SDK path
+    execute_process(COMMAND xcrun --show-sdk-path OUTPUT_VARIABLE MACOS_SDK_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
+    
+    # Force CMake to use Apple Clang instead of Homebrew GCC for C++
+    set(CMAKE_CXX_COMPILER "/usr/bin/clang++" CACHE FILEPATH "CXX compiler" FORCE)
+    set(CMAKE_C_COMPILER "/usr/bin/clang" CACHE FILEPATH "C compiler" FORCE)
+    
+    # Bind the SDK system root so headers like <vector> are discovered
+    set(CMAKE_OSX_SYSROOT "${MACOS_SDK_PATH}" CACHE PATH "macOS SDK root" FORCE)
+    add_compile_options("-isysroot" "${MACOS_SDK_PATH}")
+endif()
+
+
 # Default to an optimized Release build (-O3 -DNDEBUG) for every target. Previously the build type was only set
 # as a side effect of including NMSLIB's CMakeLists, so FAISS-only builds compiled the JNI libraries without
 # optimization. An explicit -DCMAKE_BUILD_TYPE (e.g. Debug) still takes precedence. Multi-config generators

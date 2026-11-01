@@ -39,6 +39,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
     public static Query create(CreateQueryRequest createQueryRequest) {
         // Engines that create their own custom segment files cannot use the Lucene's KnnVectorQuery. They need to
         // use the custom query type created by the plugin
+        long start = System.currentTimeMillis();
         final String indexName = createQueryRequest.getIndexName();
         final String fieldName = createQueryRequest.getFieldName();
         final int k = createQueryRequest.getK();
@@ -74,7 +75,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
         if (createQueryRequest.getKnnEngine().createsCustomSegmentFiles()) {
             final Query validatedFilterQuery = validateFilterQuerySupport(filterQuery, createQueryRequest.getKnnEngine());
 
-            log.debug(
+            log.info(
                 "Creating custom k-NN query for index:{}, field:{}, k:{}, filterQuery:{}, efSearch:{}",
                 indexName,
                 fieldName,
@@ -125,7 +126,8 @@ public class KNNQueryFactory extends BaseQueryFactory {
                 || (createQueryRequest.getKnnEngine().supportsNestedFields() && expandNested)) {
                 return new NativeEngineKnnVectorQuery(knnQuery, QueryUtils.getInstance(), expandNested);
             }
-
+            long end1 = System.currentTimeMillis();
+            log.info("KNNQueryFactory create time:::: " + (end1 - start) + "ms");
             return knnQuery;
         }
 
@@ -137,7 +139,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
         }
 
         int luceneK = Math.max(overSampledK, IndexHyperParametersUtil.getHNSWEFSearchValue(methodParameters, indexName));
-        log.debug("Creating Lucene k-NN query for index: {}, field:{}, k: {}, luceneK: {}", indexName, fieldName, k, luceneK);
+        log.info("Creating Lucene k-NN query for index:::: {}, field:{}, k: {}, luceneK: {}", indexName, fieldName, k, luceneK);
         Query luceneKnnQuery = new LuceneEngineKnnVectorQuery(
             getKnnVectorQuery(
                 fieldName,
@@ -163,7 +165,8 @@ public class KNNQueryFactory extends BaseQueryFactory {
         if (expandNested) {
             return luceneKnnQuery;
         }
-
+        long end2 = System.currentTimeMillis();
+        log.info("RescoreKNNVectorQuery time:::: " + (end2 - start) + "ms");
         return new RescoreKNNVectorQuery(luceneKnnQuery, fieldName, k, vector, shardId);
     }
 

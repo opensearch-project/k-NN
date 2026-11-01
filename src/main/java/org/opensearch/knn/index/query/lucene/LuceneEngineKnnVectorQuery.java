@@ -42,6 +42,7 @@ public class LuceneEngineKnnVectorQuery extends Query {
      */
     @Override
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
+        long start = System.currentTimeMillis();
         QueryProfiler profiler = KNNProfileUtil.getProfiler(searcher);
         if (profiler != null) {
             profiler.getQueryBreakdown(luceneQuery);
@@ -51,11 +52,14 @@ public class LuceneEngineKnnVectorQuery extends Query {
         if (profiler != null) {
             profiler.pollLastElement();
         }
+        long end = System.currentTimeMillis();
+        log.info("LuceneEngineKnnVectorQuery rewrite time:::: " + (end - start) + "ms");
         return weight;
     }
 
     @Override
     public String toString(String s) {
+        log.info("LuceneEngineKnnVectorQuery toString:::: " + luceneQuery.toString());
         return luceneQuery.toString();
     }
 
