@@ -7,6 +7,8 @@ package org.opensearch.knn.index.query;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.FilterLeafReader;
+import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentCommitInfo;
@@ -50,6 +52,38 @@ import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 public class ExactSearcherTests extends KNNTestCase {
 
     private static final String SEGMENT_NAME = "0";
+
+    @SneakyThrows
+    public void testSearchUsesWrappedFieldView() {
+        final SegmentReader segmentReader = mock(SegmentReader.class);
+        final FieldInfos underlyingFieldInfos = mock(FieldInfos.class);
+        when(segmentReader.getFieldInfos()).thenReturn(underlyingFieldInfos);
+        when(underlyingFieldInfos.fieldInfo(FIELD_NAME)).thenReturn(mock(FieldInfo.class));
+        final LeafReader filteredReader = new FilterLeafReader(segmentReader) {
+            @Override
+            public FieldInfos getFieldInfos() {
+                return new FieldInfos(new FieldInfo[0]);
+            }
+
+            @Override
+            public CacheHelper getCoreCacheHelper() {
+                return null;
+            }
+
+            @Override
+            public CacheHelper getReaderCacheHelper() {
+                return null;
+            }
+        };
+        final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+        when(leafReaderContext.reader()).thenReturn(filteredReader);
+        final ExactSearcher.ExactSearcherContext context = ExactSearcher.ExactSearcherContext.builder()
+            .knnQuery(KNNQuery.builder().field(FIELD_NAME).build())
+            .build();
+
+        final ExactSearcher exactSearcher = new ExactSearcher(null);
+        assertEquals(0, exactSearcher.searchLeaf(leafReaderContext, context).size());
+    }
 
     @SneakyThrows
     public void testExactSearch_whenSegmentHasNoVectorField_thenNoDocsReturned() {

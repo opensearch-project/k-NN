@@ -12,6 +12,10 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.NumericDocValuesField;
 import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.FilterLeafReader;
+import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.LeafReaderContext;
@@ -59,6 +63,39 @@ public class KNNVectorDVLeafFieldDataTests extends KNNTestCase {
         super.tearDown();
         reader.close();
         directory.close();
+    }
+
+    public void testScriptValuesUseWrappedFieldView() throws IOException {
+        LeafReader filteredReader = new FilterLeafReader(leafReaderContext.reader()) {
+            @Override
+            public FieldInfos getFieldInfos() {
+                return new FieldInfos(new FieldInfo[0]);
+            }
+
+            @Override
+            public CacheHelper getCoreCacheHelper() {
+                return null;
+            }
+
+            @Override
+            public CacheHelper getReaderCacheHelper() {
+                return null;
+            }
+        };
+        KNNVectorScriptDocValues<?> visible = (KNNVectorScriptDocValues<?>) new KNNVectorDVLeafFieldData(
+            leafReaderContext.reader(),
+            MOCK_INDEX_FIELD_NAME,
+            VectorDataType.FLOAT
+        ).getScriptValues();
+        KNNVectorScriptDocValues<?> absent = (KNNVectorScriptDocValues<?>) new KNNVectorDVLeafFieldData(
+            filteredReader,
+            MOCK_INDEX_FIELD_NAME,
+            VectorDataType.FLOAT
+        ).getScriptValues();
+        visible.setNextDocId(0);
+        absent.setNextDocId(0);
+        assertEquals(1, visible.size());
+        assertEquals(0, absent.size());
     }
 
     @SuppressWarnings("unchecked")

@@ -155,12 +155,11 @@ public class ExactSearcher {
     private KNNIterator getKNNIterator(LeafReaderContext leafReaderContext, ExactSearcherContext exactSearcherContext) throws IOException {
         final KNNQuery knnQuery = exactSearcherContext.getKnnQuery();
         final DocIdSetIterator matchedDocs = exactSearcherContext.getMatchedDocsIterator();
-        final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
-        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
+        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(leafReaderContext.reader(), knnQuery.getField());
         if (fieldInfo == null) {
-            log.debug("[KNN] Cannot get KNNIterator as Field info not found for {}:{}", knnQuery.getField(), reader.getSegmentName());
             return null;
         }
+        final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
         final SpaceType spaceType = FieldInfoExtractor.getSpaceType(modelDao, fieldInfo);
 
         boolean isNestedRequired = exactSearcherContext.isParentHits() && knnQuery.getParentsFilter() != null;

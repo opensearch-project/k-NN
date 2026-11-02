@@ -10,6 +10,8 @@ import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.FilterLeafReader;
+import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentCommitInfo;
@@ -101,6 +103,7 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 
 public class KNNWeightTests extends KNNTestCase {
+
     private static final String FIELD_NAME = "target_field";
     private static final float[] QUERY_VECTOR = new float[] { 1.8f, 2.4f };
     private static final byte[] BYTE_QUERY_VECTOR = new byte[] { 1, 2 };
@@ -170,6 +173,37 @@ public class KNNWeightTests extends KNNTestCase {
     @After
     public void tearDownAfterTest() {
         jniServiceMockedStatic.close();
+    }
+
+    public void testSearchUsesWrappedFieldView() throws IOException {
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, null);
+        final KNNWeight knnWeight = new KNNWeight(query, 1.0f);
+        final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+        final SegmentReader segmentReader = mock(SegmentReader.class);
+        final FieldInfos underlyingFieldInfos = mock(FieldInfos.class);
+        when(segmentReader.getFieldInfos()).thenReturn(underlyingFieldInfos);
+        when(underlyingFieldInfos.fieldInfo(FIELD_NAME)).thenReturn(mock(FieldInfo.class));
+        final LeafReader filteredReader = new FilterLeafReader(segmentReader) {
+            @Override
+            public FieldInfos getFieldInfos() {
+                return new FieldInfos(new FieldInfo[0]);
+            }
+
+            @Override
+            public CacheHelper getCoreCacheHelper() {
+                return null;
+            }
+
+            @Override
+            public CacheHelper getReaderCacheHelper() {
+                return null;
+            }
+        };
+        when(leafReaderContext.reader()).thenReturn(filteredReader);
+
+        assertEquals(0, knnWeight.searchLeaf(leafReaderContext, K).getResult().size());
+        assertEquals(0, knnWeight.exactSearch(leafReaderContext, mock(ExactSearcher.ExactSearcherContext.class)).size());
+        assertFalse(knnWeight.explain(leafReaderContext, 0).isMatch());
     }
 
     @SneakyThrows
