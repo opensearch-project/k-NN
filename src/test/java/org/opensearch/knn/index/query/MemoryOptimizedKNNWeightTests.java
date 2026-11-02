@@ -6,6 +6,8 @@
 package org.opensearch.knn.index.query;
 
 import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Field.Store;
+import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -48,6 +50,7 @@ public class MemoryOptimizedKNNWeightTests extends KNNTestCase {
 
     private static final int K = 10;
     private static final int FILTERED_DOCS = 100_000;
+    private static final String FIELD_NAME = "test-field";
 
     private MockedStatic<KNNSettings> knnSettings;
     private Directory directory;
@@ -62,11 +65,13 @@ public class MemoryOptimizedKNNWeightTests extends KNNTestCase {
             .thenReturn(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE);
         knnSettings.when(() -> KNNSettings.isKnnIndexFaissEfficientFilterExactSearchDisabled(any())).thenReturn(false);
 
-        // A real one-segment index, so searchLeaf sees a genuine SegmentReader. ANN, exact search and the filter are
-        // stubbed on the weight, so the segment needs no vectors.
+        // Include the queried field so visibility checks pass. ANN, exact search and the filter are stubbed on the
+        // weight, so the real one-segment index needs no vectors.
         directory = newDirectory();
         try (IndexWriter writer = new IndexWriter(directory, new IndexWriterConfig())) {
-            writer.addDocument(new Document());
+            final Document document = new Document();
+            document.add(new StringField(FIELD_NAME, "value", Store.NO));
+            writer.addDocument(document);
         }
         reader = DirectoryReader.open(directory);
         leafContext = reader.leaves().get(0);
@@ -201,7 +206,7 @@ public class MemoryOptimizedKNNWeightTests extends KNNTestCase {
         when(knnQuery.getK()).thenReturn(K);
         when(knnQuery.getQueryDimension()).thenReturn(768);
         when(knnQuery.getIndexName()).thenReturn("test-index");
-        when(knnQuery.getField()).thenReturn("test-field");
+        when(knnQuery.getField()).thenReturn(FIELD_NAME);
         final IndexSearcher searcher = mock(IndexSearcher.class);
         when(searcher.getTimeout()).thenReturn(timeout);
 
