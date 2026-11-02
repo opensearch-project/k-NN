@@ -109,6 +109,9 @@ public class KNNWeight extends Weight {
 
     @Override
     public Explanation explain(LeafReaderContext context, int doc) {
+        if (isFieldVisible(context) == false) {
+            return Explanation.noMatch("k-NN field is not visible");
+        }
         return Explanation.match(1.0f, "No Explanation");
     }
 
@@ -131,6 +134,9 @@ public class KNNWeight extends Weight {
      * @return A Map of docId to scores for top k results
      */
     public PerLeafResult searchLeaf(LeafReaderContext context, int k) throws IOException {
+        if (isFieldVisible(context) == false) {
+            return PerLeafResult.EMPTY_RESULT;
+        }
         final SegmentReader reader = Lucene.segmentReader(context.reader());
         final String segmentName = reader.getSegmentName();
 
@@ -420,11 +426,21 @@ public class KNNWeight extends Weight {
         final LeafReaderContext leafReaderContext,
         final ExactSearcher.ExactSearcherContext exactSearcherContext
     ) throws IOException {
+        if (isFieldVisible(leafReaderContext) == false) {
+            return Collections.emptyMap();
+        }
         StopWatch stopWatch = startStopWatch();
         Map<Integer, Float> exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
         stopStopWatchAndLog(stopWatch, "Exact search", reader.getSegmentName());
         return exactSearchResults;
+    }
+
+    /**
+     * Resolve visibility on the wrapped reader so native search uses the same field view as other query paths.
+     */
+    private boolean isFieldVisible(final LeafReaderContext leafReaderContext) {
+        return FieldInfoExtractor.getFieldInfo(leafReaderContext.reader(), knnQuery.getField()) != null;
     }
 
     @Override
