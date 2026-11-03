@@ -72,6 +72,10 @@ buildscript {
             resolutionStrategy {
                 force("org.eclipse.platform:org.eclipse.core.runtime:4.29.0") // CVE for < 4.29
                 force("org.eclipse.platform:org.eclipse.core.resources:4.20.0") // CVE for < 4.20
+                if (!JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_17)) {
+                    // Shadow upgrades Plexus XML to a Java 17-only release; retain build-tools' Java 11-compatible version.
+                    force("org.codehaus.plexus:plexus-xml:3.0.1")
+                }
             }
         }
     }
