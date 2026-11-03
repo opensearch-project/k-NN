@@ -5,8 +5,6 @@
 
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
-import java.util.Locale;
-
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.codecs.lucene104.Lucene104ScalarQuantizedVectorScorer;
@@ -26,7 +24,6 @@ import org.opensearch.knn.memoryoptsearch.faiss.WrappedFloatVectorValues;
 import java.io.IOException;
 
 import org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding;
-import static org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE;
 
 /**
  * A specialized {@link Lucene104ScalarQuantizedVectorScorer} that leverages
@@ -112,24 +109,15 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
         final QuantizedByteVectorValues quantizedByteVectorValues,
         final float[] target
     ) throws IOException {
-        // Native bulk-SIMD scoring is implemented for 1-bit documents only. Multi-bit docs
-        // (B=2, B=4) share the same .veq layout but need width-specific kernels that are not
-        // yet in the native SIMD path — route them to Lucene's pure-Java reference scorer,
-        // which scores the same codes correctly.
-        final ScalarEncoding scalarEncoding = quantizedByteVectorValues.getScalarEncoding();
-        if (ScalarEncodingResolver.docBits(scalarEncoding) != 1) {
-            return (RandomVectorScorer.AbstractRandomVectorScorer) super.getRandomVectorScorer(
-                similarityFunction,
-                quantizedByteVectorValues,
-                target
-            );
-        }
+        // Native bulk-SIMD scoring covers every FAISS SQ document width, each against a 4-bit query: 1-bit
+        // (SINGLE_BIT_QUERY_NIBBLE), 2-bit (DIBIT_QUERY_NIBBLE) and 4-bit (PACKED_NIBBLE). docBits rejects any other encoding.
+        final int docBits = ScalarEncodingResolver.docBits(quantizedByteVectorValues.getScalarEncoding());
 
         final IndexInput indexInput = quantizedByteVectorValues.getSlice();
         final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(indexInput, 0, indexInput.length());
         if (addressAndSize != null) {
             // Try bulk SIMD
-            return bulkSimdRandomVectorScorer(quantizedByteVectorValues, target, addressAndSize, similarityFunction);
+            return bulkSimdRandomVectorScorer(quantizedByteVectorValues, target, addressAndSize, similarityFunction, docBits);
         }
 
         // Fallback
@@ -146,7 +134,6 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
      *
      * <p>This method:
      * <ol>
-     *   <li>Validates the scalar encoding format</li>
      *   <li>Quantizes the query vector into the same representation as stored vectors</li>
      *   <li>Applies transformations (e.g., nibble transposition) required for SIMD efficiency</li>
      *   <li>Initializes a native SIMD search context</li>
@@ -158,6 +145,7 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
      * @param target                    the query vector (float32)
      * @param addressAndSize            raw memory address and size of vector data
      * @param similarityFunction        similarity function to use
+     * @param docBits                   document code width (1, 2 or 4), already validated by {@link ScalarEncodingResolver#docBits}
      * @return a SIMD-accelerated scorer
      * @throws IOException if quantization or initialization fails
      */
@@ -165,15 +153,10 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
         final QuantizedByteVectorValues quantizedByteVectorValues,
         final float[] target,
         final long[] addressAndSize,
-        final VectorSimilarityFunction similarityFunction
+        final VectorSimilarityFunction similarityFunction,
+        final int docBits
     ) throws IOException {
-        // Check encoding type
         final ScalarEncoding scalarEncoding = quantizedByteVectorValues.getScalarEncoding();
-
-        // We only support 32x quantization with 4 bit query quantization for search.
-        if (scalarEncoding != SINGLE_BIT_QUERY_NIBBLE) {
-            throw new IllegalStateException(String.format(Locale.ROOT, "SQ only supports %s encoding.", SINGLE_BIT_QUERY_NIBBLE));
-        }
 
         // Validate dimensionality
         FlatVectorsScorer.checkDimensions(target.length, quantizedByteVectorValues.dimension());
@@ -212,8 +195,11 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
             quantizedByteVectorValues.getCentroid()
         );
 
-        // Transpose half-bytes (nibbles) for SIMD-friendly layout
-        OptimizedScalarQuantizer.transposeHalfByte(scratch, targetQuantized);
+        // Transpose half-bytes (nibbles) into bit planes for the asymmetric encodings. PACKED_NIBBLE is symmetric: the
+        // query stays one 4-bit code per dimension (targetQuantized is scratch), paired with the packed document nibbles.
+        if (scalarEncoding.isAsymmetric()) {
+            OptimizedScalarQuantizer.transposeHalfByte(scratch, targetQuantized);
+        }
 
         // Return Bulk SIMD scorer
         return new BulkSimdRandomVectorScorer(
@@ -223,7 +209,8 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
             quantizedByteVectorValues,
             similarityFunction,
             targetCopy.length,
-            quantizedByteVectorValues.getCentroidDP()
+            quantizedByteVectorValues.getCentroidDP(),
+            docBits
         );
     }
 
@@ -262,6 +249,7 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
          * @param similarityFunction    similarity function (IP or L2)
          * @param dimension             vector dimensionality
          * @param centroidDp            centroid dot-product correction
+         * @param docBits               document code width: 1, 2 or 4
          */
         public BulkSimdRandomVectorScorer(
             final byte[] targetQuantized,
@@ -270,7 +258,8 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
             final QuantizedByteVectorValues knnVectorValues,
             final VectorSimilarityFunction similarityFunction,
             final int dimension,
-            final float centroidDp
+            final float centroidDp,
+            final int docBits
         ) {
             super(knnVectorValues);
 
@@ -288,7 +277,8 @@ public class KNN1040ScalarQuantizedVectorScorer extends Lucene104ScalarQuantized
                         ? SimdVectorComputeService.SimilarityFunctionType.SQ_IP.getWireValue()
                     : SimdVectorComputeService.SimilarityFunctionType.SQ_L2.getWireValue(),
                 dimension,
-                centroidDp
+                centroidDp,
+                docBits
             );
         }
 

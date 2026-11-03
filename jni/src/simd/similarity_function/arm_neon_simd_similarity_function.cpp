@@ -17,11 +17,14 @@
 #include "simd_similarity_function_common.cpp"
 #include "faiss_score_to_lucene_transform.cpp"
 #include "simd/similarity_function/sq_format.h"
+#include "simd/similarity_function/sq_search_multibit_kernels.h"
 #include "simd/similarity_function/fp16_format.h"
 #include "simd/similarity_function/bf16_format.h"
 
 using knn_jni::simd::similarity_function::LuceneSqFormat;
 using knn_jni::simd::similarity_function::is_sq_format;
+using knn_jni::simd::similarity_function::scoreLuceneSqMultiBit;
+using knn_jni::simd::similarity_function::sqSearchKernel;
 using knn_jni::simd::similarity_function::LuceneFp16Format;
 using knn_jni::simd::similarity_function::is_fp16_format;
 using knn_jni::simd::similarity_function::LuceneBf16Format;
@@ -496,18 +499,38 @@ struct ArmNeonSQSimilarityFunction final : SimilarityFunction {
         }
     }
 
-    HOT_SPOT void calculateSimilarityInBulk(SimdVectorSearchContext* srchContext,
-                                            int32_t* internalVectorIds,
-                                            float* scores,
-                                            const int32_t numVectors) {
+    // Scores Lucene's interleaved records (LuceneSqFormat) for the context's document code width: 1-bit
+    // (SINGLE_BIT_QUERY_NIBBLE) with this file's kernel, 2-bit (DIBIT_QUERY_NIBBLE) and 4-bit (PACKED_NIBBLE) with the
+    // runtime-dispatched kernels of sq_search_multibit_kernels.h. The scores are the Faiss-domain values; the callers
+    // apply the score transform of Mode.
+    static FORCE_INLINE void scoreLuceneSq(SimdVectorSearchContext* srchContext,
+                                           int32_t* internalVectorIds,
+                                           float* scores,
+                                           const int32_t numVectors) {
         const auto* queryPtr = reinterpret_cast<const uint8_t*>(srchContext->queryVectorSimdAligned);
-        const int32_t binaryCodeBytes = (srchContext->dimension + 7) / 8;
+        const int32_t binaryCodeBytes = luceneSqCodeBytes(srchContext->dimension, srchContext->docBits);
 
         // Lucene's interleaved records; the query correction factors come from tmpBuffer.
         const LuceneSqFormat format(srchContext, binaryCodeBytes);
         const LuceneSqFormat::Epilogue<Mode> epilogue(srchContext);
 
-        scoreInBulk(format, epilogue, queryPtr, binaryCodeBytes, internalVectorIds, scores, numVectors);
+        if (srchContext->docBits == 2) {
+            // The dot product runs over one bit-plane stripe: the code is bit plane 0 then bit plane 1.
+            scoreLuceneSqMultiBit(format, epilogue, sqSearchKernel(2), queryPtr, binaryCodeBytes / 2,
+                                  internalVectorIds, scores, numVectors);
+        } else if (srchContext->docBits == 4) {
+            scoreLuceneSqMultiBit(format, epilogue, sqSearchKernel(4), queryPtr, binaryCodeBytes,
+                                  internalVectorIds, scores, numVectors);
+        } else {
+            scoreInBulk(format, epilogue, queryPtr, binaryCodeBytes, internalVectorIds, scores, numVectors);
+        }
+    }
+
+    HOT_SPOT void calculateSimilarityInBulk(SimdVectorSearchContext* srchContext,
+                                            int32_t* internalVectorIds,
+                                            float* scores,
+                                            const int32_t numVectors) {
+        scoreLuceneSq(srchContext, internalVectorIds, scores, numVectors);
 
         if constexpr (Mode == SQMetricMode::MAX_IP) {
             FaissScoreToLuceneScoreTransform::ipToMaxIpTransformBulk(scores, numVectors);
@@ -519,20 +542,10 @@ struct ArmNeonSQSimilarityFunction final : SimilarityFunction {
     }
 
     float calculateSimilarity(SimdVectorSearchContext* srchContext, const int32_t internalVectorId) {
-        const auto* queryPtr = reinterpret_cast<const uint8_t*>(srchContext->queryVectorSimdAligned);
-        const int32_t binaryCodeBytes = (srchContext->dimension + 7) / 8;
-
-        const LuceneSqFormat format(srchContext, binaryCodeBytes);
-        const LuceneSqFormat::Epilogue<Mode> epilogue(srchContext);
-
-        const auto* dataVec = format.getVectorPointer(internalVectorId);
-        const float qcDist = static_cast<float>(
-            int4BitDotProduct(queryPtr, dataVec, binaryCodeBytes));
-
-        float ax, lx, additional, x1;
-        format.readDataCorrections(dataVec, internalVectorId, ax, lx, additional, x1);
-
-        const float score = epilogue.finish(ax, lx, additional, x1, qcDist);
+        // One vector goes through the scalar tail of the bulk kernels: the same dot product and epilogue.
+        int32_t vectorId = internalVectorId;
+        float score;
+        scoreLuceneSq(srchContext, &vectorId, &score, 1);
 
         if constexpr (Mode == SQMetricMode::MAX_IP) {
             return FaissScoreToLuceneScoreTransform::ipToMaxIpTransform(score);

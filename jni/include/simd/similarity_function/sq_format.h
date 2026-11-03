@@ -28,6 +28,27 @@ namespace knn_jni::simd::similarity_function {
     // The query is 4-bit quantized and transposed into 4 bit planes; the code dot product weights them 1, 2, 4, 8.
     constexpr float FOUR_BIT_SCALE = 1.0f / 15.0f;
 
+    // Lucene's getDocPackedLength for the document code widths the SQ kernels support:
+    //   1-bit SINGLE_BIT_QUERY_NIBBLE  (dimension + 7) / 8
+    //   2-bit DIBIT_QUERY_NIBBLE       2 * ((dimension + 7) / 8)   (bit plane 0 then bit plane 1, one stripe each)
+    //   4-bit PACKED_NIBBLE            (dimension + 1) / 2         (split-half nibbles)
+    // The 4-bit query the kernels take is 4 * code bytes long for 1-bit codes (4 bit planes of one code length) and
+    // 2 * code bytes for 2- and 4-bit codes (4 bit planes of one stripe; one code per dimension, respectively).
+    static inline int32_t luceneSqCodeBytes(const int32_t dimension, const int32_t docBits) {
+        if (docBits == 2) {
+            return 2 * ((dimension + 7) / 8);
+        }
+        if (docBits == 4) {
+            return (dimension + 1) / 2;
+        }
+        return (dimension + 7) / 8;
+    }
+
+    static inline int32_t luceneSqQueryBytes(const int32_t dimension, const int32_t docBits) {
+        const int32_t codeBytes = luceneSqCodeBytes(dimension, docBits);
+        return docBits == 1 ? 4 * codeBytes : 2 * codeBytes;
+    }
+
     // Lucene's layout: `id` is a slot in the context's vector region(s), oneVectorByteSize apart. Each element is
     // [code (binaryCodeBytes) | lowerInterval f32 | upperInterval f32 | additionalCorrection f32 | quantizedComponentSum i32].
     // Because oneVectorByteSize need not be a multiple of 4, elements can start at non-4-byte-aligned offsets, hence
@@ -75,6 +96,8 @@ namespace knn_jni::simd::similarity_function {
         template <SQMetricMode Mode>
         struct Epilogue final {
             const int32_t dim;
+            // Lucene's SCALE_LUT[docBits - 1] = 1 / (2^docBits - 1): 1 for 1-bit, 1/3 for 2-bit, 1/15 for 4-bit codes.
+            float docScale;
             float ay;
             float ly;
             float queryAdditional;
@@ -82,6 +105,7 @@ namespace knn_jni::simd::similarity_function {
             float centroidDp;
 
             FORCE_INLINE explicit Epilogue(const SimdVectorSearchContext* srchContext) : dim(srchContext->dimension) {
+                docScale = 1.0f / static_cast<float>((1 << srchContext->docBits) - 1);
                 const auto* queryCorrectionPtr = reinterpret_cast<const float*>(srchContext->tmpBuffer.data());
                 ay = queryCorrectionPtr[0];
                 ly = (queryCorrectionPtr[1] - queryCorrectionPtr[0]) * FOUR_BIT_SCALE;
@@ -91,9 +115,11 @@ namespace knn_jni::simd::similarity_function {
                 centroidDp = queryCorrectionPtr[4];
             }
 
-            // `lx` is upper - lower, `x1` the component sum and `qcDist` the code dot product, each as a float.
-            FORCE_INLINE float finish(const float ax, const float lx, const float additional, const float x1,
+            // `upperMinusLower` is upper - lower, `x1` the component sum and `qcDist` the code dot product, each as a float.
+            // Lucene's quantizedScore: lx = (upper - lower) * scale. For 1-bit codes docScale is exactly 1.
+            FORCE_INLINE float finish(const float ax, const float upperMinusLower, const float additional, const float x1,
                                       const float qcDist) const {
+                const float lx = upperMinusLower * docScale;
                 float score = ax * ay * dim
                             + ay * lx * x1
                             + ax * ly * y1

@@ -12,11 +12,14 @@
 #include "parameter_utils.h"
 #include "platform_defs.h"
 #include "simd/similarity_function/similarity_function.h"
+#include "simd/similarity_function/sq_format.h"
 #include "faiss/impl/ScalarQuantizer.h"
 #include "jni_util.h"
 
 using knn_jni::simd::similarity_function::SimdVectorSearchContext;
 using knn_jni::simd::similarity_function::SimilarityFunction;
+using knn_jni::simd::similarity_function::luceneSqCodeBytes;
+using knn_jni::simd::similarity_function::luceneSqQueryBytes;
 
 // Since Windows CI is failing to recognize std::aligned_malloc, it will make CI pass with macro.
 #if defined(_WIN32)
@@ -188,7 +191,8 @@ SimdVectorSearchContext* SimilarityFunction::saveSearchContext(
            int32_t dimension,
            int64_t* mmapAddressAndSize,
            int32_t numAddressAndSize,
-           int32_t nativeFunctionTypeOrd) {
+           int32_t nativeFunctionTypeOrd,
+           int32_t docBits) {
     // Free tmp buffer
     THREAD_LOCAL_SIMD_VEC_SRCH_CTX.tmpBuffer = {};
 
@@ -277,11 +281,23 @@ SimdVectorSearchContext* SimilarityFunction::saveSearchContext(
          THREAD_LOCAL_SIMD_VEC_SRCH_CTX.similarityFunction =
              selectSimilarityFunction(static_cast<NativeSimilarityFunctionType>(nativeFunctionTypeOrd));
 
+         // The kernels read luceneSqQueryBytes of query and luceneSqCodeBytes of every record for this code width, so
+         // reject a width or query length that does not match instead of reading past either buffer.
+         if (docBits != 1 && docBits != 2 && docBits != 4) {
+             throw std::runtime_error("Unsupported SQ document code width docBits=" + std::to_string(docBits));
+         }
+         if (queryByteSize != luceneSqQueryBytes(dimension, docBits)) {
+             throw std::runtime_error("SQ query is " + std::to_string(queryByteSize) + " bytes, expected "
+                                      + std::to_string(luceneSqQueryBytes(dimension, docBits)) + " for dimension="
+                                      + std::to_string(dimension) + " docBits=" + std::to_string(docBits));
+         }
+         THREAD_LOCAL_SIMD_VEC_SRCH_CTX.docBits = docBits;
+
          // oneVectorByteSize = quantized vector bytes + 3 floats + 1 int (correction factors)
          // On-disk layout: [binaryCode | lowerInterval(float) | upperInterval(float) | additionalCorrection(float) | quantizedComponentSum(int)]
-         // Lucene's docPackedLength for SINGLE_BIT_QUERY_NIBBLE: (dim + 7) / 8
+         // binaryCode is Lucene's docPackedLength for the encoding (luceneSqCodeBytes).
          THREAD_LOCAL_SIMD_VEC_SRCH_CTX.oneVectorByteSize =
-             (dimension + 7) / 8 + 3 * sizeof(float) + sizeof(int32_t);
+             luceneSqCodeBytes(dimension, docBits) + 3 * sizeof(float) + sizeof(int32_t);
     } else {
         throw std::runtime_error(
             std::string("Invalid native similarity function type was given, nativeFunctionTypeOrd=")

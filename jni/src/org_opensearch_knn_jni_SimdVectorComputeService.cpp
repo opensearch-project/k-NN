@@ -169,7 +169,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_save
   (JNIEnv *env, jclass clazz, jbyteArray quantizedQuery,
    jfloat lowerInterval, jfloat upperInterval, jfloat additionalCorrection,
    jint quantizedComponentSum, jlongArray addressAndSize,
-   jint functionTypeOrd, jint dimension, jfloat centroidDp) {
+   jint functionTypeOrd, jint dimension, jfloat centroidDp, jint docBits) {
     try {
       // Get quantized query bytes
       const jsize queryByteSize = JNI_UTIL.GetJavaBytesArrayLength(env, quantizedQuery);
@@ -192,7 +192,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_save
           reinterpret_cast<uint8_t*>(queryPtr), queryByteSize,
           dimension,
           reinterpret_cast<int64_t*>(mmapAddressAndSize), mmapAddressAndSizeLength,
-          functionTypeOrd);
+          functionTypeOrd, docBits);
 
       // Now store correction factors in tmpBuffer (saveSearchContext clears it, then SQ_IP branch leaves it empty)
       SimdVectorSearchContext* ctx = SimilarityFunction::getSearchContext();

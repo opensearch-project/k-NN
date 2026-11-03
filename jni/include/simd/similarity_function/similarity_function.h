@@ -66,6 +66,9 @@ namespace knn_jni::simd::similarity_function {
         std::vector<int64_t> mmapPageSizes;
         // Function type index
         int32_t nativeFunctionTypeOrd = -1;
+        // SQ document code width: 1 (SINGLE_BIT_QUERY_NIBBLE), 2 (DIBIT_QUERY_NIBBLE) or 4 (PACKED_NIBBLE). Selects the
+        // record size and the code dot product of the SQ similarity functions; unused by FP16 / BF16.
+        int32_t docBits = 1;
         // Similarity function calculating similarity that was chosen based on `nativeFunctionTypeOrd`.
         SimilarityFunction* similarityFunction;
         // Faiss distance computation function.
@@ -128,13 +131,15 @@ namespace knn_jni::simd::similarity_function {
 
         // Save required information during search in static thread local storage.
         // The maximum thread local storage is bounded by O(SizeOf(Query Vector Size)).
+        // `docBits` is the SQ document code width (1, 2 or 4) and is ignored by the FP16 / BF16 function types.
         static SimdVectorSearchContext* saveSearchContext(
                    uint8_t* queryPtr,
                    int32_t queryByteSize,
                    int32_t dimension,
                    int64_t* mmapAddressAndSize,
                    int32_t numAddressAndSize,
-                   int32_t nativeFunctionTypeOrd);
+                   int32_t nativeFunctionTypeOrd,
+                   int32_t docBits = 1);
 
         // Return thread static storage it's holding.
         static SimdVectorSearchContext* getSearchContext();

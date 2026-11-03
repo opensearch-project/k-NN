@@ -46,6 +46,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -204,9 +205,58 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
         IOUtils.rm(tempDir);
     }
 
-    @SneakyThrows
     private void doTest(final VectorSimilarityFunction similarityFunction, final int dimension) {
-        final ScalarEncoding encoding = ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE;
+        doTest(similarityFunction, dimension, ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE);
+    }
+
+    // Dimensions for the multi-bit encodings: below, at and above the 8-dimension discretization (2-bit stripes), odd
+    // dimensions (4-bit padding nibble), and code lengths below, at and above one 64-byte SIMD block.
+    private static final List<Integer> MULTI_BIT_DIMENSIONS = Arrays.asList(
+        1,
+        7,
+        8,
+        9,
+        63,
+        64,
+        65,
+        77,
+        127,
+        128,
+        129,
+        255,
+        256,
+        257,
+        768,
+        777,
+        1024,
+        1536
+    );
+
+    private static final VectorSimilarityFunction[] MULTI_BIT_SIMILARITY_FUNCTIONS = new VectorSimilarityFunction[] {
+        VectorSimilarityFunction.EUCLIDEAN,
+        VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT,
+        VectorSimilarityFunction.COSINE };
+
+    @Test
+    public void testSQTwoBitScoring() {
+        for (VectorSimilarityFunction similarityFunction : MULTI_BIT_SIMILARITY_FUNCTIONS) {
+            for (int dim : MULTI_BIT_DIMENSIONS) {
+                doTest(similarityFunction, dim, ScalarEncoding.DIBIT_QUERY_NIBBLE);
+            }
+        }
+    }
+
+    @Test
+    public void testSQFourBitScoring() {
+        for (VectorSimilarityFunction similarityFunction : MULTI_BIT_SIMILARITY_FUNCTIONS) {
+            for (int dim : MULTI_BIT_DIMENSIONS) {
+                doTest(similarityFunction, dim, ScalarEncoding.PACKED_NIBBLE);
+            }
+        }
+    }
+
+    @SneakyThrows
+    private void doTest(final VectorSimilarityFunction similarityFunction, final int dimension, final ScalarEncoding encoding) {
         final FlatVectorsScorer defaultScorer = FlatVectorScorerUtil.getLucene99FlatVectorsScorer();
         final FlatVectorsFormat rawVectorFormat = getRawVectorFormat();
 
@@ -325,7 +375,12 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
                 for (int ord = 0; ord < maxOrd; ord++) {
                     float actual = testScorer.score(ord);
                     float expected = truthScorer.score(ord);
-                    assertEquals("Score mismatch at ord=" + ord + " for " + similarityFunction, expected, actual, 1e-2);
+                    assertEquals(
+                        "Score mismatch at ord=" + ord + " for " + similarityFunction + " " + encoding,
+                        expected,
+                        actual,
+                        delta(encoding, expected)
+                    );
                 }
 
                 // Bulk scoring with various batch sizes to exercise batch-of-8, batch-of-4, and tail
@@ -343,10 +398,10 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
                         float actualBulk = bulkScores[j];
                         float expected = truthScorer.score(ords[j]);
                         assertEquals(
-                            "Bulk score mismatch at ord=" + ords[j] + " (batch=" + batchSize + ") for " + similarityFunction,
+                            "Bulk score mismatch at ord=" + ords[j] + " (batch=" + batchSize + ") for " + similarityFunction + " " + encoding,
                             expected,
                             actualBulk,
-                            1e-2
+                            delta(encoding, expected)
                         );
                     }
                 }
@@ -355,6 +410,14 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
 
         // Clean up temp directory to avoid running out of disk space across 65k iterations
         IOUtils.rm(tempDir);
+    }
+
+    /**
+     * Allowed difference from Lucene's score. The multi-bit kernels compute the exact integer dot product and Lucene's
+     * score expression in the same order, so they are held to a tight relative bound; the 1-bit bound is the original one.
+     */
+    private static double delta(final ScalarEncoding encoding, final float expected) {
+        return encoding == ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE ? 1e-2 : Math.max(1e-5, Math.abs(expected) * 1e-5);
     }
 
     /**

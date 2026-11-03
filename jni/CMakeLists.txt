@@ -219,6 +219,7 @@ if ("${WIN32}" STREQUAL "")
                 tests/nmslib_stream_support_test.cpp
                 tests/faiss_index_bq_unit_test.cpp
                 tests/faiss_sq_distance_computer_test.cpp
+                tests/sq_search_multibit_kernels_test.cpp
                 tests/build_config_test.cpp
         )
 
