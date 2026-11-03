@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Make the bulk SIMD kernels format aware: the FP16, BF16 and SQ kernels take the storage format (where a vector's values and correction factors live) as a compile-time parameter instead of hard-coding the Lucene layout, and the Java/JNI similarity function type carries an explicit wire value [#3645](https://github.com/opensearch-project/k-NN/pull/3645)
 
 ### Enhancements
+* Add SIMD kernels for SQ 2-bit and 4-bit distance computation during indexing [#3655](https://github.com/opensearch-project/k-NN/pull/3655)
 * Score ADC queries from a precomputed per-query table instead of a per-dimension loop [#3633](https://github.com/opensearch-project/k-NN/pull/3633)
 * Use a dedicated 1-bit SQ distance computer to restore 1-bit indexing performance [#3652](https://github.com/opensearch-project/k-NN/pull/3652)
 * Set the CMAKE_BUILD_TYPE to Release to ensure that all targets get build with optimized code [#3622](https://github.com/opensearch-project/k-NN/pull/3622)
