@@ -47,8 +47,8 @@ public class ConcurrentSegmentSearchIT extends KNNCompressionRestTestCase {
         if (ConcurrentSegmentSearchIT.class.getClassLoader() == null) {
             throw new IllegalStateException("ClassLoader of ConcurrentSegmentSearchIT Class is null");
         }
-        URL testIndexVectors = ConcurrentSegmentSearchIT.class.getClassLoader().getResource("data/test_vectors_1000x128.json");
-        URL testQueries = ConcurrentSegmentSearchIT.class.getClassLoader().getResource("data/test_queries_100x128.csv");
+        URL testIndexVectors = ConcurrentSegmentSearchIT.class.getClassLoader().getResource("data/test_vectors_clustered_1000x128.json");
+        URL testQueries = ConcurrentSegmentSearchIT.class.getClassLoader().getResource("data/test_queries_clustered_100x128.csv");
         assert testIndexVectors != null;
         assert testQueries != null;
         testData = new TestUtils.TestData(testIndexVectors.getPath(), testQueries.getPath());

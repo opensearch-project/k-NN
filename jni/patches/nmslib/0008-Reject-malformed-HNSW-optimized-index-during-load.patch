@@ -1,0 +1,288 @@
+From 063109ef45c65ded8eb3b9cae059eca27684b6b6 Mon Sep 17 00:00:00 2001
+From: Dooyong Kim <kdooyong@amazon.com>
+Date: Mon, 26 Oct 2026 20:53:28 +0000
+Subject: [PATCH] Reject malformed HNSW optimized index during load
+
+LoadOptimizedIndex read the element count, object stride, section offsets,
+entry point and level-0 neighbor ids from the index stream and used them
+without checking them. A malformed index could therefore make the query path
+index outside the allocated level-0 block.
+
+- Add validateOptimizedIndexHeader(): reject a zero or overflowing element
+  count and stride, inconsistent section offsets, and an out-of-range entry
+  point before the level-0 block is allocated.
+- Add validateOptimizedIndexLevel0Links(): reject a level-0 neighbor count or
+  neighbor id outside the allocated bounds right after that block is read.
+- Drop the fstdistfunc_ member and resolve the distance function per search
+  from dist_func_type_ via getDistFunc(), with a null check.
+
+Both LoadOptimizedIndex overloads are covered. The save path is unchanged, so
+index files are byte-identical to before and existing indexes load unchanged.
+
+Signed-off-by: Dooyong Kim <kdooyong@amazon.com>
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+---
+ similarity_search/include/method/hnsw.h       | 14 ++++-
+ similarity_search/src/method/hnsw.cc          | 57 +++++++++++++++----
+ .../src/method/hnsw_distfunc_opt.cc           | 20 +++++--
+ 3 files changed, 74 insertions(+), 17 deletions(-)
+
+diff --git a/similarity_search/include/method/hnsw.h b/similarity_search/include/method/hnsw.h
+index d235c15..17bda26 100644
+--- a/similarity_search/include/method/hnsw.h
++++ b/similarity_search/include/method/hnsw.h
+@@ -57,6 +57,11 @@ namespace similarity {
+       kLInfNorm = 6
+     };
+ 
++    // Maps a distance function type code to its implementation, returning nullptr for
++    // an unknown code. The query path resolves the function through this instead of
++    // keeping a function pointer in the deserialized index object.
++    EfficientDistFunc getDistFunc(DistFuncType funcType);
++
+     using std::string;
+     using std::vector;
+     using std::thread;
+@@ -507,6 +512,12 @@ namespace similarity {
+         void LoadOptimizedIndex(std::istream& input);
+         void LoadOptimizedIndex(NmslibIOReader& input);
+ 
++        // Consistency checks for a deserialized optimized index. The index data comes
++        // from an external stream, so these run during load, before the index becomes
++        // queryable, and throw if it is malformed.
++        void validateOptimizedIndexHeader();       // call before allocating from the header
++        void validateOptimizedIndexLevel0Links();  // call after data_level0_memory_ is populated
++
+         void SaveRegularIndexBin(std::ostream& output);
+         void LoadRegularIndexBin(std::istream& input);
+         void SaveRegularIndexText(std::ostream& output);
+@@ -562,7 +573,8 @@ namespace similarity {
+         char *data_level0_memory_;
+         char **linkLists_;
+         size_t memoryPerObject_;
+-        EfficientDistFunc fstdistfunc_;
++        // The distance function is not stored as a member; it is resolved per search
++        // from dist_func_type_ via getDistFunc().
+ 
+         enum AlgoType { kOld, kV1Merge, kHybrid };
+ 
+diff --git a/similarity_search/src/method/hnsw.cc b/similarity_search/src/method/hnsw.cc
+index bfa3a23..de76c9c 100644
+--- a/similarity_search/src/method/hnsw.cc
++++ b/similarity_search/src/method/hnsw.cc
+@@ -126,7 +126,6 @@ namespace similarity {
+         , enterpoint_(nullptr)
+         , data_level0_memory_(nullptr)
+         , linkLists_(nullptr)
+-        , fstdistfunc_(nullptr)
+     {
+     }
+ 
+@@ -376,7 +375,6 @@ namespace similarity {
+ 
+         const SpaceLp<dist_t>* pLpSpace = dynamic_cast<const SpaceLp<dist_t>*>(&space_);
+ 
+-        fstdistfunc_ = nullptr;
+         iscosine_ = false;
+         searchMethod_ = 3; // The same for all "optimized" indices
+         if (pLpSpace != nullptr) {
+@@ -408,10 +406,9 @@ namespace similarity {
+             dist_func_type_ = kNegativeDotProduct;
+         }
+ 
+-        fstdistfunc_ = getDistFunc(dist_func_type_);
+         iscosine_ = (dist_func_type_ == kNormCosine);
+ 
+-        if (fstdistfunc_ == nullptr) {
++        if (getDistFunc(dist_func_type_) == nullptr) {
+             LOG(LIB_INFO) << "No appropriate custom distance function for " << space_.StrDesc();
+             searchMethod_ = 0;
+             LOG(LIB_INFO) << "searchMethod			  = " << searchMethod_;
+@@ -950,7 +947,6 @@ namespace similarity {
+         ReadField(input, FIELD_MAX_M, maxM_); lineNum++;
+         ReadField(input, FIELD_MAX_M0, maxM0_); lineNum++;
+ 
+-        fstdistfunc_ = nullptr;
+         dist_func_type_ = kDistTypeUnknown;
+         searchMethod_ = 0;
+ 
+@@ -1005,7 +1001,6 @@ namespace similarity {
+         readBinaryPOD(input, maxM_);
+         readBinaryPOD(input, maxM0_);
+ 
+-        fstdistfunc_ = nullptr;
+         dist_func_type_ = kDistTypeUnknown;
+         searchMethod_ = 0;
+ 
+@@ -1112,6 +1107,42 @@ namespace similarity {
+         visitedlistpool = new VisitedListPool(1, totalElementsStored_);
+     }
+ 
++    template <typename dist_t>
++    void Hnsw<dist_t>::validateOptimizedIndexHeader() {
++        // These structural scalars are read from the index stream. Validate them before
++        // allocating or indexing with them so a malformed index fails the load instead
++        // of being used.
++        const size_t data_plus_links0_size = memoryPerObject_ * totalElementsStored_;
++        if (totalElementsStored_ == 0 || memoryPerObject_ == 0 ||
++            data_plus_links0_size / memoryPerObject_ != (size_t)totalElementsStored_)
++            throw runtime_error("HNSW optimized index: invalid element count or object stride");
++        if (offsetLevel0_ >= memoryPerObject_ ||
++            offsetData_ > offsetLevel0_ || offsetLevel0_ - offsetData_ < 16 ||
++            (memoryPerObject_ - offsetLevel0_) < sizeof(int))
++            throw runtime_error("HNSW optimized index: invalid section offsets");
++        if ((size_t)enterpointId_ >= (size_t)totalElementsStored_)
++            throw runtime_error("HNSW optimized index: entry point out of range");
++    }
++
++    template <typename dist_t>
++    void Hnsw<dist_t>::validateOptimizedIndexLevel0Links() {
++        // Each level-0 neighbor list is a leading count followed by that many neighbor
++        // ids. The query path uses both as array indices without checking them, so
++        // validate every one here against the allocated bounds.
++        const size_t maxLinkSlots = (memoryPerObject_ - offsetLevel0_) / sizeof(int); // includes count slot
++        for (size_t i = 0; i < totalElementsStored_; i++) {
++            const int *links = (const int *)(data_level0_memory_ + i * memoryPerObject_ + offsetLevel0_);
++            const int cnt = links[0];
++            if (cnt < 0 || (size_t)cnt + 1 > maxLinkSlots)
++                throw runtime_error("HNSW optimized index: level-0 neighbor count out of range");
++            for (int j = 1; j <= cnt; j++) {
++                const int id = links[j];
++                if (id < 0 || (size_t)id >= (size_t)totalElementsStored_)
++                    throw runtime_error("HNSW optimized index: level-0 neighbor id out of range");
++            }
++        }
++    }
++
+     template <typename dist_t>
+     void Hnsw<dist_t>::LoadOptimizedIndex(NmslibIOReader& input) {
+         static_assert(sizeof(SIZEMASS_TYPE) == 4, "Expected sizeof(SIZEMASS_TYPE) == 4.");
+@@ -1131,17 +1162,20 @@ namespace similarity {
+ 
+         LOG(LIB_INFO) << "searchMethod: " << searchMethod_;
+ 
+-        fstdistfunc_ = getDistFunc(dist_func_type_);
+         iscosine_ = (dist_func_type_ == kNormCosine);
+-        CHECK_MSG(fstdistfunc_ != nullptr, "Unknown distance function code: " + ConvertToString(dist_func_type_));
++        // Validate the deserialized type code now, but do NOT store a function pointer
++        // in the object; the query path resolves it per search via getDistFunc().
++        CHECK_MSG(getDistFunc(dist_func_type_) != nullptr, "Unknown distance function code: " + ConvertToString(dist_func_type_));
+ 
+         LOG(LIB_INFO) << "Total: " << totalElementsStored_ << ", Memory per object: " << memoryPerObject_;
++        validateOptimizedIndexHeader();
+         size_t data_plus_links0_size = memoryPerObject_ * totalElementsStored_;
+ 
+         // we allocate a few extra bytes to prevent prefetch from accessing out of range memory
+         data_level0_memory_ = (char *)malloc(data_plus_links0_size + EXTRA_MEM_PAD_SIZE);
+         CHECK(data_level0_memory_);
+         input.read(data_level0_memory_, data_plus_links0_size);
++        validateOptimizedIndexLevel0Links();
+         // we allocate a few extra bytes to prevent prefetch from accessing out of range memory
+         linkLists_ = (char **)malloc( (sizeof(void *) * totalElementsStored_) + EXTRA_MEM_PAD_SIZE);
+         CHECK(linkLists_);
+@@ -1233,17 +1267,20 @@ namespace similarity {
+ 
+         LOG(LIB_INFO) << "searchMethod: " << searchMethod_;
+ 
+-        fstdistfunc_ = getDistFunc(dist_func_type_);
+         iscosine_ = (dist_func_type_ == kNormCosine);
+-        CHECK_MSG(fstdistfunc_ != nullptr, "Unknown distance function code: " + ConvertToString(dist_func_type_));
++        // Validate the deserialized type code now, but do NOT store a function pointer
++        // in the object; the query path resolves it per search via getDistFunc().
++        CHECK_MSG(getDistFunc(dist_func_type_) != nullptr, "Unknown distance function code: " + ConvertToString(dist_func_type_));
+ 
+         //        LOG(LIB_INFO) << input.tellg();
+         LOG(LIB_INFO) << "Total: " << totalElementsStored_ << ", Memory per object: " << memoryPerObject_;
++        validateOptimizedIndexHeader();
+         size_t data_plus_links0_size = memoryPerObject_ * totalElementsStored_;
+         // we allocate a few extra bytes to prevent prefetch from accessing out of range memory
+         data_level0_memory_ = (char *)malloc(data_plus_links0_size + EXTRA_MEM_PAD_SIZE);
+         CHECK(data_level0_memory_);
+         input.read(data_level0_memory_, data_plus_links0_size);
++        validateOptimizedIndexLevel0Links();
+         // we allocate a few extra bytes to prevent prefetch from accessing out of range memory
+         linkLists_ = (char **)malloc( (sizeof(void *) * totalElementsStored_) + EXTRA_MEM_PAD_SIZE);
+         CHECK(linkLists_);
+diff --git a/similarity_search/src/method/hnsw_distfunc_opt.cc b/similarity_search/src/method/hnsw_distfunc_opt.cc
+index 1913936..6f190d2 100644
+--- a/similarity_search/src/method/hnsw_distfunc_opt.cc
++++ b/similarity_search/src/method/hnsw_distfunc_opt.cc
+@@ -47,6 +47,10 @@ namespace similarity {
+     void
+     Hnsw<dist_t>::SearchOld(KNNQuery<dist_t> *query, bool normalize)
+     {
++        // Resolve the distance function from the validated type code rather than from a
++        // pointer stored in the index object.
++        const EfficientDistFunc distfunc = getDistFunc(dist_func_type_);
++        CHECK_MSG(distfunc != nullptr, "HNSW query: unknown distance function code: " + ConvertToString(dist_func_type_));
+         float *pVectq = (float *)((char *)query->QueryObject()->data());
+         TMP_RES_ARRAY(TmpRes);
+         size_t qty = query->QueryObject()->datalength() >> 2;
+@@ -61,7 +65,7 @@ namespace similarity {
+ 
+         int maxlevel1 = maxlevel_;
+         int curNodeNum = enterpointId_;
+-        dist_t curdist = (fstdistfunc_(
++        dist_t curdist = (distfunc(
+             pVectq, (float *)(data_level0_memory_ + enterpointId_ * memoryPerObject_ + offsetData_ + 16), qty, TmpRes));
+ 
+         for (int i = maxlevel1; i > 0; i--) {
+@@ -80,7 +84,7 @@ namespace similarity {
+                 for (int j = 1; j <= size; j++) {
+                     int tnum = *(data + j);
+ 
+-                    dist_t d = (fstdistfunc_(
++                    dist_t d = (distfunc(
+                         pVectq, (float *)(data_level0_memory_ + tnum * memoryPerObject_ + offsetData_ + 16), qty, TmpRes));
+                     if (d < curdist) {
+                         curdist = d;
+@@ -131,7 +135,7 @@ namespace similarity {
+ #endif
+                     massVisited[tnum] = currentV;
+                     char *currObj1 = (data_level0_memory_ + tnum * memoryPerObject_ + offsetData_);
+-                    dist_t d = (fstdistfunc_(pVectq, (float *)(currObj1 + 16), qty, TmpRes));
++                    dist_t d = (distfunc(pVectq, (float *)(currObj1 + 16), qty, TmpRes));
+                     if (closestDistQueuei.top().getDistance() > d || closestDistQueuei.size() < ef) {
+                         candidateQueuei.emplace(-d, tnum);
+                         PREFETCH(data_level0_memory_ + candidateQueuei.top().element * memoryPerObject_ + offsetLevel0_,
+@@ -154,6 +158,10 @@ namespace similarity {
+     void
+     Hnsw<dist_t>::SearchV1Merge(KNNQuery<dist_t> *query, bool normalize)
+     {
++        // Resolve the distance function from the validated type code rather than from a
++        // pointer stored in the index object.
++        const EfficientDistFunc distfunc = getDistFunc(dist_func_type_);
++        CHECK_MSG(distfunc != nullptr, "HNSW query: unknown distance function code: " + ConvertToString(dist_func_type_));
+         size_t ef = this->extractEf(query, ef_);
+         float *pVectq = (float *)((char *)query->QueryObject()->data());
+         TMP_RES_ARRAY(TmpRes);
+@@ -169,7 +177,7 @@ namespace similarity {
+ 
+         int maxlevel1 = maxlevel_;
+         int curNodeNum = enterpointId_;
+-        dist_t curdist = (fstdistfunc_(
++        dist_t curdist = (distfunc(
+             pVectq, (float *)(data_level0_memory_ + enterpointId_ * memoryPerObject_ + offsetData_ + 16), qty, TmpRes));
+ 
+         for (int i = maxlevel1; i > 0; i--) {
+@@ -188,7 +196,7 @@ namespace similarity {
+                 for (int j = 1; j <= size; j++) {
+                     int tnum = *(data + j);
+ 
+-                    dist_t d = (fstdistfunc_(
++                    dist_t d = (distfunc(
+                         pVectq, (float *)(data_level0_memory_ + tnum * memoryPerObject_ + offsetData_ + 16), qty, TmpRes));
+                     if (d < curdist) {
+                         curdist = d;
+@@ -237,7 +245,7 @@ namespace similarity {
+ #endif
+                     massVisited[tnum] = currentV;
+                     char *currObj1 = (data_level0_memory_ + tnum * memoryPerObject_ + offsetData_);
+-                    dist_t d = (fstdistfunc_(pVectq, (float *)(currObj1 + 16), qty, TmpRes));
++                    dist_t d = (distfunc(pVectq, (float *)(currObj1 + 16), qty, TmpRes));
+ 
+                     if (d < topKey || sortedArr.size() < ef) {
+                         CHECK_MSG(itemBuff.size() > itemQty,
+-- 
+2.47.3
+

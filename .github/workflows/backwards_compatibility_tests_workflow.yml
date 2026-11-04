@@ -71,7 +71,6 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
           distribution: temurin
-          cache: gradle
 
       - if: startsWith(matrix.os,'ubuntu')
         name: Install dependencies on ubuntu
@@ -162,7 +161,6 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
           distribution: temurin
-          cache: gradle
 
       - if: startsWith(matrix.os,'ubuntu')
         name: Install dependencies on ubuntu

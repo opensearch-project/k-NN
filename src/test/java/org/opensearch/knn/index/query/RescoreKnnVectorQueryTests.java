@@ -141,7 +141,12 @@ public class RescoreKnnVectorQueryTests extends OpenSearchTestCase {
             verify(searcher).rewrite(mockedInnerQuery);
             verify(searcher).createWeight(mockedRewrittenQuery, ScoreMode.TOP_SCORES, 1);
             verify(mockedExactSearcher).searchLeaf(any(), any());
-            Query expectedQuery = QueryUtils.getInstance().createDocAndScoreQuery(searcher.getIndexReader(), exactSearchResults);
+            Query expectedQuery = QueryUtils.getInstance()
+                .createDocAndScoreQuery(
+                    searcher.getIndexReader(),
+                    exactSearchResults,
+                    (QueryUtils.ScoreExplainer) (context, doc, score) -> null
+                );
             assertEquals(expectedQuery, queryWeight.getQuery());
         }
 

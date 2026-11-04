@@ -22,15 +22,20 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.ResolvedIndexSpec;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
+import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.repositories.RepositoriesService;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -128,6 +133,54 @@ public class NativeIndexBuildStrategyFactoryTests extends KNNTestCase {
             NativeIndexBuildStrategy strategy = factory.getBuildStrategy(fieldInfo, 10, knnVectorValues);
 
             assertSame(DefaultIndexBuildStrategy.getInstance(), strategy);
+        }
+    }
+
+    @SneakyThrows
+    public void testGetBuildStrategy_halfFloat_thenGateSeesFp16UploadSize() {
+        when(fieldInfo.attributes()).thenReturn(new HashMap<>());
+        final int dimension = 128;
+        final int totalLiveDocs = 10;
+        final List<float[]> vectors = new ArrayList<>();
+        for (int i = 0; i < totalLiveDocs; i++) {
+            vectors.add(TestVectorValues.getRandomVector(dimension));
+        }
+        // Real half_float vector values, so bytesPerVector() is the codec's own 2 bytes per dimension
+        final KNNVectorValues<?> halfFloatValues = KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.HALF_FLOAT,
+            new TestVectorValues.PreDefinedFloatVectorValues(vectors)
+        );
+
+        try (
+            MockedStatic<FieldInfoExtractor> mockedExtractor = Mockito.mockStatic(FieldInfoExtractor.class);
+            MockedStatic<KNNSettings> mockedSettings = Mockito.mockStatic(KNNSettings.class);
+            MockedStatic<RemoteIndexBuildStrategy> mockedRemote = Mockito.mockStatic(RemoteIndexBuildStrategy.class)
+        ) {
+            mockedExtractor.when(() -> FieldInfoExtractor.extractKNNEngine(fieldInfo)).thenReturn(KNNEngine.FAISS);
+            mockedSettings.when(KNNSettings::isKNNRemoteVectorBuildEnabled).thenReturn(true);
+            mockedRemote.when(() -> RemoteIndexBuildStrategy.shouldBuildIndexRemotely(any(IndexSettings.class), anyLong(), anyInt()))
+                .thenReturn(true);
+
+            when(knnLibraryIndexingContext.getResolvedSpec()).thenReturn(
+                ResolvedIndexSpec.builder()
+                    .engine(KNNEngine.FAISS)
+                    .methodName(METHOD_HNSW)
+                    .encoderType(Encoder.EncoderType.FLAT)
+                    .vectorDataType(VectorDataType.HALF_FLOAT)
+                    .dimension(dimension)
+                    .indexVersionCreated(Version.CURRENT)
+                    .build()
+            );
+            NativeIndexBuildStrategyFactory factory = new NativeIndexBuildStrategyFactory(repositoriesServiceSupplier, indexSettings);
+            factory.setKnnLibraryIndexingContext(knnLibraryIndexingContext);
+
+            NativeIndexBuildStrategy strategy = factory.getBuildStrategy(fieldInfo, totalLiveDocs, halfFloatValues);
+
+            assertTrue(strategy instanceof RemoteIndexBuildStrategy);
+            final long fp16UploadBytes = (long) totalLiveDocs * dimension * Short.BYTES;
+            mockedRemote.verify(
+                () -> RemoteIndexBuildStrategy.shouldBuildIndexRemotely(any(IndexSettings.class), eq(fp16UploadBytes), eq(dimension))
+            );
         }
     }
 

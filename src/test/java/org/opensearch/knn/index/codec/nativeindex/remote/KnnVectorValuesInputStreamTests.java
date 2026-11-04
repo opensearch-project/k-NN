@@ -8,6 +8,7 @@ package org.opensearch.knn.index.codec.nativeindex.remote;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.util.KNNVectorAsCollectionOfHalfFloatsSerializer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
@@ -101,9 +102,8 @@ public class KnnVectorValuesInputStreamTests extends KNNTestCase {
     }
 
     /**
-     * Tests that reading half_float vectors out of a VectorValuesInputStream yields raw fp32 bytes, same as
-     * FLOAT - the remote build service converts fp32 -> fp16 itself while streaming
-     * (FP32ToFP16ConvertingBytesIO), the same way it already does for the existing FLOAT+sq,bits:16 case.
+     * Tests that reading half_float vectors out of a VectorValuesInputStream yields fp16 bytes (2 bytes per
+     * dimension), encoded on the data node. The remote build service consumes fp16 directly.
      */
     public void testHalfFloatVectorValuesInputStream() throws IOException {
         int NUM_DOCS = randomIntBetween(1, 1000);
@@ -122,20 +122,18 @@ public class KnnVectorValuesInputStreamTests extends KNNTestCase {
 
         // 1. Read all input stream bytes
         byte[] vectorStreamBytes = vectorValuesInputStream.readAllBytes();
-        FloatBuffer vectorStreamFloats = ByteBuffer.wrap(vectorStreamBytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer();
 
-        // 2. Bytes should be dim*4 per vector (fp32), not dim*2 (fp16)
-        assertEquals((long) NUM_DOCS * NUM_DIMENSION * Float.BYTES, vectorStreamBytes.length);
+        // 2. Bytes should be dim*2 per vector (fp16), not dim*4 (fp32)
+        assertEquals((long) NUM_DOCS * NUM_DIMENSION * Short.BYTES, vectorStreamBytes.length);
 
-        // 3. Content should match the source vectors exactly, unconverted.
-        FloatBuffer expectedBuffer = ByteBuffer.allocate(NUM_DOCS * NUM_DIMENSION * Float.BYTES)
-            .order(ByteOrder.LITTLE_ENDIAN)
-            .asFloatBuffer();
+        // 3. Content should be the fp16 encoding of each source vector, in order
+        ByteBuffer expectedBuffer = ByteBuffer.allocate(NUM_DOCS * NUM_DIMENSION * Short.BYTES);
+        byte[] encoded = new byte[NUM_DIMENSION * Short.BYTES];
         for (float[] vector : vectorValues) {
-            expectedBuffer.put(vector);
+            KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE.floatToByteArray(vector, encoded, NUM_DIMENSION);
+            expectedBuffer.put(encoded);
         }
-        expectedBuffer.position(0);
-        assertEquals(expectedBuffer, vectorStreamFloats);
+        assertArrayEquals(expectedBuffer.array(), vectorStreamBytes);
     }
 
     public void testByteVectorValuesInputStream() throws IOException {
@@ -225,6 +223,64 @@ public class KnnVectorValuesInputStreamTests extends KNNTestCase {
         // 3. Read all knnVectorValues into a buffer:
         VectorValuesInputStream expectedStream = new VectorValuesInputStream(knnVectorValuesSupplier.get(), VectorDataType.FLOAT);
         assertArrayEquals(expectedStream.readAllBytes(), testBuffer.array());
+    }
+
+    public void testMultiPartHalfFloatVectorValueInputStream() throws IOException {
+        final int NUM_DOCS = randomIntBetween(100, 1000);
+        final int NUM_DIMENSION = randomIntBetween(1, 1000);
+        final int NUM_PARTS = randomIntBetween(1, NUM_DOCS / 10);
+
+        List<float[]> vectorValues = getRandomFloatVectors(NUM_DOCS, NUM_DIMENSION);
+        final Supplier<KNNVectorValues<float[]>> knnVectorValuesSupplier = () -> KNNVectorValuesFactory.getVectorValues(
+            VectorDataType.HALF_FLOAT,
+            new TestVectorValues.PreDefinedFloatVectorValues(vectorValues)
+        );
+
+        final KNNVectorValues<float[]> knnVectorValues = knnVectorValuesSupplier.get();
+        initializeVectorValues(knnVectorValues);
+        final int vectorBlobLength = knnVectorValues.bytesPerVector() * NUM_DOCS;
+        assertEquals(NUM_DIMENSION * Short.BYTES * NUM_DOCS, vectorBlobLength);
+        final int PART_SIZE = vectorBlobLength / NUM_PARTS;
+        final int LAST_PART_SIZE = (vectorBlobLength % PART_SIZE) != 0 ? vectorBlobLength % PART_SIZE : PART_SIZE;
+
+        final List<VectorValuesInputStream> streamList = new ArrayList<>(NUM_PARTS);
+        for (int partNumber = 0; partNumber < NUM_PARTS; partNumber++) {
+            streamList.add(
+                new VectorValuesInputStream(
+                    knnVectorValuesSupplier.get(),
+                    VectorDataType.HALF_FLOAT,
+                    (long) partNumber * PART_SIZE,
+                    PART_SIZE
+                )
+            );
+        }
+        if (LAST_PART_SIZE != PART_SIZE) {
+            streamList.add(
+                new VectorValuesInputStream(
+                    knnVectorValuesSupplier.get(),
+                    VectorDataType.HALF_FLOAT,
+                    vectorBlobLength - LAST_PART_SIZE,
+                    LAST_PART_SIZE
+                )
+            );
+        }
+
+        ByteBuffer testBuffer = ByteBuffer.allocate(vectorBlobLength);
+        for (VectorValuesInputStream stream : streamList) {
+            testBuffer.put(stream.readAllBytes());
+        }
+        assertEquals(vectorBlobLength, testBuffer.position());
+
+        // Expected: sequential stream, and independently the serializer output vector by vector
+        VectorValuesInputStream expectedStream = new VectorValuesInputStream(knnVectorValuesSupplier.get(), VectorDataType.HALF_FLOAT);
+        assertArrayEquals(expectedStream.readAllBytes(), testBuffer.array());
+        ByteBuffer serialized = ByteBuffer.allocate(vectorBlobLength);
+        byte[] encoded = new byte[NUM_DIMENSION * Short.BYTES];
+        for (float[] vector : vectorValues) {
+            KNNVectorAsCollectionOfHalfFloatsSerializer.INSTANCE.floatToByteArray(vector, encoded, NUM_DIMENSION);
+            serialized.put(encoded);
+        }
+        assertArrayEquals(serialized.array(), testBuffer.array());
     }
 
     /**
