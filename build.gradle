@@ -62,6 +62,12 @@ buildscript {
 
     dependencies {
         classpath "${opensearch_group}.gradle:build-tools:${opensearch_version}"
+        constraints {
+            classpath("org.codehaus.plexus:plexus-xml") {
+                version { strictly("3.1.0") }
+                because("Plexus XML 4.x requires Java 17; 2.19 build tooling must support Java 11.")
+            }
+        }
         // Spotless 8.10.x requires a Java 17+ runtime to resolve its plugin. Only put it on the
         // buildscript classpath on Java 17+ so the Java 11 CI matrix doesn't fail resolving it.
         // formatting.gradle applies it (also gated to Java 17+) only when it is available.
