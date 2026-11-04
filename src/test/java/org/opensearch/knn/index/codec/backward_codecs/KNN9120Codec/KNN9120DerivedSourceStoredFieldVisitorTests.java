@@ -5,9 +5,14 @@
 
 package org.opensearch.knn.index.codec.backward_codecs.KNN9120Codec;
 
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.StoredFieldVisitor;
+import org.opensearch.index.fieldvisitor.FieldsVisitor;
+import org.opensearch.index.mapper.RoutingFieldMapper;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
+
+import java.io.IOException;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -15,9 +20,13 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 public class KNN9120DerivedSourceStoredFieldVisitorTests extends KNNTestCase {
+
+    private static final String TEST_ROUTING_VALUE = "company-1";
+    private static final int TEST_DOC_ID = 0;
 
     public void testBinaryField() throws Exception {
         StoredFieldVisitor delegate = mock(StoredFieldVisitor.class);
@@ -39,5 +48,38 @@ public class KNN9120DerivedSourceStoredFieldVisitorTests extends KNNTestCase {
         derivedSourceStoredFieldVisitor.binaryField(KNNCodecTestUtil.FieldInfoBuilder.builder("_source").build(), (byte[]) null);
         verify(derivedSourceVectorInjector, times(1)).injectVectors(anyInt(), any());
         verify(delegate, times(2)).binaryField(any(), (byte[]) any());
+    }
+
+    public void testStringField_whenRoutingField_delegatesToDelegate() throws IOException {
+        StoredFieldVisitor delegate = mock(StoredFieldVisitor.class);
+        DerivedSourceVectorInjector derivedSourceVectorInjector = mock(DerivedSourceVectorInjector.class);
+        FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder(RoutingFieldMapper.NAME).build();
+
+        KNN9120DerivedSourceStoredFieldVisitor visitor = new KNN9120DerivedSourceStoredFieldVisitor(
+            delegate,
+            TEST_DOC_ID,
+            derivedSourceVectorInjector
+        );
+
+        visitor.stringField(fieldInfo, TEST_ROUTING_VALUE);
+
+        verify(delegate).stringField(fieldInfo, TEST_ROUTING_VALUE);
+        verifyNoInteractions(derivedSourceVectorInjector);
+    }
+
+    public void testStringField_whenRoutingField_populatesFieldsVisitor() throws IOException {
+        FieldsVisitor fieldsVisitor = new FieldsVisitor(false);
+        DerivedSourceVectorInjector derivedSourceVectorInjector = mock(DerivedSourceVectorInjector.class);
+        FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder(RoutingFieldMapper.NAME).build();
+
+        KNN9120DerivedSourceStoredFieldVisitor visitor = new KNN9120DerivedSourceStoredFieldVisitor(
+            fieldsVisitor,
+            TEST_DOC_ID,
+            derivedSourceVectorInjector
+        );
+
+        visitor.stringField(fieldInfo, TEST_ROUTING_VALUE);
+
+        assertEquals(TEST_ROUTING_VALUE, fieldsVisitor.routing());
     }
 }
