@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Add integ test that restores the model index onto a new cluster [#3646](https://github.com/opensearch-project/k-NN/pull/3646)
 
 ### Bug Fixes
+* Fix model ids that can't be deleted or trained again after restoring a model index snapshot taken while models were being trained or deleted
 * Fix SIGSEGV in Faiss SQ HNSW build caused by 32-bit offset overflow for segments over 2 GiB of quantized vectors [#3653](https://github.com/opensearch-project/k-NN/pull/3653)
 * Align field visibility across k-NN search paths.
 * Rethrow merge abort during native index write so aborted merges no longer fail the shard engine [#3651](https://github.com/opensearch-project/k-NN/pull/3651)

@@ -16,20 +16,25 @@ import org.opensearch.common.xcontent.support.XContentMapValues;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.indices.ModelState;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
+import static org.opensearch.knn.common.KNNConstants.MODEL_BLOB_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
+import static org.opensearch.knn.common.KNNConstants.MODEL_METADATA_FIELD;
 import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
@@ -40,7 +45,8 @@ import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
  * with no further steps: the restored model and k-NN results match the source cluster, and the restored indices take
  * new documents and new models. Also checks that a model whose training failed comes back failed, and the restore
  * order: a data index restored before the model index fails to restore, one restored with or after the model index
- * works, and the training index works restored before, with or after the model index.
+ * works, and the training index works restored before, with or after the model index. With security off, it also
+ * checks that model ids a snapshot caught mid-training or mid-delete can be used again after the restore.
  *
  * <p>The empty cluster's address comes from {@code tests.second_cluster}. The
  * {@code integTestMultiCluster} task starts both clusters and sets it. The base class helpers all send to
@@ -57,6 +63,9 @@ public class RestoreToNewClusterIT extends KNNRestTestCase {
     private static final String MODEL_ID = "model-from-source";
     private static final String FAILED_MODEL_ID = "model-failed-on-source";
     private static final String NEW_MODEL_ID = "model-trained-after-restore";
+    private static final String TRAINING_IN_SNAPSHOT_MODEL_ID = "model-training-in-snapshot";
+    private static final String NO_DOC_IN_SNAPSHOT_MODEL_ID = "model-without-doc-in-snapshot";
+    private static final String NO_METADATA_IN_SNAPSHOT_MODEL_ID = "model-without-metadata-in-snapshot";
     private static final String NEW_DOC_ID = "written-after-restore";
     private static final String MODELS_URI = "/_plugins/_knn/models/";
     private static final int DIMENSIONS = 8;
@@ -206,6 +215,75 @@ public class RestoreToNewClusterIT extends KNNRestTestCase {
         assertEquals("models on the target", List.of(MODEL_ID, NEW_MODEL_ID), modelIds(targetClient));
     }
 
+    public void testRestoreOntoNewCluster_whenSnapshotCaughtModelsMidTrainingOrDelete_thenTheirIdsCanBeUsedAgain() throws Exception {
+        // Making the snapshot's models needs direct writes to the model index, which security allows only the super admin.
+        assumeFalse("needs direct writes to the model index", isHttps());
+        try {
+            // Source cluster: models in the states a snapshot taken mid-training or mid-delete leaves, without timing it.
+            createTrainingIndex(TRAINING_INDEX, createKnnIndexMapping(FIELD, DIMENSIONS));
+            bulkAddKnnDocs(TRAINING_INDEX, FIELD, randomVectors(TRAINING_DOCS), TRAINING_DOCS);
+            trainModel(TRAINING_IN_SNAPSHOT_MODEL_ID, TRAINING_INDEX, FIELD, DIMENSIONS, MODEL_METHOD, "doc says training");
+            assertTrainingSucceeds(TRAINING_IN_SNAPSHOT_MODEL_ID, TRAINING_ATTEMPTS, TRAINING_DELAY_MILLIS);
+            trainModel(NO_DOC_IN_SNAPSHOT_MODEL_ID, TRAINING_INDEX, FIELD, DIMENSIONS, MODEL_METHOD, "no doc");
+            assertTrainingSucceeds(NO_DOC_IN_SNAPSHOT_MODEL_ID, TRAINING_ATTEMPTS, TRAINING_DELAY_MILLIS);
+            // A doc with no knn-models metadata, as when a model is deleted after the snapshot copies the shard.
+            copyDoc(client(), NO_DOC_IN_SNAPSHOT_MODEL_ID, NO_METADATA_IN_SNAPSHOT_MODEL_ID);
+            // The doc says training while the knn-models metadata says created, as when training finishes after the
+            // snapshot copies the model index's shard but before the snapshot finishes.
+            setDocToTraining(client(), TRAINING_IN_SNAPSHOT_MODEL_ID);
+            // The metadata has the model but there is no doc, as when training starts after the snapshot copies the shard.
+            final Request deleteDoc = new Request("DELETE", "/" + MODEL_INDEX_NAME + "/_doc/" + NO_DOC_IN_SNAPSHOT_MODEL_ID);
+            deleteDoc.addParameter("refresh", "true");
+            client().performRequest(deleteDoc);
+
+            registerRepository(REPOSITORY, "fs", true, Settings.builder().put("location", repositoryLocation()).build());
+            final Request snapshot = new Request("PUT", "/_snapshot/" + REPOSITORY + "/" + SNAPSHOT);
+            snapshot.addParameter("wait_for_completion", "true");
+            snapshot.setJsonEntity(indices(MODEL_INDEX_NAME, TRAINING_INDEX));
+            client().performRequest(snapshot);
+
+            // Target cluster: the other test may have left its restored model index.
+            deleteIgnoringMissing(targetClient, "/" + MODEL_INDEX_NAME);
+            registerReadOnlyRepository(targetClient);
+            assertRestored(targetClient, MODEL_INDEX_NAME, TRAINING_INDEX);
+
+            // k-NN fixes the models after the restore finishes, which can be after the restore request returns.
+            assertBusy(
+                () -> assertEquals(
+                    "state of " + TRAINING_IN_SNAPSHOT_MODEL_ID,
+                    ModelState.FAILED.getName(),
+                    model(targetClient, TRAINING_IN_SNAPSHOT_MODEL_ID).get(MODEL_STATE)
+                )
+            );
+            assertBusy(
+                () -> assertFalse(
+                    "metadata of " + NO_DOC_IN_SNAPSHOT_MODEL_ID,
+                    modelIdsInMetadata(targetClient).contains(NO_DOC_IN_SNAPSHOT_MODEL_ID)
+                )
+            );
+            final Request getNoMetadataModel = new Request("GET", MODELS_URI + NO_METADATA_IN_SNAPSHOT_MODEL_ID);
+            getNoMetadataModel.addParameter("ignore", "404");
+            assertBusy(
+                () -> assertEquals(
+                    "model " + NO_METADATA_IN_SNAPSHOT_MODEL_ID,
+                    404,
+                    targetClient.performRequest(getNoMetadataModel).getStatusLine().getStatusCode()
+                )
+            );
+
+            // All three ids can be used again: the failed model can be deleted, and every id can be trained again.
+            targetClient.performRequest(new Request("DELETE", MODELS_URI + TRAINING_IN_SNAPSHOT_MODEL_ID));
+            for (String modelId : List.of(TRAINING_IN_SNAPSHOT_MODEL_ID, NO_DOC_IN_SNAPSHOT_MODEL_ID, NO_METADATA_IN_SNAPSHOT_MODEL_ID)) {
+                trainModel(targetClient, modelId);
+                assertTrainingSucceeds(targetClient, modelId);
+            }
+        } finally {
+            // The base class deletes models through the API, which refuses a model whose doc says training.
+            deleteIgnoringMissing(client(), "/" + MODEL_INDEX_NAME);
+            deleteIgnoringMissing(targetClient, "/" + MODEL_INDEX_NAME);
+        }
+    }
+
     private static String indices(String... names) throws IOException {
         return XContentFactory.jsonBuilder()
             .startObject()
@@ -314,6 +392,45 @@ public class RestoreToNewClusterIT extends KNNRestTestCase {
         request.setJsonEntity(body.toString());
         List<?> hits = (List<?>) XContentMapValues.extractValue("hits.hits", entityAsMap(cluster.performRequest(request)));
         return hits.stream().map(hit -> (String) ((Map<?, ?>) hit).get("_id")).sorted().collect(Collectors.toList());
+    }
+
+    /** Rewrites the model doc as a model still training, leaving its knn-models metadata as it is. */
+    @SuppressWarnings("unchecked")
+    private static void setDocToTraining(RestClient cluster, String modelId) throws IOException {
+        final String docUri = "/" + MODEL_INDEX_NAME + "/_doc/" + modelId;
+        final Map<String, Object> source = new HashMap<>(
+            (Map<String, Object>) entityAsMap(cluster.performRequest(new Request("GET", docUri))).get("_source")
+        );
+        source.put(MODEL_STATE, ModelState.TRAINING.getName());
+        source.remove(MODEL_BLOB_PARAMETER);
+        final Request request = new Request("PUT", docUri);
+        request.addParameter("refresh", "true");
+        request.setJsonEntity(XContentFactory.jsonBuilder().map(source).toString());
+        cluster.performRequest(request);
+    }
+
+    /** Writes a copy of a model doc under a new id, with no knn-models metadata for the new id. */
+    @SuppressWarnings("unchecked")
+    private static void copyDoc(RestClient cluster, String fromModelId, String toModelId) throws IOException {
+        final Map<String, Object> source = new HashMap<>(
+            (Map<String, Object>) entityAsMap(cluster.performRequest(new Request("GET", "/" + MODEL_INDEX_NAME + "/_doc/" + fromModelId)))
+                .get("_source")
+        );
+        // The class's own MODEL_ID constant is a model id, so the field name is spelled out.
+        source.put(KNNConstants.MODEL_ID, toModelId);
+        final Request request = new Request("PUT", "/" + MODEL_INDEX_NAME + "/_doc/" + toModelId);
+        request.addParameter("refresh", "true");
+        request.setJsonEntity(XContentFactory.jsonBuilder().map(source).toString());
+        cluster.performRequest(request);
+    }
+
+    /** The model ids in the knn-models metadata of the cluster's model index. */
+    private static Set<String> modelIdsInMetadata(RestClient cluster) throws IOException {
+        final Request request = new Request("GET", "/_cluster/state/metadata/" + MODEL_INDEX_NAME);
+        final Map<String, Object> state = entityAsMap(cluster.performRequest(request));
+        final Map<?, ?> indices = (Map<?, ?>) ((Map<?, ?>) state.get("metadata")).get("indices");
+        final Map<?, ?> models = (Map<?, ?>) ((Map<?, ?>) indices.get(MODEL_INDEX_NAME)).get(MODEL_METADATA_FIELD);
+        return models == null ? Set.of() : models.keySet().stream().map(String::valueOf).collect(Collectors.toSet());
     }
 
     /** For each query vector: the ids and scores of its k nearest neighbors, in order. */
