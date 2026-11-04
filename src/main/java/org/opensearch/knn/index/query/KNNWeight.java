@@ -132,6 +132,10 @@ public abstract class KNNWeight extends Weight {
 
     // This method is called for ANN/Exact/Disk-based/Efficient-filtering search
     public Explanation explain(LeafReaderContext context, int doc, float score) {
+        if (isFieldVisible(context) == false) {
+            return Explanation.noMatch("k-NN field is not visible");
+        }
+
         knnQuery.setExplain(true);
         try {
             final Scorer knnScorer = getOrCreateKnnScorer(context);
@@ -325,6 +329,10 @@ public abstract class KNNWeight extends Weight {
      * @return A Map of docId to scores for top k results
      */
     public PerLeafResult searchLeaf(LeafReaderContext context, int k) throws IOException {
+        if (isFieldVisible(context) == false) {
+            return PerLeafResult.empty();
+        }
+
         final SegmentReader reader = LeafReaderUtil.tryGetSegmentReader(context.reader());
         final String segmentName = LeafReaderUtil.leafReaderName(context.reader());
 
@@ -511,6 +519,10 @@ public abstract class KNNWeight extends Weight {
         final int filterCardinality,
         final int k
     ) throws IOException {
+        if (isFieldVisible(context) == false) {
+            return EMPTY_TOPDOCS;
+        }
+
         final SegmentReader reader = Lucene.segmentReader(context.reader());
 
         FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, knnQuery.getField());
@@ -654,6 +666,10 @@ public abstract class KNNWeight extends Weight {
      */
     public TopDocs exactSearch(final LeafReaderContext leafReaderContext, final ExactSearcher.ExactSearcherContext exactSearcherContext)
         throws IOException {
+        if (isFieldVisible(leafReaderContext) == false) {
+            return EMPTY_TOPDOCS;
+        }
+
         final StopWatch stopWatch = startStopWatch(log);
         TopDocs exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
         stopStopWatchAndLog(
@@ -665,6 +681,13 @@ public abstract class KNNWeight extends Weight {
             knnQuery.getField()
         );
         return exactSearchResults;
+    }
+
+    /**
+     * Resolve visibility on the wrapped reader so native search uses the same field view as other query paths.
+     */
+    private boolean isFieldVisible(final LeafReaderContext leafReaderContext) {
+        return FieldInfoExtractor.getFieldInfo(leafReaderContext.reader(), knnQuery.getField()) != null;
     }
 
     @Override
