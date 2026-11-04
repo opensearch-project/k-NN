@@ -18,6 +18,7 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.CompressionTestConfig;
 import org.opensearch.knn.KNNCompressionRestTestCase;
+import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.mapper.CompressionLevel;
 import org.opensearch.knn.index.mapper.Mode;
@@ -287,7 +288,111 @@ public class ExplainIT extends KNNCompressionRestTestCase {
         );
     }
 
-    private void validateExplainSearchResponse(XContentBuilder queryBuilder, String... descriptions) throws IOException, ParseException {
+    @SneakyThrows
+    public void testExplain_whenLuceneEngineWithRescore_thenRescoringExplained() {
+        int dimension = 2;
+        XContentBuilder mapping = XContentFactory.jsonBuilder().startObject().startObject("properties");
+        addLuceneVectorField(mapping, FIELD_NAME, dimension).endObject().endObject();
+        createKnnIndex(INDEX_NAME, mapping.toString());
+        addKNNDocs(INDEX_NAME, FIELD_NAME, dimension, 0, 5);
+
+        XContentBuilder queryBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("knn")
+            .startObject(FIELD_NAME)
+            .field("vector", new float[] { 1.0f, 1.0f })
+            .field("k", 3)
+            .startObject(RescoreParser.RESCORE_PARAMETER)
+            .field(RescoreParser.RESCORE_OVERSAMPLE_PARAMETER, 2.0f)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        int hits = validateExplainSearchResponse(
+            queryBuilder,
+            "the type of knn search executed was " + ANN_SEARCH,
+            "rescored with " + EXACT_SEARCH + " search on full precision vectors, kept top 3",
+            "spaceType = " + SpaceType.L2.getValue()
+        );
+        assertEquals(3, hits);
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    @SneakyThrows
+    public void testExplain_whenLuceneEngineWithExpandNestedDocs_thenNestedExactSearchExplained() {
+        for (boolean rescore : new boolean[] { false, true }) {
+            String nestedField = "nested_field";
+            String vectorField = nestedField + "." + FIELD_NAME;
+            XContentBuilder mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(nestedField)
+                .field("type", "nested")
+                .startObject("properties");
+            addLuceneVectorField(mapping, FIELD_NAME, 2).endObject().endObject().endObject().endObject();
+            createKnnIndex(INDEX_NAME, mapping.toString());
+            for (int i = 1; i <= 3; i++) {
+                String doc = NestedKnnDocBuilder.create(nestedField)
+                    .addVectors(FIELD_NAME, new Float[] { (float) i, (float) i }, new Float[] { i + 4.0f, i + 4.0f })
+                    .build();
+                addKnnDoc(INDEX_NAME, String.valueOf(i), doc);
+            }
+            refreshIndex(INDEX_NAME);
+
+            XContentBuilder queryBuilder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("query")
+                .startObject("nested")
+                .field("path", nestedField)
+                .field("score_mode", "max")
+                .startObject("query")
+                .startObject("knn")
+                .startObject(vectorField)
+                .field("vector", new float[] { 1.0f, 1.0f })
+                .field("k", 2)
+                .field("expand_nested_docs", true);
+            if (rescore) {
+                queryBuilder.startObject(RescoreParser.RESCORE_PARAMETER)
+                    .field(RescoreParser.RESCORE_OVERSAMPLE_PARAMETER, 2.0f)
+                    .endObject();
+            }
+            queryBuilder.endObject().endObject().endObject().endObject().endObject().endObject();
+
+            int hits = validateExplainSearchResponse(
+                queryBuilder,
+                "the type of knn search executed was " + ANN_SEARCH + " on parent documents",
+                rescore ? "rescored with " + EXACT_SEARCH + " search on full precision vectors, kept top 2 parents" : "kept top 2 parents",
+                "scored their nested documents with " + EXACT_SEARCH + " search",
+                "spaceType = " + SpaceType.L2.getValue()
+            );
+            assertEquals("parent documents with expand_nested_docs, rescore=" + rescore, 2, hits);
+            deleteKNNIndex(INDEX_NAME);
+        }
+    }
+
+    /**
+     * Adds a Lucene HNSW knn_vector field to the "properties" object the builder is in.
+     */
+    private XContentBuilder addLuceneVectorField(XContentBuilder builder, String fieldName, int dimension) throws IOException {
+        return builder.startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .endObject()
+            .endObject();
+    }
+
+    /**
+     * Checks that every hit's explanation contains each description and the hit's score, and returns the number of
+     * hits, so callers can also assert that the query matched something.
+     */
+    private int validateExplainSearchResponse(XContentBuilder queryBuilder, String... descriptions) throws IOException, ParseException {
         String responseBody = EntityUtils.toString(performSearch(INDEX_NAME, queryBuilder.toString(), "explain=true").getEntity());
         List<Object> searchResponseHits = parseSearchResponseHits(responseBody);
         searchResponseHits.stream().forEach(hit -> {
@@ -300,6 +405,7 @@ public class ExplainIT extends KNNCompressionRestTestCase {
             }
             assertTrue(explanation.contains(String.valueOf(score)));
         });
+        return searchResponseHits.size();
     }
 
     private void createDefaultKnnIndex(int dimension) throws IOException {
