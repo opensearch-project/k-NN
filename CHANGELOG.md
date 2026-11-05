@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * [BUGFIX] Avoid opening of graph file if graph is already loaded in memory [#2719](https://github.com/opensearch-project/k-NN/pull/2719)
 ### Infrastructure
 * Restore CI builds and rolling upgrades on 2.19 ([#3663](https://github.com/opensearch-project/k-NN/pull/3663)).
+* Upgrade JaCoCo to 0.8.16 across projects to use ASM 9.11.1 [#3670](https://github.com/opensearch-project/k-NN/pull/3670)
 ### Documentation
 ### Maintenance
 ### Refactoring
