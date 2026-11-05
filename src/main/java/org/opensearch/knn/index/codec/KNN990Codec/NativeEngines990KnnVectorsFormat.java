@@ -26,6 +26,7 @@ import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactor
 import org.opensearch.knn.index.codec.scorer.NativeEngines990KnnVectorsScorer;
 import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.store.KNNDirectIODirectory;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -95,7 +96,7 @@ public class NativeEngines990KnnVectorsFormat extends KnnVectorsFormat {
      */
     @Override
     public KnnVectorsReader fieldsReader(final SegmentReadState state) throws IOException {
-        return new NativeEngines990KnnVectorsReader(state, flatVectorsFormat.fieldsReader(state));
+        return new NativeEngines990KnnVectorsReader(state, flatVectorsFormat.fieldsReader(KNNDirectIODirectory.wrap(state)));
     }
 
     /**

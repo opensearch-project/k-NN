@@ -11,7 +11,11 @@ import lombok.SneakyThrows;
 import org.opensearch.action.admin.cluster.state.ClusterStateRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
+import org.mockito.Mockito;
 import org.opensearch.cluster.ClusterName;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.network.NetworkModule;
 import org.opensearch.common.settings.Settings;
@@ -313,5 +317,78 @@ public class KNNSettingsTests extends KNNTestCase {
         int availableProcessors = Runtime.getRuntime().availableProcessors();
         int expected = (availableProcessors >= 32) ? 4 : 1;
         assertEquals(expected, threadQtyWithEmpty);
+    }
+
+    public void testDirectIORescoreEnabledDefaultsToFalse() {
+        assertFalse(KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_DEFAULT_VALUE);
+        assertFalse(KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_SETTING.getDefault(Settings.EMPTY));
+        assertTrue(
+            "the key must be registered, or an index could not carry it",
+            new KNNPlugin().getSettings().contains(KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_SETTING)
+        );
+    }
+
+    public void testDirectIORescoreEnabledRejectsANonBoolean() {
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_SETTING.get(
+                Settings.builder().put(KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED, "not-a-boolean").build()
+            )
+        );
+    }
+
+    public void testDirectIORescoreEnabledIsReadThroughTheAccessor() {
+        publishDirectIOIndex("target-index", "V4qM8m9ZTAyRm0Nn0lOAbw", false);
+        assertFalse(KNNSettings.isDirectIORescoreEnabled("V4qM8m9ZTAyRm0Nn0lOAbw"));
+        publishDirectIOIndex("target-index", "V4qM8m9ZTAyRm0Nn0lOAbw", true);
+        assertTrue(
+            "every ask reads the setting, so a change reaches an open segment",
+            KNNSettings.isDirectIORescoreEnabled("V4qM8m9ZTAyRm0Nn0lOAbw")
+        );
+    }
+
+    public void testAnIndexTheClusterStateDoesNotHaveReadsAsOff() {
+        publishDirectIOIndex("target-index", "V4qM8m9ZTAyRm0Nn0lOAbw", true);
+        assertFalse(
+            "an index the cluster state does not have must read as off, not throw",
+            KNNSettings.isDirectIORescoreEnabled("ZZZZZZZZZZZZZZZZZZZZZZ")
+        );
+    }
+
+    public void testAnIndexThatArrivesLaterIsFoundByALaterAsk() {
+        publishDirectIOIndex("other-index", "XXXXXXXXXXXXXXXXXXXXXX", true);
+        assertFalse(
+            "off while this node's cluster state has no such index",
+            KNNSettings.isDirectIORescoreEnabled("V4qM8m9ZTAyRm0Nn0lOAbw")
+        );
+        publishDirectIOIndex("target-index", "V4qM8m9ZTAyRm0Nn0lOAbw", true);
+        assertTrue(
+            "nothing is kept from a miss, so a reader opened before the metadata arrived follows the setting",
+            KNNSettings.isDirectIORescoreEnabled("V4qM8m9ZTAyRm0Nn0lOAbw")
+        );
+    }
+
+    public void testAReusedIndexNameWithANewUuidDoesNotMatch() {
+        publishDirectIOIndex("target-index", "V4qM8m9ZTAyRm0Nn0lOAbw", true);
+        assertTrue(KNNSettings.isDirectIORescoreEnabled("V4qM8m9ZTAyRm0Nn0lOAbw"));
+        publishDirectIOIndex("target-index", "YYYYYYYYYYYYYYYYYYYYYY", true);
+        assertFalse(
+            "the lookup is by UUID, so an index re-created under the same name is not the one the segment belongs to",
+            KNNSettings.isDirectIORescoreEnabled("V4qM8m9ZTAyRm0Nn0lOAbw")
+        );
+    }
+
+    private void publishDirectIOIndex(final String indexName, final String uuid, final boolean enabled) {
+        final Settings settings = Settings.builder()
+            .put(IndexMetadata.SETTING_VERSION_CREATED, Version.CURRENT.id)
+            .put(IndexMetadata.SETTING_INDEX_UUID, uuid)
+            .put(KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED, enabled)
+            .build();
+        final IndexMetadata metadata = IndexMetadata.builder(indexName).settings(settings).numberOfShards(1).numberOfReplicas(0).build();
+        final ClusterState clusterState = ClusterState.builder(new ClusterName("test"))
+            .metadata(Metadata.builder().put(metadata, false).build())
+            .build();
+        KNNSettings.state().setClusterService(clusterService);
+        Mockito.when(clusterService.state()).thenReturn(clusterState);
     }
 }
