@@ -25,6 +25,7 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.Bits;
 import org.junit.Before;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.opensearch.knn.index.query.ResultUtil;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
@@ -137,7 +138,9 @@ public class ExpandNestedEDocsQueryTests extends TestCase {
         when(queryUtils.doSearch(indexSearcher, reader.leaves(), queryWeight)).thenReturn(perLeafResults);
         when(queryUtils.createBits(any(), any())).thenReturn(queryFilterBits);
         when(queryUtils.getAllSiblings(any(), any(), any(), any())).thenReturn(allSiblings);
-        when(queryUtils.createDocAndScoreQuery(eq(reader), any())).thenReturn(finalQuery);
+        when(queryUtils.createDocAndScoreQuery(eq(reader), any(), ArgumentMatchers.<QueryUtils.ScoreExplainer>any())).thenReturn(
+            finalQuery
+        );
 
         ExactSearcher exactSearcher = mock(ExactSearcher.class);
 
@@ -157,7 +160,7 @@ public class ExpandNestedEDocsQueryTests extends TestCase {
         verify(queryUtils).getAllSiblings(leaf1, perLeafResults.get(0).keySet(), parentFilter, queryFilterBits);
         verify(queryUtils).getAllSiblings(leaf2, perLeafResults.get(1).keySet(), parentFilter, queryFilterBits);
         ArgumentCaptor<TopDocs> topDocsCaptor = ArgumentCaptor.forClass(TopDocs.class);
-        verify(queryUtils).createDocAndScoreQuery(eq(reader), topDocsCaptor.capture());
+        verify(queryUtils).createDocAndScoreQuery(eq(reader), topDocsCaptor.capture(), ArgumentMatchers.<QueryUtils.ScoreExplainer>any());
         TopDocs capturedTopDocs = topDocsCaptor.getValue();
         assertEquals(topK.totalHits, capturedTopDocs.totalHits);
         for (int i = 0; i < topK.scoreDocs.length; i++) {
@@ -262,7 +265,9 @@ public class ExpandNestedEDocsQueryTests extends TestCase {
         Weight expectedWeight = mock(Weight.class);
         Query finalQuery = mock(Query.class);
         when(finalQuery.createWeight(indexSearcher, scoreMode, 1.f)).thenReturn(expectedWeight);
-        when(queryUtils.createDocAndScoreQuery(eq(reader), any())).thenReturn(finalQuery);
+        when(queryUtils.createDocAndScoreQuery(eq(reader), any(), ArgumentMatchers.<QueryUtils.ScoreExplainer>any())).thenReturn(
+            finalQuery
+        );
 
         // Run
         ExpandNestedDocsQuery query = new ExpandNestedDocsQuery.ExpandNestedDocsQueryBuilder().internalNestedKnnVectorQuery(internalQuery)
@@ -315,7 +320,7 @@ public class ExpandNestedEDocsQueryTests extends TestCase {
 
         // All children of both surviving parents are returned; nothing is truncated to k.
         ArgumentCaptor<TopDocs> topDocsCaptor = ArgumentCaptor.forClass(TopDocs.class);
-        verify(queryUtils).createDocAndScoreQuery(eq(reader), topDocsCaptor.capture());
+        verify(queryUtils).createDocAndScoreQuery(eq(reader), topDocsCaptor.capture(), ArgumentMatchers.<QueryUtils.ScoreExplainer>any());
         assertEquals(6, topDocsCaptor.getValue().scoreDocs.length);
     }
 
@@ -453,7 +458,9 @@ public class ExpandNestedEDocsQueryTests extends TestCase {
 
         Query finalQuery = mock(Query.class);
         when(finalQuery.createWeight(indexSearcher, scoreMode, 1.f)).thenReturn(mock(Weight.class));
-        when(queryUtils.createDocAndScoreQuery(eq(reader), any())).thenReturn(finalQuery);
+        when(queryUtils.createDocAndScoreQuery(eq(reader), any(), ArgumentMatchers.<QueryUtils.ScoreExplainer>any())).thenReturn(
+            finalQuery
+        );
 
         ExpandNestedDocsQuery query = new ExpandNestedDocsQuery.ExpandNestedDocsQueryBuilder().internalNestedKnnVectorQuery(internalQuery)
             .queryUtils(queryUtils)
@@ -511,7 +518,9 @@ public class ExpandNestedEDocsQueryTests extends TestCase {
 
         Query finalQuery = mock(Query.class);
         when(finalQuery.createWeight(indexSearcher, scoreMode, 1.f)).thenReturn(mock(Weight.class));
-        when(queryUtils.createDocAndScoreQuery(eq(reader), any())).thenReturn(finalQuery);
+        when(queryUtils.createDocAndScoreQuery(eq(reader), any(), ArgumentMatchers.<QueryUtils.ScoreExplainer>any())).thenReturn(
+            finalQuery
+        );
 
         ExpandNestedDocsQuery query = new ExpandNestedDocsQuery.ExpandNestedDocsQueryBuilder().internalNestedKnnVectorQuery(internalQuery)
             .queryUtils(queryUtils)

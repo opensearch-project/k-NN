@@ -18,22 +18,44 @@ public class SimdVectorComputeService {
 
     /**
      * Similarity calculation type to passed down to native code.
+     *
+     * <p>Each constant carries an explicit {@code wireValue}: the integer passed across the JNI boundary as the
+     * {@code nativeFunctionTypeOrd} parameter of the native methods. The native side ({@code NativeSimilarityFunctionType}
+     * in {@code similarity_function.h}) dispatches on these exact numbers, so they are part of the JNI wire contract:
+     * never renumber an existing constant, and assign any new constant the next unused number regardless of where it is
+     * declared. Use {@link #getWireValue()} instead of {@link #ordinal()}, which would silently change if constants were
+     * reordered or inserted.
      */
     public enum SimilarityFunctionType {
         // FP16 Maximum Inner Product. The result will be the same as we acquired from VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT.
-        FP16_MAXIMUM_INNER_PRODUCT,
-        // FP16 Maximum Inner Product. The result will be the same as we acquired from VectorSimilarityFunction.EUCLIDEAN.
-        FP16_L2,
-        SQ_IP,
-        SQ_L2,
+        FP16_MAXIMUM_INNER_PRODUCT(0),
+        // FP16 L2. The result will be the same as we acquired from VectorSimilarityFunction.EUCLIDEAN.
+        FP16_L2(1),
+        SQ_IP(2),
+        SQ_L2(3),
         // BF16 Maximum Inner Product. The result will be the same as we acquired from VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT.
-        BF16_MAXIMUM_INNER_PRODUCT,
+        BF16_MAXIMUM_INNER_PRODUCT(4),
         // BF16 L2. The result will be the same as we acquired from VectorSimilarityFunction.EUCLIDEAN.
-        BF16_L2,
+        BF16_L2(5),
         // FP16 Cosine. Vectors are guaranteed to be L2-normalized, so cosine = inner product with score = (1 + dot) / 2.
-        FP16_COSINE,
+        FP16_COSINE(6),
         // SQ Cosine. Same IP math as SQ_IP but with cosine score transform.
-        SQ_COSINE
+        SQ_COSINE(7);
+
+        private final int wireValue;
+
+        SimilarityFunctionType(final int wireValue) {
+            this.wireValue = wireValue;
+        }
+
+        /**
+         * Returns the stable integer identifying this similarity function on the native side.
+         *
+         * @return wire value expected by the native {@code nativeFunctionTypeOrd} parameters
+         */
+        public int getWireValue() {
+            return wireValue;
+        }
     }
 
     public static native void saveSQSearchContext(

@@ -131,6 +131,33 @@ public class DefaultVectorRepositoryAccessorTests extends RemoteIndexBuildTests 
     }
 
     /**
+     * half_float vectors are uploaded as fp16, so the vector blob length must be 2 bytes per dimension.
+     */
+    public void testRepositoryInteraction_halfFloatBlobLengthIsFp16() throws IOException, InterruptedException {
+        BlobPath testBasePath = new BlobPath().add("testBasePath");
+        BlobContainer testContainer = Mockito.spy(new TestBlobContainer(mock(FsBlobStore.class), testBasePath, mock(Path.class)));
+        VectorRepositoryAccessor objectUnderTest = new DefaultVectorRepositoryAccessor(testContainer);
+
+        String BLOB_NAME = "test_blob";
+        int NUM_DOCS = 100;
+        Supplier<KNNVectorValues<?>> supplier = KNNVectorValuesFactory.getVectorValuesSupplier(
+            VectorDataType.HALF_FLOAT,
+            randomVectorValues
+        );
+        objectUnderTest.writeToRepository(BLOB_NAME, NUM_DOCS, VectorDataType.HALF_FLOAT, supplier);
+
+        KNNVectorValues<?> knnVectorValues = supplier.get();
+        initializeVectorValues(knnVectorValues);
+        verify(testContainer).writeBlob(
+            eq(BLOB_NAME + VECTOR_BLOB_FILE_EXTENSION),
+            any(),
+            eq((long) NUM_DOCS * knnVectorValues.dimension() * Short.BYTES),
+            eq(true)
+        );
+        verify(testContainer).writeBlob(eq(BLOB_NAME + DOC_ID_FILE_EXTENSION), any(), eq((long) NUM_DOCS * Integer.BYTES), eq(true));
+    }
+
+    /**
      * Test that when an exception is thrown during asyncBlobUpload, the exception is rethrown.
      */
     public void testAsyncUploadThrowsException() throws IOException {
@@ -197,10 +224,13 @@ public class DefaultVectorRepositoryAccessorTests extends RemoteIndexBuildTests 
         VectorRepositoryAccessor objectUnderTest = new DefaultVectorRepositoryAccessor(mockBlobContainer);
 
         // Verify file extension check
-        assertThrows(IllegalArgumentException.class, () -> objectUnderTest.readFromRepository("test_file.txt", testIndexOutputWithBuffer));
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> objectUnderTest.readFromRepository("test_file.txt", KNNEngine.FAISS.getExtension(), testIndexOutputWithBuffer)
+        );
 
         // This should read from randomStream into testIndexOutput
-        objectUnderTest.readFromRepository(TEST_FILE_NAME, testIndexOutputWithBuffer);
+        objectUnderTest.readFromRepository(TEST_FILE_NAME, KNNEngine.FAISS.getExtension(), testIndexOutputWithBuffer);
         testIndexOutput.close();
 
         // Now try to read from the IndexOutput
@@ -210,6 +240,61 @@ public class DefaultVectorRepositoryAccessorTests extends RemoteIndexBuildTests 
         assertArrayEquals(byteArray, resultByteArray);
 
         // Test Cleanup
+        testIndexInput.close();
+        directory.close();
+    }
+
+    /**
+     * Verify {@link DefaultVectorRepositoryAccessor#readFromRepository} validates against the expected extension passed by
+     * the caller (the destination engine's extension) rather than a hardcoded Faiss one, so a non-Faiss artifact is accepted
+     * when it matches the destination engine and a Faiss-named artifact is rejected when a different extension is expected.
+     */
+    public void testRepositoryReadExtensionIsEngineAware() throws IOException {
+        String NON_FAISS_EXTENSION = ".cuvs";
+        String nonFaissFileName = randomAlphaOfLength(8) + NON_FAISS_EXTENSION;
+
+        int TEST_ARRAY_SIZE = 64 * 1024 * 10;
+        byte[] byteArray = new byte[TEST_ARRAY_SIZE];
+        Random random = Randomness.get();
+        random.nextBytes(byteArray);
+        InputStream randomStream = new ByteArrayInputStream(byteArray);
+
+        Directory directory = newFSDirectory(createTempDir());
+        String TEST_SEGMENT_NAME = "test-segment-name";
+        IndexOutput testIndexOutput = directory.createOutput(TEST_SEGMENT_NAME, IOContext.DEFAULT);
+        IndexOutputWithBuffer testIndexOutputWithBuffer = new IndexOutputWithBuffer(testIndexOutput);
+
+        AsyncMultiStreamBlobContainer mockBlobContainer = mock(AsyncMultiStreamBlobContainer.class);
+        when(mockBlobContainer.readBlob(nonFaissFileName)).thenReturn(randomStream);
+
+        VectorRepositoryAccessor objectUnderTest = new DefaultVectorRepositoryAccessor(mockBlobContainer);
+
+        // A blank expected extension is rejected
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> objectUnderTest.readFromRepository(nonFaissFileName, "", testIndexOutputWithBuffer)
+        );
+
+        // A Faiss-named artifact is rejected when the destination engine expects a different extension (proves the check is
+        // no longer hardcoded to Faiss)
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> objectUnderTest.readFromRepository(
+                randomAlphaOfLength(8) + KNNEngine.FAISS.getExtension(),
+                NON_FAISS_EXTENSION,
+                testIndexOutputWithBuffer
+            )
+        );
+
+        // A non-Faiss artifact is accepted when it matches the expected (destination engine) extension
+        objectUnderTest.readFromRepository(nonFaissFileName, NON_FAISS_EXTENSION, testIndexOutputWithBuffer);
+        testIndexOutput.close();
+
+        IndexInput testIndexInput = directory.openInput(TEST_SEGMENT_NAME, IOContext.DEFAULT);
+        byte[] resultByteArray = new byte[TEST_ARRAY_SIZE];
+        testIndexInput.readBytes(resultByteArray, 0, TEST_ARRAY_SIZE);
+        assertArrayEquals(byteArray, resultByteArray);
+
         testIndexInput.close();
         directory.close();
     }

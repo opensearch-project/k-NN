@@ -218,7 +218,8 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             Weight actual = objectUnderTest.createWeight(searcher, scoreMode, 1);
 
             // Then
-            Query expected = QueryUtils.getInstance().createDocAndScoreQuery(reader, expectedTopDocs);
+            Query expected = QueryUtils.getInstance()
+                .createDocAndScoreQuery(reader, expectedTopDocs, (QueryUtils.ScoreExplainer) (context, doc, score) -> null);
             assertEquals(expected, actual.getQuery());
         }
     }
@@ -258,7 +259,8 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             Weight actual = objectUnderTest.createWeight(searcher, scoreMode, 1);
 
             // Then
-            Query expected = QueryUtils.getInstance().createDocAndScoreQuery(reader, expectedTopDocs);
+            Query expected = QueryUtils.getInstance()
+                .createDocAndScoreQuery(reader, expectedTopDocs, (QueryUtils.ScoreExplainer) (context, doc, score) -> null);
             assertEquals(expected, actual.getQuery());
             for (ScoreDoc scoreDoc : expectedTopDocs.scoreDocs) {
                 int docId = scoreDoc.doc;
@@ -387,7 +389,8 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             Weight actual = objectUnderTest.createWeight(searcher, scoreMode, boost);
 
             // Then
-            Query expected = QueryUtils.getInstance().createDocAndScoreQuery(reader, expectedTopDocs);
+            Query expected = QueryUtils.getInstance()
+                .createDocAndScoreQuery(reader, expectedTopDocs, (QueryUtils.ScoreExplainer) (context, doc, score) -> null);
             assertEquals(expected, actual.getQuery());
         }
     }
@@ -498,7 +501,8 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
             // Verify
             TopDocs[] topDocs = { topDocs1, topDocs2 };
             TopDocs expectedTopDocs = TopDocs.merge(k, topDocs);
-            Query expected = QueryUtils.getInstance().createDocAndScoreQuery(reader, expectedTopDocs);
+            Query expected = QueryUtils.getInstance()
+                .createDocAndScoreQuery(reader, expectedTopDocs, (QueryUtils.ScoreExplainer) (context, doc, score) -> null);
             assertEquals(expected, actual.getQuery());
         }
     }
