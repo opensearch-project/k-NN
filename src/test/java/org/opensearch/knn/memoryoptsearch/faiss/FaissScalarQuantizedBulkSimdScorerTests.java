@@ -414,10 +414,11 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
 
     /**
      * Allowed difference from Lucene's score. The multi-bit kernels compute the exact integer dot product and Lucene's
-     * score expression in the same order, so they are held to a tight relative bound; the 1-bit bound is the original one.
+     * score expression, but the native build may contract its multiply-adds into FMAs, which round differently from Java
+     * and are amplified by cancellation between the correction terms. The 1-bit bound is the original one.
      */
     private static double delta(final ScalarEncoding encoding, final float expected) {
-        return encoding == ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE ? 1e-2 : Math.max(1e-5, Math.abs(expected) * 1e-5);
+        return encoding == ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE ? 1e-2 : Math.max(1e-4, Math.abs(expected) * 1e-3);
     }
 
     /**
