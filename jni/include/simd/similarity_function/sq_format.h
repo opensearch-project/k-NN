@@ -96,8 +96,6 @@ namespace knn_jni::simd::similarity_function {
         template <SQMetricMode Mode>
         struct Epilogue final {
             const int32_t dim;
-            // Lucene's SCALE_LUT[docBits - 1] = 1 / (2^docBits - 1): 1 for 1-bit, 1/3 for 2-bit, 1/15 for 4-bit codes.
-            float docScale;
             float ay;
             float ly;
             float queryAdditional;
@@ -105,7 +103,6 @@ namespace knn_jni::simd::similarity_function {
             float centroidDp;
 
             FORCE_INLINE explicit Epilogue(const SimdVectorSearchContext* srchContext) : dim(srchContext->dimension) {
-                docScale = 1.0f / static_cast<float>((1 << srchContext->docBits) - 1);
                 const auto* queryCorrectionPtr = reinterpret_cast<const float*>(srchContext->tmpBuffer.data());
                 ay = queryCorrectionPtr[0];
                 ly = (queryCorrectionPtr[1] - queryCorrectionPtr[0]) * FOUR_BIT_SCALE;
@@ -115,11 +112,9 @@ namespace knn_jni::simd::similarity_function {
                 centroidDp = queryCorrectionPtr[4];
             }
 
-            // `upperMinusLower` is upper - lower, `x1` the component sum and `qcDist` the code dot product, each as a float.
-            // Lucene's quantizedScore: lx = (upper - lower) * scale. For 1-bit codes docScale is exactly 1.
-            FORCE_INLINE float finish(const float ax, const float upperMinusLower, const float additional, const float x1,
+            // `lx` is upper - lower, `x1` the component sum and `qcDist` the code dot product, each as a float.
+            FORCE_INLINE float finish(const float ax, const float lx, const float additional, const float x1,
                                       const float qcDist) const {
-                const float lx = upperMinusLower * docScale;
                 float score = ax * ay * dim
                             + ay * lx * x1
                             + ax * ly * y1
@@ -131,6 +126,24 @@ namespace knn_jni::simd::similarity_function {
                     score = std::max(0.0F, queryAdditional + additional - 2 * score);
                 }
                 return score;
+            }
+        };
+
+        // The Epilogue for 2- and 4-bit document codes: Lucene's quantizedScore scales the document interval by
+        // SCALE_LUT[docBits - 1] = 1 / (2^docBits - 1) (1/3, 1/15). Kept apart from Epilogue so the 1-bit path does no
+        // extra work per vector.
+        template <SQMetricMode Mode>
+        struct MultiBitEpilogue final {
+            Epilogue<Mode> base;
+            float docScale;
+
+            FORCE_INLINE explicit MultiBitEpilogue(const SimdVectorSearchContext* srchContext)
+                : base(srchContext), docScale(1.0f / static_cast<float>((1 << srchContext->docBits) - 1)) {}
+
+            // `upperMinusLower` is upper - lower; Lucene's lx = (upper - lower) * scale.
+            FORCE_INLINE float finish(const float ax, const float upperMinusLower, const float additional, const float x1,
+                                      const float qcDist) const {
+                return base.finish(ax, upperMinusLower * docScale, additional, x1, qcDist);
             }
         };
     };

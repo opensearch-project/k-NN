@@ -979,22 +979,26 @@ struct AVX512SQSimilarityFunction final : SimilarityFunction {
                                            float* scores,
                                            const int32_t numVectors) {
         const auto* queryPtr = reinterpret_cast<const uint8_t*>(srchContext->queryVectorSimdAligned);
-        const int32_t binaryCodeBytes = luceneSqCodeBytes(srchContext->dimension, srchContext->docBits);
+
+        if (srchContext->docBits != 1) {
+            const int32_t codeBytes = luceneSqCodeBytes(srchContext->dimension, srchContext->docBits);
+            const LuceneSqFormat format(srchContext, codeBytes);
+            const LuceneSqFormat::MultiBitEpilogue<Mode> epilogue(srchContext);
+            // A 2-bit code is bit plane 0 then bit plane 1; the dot product runs over one stripe.
+            scoreLuceneSqMultiBit(format, epilogue, sqSearchKernel(srchContext->docBits), queryPtr,
+                                  srchContext->docBits == 2 ? codeBytes / 2 : codeBytes, internalVectorIds, scores,
+                                  numVectors);
+            return;
+        }
+
+        // 1-bit codes: unchanged.
+        const int32_t binaryCodeBytes = (srchContext->dimension + 7) / 8;
 
         // Lucene's interleaved records; the query correction factors come from tmpBuffer.
         const LuceneSqFormat format(srchContext, binaryCodeBytes);
         const LuceneSqFormat::Epilogue<Mode> epilogue(srchContext);
 
-        if (srchContext->docBits == 2) {
-            // The dot product runs over one bit-plane stripe: the code is bit plane 0 then bit plane 1.
-            scoreLuceneSqMultiBit(format, epilogue, sqSearchKernel(2), queryPtr, binaryCodeBytes / 2,
-                                  internalVectorIds, scores, numVectors);
-        } else if (srchContext->docBits == 4) {
-            scoreLuceneSqMultiBit(format, epilogue, sqSearchKernel(4), queryPtr, binaryCodeBytes,
-                                  internalVectorIds, scores, numVectors);
-        } else {
-            scoreInBulk(format, epilogue, queryPtr, binaryCodeBytes, internalVectorIds, scores, numVectors);
-        }
+        scoreInBulk(format, epilogue, queryPtr, binaryCodeBytes, internalVectorIds, scores, numVectors);
     }
 
     HOT_SPOT void calculateSimilarityInBulk(SimdVectorSearchContext* srchContext,
@@ -1013,10 +1017,28 @@ struct AVX512SQSimilarityFunction final : SimilarityFunction {
     }
 
     float calculateSimilarity(SimdVectorSearchContext* srchContext, const int32_t internalVectorId) {
-        // One vector goes through the scalar tail of the bulk kernels: the same dot product and epilogue.
-        int32_t vectorId = internalVectorId;
         float score;
-        scoreLuceneSq(srchContext, &vectorId, &score, 1);
+        if (srchContext->docBits != 1) {
+            // One 2- or 4-bit vector goes through the same kernels and epilogue as the bulk path.
+            int32_t vectorId = internalVectorId;
+            scoreLuceneSq(srchContext, &vectorId, &score, 1);
+        } else {
+            // 1-bit codes: unchanged.
+            const auto* queryPtr = reinterpret_cast<const uint8_t*>(srchContext->queryVectorSimdAligned);
+            const int32_t binaryCodeBytes = (srchContext->dimension + 7) / 8;
+
+            const LuceneSqFormat format(srchContext, binaryCodeBytes);
+            const LuceneSqFormat::Epilogue<Mode> epilogue(srchContext);
+
+            const auto* dataVec = format.getVectorPointer(internalVectorId);
+            const float qcDist = static_cast<float>(
+                int4BitDotProduct(queryPtr, dataVec, binaryCodeBytes));
+
+            float ax, lx, additional, x1;
+            format.readDataCorrections(dataVec, internalVectorId, ax, lx, additional, x1);
+
+            score = epilogue.finish(ax, lx, additional, x1, qcDist);
+        }
 
         if constexpr (Mode == SQMetricMode::MAX_IP) {
             return FaissScoreToLuceneScoreTransform::ipToMaxIpTransform(score);
