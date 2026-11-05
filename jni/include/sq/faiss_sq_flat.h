@@ -381,8 +381,13 @@ namespace knn_jni {
     // probe. The hot loops therefore contain no docBits or ISA branches; each call is one
     // indirect call into the selected kernel. A portable scalar kernel is always available.
     //
-    //   x86-64 : B=4 AVX2 (vpmaddubsw + vpmaddwd) if the CPU has AVX2, else scalar.
-    //            B=2 POPCNT word loop if the CPU has POPCNT, else scalar (libgcc popcount).
+    //   x86-64 : B=4 AVX-512 VNNI (vpdpbusd) if the CPU has AVX512-VNNI + AVX512BW (Cascade Lake, Ice
+    //            Lake, Sapphire Rapids, Zen 4), else AVX-512BW (vpmaddubsw + vpmaddwd on zmm), else AVX2
+    //            (the same on ymm), else scalar.
+    //            B=2 AVX-512 VPOPCNTDQ (vpopcntq on zmm) if the CPU has AVX512-VPOPCNTDQ + AVX512BW (Ice
+    //            Lake, Sapphire Rapids, Zen 4), else POPCNT word loop, else scalar (libgcc popcount).
+    //            The AVX-512 kernels handle the trailing bytes with masked loads (zero-filled lanes add
+    //            nothing), so they have no scalar remainder loop.
     //   aarch64: B=4 NEON dot product (udot) if HWCAP_ASIMDDP (Graviton2/3/4), else baseline
     //            NEON (umull/umlal + uadalp). B=2 NEON vcnt. NEON itself is baseline on aarch64.
     //
@@ -400,6 +405,9 @@ namespace knn_jni {
         X86Avx2,      // B=4 only
         Neon,         // B=2 (vcnt) and B=4 (umull/umlal)
         NeonDotProd,  // B=4 only (udot)
+        X86Avx512Popcnt,  // B=2 only (vpopcntq)
+        X86Avx512Bw,      // B=4 only (vpmaddubsw + vpmaddwd on zmm)
+        X86Avx512Vnni,    // B=4 only (vpdpbusd)
     };
 
     static inline const char* sqMultiBitImplName(SQMultiBitImpl impl) {
@@ -410,6 +418,9 @@ namespace knn_jni {
             case SQMultiBitImpl::X86Avx2: return "x86-avx2";
             case SQMultiBitImpl::Neon: return "neon";
             case SQMultiBitImpl::NeonDotProd: return "neon-dotprod";
+            case SQMultiBitImpl::X86Avx512Popcnt: return "x86-avx512-vpopcntdq";
+            case SQMultiBitImpl::X86Avx512Bw: return "x86-avx512bw";
+            case SQMultiBitImpl::X86Avx512Vnni: return "x86-avx512-vnni";
         }
         return "unknown";
     }
@@ -422,6 +433,9 @@ namespace knn_jni {
     struct SQCpuFeatures {
         bool popcnt = false;
         bool avx2 = false;
+        bool avx512bw = false;
+        bool avx512vnni = false;
+        bool avx512vpopcntdq = false;
         bool neonDotProd = false;
     };
 
@@ -434,12 +448,17 @@ namespace knn_jni {
             f.popcnt = __builtin_cpu_supports("popcnt");
             // Also requires OS support for the YMM state; libgcc checks XGETBV for "avx2".
 #if defined(_WIN32)
-            // MinGW GCC cannot keep 32-byte AVX values on the 16-byte aligned Win64 stack and emits
-            // aligned moves that fault, so Windows uses the scalar B=4 kernel. This matches the
-            // generic (no AVX) Faiss and SIMD builds on Windows in jni/cmake/init-faiss.cmake.
+            // MinGW GCC cannot keep 32-byte AVX (or 64-byte AVX-512) values on the 16-byte aligned
+            // Win64 stack and emits aligned moves that fault, so Windows uses the scalar B=4 kernel
+            // and leaves the AVX-512 kernels off. This matches the generic (no AVX) Faiss and SIMD
+            // builds on Windows in jni/cmake/init-faiss.cmake.
             f.avx2 = false;
 #else
             f.avx2 = __builtin_cpu_supports("avx2");
+            // The AVX-512 kernels need the ZMM/opmask state too, which libgcc likewise checks via XGETBV.
+            f.avx512bw = __builtin_cpu_supports("avx512f") && __builtin_cpu_supports("avx512bw");
+            f.avx512vnni = f.avx512bw && __builtin_cpu_supports("avx512vnni");
+            f.avx512vpopcntdq = f.avx512bw && __builtin_cpu_supports("avx512vpopcntdq");
 #endif
 #elif defined(__aarch64__) && defined(__linux__)
             f.neonDotProd = (getauxval(AT_HWCAP) & KNN_SQ_HWCAP_ASIMDDP) != 0;
@@ -624,6 +643,149 @@ namespace knn_jni {
         out[2] = sqHsumEpi32Avx2(acc2) + sqNibbleDpScalar(q + i, t2 + i, n - i);
         out[3] = sqHsumEpi32Avx2(acc3) + sqNibbleDpScalar(q + i, t3 + i, n - i);
     }
+
+    // ---- AVX-512 (Cascade Lake / Ice Lake / Sapphire Rapids / Zen 4) ----
+    //
+    // 64 code bytes per iteration. The last iteration loads only the remaining bytes with a byte mask
+    // (masked-off lanes read as zero and contribute nothing, and masked loads never fault), so there is no
+    // scalar remainder loop.
+#define KNN_SQ_AVX512_POPCNT_TARGET __attribute__((target("avx512f,avx512bw,avx512vpopcntdq")))
+#define KNN_SQ_AVX512_VNNI_TARGET __attribute__((target("avx512f,avx512bw,avx512vnni")))
+#define KNN_SQ_AVX512_BW_TARGET __attribute__((target("avx512f,avx512bw")))
+
+    static inline __mmask64 sqTailMask64(uint64_t remaining) {
+        return remaining >= 64 ? ~0ULL : ((1ULL << remaining) - 1);
+    }
+
+    // B=2 per 64 bytes of each plane: one vpopcntq per AND-ed plane pair, combined as
+    // c00 + 2 * (c01 + c10) + 4 * c11 in 64-bit lanes (no overflow concern; the result fits uint32 by the
+    // kMaxMultiBitQuantizedBytes bound).
+    KNN_SQ_AVX512_POPCNT_TARGET static inline __m512i sqTwoBitWeightedPopcntAvx512(
+            __m512i a0, __m512i a1, __m512i b0, __m512i b1) {
+        const __m512i c00 = _mm512_popcnt_epi64(_mm512_and_si512(a0, b0));
+        const __m512i cCross = _mm512_add_epi64(_mm512_popcnt_epi64(_mm512_and_si512(a0, b1)),
+                                                _mm512_popcnt_epi64(_mm512_and_si512(a1, b0)));
+        const __m512i c11 = _mm512_popcnt_epi64(_mm512_and_si512(a1, b1));
+        return _mm512_add_epi64(_mm512_add_epi64(c00, _mm512_slli_epi64(cCross, 1)), _mm512_slli_epi64(c11, 2));
+    }
+
+    KNN_SQ_AVX512_POPCNT_TARGET static inline uint32_t sqTwoBitDpAvx512(const uint8_t* a, const uint8_t* b, uint64_t planeBytes) {
+        const uint8_t* a1 = a + planeBytes;
+        const uint8_t* b1 = b + planeBytes;
+        __m512i acc = _mm512_setzero_si512();
+        for (uint64_t i = 0; i < planeBytes; i += 64) {
+            const __mmask64 m = sqTailMask64(planeBytes - i);
+            acc = _mm512_add_epi64(acc, sqTwoBitWeightedPopcntAvx512(
+                _mm512_maskz_loadu_epi8(m, a + i), _mm512_maskz_loadu_epi8(m, a1 + i),
+                _mm512_maskz_loadu_epi8(m, b + i), _mm512_maskz_loadu_epi8(m, b1 + i)));
+        }
+        return static_cast<uint32_t>(_mm512_reduce_add_epi64(acc));
+    }
+
+    KNN_SQ_AVX512_POPCNT_TARGET static inline void sqTwoBitDp4Avx512(
+            const uint8_t* q, const uint8_t* t0, const uint8_t* t1, const uint8_t* t2, const uint8_t* t3,
+            uint64_t planeBytes, uint32_t* out) {
+        const uint8_t* t[4] = {t0, t1, t2, t3};
+        const uint8_t* q1 = q + planeBytes;
+        __m512i acc[4] = {_mm512_setzero_si512(), _mm512_setzero_si512(), _mm512_setzero_si512(), _mm512_setzero_si512()};
+        for (uint64_t i = 0; i < planeBytes; i += 64) {
+            const __mmask64 m = sqTailMask64(planeBytes - i);
+            const __m512i vq0 = _mm512_maskz_loadu_epi8(m, q + i), vq1 = _mm512_maskz_loadu_epi8(m, q1 + i);
+            for (int k = 0; k < 4; ++k) {
+                acc[k] = _mm512_add_epi64(acc[k], sqTwoBitWeightedPopcntAvx512(
+                    vq0, vq1, _mm512_maskz_loadu_epi8(m, t[k] + i), _mm512_maskz_loadu_epi8(m, t[k] + planeBytes + i)));
+            }
+        }
+        for (int k = 0; k < 4; ++k) {
+            out[k] = static_cast<uint32_t>(_mm512_reduce_add_epi64(acc[k]));
+        }
+    }
+
+    // B=4 with AVX-512 VNNI: vpdpbusd multiplies u8 x s8 and adds each group of four products into an int32
+    // lane in one instruction (the nibbles are <= 15, so the signed interpretation is exact). Low and high
+    // nibbles go to separate accumulators so the two dot-product chains run in parallel.
+    KNN_SQ_AVX512_VNNI_TARGET static inline uint32_t sqNibbleDpAvx512Vnni(const uint8_t* a, const uint8_t* b, uint64_t n) {
+        const __m512i mask = _mm512_set1_epi8(0x0F);
+        __m512i accLo = _mm512_setzero_si512(), accHi = _mm512_setzero_si512();
+        for (uint64_t i = 0; i < n; i += 64) {
+            const __mmask64 m = sqTailMask64(n - i);
+            const __m512i va = _mm512_maskz_loadu_epi8(m, a + i), vb = _mm512_maskz_loadu_epi8(m, b + i);
+            accLo = _mm512_dpbusd_epi32(accLo, _mm512_and_si512(va, mask), _mm512_and_si512(vb, mask));
+            accHi = _mm512_dpbusd_epi32(accHi, _mm512_and_si512(_mm512_srli_epi16(va, 4), mask),
+                                        _mm512_and_si512(_mm512_srli_epi16(vb, 4), mask));
+        }
+        return static_cast<uint32_t>(_mm512_reduce_add_epi32(_mm512_add_epi32(accLo, accHi)));
+    }
+
+    KNN_SQ_AVX512_VNNI_TARGET static inline void sqNibbleDp4Avx512Vnni(
+            const uint8_t* q, const uint8_t* t0, const uint8_t* t1, const uint8_t* t2, const uint8_t* t3,
+            uint64_t n, uint32_t* out) {
+        const uint8_t* t[4] = {t0, t1, t2, t3};
+        const __m512i mask = _mm512_set1_epi8(0x0F);
+        __m512i accLo[4], accHi[4];
+        for (int k = 0; k < 4; ++k) {
+            accLo[k] = _mm512_setzero_si512();
+            accHi[k] = _mm512_setzero_si512();
+        }
+        for (uint64_t i = 0; i < n; i += 64) {
+            const __mmask64 m = sqTailMask64(n - i);
+            const __m512i vq = _mm512_maskz_loadu_epi8(m, q + i);
+            const __m512i qLo = _mm512_and_si512(vq, mask), qHi = _mm512_and_si512(_mm512_srli_epi16(vq, 4), mask);
+            for (int k = 0; k < 4; ++k) {
+                const __m512i vt = _mm512_maskz_loadu_epi8(m, t[k] + i);
+                accLo[k] = _mm512_dpbusd_epi32(accLo[k], qLo, _mm512_and_si512(vt, mask));
+                accHi[k] = _mm512_dpbusd_epi32(accHi[k], qHi, _mm512_and_si512(_mm512_srli_epi16(vt, 4), mask));
+            }
+        }
+        for (int k = 0; k < 4; ++k) {
+            out[k] = static_cast<uint32_t>(_mm512_reduce_add_epi32(_mm512_add_epi32(accLo[k], accHi[k])));
+        }
+    }
+
+    // B=4 with AVX-512BW only (Skylake-SP, no VNNI): the AVX2 vpmaddubsw + vpmaddwd sequence on zmm.
+    KNN_SQ_AVX512_BW_TARGET static inline __m512i sqNibbleBlockAvx512Bw(__m512i aLo, __m512i aHi, __m512i vb,
+                                                                         __m512i mask, __m512i ones) {
+        const __m512i bLo = _mm512_and_si512(vb, mask);
+        const __m512i bHi = _mm512_and_si512(_mm512_srli_epi16(vb, 4), mask);
+        const __m512i p = _mm512_add_epi16(_mm512_maddubs_epi16(aLo, bLo), _mm512_maddubs_epi16(aHi, bHi));
+        return _mm512_madd_epi16(p, ones);
+    }
+
+    KNN_SQ_AVX512_BW_TARGET static inline uint32_t sqNibbleDpAvx512Bw(const uint8_t* a, const uint8_t* b, uint64_t n) {
+        const __m512i mask = _mm512_set1_epi8(0x0F);
+        const __m512i ones = _mm512_set1_epi16(1);
+        __m512i acc = _mm512_setzero_si512();
+        for (uint64_t i = 0; i < n; i += 64) {
+            const __mmask64 m = sqTailMask64(n - i);
+            const __m512i va = _mm512_maskz_loadu_epi8(m, a + i);
+            acc = _mm512_add_epi32(acc, sqNibbleBlockAvx512Bw(_mm512_and_si512(va, mask),
+                _mm512_and_si512(_mm512_srli_epi16(va, 4), mask), _mm512_maskz_loadu_epi8(m, b + i), mask, ones));
+        }
+        return static_cast<uint32_t>(_mm512_reduce_add_epi32(acc));
+    }
+
+    KNN_SQ_AVX512_BW_TARGET static inline void sqNibbleDp4Avx512Bw(
+            const uint8_t* q, const uint8_t* t0, const uint8_t* t1, const uint8_t* t2, const uint8_t* t3,
+            uint64_t n, uint32_t* out) {
+        const uint8_t* t[4] = {t0, t1, t2, t3};
+        const __m512i mask = _mm512_set1_epi8(0x0F);
+        const __m512i ones = _mm512_set1_epi16(1);
+        __m512i acc[4] = {_mm512_setzero_si512(), _mm512_setzero_si512(), _mm512_setzero_si512(), _mm512_setzero_si512()};
+        for (uint64_t i = 0; i < n; i += 64) {
+            const __mmask64 m = sqTailMask64(n - i);
+            const __m512i vq = _mm512_maskz_loadu_epi8(m, q + i);
+            const __m512i qLo = _mm512_and_si512(vq, mask), qHi = _mm512_and_si512(_mm512_srli_epi16(vq, 4), mask);
+            for (int k = 0; k < 4; ++k) {
+                acc[k] = _mm512_add_epi32(acc[k], sqNibbleBlockAvx512Bw(qLo, qHi, _mm512_maskz_loadu_epi8(m, t[k] + i), mask, ones));
+            }
+        }
+        for (int k = 0; k < 4; ++k) {
+            out[k] = static_cast<uint32_t>(_mm512_reduce_add_epi32(acc[k]));
+        }
+    }
+#undef KNN_SQ_AVX512_POPCNT_TARGET
+#undef KNN_SQ_AVX512_VNNI_TARGET
+#undef KNN_SQ_AVX512_BW_TARGET
 #endif  // __x86_64__
 
 #if defined(__aarch64__)
@@ -781,8 +943,16 @@ namespace knn_jni {
         }
         if (requested == SQMultiBitImpl::Auto) {
 #if defined(__x86_64__) && defined(__GNUC__)
-            requested = bits == 2 ? (cpu.popcnt ? SQMultiBitImpl::X86Popcnt : SQMultiBitImpl::Scalar)
-                                  : (cpu.avx2 ? SQMultiBitImpl::X86Avx2 : SQMultiBitImpl::Scalar);
+            if (bits == 2) {
+                requested = cpu.avx512vpopcntdq ? SQMultiBitImpl::X86Avx512Popcnt
+                          : cpu.popcnt          ? SQMultiBitImpl::X86Popcnt
+                                                : SQMultiBitImpl::Scalar;
+            } else {
+                requested = cpu.avx512vnni ? SQMultiBitImpl::X86Avx512Vnni
+                          : cpu.avx512bw   ? SQMultiBitImpl::X86Avx512Bw
+                          : cpu.avx2       ? SQMultiBitImpl::X86Avx2
+                                           : SQMultiBitImpl::Scalar;
+            }
 #elif defined(__aarch64__)
             requested = (bits == 4 && cpu.neonDotProd) ? SQMultiBitImpl::NeonDotProd : SQMultiBitImpl::Neon;
 #else
@@ -801,6 +971,18 @@ namespace knn_jni {
         }
         if (requested == SQMultiBitImpl::X86Avx2 && bits == 4 && cpu.avx2) {
             out = {requested, &sqNibbleDpAvx2, &sqNibbleDp4Avx2};
+            return true;
+        }
+        if (requested == SQMultiBitImpl::X86Avx512Popcnt && bits == 2 && cpu.avx512vpopcntdq) {
+            out = {requested, &sqTwoBitDpAvx512, &sqTwoBitDp4Avx512};
+            return true;
+        }
+        if (requested == SQMultiBitImpl::X86Avx512Vnni && bits == 4 && cpu.avx512vnni) {
+            out = {requested, &sqNibbleDpAvx512Vnni, &sqNibbleDp4Avx512Vnni};
+            return true;
+        }
+        if (requested == SQMultiBitImpl::X86Avx512Bw && bits == 4 && cpu.avx512bw) {
+            out = {requested, &sqNibbleDpAvx512Bw, &sqNibbleDp4Avx512Bw};
             return true;
         }
 #endif

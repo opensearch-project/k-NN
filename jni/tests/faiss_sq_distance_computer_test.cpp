@@ -22,6 +22,12 @@
 #include <type_traits>
 #include <vector>
 
+#if defined(__unix__) || defined(__APPLE__)
+#include <sys/mman.h>
+#include <unistd.h>
+#define KNN_SQ_TEST_HAS_MMAP 1
+#endif
+
 #include "gtest/gtest.h"
 
 using idx_t = faiss::idx_t;
@@ -1252,6 +1258,7 @@ TEST(FaissSQDistanceComputerValidation, RejectsQuantizedVectorBytesBeyondAccumul
 static const SQMultiBitImpl kAllMultiBitImpls[] = {
     SQMultiBitImpl::Auto, SQMultiBitImpl::Scalar, SQMultiBitImpl::X86Popcnt,
     SQMultiBitImpl::X86Avx2, SQMultiBitImpl::Neon, SQMultiBitImpl::NeonDotProd,
+    SQMultiBitImpl::X86Avx512Popcnt, SQMultiBitImpl::X86Avx512Bw, SQMultiBitImpl::X86Avx512Vnni,
 };
 
 static bool sameFloatBits(float a, float b) {
@@ -1345,10 +1352,11 @@ protected:
 TEST_P(FaissSQMultiBitImplTest, EveryImplementationMatchesScalar) {
     const int32_t docBits = GetParam();
     // Code sizes covering: SIMD body only, SIMD body + tail, tail only, odd sizes (B=4), plane sizes
-    // that are not a multiple of 8 or 16 (B=2), and the D=768/1024 production shapes.
+    // that are not a multiple of 8 or 16 (B=2), sizes around the 64-byte AVX-512 block (masked tail only,
+    // exact block, block + masked tail), and the D=768/1024 production shapes.
     const std::vector<int32_t> qvbs = docBits == 2
-        ? std::vector<int32_t>{2, 10, 26, 32, 34, 62, 96, 192, 256, 2 * 263}
-        : std::vector<int32_t>{1, 7, 15, 16, 19, 31, 33, 50, 63, 384, 512, 1001};
+        ? std::vector<int32_t>{2, 10, 26, 32, 34, 62, 96, 128, 130, 192, 254, 256, 2 * 263}
+        : std::vector<int32_t>{1, 7, 15, 16, 19, 31, 33, 50, 63, 64, 65, 127, 128, 129, 384, 512, 1001};
     for (int32_t qvb : qvbs) {
         for (int fill : {0, 1, 2}) {
             if ((qvb + 16) % 8 == 0) {
@@ -1370,8 +1378,16 @@ TEST_P(FaissSQMultiBitImplTest, AutoSelectsFastestAvailableImplementation) {
     const SQCpuFeatures& cpu = sqCpuFeatures();
     SQMultiBitImpl expected = SQMultiBitImpl::Scalar;
 #if defined(__x86_64__)
-    if (docBits == 2 && cpu.popcnt) expected = SQMultiBitImpl::X86Popcnt;
-    if (docBits == 4 && cpu.avx2) expected = SQMultiBitImpl::X86Avx2;
+    if (docBits == 2) {
+        expected = cpu.avx512vpopcntdq ? SQMultiBitImpl::X86Avx512Popcnt
+                 : cpu.popcnt          ? SQMultiBitImpl::X86Popcnt
+                                       : SQMultiBitImpl::Scalar;
+    } else {
+        expected = cpu.avx512vnni ? SQMultiBitImpl::X86Avx512Vnni
+                 : cpu.avx512bw   ? SQMultiBitImpl::X86Avx512Bw
+                 : cpu.avx2       ? SQMultiBitImpl::X86Avx2
+                                  : SQMultiBitImpl::Scalar;
+    }
 #elif defined(__aarch64__)
     expected = (docBits == 4 && cpu.neonDotProd) ? SQMultiBitImpl::NeonDotProd : SQMultiBitImpl::Neon;
 #endif
@@ -1395,10 +1411,12 @@ TEST_P(FaissSQMultiBitImplTest, RejectsImplementationsForOtherWidths) {
     std::vector<uint8_t, NBytesAlignedAllocator<uint8_t, 8>> dummy(elem, 0);
     FaissSQDistanceComputer<true, true> dc(elem, dummy.data(), CENTROID_DP, 128, 1, docBits);
     const SQMultiBitImpl before = dc.implementation();
-    // POPCNT is a B=2-only kernel; AVX2 and NEON dotprod are B=4-only kernels.
+    // POPCNT and AVX-512 VPOPCNTDQ are B=2-only kernels; AVX2, AVX-512BW, AVX-512 VNNI and NEON dotprod
+    // are B=4-only kernels.
     for (SQMultiBitImpl impl : docBits == 2
-             ? std::vector<SQMultiBitImpl>{SQMultiBitImpl::X86Avx2, SQMultiBitImpl::NeonDotProd}
-             : std::vector<SQMultiBitImpl>{SQMultiBitImpl::X86Popcnt}) {
+             ? std::vector<SQMultiBitImpl>{SQMultiBitImpl::X86Avx2, SQMultiBitImpl::NeonDotProd,
+                                           SQMultiBitImpl::X86Avx512Bw, SQMultiBitImpl::X86Avx512Vnni}
+             : std::vector<SQMultiBitImpl>{SQMultiBitImpl::X86Popcnt, SQMultiBitImpl::X86Avx512Popcnt}) {
         EXPECT_FALSE(dc.setImplementation(impl)) << sqMultiBitImplName(impl);
         EXPECT_EQ(dc.implementation(), before) << "a rejected override must keep the current kernel";
     }
@@ -1406,6 +1424,125 @@ TEST_P(FaissSQMultiBitImplTest, RejectsImplementationsForOtherWidths) {
     EXPECT_TRUE(dc.setImplementation(SQMultiBitImpl::Scalar));
     EXPECT_EQ(dc.implementation(), SQMultiBitImpl::Scalar);
 }
+
+#if defined(KNN_SQ_TEST_HAS_MMAP)
+// len writable bytes placed flush against a PROT_NONE page: right before it (guardAfter) or right after it,
+// so a kernel that reads one byte outside its code faults instead of silently reading neighbouring memory.
+class GuardedBuffer {
+public:
+    GuardedBuffer(size_t len, bool guardAfter) {
+        const size_t page = static_cast<size_t>(sysconf(_SC_PAGESIZE));
+        const size_t dataPages = (len + page - 1) / page;
+        mapLen_ = (dataPages + 2) * page;
+        void* m = mmap(nullptr, mapLen_, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        if (m == MAP_FAILED) {
+            throw std::runtime_error("mmap failed");
+        }
+        map_ = static_cast<uint8_t*>(m);
+        if (mprotect(map_, page, PROT_NONE) != 0 || mprotect(map_ + (dataPages + 1) * page, page, PROT_NONE) != 0) {
+            munmap(map_, mapLen_);
+            throw std::runtime_error("mprotect failed");
+        }
+        data_ = guardAfter ? map_ + (dataPages + 1) * page - len : map_ + page;
+    }
+    ~GuardedBuffer() { munmap(map_, mapLen_); }
+    GuardedBuffer(const GuardedBuffer&) = delete;
+    GuardedBuffer& operator=(const GuardedBuffer&) = delete;
+    uint8_t* data() { return data_; }
+
+private:
+    uint8_t* map_ = nullptr;
+    uint8_t* data_ = nullptr;
+    size_t mapLen_ = 0;
+};
+
+// Five codes of qvb bytes (a query and four targets), each flush against a guard page.
+struct GuardedCodes {
+    GuardedCodes(uint64_t qvb, bool guardAfter) {
+        for (auto& b : buffers) {
+            b.reset(new GuardedBuffer(qvb, guardAfter));
+        }
+    }
+    uint8_t* code(int k) { return buffers[k]->data(); }
+    std::unique_ptr<GuardedBuffer> buffers[5];
+};
+
+// Runs dp and dp4 of every available implementation on the five codes and checks them against expected[k], the
+// exact dot product of code(0) and code(k + 1).
+static void checkKernelsOnCodes(int32_t docBits, uint64_t qvb, GuardedCodes& codes, const uint64_t expected[4],
+                                const std::string& what) {
+    const uint64_t kernelBytes = docBits == 2 ? qvb / 2 : qvb;
+    for (SQMultiBitImpl impl : kAllMultiBitImpls) {
+        SQMultiBitKernel kernel;
+        if (!resolveSQMultiBitKernel(docBits, impl, kernel)) {
+            continue;
+        }
+        const std::string ctx = std::string("impl=") + sqMultiBitImplName(kernel.impl) + " docBits=" + std::to_string(docBits)
+            + " qvb=" + std::to_string(qvb) + " " + what;
+        ASSERT_EQ(static_cast<uint64_t>(kernel.dp(codes.code(0), codes.code(1), kernelBytes)), expected[0]) << ctx;
+        uint32_t out[4];
+        kernel.dp4(codes.code(0), codes.code(1), codes.code(2), codes.code(3), codes.code(4), kernelBytes, out);
+        for (int k = 0; k < 4; ++k) {
+            ASSERT_EQ(static_cast<uint64_t>(out[k]), expected[k]) << ctx << " k=" << k;
+        }
+    }
+}
+
+TEST_P(FaissSQMultiBitImplTest, KernelsNeverReadOutsideTheCode) {
+    const int32_t docBits = GetParam();
+    // Codes flush against a guard page on either side, so a SIMD tail (masked load or scalar remainder) that
+    // touches one byte outside the code faults. The kernel byte counts 1..130 cover every tail length of the
+    // 8/16/32/64-byte kernels with zero, one and two full blocks before it; a few larger sizes cover
+    // block-multiple and page-sized codes.
+    std::vector<uint64_t> kernelByteCounts;
+    for (uint64_t n = 1; n <= 130; ++n) {
+        kernelByteCounts.push_back(n);
+    }
+    for (uint64_t n : {255ull, 256ull, 257ull, 4095ull, 4096ull, 4097ull}) {
+        kernelByteCounts.push_back(n);
+    }
+    std::mt19937 rng(17);
+    for (uint64_t kernelBytes : kernelByteCounts) {
+        const uint64_t qvb = docBits == 2 ? 2 * kernelBytes : kernelBytes;
+        for (bool guardAfter : {true, false}) {
+            GuardedCodes codes(qvb, guardAfter);
+            for (bool allBitsSet : {false, true}) {
+                for (int k = 0; k < 5; ++k) {
+                    for (uint64_t i = 0; i < qvb; ++i) {
+                        codes.code(k)[i] = allBitsSet ? 0xFF : static_cast<uint8_t>(rng());
+                    }
+                }
+                uint64_t expected[4];
+                for (int k = 0; k < 4; ++k) {
+                    expected[k] = referenceKernelDp(docBits, codes.code(0), codes.code(k + 1), qvb);
+                }
+                checkKernelsOnCodes(docBits, qvb, codes, expected,
+                                    std::string(guardAfter ? "guard after" : "guard before") + (allBitsSet ? " all bits set" : " random"));
+                if (HasFatalFailure()) {
+                    return;
+                }
+            }
+        }
+    }
+}
+
+TEST_P(FaissSQMultiBitImplTest, KernelsDoNotOverflowAtAccumulatorBound) {
+    const int32_t docBits = GetParam();
+    // The largest code the computer accepts, with every bit set, gives the largest dot product any kernel can see:
+    // B=4: 15*15 per nibble, 450 per byte, so 450 * kMaxMultiBitQuantizedBytes (just under INT32_MAX).
+    // B=2: 8 set bits per plane byte for each of the four plane pairs, weighted 1 + 2 + 2 + 4, so 72 per plane byte.
+    const uint64_t qvb = docBits == 2 ? (kMaxMultiBitQuantizedBytes & ~1ull) : kMaxMultiBitQuantizedBytes;
+    const uint64_t maxDp = docBits == 2 ? 72 * (qvb / 2) : 450 * qvb;
+    ASSERT_LE(maxDp, static_cast<uint64_t>(INT32_MAX));
+    GuardedCodes codes(qvb, true);
+    for (int k = 0; k < 5; ++k) {
+        std::memset(codes.code(k), 0xFF, qvb);
+    }
+    const uint64_t expected[4] = {maxDp, maxDp, maxDp, maxDp};
+    checkKernelsOnCodes(docBits, qvb, codes, expected, "all bits set");
+}
+
+#endif  // KNN_SQ_TEST_HAS_MMAP
 
 INSTANTIATE_TEST_SUITE_P(
     MultiBitImpl,
@@ -1421,7 +1558,8 @@ TEST(FaissSQMultiBitImplValidation, OneBitGenericComputerOnlyAcceptsScalar) {
     FaissSQDistanceComputer<false, true> dc(elem, dummy.data(), 0.0f, 128, 1, 1);
     EXPECT_EQ(dc.implementation(), SQMultiBitImpl::Scalar);
     for (SQMultiBitImpl impl : {SQMultiBitImpl::X86Popcnt, SQMultiBitImpl::X86Avx2, SQMultiBitImpl::Neon,
-                                SQMultiBitImpl::NeonDotProd}) {
+                                SQMultiBitImpl::NeonDotProd, SQMultiBitImpl::X86Avx512Popcnt,
+                                SQMultiBitImpl::X86Avx512Bw, SQMultiBitImpl::X86Avx512Vnni}) {
         EXPECT_FALSE(dc.setImplementation(impl)) << sqMultiBitImplName(impl);
     }
 }
