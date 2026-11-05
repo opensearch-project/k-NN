@@ -18,7 +18,6 @@ import org.opensearch.common.blobstore.stream.write.WritePriority;
 import org.opensearch.common.io.InputStreamContainer;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.store.IndexOutputWithBuffer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
@@ -231,12 +230,16 @@ public class DefaultVectorRepositoryAccessor implements VectorRepositoryAccessor
     }
 
     @Override
-    public void readFromRepository(String fileName, IndexOutputWithBuffer indexOutputWithBuffer) throws IOException {
+    public void readFromRepository(String fileName, String expectedExtension, IndexOutputWithBuffer indexOutputWithBuffer)
+        throws IOException {
         if (StringUtils.isBlank(fileName)) {
             throw new IllegalArgumentException("download path is null or empty");
         }
-        if (!fileName.endsWith(KNNEngine.FAISS.getExtension())) {
-            log.error("file name [{}] does not end with extension [{}}", fileName, KNNEngine.FAISS.getExtension());
+        if (StringUtils.isBlank(expectedExtension)) {
+            throw new IllegalArgumentException("expected file extension is null or empty");
+        }
+        if (!fileName.endsWith(expectedExtension)) {
+            log.error("file name [{}] does not end with extension [{}]", fileName, expectedExtension);
             throw new IllegalArgumentException("download path has incorrect file extension");
         }
 
