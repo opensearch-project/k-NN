@@ -89,7 +89,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_save
           (uint8_t*) queryVecPtr, sizeof(jfloat) * queryVecSize,
           queryVecSize,
           (int64_t*) mmapAddressAndSize, mmapAddressAndSizeLength,
-          nativeFunctionTypeOrd);
+          nativeFunctionTypeOrd, /*docBits=*/1 /* unused by FP16 / BF16 */);
 
       // Release query vector
       JNI_UTIL.ReleasePrimitiveArrayCritical(env, query, queryVecPtr, 0);

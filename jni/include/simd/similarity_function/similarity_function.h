@@ -131,7 +131,8 @@ namespace knn_jni::simd::similarity_function {
 
         // Save required information during search in static thread local storage.
         // The maximum thread local storage is bounded by O(SizeOf(Query Vector Size)).
-        // `docBits` is the SQ document code width (1, 2 or 4) and is ignored by the FP16 / BF16 function types.
+        // `docBits` is the SQ document code width (1, 2 or 4) and is ignored by the FP16 / BF16 function types. It has
+        // no default: a 2-bit query is as long as a 1-bit query, so a missing width could not be caught by the length check.
         static SimdVectorSearchContext* saveSearchContext(
                    uint8_t* queryPtr,
                    int32_t queryByteSize,
@@ -139,7 +140,7 @@ namespace knn_jni::simd::similarity_function {
                    int64_t* mmapAddressAndSize,
                    int32_t numAddressAndSize,
                    int32_t nativeFunctionTypeOrd,
-                   int32_t docBits = 1);
+                   int32_t docBits);
 
         // Return thread static storage it's holding.
         static SimdVectorSearchContext* getSearchContext();

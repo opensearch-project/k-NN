@@ -126,7 +126,8 @@ namespace knn_jni::simd::similarity_function {
 #define KNN_SQ_SEARCH_ENTRY_POINTS(TARGET, KERNEL)                                                                      \
     TARGET static uint32_t KERNEL##One(const uint8_t* q, const uint8_t* d, const int32_t n) {                          \
         uint32_t out;                                                                                                  \
-        KERNEL<1>(q, &d, n, &out);                                                                                      \
+        const uint8_t* one[1] = {d};                                                                                   \
+        KERNEL<1>(q, one, n, &out);                                                                                     \
         return out;                                                                                                    \
     }                                                                                                                  \
     TARGET static void KERNEL##Four(const uint8_t* q, const uint8_t* d0, const uint8_t* d1, const uint8_t* d2,          \

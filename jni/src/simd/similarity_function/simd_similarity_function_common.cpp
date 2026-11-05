@@ -193,6 +193,21 @@ SimdVectorSearchContext* SimilarityFunction::saveSearchContext(
            int32_t numAddressAndSize,
            int32_t nativeFunctionTypeOrd,
            int32_t docBits) {
+    // SQ: the kernels read luceneSqQueryBytes of query and luceneSqCodeBytes of every record for this code width, so
+    // reject a width or query length that does not match, before touching the context.
+    if (nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ_IP)
+        || nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ_L2)
+        || nativeFunctionTypeOrd == static_cast<int32_t>(NativeSimilarityFunctionType::SQ_COSINE)) {
+        if (docBits != 1 && docBits != 2 && docBits != 4) {
+            throw std::runtime_error("Unsupported SQ document code width docBits=" + std::to_string(docBits));
+        }
+        if (queryByteSize != luceneSqQueryBytes(dimension, docBits)) {
+            throw std::runtime_error("SQ query is " + std::to_string(queryByteSize) + " bytes, expected "
+                                     + std::to_string(luceneSqQueryBytes(dimension, docBits)) + " for dimension="
+                                     + std::to_string(dimension) + " docBits=" + std::to_string(docBits));
+        }
+    }
+
     // Free tmp buffer
     THREAD_LOCAL_SIMD_VEC_SRCH_CTX.tmpBuffer = {};
 
@@ -281,16 +296,6 @@ SimdVectorSearchContext* SimilarityFunction::saveSearchContext(
          THREAD_LOCAL_SIMD_VEC_SRCH_CTX.similarityFunction =
              selectSimilarityFunction(static_cast<NativeSimilarityFunctionType>(nativeFunctionTypeOrd));
 
-         // The kernels read luceneSqQueryBytes of query and luceneSqCodeBytes of every record for this code width, so
-         // reject a width or query length that does not match instead of reading past either buffer.
-         if (docBits != 1 && docBits != 2 && docBits != 4) {
-             throw std::runtime_error("Unsupported SQ document code width docBits=" + std::to_string(docBits));
-         }
-         if (queryByteSize != luceneSqQueryBytes(dimension, docBits)) {
-             throw std::runtime_error("SQ query is " + std::to_string(queryByteSize) + " bytes, expected "
-                                      + std::to_string(luceneSqQueryBytes(dimension, docBits)) + " for dimension="
-                                      + std::to_string(dimension) + " docBits=" + std::to_string(docBits));
-         }
          THREAD_LOCAL_SIMD_VEC_SRCH_CTX.docBits = docBits;
 
          // oneVectorByteSize = quantized vector bytes + 3 floats + 1 int (correction factors)
