@@ -74,11 +74,14 @@ namespace knn_jni::simd::similarity_function {
     using SqSearchDpFn = uint32_t (*)(const uint8_t* q, const uint8_t* d, int32_t n);
     using SqSearchDp4Fn = void (*)(const uint8_t* q, const uint8_t* d0, const uint8_t* d1, const uint8_t* d2,
                                    const uint8_t* d3, int32_t n, uint32_t* out);
+    using SqSearchDp8Fn = void (*)(const uint8_t* q, const uint8_t* const* d, int32_t n, uint32_t* out);
 
     struct SqSearchKernel {
         SqSearchImpl impl = SqSearchImpl::Scalar;
         SqSearchDpFn dp = nullptr;
         SqSearchDp4Fn dp4 = nullptr;
+        // Eight records per call; only set where it measured faster than four (NEON dotprod 4-bit).
+        SqSearchDp8Fn dp8 = nullptr;
     };
 
     // ---- Scalar (every platform) ----
@@ -522,6 +525,10 @@ namespace knn_jni::simd::similarity_function {
         }
     }
     KNN_SQ_SEARCH_ENTRY_POINTS(KNN_SQ_SEARCH_DOTPROD, sqSearchNibbleNeonDot)
+    KNN_SQ_SEARCH_DOTPROD static void sqSearchNibbleNeonDotEight(const uint8_t* q, const uint8_t* const* d, const int32_t n,
+                                                                 uint32_t* out) {
+        sqSearchNibbleNeonDot<8>(q, d, n, out);
+    }
 #undef KNN_SQ_SEARCH_DOTPROD
 #endif  // __linux__
     KNN_SQ_SEARCH_ENTRY_POINTS(KNN_SQ_SEARCH_NO_TARGET, sqSearchDibitNeon)
@@ -619,7 +626,7 @@ namespace knn_jni::simd::similarity_function {
         }
 #if defined(__linux__)
         if (requested == SqSearchImpl::NeonDotProd && bits == 4 && cpu.neonDotProd) {
-            out = {requested, &sqSearchNibbleNeonDotOne, &sqSearchNibbleNeonDotFour};
+            out = {requested, &sqSearchNibbleNeonDotOne, &sqSearchNibbleNeonDotFour, &sqSearchNibbleNeonDotEight};
             return true;
         }
 #endif
@@ -634,16 +641,27 @@ namespace knn_jni::simd::similarity_function {
         return bits == 2 ? two : four;
     }
 
-    // Scores `internalVectorIds[0..numVectors)` of a sq_format.h format with `kernel`: four records per kernel call, then
-    // one at a time. `dotBytes` is the stripe length for 2-bit codes and the packed length for 4-bit codes; the format
+    // Scores `internalVectorIds[0..numVectors)` of a sq_format.h format with `kernel`: eight records per kernel call when the
+    // kernel has an eight-record entry point, then four, then one at a time. `dotBytes` is the stripe length for 2-bit codes and the packed length for 4-bit codes; the format
     // locates the records and their corrections, and `epilogue` turns a dot product and those corrections into a score.
     template <typename Format, typename Epilogue>
     static inline void scoreLuceneSqMultiBit(const Format& format, const Epilogue& epilogue, const SqSearchKernel& kernel,
                                              const uint8_t* queryPtr, const int32_t dotBytes, int32_t* internalVectorIds,
                                              float* scores, const int32_t numVectors) {
         int32_t i = 0;
-        uint8_t* vectors[4];
-        uint32_t dots[4];
+        uint8_t* vectors[8];
+        uint32_t dots[8];
+        if (kernel.dp8 != nullptr) {
+            for (; i + 8 <= numVectors; i += 8) {
+                format.getVectorPointersInBulk(vectors, &internalVectorIds[i], 8);
+                kernel.dp8(queryPtr, vectors, dotBytes, dots);
+                for (int32_t k = 0; k < 8; ++k) {
+                    float ax, lx, additional, x1;
+                    format.readDataCorrections(vectors[k], internalVectorIds[i + k], ax, lx, additional, x1);
+                    scores[i + k] = epilogue.finish(ax, lx, additional, x1, static_cast<float>(dots[k]));
+                }
+            }
+        }
         for (; i + 4 <= numVectors; i += 4) {
             format.getVectorPointersInBulk(vectors, &internalVectorIds[i], 4);
             kernel.dp4(queryPtr, vectors[0], vectors[1], vectors[2], vectors[3], dotBytes, dots);

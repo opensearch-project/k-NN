@@ -82,6 +82,14 @@ void checkAllImpls(const int32_t bits, const int32_t n, const uint8_t* q, const 
         for (int k = 0; k < 4; ++k) {
             ASSERT_EQ(uint64_t(out[k]), expected[k]) << where << " k=" << k;
         }
+        if (kernel.dp8 != nullptr) {
+            const uint8_t* d8[8] = {d[0], d[1], d[2], d[3], d[3], d[2], d[1], d[0]};
+            uint32_t out8[8];
+            kernel.dp8(q, d8, n, out8);
+            for (int k = 0; k < 8; ++k) {
+                ASSERT_EQ(uint64_t(out8[k]), expected[k < 4 ? k : 7 - k]) << where << " dp8 k=" << k;
+            }
+        }
     }
 }
 
