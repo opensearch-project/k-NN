@@ -9,6 +9,8 @@
 #include <cstdint>
 #include <cstring>
 
+#include "platform_defs.h"
+
 // MinGW GCC cannot keep 32/64-byte AVX values on the 16-byte aligned Win64 stack, so Windows uses the scalar kernels,
 // like the SQ indexing kernels in sq/faiss_sq_flat.h.
 #if defined(__x86_64__) && defined(__GNUC__) && !defined(_WIN32)
@@ -549,7 +551,7 @@ namespace knn_jni::simd::similarity_function {
             f.avx512vpopcntdq = f.avx512bw && __builtin_cpu_supports("avx512vpopcntdq");
             f.avx512vnni = f.avx512bw && __builtin_cpu_supports("avx512vnni");
 #elif defined(KNN_SQ_SEARCH_ARM) && defined(__linux__)
-            f.neonDotProd = (getauxval(AT_HWCAP) & (1UL << 20)) != 0;  // HWCAP_ASIMDDP
+            f.neonDotProd = (getauxval(AT_HWCAP) & KNN_SQ_HWCAP_ASIMDDP) != 0;
 #endif
             return f;
         }();

@@ -11,6 +11,7 @@
 #include "faiss/MetricType.h"
 #include "faiss/impl/DistanceComputer.h"
 #include "memory_util.h"
+#include "platform_defs.h"
 
 #include <cstdint>
 #include <cstring>
@@ -29,13 +30,6 @@
 #endif
 #endif
 
-// AT_HWCAP bit for the Armv8.2 dot-product instructions (asm/hwcap.h); defined here in case the
-// libc headers predate it.
-#if defined(HWCAP_ASIMDDP)
-#define KNN_SQ_HWCAP_ASIMDDP HWCAP_ASIMDDP
-#else
-#define KNN_SQ_HWCAP_ASIMDDP (1UL << 20)
-#endif
 
 namespace knn_jni {
 
