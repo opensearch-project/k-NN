@@ -93,7 +93,7 @@ public class DocAndScoreQueryTests extends OpenSearchTestCase {
 
         // When
         KNNWeight knnWeight = mock(KNNWeight.class);
-        objectUnderTest = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, readerContext.id(), knnWeight);
+        objectUnderTest = new DocAndScoreQuery(4, expectedDocs, expectedScores, findSegments, readerContext.id(), knnWeight::explain);
         Weight weight = objectUnderTest.createWeight(indexSearcher, ScoreMode.COMPLETE, 1);
         weight.explain(leaf1, 1);
 

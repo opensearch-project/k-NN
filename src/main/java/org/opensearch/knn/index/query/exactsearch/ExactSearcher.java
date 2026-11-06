@@ -97,12 +97,12 @@ public class ExactSearcher {
      * @throws IOException if an I/O error occurs while reading vectors or computing scores
      */
     public TopDocs searchLeaf(final LeafReaderContext leafReaderContext, final ExactSearcherContext context) throws IOException {
-        final LeafReader reader = readerForVectorValues(leafReaderContext);
-        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, context.getField());
+        final LeafReader leafReader = leafReaderContext.reader();
+        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(leafReader, context.getField());
         if (fieldInfo == null) {
-            log.debug("[KNN] FieldInfo is null for field [{}] in segment [{}]", context.getField(), LeafReaderUtil.leafReaderName(reader));
             return TopDocsCollector.EMPTY_TOPDOCS;
         }
+        final LeafReader reader = readerForVectorValues(leafReader);
 
         final VectorScorer vectorScorer = createVectorScorer(reader, fieldInfo, leafReaderContext, context);
         if (vectorScorer == null) {
@@ -130,8 +130,7 @@ public class ExactSearcher {
      * which is what this path used before, so normal search is unaffected. A leaf with no segment, such as
      * the {@code MemoryIndex} percolation builds, is used as is.
      */
-    private static LeafReader readerForVectorValues(final LeafReaderContext leafReaderContext) {
-        final LeafReader leafReader = leafReaderContext.reader();
+    private static LeafReader readerForVectorValues(final LeafReader leafReader) {
         final SegmentReader segmentReader = LeafReaderUtil.tryGetSegmentReader(leafReader);
         return segmentReader == null ? leafReader : segmentReader;
     }
@@ -163,12 +162,12 @@ public class ExactSearcher {
     }
 
     public Scorer exactSearchScorer(final LeafReaderContext leafReaderContext, final ExactSearcherContext context) throws IOException {
-        final LeafReader reader = readerForVectorValues(leafReaderContext);
-        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(reader, context.getField());
+        final LeafReader leafReader = leafReaderContext.reader();
+        final FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(leafReader, context.getField());
         if (fieldInfo == null) {
-            log.debug("[KNN] FieldInfo is null for field [{}] in segment [{}]", context.getField(), LeafReaderUtil.leafReaderName(reader));
             return null;
         }
+        final LeafReader reader = readerForVectorValues(leafReader);
 
         final VectorScorer vectorScorer = createVectorScorer(reader, fieldInfo, leafReaderContext, context);
         if (vectorScorer == null) {

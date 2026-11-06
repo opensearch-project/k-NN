@@ -16,7 +16,9 @@ import org.apache.lucene.search.Explanation;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.index.FilterLeafReader;
 import org.apache.lucene.index.FloatVectorValues;
+import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentCommitInfo;
 import org.apache.lucene.index.SegmentInfo;
@@ -101,6 +103,39 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.utils.TopDocsTestUtils.buildTopDocs;
 
 public class KNNWeightTests extends KNNWeightTestCase {
+    public void testSearchUsesWrappedFieldView() throws IOException {
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, null);
+        final KNNWeight knnWeight = new DefaultKNNWeight(query, 1.0f, null);
+        final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+        final SegmentReader segmentReader = mock(SegmentReader.class);
+        final FieldInfos underlyingFieldInfos = mock(FieldInfos.class);
+        when(segmentReader.getFieldInfos()).thenReturn(underlyingFieldInfos);
+        when(underlyingFieldInfos.fieldInfo(FIELD_NAME)).thenReturn(mock(FieldInfo.class));
+        final LeafReader filteredReader = new FilterLeafReader(segmentReader) {
+            @Override
+            public FieldInfos getFieldInfos() {
+                return new FieldInfos(new FieldInfo[0]);
+            }
+
+            @Override
+            public CacheHelper getCoreCacheHelper() {
+                return null;
+            }
+
+            @Override
+            public CacheHelper getReaderCacheHelper() {
+                return null;
+            }
+        };
+        when(leafReaderContext.reader()).thenReturn(filteredReader);
+
+        assertEquals(0, knnWeight.searchLeaf(leafReaderContext, K).getResult().scoreDocs.length);
+        assertEquals(0, knnWeight.approximateSearch(leafReaderContext, null, 0, K).scoreDocs.length);
+        assertEquals(0, knnWeight.exactSearch(leafReaderContext, mock(ExactSearcher.ExactSearcherContext.class)).scoreDocs.length);
+        assertFalse(knnWeight.explain(leafReaderContext, 0).isMatch());
+        assertFalse(knnWeight.explain(leafReaderContext, 0, 1.0f).isMatch());
+    }
+
     @SneakyThrows
     public void testQueryResultScoreNmslib() {
         for (SpaceType space : List.of(SpaceType.L2, SpaceType.L1, SpaceType.COSINESIMIL, SpaceType.INNER_PRODUCT, SpaceType.LINF)) {

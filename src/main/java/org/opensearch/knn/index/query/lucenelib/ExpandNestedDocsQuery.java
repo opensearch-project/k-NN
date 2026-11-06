@@ -21,6 +21,7 @@ import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.Bits;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
@@ -104,7 +105,16 @@ public class ExpandNestedDocsQuery extends Query {
         if (topK.scoreDocs.length == 0) {
             return new MatchNoDocsQuery().createWeight(searcher, scoreMode, boost);
         }
-        return queryUtils.createDocAndScoreQuery(reader, topK).createWeight(searcher, scoreMode, boost);
+        final int k = internalNestedKnnVectorQuery.getK();
+        final QueryUtils.ScoreExplainer explainer = queryUtils.exactSearchExplainer(
+            internalNestedKnnVectorQuery.getField(),
+            KNNConstants.ANN_SEARCH + " on parent documents",
+            isRescoreEnabled()
+                ? "rescored with " + KNNConstants.EXACT_SEARCH + " search on full precision vectors, kept top " + k + " parents"
+                : "kept top " + k + " parents",
+            "scored their nested documents with " + KNNConstants.EXACT_SEARCH + " search"
+        );
+        return queryUtils.createDocAndScoreQuery(reader, topK, explainer).createWeight(searcher, scoreMode, boost);
     }
 
     private boolean isRescoreEnabled() {
