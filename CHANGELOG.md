@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Establish a separate Mend dependency baseline for the 2.19 maintenance branch [#3665](https://github.com/opensearch-project/k-NN/pull/3665).
 * Fixed build issues happening due to Lucene 10.5.2 upgrade [#3631](https://github.com/opensearch-project/k-NN/pull/3631)
 * Use clustered test vectors and the api-snapshot builder image so remote index build ITs pass on cuVS 26.08 [#3627](https://github.com/opensearch-project/k-NN/pull/3627)
+* Route model index operations through the plugin subject instead of stashing the thread context [#3618](https://github.com/opensearch-project/k-NN/pull/3618)
 
 ### Infrastructure
 * Upgrade JaCoCo to 0.8.16 across projects to use ASM 9.11.1 [#3666](https://github.com/opensearch-project/k-NN/pull/3666)
