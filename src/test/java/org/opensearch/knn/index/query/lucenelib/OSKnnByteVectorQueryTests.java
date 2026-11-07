@@ -69,4 +69,28 @@ public class OSKnnByteVectorQueryTests extends TestCase {
 
         assertEquals(2, result.scoreDocs.length);
     }
+
+    public void testMergeLeafResultsWithRescore() {
+        String fieldName = "test_field";
+        byte[] queryVector = { 1, 2, 3 };
+        int luceneK = 6;
+        int k = 2;
+        int rescoreK = 4;
+        Query filterQuery = mock(Query.class);
+
+        OSKnnByteVectorQuery query = new OSKnnByteVectorQuery(fieldName, queryVector, luceneK, filterQuery, k, rescoreK);
+
+        ScoreDoc[] scoreDocs1 = { new ScoreDoc(1, 0.9f), new ScoreDoc(2, 0.8f), new ScoreDoc(5, 0.5f) };
+        ScoreDoc[] scoreDocs2 = { new ScoreDoc(3, 0.7f), new ScoreDoc(4, 0.6f), new ScoreDoc(6, 0.4f) };
+
+        TopDocs topDocs1 = new TopDocs(new TotalHits(3, TotalHits.Relation.EQUAL_TO), scoreDocs1);
+        TopDocs topDocs2 = new TopDocs(new TotalHits(3, TotalHits.Relation.EQUAL_TO), scoreDocs2);
+
+        TopDocs[] perLeafResults = { topDocs1, topDocs2 };
+
+        TopDocs result = query.mergeLeafResults(perLeafResults);
+
+        // When rescore is enabled, results are trimmed to rescoreK (not k, not luceneK)
+        assertEquals(rescoreK, result.scoreDocs.length);
+    }
 }

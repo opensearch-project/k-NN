@@ -637,6 +637,30 @@ public class KNNQueryFactoryTests extends KNNTestCase {
         }
     }
 
+    public void testCreate_whenRescoreWithByteVectorsWithoutExpandNested_thenWrapWithRescoreQuery() {
+        QueryShardContext queryShardContext = mock(QueryShardContext.class);
+        when(queryShardContext.getShardId()).thenReturn(0);
+
+        final KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.LUCENE)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .byteVector(testByteQueryVector)
+            .vectorDataType(VectorDataType.BYTE)
+            .k(testK)
+            .expandNested(false)
+            .rescoreContext(RescoreContext.getDefault())
+            .context(queryShardContext)
+            .build();
+
+        try (MockedStatic<ModelDao.OpenSearchKNNModelDao> mockedModelDao = mockStatic(ModelDao.OpenSearchKNNModelDao.class)) {
+            ModelDao.OpenSearchKNNModelDao mockInstance = mock(ModelDao.OpenSearchKNNModelDao.class);
+            mockedModelDao.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(mockInstance);
+            Query query = KNNQueryFactory.create(createQueryRequest);
+            assertEquals(RescoreKNNVectorQuery.class, query.getClass());
+        }
+    }
+
     public void testCreate_whenNoRescoreContext_thenNoRescoreWrapper() {
         QueryShardContext queryShardContext = mock(QueryShardContext.class);
         when(queryShardContext.getShardId()).thenReturn(0);

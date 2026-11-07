@@ -7,6 +7,7 @@ package org.opensearch.knn.index.query;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.document.KnnByteVectorField;
 import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
@@ -90,7 +91,14 @@ public class RescoreKnnVectorQueryTests extends OpenSearchTestCase {
                 try (MockedStatic<ModelDao.OpenSearchKNNModelDao> mocked = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)) {
                     mocked.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(mock(ModelDao.OpenSearchKNNModelDao.class));
                     IndexSearcher searcher = new IndexSearcher(reader);
-                    RescoreKNNVectorQuery rescoreKnnVectorQuery = new RescoreKNNVectorQuery(innerQuery, FIELD_NAME, finalK, queryVector, 1);
+                    RescoreKNNVectorQuery rescoreKnnVectorQuery = new RescoreKNNVectorQuery(
+                        innerQuery,
+                        FIELD_NAME,
+                        finalK,
+                        queryVector,
+                        null,
+                        1
+                    );
                     TopDocs rescoredDocs = searcher.search(rescoreKnnVectorQuery, finalK);
                     assertEquals(finalK, rescoredDocs.scoreDocs.length);
                     List<Float> actualScores = new ArrayList<>();
@@ -101,6 +109,116 @@ public class RescoreKnnVectorQueryTests extends OpenSearchTestCase {
                 }
             }
         }
+    }
+
+    private byte[] randomByteVector(int dimension) {
+        byte[] vector = new byte[dimension];
+        for (int i = 0; i < dimension; i++) {
+            vector[i] = randomByte();
+        }
+        return vector;
+    }
+
+    private static void addByteDocuments(List<byte[]> vectors, Directory directory) throws IOException {
+        try (IndexWriter w = new IndexWriter(directory, newIndexWriterConfig())) {
+            for (byte[] vector : vectors) {
+                Document document = new Document();
+                document.add(new KnnByteVectorField(FIELD_NAME, vector, VectorSimilarityFunction.EUCLIDEAN));
+                w.addDocument(document);
+                w.commit();
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testRescoreQuery_whenByteVectors() {
+        int docsCount = 15;
+        int dimension = 4;
+        int finalK = 5;
+        try (Directory directory = newDirectory()) {
+            List<byte[]> vectors = new ArrayList<>(docsCount);
+            for (int i = 0; i < docsCount; i++) {
+                vectors.add(randomByteVector(dimension));
+            }
+            addByteDocuments(vectors, directory);
+            try (IndexReader reader = DirectoryReader.open(directory)) {
+                byte[] queryVector = randomByteVector(dimension);
+                Query innerQuery = new MatchAllDocsQuery();
+                try (MockedStatic<ModelDao.OpenSearchKNNModelDao> mocked = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)) {
+                    mocked.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(mock(ModelDao.OpenSearchKNNModelDao.class));
+                    IndexSearcher searcher = new IndexSearcher(reader);
+                    RescoreKNNVectorQuery rescoreKnnVectorQuery = new RescoreKNNVectorQuery(
+                        innerQuery,
+                        FIELD_NAME,
+                        finalK,
+                        null,
+                        queryVector,
+                        1
+                    );
+                    TopDocs rescoredDocs = searcher.search(rescoreKnnVectorQuery, finalK);
+
+                    List<Float> expectedScores = new ArrayList<>();
+                    for (byte[] vector : vectors) {
+                        expectedScores.add(VectorSimilarityFunction.EUCLIDEAN.compare(queryVector, vector));
+                    }
+                    expectedScores.sort(Collections.reverseOrder());
+                    List<Float> actualScores = new ArrayList<>();
+                    for (ScoreDoc scoreDoc : rescoredDocs.scoreDocs) {
+                        actualScores.add(scoreDoc.score);
+                    }
+                    assertEquals(expectedScores.subList(0, finalK), actualScores);
+                }
+            }
+        }
+    }
+
+    public void testEqualsAndHashCode_comparesVectorContents() {
+        Query innerQuery = new MatchAllDocsQuery();
+        ExactSearcher exactSearcher = mock(ExactSearcher.class);
+        RescoreKNNVectorQuery floatQuery = new RescoreKNNVectorQuery(
+            innerQuery,
+            FIELD_NAME,
+            5,
+            new float[] { 1, 2 },
+            null,
+            1,
+            exactSearcher
+        );
+        RescoreKNNVectorQuery sameFloatQuery = new RescoreKNNVectorQuery(
+            innerQuery,
+            FIELD_NAME,
+            5,
+            new float[] { 1, 2 },
+            null,
+            1,
+            exactSearcher
+        );
+        RescoreKNNVectorQuery byteQuery = new RescoreKNNVectorQuery(innerQuery, FIELD_NAME, 5, null, new byte[] { 1, 2 }, 1, exactSearcher);
+        RescoreKNNVectorQuery sameByteQuery = new RescoreKNNVectorQuery(
+            innerQuery,
+            FIELD_NAME,
+            5,
+            null,
+            new byte[] { 1, 2 },
+            1,
+            exactSearcher
+        );
+        RescoreKNNVectorQuery otherByteQuery = new RescoreKNNVectorQuery(
+            innerQuery,
+            FIELD_NAME,
+            5,
+            null,
+            new byte[] { 1, 3 },
+            1,
+            exactSearcher
+        );
+
+        assertEquals(floatQuery, sameFloatQuery);
+        assertEquals(floatQuery.hashCode(), sameFloatQuery.hashCode());
+        assertEquals(byteQuery, sameByteQuery);
+        assertEquals(byteQuery.hashCode(), sameByteQuery.hashCode());
+        assertNotEquals(byteQuery, otherByteQuery);
+        assertNotEquals(floatQuery, byteQuery);
     }
 
     public void testRescore_withMockCalls() throws IOException {
@@ -133,6 +251,7 @@ public class RescoreKnnVectorQueryTests extends OpenSearchTestCase {
                 FIELD_NAME,
                 10,
                 new float[] { 1, 2 },
+                null,
                 1,
                 mockedExactSearcher
             );
