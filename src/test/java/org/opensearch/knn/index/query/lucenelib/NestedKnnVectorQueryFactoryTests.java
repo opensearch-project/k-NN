@@ -38,7 +38,8 @@ public class NestedKnnVectorQueryFactoryTests extends TestCase {
                 queryFilter,
                 parentFilter,
                 expandNestedDocs,
-                k
+                k,
+                RescoreContext.NO_RESCORE_NEEDED
             )
         );
 
@@ -122,7 +123,8 @@ public class NestedKnnVectorQueryFactoryTests extends TestCase {
             queryFilter,
             parentFilter,
             expandNestedDocs,
-            k
+            k,
+            RescoreContext.NO_RESCORE_NEEDED
         );
         assertEquals(OSDiversifyingChildrenByteKnnVectorQuery.class, byteQuery.getClass());
         assertTrue(byteQuery instanceof DiversifyingChildrenByteKnnVectorQuery);
