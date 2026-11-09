@@ -24,6 +24,9 @@
 #include "faiss/Index.h"
 #include "faiss/impl/IDSelector.h"
 #include "faiss/IndexIVFPQ.h"
+#include "faiss/IndexIVFRaBitQ.h"
+#include "faiss/IndexPreTransform.h"
+#include "faiss/VectorTransform.h"
 #include "commons.h"
 #include "faiss/IndexBinaryIVF.h"
 #include "faiss/IndexBinaryHNSW.h"
@@ -82,16 +85,47 @@ void InternalTrainIndex(faiss::Index * index, faiss::idx_t n, const float* x);
 // Train a binary index with data provided
 void InternalTrainBinaryIndex(faiss::IndexBinary * index, faiss::idx_t n, const uint8_t* x);
 
+// IVF RaBitQ indices are built as IndexPreTransform(RandomRotationMatrix, IndexIVFRaBitQ): RaBitQ's error bounds
+// assume randomly rotated vectors, and faiss::IndexIVFRaBitQ does not rotate on its own. Returns the IVF index
+// inside such a wrapper, the index itself when it is an IVF index, and nullptr otherwise.
+static faiss::IndexIVF* ExtractIVF(faiss::Index* index) {
+    if (auto* preTransform = dynamic_cast<faiss::IndexPreTransform*>(index)) {
+        return dynamic_cast<faiss::IndexIVFRaBitQ*>(preTransform->index);
+    }
+    return dynamic_cast<faiss::IndexIVF*>(index);
+}
+
+static const faiss::IndexIVF* ExtractIVF(const faiss::Index* index) {
+    return ExtractIVF(const_cast<faiss::Index*>(index));
+}
+
 // Validates that a deserialized template index is one of the types that the
 // k-NN train path legitimately produces. For IVF types, additionally validates
 // that inverted lists use only ArrayInvertedLists.
 //
 // Allowed types:
-//   IndexIVFFlat, IndexIVFPQ, IndexIVFScalarQuantizer (all are IndexIVF)
+//   IndexIVFFlat, IndexIVFPQ, IndexIVFScalarQuantizer, IndexIVFRaBitQ (all are IndexIVF)
+//   IndexPreTransform of only RandomRotationMatrix over IndexIVFRaBitQ
 //   IndexHNSWPQ
 static void validateTemplateIndex(faiss::Index* index) {
-    if (dynamic_cast<faiss::IndexIVF*>(index) != nullptr) {
-        auto* ivf = dynamic_cast<faiss::IndexIVF*>(index);
+    if (auto* preTransform = dynamic_cast<faiss::IndexPreTransform*>(index)) {
+        // The Java side builds the description in AbstractFaissMethod.adjustIndexDescription and adds exactly one
+        // "RR," prefix when the encoder is rabitq, giving "RR,IVF<nlist>,RaBitQ". So a template produced by the
+        // train path always has a single RandomRotationMatrix in its chain.
+        for (auto* transform : preTransform->chain) {
+            if (dynamic_cast<faiss::RandomRotationMatrix*>(transform) == nullptr) {
+                throw std::runtime_error(
+                    "Template index contains an unsupported vector transform. "
+                    "Only RandomRotationMatrix is allowed.");
+            }
+        }
+        if (dynamic_cast<faiss::IndexIVFRaBitQ*>(preTransform->index) == nullptr) {
+            throw std::runtime_error(
+                "Template index IndexPreTransform has an unsupported sub index. "
+                "Only IndexIVFRaBitQ is allowed.");
+        }
+    }
+    if (auto* ivf = ExtractIVF(index)) {
         if (ivf->invlists != nullptr &&
             dynamic_cast<faiss::ArrayInvertedLists*>(ivf->invlists) == nullptr) {
             throw std::runtime_error(
@@ -816,7 +850,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
             }
             searchParameters = &hnswParams;
         } else {
-            auto ivfReader = dynamic_cast<const faiss::IndexIVF*>(indexReader->index);
+            auto ivfReader = ExtractIVF(indexReader->index);
             auto ivfFlatReader = dynamic_cast<const faiss::IndexIVFFlat*>(indexReader->index);
             
             if(ivfReader || ivfFlatReader) {
@@ -850,7 +884,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
             }
             searchParameters = &hnswParams;
         } else {
-            auto ivfReader = dynamic_cast<const faiss::IndexIVF*>(indexReader->index);
+            auto ivfReader = ExtractIVF(indexReader->index);
             if (ivfReader) {
                 int indexNprobe = ivfReader->nprobe;
                 ivfParams.nprobe = commons::getIntegerMethodParameter(env, jniUtil, methodParams, NPROBES, indexNprobe);
@@ -1252,9 +1286,27 @@ void SetExtraParameters(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env,
                         const std::unordered_map<std::string, jobject>& parametersCpp, faiss::Index * index) {
 
     std::unordered_map<std::string,jobject>::const_iterator value;
-    if (auto * indexIvf = dynamic_cast<faiss::IndexIVF*>(index)) {
+    if (auto * indexIvf = ExtractIVF(index)) {
         if ((value = parametersCpp.find(knn_jni::NPROBES)) != parametersCpp.end()) {
             indexIvf->nprobe = jniUtil->ConvertJavaObjectToCppInteger(env, value->second);
+        }
+
+        // RaBitQ quantizes the query to qb bits (0 keeps it in float). It is stored with the index.
+        auto * indexIvfRaBitQ = dynamic_cast<faiss::IndexIVFRaBitQ*>(indexIvf);
+        if (indexIvfRaBitQ != nullptr && (value = parametersCpp.find(knn_jni::ENCODER)) != parametersCpp.end()) {
+            auto encoderCpp = jniUtil->ConvertJavaMapToCppMap(env, value->second);
+            auto encoderParameters = encoderCpp.find(knn_jni::PARAMETERS);
+            if (encoderParameters != encoderCpp.end()) {
+                auto encoderParametersCpp = jniUtil->ConvertJavaMapToCppMap(env, encoderParameters->second);
+                auto queryBits = encoderParametersCpp.find(knn_jni::QUERY_BITS);
+                if (queryBits != encoderParametersCpp.end()) {
+                    int qb = jniUtil->ConvertJavaObjectToCppInteger(env, queryBits->second);
+                    if (qb < 0 || qb > 8) {
+                        throw std::runtime_error("RaBitQ query_bits must be between 0 and 8");
+                    }
+                    indexIvfRaBitQ->qb = (uint8_t) qb;
+                }
+            }
         }
 
         if ((value = parametersCpp.find(knn_jni::COARSE_QUANTIZER)) != parametersCpp.end()
@@ -1277,7 +1329,7 @@ void SetExtraParameters(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env,
 }
 
 void InternalTrainIndex(faiss::Index * index, faiss::idx_t n, const float* x) {
-    if (auto * indexIvf = dynamic_cast<faiss::IndexIVF*>(index)) {
+    if (auto * indexIvf = ExtractIVF(index)) {
         if (indexIvf->quantizer_trains_alone == 2) {
             InternalTrainIndex(indexIvf->quantizer, n, x);
         }
@@ -1392,7 +1444,7 @@ jobjectArray knn_jni::faiss_wrapper::RangeSearchWithFilter(knn_jni::JNIUtilInter
             }
             searchParameters = &hnswParams;
         } else {
-            auto ivfReader = dynamic_cast<const faiss::IndexIVF*>(indexReader->index);
+            auto ivfReader = ExtractIVF(indexReader->index);
             auto ivfFlatReader = dynamic_cast<const faiss::IndexIVFFlat*>(indexReader->index);
             if(ivfReader || ivfFlatReader) {
                 ivfParams.sel = idSelector.get();

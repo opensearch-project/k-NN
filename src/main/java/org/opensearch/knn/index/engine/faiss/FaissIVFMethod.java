@@ -69,6 +69,7 @@ public class FaissIVFMethod extends AbstractFaissMethod {
     final static Encoder SQ_ENCODER = new FaissSQEncoder();
     final static Encoder IVF_PQ_ENCODER = new FaissIVFPQEncoder();
     final static Encoder QFRAME_BIT_ENCODER = new QFrameBitEncoder();
+    final static Encoder IVF_RABITQ_ENCODER = new FaissIVFRaBitQEncoder();
     final static Map<String, Encoder> SUPPORTED_ENCODERS = Map.of(
         FLAT_ENCODER.getName(),
         FLAT_ENCODER,
@@ -77,7 +78,9 @@ public class FaissIVFMethod extends AbstractFaissMethod {
         IVF_PQ_ENCODER.getName(),
         IVF_PQ_ENCODER,
         QFRAME_BIT_ENCODER.getName(),
-        QFRAME_BIT_ENCODER
+        QFRAME_BIT_ENCODER,
+        IVF_RABITQ_ENCODER.getName(),
+        IVF_RABITQ_ENCODER
     );
 
     final static MethodComponent IVF_COMPONENT = initMethodComponent();

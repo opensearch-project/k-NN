@@ -147,6 +147,12 @@ public class KNNConstants {
     public static final List<String> FAISS_SQ_ENCODER_TYPES = List.of(FAISS_SQ_ENCODER_FP16, FAISS_SQ_ENCODER_BF16);
     public static final String FAISS_SIGNED_BYTE_SQ = "SQ8_direct_signed";
     public static final String FAISS_SQ_CLIP = "clip";
+    public static final String ENCODER_RABITQ = "rabitq";
+    public static final String FAISS_RABITQ_DESCRIPTION = "RaBitQ";
+    public static final String ENCODER_PARAMETER_RABITQ_QUERY_BITS = "query_bits";
+    public static final int ENCODER_PARAMETER_RABITQ_QUERY_BITS_DEFAULT = 4;
+    public static final int ENCODER_PARAMETER_RABITQ_QUERY_BITS_MAX = 8;
+    public static final String FAISS_RANDOM_ROTATION_DESCRIPTION = "RR";
 
     // Parameter defaults/limits
     public static final Integer ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT = 1;

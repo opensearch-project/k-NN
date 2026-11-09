@@ -11,7 +11,12 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.engine.ResolvedIndexSpec;
+import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContextImpl;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -31,6 +36,7 @@ import java.util.Map;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_RABITQ;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
@@ -237,6 +243,88 @@ public class FaissTests extends KNNTestCase {
 
         assertTrue(map.containsKey(INDEX_DESCRIPTION_PARAMETER));
         assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
+    }
+
+    public void testGetKNNLibraryIndexingContext_whenMethodIsIVFRaBitQ_thenCreateCorrectIndexDescription() throws IOException {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(128)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+        int nlists = 88;
+        String expectedIndexDescription = String.format(Locale.ROOT, "RR,IVF%d,RaBitQ", nlists);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_IVF)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, nlists)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_RABITQ)
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+
+        Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .getLibraryParameters();
+
+        assertTrue(map.containsKey(INDEX_DESCRIPTION_PARAMETER));
+        assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
+    }
+
+    public void testResolvedSpec_whenIVFRaBitQModel_thenStaysOutOfQuantizedOnlyPaths() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(128)
+            .vectorDataType(VectorDataType.FLOAT)
+            // As ModelFieldMapper builds it: the trained compression is not user configured, so it implies no mode
+            .compressionLevel(CompressionLevel.x16)
+            .userConfiguredCompressionLevel(CompressionLevel.NOT_CONFIGURED)
+            .build();
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_IVF, Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_RABITQ, Map.of())))
+        );
+
+        ResolvedIndexSpec spec = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+            .getResolvedSpec()
+            .asModelBased();
+
+        assertEquals(Encoder.EncoderType.RABITQ, spec.getEncoderType());
+        // Ranking uses RaBitQ's estimator; full precision rescoring only when the query asks for it
+        assertFalse(spec.requiresRescore());
+        // Radial thresholds against estimated distances are not supported, as for PQ
+        assertFalse(spec.supportsRadialSearch());
+        assertFalse(spec.supportsRemoteIndexBuild());
+        assertFalse(spec.isMemoryOptimizedEligible());
+        assertFalse(spec.alwaysUseMemoryOptimizedSearch());
+    }
+
+    public void testValidateMethod_whenRaBitQ_thenOnlyValidForIVF() {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(org.opensearch.Version.CURRENT)
+            .dimension(128)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
+        MethodComponentContext rabitq = new MethodComponentContext(ENCODER_RABITQ, Map.of());
+
+        KNNMethodContext ivfRaBitQ = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_IVF, Map.of(METHOD_ENCODER_PARAMETER, rabitq))
+        );
+        assertNull(Faiss.INSTANCE.validateMethod(ivfRaBitQ, knnMethodConfigContext));
+
+        KNNMethodContext hnswRaBitQ = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, Map.of(METHOD_ENCODER_PARAMETER, rabitq))
+        );
+        assertNotNull(Faiss.INSTANCE.validateMethod(hnswRaBitQ, knnMethodConfigContext));
     }
 
     @SneakyThrows
