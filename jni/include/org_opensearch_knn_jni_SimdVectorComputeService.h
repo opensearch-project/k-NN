@@ -39,10 +39,10 @@ JNIEXPORT jfloat JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_sc
 /*
  * Class:     org_opensearch_knn_jni_SimdVectorComputeService
  * Method:    saveSQSearchContext
- * Signature: ([BFFFI[JIIF)V
+ * Signature: ([BFFFI[JIIFI)V
  */
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_SimdVectorComputeService_saveSQSearchContext
-  (JNIEnv *, jclass, jbyteArray, jfloat, jfloat, jfloat, jint, jlongArray, jint, jint, jfloat);
+  (JNIEnv *, jclass, jbyteArray, jfloat, jfloat, jfloat, jint, jlongArray, jint, jint, jfloat, jint);
 
 /*
  * Class:     org_opensearch_knn_jni_SimdVectorComputeService

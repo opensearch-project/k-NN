@@ -10,11 +10,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Add SQ 2-bit and 4-bit for half_float [#3603](https://github.com/opensearch-project/k-NN/pull/3603)
 * Validate the remote index build artifact extension against the destination engine's extension instead of hardcoding Faiss, so non-Faiss engines (e.g. cuVS) are not rejected [#3662](https://github.com/opensearch-project/k-NN/pull/3662)
 * Emit k-NN stats for the late interaction score function, counted once per query (`late_interaction_score_requests`) [#3509](https://github.com/opensearch-project/k-NN/pull/3509)
+* Add bulk SIMD scoring for SQ 2-bit and 4-bit HNSW search with runtime-dispatched kernels [#3669](https://github.com/opensearch-project/k-NN/pull/3669)
 
 ### Maintenance
 * Establish a separate Mend dependency baseline for the 2.19 maintenance branch [#3665](https://github.com/opensearch-project/k-NN/pull/3665).
 * Fixed build issues happening due to Lucene 10.5.2 upgrade [#3631](https://github.com/opensearch-project/k-NN/pull/3631)
 * Use clustered test vectors and the api-snapshot builder image so remote index build ITs pass on cuVS 26.08 [#3627](https://github.com/opensearch-project/k-NN/pull/3627)
+
+### Infrastructure
+* Upgrade JaCoCo to 0.8.16 across projects to use ASM 9.11.1 [#3666](https://github.com/opensearch-project/k-NN/pull/3666)
 
 ### Bug Fixes
 * Fix SIGSEGV in Faiss SQ HNSW build caused by 32-bit offset overflow for segments over 2 GiB of quantized vectors [#3653](https://github.com/opensearch-project/k-NN/pull/3653)

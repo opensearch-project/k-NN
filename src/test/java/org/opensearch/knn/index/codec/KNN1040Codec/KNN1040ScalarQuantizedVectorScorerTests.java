@@ -60,13 +60,12 @@ public class KNN1040ScalarQuantizedVectorScorerTests extends KNNTestCase {
     }
 
     /**
-     * For multi-bit encodings (B=2, B=4) the scorer must route to Lucene's reference scorer without
-     * touching {@code MemorySegmentAddressExtractorUtil} — native bulk SIMD is not wired for
-     * multi-bit yet. Parameterizing over {@link ScalarEncoding#DIBIT_QUERY_NIBBLE} and
-     * {@link ScalarEncoding#PACKED_NIBBLE} verifies the gate for both widths.
+     * Multi-bit encodings (B=2, B=4) take the native bulk SIMD path like B=1: the scorer asks
+     * {@code MemorySegmentAddressExtractorUtil} for the raw address of the vector slice. Here the extractor
+     * returns null, so the scorer falls back to Lucene's reference scorer.
      */
     @SneakyThrows
-    private void assertMultiBitFallback(final ScalarEncoding encoding) {
+    private void assertMultiBitUsesBulkSimdPath(final ScalarEncoding encoding) {
         final FlatVectorsScorer mockDelegate = mock(FlatVectorsScorer.class);
         final KNN1040ScalarQuantizedVectorScorer scorer = new KNN1040ScalarQuantizedVectorScorer(mockDelegate);
 
@@ -74,9 +73,11 @@ public class KNN1040ScalarQuantizedVectorScorerTests extends KNNTestCase {
         final QuantizedByteVectorValues mockQuantizedValues = mock(QuantizedByteVectorValues.class);
         when(mockQuantizedValues.dimension()).thenReturn(dimension);
         when(mockQuantizedValues.getScalarEncoding()).thenReturn(encoding);
+        final IndexInput mockIndexInput = mock(IndexInput.class);
+        when(mockQuantizedValues.getSlice()).thenReturn(mockIndexInput);
+        when(mockIndexInput.length()).thenReturn(1024L);
 
-        // Parent Lucene104ScalarQuantizedVectorScorer's reference path also runs a quantization —
-        // supply the same mocks the null-address test uses so it can complete without NPEs.
+        // The fallback runs the parent Lucene104ScalarQuantizedVectorScorer, which quantizes the query.
         final OptimizedScalarQuantizer mockQuantizer = mock(OptimizedScalarQuantizer.class);
         when(mockQuantizedValues.getQuantizer()).thenReturn(mockQuantizer);
         when(mockQuantizedValues.getCentroid()).thenReturn(new float[dimension]);
@@ -96,22 +97,32 @@ public class KNN1040ScalarQuantizedVectorScorerTests extends KNNTestCase {
         field.set(stub, mockQuantizedValues);
 
         try (MockedStatic<MemorySegmentAddressExtractorUtil> mockedStatic = Mockito.mockStatic(MemorySegmentAddressExtractorUtil.class)) {
+            mockedStatic.when(
+                () -> MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(
+                    any(IndexInput.class),
+                    Mockito.anyLong(),
+                    Mockito.anyLong()
+                )
+            ).thenReturn(null);
+
             final RandomVectorScorer result = scorer.getRandomVectorScorer(VectorSimilarityFunction.EUCLIDEAN, stub, new float[dimension]);
 
             assertNotNull(result);
-            // The multi-bit gate must fire before we even ask about the address — no interaction.
-            mockedStatic.verifyNoInteractions();
+            mockedStatic.verify(
+                () -> MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(mockIndexInput, 0L, 1024L),
+                Mockito.times(1)
+            );
         }
     }
 
     @SneakyThrows
-    public void testGetRandomVectorScorer_whenTwoBitEncoding_thenRoutesToLuceneScorerWithoutAddressExtraction() {
-        assertMultiBitFallback(ScalarEncoding.DIBIT_QUERY_NIBBLE);
+    public void testGetRandomVectorScorer_whenTwoBitEncoding_thenTriesBulkSimdPath() {
+        assertMultiBitUsesBulkSimdPath(ScalarEncoding.DIBIT_QUERY_NIBBLE);
     }
 
     @SneakyThrows
-    public void testGetRandomVectorScorer_whenFourBitEncoding_thenRoutesToLuceneScorerWithoutAddressExtraction() {
-        assertMultiBitFallback(ScalarEncoding.PACKED_NIBBLE);
+    public void testGetRandomVectorScorer_whenFourBitEncoding_thenTriesBulkSimdPath() {
+        assertMultiBitUsesBulkSimdPath(ScalarEncoding.PACKED_NIBBLE);
     }
 
     @SneakyThrows
@@ -130,8 +141,7 @@ public class KNN1040ScalarQuantizedVectorScorerTests extends KNNTestCase {
         when(mockIndexInput.length()).thenReturn(1024L);
 
         // Set up quantization mocks needed by the parent Lucene104ScalarQuantizedVectorScorer.
-        // Encoding is SINGLE_BIT_QUERY_NIBBLE (docBits == 1) so the multi-bit fallback gate does
-        // not fire — this test exercises the address-extractor null fallback specifically.
+        // Encoding is SINGLE_BIT_QUERY_NIBBLE (docBits == 1); this test exercises the address-extractor null fallback.
         when(mockQuantizedValues.dimension()).thenReturn(dimension);
         when(mockQuantizedValues.getScalarEncoding()).thenReturn(ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE);
 
@@ -179,8 +189,8 @@ public class KNN1040ScalarQuantizedVectorScorerTests extends KNNTestCase {
 
     /**
      * Exercises the encoding guard in {@code getScorer}: the scalar encoding is resolved via
-     * {@link ScalarEncodingResolver#docBits} to decide the scoring path (1-bit → native SIMD,
-     * 2/4-bit → Lucene fallback). An encoding whose bit width is outside the supported set
+     * {@link ScalarEncodingResolver#docBits}, which every supported width (1, 2, 4) passes on its way to the
+     * native SIMD path. An encoding whose bit width is outside the supported set
      * (here {@code UNSIGNED_BYTE}, 8 bits) is rejected up front with an
      * {@link IllegalArgumentException} before any scorer is built.
      */
