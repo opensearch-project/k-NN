@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix derived source returning another document's nested vectors when a parent has more nested docs than the first child lookup window [#3624](https://github.com/opensearch-project/k-NN/pull/3624)
 * Return model not found instead of the internal model index when getting a model before any model is trained [#3598](https://github.com/opensearch-project/k-NN/pull/3598)
 * Support rescoring with `expand_nested_docs` on the Lucene engine, so the final reduction to k counts parent documents instead of child documents [#3579](https://github.com/opensearch-project/k-NN/pull/3579)
+* Make memory-optimized search match the same documents as the query without it, so `hits.total` and aggregations do not change when it is toggled [#3591](https://github.com/opensearch-project/k-NN/pull/3591)
 
 ### Refactoring
 * Make the bulk SIMD kernels format aware: the FP16, BF16 and SQ kernels take the storage format (where a vector's values and correction factors live) as a compile-time parameter instead of hard-coding the Lucene layout, and the Java/JNI similarity function type carries an explicit wire value [#3645](https://github.com/opensearch-project/k-NN/pull/3645)
