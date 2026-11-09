@@ -32,12 +32,12 @@ import java.io.IOException;
 import java.util.Map;
 
 /**
- * Tracks domain adoption of the late interaction scoring function.
+ * Emits stats for the late interaction score function.
  *
  * <p>The {@code lateInteractionScore} Painless function is a static, per-document
  * allowlisted method, so incrementing inside it counts once per scored document
- * (a single request scoring N docs would count N times). To measure adoption at
- * the request level, this listener instead increments the counter once per
+ * (a single request scoring N docs would count N times). To count at the request
+ * level, this listener instead increments the counter once per
  * shard-level query phase whose source uses the function. This matches the
  * granularity of the other k-NN query counters (e.g. {@code knn_query_requests}),
  * which are also node/shard-level, and it does not touch the Painless API.
@@ -168,7 +168,7 @@ public class LateInteractionStatsSearchListener implements SearchOperationListen
             }
             return Script.parse(script);
         } catch (IOException | RuntimeException e) {
-            // Stats tracking must never fail a search.
+            // Emitting stats must never fail a search.
             return null;
         }
     }

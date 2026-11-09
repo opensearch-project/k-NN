@@ -31,7 +31,7 @@ public class LateInteractionScoreStatsIT extends KNNRestTestCase {
     private static final String STAT_NAME = "late_interaction_score_requests";
 
     /**
-     * Verifies that the counter tracks adoption at the query level, not the document level.
+     * Verifies that the counter increments at the query level, not the document level.
      *
      * <p>The index is created with a single primary shard so the per-shard counter is
      * deterministic, and two multi-vector documents are indexed. Two late interaction
