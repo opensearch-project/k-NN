@@ -11,7 +11,11 @@ import lombok.NonNull;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.SegmentInfo;
+import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.store.DataAccessHint;
+import org.apache.lucene.store.FileDataHint;
+import org.apache.lucene.store.FileTypeHint;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
@@ -168,5 +172,12 @@ public class KNNCodecUtil {
             return engine;
         }
         return null;
+    }
+
+    /**
+     * Read state for flat vectors that an HNSW graph walks, so their mapping is advised for random access.
+     */
+    public static SegmentReadState updateVectorFileAccessHint(final SegmentReadState state) {
+        return state.withHints(FileTypeHint.DATA, FileDataHint.KNN_VECTORS, DataAccessHint.RANDOM);
     }
 }

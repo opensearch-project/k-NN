@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.opensearch.knn.common.KNNConstants.SQ_CONFIG;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.updateVectorFileAccessHint;
 
 /**
  * Dedicated format for Faiss SQ vector fields.
@@ -181,7 +182,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
     public KnnVectorsReader fieldsReader(SegmentReadState state) throws IOException {
         return new Faiss1040ScalarQuantizedKnnVectorsReader(
             state,
-            new Faiss1040ScalarQuantizedFlatVectorsReader(flatFormatFor().fieldsReader(state))
+            new Faiss1040ScalarQuantizedFlatVectorsReader(flatFormatFor().fieldsReader(updateVectorFileAccessHint(state)))
         );
     }
 
