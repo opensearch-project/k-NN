@@ -23,8 +23,11 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.lucene.util.VectorUtil;
 import org.junit.BeforeClass;
 import org.opensearch.client.Response;
+import org.opensearch.knn.index.query.parser.RescoreParser;
+import org.opensearch.client.Request;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.client.ResponseException;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -33,6 +36,7 @@ import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.CompressionTestConfig;
 import org.opensearch.knn.KNNCompressionRestTestCase;
+import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
@@ -59,6 +63,7 @@ import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_RABITQ;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
@@ -1527,6 +1532,228 @@ public class FaissIT extends KNNCompressionRestTestCase {
         queryTestData(indexName, fieldName, dimension, numDocs, Map.of("nprobes", 100));
         deleteKNNIndex(indexName);
         validateGraphEviction();
+    }
+
+    @SneakyThrows
+    public void testIVFRaBitQ_whenFeatureFlagDisabled_thenTrainingRejected() {
+        String trainingIndexName = "train-index-ivf-rabitq-disabled";
+        String trainingFieldName = "train-field-ivf-rabitq-disabled";
+        int dimension = 16;
+        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
+
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_IVF)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, 4)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_RABITQ)
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> method = xContentBuilderToMap(builder);
+
+        ResponseException e = expectThrows(
+            ResponseException.class,
+            () -> trainModel("test-model-ivf-rabitq-disabled", trainingIndexName, trainingFieldName, dimension, method, "disabled")
+        );
+        assertEquals(RestStatus.BAD_REQUEST.getStatus(), e.getResponse().getStatusLine().getStatusCode());
+        assertTrue(e.getMessage().contains(KNNFeatureFlags.KNN_RABITQ_ENABLED_SETTING.getKey()));
+    }
+
+    @SneakyThrows
+    public void testIVFRaBitQ_whenIndexedQueriedMergedAndReopened_thenSucceed() {
+        updateClusterSettings(KNNFeatureFlags.KNN_RABITQ_ENABLED_SETTING.getKey(), true);
+        String modelId = "test-model-ivf-rabitq";
+        int dimension = 128;
+        int nlist = 8;
+        int numDocs = 100;
+
+        String trainingIndexName = "train-index-ivf-rabitq";
+        String trainingFieldName = "train-field-ivf-rabitq";
+        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
+        bulkIngestRandomVectors(trainingIndexName, trainingFieldName, 1100, dimension);
+
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_IVF)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, nlist)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_RABITQ)
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> method = xContentBuilderToMap(builder);
+
+        trainModel(modelId, trainingIndexName, trainingFieldName, dimension, method, "faiss ivf rabitq test description");
+        assertTrainingSucceeds(modelId, 30, 1000);
+
+        String fieldName = "test-field-name-ivf-rabitq";
+        String indexName = "test-index-name-ivf-rabitq";
+        String indexMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field(MODEL_ID, modelId)
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+        createKnnIndex(indexName, getKNNDefaultIndexSettings(), indexMapping);
+
+        // Ingest in two refreshes so search spans more than one segment, then merge them into one
+        for (int i = 0; i < numDocs; i++) {
+            float[] indexVector = new float[dimension];
+            Arrays.fill(indexVector, (float) i);
+            addKnnDoc(indexName, Integer.toString(i), fieldName, indexVector);
+            if (i == numDocs / 2) {
+                refreshIndex(indexName);
+            }
+        }
+        refreshIndex(indexName);
+        assertEquals(numDocs, getDocCount(indexName));
+
+        assertRaBitQTopK(indexName, fieldName, dimension, numDocs, nlist);
+
+        forceMergeKnnIndex(indexName, 1);
+        assertRaBitQTopK(indexName, fieldName, dimension, numDocs, nlist);
+
+        // The merged segment's index is serialized and reloaded from disk after reopening
+        closeKNNIndex(indexName);
+        Response openResponse = client().performRequest(new Request("POST", "/" + indexName + "/_open"));
+        assertOK(openResponse);
+        ensureGreen(indexName);
+        assertRaBitQTopK(indexName, fieldName, dimension, numDocs, nlist);
+
+        // Explicitly requested rescoring re-ranks RaBitQ's candidates with the full precision vectors
+        float[] queryVector = new float[dimension];
+        Arrays.fill(queryVector, (float) numDocs);
+        int k = 10;
+        XContentBuilder rescoreQuery = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("knn")
+            .startObject(fieldName)
+            .field("vector", queryVector)
+            .field("k", k)
+            .startObject("method_parameters")
+            .field(METHOD_PARAMETER_NPROBES, nlist)
+            .endObject()
+            .startObject(RescoreParser.RESCORE_PARAMETER)
+            .field(RescoreParser.RESCORE_OVERSAMPLE_PARAMETER, 2.0f)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Response searchResponse = searchKNNIndex(indexName, rescoreQuery, k);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), fieldName);
+        assertEquals(k, results.size());
+        for (int i = 0; i < k; i++) {
+            assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
+        }
+
+        deleteKNNIndex(indexName);
+        validateGraphEviction();
+    }
+
+    @SneakyThrows
+    public void testIVFRaBitQ_whenCosine_thenIndexedVectorIsAmongItsNearest() {
+        updateClusterSettings(KNNFeatureFlags.KNN_RABITQ_ENABLED_SETTING.getKey(), true);
+        String modelId = "test-model-ivf-rabitq-cosine";
+        int dimension = 64;
+        int nlist = 4;
+        int numDocs = 200;
+
+        String trainingIndexName = "train-index-ivf-rabitq-cosine";
+        String trainingFieldName = "train-field-ivf-rabitq-cosine";
+        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
+        bulkIngestRandomVectors(trainingIndexName, trainingFieldName, 1100, dimension);
+
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_IVF)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.COSINESIMIL.getValue())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, nlist)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_RABITQ)
+            .endObject()
+            .endObject()
+            .endObject();
+        trainModel(modelId, trainingIndexName, trainingFieldName, dimension, xContentBuilderToMap(builder), "faiss ivf rabitq cosine");
+        assertTrainingSucceeds(modelId, 30, 1000);
+
+        String fieldName = "test-field-name-ivf-rabitq-cosine";
+        String indexName = "test-index-name-ivf-rabitq-cosine";
+        String indexMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field(MODEL_ID, modelId)
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+        createKnnIndex(indexName, getKNNDefaultIndexSettings(), indexMapping);
+
+        // Vectors of very different norms: cosine must rank by direction, so the plugin's normalization has to reach
+        // both the indexed vectors and the query
+        Random random = new Random(42);
+        float[][] vectors = new float[numDocs][dimension];
+        for (int i = 0; i < numDocs; i++) {
+            float scale = 1 + random.nextInt(100);
+            for (int j = 0; j < dimension; j++) {
+                vectors[i][j] = scale * (random.nextFloat() * 2 - 1);
+            }
+            addKnnDoc(indexName, Integer.toString(i), fieldName, vectors[i]);
+        }
+        refreshIndex(indexName);
+
+        int k = 10;
+        for (int i = 0; i < 10; i++) {
+            float[] query = vectors[i].clone();
+            for (int j = 0; j < dimension; j++) {
+                query[j] *= 0.01f;
+            }
+            Response searchResponse = searchKNNIndex(
+                indexName,
+                buildSearchQuery(fieldName, k, query, Map.of(METHOD_PARAMETER_NPROBES, nlist)),
+                k
+            );
+            List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), fieldName);
+            assertEquals(k, results.size());
+            String expectedId = Integer.toString(i);
+            assertTrue(results.stream().anyMatch(result -> expectedId.equals(result.getDocId())));
+        }
+
+        deleteKNNIndex(indexName);
+    }
+
+    // RaBitQ ranks with estimated distances, so near ties among the closest documents may swap; every hit must still
+    // come from the true nearest 2k (documents numDocs - 1 downwards for this query).
+    private void assertRaBitQTopK(String indexName, String fieldName, int dimension, int numDocs, int nprobes) throws Exception {
+        float[] queryVector = new float[dimension];
+        Arrays.fill(queryVector, (float) numDocs);
+        int k = 10;
+        Response searchResponse = searchKNNIndex(
+            indexName,
+            buildSearchQuery(fieldName, k, queryVector, Map.of(METHOD_PARAMETER_NPROBES, nprobes)),
+            k
+        );
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), fieldName);
+        assertEquals(k, results.size());
+        for (KNNResult result : results) {
+            assertTrue(Integer.parseInt(result.getDocId()) >= numDocs - 2 * k);
+        }
     }
 
     @SneakyThrows

@@ -17,6 +17,8 @@ import org.opensearch.knn.index.mapper.VectorTransformerFactory;
 import java.util.Objects;
 import java.util.Set;
 
+import static org.opensearch.knn.common.KNNConstants.ENCODER_RABITQ;
+import static org.opensearch.knn.common.KNNConstants.FAISS_RANDOM_ROTATION_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SIGNED_BYTE_SQ;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.index.engine.faiss.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
@@ -108,6 +110,10 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
         // framework
         if (encoderContext != null && Objects.equals(encoderContext.getName(), QFrameBitEncoder.NAME)) {
             prefix = FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
+        }
+        // RaBitQ's estimator assumes randomly rotated vectors; Faiss applies the rotation as a pre-transform
+        if (encoderContext != null && Objects.equals(encoderContext.getName(), ENCODER_RABITQ)) {
+            prefix = FAISS_RANDOM_ROTATION_DESCRIPTION + ",";
         }
 
         if (knnMethodConfigContext.getVectorDataType() == VectorDataType.BINARY) {

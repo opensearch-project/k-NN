@@ -720,6 +720,8 @@ const std::string knn_jni::HAMMING = "hamming";
 
 const std::string knn_jni::NPROBES = "nprobes";
 const std::string knn_jni::COARSE_QUANTIZER = "coarse_quantizer";
+const std::string knn_jni::ENCODER = "encoder";
+const std::string knn_jni::QUERY_BITS = "query_bits";
 const std::string knn_jni::M = "m";
 const std::string knn_jni::M_NMSLIB = "M";
 const std::string knn_jni::EF_CONSTRUCTION = "ef_construction";
