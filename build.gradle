@@ -202,6 +202,11 @@ allprojects {
     plugins.withId('java') {
         sourceCompatibility = targetCompatibility = "11"
     }
+    plugins.withId('jacoco') {
+        jacoco {
+            toolVersion = "0.8.16"
+        }
+    }
 
     afterEvaluate {
         project.dependencyLicenses.enabled = false
