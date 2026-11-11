@@ -129,4 +129,31 @@ public class OSDiversifyingChildrenByteKnnVectorQueryTests extends TestCase {
 
         assertEquals(2, result.scoreDocs.length);
     }
+
+    public void testMergeLeafResultsWithRescoreEnabled() {
+        byte[] queryVector = { 1, 2, 3 };
+        int k = 3;
+        int rescoreK = 6;
+        OSDiversifyingChildrenByteKnnVectorQuery query = new OSDiversifyingChildrenByteKnnVectorQuery(
+            "test_field",
+            queryVector,
+            mock(Query.class),
+            10,
+            mock(BitSetProducer.class),
+            k,
+            rescoreK
+        );
+
+        ScoreDoc[] scoreDocs1 = { new ScoreDoc(1, 0.9f), new ScoreDoc(2, 0.8f), new ScoreDoc(5, 0.5f) };
+        ScoreDoc[] scoreDocs2 = { new ScoreDoc(3, 0.7f), new ScoreDoc(4, 0.6f), new ScoreDoc(6, 0.4f) };
+
+        TopDocs[] perLeafResults = {
+            new TopDocs(new TotalHits(3, TotalHits.Relation.EQUAL_TO), scoreDocs1),
+            new TopDocs(new TotalHits(3, TotalHits.Relation.EQUAL_TO), scoreDocs2) };
+
+        TopDocs result = query.mergeLeafResults(perLeafResults);
+
+        // When rescoreK > 0, should trim to rescoreK (not luceneK or k)
+        assertEquals(rescoreK, result.scoreDocs.length);
+    }
 }

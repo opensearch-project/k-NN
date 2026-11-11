@@ -246,9 +246,10 @@ public class QueryUtils {
      * runs an exact search restricted to the candidates, always over full precision vectors, and reports the
      * time it took under {@link KNNQueryTimingType#EXACT_SEARCH} when the search is being profiled.
      *
-     * Only the float, non-radial rescore path is covered, which is what the Lucene engine queries need. The
-     * native engine queries carry extra context (radius, byte vectors, memory optimized search) and go through
-     * {@link org.opensearch.knn.index.query.KNNWeight#exactSearch} instead.
+     * Only the non-radial rescore path is covered, which is what the Lucene engine queries need. Pass the float
+     * query vector for float fields and the byte query vector for byte fields; the exact search picks the one
+     * matching the field's vector data type. The native engine queries carry extra context (radius, memory
+     * optimized search) and go through {@link org.opensearch.knn.index.query.KNNWeight#exactSearch} instead.
      *
      * Deliberately static rather than an instance method: callers that mock this class to stub out the
      * surrounding search steps still exercise the real context construction here.
@@ -257,7 +258,8 @@ public class QueryUtils {
      * @param profile breakdown to report the exact search time to, or null when the search is not being profiled
      * @param leafReaderContext the leaf reader context
      * @param field the vector field being searched
-     * @param floatQueryVector the full precision query vector
+     * @param floatQueryVector the full precision query vector, for float fields
+     * @param byteQueryVector the query vector, for byte fields
      * @param matchedDocs the candidates to re-score
      * @param k the number of results to keep; pass the candidate count to keep all of them
      * @param parentsFilter when non-null, collapses each parent group to its best scoring child before the
@@ -270,7 +272,8 @@ public class QueryUtils {
         @Nullable final ContextualProfileBreakdown profile,
         final LeafReaderContext leafReaderContext,
         final String field,
-        final float[] floatQueryVector,
+        @Nullable final float[] floatQueryVector,
+        @Nullable final byte[] byteQueryVector,
         final DocIdSetIterator matchedDocs,
         final int k,
         @Nullable final BitSetProducer parentsFilter
@@ -283,6 +286,7 @@ public class QueryUtils {
             .k(k)
             .field(field)
             .floatQueryVector(floatQueryVector)
+            .byteQueryVector(byteQueryVector)
             .parentsFilter(parentsFilter)
             .build();
         return (TopDocs) KNNProfileUtil.profileBreakdown(

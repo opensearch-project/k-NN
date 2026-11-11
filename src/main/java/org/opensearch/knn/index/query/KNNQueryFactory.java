@@ -164,7 +164,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
             return luceneKnnQuery;
         }
 
-        return new RescoreKNNVectorQuery(luceneKnnQuery, fieldName, k, vector, shardId);
+        return new RescoreKNNVectorQuery(luceneKnnQuery, fieldName, k, vector, byteVector, shardId);
     }
 
     private static int getDimension(float[] floatQueryVector, byte[] byteQueryVector) {
@@ -205,7 +205,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
             assert expandNested == false : "expandNested is allowed to be true only for nested fields.";
             return (vectorDataType == VectorDataType.FLOAT || vectorDataType == VectorDataType.HALF_FLOAT)
                 ? new OSKnnFloatVectorQuery(fieldName, floatQueryVector, luceneK, filterQuery, k, rescoreK)
-                : new OSKnnByteVectorQuery(fieldName, byteQueryVector, luceneK, filterQuery, k);
+                : new OSKnnByteVectorQuery(fieldName, byteQueryVector, luceneK, filterQuery, k, rescoreK);
         }
         // If parentFilter is not null, it is a nested query. Therefore, we delegate creation of query to {@link
         // NestedKnnVectorQueryFactory}
@@ -228,7 +228,8 @@ public class KNNQueryFactory extends BaseQueryFactory {
                 filterQuery,
                 parentFilter,
                 expandNested,
-                k
+                k,
+                rescoreK
             );
     }
 }

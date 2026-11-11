@@ -30,6 +30,7 @@ import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Callable;
@@ -41,6 +42,7 @@ public class RescoreKNNVectorQuery extends Query {
     private final String field;
     private final int k;
     private final float[] queryVector;
+    private final byte[] byteQueryVector;
     // Note: ideally query should not have to deal with shard level information. Adding it for logging purposes only
     // TODO: ThreadContext does not work with logger, remove this from here once its figured out
     private final int shardId;
@@ -52,23 +54,28 @@ public class RescoreKNNVectorQuery extends Query {
      * @param innerQuery  The initial query to execute before rescoring
      * @param field      The field name containing the vector data
      * @param k          The number of nearest neighbors to return
-     * @param queryVector The vector to compare against document vectors
+     * @param queryVector The vector to compare against document vectors, for float fields
+     * @param byteQueryVector The vector to compare against document vectors, for byte fields
      */
-    public RescoreKNNVectorQuery(Query innerQuery, String field, int k, float[] queryVector, int shardId) {
-        this.innerQuery = innerQuery;
-        this.field = field;
-        this.k = k;
-        this.queryVector = queryVector;
-        this.shardId = shardId;
-        this.exactSearcher = new ExactSearcher(ModelDao.OpenSearchKNNModelDao.getInstance());
+    public RescoreKNNVectorQuery(Query innerQuery, String field, int k, float[] queryVector, byte[] byteQueryVector, int shardId) {
+        this(innerQuery, field, k, queryVector, byteQueryVector, shardId, new ExactSearcher(ModelDao.OpenSearchKNNModelDao.getInstance()));
     }
 
     @VisibleForTesting
-    public RescoreKNNVectorQuery(Query innerQuery, String field, int k, float[] queryVector, int shardId, ExactSearcher searcher) {
+    public RescoreKNNVectorQuery(
+        Query innerQuery,
+        String field,
+        int k,
+        float[] queryVector,
+        byte[] byteQueryVector,
+        int shardId,
+        ExactSearcher searcher
+    ) {
         this.innerQuery = innerQuery;
         this.field = field;
         this.k = k;
         this.queryVector = queryVector;
+        this.byteQueryVector = byteQueryVector;
         this.shardId = shardId;
         this.exactSearcher = searcher;
     }
@@ -126,6 +133,7 @@ public class RescoreKNNVectorQuery extends Query {
             leafReaderContext,
             field,
             queryVector,
+            byteQueryVector,
             scorer.iterator(),
             k,
             null
@@ -186,7 +194,8 @@ public class RescoreKNNVectorQuery extends Query {
         }
         RescoreKNNVectorQuery other = (RescoreKNNVectorQuery) obj;
         return Objects.equals(innerQuery, other.innerQuery)
-            && Objects.equals(queryVector, other.queryVector)
+            && Arrays.equals(queryVector, other.queryVector)
+            && Arrays.equals(byteQueryVector, other.byteQueryVector)
             && Objects.equals(field, other.field)
             && k == other.k
             && shardId == other.shardId;
@@ -194,6 +203,6 @@ public class RescoreKNNVectorQuery extends Query {
 
     @Override
     public int hashCode() {
-        return Objects.hash(innerQuery, queryVector, field, k, shardId);
+        return Objects.hash(innerQuery, Arrays.hashCode(queryVector), Arrays.hashCode(byteQueryVector), field, k, shardId);
     }
 }

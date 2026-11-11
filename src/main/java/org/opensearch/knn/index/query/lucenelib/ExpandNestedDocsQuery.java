@@ -177,6 +177,7 @@ public class ExpandNestedDocsQuery extends Query {
                     leafReaderContext,
                     internalNestedKnnVectorQuery.getField(),
                     floatQueryVector,
+                    null,
                     allSiblings,
                     k,
                     // passing the parent filter makes the searcher collapse each parent group to its best child
@@ -262,6 +263,7 @@ public class ExpandNestedDocsQuery extends Query {
             leafReaderContext,
             internalNestedKnnVectorQuery.getField(),
             floatQueryVector,
+            null,
             allSiblings,
             // every sibling keeps its own score, so no top-k cut and no parent filter here
             (int) allSiblings.cost(),
