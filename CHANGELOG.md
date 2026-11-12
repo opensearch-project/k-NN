@@ -31,4 +31,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Upgrade JaCoCo to 0.8.16 across projects to use ASM 9.11.1 [#3670](https://github.com/opensearch-project/k-NN/pull/3670)
 ### Documentation
 ### Maintenance
+* Bump Guava from 32.1.3-jre to 33.7.2-jre and failureaccess from 1.0.1 to 1.0.3
 ### Refactoring
