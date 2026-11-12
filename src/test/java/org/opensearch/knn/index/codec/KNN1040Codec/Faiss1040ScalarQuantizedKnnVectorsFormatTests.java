@@ -18,6 +18,7 @@ import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.search.Sort;
+import org.apache.lucene.store.DataAccessHint;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
@@ -36,6 +37,9 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.faiss.SQConfig;
 import org.opensearch.knn.index.engine.faiss.SQConfigParser;
 
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -100,7 +104,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormatTests extends KNNTestCase {
             directory,
             mockedSegmentInfo,
             fieldInfos,
-            mock(IOContext.class),
+            IOContext.DEFAULT,
             ""
         );
 
@@ -280,7 +284,7 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormatTests extends KNNTestCase {
             directory,
             mockedSegmentInfo,
             fieldInfos,
-            mock(IOContext.class),
+            IOContext.DEFAULT,
             ""
         );
 
@@ -332,4 +336,27 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormatTests extends KNNTestCase {
         }
     }
 
+    @SneakyThrows
+    public void testFieldsReader_thenRawAndQuantizedVectorsAdvisedForRandomAccess() {
+        try (MMapDirectory dir = new MMapDirectory(createTempDir())) {
+            final Faiss1040ScalarQuantizedKnnVectorsFormat format = new Faiss1040ScalarQuantizedKnnVectorsFormat();
+            final SegmentReadState writtenState = KNN1040ScalarQuantizedTestUtils.writeQuantizedVectors(
+                dir,
+                format.getFaissSqFlatFormat(),
+                random()
+            );
+            final Set<String> randomAccessFiles = ConcurrentHashMap.newKeySet();
+            dir.setReadAdvice((name, context) -> {
+                if (context.hints().contains(DataAccessHint.RANDOM)) {
+                    randomAccessFiles.add(name);
+                }
+                return Optional.empty();
+            });
+
+            try (KnnVectorsReader ignored = format.fieldsReader(writtenState)) {
+                assertTrue(randomAccessFiles.toString(), randomAccessFiles.stream().anyMatch(name -> name.endsWith(".vec")));
+                assertTrue(randomAccessFiles.toString(), randomAccessFiles.stream().anyMatch(name -> name.endsWith(".veq")));
+            }
+        }
+    }
 }
