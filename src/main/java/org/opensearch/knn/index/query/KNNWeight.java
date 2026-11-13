@@ -231,6 +231,10 @@ public abstract class KNNWeight extends Weight {
                     .append(" search since exact search is disabled,");
             } else if (exhaustedSearch) {
                 sb.append(KNNConstants.EXACT_SEARCH).append(" since lucene vector search has exhausted number of steps.");
+            } else if (knnQuery.getRadius() != null) {
+                sb.append(KNNConstants.EXACT_SEARCH)
+                    .append(" since radial search returned no documents and there are filtered Ids = ")
+                    .append(cardinality);
             } else {
                 sb.append(KNNConstants.EXACT_SEARCH)
                     .append(" since the number of documents returned are less than K = ")
@@ -819,6 +823,12 @@ public abstract class KNNWeight extends Weight {
     ) {
         if (filterWeight == null) {
             return false;
+        }
+        if (knnQuery.getRadius() != null) {
+            // A radial query has no k (it is 0), so the k check below never fires. The filter matched at least one
+            // doc here (an empty filter returns before ANN search), so an empty ANN result may be a miss: filtered
+            // HNSW traversal can stop before reaching docs inside the radius.
+            return annResultCount == 0 || annSearchBudgetExhausted;
         }
         if (filterIdsCount < knnQuery.getK()) {
             return false;
