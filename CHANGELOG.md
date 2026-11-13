@@ -31,4 +31,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Upgrade JaCoCo to 0.8.16 across projects to use ASM 9.11.1 [#3670](https://github.com/opensearch-project/k-NN/pull/3670)
 ### Documentation
 ### Maintenance
+* Bump Guava from 32.1.3-jre to 33.8.0-jre and failureaccess from 1.0.1 to 1.0.3
+* Bump OpenSearch to 2.19.8-SNAPSHOT to pick up Jackson 2.18.12 and zstd-jni 1.5.7-25 ([opensearch-project/OpenSearch#23629](https://github.com/opensearch-project/OpenSearch/pull/23629))
 ### Refactoring

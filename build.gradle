@@ -15,7 +15,7 @@ buildscript {
     ext {
         // build.version_qualifier parameter applies to knn plugin artifacts only. OpenSearch version must be set
         // explicitly as 'opensearch.version' property, for instance opensearch.version=2.0.0-rc1-SNAPSHOT
-        opensearch_version = System.getProperty("opensearch.version", "2.19.7-SNAPSHOT")
+        opensearch_version = System.getProperty("opensearch.version", "2.19.8-SNAPSHOT")
         version_qualifier = System.getProperty("build.version_qualifier", "")
         opensearch_group = "org.opensearch"
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
@@ -320,8 +320,8 @@ task release(type: Copy, group: 'build') {
 dependencies {
     api "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
-    api group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
-    api group: 'com.google.guava', name: 'guava', version:'32.1.3-jre'
+    api group: 'com.google.guava', name: 'failureaccess', version:'1.0.3'
+    api group: 'com.google.guava', name: 'guava', version:'33.8.0-jre'
     api "org.apache.commons:commons-lang3:${versions.commonslang}"
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.15.10'
