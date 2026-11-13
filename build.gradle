@@ -321,7 +321,7 @@ dependencies {
     api "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
     api group: 'com.google.guava', name: 'failureaccess', version:'1.0.3'
-    api group: 'com.google.guava', name: 'guava', version:'33.7.2-jre'
+    api group: 'com.google.guava', name: 'guava', version:'33.8.0-jre'
     api "org.apache.commons:commons-lang3:${versions.commonslang}"
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.15.10'
