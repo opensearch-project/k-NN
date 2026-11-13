@@ -37,6 +37,7 @@ import org.apache.lucene.util.FixedBitSet;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
 import org.mockito.MockedConstruction;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.common.FieldInfoExtractor;
@@ -90,6 +91,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -1656,6 +1658,108 @@ public class KNNWeightTests extends KNNWeightTestCase {
         }
         assertEquals(docIdSetIterator.cost(), actualDocIds.size());
         assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
+    }
+
+    @SneakyThrows
+    public void testRadialSearchWithFilter_whenANNReturnsNoDocs_thenFallBackToExactSearch() {
+        final float radius = 0.5f;
+        final ExactSearcher exactSearcher = runFilteredRadialSearch(radius, new KNNQueryResult[0]);
+
+        final ArgumentCaptor<ExactSearcher.ExactSearcherContext> exactContext = ArgumentCaptor.forClass(
+            ExactSearcher.ExactSearcherContext.class
+        );
+        verify(exactSearcher).searchLeaf(any(), exactContext.capture());
+        assertEquals(radius, exactContext.getValue().getRadius(), 0.0f);
+    }
+
+    @SneakyThrows
+    public void testRadialSearchWithFilter_whenANNReturnsDocs_thenNoExactSearch() {
+        final ExactSearcher exactSearcher = runFilteredRadialSearch(0.5f, getFilteredKNNQueryResults());
+
+        verify(exactSearcher, never()).searchLeaf(any(), any());
+    }
+
+    /**
+     * Runs a filtered radial query on one Faiss segment with 6 filtered docs. The exact search threshold is 1, so
+     * the filter alone doesn't pick exact search and the query goes to the mocked JNI radius search first.
+     */
+    private ExactSearcher runFilteredRadialSearch(final float radius, final KNNQueryResult[] annResults) throws IOException {
+        final ExactSearcher exactSearcher = mock(ExactSearcher.class);
+        when(exactSearcher.searchLeaf(any(), any())).thenReturn(buildTopDocs(DOC_ID_TO_SCORES));
+        KNNWeight.initialize(mock(ModelDao.class), exactSearcher);
+        knnSettingsMockedStatic.when(() -> KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME)).thenReturn(1);
+        knnSettingsMockedStatic.when(() -> KNNSettings.isKnnIndexFaissEfficientFilterExactSearchDisabled(INDEX_NAME)).thenReturn(false);
+
+        final int maxResults = 1000;
+        jniServiceMockedStatic.when(
+            () -> JNIService.radiusQueryIndex(
+                anyLong(),
+                eq(QUERY_VECTOR),
+                eq(radius),
+                eq(HNSW_METHOD_PARAMETERS),
+                any(),
+                eq(maxResults),
+                any(),
+                anyInt(),
+                any()
+            )
+        ).thenReturn(annResults);
+        final KNNQuery.Context context = mock(KNNQuery.Context.class);
+        when(context.getMaxResultWindow()).thenReturn(maxResults);
+
+        final int[] filterDocIds = new int[] { 0, 1, 2, 3, 4, 5 };
+        final Bits liveDocsBits = mock(Bits.class);
+        for (int filterDocId : filterDocIds) {
+            when(liveDocsBits.get(filterDocId)).thenReturn(true);
+        }
+        when(liveDocsBits.length()).thenReturn(1000);
+
+        final SegmentReader reader = mockSegmentReader();
+        when(reader.maxDoc()).thenReturn(filterDocIds.length + 1);
+        when(reader.getLiveDocs()).thenReturn(liveDocsBits);
+        final FieldInfos fieldInfos = mock(FieldInfos.class);
+        final FieldInfo fieldInfo = mock(FieldInfo.class);
+        when(reader.getFieldInfos()).thenReturn(fieldInfos);
+        when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
+        when(fieldInfo.attributes()).thenReturn(
+            ImmutableMap.of(KNN_ENGINE, KNNEngine.FAISS.getName(), SPACE_TYPE, SpaceType.L2.getValue())
+        );
+
+        final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+        when(leafReaderContext.reader()).thenReturn(reader);
+
+        final Weight filterQueryWeight = mock(Weight.class);
+        final Scorer filterScorer = mock(Scorer.class);
+        when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
+        when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(filterDocIds.length + 1));
+
+        final KNNQuery query = KNNQuery.builder()
+            .field(FIELD_NAME)
+            .queryVector(QUERY_VECTOR)
+            .radius(radius)
+            .indexName(INDEX_NAME)
+            .context(context)
+            .filterQuery(FILTER_QUERY)
+            .methodParameters(HNSW_METHOD_PARAMETERS)
+            .build();
+        final KNNWeight knnWeight = new DefaultKNNWeight(query, 1.0f, filterQueryWeight);
+
+        assertNotNull(knnWeight.scorer(leafReaderContext));
+        jniServiceMockedStatic.verify(
+            () -> JNIService.radiusQueryIndex(
+                anyLong(),
+                eq(QUERY_VECTOR),
+                eq(radius),
+                eq(HNSW_METHOD_PARAMETERS),
+                any(),
+                eq(maxResults),
+                any(),
+                anyInt(),
+                any()
+            ),
+            times(1)
+        );
+        return exactSearcher;
     }
 
     private SegmentReader getMockedSegmentReader() {
