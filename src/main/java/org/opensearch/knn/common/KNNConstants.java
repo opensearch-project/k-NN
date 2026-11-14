@@ -43,6 +43,7 @@ public class KNNConstants {
     public static final String TOP_LEVEL_PARAMETER_SPACE_TYPE = METHOD_PARAMETER_SPACE_TYPE;
     public static final String TOP_LEVEL_PARAMETER_ENGINE = KNN_ENGINE;
     public static final String COMPOUND_EXTENSION = "c";
+    public static final String VECTOR_DATA_EXTENSION = "vec";
     public static final String MODELS = "models";
     public static final String MODEL_ID = "model_id";
     public static final String MODEL_BLOB_PARAMETER = "model_blob";

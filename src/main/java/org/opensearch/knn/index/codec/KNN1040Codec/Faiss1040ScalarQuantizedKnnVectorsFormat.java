@@ -19,6 +19,7 @@ import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.store.KNNDirectIODirectory;
 
 import java.io.IOException;
 import java.util.Locale;
@@ -182,7 +183,9 @@ public class Faiss1040ScalarQuantizedKnnVectorsFormat extends KnnVectorsFormat {
     public KnnVectorsReader fieldsReader(SegmentReadState state) throws IOException {
         return new Faiss1040ScalarQuantizedKnnVectorsReader(
             state,
-            new Faiss1040ScalarQuantizedFlatVectorsReader(flatFormatFor().fieldsReader(updateVectorFileAccessHint(state)))
+            new Faiss1040ScalarQuantizedFlatVectorsReader(
+                flatFormatFor().fieldsReader(KNNDirectIODirectory.wrap(updateVectorFileAccessHint(state)))
+            )
         );
     }
 
