@@ -463,6 +463,48 @@ public class VectorScorersTests extends KNNTestCase {
         assertTrue(scorer instanceof NestedBestChildVectorScorer);
     }
 
+    @SneakyThrows
+    public void testFloatTarget_withParentBitSet_nullBaseScorer_returnsNull() {
+        float[] query = { 1.0f, 2.0f };
+        TestVectorValues.PreDefinedFloatVectorValues floatVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            List.of(new float[] { 1.0f, 2.0f })
+        );
+
+        KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
+        when(iteratorValues.getDocIdSetIterator()).thenReturn(floatVectorValues.iterator());
+        when(iteratorValues.getKnnVectorValues()).thenReturn(floatVectorValues);
+        when(fieldInfo.getVectorSimilarityFunction()).thenReturn(VectorSimilarityFunction.EUCLIDEAN);
+
+        VectorScorerMode vectorScorerMode = mock(VectorScorerMode.class);
+        when(vectorScorerMode.createScorer(floatVectorValues, query)).thenReturn(null);
+
+        BitSet parentBitSet = new FixedBitSet(4);
+        parentBitSet.set(2);
+
+        assertNull(VectorScorers.createScorer(iteratorValues, query, vectorScorerMode, SpaceType.L2, fieldInfo, null, parentBitSet));
+    }
+
+    @SneakyThrows
+    public void testByteTarget_withParentBitSet_nullBaseScorer_returnsNull() {
+        byte[] query = { 1, 2 };
+        TestVectorValues.PreDefinedByteVectorValues byteVectorValues = new TestVectorValues.PreDefinedByteVectorValues(
+            List.of(new byte[] { 1, 2 })
+        );
+
+        KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues = mock(KNNVectorValuesIterator.DocIdsIteratorValues.class);
+        when(iteratorValues.getDocIdSetIterator()).thenReturn(byteVectorValues.iterator());
+        when(iteratorValues.getKnnVectorValues()).thenReturn(byteVectorValues);
+        when(fieldInfo.getVectorSimilarityFunction()).thenReturn(VectorSimilarityFunction.EUCLIDEAN);
+
+        VectorScorerMode vectorScorerMode = mock(VectorScorerMode.class);
+        when(vectorScorerMode.createScorer(byteVectorValues, query)).thenReturn(null);
+
+        BitSet parentBitSet = new FixedBitSet(4);
+        parentBitSet.set(2);
+
+        assertNull(VectorScorers.createScorer(iteratorValues, query, vectorScorerMode, SpaceType.L2, fieldInfo, null, parentBitSet));
+    }
+
     // ──────────────────────────────────────────────
     // CosineADCFlatVectorsScorer
     // ──────────────────────────────────────────────
