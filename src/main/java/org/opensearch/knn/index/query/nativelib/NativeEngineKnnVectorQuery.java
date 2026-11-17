@@ -217,8 +217,8 @@ public class NativeEngineKnnVectorQuery extends Query {
     /**
      * For memory-optimized search, returns max(k, ef_search) so the HNSW graph explores a wider
      * candidate set. Results are trimmed back to k without a full-precision rescore.
-     * For non-memory-optimized search, ef_search is passed via methodParameters to the native engine
-     * directly, so no expansion is needed here.
+     * For non-memory-optimized search, no expansion is needed here: the native engine raises ef_search
+     * (from methodParameters, otherwise the value stored in the index) to at least k for HNSW indices.
      *
      * @return expanded k if ef_search > k for memory-optimized search, otherwise the original k
      */
