@@ -595,7 +595,9 @@ public abstract class KNNWeight extends Weight {
             k
         );
 
-        if (results.scoreDocs.length == 0) {
+        if (results.scoreDocs.length == 0
+            // Fall through when relation != EQUAL_TO and return relation as is
+            && results.totalHits.relation() == TotalHits.Relation.EQUAL_TO) {
             log.debug("[KNN] Query yielded 0 results");
             return EMPTY_TOPDOCS;
         }

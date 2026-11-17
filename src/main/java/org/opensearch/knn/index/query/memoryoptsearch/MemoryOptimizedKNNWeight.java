@@ -246,7 +246,9 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         // while Lucene’s implementation interprets it as the total number of vectors visited during search. We will
         // preserve the totalHits relation so that we know if we exhausted Lucene's search budget.
         topDocs = new TopDocs(new TotalHits(topDocs.scoreDocs.length, topDocs.totalHits.relation()), topDocs.scoreDocs);
-        if (topDocs.scoreDocs.length == 0) {
+        if (topDocs.scoreDocs.length == 0
+            // Fall through when relation != EQUAL_TO and return relation as is
+            && topDocs.totalHits.relation() == TotalHits.Relation.EQUAL_TO) {
             log.debug("[KNN] Query yielded 0 results");
             return EMPTY_TOPDOCS;
         }
