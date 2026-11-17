@@ -76,6 +76,15 @@ faiss::MetricType TranslateSpaceToMetric(const std::string& spaceType);
 void SetExtraParameters(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env,
                         const std::unordered_map<std::string, jobject>& parametersCpp, faiss::Index * index);
 
+// Returns the efSearch to use for an HNSW k-NN query: the query time ef_search if provided, otherwise the efSearch
+// stored in the index, raised to at least k. Faiss sizes the candidate queue with max(efSearch, k), but stops exploring
+// based on efSearch alone, so a query with k > efSearch would otherwise explore like an efSearch sized search.
+static int resolveHNSWEfSearch(JNIEnv *env, knn_jni::JNIUtilInterface *jniUtil,
+                               const std::unordered_map<std::string, jobject>& methodParams, int indexEfSearch, int k) {
+    const int efSearch = knn_jni::commons::getIntegerMethodParameter(env, jniUtil, methodParams, knn_jni::EF_SEARCH, indexEfSearch);
+    return std::max(efSearch, k);
+}
+
 // Train an index with data provided
 void InternalTrainIndex(faiss::Index * index, faiss::idx_t n, const float* x);
 
@@ -808,7 +817,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
         auto hnswReader = dynamic_cast<const faiss::IndexHNSW*>(indexReader->index);
         if(hnswReader) {
             // Query param efsearch supersedes ef_search provided during index setting.
-            hnswParams.efSearch = knn_jni::commons::getIntegerMethodParameter(env, jniUtil, methodParams, EF_SEARCH, hnswReader->hnsw.efSearch);
+            hnswParams.efSearch = resolveHNSWEfSearch(env, jniUtil, methodParams, hnswReader->hnsw.efSearch, kJ);
             hnswParams.sel = idSelector.get();
             if (parentIdsJ != nullptr) {
                 idGrouper = buildIDGrouperBitmap(jniUtil, env, parentIdsJ, &idGrouperBitmap);
@@ -843,7 +852,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
         auto hnswReader = dynamic_cast<const faiss::IndexHNSW*>(indexReader->index);
         if(hnswReader != nullptr) {
             // Query param efsearch supersedes ef_search provided during index setting.
-            hnswParams.efSearch = knn_jni::commons::getIntegerMethodParameter(env, jniUtil, methodParams, EF_SEARCH, hnswReader->hnsw.efSearch);
+            hnswParams.efSearch = resolveHNSWEfSearch(env, jniUtil, methodParams, hnswReader->hnsw.efSearch, kJ);
             if (parentIdsJ != nullptr) {
                 idGrouper = buildIDGrouperBitmap(jniUtil, env, parentIdsJ, &idGrouperBitmap);
                 hnswParams.grp = idGrouper.get();
@@ -882,7 +891,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
     for(int i = 0; i < resultSize; ++i) {
         jobject result = jniUtil->NewObject(env, resultClass, allArgs, ids[i], dis[i]);
         jniUtil->SetObjectArrayElement(env, results, i, result);
-        env->DeleteLocalRef(result);
+        jniUtil->DeleteLocalRef(env, result);
     }
     return results;
 }
@@ -933,7 +942,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryBinaryIndex_WithFilter(knn_jni::JNIUti
         auto hnswReader = dynamic_cast<const faiss::IndexBinaryHNSW*>(indexReader->index);
         if(hnswReader) {
             // Query param efsearch supersedes ef_search provided during index setting.
-            hnswParams.efSearch = knn_jni::commons::getIntegerMethodParameter(env, jniUtil, methodParams, EF_SEARCH, hnswReader->hnsw.efSearch);
+            hnswParams.efSearch = resolveHNSWEfSearch(env, jniUtil, methodParams, hnswReader->hnsw.efSearch, kJ);
             hnswParams.sel = idSelector.get();
             if (parentIdsJ != nullptr) {
                 idGrouper = buildIDGrouperBitmap(jniUtil, env, parentIdsJ, &idGrouperBitmap);
@@ -970,9 +979,9 @@ jobjectArray knn_jni::faiss_wrapper::QueryBinaryIndex_WithFilter(knn_jni::JNIUti
             searchParameters = &ivfParams;
         } else {
             auto hnswReader = dynamic_cast<const faiss::IndexBinaryHNSW*>(indexReader->index);
-            if(hnswReader != nullptr && (methodParamsJ != nullptr || parentIdsJ != nullptr)) {
+            if(hnswReader != nullptr && (methodParamsJ != nullptr || parentIdsJ != nullptr || kJ > hnswReader->hnsw.efSearch)) {
                // Query param efsearch supersedes ef_search provided during index setting.
-               hnswParams.efSearch = knn_jni::commons::getIntegerMethodParameter(env, jniUtil, methodParams, EF_SEARCH, hnswReader->hnsw.efSearch);
+               hnswParams.efSearch = resolveHNSWEfSearch(env, jniUtil, methodParams, hnswReader->hnsw.efSearch, kJ);
                if (parentIdsJ != nullptr) {
                    idGrouper = buildIDGrouperBitmap(jniUtil, env, parentIdsJ, &idGrouperBitmap);
                    hnswParams.grp = idGrouper.get();
@@ -1006,7 +1015,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryBinaryIndex_WithFilter(knn_jni::JNIUti
     for(int i = 0; i < resultSize; ++i) {
         jobject result = jniUtil->NewObject(env, resultClass, allArgs, ids[i], dis[i]);
         jniUtil->SetObjectArrayElement(env, results, i, result);
-        env->DeleteLocalRef(result);
+        jniUtil->DeleteLocalRef(env, result);
     }
     return results;
 }
@@ -1450,7 +1459,7 @@ jobjectArray knn_jni::faiss_wrapper::RangeSearchWithFilter(knn_jni::JNIUtilInter
     for (int i = 0; i < resultSize; ++i) {
         jobject result = jniUtil->NewObject(env, resultClass, allArgs, res.labels[i], res.distances[i]);
         jniUtil->SetObjectArrayElement(env, results, i, result);
-        env->DeleteLocalRef(result);
+        jniUtil->DeleteLocalRef(env, result);
     }
 
     return results;
