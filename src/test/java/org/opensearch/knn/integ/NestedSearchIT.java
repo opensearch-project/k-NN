@@ -324,6 +324,47 @@ public class NestedSearchIT extends KNNCompressionRestTestCase {
         assertEquals(2, parseTotalSearchHits(entity));
     }
 
+    /**
+     * Regression test for https://github.com/opensearch-project/k-NN/issues/3702: nested exact search on a segment
+     * that has the vector field in its FieldInfos but no vectors.
+     */
+    @SneakyThrows
+    public void testNestedSearchWithFaiss_whenSegmentHasVectorFieldButNoVectors_thenSucceed() {
+        createKnnIndex(2, KNNEngine.FAISS.getName());
+        updateIndexSettings(INDEX_NAME, Settings.builder().put("index.soft_deletes.retention_lease.period", "0ms"));
+
+        addKnnDoc(
+            INDEX_NAME,
+            "1",
+            NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
+                .addVectors(FIELD_NAME_VECTOR, new Float[] { 1f, 1f }, new Float[] { 2f, 2f })
+                .build()
+        );
+        addKnnDoc(INDEX_NAME, "2", String.format(Locale.ROOT, "{\"%s\": [{\"title\": \"no vector\"}]}", FIELD_NAME_NESTED));
+        refreshIndex(INDEX_NAME);
+
+        // Reopen so the retention lease is dropped and the merge physically removes doc 1 instead of soft-deleting it.
+        deleteKnnDoc(INDEX_NAME, "1");
+        flushIndex(INDEX_NAME);
+        closeKNNIndex(INDEX_NAME);
+        openIndex(INDEX_NAME);
+        ensureGreen(INDEX_NAME);
+        forceMergeKnnIndex(INDEX_NAME, 1);
+
+        addKnnDoc(
+            INDEX_NAME,
+            "3",
+            NestedKnnDocBuilder.create(FIELD_NAME_NESTED).addVectors(FIELD_NAME_VECTOR, new Float[] { 3f, 3f }).build()
+        );
+        refreshIndex(INDEX_NAME);
+
+        Response response = queryNestedField(INDEX_NAME, 2, new Float[] { 3f, 3f });
+        String entity = EntityUtils.toString(response.getEntity());
+        assertEquals(1, parseHits(entity));
+        assertEquals(1, parseTotalSearchHits(entity));
+        assertEquals("3", parseIds(entity).get(0));
+    }
+
     @SneakyThrows
     private void indexAndTestKNNIndexWithVectorAndNonVectorField() {
         int totalDocCount = 15;
