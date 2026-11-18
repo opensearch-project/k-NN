@@ -15,20 +15,23 @@ import org.opensearch.indices.cluster.IndicesClusterStateService.AllocatedIndice
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.test.IndexSettingsModule;
 
+import java.util.function.BooleanSupplier;
+
 public class IndexSettingsRegistryTests extends KNNTestCase {
 
     private static final String INDEX_UUID = "V4qM8m9ZTAyRm0Nn0lOAbw";
 
     private final IndexSettingsRegistry registry = IndexSettingsRegistry.getInstance();
 
-    public void testAnUpdateReachesTheHeldIndexSettings() {
+    public void testTheSupplierReadsEachUpdate() {
         final IndexSettings indexSettings = created(INDEX_UUID, false);
         try {
-            final IndexSettings held = registry.get(INDEX_UUID);
-            assertSame(indexSettings, held);
-            assertFalse(KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_SETTING.get(held.getSettings()));
+            final BooleanSupplier directIOEnabled = registry.directIOEnabled(INDEX_UUID).orElseThrow();
+            assertFalse(directIOEnabled.getAsBoolean());
             indexSettings.updateIndexMetadata(indexMetadata(INDEX_UUID, true));
-            assertTrue(KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_SETTING.get(held.getSettings()));
+            assertTrue(directIOEnabled.getAsBoolean());
+            indexSettings.updateIndexMetadata(indexMetadata(INDEX_UUID, false));
+            assertFalse(directIOEnabled.getAsBoolean());
         } finally {
             removed(indexSettings);
         }
@@ -39,9 +42,12 @@ public class IndexSettingsRegistryTests extends KNNTestCase {
         final IndexSettings reopened = created(INDEX_UUID, false);
         try {
             removed(closed);
-            assertSame(reopened, registry.get(INDEX_UUID));
+            assertFalse(
+                "the reopened index's value, not the closed one's",
+                registry.directIOEnabled(INDEX_UUID).orElseThrow().getAsBoolean()
+            );
             removed(reopened);
-            assertNull(registry.get(INDEX_UUID));
+            assertTrue(registry.directIOEnabled(INDEX_UUID).isEmpty());
         } finally {
             removed(closed);
             removed(reopened);
@@ -51,8 +57,8 @@ public class IndexSettingsRegistryTests extends KNNTestCase {
     public void testAnUnknownUuidFindsNothing() {
         final IndexSettings indexSettings = created(INDEX_UUID, true);
         try {
-            assertSame(indexSettings, registry.get(INDEX_UUID));
-            assertNull(registry.get("ZZZZZZZZZZZZZZZZZZZZZZ"));
+            assertTrue(registry.directIOEnabled(INDEX_UUID).orElseThrow().getAsBoolean());
+            assertTrue(registry.directIOEnabled("ZZZZZZZZZZZZZZZZZZZZZZ").isEmpty());
         } finally {
             removed(indexSettings);
         }

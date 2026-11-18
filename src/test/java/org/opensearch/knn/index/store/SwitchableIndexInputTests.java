@@ -15,6 +15,7 @@ import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.store.RandomAccessInput;
 import org.opensearch.index.IndexSettings;
+import org.opensearch.common.util.io.IOUtils;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.store.DirectIOTestUtils.CloseCountingDirectory;
@@ -32,6 +33,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.opensearch.knn.index.store.DirectIOTestUtils.INDEX_UUID;
 import static org.opensearch.knn.index.store.DirectIOTestUtils.VEC_NAME;
@@ -401,6 +403,67 @@ public class SwitchableIndexInputTests extends KNNTestCase {
             expectThrows(AlreadyClosedException.class, () -> directIO.prefetch(0, 16));
             file.close();
             expectThrows(AlreadyClosedException.class, () -> file.readByte());
+        }
+    }
+
+    public void testAReadOfADirectIOCloneAfterItsFileClosedFailsAsTheOriginalCloneDoes() throws IOException {
+        assumeDirectIO();
+        on.set(true);
+        try (Directory bottom = DirectIOTestUtils.fsDirectory(shardPath)) {
+            DirectIOTestUtils.writeCodecFile(bottom, VEC_NAME, FILE_PAYLOAD_BYTES);
+            final KNNDirectIODirectory directory = DirectIOTestUtils.directory(bottom, on::get, new TestChannels());
+            final IndexInput file = directory.openInput(VEC_NAME, IOContext.DEFAULT);
+            final IndexInput directIO = file.clone();
+            assertTrue(directIO instanceof DirectIOVectorIndexInput);
+            final IndexInput original = bottom.openInput(VEC_NAME, IOContext.DEFAULT);
+            final IndexInput originalClone = original.clone();
+            file.close();
+            original.close();
+            final byte[] target = new byte[16];
+            final Exception fromOriginal = expectThrows(Exception.class, () -> originalClone.readBytes(target, 0, target.length));
+            final Exception fromDirectIO = expectThrows(Exception.class, () -> directIO.readBytes(target, 0, target.length));
+            assertEquals(fromOriginal.getClass(), fromDirectIO.getClass());
+        }
+    }
+
+    public void testASliceOrCloneAfterCloseOpensNothingInEitherState() throws IOException {
+        assumeDirectIO();
+        try (Directory bottom = DirectIOTestUtils.fsDirectory(shardPath)) {
+            DirectIOTestUtils.writeCodecFile(bottom, VEC_NAME, FILE_PAYLOAD_BYTES);
+            for (final boolean enabled : new boolean[] { true, false }) {
+                on.set(enabled);
+                final KNNDirectIODirectory directory = DirectIOTestUtils.directory(bottom, on::get, path -> {
+                    throw new AssertionError("a closed input must not open an O_DIRECT channel");
+                });
+                final IndexInput file = directory.openInput(VEC_NAME, IOContext.DEFAULT);
+                file.close();
+                expectThrows(AlreadyClosedException.class, () -> file.slice("after close", 0, 16));
+                expectThrows(AlreadyClosedException.class, () -> file.slice("after close", 0, 16, IOContext.DEFAULT));
+                expectThrows(AlreadyClosedException.class, file::clone);
+                expectThrows(AlreadyClosedException.class, () -> file.isEfficientFor(IOContext.DEFAULT));
+            }
+        }
+    }
+
+    public void testACloseDuringTheFirstSliceOpensNothing() throws IOException {
+        assumeDirectIO();
+        try (Directory bottom = DirectIOTestUtils.fsDirectory(shardPath)) {
+            DirectIOTestUtils.writeCodecFile(bottom, VEC_NAME, FILE_PAYLOAD_BYTES);
+            // The switch's supplier closes the input between the open check and the first initialization, as a racing
+            // close would.
+            final AtomicBoolean opened = new AtomicBoolean();
+            final AtomicReference<IndexInput> closing = new AtomicReference<>();
+            final KNNDirectIODirectory directory = DirectIOTestUtils.directory(bottom, () -> {
+                IOUtils.closeWhileHandlingException(closing.get());
+                return true;
+            }, path -> {
+                opened.set(true);
+                return DirectIOFile.DEFAULT_CHANNEL_FACTORY.open(path);
+            });
+            final IndexInput file = directory.openInput(VEC_NAME, IOContext.DEFAULT);
+            closing.set(file);
+            expectThrows(AlreadyClosedException.class, () -> file.slice("racing close", 0, 16));
+            assertFalse("an input closed before its first initialization opens no channel", opened.get());
         }
     }
 

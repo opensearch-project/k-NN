@@ -30,6 +30,7 @@ import org.opensearch.knn.index.store.DirectIOTestUtils.TestCompoundDirectory;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -314,6 +315,18 @@ public class KNNDirectIODirectoryTests extends KNNTestCase {
             assertNull("a directory with no path has no index UUID", ShardPathUtil.tryGetIndexUuid(in));
             final SegmentReadState state = new SegmentReadState(in, segmentInfo(in), FieldInfos.EMPTY, IOContext.DEFAULT, "x");
             assertSame(state, KNNDirectIODirectory.wrap(state));
+        }
+    }
+
+    public void testClosingTheDelegateLeavesTheSegmentsDirectoryOpen() throws IOException {
+        try (Directory in = DirectIOTestUtils.fsDirectory(shardPath)) {
+            DirectIOTestUtils.writeCodecFile(in, VEC_NAME, FILE_PAYLOAD_BYTES);
+            final KNNDirectIODirectory directory = DirectIOTestUtils.directory(in, on::get);
+            directory.close();
+            assertTrue(Arrays.asList(in.listAll()).contains(VEC_NAME));
+            try (IndexInput file = in.openInput(VEC_NAME, IOContext.DEFAULT)) {
+                assertTrue(file.length() > FILE_PAYLOAD_BYTES);
+            }
         }
     }
 

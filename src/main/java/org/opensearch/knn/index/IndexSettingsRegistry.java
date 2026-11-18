@@ -12,9 +12,11 @@ import org.opensearch.index.shard.IndexEventListener;
 import org.opensearch.indices.cluster.IndicesClusterStateService.AllocatedIndices.IndexRemovalReason;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BooleanSupplier;
 
-/** The live {@link IndexSettings} of each index on this node by UUID, for a codec that has only the shard's path. */
+/** The live Direct I/O setting of each index on this node by UUID, for a codec that has only the shard's path. */
 public final class IndexSettingsRegistry implements IndexEventListener {
 
     private static final IndexSettingsRegistry INSTANCE = new IndexSettingsRegistry();
@@ -41,12 +43,18 @@ public final class IndexSettingsRegistry implements IndexEventListener {
     }
 
     /**
-     * The live settings of the index with this UUID.
+     * The live value of {@code index.knn.direct_io.rescore.enabled} of the index with this UUID.
      *
      * @param indexUuid The UUID of the index.
-     * @return Its live settings, or null when no index on this node has that UUID.
+     * @return A supplier that reads the index's current value at each call, or empty when no index on this node has
+     *         that UUID.
      */
-    public IndexSettings get(final String indexUuid) {
-        return indexSettingsByUuid.get(indexUuid);
+    public Optional<BooleanSupplier> directIOEnabled(final String indexUuid) {
+        final IndexSettings indexSettings = indexSettingsByUuid.get(indexUuid);
+        if (indexSettings == null) {
+            return Optional.empty();
+        }
+        // getSettings() reads the volatile field a settings update replaces, so the next call sees the update.
+        return Optional.of(() -> KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_SETTING.get(indexSettings.getSettings()));
     }
 }

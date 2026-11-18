@@ -7,6 +7,7 @@ package org.opensearch.knn.index.store;
 
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.store.DataAccessHint;
@@ -16,14 +17,13 @@ import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.common.util.io.IOUtils;
-import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.ShardPathUtil;
 import org.opensearch.knn.index.IndexSettingsRegistry;
-import org.opensearch.knn.index.KNNSettings;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.function.BooleanSupplier;
 
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_EXTENSION;
@@ -35,8 +35,8 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_EXTENSION;
  * {@link SwitchableIndexInput} chooses per slice and clone, {@link DirectIOFile} opens and checks the channel and
  * {@link DirectIOVectorIndexInput} reads.
  *
- * <p>One of these is made per segment per reader and is never closed: {@link FilterDirectory#close()} would close the
- * shard's directory, which belongs to the reader that built the {@link SegmentReadState}.
+ * <p>One of these is made per segment per reader, and closing it closes nothing: the directory below belongs to the
+ * reader that built the {@link SegmentReadState}, and each {@link SwitchableIndexInput} closes its own channel.
  */
 @Log4j2
 public final class KNNDirectIODirectory extends FilterDirectory {
@@ -60,16 +60,14 @@ public final class KNNDirectIODirectory extends FilterDirectory {
      */
     public static SegmentReadState wrap(@NonNull final SegmentReadState state) {
         final String indexUuid = ShardPathUtil.tryGetIndexUuid(state.segmentInfo.dir);
-        final IndexSettings indexSettings = indexUuid == null ? null : IndexSettingsRegistry.getInstance().get(indexUuid);
-        if (indexSettings == null) {
+        final Optional<BooleanSupplier> directIOEnabled = StringUtils.isEmpty(indexUuid)
+            ? Optional.empty()
+            : IndexSettingsRegistry.getInstance().directIOEnabled(indexUuid);
+        if (directIOEnabled.isEmpty()) {
             return state;
         }
         return new SegmentReadState(
-            new KNNDirectIODirectory(
-                state.directory,
-                // getSettings() reads the volatile field a settings update replaces, so the next slice sees the update.
-                () -> KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_SETTING.get(indexSettings.getSettings())
-            ),
+            new KNNDirectIODirectory(state.directory, directIOEnabled.get()),
             state.segmentInfo,
             state.fieldInfos,
             state.context,
@@ -112,6 +110,10 @@ public final class KNNDirectIODirectory extends FilterDirectory {
             }
         }
     }
+
+    // The directory below, the shard's or a compound segment's, belongs to the reader that built the state.
+    @Override
+    public void close() {}
 
     // The checks that need no device read. A decline here is normal, so it logs at debug.
     private IndexInput wrapOrDecline(final String name, final IOContext context, final IndexInput originalInput) {

@@ -358,7 +358,7 @@ public final class DirectIOVectorIndexInput extends IndexInput {
     @Override
     public IndexInput slice(final String sliceDescription, final long sliceOffset, final long sliceLength) throws IOException {
         ensureOpen();
-        if (sliceOffset < 0 || sliceLength < 0 || sliceOffset + sliceLength > length) {
+        if ((sliceLength | sliceOffset) < 0 || sliceLength > length - sliceOffset) {
             throw new IllegalArgumentException(
                 "slice() " + sliceDescription + " out of bounds: offset=" + sliceOffset + ",length=" + sliceLength + ",fileLength=" + length
             );

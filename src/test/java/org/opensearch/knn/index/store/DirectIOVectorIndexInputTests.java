@@ -470,6 +470,44 @@ public class DirectIOVectorIndexInputTests extends KNNTestCase {
         }
     }
 
+    public void testAFallbackOnASliceAtANonzeroOffsetReadsTheSlicesOwnBytes() throws IOException {
+        try (Fixture fixture = new Fixture()) {
+            final IndexInput referenceOuter = fixture.reference.slice("outer", 1001, 16 * 1024);
+            final IndexInput referenceInner = referenceOuter.slice("inner", 517, 8 * 1024);
+            for (final NamedRead read : DirectIOTestUtils.EVERY_READ) {
+                // A variable-length read of random bytes can be malformed, so only the fixed-width reads take part.
+                if (read.name().startsWith("readV")) {
+                    continue;
+                }
+                channels.behave(Behaviour.NORMAL);
+                try (IndexInput file = fixture.directory.openInput(VEC_NAME, IOContext.DEFAULT)) {
+                    final IndexInput outer = file.slice("outer", 1001, 16 * 1024);
+                    final IndexInput inner = outer.slice("inner", 517, 8 * 1024);
+                    assertTrue(inner instanceof DirectIOVectorIndexInput);
+                    final int readsBefore = channels.reads();
+                    channels.behave(Behaviour.THROW);
+                    DirectIOTestUtils.assertReadsAlike(read, referenceInner, inner);
+                    assertEquals(read.name() + " tried the device once, then read the original input", readsBefore + 1, channels.reads());
+                    DirectIOTestUtils.assertReadsAlike(read, referenceOuter, outer);
+                    assertEquals(
+                        read.name() + " on the outer slice of a failed file reads the original input",
+                        readsBefore + 1,
+                        channels.reads()
+                    );
+                }
+            }
+        }
+    }
+
+    public void testASliceWithAHugeOffsetOrLengthIsRejected() throws IOException {
+        try (Fixture fixture = new Fixture()) {
+            final IndexInput directIO = fixture.directIO;
+            expectThrows(IllegalArgumentException.class, () -> directIO.slice("huge length", 1, Long.MAX_VALUE));
+            expectThrows(IllegalArgumentException.class, () -> directIO.slice("huge offset", Long.MAX_VALUE, 1));
+            expectThrows(IllegalArgumentException.class, () -> directIO.slice("both huge", Long.MAX_VALUE, Long.MAX_VALUE));
+        }
+    }
+
     public void testReadsIntsAndFloatsThatStraddleTheEndOfTheBuffer() throws IOException {
         try (Fixture fixture = new Fixture()) {
             // A slice whose offset is not a multiple of four, the shape of a sparse byte field's docs-with-field
