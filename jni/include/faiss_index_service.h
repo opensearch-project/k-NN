@@ -235,8 +235,10 @@ struct OpenSearchMergeInterruptCallback : faiss::InterruptCallback {
 
         jenv = jutil->GetJNICurrentEnv();
 
+        // Faiss polls from every OpenMP thread of the build. Only the thread that called into JNI
+        // (the merge thread) is attached to the JVM, and MergeAbortChecker only answers for that
+        // thread, so other threads skip the poll quietly. The merge thread's own polls still abort the build.
         if (jenv == nullptr) {
-            std::cerr << "JNIEnv not found\n";
             return false;
         }
         if (mergeHelperClass == nullptr) {
