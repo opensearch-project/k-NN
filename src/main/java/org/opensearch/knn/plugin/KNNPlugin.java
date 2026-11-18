@@ -40,6 +40,7 @@ import org.opensearch.index.shard.IndexSettingProvider;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNEngineContext;
+import org.opensearch.knn.index.IndexSettingsRegistry;
 import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNVectorDocValueFormat;
 import org.opensearch.knn.index.KNNSettings;
@@ -408,6 +409,7 @@ public class KNNPlugin extends Plugin
     @Override
     public void onIndexModule(IndexModule indexModule) {
         KNNSettings.state().onIndexModule(indexModule);
+        indexModule.addIndexEventListener(IndexSettingsRegistry.getInstance());
         if (KNNSettings.isKNNDerivedSourceEnabled(indexModule.getSettings())) {
             indexModule.addIndexOperationListener(new DerivedSourceIndexOperationListener());
         }

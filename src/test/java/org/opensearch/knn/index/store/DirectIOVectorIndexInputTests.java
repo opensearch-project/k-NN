@@ -6,9 +6,25 @@
 package org.opensearch.knn.index.store;
 
 import org.apache.lucene.codecs.CodecUtil;
+import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
+import org.apache.lucene.codecs.lucene95.HasIndexSlice;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.KnnFloatVectorField;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.FloatVectorValues;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.KnnVectorValues;
+import org.apache.lucene.index.NoMergePolicy;
+import org.apache.lucene.index.VectorSimilarityFunction;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.store.IndexOutput;
+import org.apache.lucene.store.NIOFSDirectory;
+import org.apache.lucene.tests.util.TestUtil;
+import org.apache.lucene.util.IOFunction;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.store.DirectIOTestUtils.Behaviour;
 import org.opensearch.knn.index.store.DirectIOTestUtils.NamedRead;
@@ -18,10 +34,18 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.opensearch.knn.index.store.DirectIOTestUtils.INDEX_UUID;
+import static org.opensearch.knn.index.store.DirectIOTestUtils.SQ_VEC_NAME;
 import static org.opensearch.knn.index.store.DirectIOTestUtils.VEC_NAME;
 
 /**
@@ -31,6 +55,7 @@ import static org.opensearch.knn.index.store.DirectIOTestUtils.VEC_NAME;
 public class DirectIOVectorIndexInputTests extends KNNTestCase {
 
     private static final int FILE_PAYLOAD_BYTES = 64 * 1024;
+    private static final int STRADDLE_BULK_COUNT = 5;
 
     private Path shardPath;
     private final AtomicBoolean on = new AtomicBoolean(true);
@@ -69,7 +94,7 @@ public class DirectIOVectorIndexInputTests extends KNNTestCase {
         }
 
         private int blockSize() throws IOException {
-            return Math.toIntExact(Files.getFileStore(shardPath.resolve(VEC_NAME)).getBlockSize());
+            return DirectIOVectorIndexInputTests.this.blockSize();
         }
 
         @Override
@@ -447,8 +472,8 @@ public class DirectIOVectorIndexInputTests extends KNNTestCase {
 
     public void testReadsIntsAndFloatsThatStraddleTheEndOfTheBuffer() throws IOException {
         try (Fixture fixture = new Fixture()) {
-            // A slice whose offset is not a multiple of four, which is the shape Lucene's flat reader produces: the
-            // vector data starts just after the codec header. Every buffer window then ends with one, two or three
+            // A slice whose offset is not a multiple of four, the shape of a sparse byte field's docs-with-field
+            // bitmap, which starts wherever its vector data ends. Every buffer window then ends with one, two or three
             // bytes of a value, which is the hand-rolled reassembly path.
             final long sliceOffset = 3;
             final IndexInput slice = fixture.file.slice("unaligned", sliceOffset, fixture.file.length() - sliceOffset);
@@ -473,6 +498,212 @@ public class DirectIOVectorIndexInputTests extends KNNTestCase {
             }
             assertTrue("the straddling reads went to the device and never fell back", channels.reads() > fixture.readsAtInitialize + 4);
         }
+    }
+
+    public void testSingleShortReadsThatStraddleAWindowEndReadAsNIOFS() throws IOException {
+        assertStraddlingReadsMatchNIOFS(Short.BYTES, in -> new long[] { in.readShort() });
+    }
+
+    public void testSingleIntReadsThatStraddleAWindowEndReadAsNIOFS() throws IOException {
+        assertStraddlingReadsMatchNIOFS(Integer.BYTES, in -> new long[] { in.readInt() });
+    }
+
+    public void testSingleLongReadsThatStraddleAWindowEndReadAsNIOFS() throws IOException {
+        assertStraddlingReadsMatchNIOFS(Long.BYTES, in -> new long[] { in.readLong() });
+    }
+
+    public void testSingleFloatReadsThatStraddleAWindowEndReadAsNIOFS() throws IOException {
+        assertStraddlingReadsMatchNIOFS(Float.BYTES, in -> {
+            final float[] value = new float[1];
+            in.readFloats(value, 0, 1);
+            return new long[] { Float.floatToRawIntBits(value[0]) };
+        });
+    }
+
+    public void testBulkIntReadsThatStraddleAWindowEndReadAsNIOFS() throws IOException {
+        assertStraddlingReadsMatchNIOFS(STRADDLE_BULK_COUNT * Integer.BYTES, in -> {
+            final int[] values = new int[STRADDLE_BULK_COUNT];
+            in.readInts(values, 0, values.length);
+            return Arrays.stream(values).asLongStream().toArray();
+        });
+    }
+
+    public void testBulkLongReadsThatStraddleAWindowEndReadAsNIOFS() throws IOException {
+        assertStraddlingReadsMatchNIOFS(STRADDLE_BULK_COUNT * Long.BYTES, in -> {
+            final long[] values = new long[STRADDLE_BULK_COUNT];
+            in.readLongs(values, 0, values.length);
+            return values;
+        });
+    }
+
+    public void testBulkFloatReadsThatStraddleAWindowEndReadAsNIOFS() throws IOException {
+        assertStraddlingReadsMatchNIOFS(STRADDLE_BULK_COUNT * Float.BYTES, in -> {
+            final float[] values = new float[STRADDLE_BULK_COUNT];
+            in.readFloats(values, 0, values.length);
+            final long[] bits = new long[values.length];
+            for (int i = 0; i < values.length; i++) {
+                bits[i] = Float.floatToRawIntBits(values[i]);
+            }
+            return bits;
+        });
+    }
+
+    // Walks a slice that starts 3 bytes into the file, so that every window, which ends on a block boundary, ends
+    // inside a value of every width, and compares each read with the same read through NIOFSDirectory rather than mmap.
+    private void assertStraddlingReadsMatchNIOFS(final int bytesPerRead, final IOFunction<IndexInput, long[]> read) throws IOException {
+        try (Fixture fixture = new Fixture(); Directory niofs = new NIOFSDirectory(shardPath)) {
+            final long sliceOffset = 3;
+            final long sliceLength = fixture.file.length() - sliceOffset;
+            final IndexInput slice = fixture.file.slice("unaligned", sliceOffset, sliceLength);
+            assertTrue(slice instanceof DirectIOVectorIndexInput);
+            try (IndexInput niofsFile = niofs.openInput(VEC_NAME, IOContext.DEFAULT)) {
+                final IndexInput reference = niofsFile.slice("unaligned", sliceOffset, sliceLength);
+                final long windows = sliceLength / (2L * fixture.blockSize());
+                for (long position = 0; position + bytesPerRead <= sliceLength; position += bytesPerRead) {
+                    assertArrayEquals("the read at " + position + " of an unaligned slice", read.apply(reference), read.apply(slice));
+                    assertEquals(reference.getFilePointer(), slice.getFilePointer());
+                }
+                assertTrue("the walk read every window from the device", channels.reads() >= fixture.readsAtInitialize + windows);
+            }
+        }
+    }
+
+    public void testASparseFieldsBitmapThatStraddlesAWindowEndReadsAsNIOFS() throws IOException {
+        // Two documents in seven of 65,536 have a vector, so the docs-with-field set is one DENSE IndexedDISI block of
+        // 1,024 longs, none zero and none the same read in either byte order, written right after the 64-byte aligned
+        // vector data. Its longs then sit at 4 mod 8, and one crosses the end of the window the bitmap is first read
+        // into.
+        final int maxDoc = 65_536;
+        try (Directory in = DirectIOTestUtils.fsDirectory(shardPath)) {
+            final IndexWriterConfig config = new IndexWriterConfig().setCodec(
+                TestUtil.alwaysKnnVectorsFormat(new Lucene99HnswVectorsFormat())
+            ).setUseCompoundFile(false).setMergePolicy(NoMergePolicy.INSTANCE);
+            try (IndexWriter writer = new IndexWriter(in, config)) {
+                for (int doc = 0; doc < maxDoc; doc++) {
+                    final Document document = new Document();
+                    if (doc % 7 == 0 || doc % 7 == 3) {
+                        document.add(new KnnFloatVectorField("vector", new float[] { doc, -doc }, VectorSimilarityFunction.EUCLIDEAN));
+                    }
+                    writer.addDocument(document);
+                }
+                writer.commit();
+            }
+            final KNNDirectIODirectory directory = DirectIOTestUtils.directory(in, on::get, channels);
+            try (
+                DirectoryReader directIOReader = DirectoryReader.open(directory);
+                Directory niofs = new NIOFSDirectory(shardPath);
+                DirectoryReader niofsReader = DirectoryReader.open(niofs)
+            ) {
+                final FloatVectorValues directIOValues = directIOReader.leaves().get(0).reader().getFloatVectorValues("vector");
+                assertTrue(
+                    "the field's vectors must read with O_DIRECT",
+                    ((HasIndexSlice) directIOValues).getSlice() instanceof DirectIOVectorIndexInput
+                );
+                final FloatVectorValues niofsValues = niofsReader.leaves().get(0).reader().getFloatVectorValues("vector");
+                assertEquals(docsAndVectors(niofsValues), docsAndVectors(directIOValues));
+            }
+        }
+    }
+
+    // Every doc id the iterator gives, walked before any vector is read so that only the bitmap's input uses the
+    // thread's window, then every vector.
+    private static List<String> docsAndVectors(final FloatVectorValues values) throws IOException {
+        final List<String> result = new ArrayList<>();
+        final List<Integer> ords = new ArrayList<>();
+        final KnnVectorValues.DocIndexIterator iterator = values.iterator();
+        for (int doc = iterator.nextDoc(); doc != DocIdSetIterator.NO_MORE_DOCS; doc = iterator.nextDoc()) {
+            result.add("doc " + doc);
+            ords.add(iterator.index());
+        }
+        for (final int ord : ords) {
+            result.add(Arrays.toString(values.vectorValue(ord)));
+        }
+        return result;
+    }
+
+    public void testTwoInputsOverDifferentFilesReadInTurnOnOneThreadReadAsNIOFS() throws IOException {
+        try (Directory in = DirectIOTestUtils.fsDirectory(shardPath); Directory niofs = new NIOFSDirectory(shardPath)) {
+            DirectIOTestUtils.writeCodecFile(in, VEC_NAME, FILE_PAYLOAD_BYTES);
+            try (IndexOutput out = in.createOutput(SQ_VEC_NAME, IOContext.DEFAULT)) {
+                CodecUtil.writeIndexHeader(out, DirectIOTestUtils.CODEC_NAME, DirectIOTestUtils.CODEC_VERSION, new byte[16], "0");
+                final byte[] payload = new byte[FILE_PAYLOAD_BYTES];
+                random().nextBytes(payload);
+                out.writeBytes(payload, payload.length);
+                CodecUtil.writeFooter(out);
+            }
+            final KNNDirectIODirectory directory = DirectIOTestUtils.directory(in, on::get, channels);
+            try (
+                IndexInput first = directory.openInput(VEC_NAME, IOContext.DEFAULT);
+                IndexInput second = directory.openInput(SQ_VEC_NAME, IOContext.DEFAULT);
+                IndexInput firstReference = niofs.openInput(VEC_NAME, IOContext.DEFAULT);
+                IndexInput secondReference = niofs.openInput(SQ_VEC_NAME, IOContext.DEFAULT)
+            ) {
+                final IndexInput firstClone = first.clone();
+                final IndexInput secondClone = second.clone();
+                assertTrue(firstClone instanceof DirectIOVectorIndexInput && secondClone instanceof DirectIOVectorIndexInput);
+                final int block = blockSize();
+                for (final long position : new long[] { 0, 100, block - 10, block + 5, 3L * block, 5L * block - 30 }) {
+                    assertReadsAsReference(firstClone, firstReference, position);
+                    assertReadsAsReference(secondClone, secondReference, position);
+                }
+            }
+        }
+    }
+
+    public void testEachThreadReadsThroughItsOwnWindow() throws Exception {
+        try (Fixture fixture = new Fixture(); Directory niofs = new NIOFSDirectory(shardPath)) {
+            final IndexInput other = fixture.file.clone();
+            assertTrue(other instanceof DirectIOVectorIndexInput);
+            final long far = 5L * fixture.blockSize() - 30;
+            // Each thread's next read lies in its own window, so no turn after the first two reaches the device. One
+            // window shared by both threads would refill on every turn.
+            final CyclicBarrier turn = new CyclicBarrier(2);
+            final AtomicReference<Throwable> failure = new AtomicReference<>();
+            final Thread second = new Thread(() -> {
+                try (IndexInput reference = niofs.openInput(VEC_NAME, IOContext.DEFAULT)) {
+                    for (int i = 0; i < 10; i++) {
+                        turn.await(30, TimeUnit.SECONDS);
+                        assertReadsAsReference(other, reference, far);
+                        turn.await(30, TimeUnit.SECONDS);
+                    }
+                } catch (final Throwable t) {
+                    failure.set(t);
+                    turn.reset();
+                }
+            });
+            final int readsBefore = channels.reads();
+            second.start();
+            try (IndexInput reference = niofs.openInput(VEC_NAME, IOContext.DEFAULT)) {
+                for (int i = 0; i < 10; i++) {
+                    assertReadsAsReference(fixture.directIO, reference, 100);
+                    turn.await(30, TimeUnit.SECONDS);
+                    turn.await(30, TimeUnit.SECONDS);
+                }
+            } catch (final BrokenBarrierException e) {
+                assertNotNull("the barrier breaks only when the second thread fails", failure.get());
+            } finally {
+                turn.reset();
+                second.join(TimeUnit.SECONDS.toMillis(30));
+            }
+            if (failure.get() != null) {
+                throw new AssertionError("the second thread failed", failure.get());
+            }
+            assertEquals("one device read for each thread's window", readsBefore + 2, channels.reads());
+        }
+    }
+
+    private int blockSize() throws IOException {
+        return Math.toIntExact(Files.getFileStore(shardPath.resolve(VEC_NAME)).getBlockSize());
+    }
+
+    private static void assertReadsAsReference(final IndexInput input, final IndexInput reference, final long position) throws IOException {
+        final byte[] read = new byte[64];
+        final byte[] expected = new byte[64];
+        input.seek(position);
+        input.readBytes(read, 0, read.length);
+        reference.seek(position);
+        reference.readBytes(expected, 0, expected.length);
+        assertArrayEquals("the read at " + position + " of " + reference, expected, read);
     }
 
     public void testHalfFloatVectorsReadEqualWithDirectIOOnAndOff() throws IOException {

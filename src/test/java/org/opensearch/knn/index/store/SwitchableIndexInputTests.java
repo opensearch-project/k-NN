@@ -14,6 +14,7 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.store.RandomAccessInput;
+import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.store.DirectIOTestUtils.CloseCountingDirectory;
@@ -44,18 +45,17 @@ public class SwitchableIndexInputTests extends KNNTestCase {
 
     private static final int FILE_PAYLOAD_BYTES = 32 * 1024;
     private static final int CYCLES = 50;
-    private static final String INDEX_NAME = "target-index";
 
     private Path shardPath;
     private final AtomicBoolean on = new AtomicBoolean(false);
-    private final AtomicInteger stateReads = new AtomicInteger();
+    private final AtomicInteger switchReads = new AtomicInteger();
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
         shardPath = DirectIOTestUtils.defaultLayoutShardPath(createTempDir(), INDEX_UUID);
         on.set(false);
-        stateReads.set(0);
+        switchReads.set(0);
     }
 
     // Every case but the reflection test needs a real O_DIRECT channel. That one compares two reflection surfaces and
@@ -155,35 +155,32 @@ public class SwitchableIndexInputTests extends KNNTestCase {
         assumeDirectIO();
         // On, so that the clone under test reads with O_DIRECT and the reads below are the ones that could have
         // looked the setting up.
-        DirectIOTestUtils.publishIndex(clusterService, INDEX_NAME, INDEX_UUID, true, stateReads);
+        final IndexSettings indexSettings = DirectIOTestUtils.indexSettings(INDEX_UUID, true);
         try (Directory in = DirectIOTestUtils.fsDirectory(shardPath)) {
             DirectIOTestUtils.writeCodecFile(in, VEC_NAME, FILE_PAYLOAD_BYTES);
-            // The production switch, which is what this test is about, with the file size floor lowered so the test
-            // file can use Direct I/O: a declined file would hand out the original input's clone and the read assertion
-            // below would hold for the wrong reason.
-            final KNNDirectIODirectory directory = new KNNDirectIODirectory(
-                in,
-                DirectIOTestUtils.SMALL_FLOOR,
-                () -> KNNSettings.isDirectIORescoreEnabled(INDEX_UUID),
-                DirectIOFile.DEFAULT_CHANNEL_FACTORY,
-                DirectIOFile.DIRECT_OPEN_OPTION != null
-            );
+            // A counted switch of wrap's shape, with the file size floor lowered so the test file can use Direct I/O: a
+            // declined file would hand out the original input's clone and the read assertion below would hold for the
+            // wrong reason.
+            final KNNDirectIODirectory directory = DirectIOTestUtils.directory(in, () -> {
+                switchReads.incrementAndGet();
+                return KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_SETTING.get(indexSettings.getSettings());
+            });
             try (IndexInput file = directory.openInput(VEC_NAME, IOContext.DEFAULT)) {
-                assertEquals("nothing is read from the cluster state at open", 0, stateReads.get());
+                assertEquals("nothing reads the setting at open", 0, switchReads.get());
                 final IndexInput clone = file.clone();
                 assertTrue(
                     "the clone must read with O_DIRECT, or the reads below prove nothing",
                     clone instanceof DirectIOVectorIndexInput
                 );
-                assertEquals("one cluster state read per clone", 1, stateReads.get());
+                assertEquals("one read of the setting per clone", 1, switchReads.get());
                 final byte[] target = new byte[1024];
                 for (int i = 0; i < 20; i++) {
                     clone.seek(0);
                     clone.readBytes(target, 0, target.length);
                 }
-                assertEquals("a read never looks the setting up", 1, stateReads.get());
+                assertEquals("a read never looks the setting up", 1, switchReads.get());
                 file.clone();
-                assertEquals("and the next clone reads it once more", 2, stateReads.get());
+                assertEquals("and the next clone reads it once more", 2, switchReads.get());
             }
         }
     }

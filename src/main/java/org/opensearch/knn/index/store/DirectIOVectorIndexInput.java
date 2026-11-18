@@ -16,11 +16,12 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * An {@link IndexInput} over flat vector data that reads with blocking positional reads on the calling thread from a
  * file channel opened with {@code O_DIRECT}, so the bytes do not go through the page cache. Every read is rounded out
- * to whole blocks of the file store's block size into one reusable direct buffer per input.
+ * to whole blocks of the file store's block size into a reusable direct buffer, shared by the random readers on a thread.
  *
  * <p>Beside the channel each instance keeps the matching input of the original directory, with the same coordinates.
  * A read that fails on the channel is read again through that input, from the start of the whole request, and the
@@ -33,16 +34,21 @@ import java.util.Optional;
 @Log4j2
 public final class DirectIOVectorIndexInput extends IndexInput {
 
+    private static final AtomicLong IDS = new AtomicLong();
+
     private final DirectIOFile file;
     private final IndexInput originalInput;
     private final long offset;
     private final long length;
+    private final boolean sequential;
     private final int bufferSize;
+    private final long id = IDS.incrementAndGet();
 
     private long filePointer;
     private boolean closed;
+    private DirectIOWindow ownWindow;
+    // The buffer the last fill read through, its thread's window or this input's own, and the bytes it holds.
     private ByteBuffer buffer;
-    private long bufferStart = -1;
     private int bufferValid;
 
     DirectIOVectorIndexInput(
@@ -51,7 +57,7 @@ public final class DirectIOVectorIndexInput extends IndexInput {
         @NonNull final IndexInput originalInput,
         final long offset,
         final long length,
-        final int bufferSize,
+        final boolean sequential,
         final long filePointer
     ) {
         super(description);
@@ -59,7 +65,8 @@ public final class DirectIOVectorIndexInput extends IndexInput {
         this.originalInput = originalInput;
         this.offset = offset;
         this.length = length;
-        this.bufferSize = bufferSize;
+        this.sequential = sequential;
+        this.bufferSize = KNNDirectIODirectory.bufferSizeFor(sequential, file.blockSize());
         this.filePointer = filePointer;
     }
 
@@ -277,7 +284,6 @@ public final class DirectIOVectorIndexInput extends IndexInput {
                 cause
             );
         }
-        invalidateBuffer();
     }
 
     private void copyAt(final long absolute, final byte[] dst, final int dstOffset, final int len) throws IOException {
@@ -293,14 +299,18 @@ public final class DirectIOVectorIndexInput extends IndexInput {
     // Makes sure the buffer holds the byte at an absolute offset, with one aligned positional read when it does not,
     // and returns that byte's index in the buffer.
     private int fill(final long absolute) throws IOException {
-        if (bufferStart >= 0 && absolute >= bufferStart && absolute < bufferStart + bufferValid) {
-            return (int) (absolute - bufferStart);
+        final DirectIOWindow window = window();
+        buffer = window.buffer(bufferSize, file.blockSize());
+        final int inWindow = window.indexOf(id, absolute);
+        if (inWindow >= 0) {
+            bufferValid = window.valid();
+            return inWindow;
         }
         final long alignedStart = file.alignDown(absolute);
-        final ByteBuffer target = buffer();
-        target.clear().limit(bufferSize);
-        invalidateBuffer();
-        final int read = file.read(target, alignedStart);
+        buffer.clear().limit(bufferSize);
+        window.clear();
+        bufferValid = 0;
+        final int read = file.read(buffer, alignedStart);
         if (read <= 0) {
             throw new IOException("Direct I/O read of " + file.path() + " at " + alignedStart + " returned " + read);
         }
@@ -310,21 +320,20 @@ public final class DirectIOVectorIndexInput extends IndexInput {
                 "Direct I/O read of " + file.path() + " at " + alignedStart + " returned " + read + ", need " + (index + 1)
             );
         }
-        bufferStart = alignedStart;
+        window.filled(id, alignedStart, read);
         bufferValid = read;
         return index;
     }
 
-    private void invalidateBuffer() {
-        bufferStart = -1;
-        bufferValid = 0;
-    }
-
-    private ByteBuffer buffer() {
-        if (buffer == null) {
-            buffer = DirectIOFile.allocateAligned(bufferSize, file.blockSize());
+    // A random reader reads through its thread's window, a sequential one through its own.
+    private DirectIOWindow window() {
+        if (sequential == false) {
+            return DirectIOWindow.ofThread();
         }
-        return buffer;
+        if (ownWindow == null) {
+            ownWindow = new DirectIOWindow();
+        }
+        return ownWindow;
     }
 
     @Override
@@ -360,7 +369,7 @@ public final class DirectIOVectorIndexInput extends IndexInput {
             originalInput.slice(sliceDescription, sliceOffset, sliceLength),
             offset + sliceOffset,
             sliceLength,
-            bufferSize,
+            sequential,
             0L
         );
     }
@@ -374,16 +383,19 @@ public final class DirectIOVectorIndexInput extends IndexInput {
             originalInput.clone(),
             offset,
             length,
-            bufferSize,
+            sequential,
             filePointer
         );
     }
 
+    /**
+     * Returns the original input's random-access slice. Lucene reads a sparse field's ord-to-doc table and the jump
+     * table of its docs-with-field bitmap through this, one value at a time, which here would be a device read per
+     * lookup. Both are small next to the vectors.
+     */
     @Override
     public RandomAccessInput randomAccessSlice(final long sliceOffset, final long sliceLength) throws IOException {
         ensureOpen();
-        // A sparse field's ord-to-doc table is read through this, one lookup at a time, which here would be a device
-        // read per lookup. It is small next to the vectors, so it stays on the original input.
         return originalInput.randomAccessSlice(sliceOffset, sliceLength);
     }
 
@@ -402,7 +414,7 @@ public final class DirectIOVectorIndexInput extends IndexInput {
     public void close() throws IOException {
         closed = true;
         buffer = null;
-        invalidateBuffer();
+        ownWindow = null;
     }
 
     private void ensureOpen() {

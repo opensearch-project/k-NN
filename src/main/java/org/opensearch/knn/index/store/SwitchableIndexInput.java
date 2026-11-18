@@ -80,8 +80,8 @@ public final class SwitchableIndexInput extends IndexInput {
     // without an owner. A caller that slices or clones concurrently with a close can be handed a channel this input is
     // closing, which Lucene's contract rules out anyway.
     private DirectIOFile directIOFileToUse() {
-        // The switch is read outside the monitor: it is a cluster state lookup and no caller should wait on another
-        // caller's initialization to learn that the index is off.
+        // The switch is read outside the monitor, so no caller waits on another caller's initialization to learn that
+        // the index is off.
         if (directory.useDirectIO() == false) {
             return null;
         }
@@ -110,7 +110,7 @@ public final class SwitchableIndexInput extends IndexInput {
             original,
             offset,
             length,
-            KNNDirectIODirectory.bufferSizeFor(sequential, file.blockSize()),
+            sequential,
             filePointer
         );
     }
@@ -156,11 +156,14 @@ public final class SwitchableIndexInput extends IndexInput {
         return directIOOrOriginal(file, "clone", originalClone, 0L, fileLength, sequentialOpen, originalClone.getFilePointer());
     }
 
+    /**
+     * Returns the original input's own random-access slice, whatever the setting. Lucene reads a sparse field's
+     * ord-to-doc table and the jump table of its docs-with-field bitmap through this, one value at a time, which on
+     * an aligned blocking input would be a device read per lookup. Both are small next to the vectors.
+     */
     @Override
     public RandomAccessInput randomAccessSlice(final long offset, final long length) throws IOException {
         ensureOpen();
-        // A sparse field's ord-to-doc table is read through this, one lookup at a time, which on an aligned blocking
-        // input would be a device read per lookup. It is small next to the vectors, so it stays on the original input.
         return originalInput.randomAccessSlice(offset, length);
     }
 

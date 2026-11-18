@@ -17,6 +17,7 @@ import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.Version;
+import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.ShardPathUtil;
 import org.opensearch.knn.index.codec.KNN1040Codec.Faiss1040ScalarQuantizedKnnVectorsFormat;
@@ -48,7 +49,6 @@ import static org.opensearch.knn.index.store.DirectIOTestUtils.VEC_NAME;
 public class KNNDirectIODirectoryTests extends KNNTestCase {
 
     private static final int FILE_PAYLOAD_BYTES = 20_000;
-    private static final String INDEX_NAME = "target-index";
 
     private Path shardPath;
     private final AtomicBoolean on = new AtomicBoolean(true);
@@ -191,13 +191,18 @@ public class KNNDirectIODirectoryTests extends KNNTestCase {
             for (final String name : new String[] { VEC_NAME, SQ_VEC_NAME }) {
                 DirectIOTestUtils.writeCodecFile(in, name, FILE_PAYLOAD_BYTES);
             }
-            for (final String suffix : new String[] {
-                new NativeEngines990KnnVectorsFormat().getName() + "_0",
-                new Faiss1040ScalarQuantizedKnnVectorsFormat().getName() + "_0" }) {
-                final SegmentReadState state = new SegmentReadState(in, segmentInfo(in), FieldInfos.EMPTY, IOContext.DEFAULT, suffix);
-                final SegmentReadState wrapped = KNNDirectIODirectory.wrap(state);
-                assertTrue("the state of " + suffix + " carries the delegate", wrapped.directory instanceof KNNDirectIODirectory);
-                assertSame(state.segmentInfo, wrapped.segmentInfo);
+            final IndexSettings indexSettings = DirectIOTestUtils.registerIndex(INDEX_UUID, false);
+            try {
+                for (final String suffix : new String[] {
+                    new NativeEngines990KnnVectorsFormat().getName() + "_0",
+                    new Faiss1040ScalarQuantizedKnnVectorsFormat().getName() + "_0" }) {
+                    final SegmentReadState state = new SegmentReadState(in, segmentInfo(in), FieldInfos.EMPTY, IOContext.DEFAULT, suffix);
+                    final SegmentReadState wrapped = KNNDirectIODirectory.wrap(state);
+                    assertTrue("the state of " + suffix + " carries the delegate", wrapped.directory instanceof KNNDirectIODirectory);
+                    assertSame(state.segmentInfo, wrapped.segmentInfo);
+                }
+            } finally {
+                DirectIOTestUtils.unregisterIndex(indexSettings);
             }
             // And the file each format writes is wrapped by that delegate.
             final KNNDirectIODirectory directory = DirectIOTestUtils.directory(in, on::get);
@@ -255,6 +260,7 @@ public class KNNDirectIODirectoryTests extends KNNTestCase {
     }
 
     public void testWrapTakesTheUuidFromTheSegmentInfoDirectory() throws IOException {
+        final IndexSettings indexSettings = DirectIOTestUtils.registerIndex(INDEX_UUID, true);
         try (Directory shardDirectory = DirectIOTestUtils.fsDirectory(shardPath)) {
             try (Directory compound = new TestCompoundDirectory(shardDirectory)) {
                 final SegmentReadState state = new SegmentReadState(
@@ -267,16 +273,39 @@ public class KNNDirectIODirectoryTests extends KNNTestCase {
                 final SegmentReadState wrapped = KNNDirectIODirectory.wrap(state);
                 assertNotSame("a compound segment of a known index is still wrapped", state, wrapped);
                 assertTrue(wrapped.directory instanceof KNNDirectIODirectory);
-                // The delegate's switch reads the setting of the index the shard path names.
-                DirectIOTestUtils.publishIndex(clusterService, INDEX_NAME, INDEX_UUID, true, null);
-                assertTrue(((KNNDirectIODirectory) wrapped.directory).useDirectIO());
-                DirectIOTestUtils.publishIndex(clusterService, INDEX_NAME, INDEX_UUID, false, null);
-                assertFalse(((KNNDirectIODirectory) wrapped.directory).useDirectIO());
+                // The delegate's switch reads the live setting of the index the shard path names, so an update made
+                // after the segment opened reaches it in both directions.
+                final KNNDirectIODirectory directory = (KNNDirectIODirectory) wrapped.directory;
+                assertTrue(directory.useDirectIO());
+                DirectIOTestUtils.updateIndex(indexSettings, false);
+                assertFalse(directory.useDirectIO());
+                DirectIOTestUtils.updateIndex(indexSettings, true);
+                assertTrue(directory.useDirectIO());
                 assertSame("the wrapped directory is the one the codec was handed", compound, FilterDirectory.unwrap(wrapped.directory));
                 assertSame(state.segmentInfo, wrapped.segmentInfo);
                 assertSame(state.fieldInfos, wrapped.fieldInfos);
                 assertEquals(state.segmentSuffix, wrapped.segmentSuffix);
             }
+        } finally {
+            DirectIOTestUtils.unregisterIndex(indexSettings);
+        }
+    }
+
+    public void testWrapReturnsTheCallersStateForAnIndexThisNodeDoesNotHave() throws IOException {
+        try (Directory in = DirectIOTestUtils.fsDirectory(shardPath)) {
+            assertEquals(INDEX_UUID, ShardPathUtil.tryGetIndexUuid(in));
+            final SegmentReadState state = new SegmentReadState(in, segmentInfo(in), FieldInfos.EMPTY, IOContext.DEFAULT, "x");
+            final IndexSettings indexSettings = DirectIOTestUtils.registerIndex(INDEX_UUID, true);
+            try {
+                assertNotSame("the same segment is wrapped while its index is registered", state, KNNDirectIODirectory.wrap(state));
+            } finally {
+                DirectIOTestUtils.unregisterIndex(indexSettings);
+            }
+            assertSame(
+                "a segment of an index this node does not have reads as off, on main's path",
+                state,
+                KNNDirectIODirectory.wrap(state)
+            );
         }
     }
 

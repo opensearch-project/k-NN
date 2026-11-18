@@ -1110,23 +1110,6 @@ public class KNNSettings {
         return getIndexSettings(indexName).getAsBoolean(MEMORY_OPTIMIZED_KNN_SEARCH_MODE, DEFAULT_MEMORY_OPTIMIZED_KNN_SEARCH_MODE);
     }
 
-    /**
-     * Tests whether {@code index.knn.direct_io.rescore.enabled} is on for the index with the given UUID. The Direct
-     * I/O delegate has only the shard's path to go on, so it asks by UUID, once per slice and per clone of a vector
-     * data file and never per read.
-     *
-     * @param indexUuid The UUID of the target index, taken from the shard path.
-     * @return True if the setting is on for that index, otherwise False, including when no index carries that UUID.
-     */
-    public static boolean isDirectIORescoreEnabled(@NonNull final String indexUuid) {
-        for (final IndexMetadata indexMetadata : KNNSettings.state().clusterService.state().getMetadata().indices().values()) {
-            if (indexUuid.equals(indexMetadata.getIndexUUID())) {
-                return INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_SETTING.get(indexMetadata.getSettings());
-            }
-        }
-        return false;
-    }
-
     public static Settings getIndexSettings(@NonNull final String indexName) {
         return KNNSettings.state().clusterService.state().getMetadata().index(indexName).getSettings();
     }

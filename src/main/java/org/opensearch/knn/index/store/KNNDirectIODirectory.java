@@ -16,7 +16,9 @@ import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.common.util.io.IOUtils;
+import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.common.ShardPathUtil;
+import org.opensearch.knn.index.IndexSettingsRegistry;
 import org.opensearch.knn.index.KNNSettings;
 
 import java.io.IOException;
@@ -53,16 +55,21 @@ public final class KNNDirectIODirectory extends FilterDirectory {
      * Puts this delegate in front of the directory of the segment a flat vector reader is about to open.
      *
      * @param state The state the faiss format was handed by Lucene.
-     * @return A state whose directory is this delegate, or the given state when the shard path carries no index UUID,
-     *         because the setting of such a segment can never be read.
+     * @return A state whose directory is this delegate, or the given state when the shard path carries no index UUID or
+     *         no index on this node has it, because the setting of such a segment can never be read.
      */
     public static SegmentReadState wrap(@NonNull final SegmentReadState state) {
         final String indexUuid = ShardPathUtil.tryGetIndexUuid(state.segmentInfo.dir);
-        if (indexUuid == null) {
+        final IndexSettings indexSettings = indexUuid == null ? null : IndexSettingsRegistry.getInstance().get(indexUuid);
+        if (indexSettings == null) {
             return state;
         }
         return new SegmentReadState(
-            new KNNDirectIODirectory(state.directory, () -> KNNSettings.isDirectIORescoreEnabled(indexUuid)),
+            new KNNDirectIODirectory(
+                state.directory,
+                // getSettings() reads the volatile field a settings update replaces, so the next slice sees the update.
+                () -> KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_SETTING.get(indexSettings.getSettings())
+            ),
             state.segmentInfo,
             state.fieldInfos,
             state.context,

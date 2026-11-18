@@ -19,13 +19,14 @@ import org.apache.lucene.tests.util.LuceneTestCase;
 import org.apache.lucene.util.IOFunction;
 import org.mockito.Mockito;
 import org.opensearch.Version;
-import org.opensearch.cluster.ClusterName;
-import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
-import org.opensearch.cluster.metadata.Metadata;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.index.IndexService;
+import org.opensearch.index.IndexSettings;
+import org.opensearch.indices.cluster.IndicesClusterStateService.AllocatedIndices.IndexRemovalReason;
+import org.opensearch.knn.index.IndexSettingsRegistry;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.test.IndexSettingsModule;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -175,29 +176,35 @@ final class DirectIOTestUtils {
         return new KNNDirectIODirectory(in, SMALL_FLOOR, directIOEnabled, factory, directIOAvailable);
     }
 
-    static void publishIndex(
-        final ClusterService clusterService,
-        final String indexName,
-        final String uuid,
-        final boolean enabled,
-        final AtomicInteger stateReads
-    ) {
+    // Registers an index as this node's index service does when it creates one, so that wrap finds it.
+    static IndexSettings registerIndex(final String uuid, final boolean enabled) {
+        final IndexSettings indexSettings = indexSettings(uuid, enabled);
+        final IndexService indexService = Mockito.mock(IndexService.class);
+        Mockito.when(indexService.getIndexSettings()).thenReturn(indexSettings);
+        IndexSettingsRegistry.getInstance().afterIndexCreated(indexService);
+        return indexSettings;
+    }
+
+    static IndexSettings indexSettings(final String uuid, final boolean enabled) {
+        return IndexSettingsModule.newIndexSettings(indexMetadata(uuid, enabled), KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_SETTING);
+    }
+
+    // Applies a new value the way a dynamic settings update reaches an index service.
+    static void updateIndex(final IndexSettings indexSettings, final boolean enabled) {
+        indexSettings.updateIndexMetadata(indexMetadata(indexSettings.getUUID(), enabled));
+    }
+
+    static void unregisterIndex(final IndexSettings indexSettings) {
+        IndexSettingsRegistry.getInstance().afterIndexRemoved(indexSettings.getIndex(), indexSettings, IndexRemovalReason.DELETED);
+    }
+
+    private static IndexMetadata indexMetadata(final String uuid, final boolean enabled) {
         final Settings settings = Settings.builder()
             .put(IndexMetadata.SETTING_VERSION_CREATED, Version.CURRENT.id)
             .put(IndexMetadata.SETTING_INDEX_UUID, uuid)
             .put(KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED, enabled)
             .build();
-        final IndexMetadata metadata = IndexMetadata.builder(indexName).settings(settings).numberOfShards(1).numberOfReplicas(0).build();
-        final ClusterState clusterState = ClusterState.builder(new ClusterName("test"))
-            .metadata(Metadata.builder().put(metadata, false).build())
-            .build();
-        KNNSettings.state().setClusterService(clusterService);
-        Mockito.doAnswer(invocation -> {
-            if (stateReads != null) {
-                stateReads.incrementAndGet();
-            }
-            return clusterState;
-        }).when(clusterService).state();
+        return IndexMetadata.builder("target-index").settings(settings).numberOfShards(1).numberOfReplicas(0).build();
     }
 
     // Decided once per test JVM in the two steps of Lucene's TestDirectIODirectory.checkSupported: the production open
