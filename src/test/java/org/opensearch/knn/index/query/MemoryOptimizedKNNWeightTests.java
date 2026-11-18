@@ -272,13 +272,15 @@ public class MemoryOptimizedKNNWeightTests extends KNNTestCase {
         assertEquals(TotalHits.Relation.GREATER_THAN_OR_EQUAL_TO, topDocs.totalHits.relation());
     }
 
-    public void testApproximateSearch_whenNoHitsAndBudgetNotExhausted_thenReturnsEmptyTopDocs() throws Exception {
+    public void testApproximateSearch_whenNoHitsAndBudgetNotExhausted_thenReturnsNoHitsWithEqualToRelation() throws Exception {
         final LeafReaderContext context = mockLeafWhoseVectorSearchCollectsNothing(false);
         final MemoryOptimizedKNNWeight weight = filteredWeightSearchingMockedLeaf(topKQuery(false), K);
 
         final TopDocs topDocs = weight.approximateSearch(context, partialSegmentFilter(), FILTER_CARDINALITY, K);
 
-        assertSame(KNNWeight.EMPTY_TOPDOCS, topDocs);
+        assertEquals(0, topDocs.scoreDocs.length);
+        assertEquals(0, topDocs.totalHits.value());
+        assertEquals(TotalHits.Relation.EQUAL_TO, topDocs.totalHits.relation());
     }
 
     private static KNNQuery topKQuery(final boolean explain) {
