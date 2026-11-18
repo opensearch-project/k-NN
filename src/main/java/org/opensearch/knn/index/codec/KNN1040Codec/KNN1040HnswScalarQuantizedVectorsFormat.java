@@ -26,6 +26,7 @@ import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.DEFAUL
 import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.DEFAULT_MAX_CONN;
 import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.DEFAULT_NUM_MERGE_WORKER;
 import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.HNSW_GRAPH_THRESHOLD;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.updateVectorFileAccessHint;
 
 /**
  * HNSW + scalar quantization format that extends {@link Lucene104HnswScalarQuantizedVectorsFormat}
@@ -104,7 +105,7 @@ public class KNN1040HnswScalarQuantizedVectorsFormat extends Lucene104HnswScalar
 
     @Override
     public KnnVectorsReader fieldsReader(SegmentReadState state) throws IOException {
-        return new Lucene99HnswVectorsReader(state, flatVectorsFormat.fieldsReader(state));
+        return new Lucene99HnswVectorsReader(state, flatVectorsFormat.fieldsReader(updateVectorFileAccessHint(state)));
     }
 
     @Override

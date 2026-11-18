@@ -8,14 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Features
 * Support knn queries on native engine fields inside percolator queries by scoring the percolated document with exact search [#3556](https://github.com/opensearch-project/k-NN/pull/3556)
 * Add SQ 2-bit and 4-bit for half_float [#3603](https://github.com/opensearch-project/k-NN/pull/3603)
+* Validate the remote index build artifact extension against the destination engine's extension instead of hardcoding Faiss, so non-Faiss engines (e.g. cuVS) are not rejected [#3662](https://github.com/opensearch-project/k-NN/pull/3662)
+* Add bulk SIMD scoring for SQ 2-bit and 4-bit HNSW search with runtime-dispatched kernels [#3669](https://github.com/opensearch-project/k-NN/pull/3669)
 
 ### Maintenance
+* Establish a separate Mend dependency baseline for the 2.19 maintenance branch [#3665](https://github.com/opensearch-project/k-NN/pull/3665).
 * Fixed build issues happening due to Lucene 10.5.2 upgrade [#3631](https://github.com/opensearch-project/k-NN/pull/3631)
 * Use clustered test vectors and the api-snapshot builder image so remote index build ITs pass on cuVS 26.08 [#3627](https://github.com/opensearch-project/k-NN/pull/3627)
+* Use lucene's new interface for RANDOM readadvice on HNSW search [#3676](https://github.com/opensearch-project/k-NN/pull/3676)
 * Add integ test that restores the model index onto a new cluster [#3646](https://github.com/opensearch-project/k-NN/pull/3646)
 
+### Infrastructure
+* Upgrade JaCoCo to 0.8.16 across projects to use ASM 9.11.1 [#3666](https://github.com/opensearch-project/k-NN/pull/3666)
+
 ### Bug Fixes
-* Fix model ids that can't be deleted or trained again after restoring a model index snapshot taken while models were being trained or deleted
+* Fix NullPointerException in nested exact search when a segment has no vector scorer [#3703](https://github.com/opensearch-project/k-NN/pull/3703)
+* Raise `ef_search` to at least `k` for Faiss HNSW queries when memory-optimized search is off, so queries with `k` larger than `ef_search` no longer explore only `ef_search` candidates [#3705](https://github.com/opensearch-project/k-NN/issues/3705)
+* Fix model ids that can't be deleted or trained again after restoring a model index snapshot taken while models were being trained or deleted [#3664](https://github.com/opensearch-project/k-NN/pull/3664)
 * Fix SIGSEGV in Faiss SQ HNSW build caused by 32-bit offset overflow for segments over 2 GiB of quantized vectors [#3653](https://github.com/opensearch-project/k-NN/pull/3653)
 * Align field visibility across k-NN search paths.
 * Rethrow merge abort during native index write so aborted merges no longer fail the shard engine [#3651](https://github.com/opensearch-project/k-NN/pull/3651)
@@ -30,6 +39,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Make the bulk SIMD kernels format aware: the FP16, BF16 and SQ kernels take the storage format (where a vector's values and correction factors live) as a compile-time parameter instead of hard-coding the Lucene layout, and the Java/JNI similarity function type carries an explicit wire value [#3645](https://github.com/opensearch-project/k-NN/pull/3645)
 
 ### Enhancements
+* Add AVX-512 kernels for SQ 2-bit and 4-bit distance computation during indexing [#3667](https://github.com/opensearch-project/k-NN/pull/3667)
+* Add SIMD kernels for SQ 2-bit and 4-bit distance computation during indexing [#3655](https://github.com/opensearch-project/k-NN/pull/3655)
+* Score ADC queries from a precomputed per-query table instead of a per-dimension loop [#3633](https://github.com/opensearch-project/k-NN/pull/3633)
 * Use a dedicated 1-bit SQ distance computer to restore 1-bit indexing performance [#3652](https://github.com/opensearch-project/k-NN/pull/3652)
 * Set the CMAKE_BUILD_TYPE to Release to ensure that all targets get build with optimized code [#3622](https://github.com/opensearch-project/k-NN/pull/3622)
 * Avoid FP16 -> FP32 -> FP16 round trip when merging `half_float` segments [#3610](https://github.com/opensearch-project/k-NN/pull/3610)

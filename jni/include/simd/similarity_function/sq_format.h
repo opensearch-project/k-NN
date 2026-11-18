@@ -28,6 +28,27 @@ namespace knn_jni::simd::similarity_function {
     // The query is 4-bit quantized and transposed into 4 bit planes; the code dot product weights them 1, 2, 4, 8.
     constexpr float FOUR_BIT_SCALE = 1.0f / 15.0f;
 
+    // Lucene's getDocPackedLength for the document code widths the SQ kernels support:
+    //   1-bit SINGLE_BIT_QUERY_NIBBLE  (dimension + 7) / 8
+    //   2-bit DIBIT_QUERY_NIBBLE       2 * ((dimension + 7) / 8)   (bit plane 0 then bit plane 1, one stripe each)
+    //   4-bit PACKED_NIBBLE            (dimension + 1) / 2         (split-half nibbles)
+    // The 4-bit query the kernels take is 4 * code bytes long for 1-bit codes (4 bit planes of one code length) and
+    // 2 * code bytes for 2- and 4-bit codes (4 bit planes of one stripe; one code per dimension, respectively).
+    static inline int32_t luceneSqCodeBytes(const int32_t dimension, const int32_t docBits) {
+        if (docBits == 2) {
+            return 2 * ((dimension + 7) / 8);
+        }
+        if (docBits == 4) {
+            return (dimension + 1) / 2;
+        }
+        return (dimension + 7) / 8;
+    }
+
+    static inline int32_t luceneSqQueryBytes(const int32_t dimension, const int32_t docBits) {
+        const int32_t codeBytes = luceneSqCodeBytes(dimension, docBits);
+        return docBits == 1 ? 4 * codeBytes : 2 * codeBytes;
+    }
+
     // Lucene's layout: `id` is a slot in the context's vector region(s), oneVectorByteSize apart. Each element is
     // [code (binaryCodeBytes) | lowerInterval f32 | upperInterval f32 | additionalCorrection f32 | quantizedComponentSum i32].
     // Because oneVectorByteSize need not be a multiple of 4, elements can start at non-4-byte-aligned offsets, hence
@@ -105,6 +126,24 @@ namespace knn_jni::simd::similarity_function {
                     score = std::max(0.0F, queryAdditional + additional - 2 * score);
                 }
                 return score;
+            }
+        };
+
+        // The Epilogue for 2- and 4-bit document codes: Lucene's quantizedScore scales the document interval by
+        // SCALE_LUT[docBits - 1] = 1 / (2^docBits - 1) (1/3, 1/15). Kept apart from Epilogue so the 1-bit path does no
+        // extra work per vector.
+        template <SQMetricMode Mode>
+        struct MultiBitEpilogue final {
+            Epilogue<Mode> base;
+            float docScale;
+
+            FORCE_INLINE explicit MultiBitEpilogue(const SimdVectorSearchContext* srchContext)
+                : base(srchContext), docScale(1.0f / static_cast<float>((1 << srchContext->docBits) - 1)) {}
+
+            // `upperMinusLower` is upper - lower; Lucene's lx = (upper - lower) * scale.
+            FORCE_INLINE float finish(const float ax, const float upperMinusLower, const float additional, const float x1,
+                                      const float qcDist) const {
+                return base.finish(ax, upperMinusLower * docScale, additional, x1, qcDist);
             }
         };
     };

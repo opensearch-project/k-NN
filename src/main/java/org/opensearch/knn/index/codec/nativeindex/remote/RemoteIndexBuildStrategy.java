@@ -342,6 +342,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         try {
             repositoryContext.vectorRepositoryAccessor.readFromRepository(
                 remoteBuildStatusResponse.getFileName(),
+                indexInfo.getKnnEngine().getExtension(),
                 indexInfo.getIndexOutputWithBuffer()
             );
             success = true;

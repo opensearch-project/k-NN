@@ -58,6 +58,22 @@ public class SimdVectorComputeService {
         }
     }
 
+    /**
+     * Persists the scalar-quantized (SQ) query state for the native bulk SIMD scorer. Must be called prior to each search.
+     *
+     * @param quantizedQuery             Quantized 4-bit query: nibble transposed into 4 bit planes for 1- and 2-bit
+     *                                   documents, one code per dimension for 4-bit documents.
+     * @param queryLowerInterval         Query lower interval correction factor.
+     * @param queryUpperInterval         Query upper interval correction factor.
+     * @param queryAdditionalCorrection  Query additional correction factor.
+     * @param queryQuantizedComponentSum Query quantized component sum.
+     * @param addressAndSize             Address and size pairs of the mapped vector chunks.
+     * @param nativeFunctionTypeOrd      Similarity function type index.
+     * @param dimension                  Vector dimension.
+     * @param centroidDp                 Centroid dot-product correction.
+     * @param docBits                    Document code width: 1 (SINGLE_BIT_QUERY_NIBBLE), 2 (DIBIT_QUERY_NIBBLE) or
+     *                                   4 (PACKED_NIBBLE). Selects the record size and the code dot product.
+     */
     public static native void saveSQSearchContext(
         byte[] quantizedQuery,
         float queryLowerInterval,
@@ -67,7 +83,8 @@ public class SimdVectorComputeService {
         long[] addressAndSize,
         int nativeFunctionTypeOrd,
         int dimension,
-        float centroidDp
+        float centroidDp,
+        int docBits
     );
 
     /**

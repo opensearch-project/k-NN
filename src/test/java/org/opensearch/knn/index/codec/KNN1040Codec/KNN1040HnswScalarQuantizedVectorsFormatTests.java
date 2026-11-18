@@ -5,10 +5,22 @@
 
 package org.opensearch.knn.index.codec.KNN1040Codec;
 
+import lombok.SneakyThrows;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.KnnFloatVectorField;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.VectorSimilarityFunction;
+import org.apache.lucene.store.DataAccessHint;
+import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.codec.util.UnitTestCodec;
 import org.opensearch.knn.index.engine.KNNEngine;
 
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 
 import static org.apache.lucene.util.quantization.QuantizedByteVectorValues.ScalarEncoding.SINGLE_BIT_QUERY_NIBBLE;
@@ -112,5 +124,37 @@ public class KNN1040HnswScalarQuantizedVectorsFormatTests extends KNNTestCase {
         );
         assertNotNull(format);
         assertEquals("KNN1040HnswScalarQuantizedVectorsFormat", format.getName());
+    }
+
+    @SneakyThrows
+    public void testOpenReader_thenRawAndQuantizedVectorsAdvisedForRandomAccess() {
+        try (MMapDirectory dir = new MMapDirectory(createTempDir())) {
+            try (
+                IndexWriter writer = new IndexWriter(
+                    dir,
+                    newIndexWriterConfig().setCodec(new UnitTestCodec(KNN1040HnswScalarQuantizedVectorsFormat::new))
+                        .setUseCompoundFile(false)
+                        .setMergePolicy(newLogMergePolicy(false))
+                )
+            ) {
+                for (int i = 0; i < 4; i++) {
+                    final Document doc = new Document();
+                    doc.add(new KnnFloatVectorField("field", new float[] { i, i + 1, i + 2, i + 3 }, VectorSimilarityFunction.EUCLIDEAN));
+                    writer.addDocument(doc);
+                }
+            }
+            final Set<String> randomAccessFiles = ConcurrentHashMap.newKeySet();
+            dir.setReadAdvice((name, context) -> {
+                if (context.hints().contains(DataAccessHint.RANDOM)) {
+                    randomAccessFiles.add(name);
+                }
+                return Optional.empty();
+            });
+
+            try (DirectoryReader ignored = DirectoryReader.open(dir)) {
+                assertTrue(randomAccessFiles.toString(), randomAccessFiles.stream().anyMatch(name -> name.endsWith(".vec")));
+                assertTrue(randomAccessFiles.toString(), randomAccessFiles.stream().anyMatch(name -> name.endsWith(".veq")));
+            }
+        }
     }
 }
