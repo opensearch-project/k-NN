@@ -21,7 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Upgrade JaCoCo to 0.8.16 across projects to use ASM 9.11.1 [#3666](https://github.com/opensearch-project/k-NN/pull/3666)
 
 ### Bug Fixes
-* Fix memory-optimized search losing the exhausted search budget signal when ANN returns no hits
+* Fix memory-optimized search losing the exhausted search budget signal when ANN returns no hits [#3709](https://github.com/opensearch-project/k-NN/pull/3709)
 * Stop printing "JNIEnv not found" to stderr from Faiss OpenMP worker threads during native index builds [#3708](https://github.com/opensearch-project/k-NN/pull/3708)
 * Fix NullPointerException in nested exact search when a segment has no vector scorer [#3703](https://github.com/opensearch-project/k-NN/pull/3703)
 * Raise `ef_search` to at least `k` for Faiss HNSW queries when memory-optimized search is off, so queries with `k` larger than `ef_search` no longer explore only `ef_search` candidates [#3705](https://github.com/opensearch-project/k-NN/issues/3705)
