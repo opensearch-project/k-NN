@@ -5,10 +5,6 @@
 
 apply plugin: 'jacoco'
 
-jacoco {
-    toolVersion = "0.8.14"
-}
-
 /**
  * This code sets up coverage reporting manually for the k-NN plugin tests. This is complicated because:
  *  1. The OS integTest Task doesn't implement Gradle's JavaForkOptions so we have to manually start the jacoco agent with the test JVM

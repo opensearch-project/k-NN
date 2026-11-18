@@ -204,11 +204,12 @@ public final class VectorScorers {
     }
 
     private static VectorScorer maybeWrapWithNestedScorer(
-        final VectorScorer scorer,
+        @Nullable final VectorScorer scorer,
         @Nullable final DocIdSetIterator acceptedChildrenIterator,
         @Nullable final BitSet parentBitSet
     ) {
-        if (parentBitSet == null) {
+        // Lucene returns a null scorer when the segment has no vectors for the field; callers treat null as an empty segment.
+        if (parentBitSet == null || scorer == null) {
             return scorer;
         }
         return new NestedBestChildVectorScorer(acceptedChildrenIterator, parentBitSet, scorer);

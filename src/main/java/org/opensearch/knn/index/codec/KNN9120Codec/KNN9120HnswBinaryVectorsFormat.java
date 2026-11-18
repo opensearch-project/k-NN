@@ -28,6 +28,7 @@ import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.HNSW_G
 import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.MAXIMUM_BEAM_WIDTH;
 import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.MAXIMUM_MAX_CONN;
 import static org.opensearch.knn.index.engine.KNNEngine.getMaxDimensionByEngine;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.updateVectorFileAccessHint;
 
 /**
  * Custom KnnVectorsFormat implementation to support binary vectors. This class is mostly identical to
@@ -121,7 +122,7 @@ public final class KNN9120HnswBinaryVectorsFormat extends KnnVectorsFormat {
 
     @Override
     public KnnVectorsReader fieldsReader(SegmentReadState state) throws IOException {
-        return new Lucene99HnswVectorsReader(state, flatVectorsFormat.fieldsReader(state));
+        return new Lucene99HnswVectorsReader(state, flatVectorsFormat.fieldsReader(updateVectorFileAccessHint(state)));
     }
 
     @Override

@@ -19,6 +19,8 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.KnnByteVectorQuery;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.store.DataAccessHint;
+import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.opensearch.knn.KNNTestCase;
@@ -26,6 +28,10 @@ import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.codec.scorer.PrefetchableFlatVectorScorer;
 import org.opensearch.knn.index.codec.scorer.PrefetchableScorerTestUtils;
 import org.opensearch.knn.index.codec.util.UnitTestCodec;
+
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Component test for {@link KNN9120HnswBinaryVectorsFormat}: index a few binary (byte) vector documents through a
@@ -113,9 +119,29 @@ public class KNN9120HnswBinaryVectorsFormatComponentTests extends KNNTestCase {
         }
     }
 
+    @SneakyThrows
+    public void testOpenReader_whenBinaryVectorsFormat_thenFlatVectorsAdvisedForRandomAccess() {
+        try (MMapDirectory dir = new MMapDirectory(createTempDir())) {
+            indexBinaryDocs(dir);
+            final Set<String> randomAccessFiles = ConcurrentHashMap.newKeySet();
+            dir.setReadAdvice((name, context) -> {
+                if (context.hints().contains(DataAccessHint.RANDOM)) {
+                    randomAccessFiles.add(name);
+                }
+                return Optional.empty();
+            });
+
+            try (DirectoryReader ignored = DirectoryReader.open(dir)) {
+                assertTrue(randomAccessFiles.toString(), randomAccessFiles.stream().anyMatch(name -> name.endsWith(".vec")));
+            }
+        }
+    }
+
     private void indexBinaryDocs(final Directory dir) throws Exception {
         final Codec codec = new UnitTestCodec(KNN9120HnswBinaryVectorsFormat::new);
-        final IndexWriterConfig iwc = newIndexWriterConfig().setCodec(codec);
+        final IndexWriterConfig iwc = newIndexWriterConfig().setCodec(codec)
+            .setUseCompoundFile(false)
+            .setMergePolicy(newLogMergePolicy(false));
         try (IndexWriter writer = new IndexWriter(dir, iwc)) {
             for (int i = 0; i < NUM_DOCS; i++) {
                 final Document doc = new Document();

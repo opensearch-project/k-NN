@@ -36,8 +36,11 @@ interface VectorRepositoryAccessor {
     /**
      * Read constructed vector file from remote repository and write to IndexOutput
      * @param fileName                      File name as String
+     * @param expectedExtension             File extension the downloaded artifact is required to end with. This is the
+     *                                      destination engine's own extension (e.g. {@link org.opensearch.knn.index.engine.KNNEngine#getExtension()}),
+     *                                      so engines that produce non-Faiss artifacts are not rejected.
      * @param indexOutputWithBuffer     {@link IndexOutputWithBuffer} which will be used to write to the underlying {@link org.apache.lucene.store.IndexOutput}
      * @throws IOException
      */
-    void readFromRepository(String fileName, IndexOutputWithBuffer indexOutputWithBuffer) throws IOException;
+    void readFromRepository(String fileName, String expectedExtension, IndexOutputWithBuffer indexOutputWithBuffer) throws IOException;
 }
