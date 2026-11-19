@@ -1663,7 +1663,8 @@ public class KNNWeightTests extends KNNWeightTestCase {
     @SneakyThrows
     public void testRadialSearchWithFilter_whenANNReturnsNoDocs_thenFallBackToExactSearch() {
         final float radius = 0.5f;
-        final ExactSearcher exactSearcher = runFilteredRadialSearch(radius, new KNNQueryResult[0]);
+        // 6 of 100 docs match the filter, below RADIAL_EXACT_FALLBACK_MAX_FILTER_RATIO.
+        final ExactSearcher exactSearcher = runFilteredRadialSearch(radius, new KNNQueryResult[0], 100);
 
         final ArgumentCaptor<ExactSearcher.ExactSearcherContext> exactContext = ArgumentCaptor.forClass(
             ExactSearcher.ExactSearcherContext.class
@@ -1674,16 +1675,25 @@ public class KNNWeightTests extends KNNWeightTestCase {
 
     @SneakyThrows
     public void testRadialSearchWithFilter_whenANNReturnsDocs_thenNoExactSearch() {
-        final ExactSearcher exactSearcher = runFilteredRadialSearch(0.5f, getFilteredKNNQueryResults());
+        final ExactSearcher exactSearcher = runFilteredRadialSearch(0.5f, getFilteredKNNQueryResults(), 100);
+
+        verify(exactSearcher, never()).searchLeaf(any(), any());
+    }
+
+    @SneakyThrows
+    public void testRadialSearchWithFilter_whenANNReturnsNoDocsAndFilterIsNotRestrictive_thenNoExactSearch() {
+        // 6 of 7 docs match the filter, so an empty ANN result most likely means nothing is inside the radius.
+        final ExactSearcher exactSearcher = runFilteredRadialSearch(0.5f, new KNNQueryResult[0], 7);
 
         verify(exactSearcher, never()).searchLeaf(any(), any());
     }
 
     /**
-     * Runs a filtered radial query on one Faiss segment with 6 filtered docs. The exact search threshold is 1, so
-     * the filter alone doesn't pick exact search and the query goes to the mocked JNI radius search first.
+     * Runs a filtered radial query on one Faiss segment of {@code maxDoc} docs with 6 filtered docs. The exact search
+     * threshold is 1, so the filter alone doesn't pick exact search and the query goes to the mocked JNI radius search first.
      */
-    private ExactSearcher runFilteredRadialSearch(final float radius, final KNNQueryResult[] annResults) throws IOException {
+    private ExactSearcher runFilteredRadialSearch(final float radius, final KNNQueryResult[] annResults, final int maxDoc)
+        throws IOException {
         final ExactSearcher exactSearcher = mock(ExactSearcher.class);
         when(exactSearcher.searchLeaf(any(), any())).thenReturn(buildTopDocs(DOC_ID_TO_SCORES));
         KNNWeight.initialize(mock(ModelDao.class), exactSearcher);
@@ -1715,7 +1725,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
         when(liveDocsBits.length()).thenReturn(1000);
 
         final SegmentReader reader = mockSegmentReader();
-        when(reader.maxDoc()).thenReturn(filterDocIds.length + 1);
+        when(reader.maxDoc()).thenReturn(maxDoc);
         when(reader.getLiveDocs()).thenReturn(liveDocsBits);
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         final FieldInfo fieldInfo = mock(FieldInfo.class);

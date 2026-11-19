@@ -80,6 +80,8 @@ import static org.opensearch.knn.profile.StopWatchUtils.stopStopWatchAndLog;
  */
 @Log4j2
 public abstract class KNNWeight extends Weight {
+    // Largest share of a segment's docs a filter can match for an empty filtered radial ANN result to trigger exact search.
+    static final float RADIAL_EXACT_FALLBACK_MAX_FILTER_RATIO = 0.1f;
     protected static final TopDocs EMPTY_TOPDOCS = new TopDocs(new TotalHits(0, TotalHits.Relation.EQUAL_TO), new ScoreDoc[0]);
     private static ModelDao modelDao;
     private static ExactSearcher DEFAULT_EXACT_SEARCHER;
@@ -222,7 +224,8 @@ public abstract class KNNWeight extends Weight {
         if (annResult != null && annResult == 0 && isMissingNativeEngineFiles(context)) {
             sb.append(KNNConstants.EXACT_SEARCH).append(" since no native engine files are available");
         }
-        if (annResult != null && isFilteredExactSearchRequireAfterANNSearch(cardinality, exhaustedSearch, annResult)) {
+        if (annResult != null
+            && isFilteredExactSearchRequireAfterANNSearch(cardinality, context.reader().maxDoc(), exhaustedSearch, annResult)) {
             boolean isExactSearchDisabled = KNNSettings.isKnnIndexFaissEfficientFilterExactSearchDisabled(knnQuery.getIndexName());
             if (isExactSearchDisabled) {
                 sb.append(KNNConstants.ANN_SEARCH)
@@ -233,8 +236,10 @@ public abstract class KNNWeight extends Weight {
                 sb.append(KNNConstants.EXACT_SEARCH).append(" since lucene vector search has exhausted number of steps.");
             } else if (knnQuery.getRadius() != null) {
                 sb.append(KNNConstants.EXACT_SEARCH)
-                    .append(" since radial search returned no documents and there are filtered Ids = ")
-                    .append(cardinality);
+                    .append(" since radial search returned no documents with a restrictive filter, filtered Ids = ")
+                    .append(cardinality)
+                    .append(" out of ")
+                    .append(context.reader().maxDoc());
             } else {
                 sb.append(KNNConstants.EXACT_SEARCH)
                     .append(" since the number of documents returned are less than K = ")
@@ -243,7 +248,9 @@ public abstract class KNNWeight extends Weight {
                     .append(cardinality);
             }
         }
-        if (annResult != null && annResult > 0 && !isFilteredExactSearchRequireAfterANNSearch(cardinality, exhaustedSearch, annResult)) {
+        if (annResult != null
+            && annResult > 0
+            && !isFilteredExactSearchRequireAfterANNSearch(cardinality, context.reader().maxDoc(), exhaustedSearch, annResult)) {
             sb.append(KNNConstants.ANN_SEARCH);
         }
         sb.append(" with vectorDataType = ").append(knnQuery.getVectorDataType());
@@ -770,7 +777,12 @@ public abstract class KNNWeight extends Weight {
             return true;
         }
 
-        if (isFilteredExactSearchRequireAfterANNSearch(filterIdsCount, annSearchBudgetExhausted, annResultCount)) {
+        if (isFilteredExactSearchRequireAfterANNSearch(
+            filterIdsCount,
+            context.reader().maxDoc(),
+            annSearchBudgetExhausted,
+            annResultCount
+        )) {
 
             // Disable the fallback mechanism to exact search after ANN Search when the index setting is set to true
             if (KNNSettings.isKnnIndexFaissEfficientFilterExactSearchDisabled(knnQuery.getIndexName())) {
@@ -812,12 +824,14 @@ public abstract class KNNWeight extends Weight {
      * doesn't yield K nearest neighbors. Also check to make sure that we didn't hit Lucene's visit budget to match
      * behavior on low filtering percentages.
      * @param filterIdsCount count of filtered Doc ids
+     * @param maxDoc number of docs in the segment, used for the filter's selectivity
      * @param annSearchBudgetExhausted whether the search budget has been exhausted on lucene
      * @param annResultCount Count of Nearest Neighbours we got after doing filtered ANN Search.
      * @return boolean - true if exactSearch needs to be done after ANNSearch.
      */
     private boolean isFilteredExactSearchRequireAfterANNSearch(
         final int filterIdsCount,
+        final int maxDoc,
         final boolean annSearchBudgetExhausted,
         final int annResultCount
     ) {
@@ -825,10 +839,12 @@ public abstract class KNNWeight extends Weight {
             return false;
         }
         if (knnQuery.getRadius() != null) {
-            // A radial query has no k (it is 0), so the k check below never fires. The filter matched at least one
-            // doc here (an empty filter returns before ANN search), so an empty ANN result may be a miss: filtered
-            // HNSW traversal can stop before reaching docs inside the radius.
-            return annResultCount == 0 || annSearchBudgetExhausted;
+            // A radial query has no k (it is 0), so the k check below never fires. Memory-optimized search reports an
+            // exhausted visit budget, as for top-k. Faiss radius search through JNI never does, so an empty result is
+            // the only hint of a miss there: filtered HNSW traversal can stop before reaching docs inside the radius.
+            // An empty result can also mean nothing is inside the radius, so only treat it as a miss for restrictive
+            // filters, where the traversal is most likely to get cut off and the extra exact pass covers few docs.
+            return annSearchBudgetExhausted || (annResultCount == 0 && filterIdsCount < RADIAL_EXACT_FALLBACK_MAX_FILTER_RATIO * maxDoc);
         }
         if (filterIdsCount < knnQuery.getK()) {
             return false;

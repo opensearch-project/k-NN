@@ -24,7 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Stop printing "JNIEnv not found" to stderr from Faiss OpenMP worker threads during native index builds [#3708](https://github.com/opensearch-project/k-NN/pull/3708)
 * Fix NullPointerException in nested exact search when a segment has no vector scorer [#3703](https://github.com/opensearch-project/k-NN/pull/3703)
 * Raise `ef_search` to at least `k` for Faiss HNSW queries when memory-optimized search is off, so queries with `k` larger than `ef_search` no longer explore only `ef_search` candidates [#3705](https://github.com/opensearch-project/k-NN/issues/3705)
-* Fall back to exact search when a filtered radial search (`max_distance` or `min_score`) returns no documents from ANN search [#3700](https://github.com/opensearch-project/k-NN/pull/3700)
+* Fall back to exact search when a filtered radial search (`max_distance` or `min_score`) with a restrictive filter returns no documents from ANN search [#3700](https://github.com/opensearch-project/k-NN/pull/3700)
 * Fix SIGSEGV in Faiss SQ HNSW build caused by 32-bit offset overflow for segments over 2 GiB of quantized vectors [#3653](https://github.com/opensearch-project/k-NN/pull/3653)
 * Align field visibility across k-NN search paths.
 * Rethrow merge abort during native index write so aborted merges no longer fail the shard engine [#3651](https://github.com/opensearch-project/k-NN/pull/3651)
