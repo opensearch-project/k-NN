@@ -314,4 +314,22 @@ public class KNNSettingsTests extends KNNTestCase {
         int expected = (availableProcessors >= 32) ? 4 : 1;
         assertEquals(expected, threadQtyWithEmpty);
     }
+
+    public void testDirectIORescoreEnabledDefaultsToFalse() {
+        assertFalse(KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_DEFAULT_VALUE);
+        assertFalse(KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_SETTING.getDefault(Settings.EMPTY));
+        assertTrue(
+            "the key must be registered, or an index could not carry it",
+            new KNNPlugin().getSettings().contains(KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_SETTING)
+        );
+    }
+
+    public void testDirectIORescoreEnabledRejectsANonBoolean() {
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_SETTING.get(
+                Settings.builder().put(KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED, "not-a-boolean").build()
+            )
+        );
+    }
 }
