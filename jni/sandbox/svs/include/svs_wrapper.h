@@ -70,8 +70,8 @@ namespace knn_jni {
 
             bool want_interrupt() override {
                 JNIEnv* jenv = jutil->GetJNICurrentEnv();
+                // Only the merge thread is attached to the JVM; other OpenMP threads skip the poll quietly.
                 if (jenv == nullptr) {
-                    std::cerr << "JNIEnv not found\n";
                     return false;
                 }
                 if (mergeHelperClass == nullptr) {

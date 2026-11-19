@@ -923,6 +923,140 @@ TEST(FaissQueryBinaryIndexTest, BasicAssertions) {
     }
 }
 
+namespace {
+    // Ids returned by a direct Faiss HNSW search using the given efSearch, used as the expected result.
+    template <typename IndexIDMapT, typename DistanceT, typename QueryT>
+    std::vector<faiss::idx_t> SearchWithEfSearch(IndexIDMapT &idMap, const QueryT *query, int k, int efSearch) {
+        faiss::SearchParametersHNSW params;
+        params.efSearch = efSearch;
+        std::vector<DistanceT> distances(k);
+        std::vector<faiss::idx_t> labels(k);
+        idMap.search(1, query, k, distances.data(), labels.data(), &params);
+        labels.erase(std::find(labels.begin(), labels.end(), -1), labels.end());
+        return labels;
+    }
+
+    // Filter ids type expected by the JNI layer when filter ids are passed as a list of ids (0 is a bitmap).
+    constexpr int BATCH_FILTER_TYPE = 1;
+
+    template <typename ResultT>
+    std::vector<faiss::idx_t> ToIdsAndFree(std::vector<ResultT *> *results) {
+        std::vector<faiss::idx_t> resultIds;
+        for (auto result : *results) {
+            resultIds.push_back(result->first);
+            delete result;
+        }
+        delete results;
+        return resultIds;
+    }
+}
+
+// Faiss sizes the candidate queue with max(efSearch, k) but stops exploring based on efSearch alone, so a query with
+// k > efSearch must raise efSearch to k. See https://github.com/opensearch-project/k-NN/issues/3705
+TEST(FaissQueryIndexTest, WhenKGreaterThanEfSearch_ThenEfSearchRaisedToK) {
+    faiss::idx_t numIds = 2000;
+    int dim = 16;
+    std::vector<faiss::idx_t> ids = test_util::Range(numIds);
+    std::vector<float> vectors = test_util::RandomVectors(dim, numIds, randomDataMin, randomDataMax);
+
+    std::unique_ptr<faiss::Index> createdIndex(test_util::FaissCreateIndex(dim, "HNSW16,Flat", faiss::METRIC_L2));
+    auto createdIndexWithData = test_util::FaissAddData(createdIndex.get(), ids, vectors);
+    // efSearch stored in the index, used when no query time ef_search is provided.
+    const int indexEfSearch = 10;
+    dynamic_cast<faiss::IndexHNSW *>(createdIndex.get())->hnsw.efSearch = indexEfSearch;
+
+    NiceMock<JNIEnv> jniEnv;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+
+    const int k = 200;
+    const int largerEfSearch = 2 * k;
+    std::unordered_map<std::string, jobject> largerEfSearchParams;
+    largerEfSearchParams[knn_jni::EF_SEARCH] = reinterpret_cast<jobject>(const_cast<int *>(&largerEfSearch));
+    std::unordered_map<std::string, jobject> smallerEfSearchParams;
+    smallerEfSearchParams[knn_jni::EF_SEARCH] = reinterpret_cast<jobject>(const_cast<int *>(&indexEfSearch));
+
+    for (int i = 0; i < 10; i++) {
+        std::vector<float> query = test_util::RandomVectors(dim, 1, randomDataMin, randomDataMax);
+        const auto expectedIds = SearchWithEfSearch<faiss::IndexIDMap, float>(createdIndexWithData, query.data(), k, k);
+        ASSERT_EQ(k, expectedIds.size());
+
+        // No query time ef_search: index efSearch is raised to k.
+        auto resultIds = ToIdsAndFree(reinterpret_cast<std::vector<std::pair<int, float> *> *>(
+                knn_jni::faiss_wrapper::QueryIndex(&mockJNIUtil, &jniEnv, reinterpret_cast<jlong>(&createdIndexWithData),
+                                                   reinterpret_cast<jfloatArray>(&query), k, nullptr, nullptr)));
+        ASSERT_EQ(expectedIds, resultIds);
+
+        // Query time ef_search smaller than k: raised to k.
+        resultIds = ToIdsAndFree(reinterpret_cast<std::vector<std::pair<int, float> *> *>(
+                knn_jni::faiss_wrapper::QueryIndex(&mockJNIUtil, &jniEnv, reinterpret_cast<jlong>(&createdIndexWithData),
+                                                   reinterpret_cast<jfloatArray>(&query), k,
+                                                   reinterpret_cast<jobject>(&smallerEfSearchParams), nullptr)));
+        ASSERT_EQ(expectedIds, resultIds);
+
+        // Same with a filter that accepts every id, which goes through the filtered search path.
+        std::vector<faiss::idx_t> filterIds = ids;
+        resultIds = ToIdsAndFree(reinterpret_cast<std::vector<std::pair<int, float> *> *>(
+                knn_jni::faiss_wrapper::QueryIndex_WithFilter(&mockJNIUtil, &jniEnv,
+                                                              reinterpret_cast<jlong>(&createdIndexWithData),
+                                                              reinterpret_cast<jfloatArray>(&query), k, nullptr,
+                                                              reinterpret_cast<jlongArray>(&filterIds), BATCH_FILTER_TYPE, nullptr)));
+        ASSERT_EQ(expectedIds, resultIds);
+
+        // Query time ef_search larger than k is kept as-is.
+        resultIds = ToIdsAndFree(reinterpret_cast<std::vector<std::pair<int, float> *> *>(
+                knn_jni::faiss_wrapper::QueryIndex(&mockJNIUtil, &jniEnv, reinterpret_cast<jlong>(&createdIndexWithData),
+                                                   reinterpret_cast<jfloatArray>(&query), k,
+                                                   reinterpret_cast<jobject>(&largerEfSearchParams), nullptr)));
+        ASSERT_EQ((SearchWithEfSearch<faiss::IndexIDMap, float>(createdIndexWithData, query.data(), k, largerEfSearch)),
+                  resultIds);
+    }
+}
+
+TEST(FaissQueryBinaryIndexTest, WhenKGreaterThanEfSearch_ThenEfSearchRaisedToK) {
+    faiss::idx_t numIds = 2000;
+    int dim = 128;
+    std::vector<faiss::idx_t> ids = test_util::Range(numIds);
+    std::vector<uint8_t> vectors;
+    for (int64_t i = 0; i < numIds * (dim / 8); ++i) {
+        vectors.push_back(test_util::RandomInt(0, 255));
+    }
+
+    std::unique_ptr<faiss::IndexBinary> createdIndex(test_util::FaissCreateBinaryIndex(dim, "BHNSW16"));
+    auto createdIndexWithData = test_util::FaissAddBinaryData(createdIndex.get(), ids, vectors);
+    const int indexEfSearch = 10;
+    dynamic_cast<faiss::IndexBinaryHNSW *>(createdIndex.get())->hnsw.efSearch = indexEfSearch;
+
+    NiceMock<JNIEnv> jniEnv;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+
+    const int k = 200;
+    for (int i = 0; i < 10; i++) {
+        std::vector<uint8_t> query;
+        for (int j = 0; j < dim / 8; j++) {
+            query.push_back(test_util::RandomInt(0, 255));
+        }
+        const auto expectedIds = SearchWithEfSearch<faiss::IndexBinaryIDMap, int32_t>(createdIndexWithData, query.data(), k, k);
+        ASSERT_EQ(k, expectedIds.size());
+
+        // No method parameters, no filter and no parent ids: efSearch is still raised to k.
+        auto resultIds = ToIdsAndFree(reinterpret_cast<std::vector<std::pair<int, float> *> *>(
+                knn_jni::faiss_wrapper::QueryBinaryIndex_WithFilter(&mockJNIUtil, &jniEnv,
+                                                                    reinterpret_cast<jlong>(&createdIndexWithData),
+                                                                    reinterpret_cast<jbyteArray>(&query), k, nullptr,
+                                                                    nullptr, 0, nullptr)));
+        ASSERT_EQ(expectedIds, resultIds);
+
+        // Filtered search path.
+        std::vector<faiss::idx_t> filterIds = ids;
+        resultIds = ToIdsAndFree(reinterpret_cast<std::vector<std::pair<int, float> *> *>(
+                knn_jni::faiss_wrapper::QueryBinaryIndex_WithFilter(&mockJNIUtil, &jniEnv,
+                                                                    reinterpret_cast<jlong>(&createdIndexWithData),
+                                                                    reinterpret_cast<jbyteArray>(&query), k, nullptr,
+                                                                    reinterpret_cast<jlongArray>(&filterIds), BATCH_FILTER_TYPE, nullptr)));
+        ASSERT_EQ(expectedIds, resultIds);
+    }
+}
+
 //Test for a bug reported in https://github.com/opensearch-project/k-NN/issues/1435
 TEST(FaissQueryIndexWithFilterTest1435, BasicAssertions) {
     // Define the index data

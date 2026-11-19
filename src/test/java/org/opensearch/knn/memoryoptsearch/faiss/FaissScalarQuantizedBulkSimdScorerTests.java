@@ -398,7 +398,14 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
                         float actualBulk = bulkScores[j];
                         float expected = truthScorer.score(ords[j]);
                         assertEquals(
-                            "Bulk score mismatch at ord=" + ords[j] + " (batch=" + batchSize + ") for " + similarityFunction + " " + encoding,
+                            "Bulk score mismatch at ord="
+                                + ords[j]
+                                + " (batch="
+                                + batchSize
+                                + ") for "
+                                + similarityFunction
+                                + " "
+                                + encoding,
                             expected,
                             actualBulk,
                             delta(encoding, expected)
