@@ -595,11 +595,6 @@ public abstract class KNNWeight extends Weight {
             k
         );
 
-        if (results.scoreDocs.length == 0) {
-            log.debug("[KNN] Query yielded 0 results");
-            return EMPTY_TOPDOCS;
-        }
-
         return results;
     }
 
