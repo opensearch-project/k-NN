@@ -28,6 +28,8 @@ public class KNNFeatureFlags {
     private static final String KNN_FORCE_EVICT_CACHE_ENABLED = "knn.feature.cache.force_evict.enabled";
     private static final String KNN_PREFETCH_ENABLED = "knn.feature.prefetch.enabled";
     private static final boolean KNN_PREFETCH_ENABLED_DEFAULT_VALUE = true;
+    private static final String KNN_RABITQ_ENABLED = "knn.feature.rabitq.enabled";
+    private static final boolean KNN_RABITQ_ENABLED_DEFAULT_VALUE = false;
 
     @VisibleForTesting
     public static final Setting<Boolean> KNN_FORCE_EVICT_CACHE_ENABLED_SETTING = Setting.boolSetting(
@@ -45,11 +47,22 @@ public class KNNFeatureFlags {
     );
 
     /**
+     * Experimental: gates onboarding of the Faiss IVF RaBitQ encoder (training models with encoder "rabitq").
+     * Already trained RaBitQ models remain usable when disabled.
+     */
+    public static final Setting<Boolean> KNN_RABITQ_ENABLED_SETTING = Setting.boolSetting(
+        KNN_RABITQ_ENABLED,
+        KNN_RABITQ_ENABLED_DEFAULT_VALUE,
+        NodeScope,
+        Dynamic
+    );
+
+    /**
      * All feature flags which needs to be provided as setting should be added here.
      * @return List of Feature flag settings
      */
     public static List<Setting<?>> getFeatureFlags() {
-        return ImmutableList.of(KNN_FORCE_EVICT_CACHE_ENABLED_SETTING, KNN_PREFETCH_ENABLED_SETTING);
+        return ImmutableList.of(KNN_FORCE_EVICT_CACHE_ENABLED_SETTING, KNN_PREFETCH_ENABLED_SETTING, KNN_RABITQ_ENABLED_SETTING);
     }
 
     /**
@@ -73,5 +86,13 @@ public class KNNFeatureFlags {
             KNNSettings.state().getSettingValue(KNN_PREFETCH_ENABLED).toString(),
             KNN_PREFETCH_ENABLED_DEFAULT_VALUE
         );
+    }
+
+    /**
+     * Checks if the experimental RaBitQ encoder is enabled
+     * @return true if the RaBitQ feature flag is set to true
+     */
+    public static boolean isRaBitQEnabled() {
+        return Booleans.parseBoolean(KNNSettings.state().getSettingValue(KNN_RABITQ_ENABLED).toString(), KNN_RABITQ_ENABLED_DEFAULT_VALUE);
     }
 }

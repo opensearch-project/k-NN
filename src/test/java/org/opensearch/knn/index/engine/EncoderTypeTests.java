@@ -10,6 +10,7 @@ import org.opensearch.knn.KNNTestCase;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_BINARY;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_RABITQ;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 
 public class EncoderTypeTests extends KNNTestCase {
@@ -25,6 +26,7 @@ public class EncoderTypeTests extends KNNTestCase {
         assertEquals(ENCODER_SQ, Encoder.EncoderType.SQ.getName());
         assertEquals(ENCODER_PQ, Encoder.EncoderType.PQ.getName());
         assertEquals(ENCODER_BINARY, Encoder.EncoderType.BQ.getName());
+        assertEquals(ENCODER_RABITQ, Encoder.EncoderType.RABITQ.getName());
     }
 
     public void testFromNameThrowsForUnsupported() {

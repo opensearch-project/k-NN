@@ -8,6 +8,7 @@ package org.opensearch.knn.common.featureflags;
 import org.mockito.Mock;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 
@@ -16,8 +17,10 @@ import java.util.List;
 
 import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.KNN_FORCE_EVICT_CACHE_ENABLED_SETTING;
 import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.KNN_PREFETCH_ENABLED_SETTING;
+import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.KNN_RABITQ_ENABLED_SETTING;
 import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.isForceEvictCacheEnabled;
 import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.isPrefetchEnabled;
+import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.isRaBitQEnabled;
 import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.getFeatureFlags;
 import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.getFeatureFlagsWhichRebuildsCache;
 
@@ -46,11 +49,23 @@ public class KNNFeatureFlagsTests extends KNNTestCase {
         assertFalse(isPrefetchEnabled());
     }
 
+    public void testIsRaBitQEnabled() {
+        when(clusterSettings.get(KNN_RABITQ_ENABLED_SETTING)).thenReturn(false);
+        assertFalse(isRaBitQEnabled());
+        when(clusterSettings.get(KNN_RABITQ_ENABLED_SETTING)).thenReturn(true);
+        assertTrue(isRaBitQEnabled());
+    }
+
+    public void testRaBitQEnabledSetting_whenNotSet_thenDisabledByDefault() {
+        assertFalse(KNN_RABITQ_ENABLED_SETTING.getDefault(Settings.EMPTY));
+    }
+
     public void testGetFeatureFlags() {
         List<Setting<?>> flags = getFeatureFlags();
-        assertEquals(2, flags.size());
+        assertEquals(3, flags.size());
         assertTrue(flags.contains(KNN_FORCE_EVICT_CACHE_ENABLED_SETTING));
         assertTrue(flags.contains(KNN_PREFETCH_ENABLED_SETTING));
+        assertTrue(flags.contains(KNN_RABITQ_ENABLED_SETTING));
     }
 
     public void testGetFeatureFlagsWhichRebuildsCache() {
@@ -58,5 +73,6 @@ public class KNNFeatureFlagsTests extends KNNTestCase {
         assertEquals(1, flags.size());
         assertTrue(flags.contains(KNN_FORCE_EVICT_CACHE_ENABLED_SETTING));
         assertFalse(flags.contains(KNN_PREFETCH_ENABLED_SETTING));
+        assertFalse(flags.contains(KNN_RABITQ_ENABLED_SETTING));
     }
 }
