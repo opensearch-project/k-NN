@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fixed build issues happening due to Lucene 10.5.2 upgrade [#3631](https://github.com/opensearch-project/k-NN/pull/3631)
 * Use clustered test vectors and the api-snapshot builder image so remote index build ITs pass on cuVS 26.08 [#3627](https://github.com/opensearch-project/k-NN/pull/3627)
 * Use lucene's new interface for RANDOM readadvice on HNSW search [#3676](https://github.com/opensearch-project/k-NN/pull/3676)
+* Add integ test that restores the model index onto a new cluster [#3646](https://github.com/opensearch-project/k-NN/pull/3646)
 
 ### Infrastructure
 * Upgrade JaCoCo to 0.8.16 across projects to use ASM 9.11.1 [#3666](https://github.com/opensearch-project/k-NN/pull/3666)
@@ -24,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Stop printing "JNIEnv not found" to stderr from Faiss OpenMP worker threads during native index builds [#3708](https://github.com/opensearch-project/k-NN/pull/3708)
 * Fix NullPointerException in nested exact search when a segment has no vector scorer [#3703](https://github.com/opensearch-project/k-NN/pull/3703)
 * Raise `ef_search` to at least `k` for Faiss HNSW queries when memory-optimized search is off, so queries with `k` larger than `ef_search` no longer explore only `ef_search` candidates [#3705](https://github.com/opensearch-project/k-NN/issues/3705)
+* Fix model ids that can't be deleted or trained again after restoring a model index snapshot taken while models were being trained or deleted [#3664](https://github.com/opensearch-project/k-NN/pull/3664)
 * Fix SIGSEGV in Faiss SQ HNSW build caused by 32-bit offset overflow for segments over 2 GiB of quantized vectors [#3653](https://github.com/opensearch-project/k-NN/pull/3653)
 * Align field visibility across k-NN search paths.
 * Rethrow merge abort during native index write so aborted merges no longer fail the shard engine [#3651](https://github.com/opensearch-project/k-NN/pull/3651)
