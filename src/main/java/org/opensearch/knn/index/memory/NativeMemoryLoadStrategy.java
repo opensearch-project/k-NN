@@ -163,8 +163,11 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             getInstance().vectorReader = vectorReader;
         }
 
+        /** Name of the thread that closes training data allocations. */
+        static final String CLOSE_THREAD_NAME = "knn-training-data-close";
+
         private TrainingLoadStrategy() {
-            executor = Executors.newSingleThreadExecutor();
+            executor = Executors.newSingleThreadExecutor(runnable -> new Thread(runnable, CLOSE_THREAD_NAME));
         }
 
         @Override

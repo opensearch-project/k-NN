@@ -15,7 +15,9 @@ import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.ExceptionsHelper;
 import org.opensearch.OpenSearchException;
+import org.opensearch.action.search.SearchPhaseExecutionException;
 import org.opensearch.common.UUIDs;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
@@ -39,11 +41,16 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Encapsulates all information required to generate and train a model.
  */
 public class TrainingJob implements Runnable {
+
+    /** The part of a security plugin denial that names the action, without the user that follows it. */
+    private static final Pattern DENIED_ACTION = Pattern.compile("no permissions for \\[[^\\]]*\\]");
 
     public static Logger logger = LogManager.getLogger(TrainingJob.class);
 
@@ -109,18 +116,39 @@ public class TrainingJob implements Runnable {
     }
 
     /**
-     * Describes a failure by its REST status and the message of the first {@link OpenSearchException} in its causes.
+     * Describes a failure by the status and message of its root cause, for the model's error. Any model reader can
+     * see that error, so a permission denial keeps only the denied action, not the user it names; the node log keeps
+     * the full exception.
      *
      * @param failure the failure to describe
-     * @return the status and message, for the model's error
+     * @return the status and the message of the root cause
      */
     static String describe(Exception failure) {
-        for (Throwable t = failure; t != null; t = t.getCause()) {
-            if (t instanceof OpenSearchException openSearchException) {
-                return "[" + openSearchException.status() + "] " + openSearchException.getMessage();
-            }
+        Throwable cause = rootCause(failure);
+        String message = String.valueOf(cause.getMessage());
+        Matcher denial = DENIED_ACTION.matcher(message);
+        if (denial.lookingAt()) {
+            message = denial.group();
         }
-        return failure.toString();
+        return "[" + ExceptionsHelper.status(cause) + "] " + message;
+    }
+
+    private static Throwable rootCause(Throwable failure) {
+        Throwable current = failure;
+        for (int depth = 0; depth < 10; depth++) {
+            Throwable next = ExceptionsHelper.unwrapCause(current);
+            if (next instanceof SearchPhaseExecutionException phase && phase.shardFailures().length > 0) {
+                next = phase.shardFailures()[0].getCause();
+            } else if (next == current && !(next instanceof OpenSearchException) && next.getCause() != null) {
+                // A plain wrapper, such as the RuntimeException a listener adds.
+                next = next.getCause();
+            }
+            if (next == null || next == current) {
+                return current;
+            }
+            current = next;
+        }
+        return current;
     }
 
     @Override

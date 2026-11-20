@@ -154,7 +154,9 @@ public class ModelIndexSecurityIT extends KNNRestTestCase {
         Map<String, Object> model = awaitModelState(modelId, ModelState.FAILED);
         String error = (String) model.get("error");
         assertTrue(error, error.contains("[FORBIDDEN] no permissions for [indices:data/read/scroll"));
-        assertTrue(error, error.contains("User [name=" + NO_SCROLL));
+        // Any model reader sees this error, so it names the denied action but not the user.
+        assertFalse(error, error.contains(NO_SCROLL));
+        assertFalse(error, error.contains("backend_roles"));
         assertStatus(200, as(FULL, "DELETE", "/_plugins/_knn/models/" + modelId, null));
     }
 

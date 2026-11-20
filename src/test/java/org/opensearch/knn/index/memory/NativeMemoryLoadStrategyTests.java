@@ -47,12 +47,11 @@ import static org.mockito.Mockito.mock;
 @ThreadLeakFilters(defaultFilters = true, filters = { NativeMemoryLoadStrategyTests.StrategyExecutorFilter.class })
 public class NativeMemoryLoadStrategyTests extends KNNTestCase {
 
-    /** The training load strategy is a JVM-wide singleton whose single-thread executor outlives a test once it has run a close. */
+    /** The training load strategy is a JVM-wide singleton whose close thread outlives a test once it has run a close. */
     public static final class StrategyExecutorFilter implements ThreadFilter {
         @Override
         public boolean reject(Thread t) {
-            return t.getName().matches("pool-\\d+-thread-1")
-                && Arrays.stream(t.getStackTrace()).anyMatch(e -> e.getMethodName().equals("getTask"));
+            return t.getName().equals(NativeMemoryLoadStrategy.TrainingLoadStrategy.CLOSE_THREAD_NAME);
         }
     }
 

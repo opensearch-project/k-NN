@@ -17,6 +17,9 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexOutput;
 import org.opensearch.OpenSearchSecurityException;
 import org.opensearch.Version;
+import org.opensearch.transport.RemoteTransportException;
+import org.opensearch.action.search.ShardSearchFailure;
+import org.opensearch.action.search.SearchPhaseExecutionException;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.knn.KNNTestCase;
@@ -52,6 +55,9 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 
 public class TrainingJobTests extends KNNTestCase {
+
+    private static final String DENIAL =
+        "no permissions for [indices:data/read/scroll/clear] and User [name=alice, backend_roles=[admins], requestedTenant=null]";
 
     private final String trainingIndexName = "trainingindexname";
 
@@ -548,13 +554,40 @@ public class TrainingJobTests extends KNNTestCase {
         trainingJob.run();
 
         Model model = trainingJob.getModel();
+        String error = trainingJob.getModel().getModelMetadata().getError();
         assertEquals(
             "Failed to execute training. Unable to load training data into memory: "
-                + "[FORBIDDEN] no permissions for [indices:data/read/scroll/clear] and User [name=u]",
-            trainingJob.getModel().getModelMetadata().getError()
+                + "[FORBIDDEN] no permissions for [indices:data/read/scroll/clear]",
+            error
         );
+        assertFalse(error, error.contains("alice"));
+        assertFalse(error, error.contains("backend_roles"));
         assertNotNull(model);
         assertEquals(ModelState.FAILED, trainingJob.getModel().getModelMetadata().getState());
+    }
+
+    public void testDescribe_reportsTheRootCauseWithoutTheUser() {
+        OpenSearchSecurityException denial = new OpenSearchSecurityException(DENIAL, RestStatus.FORBIDDEN);
+        String expected = "[FORBIDDEN] no permissions for [indices:data/read/scroll/clear]";
+
+        assertEquals(expected, TrainingJob.describe(denial));
+        assertEquals(expected, TrainingJob.describe(new RuntimeException(denial)));
+        assertEquals(
+            expected,
+            TrainingJob.describe(new RemoteTransportException("[node][127.0.0.1:9300][indices:data/read/scroll/clear]", denial))
+        );
+        SearchPhaseExecutionException phase = new SearchPhaseExecutionException(
+            "query",
+            "all shards failed",
+            new ShardSearchFailure[] { new ShardSearchFailure(new RemoteTransportException("[node][indices:data/read/search]", denial)) }
+        );
+        assertEquals(expected, TrainingJob.describe(new RuntimeException(phase)));
+
+        assertEquals(
+            "[INTERNAL_SERVER_ERROR] disk full",
+            TrainingJob.describe(new RuntimeException(new IllegalStateException("disk full")))
+        );
+        assertEquals("[BAD_REQUEST] bad field", TrainingJob.describe(new IllegalArgumentException("bad field")));
     }
 
     public void testRun_failure_closedModelAnonymousAllocation() throws ExecutionException {
