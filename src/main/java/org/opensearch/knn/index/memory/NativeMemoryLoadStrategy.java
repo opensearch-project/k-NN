@@ -163,8 +163,11 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             getInstance().vectorReader = vectorReader;
         }
 
+        /** Name of the thread that closes training data allocations. */
+        static final String CLOSE_THREAD_NAME = "knn-training-data-close";
+
         private TrainingLoadStrategy() {
-            executor = Executors.newSingleThreadExecutor();
+            executor = Executors.newSingleThreadExecutor(runnable -> new Thread(runnable, CLOSE_THREAD_NAME));
         }
 
         @Override
@@ -195,10 +198,11 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
                 nativeMemoryEntryContext.getSearchSize(),
                 vectorDataConsumer,
                 ActionListener.wrap(response -> trainingDataAllocation.writeUnlock(), ex -> {
+                    // Kept for the training job, which otherwise only sees a closed allocation.
+                    trainingDataAllocation.setLoadFailure(ex);
                     // Close unsafe will assume that the caller passes control of the writelock to it. It
                     // will then handle releasing the write lock once the close operations finish.
                     trainingDataAllocation.closeUnsafe();
-                    throw new RuntimeException(ex);
                 })
             );
 
