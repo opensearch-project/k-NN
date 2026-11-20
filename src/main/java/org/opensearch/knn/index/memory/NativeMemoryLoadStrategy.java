@@ -195,10 +195,11 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
                 nativeMemoryEntryContext.getSearchSize(),
                 vectorDataConsumer,
                 ActionListener.wrap(response -> trainingDataAllocation.writeUnlock(), ex -> {
+                    // Kept for the training job, which otherwise only sees a closed allocation.
+                    trainingDataAllocation.setLoadFailure(ex);
                     // Close unsafe will assume that the caller passes control of the writelock to it. It
                     // will then handle releasing the write lock once the close operations finish.
                     trainingDataAllocation.closeUnsafe();
-                    throw new RuntimeException(ex);
                 })
             );
 

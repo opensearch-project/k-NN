@@ -296,6 +296,10 @@ public interface NativeMemoryAllocation {
         private final Semaphore readSemaphore;
         private final Semaphore writeSemaphore;
         private final VectorDataType vectorDataType;
+        /** Why loading the training data failed, or null if it did not fail. */
+        @Getter
+        @Setter
+        private volatile Exception loadFailure;
 
         /**
          * Constructor

@@ -14,6 +14,8 @@ package org.opensearch.knn.index.memory;
 import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.store.Directory;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.rest.RestStatus;
+import org.opensearch.OpenSearchSecurityException;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.TestUtils;
@@ -28,6 +30,9 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.training.FloatTrainingDataConsumer;
 import org.opensearch.knn.training.VectorReader;
 
+import com.carrotsearch.randomizedtesting.ThreadFilter;
+import com.carrotsearch.randomizedtesting.annotations.ThreadLeakFilters;
+
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -39,7 +44,17 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
+@ThreadLeakFilters(defaultFilters = true, filters = { NativeMemoryLoadStrategyTests.StrategyExecutorFilter.class })
 public class NativeMemoryLoadStrategyTests extends KNNTestCase {
+
+    /** The training load strategy is a JVM-wide singleton whose single-thread executor outlives a test once it has run a close. */
+    public static final class StrategyExecutorFilter implements ThreadFilter {
+        @Override
+        public boolean reject(Thread t) {
+            return t.getName().matches("pool-\\d+-thread-1")
+                && Arrays.stream(t.getStackTrace()).anyMatch(e -> e.getMethodName().equals("getTask"));
+        }
+    }
 
     public void testIndexLoadStrategy_load() throws IOException {
         // Create basic nmslib HNSW index
@@ -188,5 +203,39 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         trainingDataAllocation.readLock();
         assertNotEquals(0, trainingDataAllocation.getMemoryAddress());
         trainingDataAllocation.readUnlock();
+    }
+
+    public void testTrainingLoadStrategy_load_whenReadFails_thenKeepsTheFailureAndCloses() {
+        VectorReader vectorReader = mock(VectorReader.class);
+        Exception failure = new OpenSearchSecurityException("no permissions for [indices:data/read/scroll/clear]", RestStatus.FORBIDDEN);
+        doAnswer(invocationOnMock -> {
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) invocationOnMock.getArguments()[6];
+            listener.onFailure(failure);
+            return null;
+        }).when(vectorReader).read(eq(null), eq("test"), eq("test"), eq(0), eq(0), any(), any());
+        NativeMemoryLoadStrategy.TrainingLoadStrategy.initialize(vectorReader);
+
+        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext = new NativeMemoryEntryContext.TrainingDataEntryContext(
+            0,
+            "test",
+            "test",
+            NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance(),
+            null,
+            0,
+            0,
+            VectorDataType.FLOAT,
+            QuantizationConfig.EMPTY
+        );
+
+        // The read failure must not escape load: the listener only records it and closes the allocation.
+        NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance()
+            .load(trainingDataEntryContext);
+        trainingDataAllocation.readLock();
+        try {
+            assertTrue(trainingDataAllocation.isClosed());
+            assertSame(failure, trainingDataAllocation.getLoadFailure());
+        } finally {
+            trainingDataAllocation.readUnlock();
+        }
     }
 }

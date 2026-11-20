@@ -15,7 +15,9 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexOutput;
+import org.opensearch.OpenSearchSecurityException;
 import org.opensearch.Version;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
@@ -465,6 +467,91 @@ public class TrainingJobTests extends KNNTestCase {
         assertThat(
             "Failed to execute training. Unable to load training data into memory: allocation is already closed",
             containsString(trainingJob.getModel().getModelMetadata().getError())
+        );
+        assertNotNull(model);
+        assertEquals(ModelState.FAILED, trainingJob.getModel().getModelMetadata().getState());
+    }
+
+    public void testRun_failure_closedTrainingDataAllocation_reportsTheLoadFailure() throws ExecutionException {
+        // In this test, the training data allocation should be closed. Then, run should fail and update the error of
+        // the model
+        String modelId = "test-model-id";
+
+        // Define the method setup for method that requires training
+        int nlists = 5;
+        int dimension = 16;
+        KNNEngine knnEngine = KNNEngine.FAISS;
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(dimension)
+            .versionCreated(Version.CURRENT)
+            .build();
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            knnEngine,
+            SpaceType.INNER_PRODUCT,
+            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists))
+        );
+
+        String tdataKey = "t-data-key";
+        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext = mock(
+            NativeMemoryEntryContext.TrainingDataEntryContext.class
+        );
+        when(trainingDataEntryContext.getKey()).thenReturn(tdataKey);
+
+        // Setup model manager
+        NativeMemoryCacheManager nativeMemoryCacheManager = mock(NativeMemoryCacheManager.class);
+
+        // Setup mock allocation for model
+        NativeMemoryAllocation modelAllocation = mock(NativeMemoryAllocation.class);
+        doAnswer(invocationOnMock -> null).when(modelAllocation).readLock();
+        doAnswer(invocationOnMock -> null).when(modelAllocation).readUnlock();
+        when(modelAllocation.isClosed()).thenReturn(false);
+
+        String modelKey = "model-test-key";
+        NativeMemoryEntryContext.AnonymousEntryContext modelContext = mock(NativeMemoryEntryContext.AnonymousEntryContext.class);
+        when(modelContext.getKey()).thenReturn(modelKey);
+
+        when(nativeMemoryCacheManager.get(modelContext, false)).thenReturn(modelAllocation);
+        doAnswer(invocationOnMock -> null).when(nativeMemoryCacheManager).invalidate(modelKey);
+
+        // Setup mock allocation thats closed
+        NativeMemoryAllocation.TrainingDataAllocation nativeMemoryAllocation = mock(NativeMemoryAllocation.TrainingDataAllocation.class);
+        when(nativeMemoryAllocation.getLoadFailure()).thenReturn(
+            new RuntimeException(
+                new OpenSearchSecurityException(
+                    "no permissions for [indices:data/read/scroll/clear] and User [name=u]",
+                    RestStatus.FORBIDDEN
+                )
+            )
+        );
+        doAnswer(invocationOnMock -> null).when(nativeMemoryAllocation).readLock();
+        doAnswer(invocationOnMock -> null).when(nativeMemoryAllocation).readUnlock();
+        when(nativeMemoryAllocation.isClosed()).thenReturn(true);
+        when(nativeMemoryAllocation.getMemoryAddress()).thenReturn((long) 0);
+
+        // Throw error on allocation is closed
+        when(nativeMemoryCacheManager.get(trainingDataEntryContext, false)).thenReturn(nativeMemoryAllocation);
+
+        TrainingJob trainingJob = new TrainingJob(
+            modelId,
+            knnMethodContext,
+            nativeMemoryCacheManager,
+            trainingDataEntryContext,
+            modelContext,
+            knnMethodConfigContext,
+            "",
+            "test-node",
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
+        );
+
+        trainingJob.run();
+
+        Model model = trainingJob.getModel();
+        assertEquals(
+            "Failed to execute training. Unable to load training data into memory: "
+                + "[FORBIDDEN] no permissions for [indices:data/read/scroll/clear] and User [name=u]",
+            trainingJob.getModel().getModelMetadata().getError()
         );
         assertNotNull(model);
         assertEquals(ModelState.FAILED, trainingJob.getModel().getModelMetadata().getState());

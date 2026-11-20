@@ -15,6 +15,7 @@ import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.OpenSearchException;
 import org.opensearch.common.UUIDs;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
@@ -107,6 +108,21 @@ public class TrainingJob implements Runnable {
         );
     }
 
+    /**
+     * Describes a failure by its REST status and the message of the first {@link OpenSearchException} in its causes.
+     *
+     * @param failure the failure to describe
+     * @return the status and message, for the model's error
+     */
+    static String describe(Exception failure) {
+        for (Throwable t = failure; t != null; t = t.getCause()) {
+            if (t instanceof OpenSearchException openSearchException) {
+                return "[" + openSearchException.status() + "] " + openSearchException.getMessage();
+            }
+        }
+        return failure.toString();
+    }
+
     @Override
     public void run() {
         NativeMemoryAllocation trainingDataAllocation = null;
@@ -171,6 +187,12 @@ public class TrainingJob implements Runnable {
             }
 
             if (trainingDataAllocation.isClosed()) {
+                Exception loadFailure = trainingDataAllocation instanceof NativeMemoryAllocation.TrainingDataAllocation allocation
+                    ? allocation.getLoadFailure()
+                    : null;
+                if (loadFailure != null) {
+                    throw new RuntimeException("Unable to load training data into memory: " + describe(loadFailure), loadFailure);
+                }
                 throw new RuntimeException("Unable to load training data into memory: allocation is already closed");
             }
 

@@ -44,7 +44,10 @@ public class ModelIndexSecurityIT extends KNNRestTestCase {
     private static final String READER = "knn_model_it_reader";
     /** Read and scroll on the training index and no k-NN actions. */
     private static final String NO_KNN = "knn_model_it_none";
+    /** knn_full_access and read on the training index, without the scroll actions. */
+    private static final String NO_SCROLL = "knn_model_it_no_scroll";
     private static final String DATA_ROLE = "knn_model_it_data";
+    private static final String READ_ONLY_DATA_ROLE = "knn_model_it_read_only_data";
 
     @Before
     public void createUsers() throws Exception {
@@ -63,10 +66,15 @@ public class ModelIndexSecurityIT extends KNNRestTestCase {
                 )
             )
         );
+        put(
+            "/_plugins/_security/api/roles/" + READ_ONLY_DATA_ROLE,
+            Map.of("index_permissions", List.of(Map.of("index_patterns", List.of(TRAINING_INDEX), "allowed_actions", List.of("read"))))
+        );
         createUser(FULL, List.of("knn_full_access", DATA_ROLE));
+        createUser(NO_SCROLL, List.of("knn_full_access", READ_ONLY_DATA_ROLE));
         createUser(READER, List.of("knn_read_access"));
         createUser(NO_KNN, List.of(DATA_ROLE));
-        for (String user : List.of(FULL, READER, NO_KNN)) {
+        for (String user : List.of(FULL, READER, NO_KNN, NO_SCROLL)) {
             // Each request below is sent with this user's credentials, never with the admin's.
             assertEquals(user, entityAsMap(as(user, "GET", "/_plugins/_security/authinfo", null)).get("user_name"));
         }
@@ -77,10 +85,11 @@ public class ModelIndexSecurityIT extends KNNRestTestCase {
     @After
     public void deleteUsers() throws IOException {
         if (isHttps()) {
-            for (String user : List.of(FULL, READER, NO_KNN)) {
+            for (String user : List.of(FULL, READER, NO_KNN, NO_SCROLL)) {
                 deleteIfPresent("/_plugins/_security/api/internalusers/" + user);
             }
             deleteIfPresent("/_plugins/_security/api/roles/" + DATA_ROLE);
+            deleteIfPresent("/_plugins/_security/api/roles/" + READ_ONLY_DATA_ROLE);
         }
     }
 
@@ -138,6 +147,17 @@ public class ModelIndexSecurityIT extends KNNRestTestCase {
         assertDenied(as(NO_KNN, "DELETE", "/_plugins/_knn/models/denied", null), "cluster:admin/knn_delete_model_action");
     }
 
+    public void testTrainingReportsWhyTheTrainingDataCouldNotBeRead() throws Exception {
+        String modelId = "knn-model-it-no-scroll";
+        assertStatus(200, as(NO_SCROLL, "POST", "/_plugins/_knn/models/" + modelId + "/_train", trainBody()));
+
+        Map<String, Object> model = awaitModelState(modelId, ModelState.FAILED);
+        String error = (String) model.get("error");
+        assertTrue(error, error.contains("[FORBIDDEN] no permissions for [indices:data/read/scroll"));
+        assertTrue(error, error.contains("User [name=" + NO_SCROLL));
+        assertStatus(200, as(FULL, "DELETE", "/_plugins/_knn/models/" + modelId, null));
+    }
+
     private String trainBody() throws IOException {
         return XContentFactory.jsonBuilder()
             .startObject()
@@ -151,18 +171,24 @@ public class ModelIndexSecurityIT extends KNNRestTestCase {
     }
 
     private void awaitModelCreated(String modelId) throws Exception {
+        Map<String, Object> model = awaitModelState(modelId, ModelState.CREATED);
+        assertEquals(ModelState.CREATED, ModelState.getModelState((String) model.get(MODEL_STATE)));
+    }
+
+    private Map<String, Object> awaitModelState(String modelId, ModelState expected) throws Exception {
         for (int attempt = 0; attempt < 60; attempt++) {
             Response response = as(FULL, "GET", "/_plugins/_knn/models/" + modelId, null);
             assertStatus(200, response);
             Map<String, Object> model = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), body(response)).map();
             ModelState state = ModelState.getModelState((String) model.get(MODEL_STATE));
-            assertNotEquals("training failed: " + model, ModelState.FAILED, state);
-            if (state == ModelState.CREATED) {
-                return;
+            if (state == expected) {
+                return model;
             }
+            assertEquals("unexpected final state: " + model, ModelState.TRAINING, state);
             Thread.sleep(1000);
         }
-        fail("model " + modelId + " was not created in time");
+        fail("model " + modelId + " did not reach " + expected + " in time");
+        return null;
     }
 
     private void createUser(String name, List<String> roles) throws Exception {
