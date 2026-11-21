@@ -12,6 +12,7 @@ import org.opensearch.knn.KNNTestCase;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -48,6 +49,45 @@ public class ResultUtilTests extends KNNTestCase {
         ResultUtil.reduceToTopK(perLeafLeafResults, finalK);
         reducedLeafResults = perLeafLeafResults.stream().map(leaf -> convertTopDocsToMap(leaf.getResult())).collect(Collectors.toList());
         assertTopK(initialLeafResults, reducedLeafResults, firstPassK);
+    }
+
+    public void testReduceToTopKPerLeaf() {
+        final int finalK = 10;
+        final List<Map<Integer, Float>> initialLeafResults = new ArrayList<>(getRandomListOfResults(20, 3));
+        // A leaf with fewer than k results must be left untouched.
+        initialLeafResults.add(getRandomResults(4));
+        final List<PerLeafResult> perLeafResults = initialLeafResults.stream()
+            .map(result -> new PerLeafResult(null, 0, buildTopDocs(result), PerLeafResult.SearchMode.APPROXIMATE_SEARCH))
+            .collect(Collectors.toList());
+
+        ResultUtil.reduceToTopKPerLeaf(perLeafResults, finalK);
+
+        for (int i = 0; i < initialLeafResults.size(); i++) {
+            final Map<Integer, Float> before = initialLeafResults.get(i);
+            final Map<Integer, Float> after = convertTopDocsToMap(perLeafResults.get(i).getResult());
+            final List<Float> expectedScores = before.values().stream().sorted(Collections.reverseOrder()).limit(finalK).toList();
+            final List<Float> actualScores = after.values().stream().sorted(Collections.reverseOrder()).toList();
+            assertEquals("leaf " + i + " should keep its own top k", expectedScores, actualScores);
+            for (Map.Entry<Integer, Float> entry : after.entrySet()) {
+                assertEquals(before.get(entry.getKey()), entry.getValue());
+            }
+        }
+    }
+
+    public void testReduceToTopKPerLeaf_tiesKeepExactlyK() {
+        final Map<Integer, Float> tied = new HashMap<>();
+        for (int doc = 0; doc < 5; doc++) {
+            tied.put(doc, 1.0f);
+        }
+        final List<PerLeafResult> perLeafResults = new ArrayList<>(
+            List.of(new PerLeafResult(null, 0, buildTopDocs(tied), PerLeafResult.SearchMode.APPROXIMATE_SEARCH))
+        );
+
+        ResultUtil.reduceToTopKPerLeaf(perLeafResults, 3);
+
+        final ScoreDoc[] kept = perLeafResults.get(0).getResult().scoreDocs;
+        assertEquals("ties at the cut-off must not push a leaf past k", 3, kept.length);
+        assertEquals("ties are broken by doc id", List.of(0, 1, 2), Arrays.stream(kept).map(d -> d.doc).sorted().toList());
     }
 
     public void testResultMapToDocIds() throws IOException {
