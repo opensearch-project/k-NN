@@ -117,6 +117,45 @@ public class CagraKnnCollectorCreationTests extends KNNTestCase {
     }
 
     /**
+     * When the index is a multi-layer CAGRA HNSW (e.g. `base_level_only=false`), the graph has a valid entry point and upper levels.
+     * createKnnCollector should NOT wrap it with RandomEntryPointsKnnSearchStrategy, and should keep the caller's strategy so that
+     * the graph is searched like a regular HNSW graph.
+     */
+    public void testCreateKnnCollector_whenMultiLayerCagra_thenPreservesOriginalStrategy() {
+        // Float32 CAGRA (IHc2)
+        doTestMultiLayerCagraPreservesOriginalStrategy("data/memoryoptsearch/faiss_cagra2_multilayer_flat_float_300_vectors_768_dims.bin");
+        // Binary CAGRA (IBHc)
+        doTestMultiLayerCagraPreservesOriginalStrategy("data/memoryoptsearch/faiss_cagra2_flat_binary_300_vectors_768_dims.bin");
+    }
+
+    @SneakyThrows
+    private void doTestMultiLayerCagraPreservesOriginalStrategy(final String relativePath) {
+        final IndexInput input = FaissHNSWTests.loadHnswBinary(relativePath);
+        final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(
+            input,
+            FaissIndex.load(input),
+            Mockito.mock(FieldInfo.class),
+            SCORER
+        );
+
+        // Create a non-seeded collector
+        final KnnSearchStrategy originalStrategy = KnnSearchStrategy.Hnsw.DEFAULT;
+        final KnnCollector originalCollector = new TopKnnCollector(100, Integer.MAX_VALUE, originalStrategy);
+        final RandomVectorScorer scorer = new TempTestRandomVectorScorer(TOTAL_VECTORS);
+
+        // Call createKnnCollector
+        final KnnCollector result = searcher.createKnnCollector(originalCollector, scorer);
+
+        // The caller's strategy should be kept as it is.
+        assertFalse(
+            "Non-seeded collector on multi-layer CAGRA should NOT produce a seeded strategy, but got: "
+                + result.getSearchStrategy().getClass().getSimpleName(),
+            result.getSearchStrategy() instanceof KnnSearchStrategy.Seeded
+        );
+        assertSame(originalStrategy, result.getSearchStrategy());
+    }
+
+    /**
      * Minimal RandomVectorScorer for testing createKnnCollector.
      * Only ordToDoc is needed by OrdinalTranslatedKnnCollector.
      */

@@ -25,11 +25,16 @@ import static org.mockito.Mockito.when;
 import static org.opensearch.knn.memoryoptsearch.FaissHNSWTests.loadHnswBinary;
 
 public class FaissHnswGraphTests extends KNNTestCase {
-    private static final int NUM_VECTORS = 100;
+    // HNSW graph having two levels. entry_point=12, max_level=1
+    private static final String HNSW_100_VECTORS_PATH = "data/memoryoptsearch/faiss_hnsw_100_vectors.bin";
+    // HNSW graph having the bottom level only. entry_point=0, max_level=0
+    private static final String HNSW_ONE_VECTOR_PATH = "data/memoryoptsearch/faiss_hnsw_one_vector.bin";
+    private static final int NUM_VECTORS_ONE_HUNDRED = 100;
+    private static final int NUM_VECTORS_ONE = 1;
 
     @SneakyThrows
     public void testTraverseHnswGraph() {
-        final FaissHnswGraph graph = prepareFaissHnswGraph();
+        final FaissHnswGraph graph = prepareFaissHnswGraph(HNSW_100_VECTORS_PATH, NUM_VECTORS_ONE_HUNDRED);
 
         // Validate graph
         graph.seek(0, 0);
@@ -44,15 +49,15 @@ public class FaissHnswGraphTests extends KNNTestCase {
 
     @SneakyThrows
     public void testNodesIterator() {
-        final FaissHnswGraph graph = prepareFaissHnswGraph();
+        final FaissHnswGraph graph = prepareFaissHnswGraph(HNSW_100_VECTORS_PATH, NUM_VECTORS_ONE_HUNDRED);
         // Iterate all vectors at level-0
         HnswGraph.NodesIterator iterator = graph.getNodesOnLevel(0);
         Set<Integer> vectorIds = new HashSet<>();
         while (iterator.hasNext()) {
             vectorIds.add(iterator.next());
         }
-        assertEquals(NUM_VECTORS, vectorIds.size());
-        for (int i = 0; i < NUM_VECTORS; ++i) {
+        assertEquals(NUM_VECTORS_ONE_HUNDRED, vectorIds.size());
+        for (int i = 0; i < NUM_VECTORS_ONE_HUNDRED; ++i) {
             assertTrue(vectorIds.contains(i));
         }
 
@@ -80,6 +85,27 @@ public class FaissHnswGraphTests extends KNNTestCase {
         }
     }
 
+    public void testNumLevelsAndEntryNode() {
+        // FAISS `max_level` is the 0-based index of the top level, so the number of levels is `max_level + 1`.
+        // entry_point=12, max_level=1 -> 2 levels
+        final FaissHnswGraph graph = prepareFaissHnswGraph(HNSW_100_VECTORS_PATH, NUM_VECTORS_ONE_HUNDRED);
+        assertEquals(2, graph.numLevels());
+        assertEquals(12, graph.entryNode());
+
+        // The entry point must exist at the top level.
+        final HnswGraph.NodesIterator topLevelNodes = graph.getNodesOnLevel(graph.numLevels() - 1);
+        final Set<Integer> topLevelVectorIds = new HashSet<>();
+        while (topLevelNodes.hasNext()) {
+            topLevelVectorIds.add(topLevelNodes.next());
+        }
+        assertTrue(topLevelVectorIds.contains(graph.entryNode()));
+
+        // entry_point=0, max_level=0 -> 1 level
+        final FaissHnswGraph singleLevelGraph = prepareFaissHnswGraph(HNSW_ONE_VECTOR_PATH, NUM_VECTORS_ONE);
+        assertEquals(1, singleLevelGraph.numLevels());
+        assertEquals(0, singleLevelGraph.entryNode());
+    }
+
     @SneakyThrows
     private static int[] getNeighborIdList(final FaissHnswGraph graph) {
         final List<Integer> neighborIds = new ArrayList<>();
@@ -96,20 +122,19 @@ public class FaissHnswGraphTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    private static FaissHnswGraph prepareFaissHnswGraph() {
+    private static FaissHnswGraph prepareFaissHnswGraph(final String relativePath, final int totalNumberOfVectors) {
         // Prepare parent index
         final FaissHNSWIndex parentIndex = Mockito.mock(FaissHNSWIndex.class);
-        IndexInput indexInput = loadHnswBinary("data/memoryoptsearch/faiss_hnsw_100_vectors.bin");
+        IndexInput indexInput = loadHnswBinary(relativePath);
 
         // Prepare FaissHNSW
-        final int totalNumberOfVectors = 100;
         final FaissHNSW faissHNSW = new FaissHNSW();
         faissHNSW.load(indexInput, totalNumberOfVectors);
         when(parentIndex.getFaissHnsw()).thenReturn(faissHNSW);
         when(parentIndex.getTotalNumberOfVectors()).thenReturn(totalNumberOfVectors);
 
         // Create LuceneFaissHnswGraph
-        indexInput = loadHnswBinary("data/memoryoptsearch/faiss_hnsw_100_vectors.bin");
+        indexInput = loadHnswBinary(relativePath);
         final FaissHnswGraph graph = new FaissHnswGraph(faissHNSW, indexInput);
         return graph;
     }

@@ -72,8 +72,9 @@ public class FaissHNSWCagraIndex extends AbstractFaissHNSWIndex {
         }
 
         // Partial load HNSW graph
-        faissHnsw.load(input, getTotalNumberOfVectors());
-        ((FaissCagraHNSW) faissHnsw).setNumBaseLevelSearchEntryPoints(numBaseLevelSearchEntryPoint);
+        final FaissCagraHNSW cagraHnsw = (FaissCagraHNSW) faissHnsw;
+        cagraHnsw.load(input, getTotalNumberOfVectors(), baseLevelOnly);
+        cagraHnsw.setNumBaseLevelSearchEntryPoints(numBaseLevelSearchEntryPoint);
 
         // Partial load flat vector storage.
         // When IO_FLAG_SKIP_STORAGE was used (e.g., skip_stored_vectors remote build for SQ 1-bit),

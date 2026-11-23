@@ -36,9 +36,10 @@ public class FaissHNSWCagraBinaryIndex extends FaissBinaryHnswIndex {
         keepMaxSizeLevel0 = input.readByte() == 1;
         baseLevelOnly = input.readByte() == 1;
         final int numBaseLevelSearchEntryPoint = input.readInt();
-        ((FaissCagraHNSW) faissHnsw).setNumBaseLevelSearchEntryPoints(numBaseLevelSearchEntryPoint);
+        final FaissCagraHNSW cagraHnsw = (FaissCagraHNSW) faissHnsw;
+        cagraHnsw.setNumBaseLevelSearchEntryPoints(numBaseLevelSearchEntryPoint);
 
-        faissHnsw.load(input, getTotalNumberOfVectors());
+        cagraHnsw.load(input, getTotalNumberOfVectors(), baseLevelOnly);
         storage = FaissIndexLoadUtils.toBinaryIndex(FaissIndex.load(input));
     }
 }
