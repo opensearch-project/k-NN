@@ -204,6 +204,39 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         trainingDataAllocation.readUnlock();
     }
 
+    public void testTrainingLoadStrategy_close_thenGetInstanceReturnsAWorkingStrategy() throws Exception {
+        VectorReader vectorReader = mock(VectorReader.class);
+        doAnswer(invocationOnMock -> {
+            ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) invocationOnMock.getArguments()[6];
+            listener.onResponse(null);
+            return null;
+        }).when(vectorReader).read(eq(null), eq("test"), eq("test"), eq(0), eq(0), any(), any());
+        NativeMemoryLoadStrategy.TrainingLoadStrategy.initialize(vectorReader);
+        NativeMemoryLoadStrategy.TrainingLoadStrategy closed = NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance();
+        closed.close();
+
+        NativeMemoryLoadStrategy.TrainingLoadStrategy next = NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance();
+        assertNotSame("a closed strategy is not handed out again", closed, next);
+        assertSame(next, NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance());
+
+        // The new strategy keeps the reader, and its executor accepts close tasks.
+        NativeMemoryAllocation.TrainingDataAllocation allocation = next.load(
+            new NativeMemoryEntryContext.TrainingDataEntryContext(
+                0,
+                "test",
+                "test",
+                next,
+                null,
+                0,
+                0,
+                VectorDataType.FLOAT,
+                QuantizationConfig.EMPTY
+            )
+        );
+        allocation.close();
+        assertBusy(() -> assertTrue(allocation.isClosed()));
+    }
+
     public void testTrainingLoadStrategy_load_whenReadFails_thenKeepsTheFailureAndCloses() {
         VectorReader vectorReader = mock(VectorReader.class);
         Exception failure = new OpenSearchSecurityException("no permissions for [indices:data/read/scroll/clear]", RestStatus.FORBIDDEN);

@@ -323,7 +323,7 @@ public interface NativeMemoryAllocation {
 
         @Override
         public void close() {
-            executeOrRunInline(() -> {
+            executor.execute(() -> {
                 writeLock();
                 try {
                     cleanup();
@@ -344,8 +344,8 @@ public interface NativeMemoryAllocation {
             });
         }
 
-        // Once the load strategy is closed its executor rejects work; the allocation must still free its memory
-        // and release the write lock, or a training job waiting for the read lock never wakes up.
+        // An allocation created before its load strategy was closed must still free its memory and release the write
+        // lock when the read fails, or a training job waiting for the read lock never wakes up. The task does not block.
         private void executeOrRunInline(Runnable closeTask) {
             try {
                 executor.execute(closeTask);

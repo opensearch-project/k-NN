@@ -139,8 +139,10 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
 
         private static volatile TrainingLoadStrategy INSTANCE;
 
+        // Kept across instances, so a strategy created after close() can still read training data.
+        private static volatile VectorReader vectorReader;
+
         private final ExecutorService executor;
-        private VectorReader vectorReader;
 
         /**
          * Get singleton TrainingLoadStrategy
@@ -160,7 +162,8 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
          * @param vectorReader VectorReader used to read training data
          */
         public static void initialize(final VectorReader vectorReader) {
-            getInstance().vectorReader = vectorReader;
+            TrainingLoadStrategy.vectorReader = vectorReader;
+            getInstance();
         }
 
         /** Name of the thread that closes training data allocations. */
@@ -212,8 +215,14 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             return trainingDataAllocation;
         }
 
+        /** Shuts the close executor down; the next {@link #getInstance()} creates a new strategy. */
         @Override
         public void close() throws IOException {
+            synchronized (TrainingLoadStrategy.class) {
+                if (INSTANCE == this) {
+                    INSTANCE = null;
+                }
+            }
             executor.shutdown();
         }
     }
