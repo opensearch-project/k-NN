@@ -123,7 +123,7 @@ final class DirectIOFile implements Closeable {
             return new DirectIOFile(path, channel, blockSize, length);
         } catch (IOException | RuntimeException e) {
             IOUtils.closeWhileHandlingException(channel);
-            log.warn("Direct I/O declined for {}: the file cannot be opened with O_DIRECT: {}", path, e.toString());
+            log.warn("Direct I/O declined for {}: the file cannot be opened with O_DIRECT", path, e);
             return null;
         }
     }

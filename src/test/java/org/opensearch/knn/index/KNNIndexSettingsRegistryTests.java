@@ -17,11 +17,11 @@ import org.opensearch.test.IndexSettingsModule;
 
 import java.util.function.BooleanSupplier;
 
-public class IndexSettingsRegistryTests extends KNNTestCase {
+public class KNNIndexSettingsRegistryTests extends KNNTestCase {
 
     private static final String INDEX_UUID = "V4qM8m9ZTAyRm0Nn0lOAbw";
 
-    private final IndexSettingsRegistry registry = IndexSettingsRegistry.getInstance();
+    private final KNNIndexSettingsRegistry registry = KNNIndexSettingsRegistry.getInstance();
 
     public void testTheSupplierReadsEachUpdate() {
         final IndexSettings indexSettings = created(INDEX_UUID, false);
@@ -64,7 +64,19 @@ public class IndexSettingsRegistryTests extends KNNTestCase {
         }
     }
 
-    private IndexSettings created(final String uuid, final boolean enabled) {
+    public void testAnIndexWithoutTheSettingReadsItsDefault() {
+        final IndexSettings indexSettings = created(INDEX_UUID, null);
+        try {
+            assertEquals(
+                KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_DEFAULT_VALUE,
+                registry.directIOEnabled(INDEX_UUID).orElseThrow().getAsBoolean()
+            );
+        } finally {
+            removed(indexSettings);
+        }
+    }
+
+    private IndexSettings created(final String uuid, final Boolean enabled) {
         final IndexSettings indexSettings = IndexSettingsModule.newIndexSettings(
             indexMetadata(uuid, enabled),
             KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_SETTING
@@ -79,12 +91,14 @@ public class IndexSettingsRegistryTests extends KNNTestCase {
         registry.afterIndexRemoved(indexSettings.getIndex(), indexSettings, IndexRemovalReason.DELETED);
     }
 
-    private static IndexMetadata indexMetadata(final String uuid, final boolean enabled) {
-        final Settings settings = Settings.builder()
+    // A null value leaves the setting out, as for an index created without it.
+    private static IndexMetadata indexMetadata(final String uuid, final Boolean enabled) {
+        final Settings.Builder settings = Settings.builder()
             .put(IndexMetadata.SETTING_VERSION_CREATED, Version.CURRENT.id)
-            .put(IndexMetadata.SETTING_INDEX_UUID, uuid)
-            .put(KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED, enabled)
-            .build();
-        return IndexMetadata.builder("target-index").settings(settings).numberOfShards(1).numberOfReplicas(0).build();
+            .put(IndexMetadata.SETTING_INDEX_UUID, uuid);
+        if (enabled != null) {
+            settings.put(KNNSettings.INDEX_KNN_DIRECT_IO_RESCORE_ENABLED, enabled);
+        }
+        return IndexMetadata.builder("target-index").settings(settings.build()).numberOfShards(1).numberOfReplicas(0).build();
     }
 }
