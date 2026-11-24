@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Infrastructure
 * Upgrade JaCoCo to 0.8.16 across projects to use ASM 9.11.1 [#3666](https://github.com/opensearch-project/k-NN/pull/3666)
+* Fix Windows JNI build with CMake 4.5.0 by replacing `--parallel` flag with `-- -j` in `buildJniLib` task [#3713](https://github.com/opensearch-project/k-NN/pull/3713)
 
 ### Bug Fixes
 * Stop printing "JNIEnv not found" to stderr from Faiss OpenMP worker threads during native index builds [#3708](https://github.com/opensearch-project/k-NN/pull/3708)
