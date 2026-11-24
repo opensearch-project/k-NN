@@ -246,10 +246,7 @@ public class MemoryOptimizedKNNWeight extends KNNWeight {
         // while Lucene’s implementation interprets it as the total number of vectors visited during search. We will
         // preserve the totalHits relation so that we know if we exhausted Lucene's search budget.
         topDocs = new TopDocs(new TotalHits(topDocs.scoreDocs.length, topDocs.totalHits.relation()), topDocs.scoreDocs);
-        if (topDocs.scoreDocs.length == 0) {
-            log.debug("[KNN] Query yielded 0 results");
-            return EMPTY_TOPDOCS;
-        }
+
         // For the FP16 and SQ formats the scorer now emits cosine scores directly via
         // VectorSimilarityFunction.COSINE (the FP16_COSINE / SQ_COSINE kernels apply the (1 + dot) / 2
         // transform in-kernel), so no post-conversion is needed. The ADC (binary-quantized) path scores a
