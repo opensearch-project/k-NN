@@ -8,6 +8,7 @@ package org.opensearch.knn.index;
 import java.nio.charset.StandardCharsets;
 
 import lombok.SneakyThrows;
+import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
 import org.opensearch.action.admin.cluster.state.ClusterStateRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
@@ -18,6 +19,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.env.Environment;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.node.MockNode;
 import org.opensearch.node.Node;
@@ -57,6 +59,65 @@ public class KNNSettingsTests extends KNNTestCase {
             .getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_CLUSTER_LIMIT)).getKb();
         mockNode.close();
         assertEquals(expectedKNNCircuitBreakerLimit, actualKNNCircuitBreakerLimit);
+    }
+
+    @SneakyThrows
+    public void testPrefetchEnabled_whenNodeSettingAndClusterSettingUpdates_thenCachedFlagFollows() {
+        Node mockNode = createMockNode(Map.of(KNNFeatureFlags.KNN_PREFETCH_ENABLED_SETTING.getKey(), false));
+        try {
+            mockNode.start();
+            // Initial value is picked up from the node settings
+            assertFalse(KNNFeatureFlags.isPrefetchEnabled());
+
+            updatePrefetchClusterSetting(mockNode, true);
+            assertTrue(KNNFeatureFlags.isPrefetchEnabled());
+
+            updatePrefetchClusterSetting(mockNode, false);
+            assertFalse(KNNFeatureFlags.isPrefetchEnabled());
+
+            updatePrefetchClusterSetting(mockNode, true);
+            assertTrue(KNNFeatureFlags.isPrefetchEnabled());
+        } finally {
+            mockNode.close();
+        }
+    }
+
+    @SneakyThrows
+    public void testPrefetchEnabled_whenSettingUnset_thenDefault() {
+        Node mockNode = createMockNode(Collections.emptyMap());
+        try {
+            mockNode.start();
+            assertTrue(KNNFeatureFlags.isPrefetchEnabled());
+
+            updatePrefetchClusterSetting(mockNode, false);
+            assertFalse(KNNFeatureFlags.isPrefetchEnabled());
+
+            // Resetting the setting falls back to the default
+            mockNode.client()
+                .admin()
+                .cluster()
+                .updateSettings(
+                    new ClusterUpdateSettingsRequest().persistentSettings(
+                        Settings.builder().putNull(KNNFeatureFlags.KNN_PREFETCH_ENABLED_SETTING.getKey())
+                    )
+                )
+                .actionGet();
+            assertTrue(KNNFeatureFlags.isPrefetchEnabled());
+        } finally {
+            mockNode.close();
+        }
+    }
+
+    private static void updatePrefetchClusterSetting(final Node node, final boolean enabled) {
+        node.client()
+            .admin()
+            .cluster()
+            .updateSettings(
+                new ClusterUpdateSettingsRequest().persistentSettings(
+                    Settings.builder().put(KNNFeatureFlags.KNN_PREFETCH_ENABLED_SETTING.getKey(), enabled)
+                )
+            )
+            .actionGet();
     }
 
     @SneakyThrows
