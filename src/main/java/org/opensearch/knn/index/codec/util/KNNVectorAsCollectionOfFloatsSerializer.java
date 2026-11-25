@@ -9,6 +9,8 @@ import org.apache.lucene.util.BytesRef;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.IntStream;
 
 /**
@@ -37,5 +39,39 @@ public class KNNVectorAsCollectionOfFloatsSerializer implements KNNVectorSeriali
         final float[] vector = new float[sizeOfFloatArray];
         ByteBuffer.wrap(bytesRef.bytes, bytesRef.offset, bytesRef.length).asFloatBuffer().get(vector);
         return vector;
+    }
+
+    @Override
+    public ByteBuffer floatsToByteArray(List<float[]> input) {
+        //TODO
+        if (input.isEmpty()) {
+            return null;
+        }
+        int bufferSize = input.size() * input.get(0).length * BYTES_IN_FLOAT;
+        final ByteBuffer bb = ByteBuffer.allocate(bufferSize).order(ByteOrder.BIG_ENDIAN);
+
+        for (float[] vector : input) {
+            for(float f : vector) {
+                bb.putFloat(f);
+            }
+        }
+        return bb;
+    }
+
+    @Override
+    public List<float[]> byteToFloatsArray(BytesRef bytesRef, int dims) {
+        if (bytesRef == null || bytesRef.length % BYTES_IN_FLOAT != 0) {
+            throw new IllegalArgumentException("Byte stream cannot be deserialized to arrays of floats");
+        }
+        final int sizeOfFloatArray = bytesRef.length / BYTES_IN_FLOAT;
+        int number_vectors = sizeOfFloatArray / dims;
+        List<float[]> vectors = new ArrayList<>();
+        for (int i = 0, offset = 0; i < number_vectors; i++) {
+            final float[] vector = new float[dims];
+            ByteBuffer.wrap(bytesRef.bytes, offset, dims * BYTES_IN_FLOAT).asFloatBuffer().get(vector);
+            vectors.add(vector);
+            offset += dims * BYTES_IN_FLOAT;
+        }
+        return vectors;
     }
 }
