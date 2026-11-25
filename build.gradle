@@ -15,7 +15,7 @@ buildscript {
     ext {
         // build.version_qualifier parameter applies to knn plugin artifacts only. OpenSearch version must be set
         // explicitly as 'opensearch.version' property, for instance opensearch.version=2.0.0-rc1-SNAPSHOT
-        opensearch_version = System.getProperty("opensearch.version", "3.10.0-SNAPSHOT")
+        opensearch_version = System.getProperty("opensearch.version", "3.11.0-SNAPSHOT")
         version_qualifier = System.getProperty("build.version_qualifier", "")
         opensearch_group = "org.opensearch"
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
@@ -630,8 +630,10 @@ tasks.register('buildJniLib', Exec) {
         }
     }
     args.addAll(knn_libs)
-    args.add("--parallel")
-    args.add("${nproc_count}")
+    // Passing --parallel enables GNU Make output sync with CMake 4.5.0, which fails on Windows with
+    // "gmake: *** invalid output sync mutex"; passing -j to the build tool natively opts out.
+    args.add("--")
+    args.add("-j${nproc_count}")
     logger.lifecycle("Build command: ${args.join(' ')}")
     commandLine args
 }
