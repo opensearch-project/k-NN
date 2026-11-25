@@ -535,6 +535,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
             ImmutableMap.of()
         );
+        knnQueryBuilder = (KNNQueryBuilder) knnQueryBuilder.doRewrite(mockQueryShardContext);
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
