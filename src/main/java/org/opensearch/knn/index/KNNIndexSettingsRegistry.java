@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index;
 
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
 import org.opensearch.core.index.Index;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.IndexSettings;
@@ -17,16 +19,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
 
 /** The live Direct I/O setting of each index on this node by UUID, for a codec that has only the shard's path. */
-public final class IndexSettingsRegistry implements IndexEventListener {
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
+public final class KNNIndexSettingsRegistry implements IndexEventListener {
 
-    private static final IndexSettingsRegistry INSTANCE = new IndexSettingsRegistry();
+    private static final KNNIndexSettingsRegistry INSTANCE = new KNNIndexSettingsRegistry();
 
     private final Map<String, IndexSettings> indexSettingsByUuid = new ConcurrentHashMap<>();
 
-    private IndexSettingsRegistry() {}
-
     /** {@return the registry of this JVM, shared by its node and its codecs} */
-    public static IndexSettingsRegistry getInstance() {
+    public static KNNIndexSettingsRegistry getInstance() {
         return INSTANCE;
     }
 
