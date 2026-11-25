@@ -7,8 +7,12 @@ package org.opensearch.knn.memoryoptsearch;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.search.TopKnnCollector;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.hnsw.HnswGraph;
+import org.apache.lucene.util.hnsw.HnswGraphSearcher;
+import org.apache.lucene.util.hnsw.RandomVectorScorer;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissHNSW;
@@ -21,6 +25,8 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.memoryoptsearch.FaissHNSWTests.loadHnswBinary;
 
@@ -104,6 +110,36 @@ public class FaissHnswGraphTests extends KNNTestCase {
         final FaissHnswGraph singleLevelGraph = prepareFaissHnswGraph(HNSW_ONE_VECTOR_PATH, NUM_VECTORS_ONE);
         assertEquals(1, singleLevelGraph.numLevels());
         assertEquals(0, singleLevelGraph.entryNode());
+    }
+
+    @SneakyThrows
+    public void testLuceneSearcherStartsDescentAtTopLevelEntryPoint() {
+        // Test graph has entry_point=12, max_level=1. Spy on the graph to record every seek(level, node) that the searcher makes.
+        final FaissHnswGraph graph = Mockito.spy(prepareFaissHnswGraph(HNSW_100_VECTORS_PATH, NUM_VECTORS_ONE_HUNDRED));
+
+        // Derive a made-up score from the node id; the first seek does not depend on the scores.
+        // The fixture holds only the graph, not the vectors, so real distances cannot be computed.
+        final RandomVectorScorer scorer = new RandomVectorScorer() {
+            @Override
+            public float score(final int node) {
+                return 1f / (1 + node);
+            }
+
+            @Override
+            public int maxOrd() {
+                return NUM_VECTORS_ONE_HUNDRED;
+            }
+        };
+
+        HnswGraphSearcher.search(scorer, new TopKnnCollector(10, Integer.MAX_VALUE), graph, null);
+
+        final ArgumentCaptor<Integer> levels = ArgumentCaptor.forClass(Integer.class);
+        final ArgumentCaptor<Integer> nodes = ArgumentCaptor.forClass(Integer.class);
+        verify(graph, atLeastOnce()).seek(levels.capture(), nodes.capture());
+
+        // The descent must start at the FAISS top level (max_level=1), on the entry point (12).
+        assertEquals(1, levels.getAllValues().get(0).intValue());
+        assertEquals(12, nodes.getAllValues().get(0).intValue());
     }
 
     @SneakyThrows
