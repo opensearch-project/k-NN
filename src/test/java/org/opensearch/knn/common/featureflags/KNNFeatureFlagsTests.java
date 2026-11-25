@@ -8,11 +8,13 @@ package org.opensearch.knn.common.featureflags;
 import org.mockito.Mock;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 
 import static org.mockito.Mockito.when;
 import java.util.List;
+import java.util.Set;
 
 import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.KNN_FORCE_EVICT_CACHE_ENABLED_SETTING;
 import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.KNN_PREFETCH_ENABLED_SETTING;
@@ -39,11 +41,58 @@ public class KNNFeatureFlagsTests extends KNNTestCase {
         assertTrue(isForceEvictCacheEnabled());
     }
 
-    public void testIsPrefetchEnabled() {
-        when(clusterSettings.get(KNN_PREFETCH_ENABLED_SETTING)).thenReturn(true);
+    public void testIsPrefetchEnabled_whenNotInitialized_thenDefault() {
+        assertEquals(KNN_PREFETCH_ENABLED_SETTING.getDefault(Settings.EMPTY), isPrefetchEnabled());
         assertTrue(isPrefetchEnabled());
-        when(clusterSettings.get(KNN_PREFETCH_ENABLED_SETTING)).thenReturn(false);
-        assertFalse(isPrefetchEnabled());
+    }
+
+    public void testIsPrefetchEnabled_whenSettingUnset_thenDefault() {
+        try {
+            KNNFeatureFlags.initialize(newClusterSettings(Settings.EMPTY));
+            assertTrue(isPrefetchEnabled());
+        } finally {
+            resetPrefetchEnabled();
+        }
+    }
+
+    public void testIsPrefetchEnabled_whenSetInNodeSettings_thenInitialValueRespected() {
+        try {
+            KNNFeatureFlags.initialize(newClusterSettings(Settings.builder().put(KNN_PREFETCH_ENABLED_SETTING.getKey(), false).build()));
+            assertFalse(isPrefetchEnabled());
+        } finally {
+            resetPrefetchEnabled();
+        }
+    }
+
+    public void testIsPrefetchEnabled_whenClusterSettingUpdated_thenCachedValueUpdated() {
+        try {
+            final ClusterSettings realClusterSettings = newClusterSettings(Settings.EMPTY);
+            KNNFeatureFlags.initialize(realClusterSettings);
+            assertTrue(isPrefetchEnabled());
+
+            realClusterSettings.applySettings(Settings.builder().put(KNN_PREFETCH_ENABLED_SETTING.getKey(), false).build());
+            assertFalse(isPrefetchEnabled());
+
+            realClusterSettings.applySettings(Settings.builder().put(KNN_PREFETCH_ENABLED_SETTING.getKey(), true).build());
+            assertTrue(isPrefetchEnabled());
+
+            realClusterSettings.applySettings(Settings.builder().put(KNN_PREFETCH_ENABLED_SETTING.getKey(), false).build());
+            assertFalse(isPrefetchEnabled());
+
+            // Removing the setting falls back to the default
+            realClusterSettings.applySettings(Settings.EMPTY);
+            assertTrue(isPrefetchEnabled());
+        } finally {
+            resetPrefetchEnabled();
+        }
+    }
+
+    private static ClusterSettings newClusterSettings(final Settings nodeSettings) {
+        return new ClusterSettings(nodeSettings, Set.of(KNN_PREFETCH_ENABLED_SETTING));
+    }
+
+    private static void resetPrefetchEnabled() {
+        KNNFeatureFlags.initialize(newClusterSettings(Settings.EMPTY));
     }
 
     public void testGetFeatureFlags() {

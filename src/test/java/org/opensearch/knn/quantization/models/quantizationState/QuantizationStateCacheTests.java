@@ -14,6 +14,7 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
@@ -467,7 +468,11 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         Settings settings = Settings.builder().build();
         ClusterSettings clusterSettings = new ClusterSettings(
             settings,
-            ImmutableSet.of(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING)
+            ImmutableSet.of(
+                QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
+                QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
+                KNNFeatureFlags.KNN_PREFETCH_ENABLED_SETTING
+            )
         );
 
         // Mocking ClusterService
@@ -528,7 +533,11 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         Settings settings = Settings.builder().build();
         ClusterSettings clusterSettings = new ClusterSettings(
             settings,
-            ImmutableSet.of(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING)
+            ImmutableSet.of(
+                QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
+                QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
+                KNNFeatureFlags.KNN_PREFETCH_ENABLED_SETTING
+            )
         );
 
         // Mocking ClusterService

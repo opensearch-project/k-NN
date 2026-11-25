@@ -17,6 +17,7 @@ import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -124,6 +125,9 @@ public class KNNTestCase extends OpenSearchTestCase {
         );
         when(clusterService.getClusterSettings()).thenReturn(new ClusterSettings(Settings.EMPTY, defaultClusterSettings));
         KNNSettings.state().setClusterService(clusterService);
+        // Feature flags cache their values in static fields, so reset them to the defaults before and after every test.
+        // Otherwise a value set by one test (for example through a MockNode) would leak into the tests that run after it.
+        KNNFeatureFlags.initialize(new ClusterSettings(Settings.EMPTY, new HashSet<>(KNNFeatureFlags.getFeatureFlags())));
     }
 
     public Map<String, Object> xContentBuilderToMap(XContentBuilder xContentBuilder) {
