@@ -10,6 +10,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import lombok.experimental.UtilityClass;
 import org.opensearch.common.Booleans;
+import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.knn.index.KNNSettings;
 
@@ -45,6 +46,24 @@ public class KNNFeatureFlags {
     );
 
     /**
+     * Cached value of {@link #KNN_PREFETCH_ENABLED_SETTING}. {@link #isPrefetchEnabled()} is called once per bulkScore batch in
+     * both ANN and exact search, so it must be a plain field read rather than a cluster settings lookup. The value is seeded
+     * from the node settings and kept in sync with dynamic cluster setting updates by {@link #initialize(ClusterSettings)}.
+     * Until then, the setting's default is used.
+     */
+    private static volatile boolean prefetchEnabled = KNN_PREFETCH_ENABLED_DEFAULT_VALUE;
+
+    /**
+     * Seeds the cached feature flag values from the given cluster settings and registers consumers that keep them up to date
+     * when the dynamic cluster settings change.
+     * @param clusterSettings cluster settings of the node
+     */
+    public static void initialize(final ClusterSettings clusterSettings) {
+        prefetchEnabled = clusterSettings.get(KNN_PREFETCH_ENABLED_SETTING);
+        clusterSettings.addSettingsUpdateConsumer(KNN_PREFETCH_ENABLED_SETTING, newValue -> prefetchEnabled = newValue);
+    }
+
+    /**
      * All feature flags which needs to be provided as setting should be added here.
      * @return List of Feature flag settings
      */
@@ -68,10 +87,12 @@ public class KNNFeatureFlags {
         return Booleans.parseBoolean(KNNSettings.state().getSettingValue(KNN_FORCE_EVICT_CACHE_ENABLED).toString(), false);
     }
 
+    /**
+     * Checks if prefetching vectors is enabled. This is on the search hot path, hence it reads a cached value that is updated
+     * whenever {@link #KNN_PREFETCH_ENABLED_SETTING} changes.
+     * @return true if prefetch setting is set to true
+     */
     public static boolean isPrefetchEnabled() {
-        return Booleans.parseBoolean(
-            KNNSettings.state().getSettingValue(KNN_PREFETCH_ENABLED).toString(),
-            KNN_PREFETCH_ENABLED_DEFAULT_VALUE
-        );
+        return prefetchEnabled;
     }
 }

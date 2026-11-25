@@ -24,7 +24,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.indices.cluster.IndicesClusterStateService.AllocatedIndices.IndexRemovalReason;
-import org.opensearch.knn.index.IndexSettingsRegistry;
+import org.opensearch.knn.index.KNNIndexSettingsRegistry;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.test.IndexSettingsModule;
 
@@ -181,7 +181,7 @@ final class DirectIOTestUtils {
         final IndexSettings indexSettings = indexSettings(uuid, enabled);
         final IndexService indexService = Mockito.mock(IndexService.class);
         Mockito.when(indexService.getIndexSettings()).thenReturn(indexSettings);
-        IndexSettingsRegistry.getInstance().afterIndexCreated(indexService);
+        KNNIndexSettingsRegistry.getInstance().afterIndexCreated(indexService);
         return indexSettings;
     }
 
@@ -195,7 +195,7 @@ final class DirectIOTestUtils {
     }
 
     static void unregisterIndex(final IndexSettings indexSettings) {
-        IndexSettingsRegistry.getInstance().afterIndexRemoved(indexSettings.getIndex(), indexSettings, IndexRemovalReason.DELETED);
+        KNNIndexSettingsRegistry.getInstance().afterIndexRemoved(indexSettings.getIndex(), indexSettings, IndexRemovalReason.DELETED);
     }
 
     private static IndexMetadata indexMetadata(final String uuid, final boolean enabled) {

@@ -18,7 +18,7 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.common.util.io.IOUtils;
 import org.opensearch.knn.common.ShardPathUtil;
-import org.opensearch.knn.index.IndexSettingsRegistry;
+import org.opensearch.knn.index.KNNIndexSettingsRegistry;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -62,7 +62,7 @@ public final class KNNDirectIODirectory extends FilterDirectory {
         final String indexUuid = ShardPathUtil.tryGetIndexUuid(state.segmentInfo.dir);
         final Optional<BooleanSupplier> directIOEnabled = StringUtils.isEmpty(indexUuid)
             ? Optional.empty()
-            : IndexSettingsRegistry.getInstance().directIOEnabled(indexUuid);
+            : KNNIndexSettingsRegistry.getInstance().directIOEnabled(indexUuid);
         if (directIOEnabled.isEmpty()) {
             return state;
         }
