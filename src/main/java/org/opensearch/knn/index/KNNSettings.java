@@ -133,6 +133,10 @@ public class KNNSettings {
     public static final String MEMORY_OPTIMIZED_KNN_SEARCH_MODE = "index.knn.memory_optimized_search";
     public static final boolean DEFAULT_MEMORY_OPTIMIZED_KNN_SEARCH_MODE = false;
 
+    // Read the flat vector data of a faiss field with O_DIRECT instead of through the page cache.
+    public static final String INDEX_KNN_DIRECT_IO_RESCORE_ENABLED = "index.knn.direct_io.rescore.enabled";
+    public static final boolean INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_DEFAULT_VALUE = false;
+
     /**
      * Default setting values
      *
@@ -187,6 +191,14 @@ public class KNNSettings {
     public static final Setting<Boolean> KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING = Setting.boolSetting(
         KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED,
         KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_VALUE,
+        IndexScope,
+        Dynamic
+    );
+
+    // Dynamic: the value is read at each slice and clone, so an index that is already open follows a change.
+    public static final Setting<Boolean> INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_SETTING = Setting.boolSetting(
+        INDEX_KNN_DIRECT_IO_RESCORE_ENABLED,
+        INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_DEFAULT_VALUE,
         IndexScope,
         Dynamic
     );
@@ -777,6 +789,7 @@ public class KNNSettings {
             QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
             QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING,
             KNN_DISK_VECTOR_SHARD_LEVEL_RESCORING_DISABLED_SETTING,
+            INDEX_KNN_DIRECT_IO_RESCORE_ENABLED_SETTING,
             KNN_DERIVED_SOURCE_ENABLED_SETTING,
             MEMORY_OPTIMIZED_KNN_SEARCH_MODE_SETTING,
             // Index level remote vector build settings

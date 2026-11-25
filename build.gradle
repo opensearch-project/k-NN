@@ -630,8 +630,10 @@ tasks.register('buildJniLib', Exec) {
         }
     }
     args.addAll(knn_libs)
-    args.add("--parallel")
-    args.add("${nproc_count}")
+    // Passing --parallel enables GNU Make output sync with CMake 4.5.0, which fails on Windows with
+    // "gmake: *** invalid output sync mutex"; passing -j to the build tool natively opts out.
+    args.add("--")
+    args.add("-j${nproc_count}")
     logger.lifecycle("Build command: ${args.join(' ')}")
     commandLine args
 }
