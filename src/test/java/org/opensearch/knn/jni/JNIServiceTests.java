@@ -31,6 +31,7 @@ import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.nmslib.NmslibHNSWMethod;
+import org.opensearch.knn.index.query.FilterIdsSelector;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
@@ -46,6 +47,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -54,6 +57,7 @@ import java.util.stream.Collectors;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_RABITQ;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
@@ -1926,6 +1930,205 @@ public class JNIServiceTests extends KNNTestCase {
 
         assertNotEquals(0, faissIndex.length);
         JNICommons.freeVectorData(trainPointer);
+    }
+
+    @SneakyThrows
+    public void testIVFRaBitQ_whenTrainedIndexedAndQueried_thenSucceed() {
+        int k = 10;
+        int nlist = 16;
+        for (SpaceType spaceType : List.of(SpaceType.L2, SpaceType.INNER_PRODUCT)) {
+            Path tempDirPath = createTempDir();
+            try (Directory directory = newFSDirectory(tempDirPath)) {
+                long trainPointer = JNICommons.storeVectorData(
+                    0,
+                    testData.indexData.vectors,
+                    (long) testData.indexData.vectors.length * testData.indexData.vectors[0].length
+                );
+                KNNMethodContext knnMethodContext = new KNNMethodContext(
+                    KNNEngine.FAISS,
+                    spaceType,
+                    new MethodComponentContext(
+                        METHOD_IVF,
+                        ImmutableMap.of(
+                            METHOD_PARAMETER_NLIST,
+                            nlist,
+                            METHOD_ENCODER_PARAMETER,
+                            new MethodComponentContext(ENCODER_RABITQ, ImmutableMap.of())
+                        )
+                    )
+                );
+                KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+                    .versionCreated(Version.CURRENT)
+                    .dimension(128)
+                    .vectorDataType(VectorDataType.FLOAT)
+                    .build();
+                Map<String, Object> parameters = new HashMap<>(
+                    knnMethodContext.getKnnEngine()
+                        .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+                        .getLibraryParameters()
+                );
+                assertEquals("RR,IVF16,RaBitQ", parameters.get(INDEX_DESCRIPTION_PARAMETER));
+                parameters.put(KNNConstants.SPACE_TYPE, spaceType.getValue());
+
+                byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
+                JNICommons.freeVectorData(trainPointer);
+                assertNotEquals(0, faissIndex.length);
+
+                String indexFileName = "rabitq" + UUID.randomUUID() + ".tmp";
+                try (IndexOutput indexOutput = directory.createOutput(indexFileName, IOContext.DEFAULT)) {
+                    JNIService.createIndexFromTemplate(
+                        testData.indexData.docs,
+                        testData.loadDataToMemoryAddress(),
+                        testData.indexData.getDimension(),
+                        new IndexOutputWithBuffer(indexOutput),
+                        faissIndex,
+                        ImmutableMap.of(INDEX_THREAD_QTY, 1),
+                        KNNEngine.FAISS
+                    );
+                }
+                // 1 sign bit per dimension plus 8 bytes of factors per vector, far smaller than the raw float vectors
+                long rawVectorBytes = (long) testData.indexData.vectors.length * 128 * Float.BYTES;
+                assertTrue(directory.fileLength(indexFileName) < rawVectorBytes / 4);
+
+                final long pointer;
+                try (IndexInput indexInput = directory.openInput(indexFileName, IOContext.DEFAULT)) {
+                    pointer = JNIService.loadIndex(
+                        new IndexInputWithBuffer(indexInput),
+                        ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
+                        KNNEngine.FAISS
+                    );
+                }
+                assertNotEquals(0, pointer);
+                try {
+                    // With every list probed, RaBitQ's estimated distances alone should recover most of the exact top k
+                    int found = 0;
+                    for (float[] query : testData.queries) {
+                        KNNQueryResult[] results = JNIService.queryIndex(
+                            pointer,
+                            query,
+                            k,
+                            Map.of(KNNConstants.METHOD_PARAMETER_NPROBES, nlist),
+                            KNNEngine.FAISS,
+                            null,
+                            0,
+                            null
+                        );
+                        assertEquals(k, results.length);
+                        Set<Integer> expected = exactTopK(query, spaceType, k);
+                        for (KNNQueryResult result : results) {
+                            if (expected.contains(result.getId())) {
+                                found++;
+                            }
+                        }
+                    }
+                    // A random ranking would score about k / numDocs = 0.01. The bars are loose because this data set (uniform
+                    // values with a large offset) is hard for any 1-bit code, inner product especially: upstream Faiss gives
+                    // the same recall (~0.5 for L2, ~0.15 for inner product) on it.
+                    float recall = (float) found / (testData.queries.length * k);
+                    float minRecall = spaceType == SpaceType.L2 ? 0.35f : 0.1f;
+                    assertTrue("recall@" + k + " too low: " + recall, recall >= minRecall);
+
+                    // Filter ids reach the IVF lists through the id map and the rotation pre-transform: every hit must
+                    // pass the filter, and a filter wider than k still fills k results
+                    long[] filterIds = new long[50];
+                    Set<Integer> allowed = new HashSet<>();
+                    for (int i = 0; i < filterIds.length; i++) {
+                        filterIds[i] = testData.indexData.docs[i * 7];
+                        allowed.add(testData.indexData.docs[i * 7]);
+                    }
+                    Arrays.sort(filterIds);
+                    for (float[] query : testData.queries) {
+                        KNNQueryResult[] results = JNIService.queryIndex(
+                            pointer,
+                            query,
+                            k,
+                            Map.of(KNNConstants.METHOD_PARAMETER_NPROBES, nlist),
+                            KNNEngine.FAISS,
+                            filterIds,
+                            FilterIdsSelector.FilterIdsSelectorType.BATCH.getValue(),
+                            null
+                        );
+                        assertEquals(k, results.length);
+                        for (KNNQueryResult result : results) {
+                            assertTrue(allowed.contains(result.getId()));
+                        }
+                    }
+
+                    // A filter that matches no document returns nothing
+                    KNNQueryResult[] filtered = JNIService.queryIndex(
+                        pointer,
+                        testData.queries[0],
+                        k,
+                        Map.of(KNNConstants.METHOD_PARAMETER_NPROBES, nlist),
+                        KNNEngine.FAISS,
+                        new long[] { 0 },
+                        FilterIdsSelector.FilterIdsSelectorType.BATCH.getValue(),
+                        null
+                    );
+                    assertEquals(0, filtered.length);
+                } finally {
+                    JNIService.free(pointer, KNNEngine.FAISS);
+                }
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testCreateIndexFromTemplate_whenRotationWrapsNonRaBitQIndex_thenFail() {
+        long trainPointer = JNICommons.storeVectorData(
+            0,
+            testData.indexData.vectors,
+            (long) testData.indexData.vectors.length * testData.indexData.vectors[0].length
+        );
+        // Only IndexIVFRaBitQ may sit behind a random rotation in a template
+        byte[] faissIndex = JNIService.trainIndex(
+            ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, "RR,IVF16,Flat", KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+            128,
+            trainPointer,
+            KNNEngine.FAISS
+        );
+        JNICommons.freeVectorData(trainPointer);
+
+        Path tempDirPath = createTempDir();
+        try (Directory directory = newFSDirectory(tempDirPath)) {
+            try (IndexOutput indexOutput = directory.createOutput("rr-flat" + UUID.randomUUID() + ".tmp", IOContext.DEFAULT)) {
+                expectThrows(
+                    Exception.class,
+                    () -> JNIService.createIndexFromTemplate(
+                        testData.indexData.docs,
+                        testData.loadDataToMemoryAddress(),
+                        testData.indexData.getDimension(),
+                        new IndexOutputWithBuffer(indexOutput),
+                        faissIndex,
+                        ImmutableMap.of(INDEX_THREAD_QTY, 1),
+                        KNNEngine.FAISS
+                    )
+                );
+            }
+        }
+    }
+
+    private static Set<Integer> exactTopK(float[] query, SpaceType spaceType, int k) {
+        float[][] vectors = testData.indexData.vectors;
+        Integer[] order = new Integer[vectors.length];
+        double[] distances = new double[vectors.length];
+        for (int i = 0; i < vectors.length; i++) {
+            double l2 = 0;
+            double ip = 0;
+            for (int j = 0; j < query.length; j++) {
+                double diff = (double) query[j] - vectors[i][j];
+                l2 += diff * diff;
+                ip += (double) query[j] * vectors[i][j];
+            }
+            distances[i] = spaceType == SpaceType.INNER_PRODUCT ? -ip : l2;
+            order[i] = i;
+        }
+        Arrays.sort(order, Comparator.comparingDouble(i -> distances[i]));
+        Set<Integer> topK = new HashSet<>();
+        for (int i = 0; i < k; i++) {
+            topK.add(testData.indexData.docs[order[i]]);
+        }
+        return topK;
     }
 
     public void testTrain_whenConfigurationIsHNSWPQ_thenSucceed() throws IOException {

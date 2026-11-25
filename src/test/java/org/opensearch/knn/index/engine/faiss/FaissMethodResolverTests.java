@@ -7,7 +7,9 @@ package org.opensearch.knn.index.engine.faiss;
 
 import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -22,9 +24,11 @@ import org.opensearch.knn.index.mapper.Mode;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_RABITQ;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.SQ_BITS;
@@ -304,6 +308,65 @@ public class FaissMethodResolverTests extends KNNTestCase {
         );
 
         validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x32, SpaceType.L2, ENCODER_SQ, false);
+    }
+
+    public void testResolveMethod_whenIVFWithRaBitQ_thenResolveCompressionFromDimension() {
+        enableRaBitQ();
+        ResolvedMethodContext resolvedMethodContext = TEST_RESOLVER.resolveMethod(
+            rabitqContext(METHOD_IVF),
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).dimension(128).versionCreated(Version.CURRENT).build(),
+            true,
+            SpaceType.L2
+        );
+        validateResolveMethodContext(resolvedMethodContext, CompressionLevel.x16, SpaceType.L2, ENCODER_RABITQ, false);
+    }
+
+    public void testResolveMethod_whenIVFWithRaBitQAndFeatureFlagDisabled_thenThrow() {
+        ValidationException e = expectThrows(
+            ValidationException.class,
+            () -> TEST_RESOLVER.resolveMethod(
+                rabitqContext(METHOD_IVF),
+                KNNMethodConfigContext.builder()
+                    .vectorDataType(VectorDataType.FLOAT)
+                    .dimension(128)
+                    .versionCreated(Version.CURRENT)
+                    .build(),
+                true,
+                SpaceType.L2
+            )
+        );
+        assertTrue(e.getMessage().contains(KNNFeatureFlags.KNN_RABITQ_ENABLED_SETTING.getKey()));
+    }
+
+    public void testResolveMethod_whenIVFWithRaBitQAndConflictingCompression_thenThrow() {
+        enableRaBitQ();
+        expectThrows(
+            ValidationException.class,
+            () -> TEST_RESOLVER.resolveMethod(
+                rabitqContext(METHOD_IVF),
+                KNNMethodConfigContext.builder()
+                    .vectorDataType(VectorDataType.FLOAT)
+                    .dimension(128)
+                    .compressionLevel(CompressionLevel.x32)
+                    .versionCreated(Version.CURRENT)
+                    .build(),
+                true,
+                SpaceType.L2
+            )
+        );
+    }
+
+    private void enableRaBitQ() {
+        clusterService.getClusterSettings()
+            .applySettings(Settings.builder().put(KNNFeatureFlags.KNN_RABITQ_ENABLED_SETTING.getKey(), true).build());
+    }
+
+    private KNNMethodContext rabitqContext(String method) {
+        return new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            new MethodComponentContext(method, Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_RABITQ, Map.of())))
+        );
     }
 
     private KNNMethodContext halfFloatSQContext(int bits) {

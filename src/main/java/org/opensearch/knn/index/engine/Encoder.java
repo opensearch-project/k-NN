@@ -15,6 +15,7 @@ import java.util.Set;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_BINARY;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_RABITQ;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 
 /**
@@ -37,7 +38,8 @@ public interface Encoder {
         FLAT(ENCODER_FLAT),
         SQ(ENCODER_SQ),
         PQ(ENCODER_PQ),
-        BQ(ENCODER_BINARY);
+        BQ(ENCODER_BINARY),
+        RABITQ(ENCODER_RABITQ);
 
         private final String name;
 
