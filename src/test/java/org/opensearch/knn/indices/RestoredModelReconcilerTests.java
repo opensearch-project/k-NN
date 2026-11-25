@@ -118,6 +118,42 @@ public class RestoredModelReconcilerTests extends KNNSingleNodeTestCase {
         assertFailedAfterRestore("trained-during-snapshot");
     }
 
+    public void testReconcile_whenDocSaysTrainingAndMetadataSaysCreatedOnNodeInCluster_thenModelIsFailed() throws Exception {
+        // A snapshot restored onto the cluster that took it: the node that trained the model is still in the cluster.
+        putModel("trained-during-snapshot", ModelState.CREATED, clusterService().localNode().getEphemeralId());
+        setDocToTraining("trained-during-snapshot");
+
+        reconciler().reconcile(restoreOfModelIndex());
+
+        assertFailedAfterRestore("trained-during-snapshot");
+    }
+
+    public void testReconcile_whenDocSaysTrainingAndMetadataSaysFailedOnNodeInCluster_thenModelIsFailed() throws Exception {
+        putModel("failed-during-snapshot", ModelState.FAILED, clusterService().localNode().getEphemeralId());
+        setDocToTraining("failed-during-snapshot");
+
+        reconciler().reconcile(restoreOfModelIndex());
+
+        assertFailedAfterRestore("failed-during-snapshot");
+    }
+
+    public void testReconcile_whenDocSaysTrainingAndMetadataCannotBeParsedOnNodeInCluster_thenModelStaysTraining() throws Exception {
+        // A training error with commas splits the knn-models entry into too many fields to parse. The model's node is in
+        // the cluster, so the model is left alone.
+        putModel(
+            "failed-with-commas",
+            ModelState.FAILED,
+            clusterService().localNode().getEphemeralId(),
+            "Error in f(a, b, c): too few vectors"
+        );
+        setDocToTraining("failed-with-commas");
+        expectThrows(IllegalArgumentException.class, () -> ModelMetadata.fromString(metadata().get("failed-with-commas")));
+
+        reconciler().reconcile(restoreOfModelIndex());
+
+        assertEquals(ModelState.TRAINING, docState("failed-with-commas"));
+    }
+
     public void testReconcile_whenDocSaysTrainingAndMetadataIsMissing_thenModelIsFailed() throws Exception {
         putModel("doc-only", ModelState.TRAINING, SOURCE_CLUSTER_NODE);
         removeMetadata("doc-only");
@@ -128,6 +164,7 @@ public class RestoredModelReconcilerTests extends KNNSingleNodeTestCase {
     }
 
     public void testReconcile_whenModelTrainsOnNodeInCluster_thenModelStaysTraining() throws Exception {
+        // The doc and metadata can't tell this apart from a job training the model on this node, so it is left alone.
         putModel("training-here", ModelState.TRAINING, clusterService().localNode().getEphemeralId());
 
         reconciler().reconcile(restoreOfModelIndex());

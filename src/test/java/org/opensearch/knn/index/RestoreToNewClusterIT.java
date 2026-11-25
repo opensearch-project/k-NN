@@ -46,7 +46,8 @@ import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
  * new documents and new models. Also checks that a model whose training failed comes back failed, and the restore
  * order: a data index restored before the model index fails to restore, one restored with or after the model index
  * works, and the training index works restored before, with or after the model index. With security off, it also
- * checks that model ids a snapshot caught mid-training or mid-delete can be used again after the restore.
+ * checks that model ids a snapshot caught mid-training or mid-delete can be used again after the restore, on the new
+ * cluster and on the cluster that took the snapshot.
  *
  * <p>The empty cluster's address comes from {@code tests.second_cluster}. The
  * {@code integTestMultiCluster} task starts both clusters and sets it. The base class helpers all send to
@@ -215,7 +216,7 @@ public class RestoreToNewClusterIT extends KNNRestTestCase {
         assertEquals("models on the target", List.of(MODEL_ID, NEW_MODEL_ID), modelIds(targetClient));
     }
 
-    public void testRestoreOntoNewCluster_whenSnapshotCaughtModelsMidTrainingOrDelete_thenTheirIdsCanBeUsedAgain() throws Exception {
+    public void testRestoreOntoNewOrSameCluster_whenSnapshotCaughtModelsMidTrainingOrDelete_thenTheirIdsCanBeUsedAgain() throws Exception {
         // Making the snapshot's models needs direct writes to the model index, which security allows only the super admin.
         assumeFalse("needs direct writes to the model index", isHttps());
         try {
@@ -246,41 +247,51 @@ public class RestoreToNewClusterIT extends KNNRestTestCase {
             deleteIgnoringMissing(targetClient, "/" + MODEL_INDEX_NAME);
             registerReadOnlyRepository(targetClient);
             assertRestored(targetClient, MODEL_INDEX_NAME, TRAINING_INDEX);
+            assertModelIdsCanBeUsedAgain(targetClient);
 
-            // k-NN fixes the models after the restore finishes, which can be after the restore request returns.
-            assertBusy(
-                () -> assertEquals(
-                    "state of " + TRAINING_IN_SNAPSHOT_MODEL_ID,
-                    ModelState.FAILED.getName(),
-                    model(targetClient, TRAINING_IN_SNAPSHOT_MODEL_ID).get(MODEL_STATE)
-                )
-            );
-            assertBusy(
-                () -> assertFalse(
-                    "metadata of " + NO_DOC_IN_SNAPSHOT_MODEL_ID,
-                    modelIdsInMetadata(targetClient).contains(NO_DOC_IN_SNAPSHOT_MODEL_ID)
-                )
-            );
-            final Request getNoMetadataModel = new Request("GET", MODELS_URI + NO_METADATA_IN_SNAPSHOT_MODEL_ID);
-            getNoMetadataModel.addParameter("ignore", "404");
-            assertBusy(
-                () -> assertEquals(
-                    "model " + NO_METADATA_IN_SNAPSHOT_MODEL_ID,
-                    404,
-                    targetClient.performRequest(getNoMetadataModel).getStatusLine().getStatusCode()
-                )
-            );
-
-            // All three ids can be used again: the failed model can be deleted, and every id can be trained again.
-            targetClient.performRequest(new Request("DELETE", MODELS_URI + TRAINING_IN_SNAPSHOT_MODEL_ID));
-            for (String modelId : List.of(TRAINING_IN_SNAPSHOT_MODEL_ID, NO_DOC_IN_SNAPSHOT_MODEL_ID, NO_METADATA_IN_SNAPSHOT_MODEL_ID)) {
-                trainModel(targetClient, modelId);
-                assertTrainingSucceeds(targetClient, modelId);
-            }
+            // Source cluster: the same snapshot restored onto the cluster that took it. The node that trained the
+            // models is still in this cluster.
+            client().performRequest(new Request("DELETE", "/" + MODEL_INDEX_NAME));
+            assertRestored(client(), MODEL_INDEX_NAME);
+            assertModelIdsCanBeUsedAgain(client());
         } finally {
             // The base class deletes models through the API, which refuses a model whose doc says training.
             deleteIgnoringMissing(client(), "/" + MODEL_INDEX_NAME);
             deleteIgnoringMissing(targetClient, "/" + MODEL_INDEX_NAME);
+        }
+    }
+
+    /** Checks that the ids of the models the snapshot caught mid-training or mid-delete can be used again on the cluster. */
+    private static void assertModelIdsCanBeUsedAgain(RestClient cluster) throws Exception {
+        // k-NN fixes the models after the restore finishes, which can be after the restore request returns.
+        assertBusy(
+            () -> assertEquals(
+                "state of " + TRAINING_IN_SNAPSHOT_MODEL_ID,
+                ModelState.FAILED.getName(),
+                model(cluster, TRAINING_IN_SNAPSHOT_MODEL_ID).get(MODEL_STATE)
+            )
+        );
+        assertBusy(
+            () -> assertFalse(
+                "metadata of " + NO_DOC_IN_SNAPSHOT_MODEL_ID,
+                modelIdsInMetadata(cluster).contains(NO_DOC_IN_SNAPSHOT_MODEL_ID)
+            )
+        );
+        final Request getNoMetadataModel = new Request("GET", MODELS_URI + NO_METADATA_IN_SNAPSHOT_MODEL_ID);
+        getNoMetadataModel.addParameter("ignore", "404");
+        assertBusy(
+            () -> assertEquals(
+                "model " + NO_METADATA_IN_SNAPSHOT_MODEL_ID,
+                404,
+                cluster.performRequest(getNoMetadataModel).getStatusLine().getStatusCode()
+            )
+        );
+
+        // All three ids can be used again: the failed model can be deleted, and every id can be trained again.
+        cluster.performRequest(new Request("DELETE", MODELS_URI + TRAINING_IN_SNAPSHOT_MODEL_ID));
+        for (String modelId : List.of(TRAINING_IN_SNAPSHOT_MODEL_ID, NO_DOC_IN_SNAPSHOT_MODEL_ID, NO_METADATA_IN_SNAPSHOT_MODEL_ID)) {
+            trainModel(cluster, modelId);
+            assertTrainingSucceeds(cluster, modelId);
         }
     }
 

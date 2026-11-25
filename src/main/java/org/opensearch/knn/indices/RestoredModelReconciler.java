@@ -51,8 +51,8 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
  * A snapshot copies the model docs when it copies the model index's shard, but saves the {@code knn-models} metadata
  * when the whole snapshot finishes. A model that trains while the snapshot runs can come back with a doc that says
  * training, with no doc, or with a doc and metadata that disagree, and a model deleted while it runs comes back with a
- * doc and no metadata. {@link #reconcile} marks the models still training failed, and removes the metadata or doc of a
- * model that has only one of them.
+ * doc and no metadata. {@link #reconcile} marks the models stuck in training failed, and removes the metadata or doc of
+ * a model that has only one of them.
  */
 @Log4j2
 public class RestoredModelReconciler {
@@ -91,15 +91,18 @@ public class RestoredModelReconciler {
             return;
         }
         // Marking a model failed also writes its knn-models entry, so this runs before the models are compared.
-        failModelsTrainingOnMissingNodes();
+        failModelsStuckInTraining();
         removeIncompleteModels();
     }
 
     /**
-     * Marks failed every model whose doc says training on a node that isn't in this cluster. No training job runs for
-     * such a model, so without this it stays training and DELETE refuses it.
+     * Marks failed every model stuck in training: its doc says training, but no training job runs for it, so DELETE
+     * refuses it. No job runs when the model's node isn't in this cluster, or when its knn-models metadata says created
+     * or failed. Training writes the doc before its metadata, so metadata past training next to a doc that says training
+     * only comes from a snapshot. A model whose doc and metadata both say training on a node in this cluster is left
+     * alone, since a running job looks the same.
      */
-    private void failModelsTrainingOnMissingNodes() {
+    private void failModelsStuckInTraining() {
         final Set<String> nodeIds = new HashSet<>();
         for (DiscoveryNode node : clusterService.state().nodes()) {
             nodeIds.add(node.getEphemeralId());
@@ -114,7 +117,7 @@ public class RestoredModelReconciler {
         for (SearchHit hit : hits) {
             try {
                 final ModelMetadata modelMetadata = ModelMetadata.getMetadataFromSourceMap(hit.getSourceAsMap());
-                if (nodeIds.contains(modelMetadata.getNodeAssignment())) {
+                if (nodeIds.contains(modelMetadata.getNodeAssignment()) && !isCreatedOrFailedInMetadata(hit.getId())) {
                     continue;
                 }
                 modelMetadata.setState(ModelState.FAILED);
@@ -127,6 +130,15 @@ public class RestoredModelReconciler {
                 log.error(new ParameterizedMessage("Failed to mark model {} as failed after the model index was restored", hit.getId()), e);
             }
         }
+    }
+
+    /** Whether the model's knn-models metadata says created or failed. Missing metadata says neither. */
+    private boolean isCreatedOrFailedInMetadata(String modelId) {
+        final ModelMetadata metadata = modelDao.getMetadata(modelId);
+        if (metadata == null) {
+            return false;
+        }
+        return metadata.getState() == ModelState.CREATED || metadata.getState() == ModelState.FAILED;
     }
 
     /**
