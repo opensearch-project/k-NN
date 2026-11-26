@@ -68,8 +68,8 @@ public class FaissCagraHNSW extends FaissHNSW {
 
         // Validate that files flagged as multi-layer actually contain a valid entry point and at least one upper level for search
         // as a regular HNSW graph. Otherwise, fall back to searching the bottom layer with random entry points.
-        final boolean isMultiLayer = !baseLevelOnlyFlag && entryPoint >= 0 && maxLevel >= 1;
-        this.baseLevelOnly = !isMultiLayer;
+        final boolean isMultiLayer = baseLevelOnlyFlag == false && entryPoint >= 0 && maxLevel >= 1;
+        this.baseLevelOnly = isMultiLayer == false;
 
         if (this.baseLevelOnly) {
             // Entry points will be provided via `RandomEntryPointsKnnSearchStrategy`.
