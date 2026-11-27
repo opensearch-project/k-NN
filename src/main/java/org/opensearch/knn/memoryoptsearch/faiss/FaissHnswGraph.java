@@ -115,7 +115,9 @@ public class FaissHnswGraph extends HnswGraph {
 
     @Override
     public int numLevels() {
-        return faissHnsw.getMaxLevel();
+        // FAISS max_level is the 0-based index of the top level.
+        // Ex: A graph with level-0 (bottom) and level-1 has max_level=1 and two levels.
+        return faissHnsw.getMaxLevel() + 1;
     }
 
     @Override

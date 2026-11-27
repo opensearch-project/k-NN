@@ -257,7 +257,9 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     KnnCollector createKnnCollector(final KnnCollector knnCollector, final RandomVectorScorer scorer) {
         final KnnCollector ordinalTranslatedKnnCollector = new OrdinalTranslatedKnnCollector(knnCollector, scorer::ordToDoc);
 
-        if (hnsw instanceof FaissCagraHNSW cagraHNSW && (knnCollector.getSearchStrategy() instanceof KnnSearchStrategy.Seeded) == false) {
+        if (hnsw instanceof FaissCagraHNSW cagraHNSW
+            && cagraHNSW.isBaseLevelOnly()
+            && (knnCollector.getSearchStrategy() instanceof KnnSearchStrategy.Seeded) == false) {
             // If there are provided entry points, then we should honor it and ensure searching to start based on them instead of
             // search with randomly selected points.
             return new KnnCollector.Decorator(ordinalTranslatedKnnCollector) {
