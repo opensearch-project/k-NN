@@ -363,6 +363,10 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         iwc.setUseCompoundFile(false);
         // Set merge policy to no merges so that we create a predictable number of segments.
         iwc.setMergePolicy(NoMergePolicy.INSTANCE);
+        // newIndexWriterConfig() randomizes maxBufferedDocs (as low as 2) and the RAM buffer, which can flush the documents
+        // into more than one segment. The tests expect a single segment, so only flush when the tests do.
+        iwc.setMaxBufferedDocs(IndexWriterConfig.DISABLE_AUTO_FLUSH);
+        iwc.setRAMBufferSizeMB(IndexWriterConfig.DEFAULT_RAM_BUFFER_SIZE_MB);
         return new RandomIndexWriter(random(), dir, iwc);
     }
 
