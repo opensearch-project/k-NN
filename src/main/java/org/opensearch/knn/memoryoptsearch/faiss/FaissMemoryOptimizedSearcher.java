@@ -10,6 +10,7 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.KnnVectorValues;
 import org.apache.lucene.index.KnnVectorValues.DocIndexIterator;
 import org.apache.lucene.index.VectorEncoding;
@@ -163,6 +164,25 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     public ByteVectorValues getByteVectorValues(DocIndexIterator iterator) throws IOException {
         return new FaissScorableByteVectorValues(
             faissIndex.getByteValues(indexInput.clone()),
+            flatVectorsScorer,
+            vectorSimilarityFunction,
+            iterator
+        );
+    }
+
+    /**
+     * Returns a {@link FaissScorableFloatVectorValues} that wraps the float vectors stored in the FAISS index with scoring
+     * support via {@link FlatVectorsScorer}, or {@code null} when the index is searched with ADC or doesn't store float
+     * vectors.
+     * <p>Each call creates a new instance backed by a fresh index input slice.
+     */
+    @Override
+    public FloatVectorValues getFloatVectorValues(DocIndexIterator iterator) throws IOException {
+        if (isAdc || faissIndex.getVectorEncoding() != VectorEncoding.FLOAT32) {
+            return null;
+        }
+        return new FaissScorableFloatVectorValues(
+            faissIndex.getFloatValues(indexInput.clone()),
             flatVectorsScorer,
             vectorSimilarityFunction,
             iterator

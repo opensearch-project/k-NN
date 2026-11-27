@@ -10,6 +10,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.codecs.KnnVectorsReader;
 import org.apache.lucene.codecs.KnnVectorsWriter;
+import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.DocsWithFieldSet;
@@ -24,6 +25,7 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.LeafReaderUtil;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsReader;
 
 import java.io.IOException;
 import java.util.List;
@@ -185,6 +187,38 @@ public final class KNNVectorValuesFactory {
         } else {
             throw new IllegalArgumentException("Invalid Vector encoding provided, hence cannot return VectorValues");
         }
+    }
+
+    /**
+     * Returns the float vectors of the given field as stored in its native engine index (for example FP16 codes in a FAISS
+     * file), scored the same way as approximate search, or null if the segment can't provide them. Callers should fall back
+     * to {@link #getVectorValues(FieldInfo, LeafReader)} when null is returned.
+     *
+     * @param fieldInfo {@link FieldInfo}
+     * @param leafReader {@link LeafReader}
+     * @return {@link KNNVectorValues} over the native index vectors, or null
+     * @throws IOException if an I/O error occurs
+     */
+    public static <T> KNNVectorValues<T> getNativeIndexVectorValues(final FieldInfo fieldInfo, final LeafReader leafReader)
+        throws IOException {
+        if (fieldInfo.hasVectorValues() == false || fieldInfo.getVectorEncoding() != VectorEncoding.FLOAT32) {
+            return null;
+        }
+        final SegmentReader segmentReader = LeafReaderUtil.tryGetSegmentReader(leafReader);
+        if (segmentReader == null || !(segmentReader.getVectorReader() instanceof PerFieldKnnVectorsFormat.FieldsReader fieldsReader)) {
+            return null;
+        }
+        if (!(fieldsReader.getFieldReader(fieldInfo.getName()) instanceof NativeEngines990KnnVectorsReader nativeReader)) {
+            return null;
+        }
+        final FloatVectorValues floatVectorValues = nativeReader.getNativeIndexFloatVectorValues(fieldInfo.getName());
+        if (floatVectorValues == null) {
+            return null;
+        }
+        return getVectorValues(
+            FieldInfoExtractor.extractVectorDataType(fieldInfo),
+            new KNNVectorValuesIterator.DocIdsIteratorValues(floatVectorValues)
+        );
     }
 
     /**

@@ -43,6 +43,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Enhancements
 * Cache the `knn.feature.prefetch.enabled` feature flag and update it on cluster setting changes, instead of looking up cluster settings on every bulk score call [#3720](https://github.com/opensearch-project/k-NN/pull/3720)
+* Score the vectors stored in the FAISS file (for example FP16 codes with native SIMD) in exact search with memory-optimized search, instead of reading the full precision flat vectors [#3723](https://github.com/opensearch-project/k-NN/pull/3723)
 * Add AVX-512 kernels for SQ 2-bit and 4-bit distance computation during indexing [#3667](https://github.com/opensearch-project/k-NN/pull/3667)
 * Add SIMD kernels for SQ 2-bit and 4-bit distance computation during indexing [#3655](https://github.com/opensearch-project/k-NN/pull/3655)
 * Score ADC queries from a precomputed per-query table instead of a per-dimension loop [#3633](https://github.com/opensearch-project/k-NN/pull/3633)

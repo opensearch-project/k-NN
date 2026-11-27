@@ -16,6 +16,7 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.hnsw.FlatVectorsReader;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.search.AcceptDocs;
@@ -257,6 +258,29 @@ public class NativeEngines990KnnVectorsReader extends AbstractNativeEnginesKnnVe
         }
         final VectorSearcher vectorSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfo);
         return vectorSearcher != null ? vectorSearcher.getByteVectorValues(getFloatVectorValues(fieldInfo.getName()).iterator()) : null;
+    }
+
+    /**
+     * Returns the float vectors of the given field as stored in the native engine index, scored with the memory-optimized
+     * searcher's flat vectors scorer, so exact search scores the same vectors as approximate search (for example FP16 codes
+     * with native SIMD) instead of reading the full precision flat vectors.
+     *
+     * @param field the vector field name
+     * @return the native index float vectors, or null if not available (quantized field, no native engine file in the
+     *         segment, or a native index without float vectors), in which case callers should use
+     *         {@link #getFloatVectorValues(String)}
+     * @throws IOException if an I/O error occurs
+     */
+    public FloatVectorValues getNativeIndexFloatVectorValues(final String field) throws IOException {
+        final FieldInfo fieldInfo = fieldInfos.fieldInfo(field);
+        if (fieldInfo == null
+            || fieldInfo.getVectorEncoding() != VectorEncoding.FLOAT32
+            || hasQuantizationConfig(fieldInfo)
+            || KNNCodecUtil.getNativeEngineFileFromFieldInfo(fieldInfo, segmentReadState.segmentInfo) == null) {
+            return null;
+        }
+        final VectorSearcher vectorSearcher = loadMemoryOptimizedSearcherIfRequired(fieldInfo);
+        return vectorSearcher != null ? vectorSearcher.getFloatVectorValues(getFloatVectorValues(field).iterator()) : null;
     }
 
     /**

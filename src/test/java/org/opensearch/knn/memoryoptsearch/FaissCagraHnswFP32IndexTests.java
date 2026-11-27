@@ -18,6 +18,10 @@ public class FaissCagraHnswFP32IndexTests extends AbstractFaissCagraHnswIndexTes
         doTestKNNSearch(false, VectorDataType.FLOAT, KNNVectorSimilarityFunction.EUCLIDEAN);
     }
 
+    public void testExactSearchVectorsScoreLikeApproximateSearch() {
+        doTestExactSearchVectorsScoreLikeApproximateSearch(KNNVectorSimilarityFunction.EUCLIDEAN);
+    }
+
     public void testLoadVectors() {
         doTestLoadVectors(VectorDataType.FLOAT, FIRST_VECTOR, LAST_VECTOR);
     }

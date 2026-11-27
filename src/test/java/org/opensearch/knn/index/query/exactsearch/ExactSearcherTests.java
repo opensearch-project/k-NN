@@ -159,6 +159,93 @@ public class ExactSearcherTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    public void testExactSearch_whenMemoryOptimizedFirstPass_thenScoresNativeIndexVectors() {
+        // The native index holds a different vector than the flat vectors, so the score shows which one was scored.
+        final float[] queryVector = new float[] { 0.1f, 2.0f, 3.0f };
+        final float[] flatVector = new float[] { 0.3f, 4.0f, 1.0f };
+        final float[] nativeIndexVector = new float[] { 0.2f, 2.5f, 2.0f };
+
+        final TopDocs docs = searchWithNativeIndexVectors(queryVector, flatVector, nativeIndexVector, true, true);
+
+        assertEquals(1, docs.scoreDocs.length);
+        assertEquals(SpaceType.L2.getKnnVectorSimilarityFunction().compare(queryVector, nativeIndexVector), docs.scoreDocs[0].score, 1e-6f);
+    }
+
+    @SneakyThrows
+    public void testExactSearch_whenNotMemoryOptimized_thenScoresFlatVectors() {
+        final float[] queryVector = new float[] { 0.1f, 2.0f, 3.0f };
+        final float[] flatVector = new float[] { 0.3f, 4.0f, 1.0f };
+        final float[] nativeIndexVector = new float[] { 0.2f, 2.5f, 2.0f };
+
+        final TopDocs docs = searchWithNativeIndexVectors(queryVector, flatVector, nativeIndexVector, false, true);
+
+        assertEquals(1, docs.scoreDocs.length);
+        assertEquals(SpaceType.L2.getKnnVectorSimilarityFunction().compare(queryVector, flatVector), docs.scoreDocs[0].score, 1e-6f);
+    }
+
+    @SneakyThrows
+    public void testExactSearch_whenRescoring_thenScoresFlatVectors() {
+        final float[] queryVector = new float[] { 0.1f, 2.0f, 3.0f };
+        final float[] flatVector = new float[] { 0.3f, 4.0f, 1.0f };
+        final float[] nativeIndexVector = new float[] { 0.2f, 2.5f, 2.0f };
+
+        final TopDocs docs = searchWithNativeIndexVectors(queryVector, flatVector, nativeIndexVector, true, false);
+
+        assertEquals(1, docs.scoreDocs.length);
+        assertEquals(SpaceType.L2.getKnnVectorSimilarityFunction().compare(queryVector, flatVector), docs.scoreDocs[0].score, 1e-6f);
+    }
+
+    @SneakyThrows
+    public void testExactSearch_whenNativeIndexVectorsUnavailable_thenScoresFlatVectors() {
+        final float[] queryVector = new float[] { 0.1f, 2.0f, 3.0f };
+        final float[] flatVector = new float[] { 0.3f, 4.0f, 1.0f };
+
+        final TopDocs docs = searchWithNativeIndexVectors(queryVector, flatVector, null, true, true);
+
+        assertEquals(1, docs.scoreDocs.length);
+        assertEquals(SpaceType.L2.getKnnVectorSimilarityFunction().compare(queryVector, flatVector), docs.scoreDocs[0].score, 1e-6f);
+    }
+
+    /**
+     * Runs an exact search over one document whose flat vector is {@code flatVector} and whose vector in the native engine
+     * index is {@code nativeIndexVector} ({@code null} when the segment can't provide native index vectors).
+     */
+    @SneakyThrows
+    private TopDocs searchWithNativeIndexVectors(
+        final float[] queryVector,
+        final float[] flatVector,
+        final float[] nativeIndexVector,
+        final boolean isMemoryOptimizedSearchEnabled,
+        final boolean useQuantizedVectorsForSearch
+    ) {
+        final ExactSearcher.ExactSearcherContext context = ExactSearcher.ExactSearcherContext.builder()
+            .field(FIELD_NAME)
+            .floatQueryVector(queryVector)
+            .matchedDocsIterator(DocIdSetIterator.all(1))
+            .numberOfMatchedDocs(1)
+            .k(10)
+            .isMemoryOptimizedSearchEnabled(isMemoryOptimizedSearchEnabled)
+            .useQuantizedVectorsForSearch(useQuantizedVectorsForSearch)
+            .build();
+        try (MockedStatic<KNNVectorValuesFactory> vectorValuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class)) {
+            final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+            final SegmentReader reader = mock(SegmentReader.class);
+            final FieldInfos fieldInfos = mock(FieldInfos.class);
+            final FieldInfo fieldInfo = mock(FieldInfo.class);
+            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+            when(reader.getFieldInfos()).thenReturn(fieldInfos);
+            when(fieldInfos.fieldInfo(FIELD_NAME)).thenReturn(fieldInfo);
+            when(leafReaderContext.reader()).thenReturn(reader);
+            vectorValuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader))
+                .thenReturn(TestVectorValues.createKNNFloatVectorValues(List.of(flatVector)));
+            vectorValuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getNativeIndexVectorValues(fieldInfo, reader))
+                .thenReturn(nativeIndexVector == null ? null : TestVectorValues.createKNNFloatVectorValues(List.of(nativeIndexVector)));
+
+            return new ExactSearcher(null).searchLeaf(leafReaderContext, context);
+        }
+    }
+
+    @SneakyThrows
     public void testExactSearchScorer_whenByteVectorDataType_thenUsesByteQueryVectorDirectly() {
         final byte[] queryVector = new byte[] { 1, 2, 3 };
         final byte[] vector = new byte[] { 4, 5, 6 };
