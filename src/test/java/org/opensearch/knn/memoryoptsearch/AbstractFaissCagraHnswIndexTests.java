@@ -5,6 +5,11 @@
 
 package org.opensearch.knn.memoryoptsearch;
 
+import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
+import org.apache.lucene.index.KnnVectorValues;
+import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.search.VectorScorer;
+import org.apache.lucene.util.hnsw.RandomVectorScorer;
 import org.opensearch.common.Randomness;
 
 import lombok.SneakyThrows;
@@ -138,6 +143,88 @@ public abstract class AbstractFaissCagraHnswIndexTests extends KNNTestCase {
             final float matchRatio = (float) matchCount / (float) k;
             assertTrue(matchRatio > 0.8);
         });
+    }
+
+    /**
+     * Exact search scores the float vectors returned by {@link FaissMemoryOptimizedSearcher#getFloatVectorValues}. Checks
+     * that they score every vector exactly as approximate search does on the same index, so exact search uses the same
+     * scorer (for example native SIMD on memory-mapped FP16 codes) instead of a slower or different one.
+     */
+    protected void doTestExactSearchVectorsScoreLikeApproximateSearch(final KNNVectorSimilarityFunction similarityFunction) {
+        final FieldInfo noADC = Mockito.mock(FieldInfo.class);
+        Mockito.when(noADC.getAttribute(KNNConstants.QFRAMEWORK_CONFIG)).thenReturn(null);
+        Mockito.when(noADC.getAttribute(SPACE_TYPE))
+            .thenReturn(
+                similarityFunction == KNNVectorSimilarityFunction.EUCLIDEAN ? SpaceType.L2.getValue() : SpaceType.INNER_PRODUCT.getValue()
+            );
+        doTestWithIndexInput(input -> {
+            final FaissIndex faissIndex = FaissIndex.load(input);
+            final FlatVectorsScorer flatVectorsScorer = FlatVectorsScorerProvider.getFlatVectorsScorer(
+                noADC,
+                similarityFunction,
+                new NativeEngines990KnnVectorsScorer(FlatVectorScorerUtil.getLucene99FlatVectorsScorer())
+            );
+            final FaissMemoryOptimizedSearcher searcher = new FaissMemoryOptimizedSearcher(input, faissIndex, noADC, flatVectorsScorer);
+            final float[] query = new float[DIMENSION];
+            for (int i = 0; i < DIMENSION; i++) {
+                query[i] = Randomness.get().nextFloat();
+            }
+
+            final FloatVectorValues exactSearchValues = searcher.getFloatVectorValues(denseIterator(TOTAL_NUMBER_OF_VECTORS));
+            final VectorScorer exactSearchScorer = exactSearchValues.scorer(query);
+            final RandomVectorScorer approximateSearchScorer = flatVectorsScorer.getRandomVectorScorer(
+                similarityFunction.getVectorSimilarityFunction(),
+                faissIndex.getFloatValues(input.clone()),
+                query
+            );
+
+            final KnnVectorValues.DocIndexIterator iterator = (KnnVectorValues.DocIndexIterator) exactSearchScorer.iterator();
+            int scored = 0;
+            for (int doc = iterator.nextDoc(); doc != DocIdSetIterator.NO_MORE_DOCS; doc = iterator.nextDoc()) {
+                assertEquals(
+                    "score of vector " + iterator.index(),
+                    approximateSearchScorer.score(iterator.index()),
+                    exactSearchScorer.score(),
+                    0.0f
+                );
+                ++scored;
+            }
+            assertEquals(TOTAL_NUMBER_OF_VECTORS, scored);
+        });
+    }
+
+    /**
+     * The doc iterator exact search gets from the flat vectors in production: one document per vector, in ordinal order.
+     */
+    private static KnnVectorValues.DocIndexIterator denseIterator(final int size) {
+        return new KnnVectorValues.DocIndexIterator() {
+            private int doc = -1;
+
+            @Override
+            public int docID() {
+                return doc;
+            }
+
+            @Override
+            public int index() {
+                return doc;
+            }
+
+            @Override
+            public int nextDoc() {
+                return advance(doc + 1);
+            }
+
+            @Override
+            public int advance(final int target) {
+                return doc = target >= size ? NO_MORE_DOCS : target;
+            }
+
+            @Override
+            public long cost() {
+                return size;
+            }
+        };
     }
 
     @SneakyThrows

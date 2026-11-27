@@ -17,6 +17,10 @@ public class FaissCagra2HnswFP16IndexTests extends AbstractFaissCagraHnswIndexTe
         doTestKNNSearch(false, VectorDataType.FLOAT, KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT);
     }
 
+    public void testExactSearchVectorsScoreLikeApproximateSearch() {
+        doTestExactSearchVectorsScoreLikeApproximateSearch(KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT);
+    }
+
     public void testLoadVectors() {
         doTestLoadVectors(VectorDataType.FLOAT, FIRST_VECTOR, LAST_VECTOR);
     }

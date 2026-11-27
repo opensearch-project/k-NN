@@ -7,6 +7,10 @@ package org.opensearch.knn.index.vectorvalues;
 
 import lombok.SneakyThrows;
 import org.apache.lucene.codecs.KnnVectorsReader;
+import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines990KnnVectorsReader;
+import org.opensearch.knn.index.codec.KNN1040Codec.Faiss1040ScalarQuantizedKnnVectorsReader;
+import org.apache.lucene.index.FloatVectorValues;
+import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DocsWithFieldSet;
 import org.apache.lucene.index.FieldInfo;
@@ -31,6 +35,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 public class KNNVectorValuesFactoryTests extends KNNTestCase {
+    private static final String FIELD_NAME = "target_field";
     private static final int COUNT = 10;
     private static final int DIMENSION = 10;
 
@@ -262,5 +267,58 @@ public class KNNVectorValuesFactoryTests extends KNNTestCase {
         );
         Assert.assertTrue(e.getMessage(), e.getMessage().contains("require a codec backed reader"));
         Assert.assertTrue(e.getMessage(), e.getMessage().contains("target_field"));
+    }
+
+    @SneakyThrows
+    public void testGetNativeIndexVectorValues_whenScalarQuantizedReader_thenNull() {
+        // SQ 1/2/4-bit fields are read by Faiss1040ScalarQuantizedKnnVectorsReader. Their flat vector values already score the
+        // quantized codes (.veq) that approximate search uses, so exact search must keep using them: no native index vectors.
+        final Faiss1040ScalarQuantizedKnnVectorsReader scalarQuantizedReader = Mockito.mock(Faiss1040ScalarQuantizedKnnVectorsReader.class);
+        final FieldInfo fieldInfo = mockFloatFieldInfo();
+
+        assertNull(KNNVectorValuesFactory.getNativeIndexVectorValues(fieldInfo, mockSegmentReader(scalarQuantizedReader)));
+        Mockito.verifyNoInteractions(scalarQuantizedReader);
+    }
+
+    @SneakyThrows
+    public void testGetNativeIndexVectorValues_whenNativeEnginesReader_thenReturnsNativeIndexVectors() {
+        final NativeEngines990KnnVectorsReader nativeReader = Mockito.mock(NativeEngines990KnnVectorsReader.class);
+        final FieldInfo fieldInfo = mockFloatFieldInfo();
+        Mockito.when(nativeReader.getNativeIndexFloatVectorValues(FIELD_NAME))
+            .thenReturn(FloatVectorValues.fromFloats(List.of(new float[] { 1.0f, 2.0f }), 2));
+
+        final KNNVectorValues<float[]> values = KNNVectorValuesFactory.getNativeIndexVectorValues(
+            fieldInfo,
+            mockSegmentReader(nativeReader)
+        );
+
+        assertNotNull(values);
+        assertEquals(0, values.nextDoc());
+        assertArrayEquals(new float[] { 1.0f, 2.0f }, values.getVector(), 0.0f);
+    }
+
+    @SneakyThrows
+    public void testGetNativeIndexVectorValues_whenNativeEnginesReaderHasNoNativeIndexVectors_thenNull() {
+        final NativeEngines990KnnVectorsReader nativeReader = Mockito.mock(NativeEngines990KnnVectorsReader.class);
+        Mockito.when(nativeReader.getNativeIndexFloatVectorValues(FIELD_NAME)).thenReturn(null);
+
+        assertNull(KNNVectorValuesFactory.getNativeIndexVectorValues(mockFloatFieldInfo(), mockSegmentReader(nativeReader)));
+    }
+
+    private static FieldInfo mockFloatFieldInfo() {
+        final FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        Mockito.when(fieldInfo.getName()).thenReturn(FIELD_NAME);
+        Mockito.when(fieldInfo.hasVectorValues()).thenReturn(true);
+        Mockito.when(fieldInfo.getVectorEncoding()).thenReturn(VectorEncoding.FLOAT32);
+        Mockito.when(fieldInfo.getAttribute(KNNConstants.VECTOR_DATA_TYPE_FIELD)).thenReturn(VectorDataType.FLOAT.getValue());
+        return fieldInfo;
+    }
+
+    private static SegmentReader mockSegmentReader(final KnnVectorsReader fieldReader) {
+        final PerFieldKnnVectorsFormat.FieldsReader fieldsReader = Mockito.mock(PerFieldKnnVectorsFormat.FieldsReader.class);
+        Mockito.when(fieldsReader.getFieldReader(FIELD_NAME)).thenReturn(fieldReader);
+        final SegmentReader segmentReader = Mockito.mock(SegmentReader.class);
+        Mockito.when(segmentReader.getVectorReader()).thenReturn(fieldsReader);
+        return segmentReader;
     }
 }

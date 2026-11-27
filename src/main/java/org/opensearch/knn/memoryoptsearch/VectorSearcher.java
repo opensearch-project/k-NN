@@ -6,6 +6,7 @@
 package org.opensearch.knn.memoryoptsearch;
 
 import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.KnnVectorValues.DocIndexIterator;
 import org.apache.lucene.search.AcceptDocs;
 import org.apache.lucene.search.KnnCollector;
@@ -90,6 +91,18 @@ public interface VectorSearcher extends Closeable {
      * @param iterator the iterator the scorer should use for document traversal
      */
     ByteVectorValues getByteVectorValues(DocIndexIterator iterator) throws IOException;
+
+    /**
+     * Returns the float vectors stored in the native index, scored with this searcher's flat vectors scorer and traversed
+     * with the given iterator, or {@code null} if the native index doesn't store float vectors this searcher can score
+     * (for example, an index searched with asymmetric distance computation).
+     *
+     * <p>This lets exact search score the same vectors as approximate search, instead of reading the full precision
+     * flat vectors. See {@link #getByteVectorValues(DocIndexIterator)} for why the iterator is supplied by the caller.
+     *
+     * @param iterator the iterator the scorer should use for document traversal
+     */
+    FloatVectorValues getFloatVectorValues(DocIndexIterator iterator) throws IOException;
 
     /**
      * Warms up the underlying vector data by reading it into the OS page cache.
