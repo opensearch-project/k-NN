@@ -419,6 +419,25 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         executorService.shutdown();
     }
 
+    public void testTrainingDataAllocation_closeUnsafe_whenExecutorIsShutDown_thenClosesInline() {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        executorService.shutdown();
+        NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
+            executorService,
+            0,
+            0,
+            VectorDataType.FLOAT
+        );
+
+        trainingDataAllocation.writeLock();
+        trainingDataAllocation.closeUnsafe();
+
+        assertTrue(trainingDataAllocation.isClosed());
+        // The write lock was released, so a reader is not left waiting.
+        trainingDataAllocation.readLock();
+        trainingDataAllocation.readUnlock();
+    }
+
     public void testTrainingDataAllocation_getMemoryAddress() {
         long memoryAddress = 12;
 

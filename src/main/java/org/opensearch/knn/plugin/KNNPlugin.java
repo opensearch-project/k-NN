@@ -27,6 +27,7 @@ import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.env.Environment;
 import org.opensearch.env.NodeEnvironment;
+import org.opensearch.identity.PluginSubject;
 import org.opensearch.index.IndexModule;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.TieredMergePolicyProvider;
@@ -38,6 +39,7 @@ import org.opensearch.index.mapper.Mapper;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.shard.IndexSettingProvider;
 import org.opensearch.indices.SystemIndexDescriptor;
+import org.opensearch.knn.common.PluginClient;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNEngineContext;
 import org.opensearch.knn.index.KNNIndexSettingsRegistry;
@@ -118,6 +120,7 @@ import org.opensearch.plugins.ClusterPlugin;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.EnginePlugin;
 import org.opensearch.plugins.ExtensiblePlugin;
+import org.opensearch.plugins.IdentityAwarePlugin;
 import org.opensearch.plugins.MapperPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.plugins.ReloadablePlugin;
@@ -204,7 +207,8 @@ public class KNNPlugin extends Plugin
         ExtensiblePlugin,
         SystemIndexPlugin,
         ReloadablePlugin,
-        SearchPipelinePlugin {
+        SearchPipelinePlugin,
+        IdentityAwarePlugin {
 
     public static final String LEGACY_KNN_BASE_URI = "/_opendistro/_knn";
     public static final String KNN_BASE_URI = "/_plugins/_knn";
@@ -213,6 +217,7 @@ public class KNNPlugin extends Plugin
     private ClusterService clusterService;
     private IndexNameExpressionResolver indexNameExpressionResolver;
     private Supplier<RepositoriesService> repositoriesServiceSupplier;
+    private PluginClient pluginClient;
     private final Map<String, MMRQueryTransformer<? extends QueryBuilder>> mmrQueryTransformers = new HashMap<>();
 
     static {
@@ -273,6 +278,9 @@ public class KNNPlugin extends Plugin
         this.clusterService = clusterService;
         this.indexNameExpressionResolver = indexNameExpressionResolver;
         this.repositoriesServiceSupplier = repositoriesServiceSupplier;
+        // The identity service assigns subjects after every plugin has built its components, so this
+        // wrapper cannot execute anything until assignSubject has run.
+        this.pluginClient = new PluginClient(client);
         Lucene99ScorerPatcher.installOnce();
 
         // Initialize Native Memory loading strategies
@@ -281,7 +289,7 @@ public class KNNPlugin extends Plugin
 
         KNNSettings.state().initialize(client, clusterService);
         KNNClusterUtil.instance().initialize(clusterService, indexNameExpressionResolver);
-        ModelDao.OpenSearchKNNModelDao.initialize(client, clusterService, environment.settings());
+        ModelDao.OpenSearchKNNModelDao.initialize(pluginClient, clusterService, environment.settings());
         ModelCache.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
         TrainingJobRunner.initialize(threadPool, ModelDao.OpenSearchKNNModelDao.getInstance());
         TrainingJobClusterStateListener.initialize(threadPool, ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
@@ -498,6 +506,16 @@ public class KNNPlugin extends Plugin
     @Override
     public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
         return ImmutableList.of(new SystemIndexDescriptor(MODEL_INDEX_NAME, "Index for storing models used for k-NN indices"));
+    }
+
+    /**
+     * Gives the model index client the subject that k-NN runs its own model operations as.
+     *
+     * @param pluginSubject the subject core assigned to this plugin
+     */
+    @Override
+    public void assignSubject(PluginSubject pluginSubject) {
+        pluginClient.setSubject(pluginSubject);
     }
 
     @Override

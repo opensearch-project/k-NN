@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import io.grpc.ManagedChannel;
+import org.junit.Before;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 
 import static io.grpc.internal.GrpcUtil.NOOP_PROXY_DETECTOR;
@@ -41,6 +42,15 @@ import static io.grpc.internal.GrpcUtil.NOOP_PROXY_DETECTOR;
  * the {@code aux.transport.transport-grpc.port} cluster setting.
  */
 public abstract class KNNGrpcIntegTestCase extends KNNRestTestCase {
+
+    /**
+     * Skips on a cluster with the Security plugin, which rejects the plaintext channel these tests open because
+     * it carries no credentials.
+     */
+    @Before
+    public void skipWithSecurity() {
+        assumeFalse("gRPC tests send no credentials, which the Security plugin rejects", isHttps());
+    }
 
     protected int grpcPort() {
         return Integer.parseInt(System.getProperty("tests.grpc.port", "9400"));

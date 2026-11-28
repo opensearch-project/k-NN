@@ -1,0 +1,12 @@
+# Privileges the security plugin grants to the k-NN plugin subject, on top of every index action on
+# the model system index it registers, which needs no entry here.
+#
+# Every model write and delete is followed by k-NN's own model metadata, graveyard and cache actions,
+# and ModelDao runs those as the plugin subject too. They are internal steps of the train and delete
+# model APIs, not APIs a user calls. Their names do not start with "indices:", so the security plugin
+# classifies them as cluster permissions, and a plugin subject only holds the ones listed here.
+# Names are literal because action groups are not resolved in this file.
+cluster_permissions:
+  - "cluster:admin/knn_update_model_metadata_action"
+  - "cluster:admin/knn_update_model_graveyard_action"
+  - "cluster:admin/knn_remove_model_from_cache_action"

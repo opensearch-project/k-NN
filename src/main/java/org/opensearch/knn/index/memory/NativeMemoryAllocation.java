@@ -23,6 +23,7 @@ import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -296,6 +297,10 @@ public interface NativeMemoryAllocation {
         private final Semaphore readSemaphore;
         private final Semaphore writeSemaphore;
         private final VectorDataType vectorDataType;
+        /** Why loading the training data failed, or null if it did not fail. */
+        @Getter
+        @Setter
+        private volatile Exception loadFailure;
 
         /**
          * Constructor
@@ -333,10 +338,20 @@ public interface NativeMemoryAllocation {
          * the executor can go ahead and cleanup the allocation and then release the write lock. Use with caution.
          */
         public void closeUnsafe() {
-            executor.execute(() -> {
+            executeOrRunInline(() -> {
                 cleanup();
                 writeUnlock();
             });
+        }
+
+        // An allocation created before its load strategy was closed must still free its memory and release the write
+        // lock when the read fails, or a training job waiting for the read lock never wakes up. The task does not block.
+        private void executeOrRunInline(Runnable closeTask) {
+            try {
+                executor.execute(closeTask);
+            } catch (RejectedExecutionException e) {
+                closeTask.run();
+            }
         }
 
         private void cleanup() {

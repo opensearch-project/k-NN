@@ -139,8 +139,10 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
 
         private static volatile TrainingLoadStrategy INSTANCE;
 
+        // Kept across instances, so a strategy created after close() can still read training data.
+        private static volatile VectorReader vectorReader;
+
         private final ExecutorService executor;
-        private VectorReader vectorReader;
 
         /**
          * Get singleton TrainingLoadStrategy
@@ -160,11 +162,15 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
          * @param vectorReader VectorReader used to read training data
          */
         public static void initialize(final VectorReader vectorReader) {
-            getInstance().vectorReader = vectorReader;
+            TrainingLoadStrategy.vectorReader = vectorReader;
+            getInstance();
         }
 
+        /** Name of the thread that closes training data allocations. */
+        static final String CLOSE_THREAD_NAME = "knn-training-data-close";
+
         private TrainingLoadStrategy() {
-            executor = Executors.newSingleThreadExecutor();
+            executor = Executors.newSingleThreadExecutor(runnable -> new Thread(runnable, CLOSE_THREAD_NAME));
         }
 
         @Override
@@ -195,10 +201,11 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
                 nativeMemoryEntryContext.getSearchSize(),
                 vectorDataConsumer,
                 ActionListener.wrap(response -> trainingDataAllocation.writeUnlock(), ex -> {
+                    // Kept for the training job, which otherwise only sees a closed allocation.
+                    trainingDataAllocation.setLoadFailure(ex);
                     // Close unsafe will assume that the caller passes control of the writelock to it. It
                     // will then handle releasing the write lock once the close operations finish.
                     trainingDataAllocation.closeUnsafe();
-                    throw new RuntimeException(ex);
                 })
             );
 
@@ -208,8 +215,14 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             return trainingDataAllocation;
         }
 
+        /** Shuts the close executor down; the next {@link #getInstance()} creates a new strategy. */
         @Override
         public void close() throws IOException {
+            synchronized (TrainingLoadStrategy.class) {
+                if (INSTANCE == this) {
+                    INSTANCE = null;
+                }
+            }
             executor.shutdown();
         }
     }
