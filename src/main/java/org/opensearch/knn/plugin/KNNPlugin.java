@@ -64,6 +64,7 @@ import org.opensearch.knn.index.util.KNNClusterUtil;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelGraveyard;
+import org.opensearch.knn.indices.RestoredModelReconciler;
 import org.opensearch.knn.jni.PlatformUtils;
 import org.opensearch.knn.plugin.rest.RestClearCacheHandler;
 import org.opensearch.knn.plugin.rest.RestDeleteModelHandler;
@@ -121,6 +122,7 @@ import org.opensearch.plugins.ExtensiblePlugin;
 import org.opensearch.plugins.MapperPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.plugins.ReloadablePlugin;
+import org.opensearch.plugins.RestoreListenerPlugin;
 import org.opensearch.plugins.ScriptPlugin;
 import org.opensearch.plugins.SearchPipelinePlugin;
 import org.opensearch.plugins.SearchPlugin;
@@ -138,6 +140,7 @@ import org.opensearch.search.deciders.ConcurrentSearchRequestDecider;
 import org.opensearch.search.pipeline.SearchRequestProcessor;
 import org.opensearch.search.pipeline.SearchResponseProcessor;
 import org.opensearch.search.pipeline.SystemGeneratedProcessor;
+import org.opensearch.snapshots.RestoreContext;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.FixedExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
@@ -204,7 +207,8 @@ public class KNNPlugin extends Plugin
         ExtensiblePlugin,
         SystemIndexPlugin,
         ReloadablePlugin,
-        SearchPipelinePlugin {
+        SearchPipelinePlugin,
+        RestoreListenerPlugin {
 
     public static final String LEGACY_KNN_BASE_URI = "/_opendistro/_knn";
     public static final String KNN_BASE_URI = "/_plugins/_knn";
@@ -213,6 +217,7 @@ public class KNNPlugin extends Plugin
     private ClusterService clusterService;
     private IndexNameExpressionResolver indexNameExpressionResolver;
     private Supplier<RepositoriesService> repositoriesServiceSupplier;
+    private RestoredModelReconciler restoredModelReconciler;
     private final Map<String, MMRQueryTransformer<? extends QueryBuilder>> mmrQueryTransformers = new HashMap<>();
 
     static {
@@ -292,6 +297,7 @@ public class KNNPlugin extends Plugin
         KNNWeight.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         RescoreRadialSearchQuery.initialize(new ExactSearcher(ModelDao.OpenSearchKNNModelDao.getInstance()));
         TrainingModelRequest.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
+        restoredModelReconciler = new RestoredModelReconciler(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService, client);
 
         // Engine discovery runs after the k-NN singletons above are wired so definitions can use them.
         KNNEngine.initialize(KNNEngineContext.builder().client(client).clusterService(clusterService).build());
@@ -498,6 +504,11 @@ public class KNNPlugin extends Plugin
     @Override
     public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
         return ImmutableList.of(new SystemIndexDescriptor(MODEL_INDEX_NAME, "Index for storing models used for k-NN indices"));
+    }
+
+    @Override
+    public void onRestore(RestoreContext context) {
+        restoredModelReconciler.reconcile(context);
     }
 
     @Override
