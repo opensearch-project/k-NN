@@ -14,12 +14,18 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
 import org.mockito.Mockito;
+import org.opensearch.action.admin.indices.mapping.put.PutMappingRequest;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.warmup.WarmupResult;
+import org.opensearch.knn.index.warmup.WarmupSkipReason;
+import org.opensearch.test.hamcrest.OpenSearchAssertions;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -32,6 +38,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
 
 public class KNNIndexShardTests extends KNNSingleNodeTestCase {
@@ -105,6 +113,69 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         knnIndexShard = new KNNIndexShard(indexShard);
         knnIndexShard.warmup();
         assertEquals(2, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().get(testIndexName).get(GRAPH_COUNT));
+    }
+
+    public void testWarmup_luceneEngineIndex_skipsWarmup() throws IOException, ExecutionException, InterruptedException {
+        IndexService indexService = createKNNIndex(testIndexName);
+        createKnnIndexMapping(testIndexName, testFieldName, dimensions, KNNEngine.LUCENE);
+        addKnnDoc(testIndexName, "1", testFieldName, new Float[] { 2.5F, 3.5F });
+        client().admin().indices().prepareFlush(testIndexName).execute().actionGet();
+
+        IndexShard indexShard = indexService.iterator().next();
+        assertFalse("Index should not be recognized as warm", indexShard.indexSettings().isWarmIndex());
+
+        KNNIndexShard knnIndexShard = new KNNIndexShard(indexShard);
+        final WarmupResult warmupResult = knnIndexShard.warmup();
+
+        assertEquals(WarmupSkipReason.NO_OFF_HEAP_WARMUP, warmupResult.getSkipReason());
+        assertEquals(List.of(testFieldName), warmupResult.getSkippedFields());
+        assertNull(
+            "No cache entries should exist for Lucene engine index after warmup",
+            NativeMemoryCacheManager.getInstance().getIndicesCacheStats().get(testIndexName)
+        );
+    }
+
+    public void testWarmup_mixedEngineIndex_executesWarmup() throws IOException, ExecutionException, InterruptedException {
+        final String luceneFieldName = "lucene-test-field";
+        final String faissFieldName = "faiss-test-field";
+
+        IndexService indexService = createKNNIndex(testIndexName);
+        PutMappingRequest request = new PutMappingRequest(testIndexName);
+        XContentBuilder mappingBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(luceneFieldName)
+            .field("type", "knn_vector")
+            .field("dimension", String.valueOf(dimensions))
+            .startObject("method")
+            .field("name", METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .endObject()
+            .endObject()
+            .startObject(faissFieldName)
+            .field("type", "knn_vector")
+            .field("dimension", String.valueOf(dimensions))
+            .startObject("method")
+            .field("name", METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        request.source(mappingBuilder);
+        OpenSearchAssertions.assertAcked(client().admin().indices().putMapping(request).actionGet());
+
+        addKnnDoc(testIndexName, "1", faissFieldName, new Float[] { 2.5F, 3.5F });
+        client().admin().indices().prepareFlush(testIndexName).execute().actionGet();
+
+        IndexShard indexShard = indexService.iterator().next();
+        KNNIndexShard knnIndexShard = new KNNIndexShard(indexShard);
+        final WarmupResult warmupResult = knnIndexShard.warmup();
+
+        assertNull("Warmup with a non-Lucene field should be executed, not skipped", warmupResult.getSkipReason());
+        // The Lucene field is still reported as not loaded even though the warmup was executed
+        assertEquals(List.of(luceneFieldName), warmupResult.getSkippedFields());
+        assertEquals(1, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().get(testIndexName).get(GRAPH_COUNT));
     }
 
     public void testGetAllEngineFileContexts() {
@@ -250,7 +321,9 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         KNNIndexShard knnIndexShard = new KNNIndexShard(indexShard);
 
         // Trigger warmup - should be skipped for warm index
-        knnIndexShard.warmup();
+        final WarmupResult warmupResult = knnIndexShard.warmup();
+        assertEquals(WarmupSkipReason.WARM_TIER_INDEX, warmupResult.getSkipReason());
+        assertTrue(warmupResult.getSkippedFields().isEmpty());
 
         // Verify no graphs were loaded into cache since warmup should have been skipped
         assertNull(

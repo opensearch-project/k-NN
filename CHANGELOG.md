@@ -52,3 +52,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Report `exact_search` timings in the Profile API for nested k-NN queries with `expand_nested_docs` on the Lucene engine [#3579](https://github.com/opensearch-project/k-NN/pull/3579)
 * Remove synchronized keyword from KNNSettings class during Instance creation and made instance creation final [#3630](https://github.com/opensearch-project/k-NN/pull/3630)
 * Send `half_float` vectors to the remote vector index build service as fp16 instead of fp32 [#3608](https://github.com/opensearch-project/k-NN/pull/3608)
+* Report warmup skip status and per-index skipped fields in the warmup API response [#3592](https://github.com/opensearch-project/k-NN/pull/3592)
